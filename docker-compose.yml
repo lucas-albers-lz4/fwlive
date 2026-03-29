@@ -1,0 +1,30 @@
+# OpenWrt SDK build environment (linux/amd64). Use on macOS Apple Silicon or any host
+# where the published SDK tarball is Linux-x86_64 only.
+#
+# macOS: do NOT bind-mount the extracted SDK from the host — APFS is case-insensitive and
+# OpenWrt fails with "can only be built on a case-sensitive filesystem". Use the default
+# named Docker volume (case-sensitive inside the Linux VM):
+#   ./scripts/docker-sdk-import-tar.sh ~/Downloads/openwrt-sdk-....tar.zst
+#   ./scripts/docker-sdk-setup-feeds.sh
+#   ./scripts/docker-sdk-make.sh
+#
+# Prerequisite order otherwise matches docs/minimal-build-sdk.md (feeds + defconfig before compile).
+#
+# Linux (case-sensitive FS) bind-mount optional overlay: docker-compose.bind.yml
+
+volumes:
+  openwrt_sdk:
+
+services:
+  sdk:
+    build:
+      context: .
+      dockerfile: build/openwrt-sdk.Dockerfile
+    image: fwview-openwrt-sdk:24.10
+    platform: linux/amd64
+    working_dir: /openwrt-sdk
+    volumes:
+      - openwrt_sdk:/openwrt-sdk
+      - ${FWVIEW_MOUNT:-.}:/work/fwview:ro
+    stdin_open: true
+    tty: true

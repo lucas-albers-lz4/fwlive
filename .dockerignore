@@ -1,0 +1,9 @@
+openwrt/
+luci/
+core/
+firewall4/
+lab/images/
+.git/
+.sdk/
+*.img
+*.qcow2

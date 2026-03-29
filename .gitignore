@@ -1,0 +1,48 @@
+# Optional local reference clones (do not commit; clone as needed)
+# OPNsense upstream lives in git submodule `core/` — see README.
+/openwrt/
+/luci/
+/firewall4/
+# Backup of pre-submodule `core/` dir (safe to delete after verifying submodule)
+core.legacy/
+
+# --- Disk / VM images (large binaries) ---
+/lab/images/
+*.img
+*.img.gz
+*.img.xz
+*.qcow2
+*.qcow2.gz
+*.vmdk
+*.vdi
+*.vhdx
+*.raw
+*.iso
+*.dmg
+
+# --- OpenWrt SDK / toolchain downloads (never commit) ---
+openwrt-sdk-*.tar.zst
+openwrt-toolchain-*.tar.zst
+openwrt-imagebuilder-*.tar.zst
+llvm-bpf-*.tar.zst
+# Extracted SDK trees (anywhere under repo)
+openwrt-sdk-*/
+sdk-*-openwrt-*/
+/openwrt-sdk/
+/.sdk/
+.sdk/
+
+# --- Build / staging artifacts (SDK output, copied packages) ---
+*.ipk
+/out/
+/out-sdk-packages/
+# Accidental OpenWrt dirs at repo root (SDK trees belong under openwrt-sdk-*/ or .sdk/ above)
+/staging_dir/
+/build_dir/
+/tmp/
+/dl/
+
+# Editor / OS
+.DS_Store
+*.swp
+*~

@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# Run OpenWrt armsr/armv8 disk image in QEMU (hostfwd LuCI :8080, SSH :2222).
+# Run OpenWrt armsr/armv8 disk image in QEMU on macOS.
+#
+# Default in this script: vmnet (bridged) NICs — use the guest’s real IP for SSH :22
+# and LuCI :80 / :443. Discover IP via /var/db/dhcpd_leases and your QEMU mac= addresses.
+#
+# Legacy (optional): QEMU user networking with hostfwd (LuCI :8080, SSH :2222 on the host)
+# is left commented below; use only if you explicitly configure hostfwd=tcp::8080-:80 etc.
+#
 # Prefer downloaded images: run scripts/download-openwrt-armsr-armv8.sh first.
 #
 #   export OWRT_IMG=~/openwrt-arm-64.img

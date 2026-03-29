@@ -1,0 +1,10 @@
+{
+	"luci-app-fwlive": {
+		"description": "Grant access to firewall live log view",
+		"read": {
+			"ubus": {
+				"log": [ "read" ]
+			}
+		}
+	}
+}

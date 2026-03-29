@@ -17,7 +17,6 @@
 #
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LEASES_FILE="${DHCPD_LEASES:-/var/db/dhcpd_leases}"
 
 OPENWRT_SSH_PORT="${OPENWRT_SSH_PORT:-22}"
@@ -41,32 +40,6 @@ die() { echo "error: $*" >&2; exit 1; }
 usage() {
 	sed -n '1,20p' "$0" | tail -n +2
 	exit "${1:-0}"
-}
-
-normalize_mac() {
-	# Accept 52:54:00:11:22:33 or 1,52:54:0:11:22:33 → lowercase hex octets
-	local raw="$1"
-	[[ -z "$raw" ]] && return 1
-	if [[ "$raw" == *","* ]]; then
-		raw="${raw#*,}"
-	fi
-	local IFS=':'
-	local -a parts=($raw)
-	local out=()
-	local p
-	for p in "${parts[@]}"; do
-		printf -v p '%d' "0x${p}"
-		printf -v p '%02x' "$p"
-		out+=("$p")
-	done
-	(IFS=:; echo "${out[*]}")
-}
-
-mac_equal() {
-	local a b
-	a="$(normalize_mac "$1")" || return 1
-	b="$(normalize_mac "$2")" || return 1
-	[[ "$a" == "$b" ]]
 }
 
 discover_ip_from_leases() {

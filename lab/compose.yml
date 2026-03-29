@@ -1,0 +1,46 @@
+services:
+  openwrt-x64:
+    image: docker.io/qemux/qemu:7.12
+    container_name: openwrt-x64
+    privileged: true
+    ports:
+      - "8081:80"
+      - "2221:22"
+    volumes:
+      - ./images/openwrt-x64.img:/storage/disk.img
+    environment:
+      BOOT: "c"
+      RAM_SIZE: "1024M"
+      CPU_CORES: "2"
+      ARGUMENTS: "-nographic"
+
+  # OpenWrt 24.10 armsr/armv8 combined EFI image (see docs/armvirt-armsr-testing.md)
+  openwrt-armsr-armv8:
+    image: docker.io/qemux/qemu:7.12
+    container_name: openwrt-armsr-armv8
+    privileged: true
+    ports:
+      - "8082:80"
+      - "2222:22"
+    volumes:
+      - ./images/openwrt-armsr-armv8.img:/storage/disk.img
+    environment:
+      BOOT: "c"
+      RAM_SIZE: "1024M"
+      CPU_CORES: "2"
+      ARGUMENTS: "-nographic"
+
+  opnsense-amd64:
+    image: docker.io/qemux/qemu:7.12
+    container_name: opnsense-amd64
+    privileged: true
+    ports:
+      - "8443:443"
+      - "2223:22"
+    volumes:
+      - ./images/opnsense-amd64.img:/storage/disk.img
+    environment:
+      BOOT: "c"
+      RAM_SIZE: "4096M"
+      CPU_CORES: "4"
+      ARGUMENTS: "-nographic"
