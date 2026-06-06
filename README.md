@@ -2,65 +2,56 @@
 
 LuCI **Firewall Live View** for OpenWrt (nftables / firewall4), inspired by OPNsense’s live log UI.
 
-## Development host (SDK builds)
+**Goal:** an OpenWrt package **functionally similar to OPNsense Live View** — poll-based table, filters, allow/deny styling — using **firewall log lines** as the portable layer (not PF vs nft). See [`docs/opnsense-liveview-parity.md`](docs/opnsense-liveview-parity.md).
 
-**Recommended:** **Linux x86_64** (e.g. **Ubuntu** desktop). The official OpenWrt SDK is **`Linux-x86_64`**; building on native Linux matches the toolchain, avoids macOS **APFS** case-sensitivity issues, and avoids **Apple Silicon** + Docker **`linux/amd64`** GCC problems. Follow **[`docs/minimal-build-sdk.md`](docs/minimal-build-sdk.md)** — extract the SDK, run **§2–4**, then **`make package/luci-app-fwlive/compile`**, or use optional Docker with a bind mount (**`USE_SDK_BIND=1`**).
+## Supported platform
 
-**macOS** is still fine for **editing**, **QEMU** testing, and **deploy** helpers; for **compiling the SDK** on a Mac, use the **macOS-specific** Docker volume flow in that doc (**§4a**).
+| Role | Supported |
+|------|-----------|
+| **Build host** (SDK, Docker, `make`) | **Linux x86_64** only (e.g. Linux Mint on Intel/AMD) |
+| **OpenWrt targets** (`.apk`/`.ipk`) | **`armsr` / `armv8`** (AArch64) and **`x86/64`**; QEMU ARM on x86_64 uses **TCG** |
+| **OpenWrt versions** | **23.05**, **24.10**, **snapshot** — [`docs/sdk-build-matrix.md`](docs/sdk-build-matrix.md) |
+| **Not supported for builds** | Linux on **ARM**, **macOS**, Windows |
+
+**Start here:** [`docs/dev-environment.md`](docs/dev-environment.md) — download image, SDK Docker build, QEMU, deploy, validate.
 
 ## Layout
 
 | Path | Purpose |
 |------|---------|
-| [`openwrt-feed/luci-app-fwlive/`](openwrt-feed/luci-app-fwlive/) | **Custom OpenWrt feed package** — use with `src-link` or publish as its own feed repo |
-| [`openwrt-feed/README.md`](openwrt-feed/README.md) | Feeds install steps for OpenWrt 24.10+ |
-| [`lab/`](lab/) | Podman Compose + QEMU lab stubs |
-| [`docker-compose.yml`](docker-compose.yml) | Optional **linux/amd64** SDK environment; **named volume** (mainly for **macOS**) or bind mount on **Linux** |
-| [`scripts/docker-sdk-import-tar.sh`](scripts/docker-sdk-import-tar.sh) | Loads **`.tar.zst`** into the Docker volume (**macOS** / case-insensitive hosts) |
-| [`scripts/docker-sdk-setup-feeds.sh`](scripts/docker-sdk-setup-feeds.sh) | **`feeds`** + **`luci-app-fwlive`** + **`defconfig`** inside the volume |
-| [`scripts/docker-sdk-make.sh`](scripts/docker-sdk-make.sh) | Runs **`make package/.../compile`** (see [`docs/minimal-build-sdk.md`](docs/minimal-build-sdk.md) §4a) |
-| [`scripts/agent-build-and-deploy.sh`](scripts/agent-build-and-deploy.sh) | **`scp`/`opkg`** to guest **:22**; optional lease/MAC discovery; **`--legacy-hostfwd`** |
-| [`docs/`](docs/) | Schema, acceptance, OPNsense parity; **[`opnsense-liveview-understanding.md`](docs/opnsense-liveview-understanding.md)** (PF vs nft / logging) |
-| [`tests/`](tests/) | Parser/bench sanity checks (Node) |
-| [`core/`](core/) | **Git submodule** — [OPNsense `core`](https://github.com/opnsense/core) (read-only reference; not part of fwview source history) |
-| `luci/`, `openwrt/`, `firewall4/` | Optional local clones for reference (not submodules) |
+| [`openwrt-feed/luci-app-fwlive/`](openwrt-feed/luci-app-fwlive/) | **Custom OpenWrt feed package** |
+| [`docs/dev-environment.md`](docs/dev-environment.md) | **Canonical** Linux x86_64 dev loop |
+| [`docs/minimal-build-sdk.md`](docs/minimal-build-sdk.md) | SDK details + fallback fwview Docker image |
+| [`docs/armvirt-armsr-testing.md`](docs/armvirt-armsr-testing.md) | QEMU **`armsr`** images and networking |
+| [`docs/fwlive-nft-logging.md`](docs/fwlive-nft-logging.md) | Enable **`log`** so the UI shows events |
+| [`docs/fwlive-development-plan.md`](docs/fwlive-development-plan.md) | Staged parity roadmap + CLI tests |
+| [`scripts/fwlive-test.sh`](scripts/fwlive-test.sh) | Run parser/filter tests (no browser) |
+| [`lab/`](lab/) | Optional Podman Compose + **`qemux/qemu`** |
+| [`docker-compose.yml`](docker-compose.yml) | **`sdk`** matrix ([`ghcr.io/openwrt/sdk`](https://github.com/openwrt/docker)) + legacy **`sdk`** image |
+| [`scripts/docker-sdk.sh`](scripts/docker-sdk.sh) | Multi-version / multi-target SDK builds |
+| [`docs/sdk-build-matrix.md`](docs/sdk-build-matrix.md) | **23.05 / 24.10 / snapshot** × **armsr / x86-64** |
+| [`scripts/docker-sdk-official-*.sh`](scripts/) | Thin wrappers (default: armsr-armv8 snapshot) |
+| [`scripts/run-openwrt-armsr-armv8-qemu.sh`](scripts/run-openwrt-armsr-armv8-qemu.sh) | Host QEMU (**Linux x86_64**) |
+| [`scripts/agent-build-and-deploy.sh`](scripts/agent-build-and-deploy.sh) | **`opkg`** install over SSH (**`--legacy-hostfwd`**) |
+| [`tests/`](tests/) | Parser tests / bench |
+| [`core/`](core/) | OPNsense **`core`** submodule (reference only) |
+
+## Work plan
+
+1. **Environment** — [`docs/dev-environment.md`](docs/dev-environment.md): images + SDK Docker + QEMU on **Linux x86_64**.
+2. **Build** — `./scripts/docker-sdk.sh build` (or `build-all` for every version × target).
+3. **Run** — `./scripts/run-openwrt-armsr-armv8-qemu.sh` (or **`lab-up.sh`**; same **8080** / **2222** for armsr).
+4. **Deploy** — `./scripts/agent-build-and-deploy.sh --legacy-hostfwd --ipk out/aarch64_generic/snapshot/fwview/luci-app-fwlive_*.ipk`.
+5. **Validate** — **Status → Firewall Live View** + [`docs/fwlive-acceptance.md`](docs/fwlive-acceptance.md); enable logging per [`docs/fwlive-nft-logging.md`](docs/fwlive-nft-logging.md).
+6. **Publish** — [`docs/github-publish-checklist.md`](docs/github-publish-checklist.md) when ready.
+
+**Optional:** full OpenWrt tree build — [`docs/openwrt-full-source-build.md`](docs/openwrt-full-source-build.md) (not the default).
 
 ## OPNsense `core` (git submodule)
 
-This repo uses a **[git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules)** at **`core/`** pointing to **`https://github.com/opnsense/core.git`**. **fwview** does **not** vendor OPNsense’s files: only the **pinned commit** is recorded (see [`.gitmodules`](.gitmodules)). Clone or pull with:
-
 ```sh
-git clone --recurse-submodules <fwview-url>   # or after clone:
-git submodule update --init --recursive
+git clone --recurse-submodules <fwview-url>
+# or: git submodule update --init --recursive
 ```
 
-Update the reference to the latest upstream commit (optional):
-
-```sh
-cd core && git fetch origin && git checkout master && git pull
-cd .. && git add core && git commit -m "Bump opnsense/core submodule"
-```
-
-The application **does not** need to live inside the upstream `luci` git tree: OpenWrt pulls many packages from separate feeds; this package follows that model.
-
-## Minimal build (recommended)
-
-You **do not** need to build OpenWrt firmware images—**download** official **`armsr/armv8`** images and the matching **SDK** tarball. On **Linux x86_64**, extract the SDK and build **on the host** (or use Docker with **`USE_SDK_BIND=1`**). Add this repo’s feed inside the SDK, compile **only** `luci-app-fwlive`, install the `.ipk` with `opkg`.
-
-Step-by-step: **[`docs/minimal-build-sdk.md`](docs/minimal-build-sdk.md)**  
-QEMU ARM virt (`armsr` / “armvirt”): **[`docs/armvirt-armsr-testing.md`](docs/armvirt-armsr-testing.md)**  
-Feed wiring (full buildroot or SDK): [`openwrt-feed/README.md`](openwrt-feed/README.md) · [`feeds.conf.example`](feeds.conf.example)  
-SDK in Docker/Podman (`linux/amd64`): [`docker-compose.yml`](docker-compose.yml), [`docker-compose.bind.yml`](docker-compose.bind.yml) (optional Linux bind mount), [`build/openwrt-sdk.Dockerfile`](build/openwrt-sdk.Dockerfile)
-
-## Work plan (in order)
-
-1. **Images** — **download** official **`armsr/armv8`** combined EFI + `u-boot` (see [`docs/armvirt-armsr-testing.md`](docs/armvirt-armsr-testing.md), `scripts/download-openwrt-armsr-armv8.sh`). No firmware image build required.
-2. **SDK build** — **download** the matching **24.10 `armsr/armv8` SDK** **`.tar.zst`**. On **Ubuntu / Linux x86_64**, extract it, run **§2–4** in **[`docs/minimal-build-sdk.md`](docs/minimal-build-sdk.md)**, then **`make package/luci-app-fwlive/compile`** (or **`./scripts/docker-sdk-make.sh`** with **`USE_SDK_BIND=1`** + **`OPENWRT_SDK_MOUNT`**). **macOS only:** use the Docker **volume** scripts **`docker-sdk-import-tar.sh`** / **`docker-sdk-setup-feeds.sh`** / **`docker-sdk-make.sh`** (**§4a**) because of APFS and optional **Apple Silicon** GCC issues.
-3. **Deploy** — `scp`/`ssh` to the guest or router on **port 22**; LuCI on **80**/**443**. For **QEMU on macOS with vmnet** (no hostfwd), use the guest’s real IP (e.g. from **`/var/db/dhcpd_leases`** + QEMU **`mac=`**). **`scripts/agent-build-and-deploy.sh`** automates discover + install. **Do not** rely on **`127.0.0.1:2222`** / **`:8080`** unless you use **`--legacy-hostfwd`** with explicit QEMU user-net **hostfwd**.
-4. **Validate** — **Status → Firewall Live View**; if empty, add **`log`** to nft/fw4 rules. See [`docs/minimal-build-sdk.md`](docs/minimal-build-sdk.md) §6.
-5. **Lab (optional)** — Podman Compose in `lab/` (needs disk images); QEMU: **`scripts/run-openwrt-armsr-armv8-qemu.sh`** (defaults to **vmnet**; legacy user-net **hostfwd** is commented in-file).
-6. **Publish** — when ready, push to GitHub; see [`docs/github-publish-checklist.md`](docs/github-publish-checklist.md) (no i18n required for now).
-
-## Quick build hook
-
-See [`feeds.conf.example`](feeds.conf.example) and [`openwrt-feed/README.md`](openwrt-feed/README.md).
+See [`.gitmodules`](.gitmodules). Used for Live View reference tracing, not shipped in the `.ipk`.

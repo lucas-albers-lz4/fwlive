@@ -1,22 +1,60 @@
-# OpenWrt SDK build environment (linux/amd64). Use on macOS Apple Silicon or any host
-# where the published SDK tarball is Linux-x86_64 only.
+# OpenWrt package builds on Linux x86_64 only.
 #
-# macOS: do NOT bind-mount the extracted SDK from the host — APFS is case-insensitive and
-# OpenWrt fails with "can only be built on a case-sensitive filesystem". Use the default
-# named Docker volume (case-sensitive inside the Linux VM):
-#   ./scripts/docker-sdk-import-tar.sh ~/Downloads/openwrt-sdk-....tar.zst
-#   ./scripts/docker-sdk-setup-feeds.sh
-#   ./scripts/docker-sdk-make.sh
-#
-# Prerequisite order otherwise matches docs/minimal-build-sdk.md (feeds + defconfig before compile).
-#
-# Linux (case-sensitive FS) bind-mount optional overlay: docker-compose.bind.yml
+# Recommended: ./scripts/docker-sdk.sh (ghcr.io/openwrt/sdk matrix) — docs/sdk-build-matrix.md
+# Default cell: armsr-armv8 + snapshot (service sdk-official alias)
+# Fallback: sdk-legacy image + docker-sdk-import-tar.sh
 
 volumes:
+  # armsr-armv8 × snapshot (legacy default; same as OWRT_SDK_* unset)
+  openwrt_sdk_official:
+  openwrt_sdk_armsr_armv8_24_10_5:
+  openwrt_sdk_armsr_armv8_23_05_5:
+  openwrt_sdk_x86_64_snapshot:
+  openwrt_sdk_x86_64_24_10_5:
+  openwrt_sdk_x86_64_23_05_5:
   openwrt_sdk:
 
 services:
+  # Experimental LuCI in browser — docs/openwrt-rootfs-x86-docker.md
+  rootfs-x86:
+    image: ghcr.io/openwrt/rootfs:x86-64
+    platform: linux/amd64
+    container_name: owrt-x64-exp
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    ports:
+      - "8080:80"
+      - "8443:443"
+      - "2222:22"
+    command: ["/sbin/init"]
+    restart: unless-stopped
+
+  # Parameterized SDK (set OWRT_SDK_IMAGE + OWRT_SDK_VOLUME via scripts/docker-sdk.sh)
   sdk:
+    image: ${OWRT_SDK_IMAGE:-ghcr.io/openwrt/sdk:armsr-armv8}
+    platform: linux/amd64
+    working_dir: /builder
+    volumes:
+      - ${OWRT_SDK_VOLUME:-openwrt_sdk_official}:/builder
+      - ${FWVIEW_MOUNT:-.}:/work/fwview:ro
+    stdin_open: true
+    tty: true
+
+  # Backward-compatible alias (armsr-armv8 snapshot)
+  sdk-official:
+    image: ghcr.io/openwrt/sdk:armsr-armv8
+    platform: linux/amd64
+    working_dir: /builder
+    volumes:
+      - openwrt_sdk_official:/builder
+      - ${FWVIEW_MOUNT:-.}:/work/fwview:ro
+    stdin_open: true
+    tty: true
+
+  # Fallback: fwview-built SDK image + tarball import (minimal-build-sdk.md §4a)
+  sdk-legacy:
     build:
       context: .
       dockerfile: build/openwrt-sdk.Dockerfile

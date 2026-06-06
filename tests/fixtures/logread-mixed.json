@@ -1,0 +1,32 @@
+{
+  "log": [
+    {
+      "time": 1717675740,
+      "msg": "dnsmasq[1]: started, version 2.92 cachesize 1000"
+    },
+    {
+      "time": 1717675741,
+      "msg": "procd: Instance sysntpd::instance1 s in a crash loop 6 crashes, 0 seconds since last crash"
+    },
+    {
+      "time": 1717675742,
+      "msg": "fw4: DROP IN=br-lan OUT=eth0 SRC=192.168.1.150 DST=8.8.8.8 PROTO=TCP SPT=49210 DPT=443"
+    },
+    {
+      "time": 1717675743,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 SYN"
+    },
+    {
+      "time": 1717675744,
+      "msg": "fwlive-test: ACCEPT IN=br-lan SRC=192.168.1.10 DST=192.168.1.1 PROTO=UDP SPT=5353 DPT=5353"
+    },
+    {
+      "time": 1717675745,
+      "msg": "netifd: Network device 'eth0' link is up"
+    },
+    {
+      "time": 1717675746,
+      "msg": "nft: drop IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 'require view';
 'require poll';
 'require rpc';
-'require fwlive.parser as parser';
+'require fwlive.log as log';
 
 const callLogRead = rpc.declare({
 	object: 'log',
@@ -10,35 +10,6 @@ const callLogRead = rpc.declare({
 	params: [ 'lines', 'stream', 'oneshot' ],
 	expect: { log: [] }
 });
-
-function matchesFilter(row, filters) {
-	if (filters.q && !Object.values(row).join(' ').toLowerCase().includes(filters.q.toLowerCase()))
-		return false;
-	if (filters.action && row.action !== filters.action)
-		return false;
-	if (filters.interface && row.interface !== filters.interface)
-		return false;
-	if (filters.proto && row.proto !== filters.proto)
-		return false;
-	if (filters.src && !row.src.includes(filters.src))
-		return false;
-	if (filters.dst && !row.dst.includes(filters.dst))
-		return false;
-	if (filters.sport && row.sport !== filters.sport)
-		return false;
-	if (filters.dport && row.dport !== filters.dport)
-		return false;
-	return true;
-}
-
-function actionRowClass(action) {
-	const a = (action || '').toUpperCase();
-	if (a.match(/DROP|REJECT|DENY|BLOCK/))
-		return 'fwlive-deny';
-	if (a.match(/ACCEPT|ALLOW|PASS/))
-		return 'fwlive-pass';
-	return '';
-}
 
 return view.extend({
 	maxHistory: 2000,
@@ -87,7 +58,10 @@ return view.extend({
 		const seen = {};
 
 		for (let i = 0; i < raw.length; i++) {
-			const row = parser.normalizeEntry(raw[i]);
+			if (!log.isFirewallEvent(raw[i]))
+				continue;
+
+			const row = log.normalizeEntry(raw[i]);
 			if (seen[row.id])
 				continue;
 			seen[row.id] = true;
@@ -103,20 +77,24 @@ return view.extend({
 			return;
 
 		const body = table.querySelector('tbody');
+		const empty = document.getElementById('fwlive-empty');
 		const filters = this.readFilters();
 		this.updateHash(filters);
 
 		const rows = this.entries
-			.filter((row) => matchesFilter(row, filters))
+			.filter((row) => log.matchesFilter(row, filters))
 			.slice(-this.visibleRows)
 			.reverse();
 
 		body.innerHTML = '';
+		if (empty)
+			empty.style.display = rows.length ? 'none' : 'block';
+
 		for (let i = 0; i < rows.length; i++) {
 			const r = rows[i];
 			const tr = E('tr', {}, [
 				E('td', {}, r.timestamp || '-'),
-				E('td', { 'class': actionRowClass(r.action) }, r.action),
+				E('td', { 'class': log.actionRowClass(r.action) }, r.action),
 				E('td', {}, r.interface || '-'),
 				E('td', {}, r.direction || '-'),
 				E('td', {}, r.proto || '-'),
@@ -156,9 +134,10 @@ return view.extend({
 				.fwlive-deny { color: #b30000; font-weight: 700; }
 				.fwlive-pass { color: #1f7a1f; font-weight: 700; }
 				.fwlive-message { max-width: 420px; word-break: break-word; }
+				.fwlive-empty { margin: 12px 0; padding: 10px; background: #f8f8f8; border: 1px dashed #ccc; }
 			`),
 			E('h2', {}, _('Firewall Live View')),
-			E('p', {}, _('Live nftables/firewall4 event view for troubleshooting rule behavior.')),
+			E('p', {}, _('Live nftables/firewall4 events from logd (firewall-shaped lines only).')),
 			E('div', { 'class': 'fwlive-grid' }, [
 				E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
 				E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
@@ -179,6 +158,11 @@ return view.extend({
 				E('input', { 'id': 'fwlive-dst', 'class': 'cbi-input-text', 'placeholder': _('Destination IP contains') }),
 				E('input', { 'id': 'fwlive-dport', 'class': 'cbi-input-text', 'placeholder': _('Destination port') })
 			]),
+			E('p', {
+				'id': 'fwlive-empty',
+				'class': 'fwlive-empty',
+				'style': 'display:none'
+			}, _('No firewall log events yet. Add log to fw4/nft rules — see docs/fwlive-nft-logging.md on the build host.')),
 			E('table', { 'id': 'fwlive-table', 'class': 'table cbi-section-table' }, [
 				E('thead', {}, E('tr', {}, [
 					E('th', {}, _('Time')),

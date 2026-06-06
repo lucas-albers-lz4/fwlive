@@ -15,7 +15,17 @@
 - History cap: 2000 rows in memory.
 - Typical update processing stays under one second poll interval.
 
-## Validation commands
+## Environment
 
-- Parser test: `node tests/fwlive-parser-filter.test.js`
-- Parser benchmark: `node tests/fwlive-parser-bench.js`
+Full loop on **Linux x86_64**: [`dev-environment.md`](dev-environment.md). Enable firewall **`log`**: [`fwlive-nft-logging.md`](fwlive-nft-logging.md).
+
+## Validation commands (no browser)
+
+```sh
+./scripts/fwlive-test.sh
+node core/fwlive-log.js stats < tests/fixtures/logread-mixed.json
+node core/fwlive-log.js filter < tests/fixtures/logread-mixed.json
+./scripts/fwlive-ubus-read.sh --stats    # live guest over SSH
+```
+
+Stage plan: [`fwlive-development-plan.md`](fwlive-development-plan.md).

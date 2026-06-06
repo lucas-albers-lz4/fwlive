@@ -2,7 +2,7 @@
 
 This document is the **in-repo** counterpart to planning notes about how OPNsense’s **Live View** relates to this project. It stays in git so GitHub readers see the same story as local Cursor plans.
 
-**Related:** [OPNsense parity matrix (UI/API)](opnsense-liveview-parity.md) · [OpenWrt event schema](openwrt-fwlive-schema.md) · parser [`openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/parser.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/parser.js)
+**Related:** [OPNsense parity matrix (UI/API)](opnsense-liveview-parity.md) · [OpenWrt event schema](openwrt-fwlive-schema.md) · [staged plan](fwlive-development-plan.md) · logic [`core/fwlive-log.js`](../core/fwlive-log.js) / LuCI [`fwlive/log.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js)
 
 ## Why this exists
 
