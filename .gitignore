@@ -1,6 +1,7 @@
 # Optional local reference clones (do not commit; clone as needed)
 # OPNsense upstream lives in git submodule `core/` — see README.
 /openwrt/
+/openwrt-build.pid
 /luci/
 /firewall4/
 # Backup of pre-submodule `core/` dir (safe to delete after verifying submodule)
@@ -33,6 +34,7 @@ sdk-*-openwrt-*/
 .sdk/
 
 # --- Build / staging artifacts (SDK output, copied packages) ---
+*.log
 *.ipk
 /out/
 /out-sdk-packages/

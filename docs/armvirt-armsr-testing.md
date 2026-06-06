@@ -33,9 +33,9 @@ Build the `.ipk` with the SDK that matches **the same release and `armsr/armv8` 
 | Topic | Note |
 |-------|------|
 | Typical toolchain triple | `aarch64-openwrt-linux-musl` (from SDK) |
-| SDK host | Official SDKs are often **`Linux-x86_64`**. On **macOS**, run the SDK inside **Linux** (container/VM/CI) if no native SDK matches your host. |
+| SDK host | **`Linux-x86_64` only** — use [`dev-environment.md`](dev-environment.md) / official **`ghcr.io/openwrt/sdk:armsr-armv8`**. Not supported on ARM or macOS hosts. |
 
-Then follow [`minimal-build-sdk.md`](minimal-build-sdk.md).
+Then build **`luci-app-fwlive`** with the SDK ([`minimal-build-sdk.md`](minimal-build-sdk.md)) or a full OpenWrt tree ([`openwrt-full-source-build.md`](openwrt-full-source-build.md)).
 
 ## 3. Run in QEMU (armv8, EFI + U-Boot)
 
@@ -47,30 +47,26 @@ After download (or manual `gunzip` of the `.img.gz`):
 
 Defaults expect **`lab/images/openwrt-armsr-armv8.img`** and **`lab/images/u-boot-qemu_armv8.bin`**. Override with `OWRT_IMG` / `OWRT_UBOOT` if needed.
 
-### Primary (macOS): vmnet — guest IP on the LAN
+The script picks **QEMU networking by OS**:
 
-The repo script defaults to **vmnet** NICs (bridged). There is **no** QEMU **hostfwd**; use the guest’s **real IP** for **SSH port 22** and **LuCI on 80 / 443**. Discover the address by matching each QEMU **`mac=`** to **`hw_address`** in **`/var/db/dhcpd_leases`** (no `sudo` needed to read it on current macOS). Deploy the `.ipk` with **`scripts/agent-build-and-deploy.sh`** or manual `scp`/`ssh` — see [`minimal-build-sdk.md`](minimal-build-sdk.md) §5.
+- **Linux (e.g. Linux Mint x64):** two **`-netdev user`** instances (**WAN** then **LAN**), same **MAC** order as macOS (**`52:54:00:11:22:33`**, **`52:54:00:44:55:66`**). **hostfwd** (**8080→80**, **2222→22**) is on the **LAN** netdev only. **`-accel tcg`**, no **sudo**. Deploy with **`./scripts/agent-build-and-deploy.sh --legacy-hostfwd`**. **LuCI:** `http://127.0.0.1:8080` · **SSH:** `ssh -p 2222 root@127.0.0.1`.
 
-### Alternative: user networking + hostfwd (optional)
-
-If you use **`-netdev user`** with explicit port forwarding, **LuCI** may be **`http://127.0.0.1:8080`** (host → guest `:80`) and **SSH** **`ssh -p 2222 root@127.0.0.1`** when mapped **2222→22**. This is **not** the vmnet workflow above.
-
-Example:
+Equivalent manual command for **Linux** user networking:
 
 ```sh
 qemu-system-aarch64 -nographic \
-  -cpu cortex-a53 -machine virt \
+  -cpu cortex-a53 -machine virt -accel tcg \
   -bios /path/to/u-boot.bin \
   -smp 1 -m 1024 \
   -device virtio-rng-pci \
   -drive file=/path/to/openwrt-armsr-armv8.img,format=raw,index=0,media=disk \
-  -netdev user,id=testlan,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=testlan \
-  -netdev user,id=testwan -device virtio-net-pci,netdev=testwan
+  -netdev user,id=wan0 \
+  -device virtio-net-pci,netdev=wan0,mac=52:54:00:11:22:33 \
+  -netdev user,id=lan0,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22 \
+  -device virtio-net-pci,netdev=lan0,mac=52:54:00:44:55:66
 ```
 
-Use **`./scripts/agent-build-and-deploy.sh --legacy-hostfwd`** for install over **2222**/**8080** in that setup.
-
-On **macOS**, QEMU often uses **TCG** (emulation); boot is slower than KVM on Linux. **hvf** applies to **x86_64** guests on Apple Silicon, not to **aarch64** system emulation in the same way—expect CPU emulation cost unless you use a Linux host with KVM for this guest.
+On **Apple Silicon macOS**, **aarch64** guests use **TCG** (or **hvf** only in the macOS/vmnet path above—**not** the same as **KVM** on Linux). On **x86_64 Linux**, this **armsr** guest is **emulated** (**TCG**); boot is CPU-heavy but avoids macOS/Docker SDK issues when you build **on the host**.
 
 ## 4. Initramfs quick boot (optional, download only)
 

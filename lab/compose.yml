@@ -20,7 +20,7 @@ services:
     container_name: openwrt-armsr-armv8
     privileged: true
     ports:
-      - "8082:80"
+      - "8080:80"
       - "2222:22"
     volumes:
       - ./images/openwrt-armsr-armv8.img:/storage/disk.img

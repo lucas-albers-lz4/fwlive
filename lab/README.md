@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- macOS ARM host with Homebrew
-- `podman`, `podman-compose`, `qemu`
+- **Linux Mint** (or other **x86_64** Linux) — current primary dev host
+- `podman`, `podman-compose`, `qemu-system-aarch64` (e.g. `sudo apt install podman podman-compose qemu-system-arm` on Mint/Ubuntu)
 
 ## Expected image files (prefer download over build)
 
@@ -24,5 +24,7 @@
 ## Ports
 
 - OpenWrt x64 LuCI: `http://localhost:8081`
-- OpenWrt armsr (ARM64 virt) LuCI: `http://localhost:8082`
+- OpenWrt armsr (ARM64 virt) LuCI: `http://localhost:8080` (SSH host **2222** — same as [`run-openwrt-armsr-armv8-qemu.sh`](../scripts/run-openwrt-armsr-armv8-qemu.sh))
 - OPNsense Web UI: `https://localhost:8443`
+
+See [`docs/dev-environment.md`](../docs/dev-environment.md) for the full loop.
