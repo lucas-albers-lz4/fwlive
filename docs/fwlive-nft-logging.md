@@ -2,7 +2,7 @@
 
 > **End users:** [User guide → Enabling firewall logs](user/enabling-firewall-logs.md) (shorter). This file is the full reference.
 
-**Firewall Live View** reads **`ubus log.read`** (logd). The UI only shows traffic when **nftables / fw4** rules **log** matching packets.
+**Firewall Live View** reads **`ubus fwlive poll`** (logd via filtered `log.read`). The UI only shows traffic when **nftables / fw4** rules **log** matching packets.
 
 ## Log ping traffic (recommended quick test)
 

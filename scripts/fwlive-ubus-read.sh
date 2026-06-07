@@ -28,10 +28,17 @@ while [[ $# -gt 0 ]]; do
 done
 
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p "$PORT")
+UBUS_READ="ubus call log read '{\"lines\":${LINES},\"stream\":false,\"oneshot\":true}'"
+UBUS_FWLIVE_POLL="ubus call fwlive poll '{\"addresses\":[\"'${LINES}'\"]}'"
 
-RAW="$(ssh "${SSH_OPTS[@]}" "root@${HOST}" \
-	"ubus call log read '{\"lines\":${LINES},\"stream\":false,\"oneshot\":true}'" 2>/dev/null)" \
-	|| { echo "ssh/ubus failed — is the guest up? (OPENWRT_HOST=${HOST} OPENWRT_SSH_PORT=${PORT})" >&2; exit 1; }
+if [[ "$MODE" == stats ]]; then
+	RAW="$(ssh "${SSH_OPTS[@]}" "root@${HOST}" "$UBUS_READ" 2>/dev/null)" \
+		|| { echo "ssh/ubus failed — is the guest up? (OPENWRT_HOST=${HOST} OPENWRT_SSH_PORT=${PORT})" >&2; exit 1; }
+else
+	RAW="$(ssh "${SSH_OPTS[@]}" "root@${HOST}" "$UBUS_FWLIVE_POLL" 2>/dev/null)" \
+		|| RAW="$(ssh "${SSH_OPTS[@]}" "root@${HOST}" "$UBUS_READ" 2>/dev/null)" \
+		|| { echo "ssh/ubus failed — is the guest up? (OPENWRT_HOST=${HOST} OPENWRT_SSH_PORT=${PORT})" >&2; exit 1; }
+fi
 
 NODE="${NODE:-}"
 if [[ -z "$NODE" ]]; then

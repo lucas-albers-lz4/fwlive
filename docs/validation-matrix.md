@@ -55,7 +55,7 @@ Back-compat: `./scripts/validate-openwrt-23.05.sh` → `validate-openwrt.sh --ve
 Via `qemu-smoke-fwlive.sh`:
 
 - SSH, OpenWrt release, guest arch
-- `ubus log.read`, `ubus fwlive rules`
+- `ubus fwlive poll`, `ubus fwlive rules`, `ubus fwlive resolve`
 - LuCI static JS + dispatcher (HTTP 403 login = OK)
 - Optional nft ping log → parser pipeline
 

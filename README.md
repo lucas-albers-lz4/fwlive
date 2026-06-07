@@ -57,7 +57,8 @@ Traffic appears only when firewall rules include **`log`** — see the [logging 
 |-------|-------|
 | Live table + filters + rule names | Done |
 | Multi-version x86 smoke | Done |
-| DNS hover, digest/SSE | Backlog — [ROADMAP](docs/ROADMAP.md) |
+| Show hostnames, server-side read | Done — [ROADMAP](docs/ROADMAP.md) |
+| Rule overlay, digest/SSE | Backlog |
 
 ---
 

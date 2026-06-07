@@ -8,7 +8,7 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 
 ## Source
 
-- Primary source: ubus `log.read` entries from `logd`.
+- Primary source: ubus `fwlive poll` (filtered `log.read` entries from `logd`; line count in `addresses[0]`).
 - **Stage 1 filter:** only lines matching `isFirewallEvent()` are shown (see [`core/fwlive-log.js`](../core/fwlive-log.js)); generic syslog noise is dropped.
 - Input format: log message text containing nftables/kernel key-value segments such as `IN=`, `OUT=`, `SRC=`, `DST=`, `PROTO=`, `SPT=`, `DPT=`.
 - Requires fw4/nft rules with **`log`** for traffic to appear — [`fwlive-nft-logging.md`](fwlive-nft-logging.md).

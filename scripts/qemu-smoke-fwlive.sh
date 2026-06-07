@@ -4,7 +4,7 @@
 #   ./scripts/qemu-smoke-fwlive.sh
 #   OPENWRT_SSH_PORT=2222 ./scripts/qemu-smoke-fwlive.sh
 #
-# Checks: SSH, release, ubus log.read, fwlive rules, LuCI static assets, optional ping log.
+# Checks: SSH, release, ubus fwlive poll/resolve, fwlive rules, LuCI static assets, optional ping log.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,9 +29,13 @@ RELEASE="$(ssh_guest '. /etc/openwrt_release 2>/dev/null; echo "${DISTRIB_RELEAS
 ARCH="$(ssh_guest 'uname -m')"
 ok "guest ${ARCH} OpenWrt ${RELEASE}"
 
-ssh_guest 'ubus call log read '"'"'{"lines":5,"stream":false,"oneshot":true}'"'"'' >/dev/null \
-	|| die "ubus log.read failed"
-ok "ubus log.read"
+ssh_guest 'ubus call fwlive poll '"'"'{"addresses":["20"]}'"'"'' >/dev/null \
+	|| die "ubus fwlive poll failed (rpcd plugin / filter scripts?)"
+ok "ubus fwlive poll"
+
+ssh_guest 'ubus call fwlive resolve '"'"'{"addresses":["127.0.0.1"]}'"'"'' >/dev/null \
+	|| die "ubus fwlive resolve failed"
+ok "ubus fwlive resolve"
 
 ssh_guest 'ubus call fwlive rules' >/dev/null \
 	|| die "ubus fwlive rules failed (rpcd plugin / ACL?)"

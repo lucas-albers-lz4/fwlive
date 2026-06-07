@@ -100,6 +100,8 @@ fi
 FWLIVE_PKG="$ROOT/openwrt-feed/luci-app-fwlive"
 FWLIVE_DIR="$FWLIVE_PKG/htdocs/luci-static/resources"
 RPCD_BIN="$FWLIVE_PKG/root/usr/libexec/rpcd/fwlive"
+LIBEXEC_FILTER="$FWLIVE_PKG/root/usr/libexec/fwlive-log-filter.sh"
+LIBEXEC_ISFW="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.sh"
 ACL_JSON="$FWLIVE_PKG/root/usr/share/rpcd/acl.d/luci-app-fwlive.json"
 MENU_JSON="$FWLIVE_PKG/root/usr/share/luci/menu.d/luci-app-fwlive.json"
 if [[ -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
@@ -118,10 +120,20 @@ fi
 if [[ -f "$RPCD_BIN" ]]; then
 	echo "Syncing rpcd fwlive plugin + ACL..."
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
-		"mkdir -p /usr/libexec/rpcd /usr/share/rpcd/acl.d"
+		"mkdir -p /usr/libexec/rpcd /usr/libexec /usr/share/rpcd/acl.d"
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"cat > /usr/libexec/rpcd/fwlive && chmod +x /usr/libexec/rpcd/fwlive" \
 		< "$RPCD_BIN"
+	if [[ -f "$LIBEXEC_FILTER" ]]; then
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"cat > /usr/libexec/fwlive-log-filter.sh && chmod +x /usr/libexec/fwlive-log-filter.sh" \
+			< "$LIBEXEC_FILTER"
+	fi
+	if [[ -f "$LIBEXEC_ISFW" ]]; then
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"cat > /usr/libexec/fwlive-is-firewall-event.sh" \
+			< "$LIBEXEC_ISFW"
+	fi
 	if [[ -f "$ACL_JSON" ]]; then
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 			"cat > /usr/share/rpcd/acl.d/luci-app-fwlive.json" \

@@ -10,16 +10,20 @@ flowchart TB
     NFT[nftables / fw4 rules with log]
     KERN[kernel printk]
     LOGD[logd]
-    UBUS[ubus log.read]
-    RPCD[rpcd plugin fwlive.rules]
+    LOGREAD[ubus log.read]
+    FILTER[fwlive-log-filter.sh]
+    FWLIVE[ubus fwlive.poll / resolve / rules]
+    RPCD[rpcd plugin fwlive]
   end
   subgraph browser
     VIEW[fwlive.js view.extend]
     PARSER[fwlive/log.js]
     DOM[Table + filters]
   end
-  NFT --> KERN --> LOGD --> UBUS --> VIEW
-  RPCD --> VIEW
+  NFT --> KERN --> LOGD --> LOGREAD --> FILTER
+  RPCD --> FWLIVE
+  FILTER --> FWLIVE
+  FWLIVE --> VIEW
   VIEW --> PARSER --> DOM
 ```
 
@@ -32,15 +36,17 @@ flowchart TB
 | **View shell** | `htdocs/.../view/status/fwlive.js` | Layout, 1s poll, pause/limit, DOM, click-to-filter |
 | **Log brain** | `htdocs/.../fwlive/log.js` | `isFirewallEvent`, `normalizeEntry`, filters, display helpers |
 | **Test twin** | `core/fwlive-log.js` | Same logic for Node tests + CLI (`fwlive-test.sh`) |
-| **Rule map** | `root/usr/libexec/rpcd/fwlive` | Parse `nft` ruleset → hint → UCI name JSON |
-| **Menu / ACL** | `root/usr/share/luci/menu.d`, `rpcd/acl.d` | `admin/status/fwlive`, `log.read`, `fwlive.rules` |
+| **Rule map** | `root/usr/libexec/rpcd/fwlive` | `rules`, `poll` (filtered log), `resolve` (reverse DNS) |
+| **Log filter** | `root/usr/libexec/fwlive-log-filter.sh` | Shell `isFirewallEvent` parity before JSON leaves router |
+| **Menu / ACL** | `root/usr/share/luci/menu.d`, `rpcd/acl.d` | `admin/status/fwlive`, `fwlive.rules/poll/resolve` |
 
 ## Design choices
 
 | Choice | Rationale |
 |--------|-----------|
-| Poll `log.read` (~1s) | Matches OPNsense default UX; works on all supported OpenWrt versions |
-| Client-side filter | No server template engine; shareable URL hash state |
+| Poll `fwlive.poll` (~1s) | Wraps `log.read` + server firewall filter; line count in `addresses[0]` |
+| Client-side normalize/filter | Normalization stays in JS; `isFirewallEvent` retained as safety net |
+| Opt-in hostnames | `fwlive.resolve` via `getent`; checkbox default off |
 | `core/` + LuCI mirror | Parser tested without browser or router |
 | nft/fw4 only | Menu depends on `/usr/sbin/nft`; fw3 not supported |
 | OPNsense as reference | Interaction and layout patterns, not PHP/Volt port |

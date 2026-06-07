@@ -19,7 +19,7 @@ Roadmap from current MVP (generic `log.read` table) toward OPNsense Live View pa
 | `./scripts/fwlive-test.sh` | Run all automated tests (parser, firewall filter, fixtures, bench) |
 | `node core/fwlive-log.js filter < tests/fixtures/logread-mixed.json` | Print normalized **firewall-only** rows from fixture |
 | `node core/fwlive-log.js stats < tests/fixtures/logread-mixed.json` | Count total vs firewall vs noise |
-| `./scripts/fwlive-ubus-read.sh` | Live device: `ubus log.read` → firewall-only JSON (SSH) |
+| `./scripts/fwlive-ubus-read.sh` | Live device: `ubus fwlive poll` → firewall-only JSON (SSH) |
 
 Fixture shape matches `ubus call log read` output:
 
@@ -146,11 +146,13 @@ Later: saved filter templates.
 
 **Goal:** Operator tooling without leaving the grid.
 
-- Hover reverse DNS (async `dns.lookup` via `rpcd` or client-side if allowed)
-- Rule overlay: raw rule config for `tracking_id`
-- Optional row detail drawer
+| Step | Status |
+|------|--------|
+| **6.1** Show hostnames checkbox (default off) + `ubus fwlive resolve` | **done** |
+| Rule overlay: raw rule config for `tracking_id` | backlog |
+| Optional row detail drawer | backlog |
 
-**Tests:** mock DNS/rpcd responses; CLI `enrich` subcommand.
+**Tests:** `qemu-smoke-fwlive.sh` (`fwlive resolve`); LuCI smoke with checkbox enabled.
 
 ---
 
@@ -177,11 +179,15 @@ Spec: [`validation-matrix.md`](validation-matrix.md).
 
 **Goal:** Sub-second updates at scale.
 
-- Server-side firewall-only read (rpcd script filtering before JSON)
-- Digest + incremental fetch (OPNsense-style)
-- Optional SSE / WebSocket stream
+| Step | Status |
+|------|--------|
+| **7.1** Server-side firewall-only read (`ubus fwlive poll` + `fwlive-log-filter.sh`) | **done** |
+| Digest + incremental fetch (OPNsense-style) | backlog |
+| Optional SSE / WebSocket stream | backlog |
 
-**Tests:** digest round-trip fixtures; latency benchmark script.
+**Note:** `fwlive poll` still reads the same logd ring via `log.read`; it only strips non-firewall lines from the JSON sent to LuCI. Line count is passed as `addresses[0]` (rpcd shell-plugin quirk). It does not recover firewall events evicted from the ring by syslog noise.
+
+**Tests:** `tests/fwlive-shell-filter.test.js`; `qemu-smoke-fwlive.sh` (`fwlive poll`).
 
 ---
 

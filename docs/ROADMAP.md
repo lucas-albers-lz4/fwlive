@@ -1,6 +1,6 @@
 # fwview — structured roadmap
 
-Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX on OpenWrt, client-side JS + `ubus log.read`.
+Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX on OpenWrt, client-side JS + `ubus fwlive.poll`.
 
 **Architecture:** [fwlive-ui-design-target.md](fwlive-ui-design-target.md) · **Stages:** [fwlive-development-plan.md](fwlive-development-plan.md) · **Acceptance:** [fwlive-acceptance.md](fwlive-acceptance.md)
 
@@ -32,7 +32,9 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 | **Stage 4b** | **Done** | Auto-refresh checkbox + row limit dropdown — [spec](fwlive-stream-controls-spec.md) |
 | **Stage 5** | **Done (core)** | Click-to-filter, chips, pass inference |
 | **Stage 3** Rule attribution | **Done (core)** | rule_hint, Rule column, deep link |
-| **Stage 6–7** | Backlog | DNS, digest/SSE |
+| **Stage 6** | **Partial** | **Show hostnames** checkbox (default off) — `ubus fwlive resolve` |
+| **Stage 7** | **Partial** | **`ubus fwlive poll`** — server-side firewall-only filter |
+| **Stage 6–7 rest** | Backlog | Rule overlay, digest/SSE |
 
 ---
 
@@ -42,7 +44,7 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 Stage 4 ✓ ──► Stage 5 ✓ ──► Stage 3 ✓ ──► Stage 4b ✓ ──► backport ✓ ──► publish prep ──► Stage 6+
 ```
 
-**Next:** publish upstream · expand validation matrix sign-off (25.12) · Stage 6 (DNS hover, rule overlay).
+**Next:** publish upstream · expand validation matrix sign-off (25.12) · Stage 6 rule overlay (optional).
 
 **Backport / versions:** armsr 24.10 + 23.05 (x86 smoke) — **done**. See [`fwlive-acceptance.md`](fwlive-acceptance.md).
 
@@ -99,7 +101,10 @@ Evaluated spec: [fwlive-stream-controls-spec.md](fwlive-stream-controls-spec.md)
 | ---- | ----- | ----- |
 | UCI / nft **rule name** resolve | 3.4b | **done** — `ubus fwlive rules` |
 | Filter **operators** (`!` is not / not contains) | 5.6 | **done** |
-| DNS hover, rule drawer | 6 | post-MVP |
+| **Show hostnames** checkbox | 6 | **done** — `ubus fwlive resolve`, default off |
+| **Server-side firewall read** | 7 | **done** — `ubus fwlive poll` |
+| Rule overlay / drawer | 6 | backlog |
+| Digest / SSE | 7 | backlog |
 
 ---
 
@@ -117,7 +122,7 @@ Evaluated spec: [fwlive-stream-controls-spec.md](fwlive-stream-controls-spec.md)
 
 ## MVP delivered (committed)
 
-- [x] Modern LuCI JS view (`view.extend`, JSON-RPC `log.read`)
+- [x] Modern LuCI JS view (`view.extend`, JSON-RPC `fwlive.poll`)
 - [x] Firewall-only feed + normalized schema
 - [x] Poll, filters, URL hash, formatted table
 - [x] QEMU validation with real `nft log`

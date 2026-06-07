@@ -130,17 +130,20 @@ Validated on **QEMU x86_64 24.10** (KVM) and **armsr 24.10.5** (TCG); **23.05.5*
 
 ---
 
-## Stage 6 — Inspect & enrichment (backlog)
+## Stage 6 — Inspect & enrichment (partial)
 
-Not part of MVP. From [`fwlive-development-plan.md`](fwlive-development-plan.md):
+| Item | Status |
+|------|--------|
+| **Show hostnames** toolbar checkbox (default off) | **done** — `ubus fwlive resolve`, IP in tooltip when resolved |
+| Rule overlay | backlog |
+| Row detail drawer | backlog |
 
-- **Reverse DNS on hover** — async lookup (e.g. `dns.lookup` via `rpcd` or client-side where allowed).
-- **Rule overlay** — show raw rule / fw4 config for the row’s `rule_hint` / tracking id.
-- **Optional row detail drawer** — expanded inspect pane without leaving the grid.
+## Stage 7 — Transport (partial)
 
-**Tests (planned):** mock DNS/rpcd responses; CLI `enrich` subcommand.
-
-**Stage 7 (later):** server-side firewall-only read, digest + incremental fetch, optional SSE — transport efficiency at scale.
+| Item | Status |
+|------|--------|
+| **`ubus fwlive poll`** — server-side firewall-only filter | **done** |
+| Digest + incremental fetch, SSE | backlog |
 
 ---
 
