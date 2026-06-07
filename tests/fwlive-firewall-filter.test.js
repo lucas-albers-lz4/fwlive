@@ -35,6 +35,22 @@ function run() {
 	const byNorm = rows.filter((r) => core.matchesFilter(r, { action: 'drop' }));
 	assert.ok(byNorm.length >= 1);
 
+	// AND: multiple active filters must all match.
+	const andTcp = rows.filter((r) => core.matchesFilter(r, {
+		proto: 'TCP',
+		action: 'drop',
+		src: '192.168.1.150'
+	}));
+	assert.equal(andTcp.length, 1);
+	assert.equal(andTcp[0].dport, '443');
+
+	const andMiss = rows.filter((r) => core.matchesFilter(r, {
+		proto: 'TCP',
+		src: '192.168.1.150',
+		dport: '22'
+	}));
+	assert.equal(andMiss.length, 0);
+
 	console.log('fwlive firewall filter tests passed');
 }
 

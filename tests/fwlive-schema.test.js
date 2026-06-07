@@ -11,6 +11,8 @@ const SCHEMA_FIELDS = [
 	'timestamp_display',
 	'action',
 	'action_raw',
+	'rule_hint',
+	'rule_label',
 	'interface_in',
 	'interface_out',
 	'proto',

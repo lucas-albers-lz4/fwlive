@@ -9,6 +9,7 @@
 - Filters apply immediately for action/interface/protocol/src/dst/ports.
 - Quick search matches across all normalized fields.
 - URL hash preserves active filters on reload.
+- Pause freezes the table while polling continues; Resume refreshes from the buffer (stage 4).
 
 ## Performance
 

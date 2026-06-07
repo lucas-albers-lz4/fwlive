@@ -44,6 +44,57 @@ return baseclass.extend({
 		return 'unknown';
 	},
 
+	DENY_ACTION: /\b(DROP|REJECT|DENY|BLOCK)\b/i,
+
+	parseRuleHint: function(message) {
+		let msg = this.normalizeNetfilterMessage(message || '').trim();
+		msg = msg.replace(/^\[\s*[\d.]+\]\s*/, '');
+
+		if (/^fw4:\s*/i.test(msg))
+			return 'fw4';
+
+		const beforeKv = msg.match(/^([A-Za-z0-9_.-]+)(?::|\s+)(?=IN=|OUT=|SRC=|DST=|PROTO=)/);
+		if (beforeKv)
+			return beforeKv[1];
+
+		const colon = msg.match(/^([A-Za-z0-9_.-]+):/);
+		if (colon) {
+			const tag = colon[1].toLowerCase();
+			if (tag !== 'kernel')
+				return colon[1];
+		}
+
+		return '';
+	},
+
+	formatRuleLabel: function(hint) {
+		if (!hint)
+			return '';
+
+		if (hint === 'fw4')
+			return 'Firewall4';
+
+		return hint.replace(/-/g, ' ');
+	},
+
+	inferActionRaw: function(message, kv, actionRaw) {
+		if (actionRaw && actionRaw !== 'UNKNOWN')
+			return actionRaw;
+
+		const msg = this.normalizeNetfilterMessage(message || '');
+		if (this.DENY_ACTION.test(msg))
+			return 'UNKNOWN';
+
+		if (/^kernel:/i.test(msg.trim()))
+			return 'UNKNOWN';
+
+		const hasTuple = !!(kv.IN || kv.OUT) && !!(kv.SRC || kv.DST || kv.PROTO);
+		if (hasTuple)
+			return 'PASS';
+
+		return 'UNKNOWN';
+	},
+
 	parseFlags: function(message, kv) {
 		if (kv.TCPFLAGS)
 			return kv.TCPFLAGS;
@@ -159,7 +210,7 @@ return baseclass.extend({
 		const tsUnix = this.timestampUnix(entry);
 		const tsDisplay = this.formatTimestampDisplay(entry);
 		const proto = (kv.PROTO || '').toUpperCase();
-		const actionRaw = this.detectAction(entry.msg || '');
+		const actionRaw = this.inferActionRaw(entry.msg || '', kv, this.detectAction(entry.msg || ''));
 		const action = this.normalizeAction(actionRaw);
 		const src = kv.SRC || '';
 		const dst = kv.DST || '';
@@ -171,11 +222,15 @@ return baseclass.extend({
 		const dir = ifaceIn && ifaceOut ? 'forward' : (ifaceIn ? 'in' : (ifaceOut ? 'out' : 'unknown'));
 		const flags = this.parseFlags(entry.msg || '', kv);
 		const length = this.parseLength(kv);
+		const ruleHint = this.parseRuleHint(entry.msg || '');
+		const ruleLabel = this.formatRuleLabel(ruleHint);
 
 		return {
 			id: [tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut, entry.msg || ''].join('|'),
 			timestamp: tsUnix,
 			timestamp_display: tsDisplay,
+			rule_hint: ruleHint,
+			rule_label: ruleLabel,
 			action: action,
 			action_raw: actionRaw,
 			interface: iface,

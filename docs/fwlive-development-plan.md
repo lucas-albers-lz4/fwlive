@@ -75,45 +75,54 @@ No browser required until you explicitly want UI regression checks.
 
 ---
 
-## Stage 3 — Rule attribution
+## Stage 3 — Rule attribution (incremental)
 
-**Goal:** Deterministic `tracking_id` → `rule_label` (human fw4/UCI rule name).
+**Goal:** `rule_hint` from log prefix → later `rule_label` via fw4/UCI resolve.
 
-**Approach (incremental)**
+| Step | Status |
+|------|--------|
+| 3.1 `parseRuleHint()` → `rule_hint` field | **done** |
+| 3.2 LuCI **Rule** column (click → quick search) | **done** |
+| 3.3 Deep link to firewall/nftables admin | **done** |
+| 3.4 `rpcd` resolve hint → UCI rule name | backlog |
 
-1. Parse nft log prefixes / fw4 markers for handle or rule set hints.
-2. Optional `rpcd`/`ubus` helper: resolve handle → `/etc/config/firewall` name (read-only).
-3. Display `rule_label` column; CLI prints attribution or `unknown`.
+**Tests:** `fwlive-parser-filter.test.js` (fwlive-ping, fw4, fwlive-test prefixes).
 
-**Tests:** fixture lines with known prefixes; mock rule map JSON for unit tests.
-
-**Exit criteria:** attributed rows show label in CLI output; LuCI column added.
+**Exit criteria (3.1–3.2):** CLI/ubus-read JSON includes `rule_hint`; LuCI Rule column populated on prefixed nft rules.
 
 ---
 
-## Stage 4 — Stream control & flood safety
+## Stage 4 — Stream control & flood safety (core done)
 
 **Goal:** Pause/resume viewport; background buffer; rate limit UI.
 
-| Feature | Spec target | Implementation sketch |
-|---------|-------------|-------------------------|
-| Pause/Resume | Viewport frozen, buffer ingests | `paused` flag; skip `renderRows`, keep `fetchEntries` |
-| Ring buffer | 1,000 default | Configurable `maxHistory` (env or LuCI setting) |
-| Render cap | 250 events/sec + banner | Token bucket in `renderRows`; show suppression notice |
+| Feature | Spec target | Implementation sketch | Status |
+|---------|-------------|-------------------------|--------|
+| Pause/Resume | Viewport frozen, buffer ingests | `paused` flag; skip `renderRows`, keep `fetchEntries` | **done** |
+| Ring buffer | 1,000 default | Configurable `maxHistory` (env or LuCI setting) | done (2000) |
+| Render cap | 250 events/sec + banner | Token bucket in `renderRows`; show suppression notice | deferred |
 
-**Tests:** simulate 500 events/sec in Node; assert cap + banner flag without DOM (pure state machine test).
+**Exit criteria (core):** Pause/Resume button in toolbar; status line shows buffer count while paused; resume redraws.
+
+**Tests:** pause state is UI-only for now; render-cap token bucket test deferred with flood banner.
 
 ---
 
-## Stage 5 — Advanced filtering
+## Stage 5 — Advanced filtering (incremental)
 
-**Goal:** OPNsense-style filter constructor.
+**Goal:** OPNsense-style filter constructor — **small shippable steps** ([ROADMAP.md](ROADMAP.md)).
 
-- Operators: `is`, `is not`, `contains`, `starts with`
-- Visual filter tags with AND semantics
-- Keep URL hash persistence
+| Step | Status |
+|------|--------|
+| 5.0 Infer `pass` on silent nft log lines | **done** |
+| 5.1 Click src/dst → filter field | **done** |
+| 5.2 Click proto/iface/action | **done** |
+| 5.3 Filter chip bar | **done** |
+| 5.4 AND `matchesFilter()` light Node test | **done** |
 
-**Tests:** `matchesFilter()` matrix test — no browser.
+Later: operators (`is not`, `contains`), URL hash for tokens.
+
+**Tests:** one fixture per parser step in `fwlive-test.sh`; LuCI smoke on QEMU.
 
 ---
 

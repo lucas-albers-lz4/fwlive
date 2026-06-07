@@ -44,6 +44,30 @@ function run() {
 	assert.equal(pingRow.src, '127.0.0.1');
 	assert.equal(pingRow.dst, '127.0.0.1');
 	assert.equal(pingRow.length, 84);
+	assert.equal(pingRow.action, 'pass');
+	assert.equal(pingRow.action_raw, 'PASS');
+	assert.equal(pingRow.rule_hint, 'fwlive-ping');
+	assert.equal(pingRow.rule_label, 'fwlive ping');
+
+	const fw4Drop = core.normalizeEntry({
+		time: 1717675742,
+		msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.168.1.150 DST=8.8.8.8 PROTO=TCP'
+	});
+	assert.equal(fw4Drop.rule_hint, 'fw4');
+
+	const fwliveTest = core.normalizeEntry({
+		time: 1717675740,
+		msg: 'fwlive-test: ACCEPT IN=br-lan SRC=192.168.1.10 DST=192.168.1.1 PROTO=UDP'
+	});
+	assert.equal(fwliveTest.rule_hint, 'fwlive-test');
+
+	// Ambiguous kernel line without explicit verdict stays unknown.
+	const kernelOnly = {
+		time: 1717675740,
+		msg: 'kernel: IN=eth0 OUT= MAC=aa SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP'
+	};
+	const kernelRow = core.normalizeEntry(kernelOnly);
+	assert.equal(kernelRow.action, 'unknown');
 
 	console.log('fwlive parser/filter tests passed');
 }

@@ -20,6 +20,8 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 - `timestamp_display`: ISO-8601 in normalized JSON; LuCI renders local `YYYY-MM-DD HH:MM:SS` via `formatTimestampLocal()`.
 - `action`: normalized enum: `pass`, `block`, `drop`, `reject`, or `unknown`.
 - `action_raw`: original token from the log line (`ACCEPT`, `DROP`, …).
+- `rule_hint`: tag parsed from log prefix / nft `log prefix` (e.g. `fwlive-ping`, `fw4`, `fwlive-test`); empty when unknown.
+- `rule_label`: display label derived from `rule_hint` (UCI name resolve deferred to stage 3.4+).
 - `interface`: `IN` or `OUT` (legacy convenience).
 - `interface_in` / `interface_out`: from `IN=` / `OUT=`.
 - `direction`: `in`, `out`, `forward`, or `unknown`.

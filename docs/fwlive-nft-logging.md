@@ -18,6 +18,16 @@ Optional IPv6:
 nft insert rule inet fw4 input ip6 nexthdr ipv6-icmpv6 icmpv6 type echo-request log prefix "fwlive-ping6 " accept
 ```
 
+From the build host (**QEMU x86 lab** — recommended):
+
+```sh
+./scripts/fwlive-nft-ping-log.sh add --ssh
+# Slirp user networking: host→guest ICMP often fails — generate on the guest:
+ssh -p 2222 root@127.0.0.1 'ping -c 5 127.0.0.1'
+./scripts/fwlive-ubus-read.sh --lines 30
+# LuCI: http://localhost:8080/cgi-bin/luci/admin/status/fwlive
+```
+
 From the build host (Docker experiment):
 
 ```sh
