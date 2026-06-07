@@ -18,7 +18,7 @@ run_make() {
 		: "${OPENWRT_SDK_MOUNT:?Set OPENWRT_SDK_MOUNT to extracted SDK root for bind mount}"
 		docker compose "${COMPOSE_BIND[@]}" run --rm sdk-bind make package/luci-app-fwlive/compile V=s "$@"
 	else
-		docker compose run --rm sdk make package/luci-app-fwlive/compile V=s "$@"
+		docker compose run --rm sdk-legacy make package/luci-app-fwlive/compile V=s "$@"
 	fi
 }
 
@@ -33,13 +33,13 @@ if [[ "${USE_SDK_BIND:-0}" == "1" ]]; then
 		exit 1
 	fi
 else
-	if ! docker compose run --rm sdk test -f /openwrt-sdk/Makefile; then
+	if ! docker compose run --rm sdk-legacy test -f /openwrt-sdk/Makefile; then
 		echo "No SDK in Docker volume. Run:" >&2
 		echo "  ./scripts/docker-sdk-import-tar.sh path/to/openwrt-sdk-*_musl.Linux-x86_64.tar.zst" >&2
 		exit 1
 	fi
 	# feeds/<name>/ is often a symlink to src-link; find -P (default) does not descend into symlinked dirs
-	if ! docker compose run --rm sdk sh -c 'find -L /openwrt-sdk -maxdepth 15 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q .'; then
+	if ! docker compose run --rm sdk-legacy sh -c 'find -L /openwrt-sdk -maxdepth 15 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q .'; then
 		echo "Feeds not configured in volume. Run: ./scripts/docker-sdk-setup-feeds.sh" >&2
 		exit 1
 	fi

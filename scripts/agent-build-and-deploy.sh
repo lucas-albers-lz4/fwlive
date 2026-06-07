@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 # Deploy luci-app-fwlive .ipk to a running OpenWrt guest.
 #
-# Default (vmnet / bridged): SSH/SCP to the guest IP on port 22; LuCI on 80/443.
-# Discover IP from macOS /var/db/dhcpd_leases by matching QEMU_MAC_* to hw_address.
-#
-# Legacy (QEMU user networking + hostfwd): --legacy-hostfwd uses 127.0.0.1:2222 (SSH)
-# and optional curl to http://127.0.0.1:8080 — only when hostfwd maps those ports.
-#
+# Linux x86_64 + run-openwrt-armsr-armv8-qemu.sh: --legacy-hostfwd (127.0.0.1:2222, LuCI :8080).
+# Legacy macOS vmnet: archive/scripts/legacy/ (unmaintained).
 # Usage:
 #   export QEMU_MAC_LAN=52:54:00:44:55:66
 #   ./scripts/agent-build-and-deploy.sh --ipk out/luci-app-fwlive_*.ipk
@@ -119,7 +115,13 @@ if [[ "$LEGACY_HOSTFWD" -eq 1 ]]; then
 	echo "Legacy mode: assuming QEMU hostfwd tcp::${OPENWRT_SSH_PORT}-:22 and LuCI on host port 8080→guest 80."
 fi
 
-scp -P "${OPENWRT_SSH_PORT}" "${SSH_OPTS[@]}" "$IPK_PATH" "${OPENWRT_USER}@${HOST}:${REMOTE_IPK}"
+if scp -O -P "${OPENWRT_SSH_PORT}" "${SSH_OPTS[@]}" "$IPK_PATH" \
+	"${OPENWRT_USER}@${HOST}:${REMOTE_IPK}" 2>/dev/null; then
+	:
+else
+	ssh -p "${OPENWRT_SSH_PORT}" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${HOST}" \
+		"cat > ${REMOTE_IPK}" < "$IPK_PATH"
+fi
 ssh -p "${OPENWRT_SSH_PORT}" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${HOST}" \
 	"opkg install ${REMOTE_IPK}"
 

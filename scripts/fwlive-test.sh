@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Run Firewall Live View unit tests and CLI checks (no browser).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+NODE="${NODE:-}"
+if [[ -z "$NODE" ]]; then
+	if command -v node >/dev/null 2>&1; then
+		NODE=node
+	elif command -v nodejs >/dev/null 2>&1; then
+		NODE=nodejs
+	else
+		echo "Install nodejs (e.g. apt install nodejs) to run fwlive tests." >&2
+		exit 1
+	fi
+fi
+
+echo "== fwlive parser sync (core vs LuCI) ==" >&2
+"$NODE" tests/fwlive-parser-sync.test.js
+
+echo "== fwlive parser/filter ==" >&2
+"$NODE" tests/fwlive-parser-filter.test.js
+
+echo "== fwlive firewall filter (fixtures) ==" >&2
+"$NODE" tests/fwlive-firewall-filter.test.js
+
+echo "== fwlive schema (stage 2) ==" >&2
+"$NODE" tests/fwlive-schema.test.js
+
+echo "== fwlive CLI pipeline ==" >&2
+"$NODE" tests/fwlive-cli-pipeline.test.js
+
+echo "== fwlive parser benchmark ==" >&2
+"$NODE" tests/fwlive-parser-bench.js
+
+echo "All fwlive tests passed." >&2

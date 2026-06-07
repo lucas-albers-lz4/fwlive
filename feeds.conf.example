@@ -1,0 +1,19 @@
+# Example feeds.conf fragment for a full OpenWrt tree or SDK after ./setup.sh.
+# Copy relevant lines into feeds.conf and adjust paths/versions.
+#
+# OpenWrt release (match your image/SDK):
+#   src-git openwrt https://git.openwrt.org/openwrt/openwrt.git;openwrt-24.10
+#
+# Standard feeds (versions must match your OpenWrt checkout):
+#   src-git packages https://git.openwrt.org/feed/packages.git
+#   src-git luci https://github.com/openwrt/luci.git
+#
+# fwview feed — absolute path to this repo's openwrt-feed directory:
+src-link fwview /absolute/path/to/fwview/openwrt-feed
+
+# After editing feeds.conf:
+#   ./scripts/feeds update luci packages fwview
+#   ./scripts/feeds install luci-base
+#   ./scripts/feeds install luci-app-fwlive
+#
+# Or use Docker SDK (recommended): ./scripts/docker-sdk.sh build --target armsr-armv8 --version 24.10

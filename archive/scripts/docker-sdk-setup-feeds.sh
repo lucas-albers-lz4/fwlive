@@ -6,10 +6,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-docker compose run --rm sdk sh -ec '
+docker compose run --rm sdk-legacy sh -ec '
 	cd /openwrt-sdk
 	test -f Makefile
-	./scripts/feeds update luci packages
+	if [ -f feeds.conf.default ] && ! grep -q "^src-git.*base" feeds.conf 2>/dev/null; then
+		cp feeds.conf.default feeds.conf
+	fi
+	./scripts/feeds update base luci packages
+	./scripts/feeds install -p base liblua libucode libubox libubus libuci rpcd
 	./scripts/feeds install luci-base
 	if ! grep -q "^src-link fwview" feeds.conf 2>/dev/null; then
 		echo "src-link fwview /work/fwview/openwrt-feed" >> feeds.conf

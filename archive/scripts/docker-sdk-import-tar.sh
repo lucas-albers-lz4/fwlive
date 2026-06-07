@@ -16,7 +16,7 @@ TAR_ABS="$(cd "$(dirname "$TAR")" && pwd)/$(basename "$TAR")"
 cd "$ROOT"
 docker compose build sdk
 
-docker compose run --rm -v "${TAR_ABS}:/sdk.tar.zst:ro" sdk bash -ec '
+docker compose run --rm -v "${TAR_ABS}:/sdk.tar.zst:ro" sdk-legacy bash -ec '
 	find /openwrt-sdk -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 	if ! tar -C /openwrt-sdk -xf /sdk.tar.zst --strip-components=1 2>/dev/null; then
 		tmp=$(mktemp -d)

@@ -2,11 +2,47 @@
 
 For **proving `luci-app-fwlive` and deploying an `.ipk`**, use the **OpenWrt SDK** for the **same OpenWrt release and target** as your **router or VM image**. You do **not** need to compile a full firmware image.
 
-## Recommended development environment: Linux x86_64 (e.g. Ubuntu)
+**Canonical loop:** [`dev-environment.md`](dev-environment.md).
 
-The published SDK is **`…musl.Linux-x86_64.tar.zst`** — host tools match a **64-bit Intel/AMD Linux** system. **Native Ubuntu (or any Linux x86_64) desktop** is the straightforward choice: extract the SDK on **ext4** (or another **case-sensitive** filesystem), run **§2–4** below, then **`make`** in **§4** with no CPU emulation.
+**Optional full tree:** [`openwrt-full-source-build.md`](openwrt-full-source-build.md) — slow; not the default.
 
-**macOS** remains supported for editing and for QEMU/vmnet workflows; compiling the SDK on the Mac needs the **Docker volume** workarounds in **§4a** (APFS case sensitivity, **Apple Silicon** + **`linux/amd64`** Docker).
+## Build host: Linux x86_64 only
+
+| | |
+|-|-|
+| **Compile host** | **Linux x86_64** (Intel/AMD). SDK tarballs are **`…Linux-x86_64.tar.zst`**. |
+| **Not supported** | Linux **aarch64**, **macOS**, Windows as compile hosts |
+| **Targets** | **`armsr` / `armv8`** (`aarch64_generic`) and **`x86/64`** (`x86_64`); QEMU ARM guest is emulated on x86_64 |
+| **Versions** | **23.05**, **24.10**, **snapshot** — [`sdk-build-matrix.md`](sdk-build-matrix.md) |
+
+**Host packages:** `sudo apt install build-essential libncurses-dev gawk` (optional: `jsmin`, `csstidy`).
+
+## Recommended build: official OpenWrt SDK Docker image
+
+On **Linux x86_64**, prefer **[`ghcr.io/openwrt/sdk`](https://github.com/openwrt/docker)** via the build matrix (see [`sdk-build-matrix.md`](sdk-build-matrix.md) and [`dev-environment.md`](dev-environment.md)):
+
+```sh
+./scripts/docker-sdk.sh list
+./scripts/docker-sdk.sh build                                    # armsr-armv8 + snapshot
+./scripts/docker-sdk.sh build --target x86-64 --version 24.10
+./scripts/docker-sdk.sh build-all                                # 23.05, 24.10, snapshot × both targets
+```
+
+Legacy wrappers (same default cell):
+
+```sh
+./scripts/docker-sdk-official-setup-feeds.sh
+./scripts/docker-sdk-official-make.sh
+./scripts/docker-sdk-official-copy-out.sh
+```
+
+The container runs **`./setup.sh`** on first use to download the matching SDK (no manual `.tar.zst` import).
+
+`docker-sdk-official-setup-feeds.sh` also enables the **`base`** feed and installs **`liblua`**, **`libucode`**, and related packages. The official SDK image is minimal: LuCI pulls **`lucihttp`**, which needs Lua 5.1 and ucode headers from **`feeds/base`**, not only from **`luci`** / **`packages`**. If you see `lua.h: No such file or directory` or `ucode/module.h: No such file or directory`, re-run setup (do not skip the base-feed step).
+
+### Fallback: fwview SDK image + volume (§4a below)
+
+**Archived fallback** (tarball import + fwview-built SDK image): [`archive/scripts/`](../archive/scripts/) — only if `docker-sdk.sh` + official images fail.
 
 ## Current focus: QEMU ARM virtual (`armsr`)
 
@@ -20,7 +56,7 @@ For **armvirt-style** testing on OpenWrt **24.10**, use target **`armsr`** / **`
   `openwrt-sdk-24.10.0-armsr-armv8_gcc-*_musl.Linux-x86_64.tar.zst`.
 - Extract somewhere short (e.g. `~/openwrt-sdk`).
 
-**Host note:** published SDKs are **Linux x86_64** host binaries. **Primary workflow:** develop on **Ubuntu x86_64** (or similar), extract and build **natively** on the host (**§2–4** + **§4**).
+**Host note:** published SDKs are **Linux x86_64** host binaries. **Primary workflow:** develop on **Linux Mint / Ubuntu x86_64** (or similar), extract and build **natively** on the host (**§2–4** + **§4**).
 
 Extract the SDK tarball somewhere stable (example: **`~/openwrt-sdk/`** or **`.sdk/openwrt-sdk-…/`** — the **inner** directory must contain **`Makefile`** and **`scripts/feeds`**):
 
@@ -37,6 +73,7 @@ Optional **Docker** on **Linux** (same `make` result): **after** feeds + **`make
 
 ```sh
 cd ~/openwrt-sdk
+test -f feeds.conf || cp feeds.conf.default feeds.conf
 ./scripts/feeds update luci packages
 ./scripts/feeds install luci-base
 ```
@@ -64,7 +101,7 @@ The `.ipk` appears under `bin/packages/.../luci/luci-app-fwlive_*.ipk` (exact pa
 
 Use this **instead of** running `make` directly on the host when you want an isolated toolchain (optional on **Linux**; often needed on **macOS**).
 
-#### Linux x86_64 (Ubuntu): optional Docker with bind mount
+#### Linux x86_64 (Mint / Ubuntu): optional Docker with bind mount
 
 If you already completed **§2–4** on the host under a path on **ext4** (or another case-sensitive filesystem), you can point Docker at that tree:
 
@@ -77,29 +114,17 @@ docker compose build
 
 Or: `docker compose -f docker-compose.yml -f docker-compose.bind.yml run --rm sdk-bind make package/luci-app-fwlive/compile V=s`
 
-#### macOS (Docker Desktop): use a Docker **volume**, not a bind mount
+#### macOS / ARM compile hosts (not supported)
 
-Bind-mounting an SDK directory from the Mac makes the build see **APFS**, which is **case-insensitive** by default. OpenWrt then fails:
+**fwview** does not support compiling the SDK on **macOS** or **Linux aarch64**. Use a **Linux x86_64** machine (or x86_64 VM) with **`sdk-official`** or native SDK.
 
-`Build dependency: OpenWrt can only be built on a case-sensitive filesystem`
-
-**Fix:** keep the SDK inside Docker’s **named volume** (case-sensitive Linux ext4 inside the VM). Import the **`.tar.zst`** once, then configure feeds and build **inside** the container:
-
-```sh
-cd /path/to/fwview
-docker compose build
-./scripts/docker-sdk-import-tar.sh ~/Downloads/openwrt-sdk-24.10.*-armsr-armv8_*_musl.Linux-x86_64.tar.zst
-./scripts/docker-sdk-setup-feeds.sh
-./scripts/docker-sdk-make.sh
-```
-
-[`docker-sdk-setup-feeds.sh`](../scripts/docker-sdk-setup-feeds.sh) adds **`src-link fwview /work/fwview/openwrt-feed`** (the repo is mounted read-only at **`/work/fwview`** in [`docker-compose.yml`](../docker-compose.yml)).
+The legacy **`sdk`** + volume import scripts remain for reference only.
 
 To copy **`.ipk`** files to the host (example **`./out/`**):
 
 ```sh
 mkdir -p out
-docker compose run --rm -v "$PWD/out:/out" sdk cp -a /openwrt-sdk/bin/packages/. /out/
+docker compose run --rm -v "$PWD/out:/out" sdk-legacy cp -a /openwrt-sdk/bin/packages/. /out/
 ```
 
 #### Last resort (not recommended)
@@ -146,6 +171,16 @@ scp bin/packages/*/luci/luci-app-fwlive_*.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1 'opkg install /tmp/luci-app-fwlive_*.ipk'
 ```
 
+### Linux: QEMU user networking (hostfwd) — default for `run-openwrt-armsr-armv8-qemu.sh`
+
+On **Linux x86_64**, the repo’s QEMU helper uses **`-netdev user`** with **host 2222→guest 22** and **8080→80** (see [`armvirt-armsr-testing.md`](armvirt-armsr-testing.md)). Use **`127.0.0.1`** and the **`--legacy-hostfwd`** flag on the deploy script:
+
+```sh
+./scripts/agent-build-and-deploy.sh --legacy-hostfwd --ipk bin/packages/*/luci/luci-app-fwlive_*.ipk
+```
+
+LuCI: **`http://127.0.0.1:8080`**, SSH: **`ssh -p 2222 root@127.0.0.1`**.
+
 ### macOS QEMU with vmnet (no host port forwarding)
 
 Use the guest’s **real IP** and **port 22** for SSH/SCP, and **80** / **443** for LuCI. **Do not** assume **`127.0.0.1:2222`** or **`:8080`** unless you explicitly run QEMU with **user** networking and **hostfwd** (not the default for vmnet).
@@ -165,7 +200,7 @@ export QEMU_MAC_LAN=52:54:00:44:55:66   # same as your QEMU -device ... mac=...
 ./scripts/agent-build-and-deploy.sh --ipk bin/packages/*/luci/luci-app-fwlive_*.ipk
 ```
 
-**Legacy hostfwd only** (optional): `OPENWRT_HOST=127.0.0.1` with QEMU mapping **host 2222→guest 22** and **8080→80**:
+**Legacy hostfwd** (same as Linux flow): `OPENWRT_HOST=127.0.0.1` with QEMU mapping **host 2222→guest 22** and **8080→80**:
 
 ```sh
 ./scripts/agent-build-and-deploy.sh --legacy-hostfwd --ipk path/to/luci-app-fwlive_*.ipk
@@ -174,6 +209,8 @@ export QEMU_MAC_LAN=52:54:00:44:55:66   # same as your QEMU -device ... mac=...
 Resolve any `opkg` dependency prompts (`luci-base`, `firewall4`, etc.) per your image.
 
 ## 6. Post-deploy: validate Firewall Live View (LuCI)
+
+If the table is empty, see **[`fwlive-nft-logging.md`](fwlive-nft-logging.md)**.
 
 After install, open **Status → Firewall Live View** (requires **`/usr/sbin/nft`**).
 
