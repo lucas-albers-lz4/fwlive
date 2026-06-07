@@ -84,7 +84,7 @@ No browser required until you explicitly want UI regression checks.
 | 3.1 `parseRuleHint()` → `rule_hint` field | **done** |
 | 3.2 LuCI **Rule** column (click → quick search) | **done** |
 | 3.3 Deep link to firewall/nftables admin | **done** |
-| 3.4 `rpcd` resolve hint → UCI rule name | backlog |
+| 3.4b `rpcd` resolve hint → UCI rule name (`ubus fwlive rules`) | **done** |
 
 **Tests:** `fwlive-parser-filter.test.js` (fwlive-ping, fw4, fwlive-test prefixes).
 
@@ -99,12 +99,26 @@ No browser required until you explicitly want UI regression checks.
 | Feature | Spec target | Implementation sketch | Status |
 |---------|-------------|-------------------------|--------|
 | Pause/Resume | Viewport frozen, buffer ingests | `paused` flag; skip `renderRows`, keep `fetchEntries` | **done** |
-| Ring buffer | 1,000 default | Configurable `maxHistory` (env or LuCI setting) | done (2000) |
-| Render cap | 250 events/sec + banner | Token bucket in `renderRows`; show suppression notice | deferred |
+| Message layout | wrap vs one-line | `messageLayout` + toolbar toggle | **done** |
+| Ring buffer | 1,000 default | Configurable `maxHistory` (env or LuCI setting) | fixed 2000 |
+| Render cap | 250 new events/sec + banner | Token bucket charges **per-poll new events**, not full row count | **done** |
 
 **Exit criteria (core):** Pause/Resume button in toolbar; status line shows buffer count while paused; resume redraws.
 
 **Tests:** pause state is UI-only for now; render-cap token bucket test deferred with flood banner.
+
+### Stage 4b — OPNsense stream controls (planned)
+
+Full evaluation: [fwlive-stream-controls-spec.md](fwlive-stream-controls-spec.md).
+
+| Step | Work | Status |
+|------|------|--------|
+| 4b.1 | **Auto-refresh** checkbox (OPNsense label); maps to `paused` | **done** |
+| 4b.2 | **Limit** dropdown 25…2000; drives `maxHistory` + `visibleRows` | **done** |
+| 4b.3 | Persist limit in `localStorage`; default **100** | **done** |
+| 4b.4 | Status: `shown/limit` + paused hint | **done** |
+
+**Deliberate difference from naive spec:** we do **not** stop polling while paused — buffer keeps ingesting so Resume shows traffic that arrived during inspection.
 
 ---
 
@@ -120,7 +134,9 @@ No browser required until you explicitly want UI regression checks.
 | 5.3 Filter chip bar | **done** |
 | 5.4 AND `matchesFilter()` light Node test | **done** |
 
-Later: operators (`is not`, `contains`), URL hash for tokens.
+| 5.6 `!` prefix operators (is not / not contains) | **done** |
+
+Later: saved filter templates.
 
 **Tests:** one fixture per parser step in `fwlive-test.sh`; LuCI smoke on QEMU.
 

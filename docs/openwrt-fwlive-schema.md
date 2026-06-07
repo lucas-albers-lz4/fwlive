@@ -33,7 +33,7 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 
 ## Retention and query model
 
-- History cap: 2000 entries in browser memory.
-- View cap: last 200 filtered rows rendered.
+- History cap: user **Limit** dropdown (25…2000, default 100); stored in browser `localStorage`.
+- View cap: same as history limit (all buffered rows may render after filters).
 - Update interval: 1 second poll cadence.
 - Filter model: client-side predicates over normalized rows.

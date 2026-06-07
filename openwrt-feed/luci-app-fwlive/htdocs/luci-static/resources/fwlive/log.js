@@ -170,14 +170,17 @@ return baseclass.extend({
 		return a;
 	},
 
-	formatMessageDisplay: function(message) {
+	formatMessageDisplay: function(message, layout) {
 		let m = this.normalizeNetfilterMessage(message || '');
 		m = m.replace(/^\[\s*[\d.]+\]\s*/, '');
 		m = m.replace(/\bMAC=[^\s]+/g, '');
 		m = m.replace(/\s+/g, ' ').trim();
 
-		if (m.length > 140)
-			return m.substring(0, 137) + '…';
+		if (layout === 'oneline')
+			return m;
+
+		if (m.length > 240)
+			return m.substring(0, 237) + '…';
 
 		return m;
 	},
@@ -205,6 +208,13 @@ return baseclass.extend({
 		return this.FIREWALL_HINT.test(msg) && !!(kv.IN || kv.OUT || kv.SRC || kv.DST || kv.PROTO);
 	},
 
+	makeEntryId: function(entry, tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut) {
+		if (entry && entry.id != null && entry.id !== '')
+			return 'log:' + entry.id;
+
+		return [tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut, entry.msg || ''].join('|');
+	},
+
 	normalizeEntry: function(entry) {
 		const kv = this.parseKeyValueLog(entry.msg || '');
 		const tsUnix = this.timestampUnix(entry);
@@ -226,7 +236,8 @@ return baseclass.extend({
 		const ruleLabel = this.formatRuleLabel(ruleHint);
 
 		return {
-			id: [tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut, entry.msg || ''].join('|'),
+			id: this.makeEntryId(entry, tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut),
+			log_id: entry && entry.id != null ? Number(entry.id) : null,
 			timestamp: tsUnix,
 			timestamp_display: tsDisplay,
 			rule_hint: ruleHint,
@@ -248,32 +259,95 @@ return baseclass.extend({
 		};
 	},
 
+	parseFilterValue: function(val) {
+		const s = (val || '').trim();
+		if (!s)
+			return { negate: false, value: '' };
+
+		if (s.charAt(0) === '!')
+			return { negate: true, value: s.slice(1).trim() };
+
+		return { negate: false, value: s };
+	},
+
+	formatFilterChipLabel: function(field, val) {
+		const p = this.parseFilterValue(val);
+		if (!p.value)
+			return '';
+
+		if (p.negate) {
+			if (field === 'q' || field === 'src' || field === 'dst')
+				return '%s: not contains %s'.format(field, p.value);
+
+			return '%s: not %s'.format(field, p.value);
+		}
+
+		return '%s: %s'.format(field, val);
+	},
+
+	matchesTextField: function(haystack, spec) {
+		const p = this.parseFilterValue(spec);
+		if (!p.value)
+			return true;
+
+		const hit = (haystack || '').includes(p.value);
+		return p.negate ? !hit : hit;
+	},
+
+	matchesExactField: function(haystack, spec) {
+		const p = this.parseFilterValue(spec);
+		if (!p.value)
+			return true;
+
+		const want = p.value.toUpperCase();
+		const got = (haystack || '').toUpperCase();
+		const hit = got === want;
+		return p.negate ? !hit : hit;
+	},
+
 	matchesFilter: function(row, filters) {
-		if (filters.q && !Object.values(row).join(' ').toLowerCase().includes(filters.q.toLowerCase()))
-			return false;
+		if (filters.q) {
+			const p = this.parseFilterValue(filters.q);
+			if (p.value) {
+				const blob = Object.values(row).join(' ').toLowerCase();
+				const hit = blob.includes(p.value.toLowerCase());
+				if (p.negate ? hit : !hit)
+					return false;
+			}
+		}
 
 		if (filters.action) {
-			const want = filters.action.toLowerCase();
-			const raw = (row.action_raw || '').toUpperCase();
-			if (row.action !== want && raw !== filters.action.toUpperCase())
-				return false;
+			const p = this.parseFilterValue(filters.action);
+			if (p.value) {
+				const want = p.value.toLowerCase();
+				const hit = row.action === want
+					|| (row.action_raw || '').toUpperCase() === p.value.toUpperCase();
+				if (p.negate ? hit : !hit)
+					return false;
+			}
 		}
 
 		if (filters.interface) {
-			const iface = filters.interface;
-			if (row.interface !== iface && row.interface_in !== iface && row.interface_out !== iface)
-				return false;
+			const p = this.parseFilterValue(filters.interface);
+			if (p.value) {
+				const iface = p.value;
+				const hit = row.interface === iface
+					|| row.interface_in === iface
+					|| row.interface_out === iface;
+				if (p.negate ? hit : !hit)
+					return false;
+			}
 		}
 
-		if (filters.proto && row.proto !== filters.proto.toUpperCase())
+		if (filters.proto && !this.matchesExactField(row.proto, filters.proto))
 			return false;
-		if (filters.src && !row.src.includes(filters.src))
+		if (filters.src && !this.matchesTextField(row.src, filters.src))
 			return false;
-		if (filters.dst && !row.dst.includes(filters.dst))
+		if (filters.dst && !this.matchesTextField(row.dst, filters.dst))
 			return false;
-		if (filters.sport && row.sport !== filters.sport)
+		if (filters.sport && !this.matchesExactField(row.sport, filters.sport))
 			return false;
-		if (filters.dport && row.dport !== filters.dport)
+		if (filters.dport && !this.matchesExactField(row.dport, filters.dport))
 			return false;
 		return true;
 	},

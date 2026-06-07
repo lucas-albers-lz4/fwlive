@@ -28,9 +28,10 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 | --------- | ----- | ----- |
 | **MVP** | **Done** | Real nft logs on QEMU x86; stages 1–2; formatting pass |
 | **Infra** | **Done** | QEMU x86 lab, `qemu-install-fwlive.sh`, nft ping helper |
-| **Stage 4** | **Done (core)** | Pause/resume + buffer status |
-| **Stage 5** | **In progress** | Incremental substeps below |
-| **Stage 3** Rule attribution | Planned | After stage 5 |
+| **Stage 4** | **Done (core)** | Pause/resume + buffer status; message layout toggle |
+| **Stage 4b** | **Done** | Auto-refresh checkbox + row limit dropdown — [spec](fwlive-stream-controls-spec.md) |
+| **Stage 5** | **Done (core)** | Click-to-filter, chips, pass inference |
+| **Stage 3** Rule attribution | **Done (core)** | rule_hint, Rule column, deep link |
 | **Stage 6–7** | Backlog | DNS, digest/SSE |
 
 ---
@@ -38,8 +39,12 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 ## Post-MVP priority
 
 ```
-Stage 4 ✓ ──► Stage 5 (small steps) ──► Stage 3 (rules) ──► Stage 6+
+Stage 4 ✓ ──► Stage 5 ✓ ──► Stage 3 ✓ ──► Stage 4b (stream UI) ──► armsr backport ──► Stage 6+
 ```
+
+**Next:** armsr / 23.05 backport validation (after feature completion).
+
+**Feature completion (pre-backport):** 3.4b rule names · filter operators — **done**. Stage 6+ remains backlog.
 
 ---
 
@@ -52,9 +57,49 @@ Stage 4 ✓ ──► Stage 5 (small steps) ──► Stage 3 (rules) ──► 
 | **5.2** | Click **proto**, **interface**, **action** | **done** |
 | **5.3** | Filter chip bar (show + clear active filters) | **done** |
 | **5.4** | AND multi-field `matchesFilter()` test | **done** — `fwlive-firewall-filter.test.js` |
-| **5.5** | URL hash for tokens (optional) | Reload preserves chips |
+| **5.5** | URL hash for limit + filter fields | **done** (limit + form fields) |
 
-Deferred within stage 5: `is not` / `contains` operators, saved templates.
+| **5.6** | `!` prefix operators (is not / not contains) | **done** |
+
+Deferred within stage 5: saved filter templates.
+
+---
+
+## Stage 4b — stream controls (OPNsense parity, planned)
+
+Evaluated spec: [fwlive-stream-controls-spec.md](fwlive-stream-controls-spec.md).
+
+| Step | Deliverable | Status |
+| ---- | ----------- | ------ |
+| **4b.1** | Auto-refresh checkbox ↔ `paused` | **done** |
+| **4b.2** | Limit dropdown (25…2000) → `maxHistory` / `visibleRows` | **done** |
+| **4b.3** | `localStorage` persistence; default **100** | **done** |
+| **4b.4** | Status line shows `shown/limit` while paused/live | **done** |
+
+---
+
+## Stage 4c — session stats (in progress)
+
+| Step | Deliverable | Status |
+| ---- | ----------- | ------ |
+| **4c.1** | **+N new this session** counter in status | **done** |
+| **4c.2** | **buffer full** hint when at limit | **done** |
+| **4c.3** | `limit=` in URL hash (shareable view) | **done** |
+
+## Stage 4.5 — flood safety (done)
+
+| Step | Deliverable | Status |
+| ---- | ----------- | ------ |
+| **4.5.1** | Token bucket (~250 rows/sec render budget) | **done** |
+| **4.5.2** | Amber banner + status hint when throttled | **done** |
+
+## Feature backlog (pre-backport)
+
+| Item | Stage | Notes |
+| ---- | ----- | ----- |
+| UCI / nft **rule name** resolve | 3.4b | **done** — `ubus fwlive rules` |
+| Filter **operators** (`!` is not / not contains) | 5.6 | **done** |
+| DNS hover, rule drawer | 6 | post-MVP |
 
 ---
 
@@ -65,7 +110,8 @@ Deferred within stage 5: `is not` / `contains` operators, saved templates.
 | **3.1** | Parse log `prefix` → `rule_hint` field | **done** — `./scripts/fwlive-test.sh` |
 | **3.2** | LuCI **Rule** column | **done** — click hint filters via quick search |
 | **3.3** | Deep link to firewall admin | **done** — click Rule filters; Ctrl+click opens admin |
-| **3.4a** | `rule_label` display field | **done** — cosmetic label from hint; UCI resolve backlog |
+| **3.4a** | `rule_label` display field | **done** — cosmetic label from hint |
+| **3.4b** | UCI/fw4 name resolve via `ubus fwlive rules` | **done** |
 
 ---
 

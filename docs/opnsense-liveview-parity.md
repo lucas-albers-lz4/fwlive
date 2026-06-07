@@ -28,8 +28,10 @@ See **[`fwlive-development-plan.md`](fwlive-development-plan.md)** for stages, C
 - Implemented (stage 3, partial): `rule_hint` from log prefix; LuCI **Rule** column (click filters).
 - Implemented (stage 3.3): Rule links to firewall admin (`fw4` → traffic rules; else nftables).
 - Deferred (stage 3): UCI rule name resolve (`rule_label`).
-- Implemented (stage 4, partial): **pause/resume** — buffer ingests while table frozen; resume redraws.
+- Implemented (stage 4): **pause/resume** — buffer ingests while table frozen; resume redraws; message wrap/one-line toggle.
+- Implemented (stage 4b): **auto-refresh** checkbox + **limit** dropdown (25…2000, default 100).
 - Deferred (stage 4): 250/s render cap + suppression banner.
+- Deferred: session running-total / rate counter (not in OPNsense limit spec).
 - Implemented (stage 5, partial): click-to-filter (src/dst/proto/iface/action); filter chip bar with clear.
 - Deferred (stage 5): advanced filter operators (`is not`, `contains`); token array tests.
 - Deferred (stage 6): reverse DNS lookup and rule overlay / modal details.

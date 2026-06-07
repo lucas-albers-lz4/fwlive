@@ -53,7 +53,8 @@ Suggestions to replicate OPNsense’s clean tabular Live View, adapted for LuCI.
 | Build layout in `render()` with `E()` | **Adopt** | Already in use; extend with control bar + badge styling. |
 | Map `pass`/`drop` to green/red typography | **Adopt (adapted)** | Use LuCI-friendly classes: custom `.fwlive-pass` / `.fwlive-deny` (done) or map to `text-success` / `text-danger` where theme-consistent. Optional unicode/icon prefix (✔/✖) — low priority, test contrast in dark themes. |
 | Sticky header + scroll body | **Adopt** | `#fwlive-scroll` + `position: sticky` on `thead` (done). |
-| Pause / Play top bar | **Adopt** | Stage 4: `this.paused`; polling continues fetching but `renderRows` skipped; show “buffering N events” hint. |
+| Pause / Play top bar | **Adopt** | Stage 4 **done** (`Pause` button). Stage 4b: OPNsense **Auto-refresh** checkbox alias — [fwlive-stream-controls-spec.md](fwlive-stream-controls-spec.md). |
+| Row limit dropdown | **Adopt** | Stage 4b: 25…2000 → `maxHistory` + `visibleRows`; default 100; cap 2000. |
 | Primary columns: Action, Time, Interface, Src/Dst, Rule | **Adopt (phased)** | Most columns exist. **Rule Info** = stage 3. Consider a combined **Src → Dst** column later to reduce width (optional polish). |
 | Interface as small grey badges | **Adopt** | Stage 4/5 polish: `E('span', { 'class': 'label' }, iface)` on `interface_in` / `out`. |
 | Time as `HH:MM:SS` only | **Defer** | Local `YYYY-MM-DD HH:MM:SS` today; add compact time mode or drop date when all rows are “today”. |

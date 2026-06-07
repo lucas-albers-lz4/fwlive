@@ -51,6 +51,16 @@ function run() {
 	}));
 	assert.equal(andMiss.length, 0);
 
+	const notDrop = rows.filter((r) => core.matchesFilter(r, { action: '!drop' }));
+	assert.ok(notDrop.length >= 1);
+	assert.ok(notDrop.every((r) => r.action !== 'drop'));
+
+	const notSrc = rows.filter((r) => core.matchesFilter(r, { src: '!192.168.1.150' }));
+	assert.ok(notSrc.every((r) => !r.src.includes('192.168.1.150')));
+
+	const notProto = rows.filter((r) => core.matchesFilter(r, { proto: '!TCP' }));
+	assert.ok(notProto.every((r) => r.proto !== 'TCP'));
+
 	console.log('fwlive firewall filter tests passed');
 }
 

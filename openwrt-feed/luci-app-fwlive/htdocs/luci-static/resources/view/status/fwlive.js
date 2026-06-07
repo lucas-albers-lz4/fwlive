@@ -16,11 +16,36 @@ const callLogRead = rpc.declare({
 	expect: { log: [] }
 });
 
+const callFwliveRules = rpc.declare({
+	object: 'fwlive',
+	method: 'rules',
+	expect: { rules: {} }
+});
+
+const ROW_LIMIT_OPTIONS = [ 25, 50, 100, 250, 500, 1000, 2000 ];
+const DEFAULT_ROW_LIMIT = 100;
+const FETCH_LINES_MAX = 2000;
+const RENDER_CAP_PER_SEC = 250;
+
 return view.extend({
-	maxHistory: 2000,
-	visibleRows: 200,
+	rowLimit: DEFAULT_ROW_LIMIT,
+	maxHistory: DEFAULT_ROW_LIMIT,
+	fetchLines: FETCH_LINES_MAX,
+	visibleRows: DEFAULT_ROW_LIMIT,
 	entries: [],
+	sessionSeen: null,
+	sessionNewTotal: 0,
+	sessionAtPause: 0,
+	pauseBufferLoading: false,
 	paused: false,
+	messageLayout: 'wrap',
+	renderBucket: RENDER_CAP_PER_SEC,
+	renderBucketMs: 0,
+	floodSuppressed: false,
+	lastPollNewEvents: 0,
+	lastRenderedRowCount: 0,
+	lastRenderedHeadId: '',
+	rulesMap: {},
 
 	FILTER_CHIP_FIELDS: [
 		{ key: 'q', label: 'search' },
@@ -50,6 +75,8 @@ return view.extend({
 		const parts = Object.keys(filters)
 			.filter((k) => filters[k])
 			.map((k) => '%s=%s'.format(encodeURIComponent(k), encodeURIComponent(filters[k])));
+		if (this.rowLimit !== DEFAULT_ROW_LIMIT)
+			parts.push('limit=%s'.format(encodeURIComponent(this.rowLimit)));
 		location.hash = parts.join('&');
 	},
 
@@ -62,30 +89,164 @@ return view.extend({
 			const kv = entries[i].split('=');
 			if (kv.length !== 2)
 				continue;
-			const id = 'fwlive-' + decodeURIComponent(kv[0]);
-			const el = document.getElementById(id);
+			const key = decodeURIComponent(kv[0]);
+			const val = decodeURIComponent(kv[1]);
+			if (key === 'limit') {
+				const n = parseInt(val, 10);
+				if (isFinite(n) && ROW_LIMIT_OPTIONS.indexOf(n) >= 0) {
+					this.applyRowLimit(n);
+					this.saveRowLimit();
+				}
+				continue;
+			}
+			const el = document.getElementById('fwlive-' + key);
 			if (el)
-				el.value = decodeURIComponent(kv[1]);
+				el.value = val;
 		}
 	},
 
+	async loadRulesMap() {
+		try {
+			const res = await callFwliveRules();
+			this.rulesMap = (res && res.rules) || {};
+		} catch (e) {
+			this.rulesMap = {};
+		}
+	},
+
+	resolveRuleLabel(hint) {
+		if (!hint)
+			return '';
+
+		if (this.rulesMap[hint])
+			return this.rulesMap[hint];
+
+		const slug = hint.toLowerCase();
+		if (this.rulesMap[slug])
+			return this.rulesMap[slug];
+
+		return log.formatRuleLabel(hint);
+	},
+
+	enrichEntry(row) {
+		row.rule_label = this.resolveRuleLabel(row.rule_hint);
+		return row;
+	},
+
 	async fetchEntries() {
-		const raw = await callLogRead(this.maxHistory, false, true);
+		if (!this.sessionSeen)
+			this.sessionSeen = new Set();
+
+		const raw = await callLogRead(this.fetchLines, false, true);
 		const normalized = [];
 		const seen = {};
+		let pollNew = 0;
 
 		for (let i = 0; i < raw.length; i++) {
 			if (!log.isFirewallEvent(raw[i]))
 				continue;
 
-			const row = log.normalizeEntry(raw[i]);
+			const row = this.enrichEntry(log.normalizeEntry(raw[i]));
 			if (seen[row.id])
 				continue;
 			seen[row.id] = true;
+			if (!this.sessionSeen.has(row.id)) {
+				this.sessionSeen.add(row.id);
+				this.sessionNewTotal++;
+				pollNew++;
+			}
 			normalized.push(row);
 		}
 
-		this.entries = normalized.reverse().slice(-this.maxHistory);
+		this.lastPollNewEvents = pollNew;
+
+		this.entries = normalized.reverse().slice(-this.ingestCap());
+		this.trimEntriesToLiveCap();
+	},
+
+	ingestCap() {
+		return this.paused ? FETCH_LINES_MAX : this.rowLimit;
+	},
+
+	trimEntriesToLiveCap() {
+		if (this.paused || this.entries.length <= this.rowLimit)
+			return;
+
+		this.entries = this.entries.slice(-this.rowLimit);
+	},
+
+	statusSuffix() {
+		const bits = [];
+		if (this.paused) {
+			const since = this.sessionNewTotal - (this.sessionAtPause || 0);
+			if (since > 0)
+				bits.push(_('+%d since pause').format(since));
+		}
+
+		const cap = this.ingestCap();
+		if (this.entries.length >= cap && cap > 0)
+			bits.push(_('buffer full'));
+		if (this.floodSuppressed)
+			bits.push(_('render paused (high rate)'));
+		return bits.length ? ' — ' + bits.join(', ') : '';
+	},
+
+	refillRenderBucket() {
+		const now = Date.now();
+		if (!this.renderBucketMs)
+			this.renderBucketMs = now;
+
+		const elapsed = now - this.renderBucketMs;
+		this.renderBucketMs = now;
+		this.renderBucket = Math.min(
+			RENDER_CAP_PER_SEC,
+			this.renderBucket + (elapsed * RENDER_CAP_PER_SEC / 1000)
+		);
+	},
+
+	consumeRenderBudget(cost) {
+		if (cost <= 0) {
+			this.floodSuppressed = false;
+			return true;
+		}
+
+		this.refillRenderBucket();
+		if (cost <= this.renderBucket) {
+			this.renderBucket -= cost;
+			this.floodSuppressed = false;
+			return true;
+		}
+
+		this.floodSuppressed = true;
+		return false;
+	},
+
+	/** Charge by new log events per poll, not full table size (avoids false throttle at high limits). */
+	renderBudgetCost(rows) {
+		const count = rows ? rows.length : 0;
+		const headId = count ? rows[0].id : '';
+
+		if (!count && !this.lastRenderedRowCount)
+			return 0;
+
+		if (count === this.lastRenderedRowCount && headId === this.lastRenderedHeadId)
+			return 0;
+
+		return Math.max(1, this.lastPollNewEvents || 1);
+	},
+
+	updateFloodBanner() {
+		const el = document.getElementById('fwlive-flood');
+		if (!el)
+			return;
+
+		if (this.floodSuppressed) {
+			el.style.display = 'block';
+			el.textContent = _('High event rate — table refresh is throttled to protect the browser. The buffer still updates; refresh will resume automatically.');
+		} else {
+			el.style.display = 'none';
+			el.textContent = '';
+		}
 	},
 
 	filteredRows() {
@@ -103,18 +264,131 @@ return view.extend({
 
 		const matchCount = rows ? rows.length : this.filteredRows().length;
 
+		const suffix = this.statusSuffix();
+
 		if (this.paused) {
 			status.className = 'fwlive-status fwlive-status-paused';
+			if (this.pauseBufferLoading) {
+				status.textContent = _('Paused — loading ingest buffer…');
+				return;
+			}
 			status.textContent = matchCount
-				? _('Paused — %d events in buffer (%d match filters). Resume to refresh the table.').format(this.entries.length, matchCount)
-				: _('Paused — %d events in buffer. Resume to refresh the table.').format(this.entries.length);
+				? _('Paused — %d ingested, %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s').format(this.entries.length, Math.min(matchCount, this.rowLimit), this.rowLimit, matchCount, suffix)
+				: _('Paused — %d ingested (%d shown when live). Enable auto-refresh to update the table.%s').format(this.entries.length, this.rowLimit, suffix);
 			return;
 		}
 
 		status.className = 'fwlive-status';
-		status.textContent = matchCount
-			? _('Showing %d of %d firewall events (newest first).').format(matchCount, this.entries.length)
-			: '';
+		const stored = this.entries.length;
+		const limit = this.rowLimit;
+		const session = this.sessionNewTotal;
+		if (matchCount) {
+			let line = _('Showing %d matching — %d/%d stored (limit %d)').format(matchCount, stored, limit, limit);
+			if (session > stored)
+				line += _(', %d seen this session').format(session);
+			line += _(' (newest first).');
+			status.textContent = line + suffix;
+		} else if (stored) {
+			status.textContent = _('No rows match filters — %d/%d stored (limit %d).%s').format(stored, limit, limit, suffix);
+		} else {
+			status.textContent = '';
+		}
+	},
+
+	readRowLimit() {
+		try {
+			const n = parseInt(localStorage.getItem('fwlive-row-limit'), 10);
+			if (ROW_LIMIT_OPTIONS.indexOf(n) >= 0)
+				return n;
+		} catch (e) {
+			/* private mode / no storage */
+		}
+
+		return DEFAULT_ROW_LIMIT;
+	},
+
+	saveRowLimit() {
+		try {
+			localStorage.setItem('fwlive-row-limit', String(this.rowLimit));
+		} catch (e) {
+			/* private mode / no storage */
+		}
+	},
+
+	applyRowLimit(limit) {
+		const n = ROW_LIMIT_OPTIONS.indexOf(limit) >= 0 ? limit : DEFAULT_ROW_LIMIT;
+		this.rowLimit = n;
+		this.maxHistory = n;
+		this.fetchLines = FETCH_LINES_MAX;
+		this.visibleRows = n;
+		if (!this.paused && this.entries.length > n)
+			this.entries = this.entries.slice(-n);
+	},
+
+	updateStreamControlsUi() {
+		const cb = document.getElementById('fwlive-autorefresh');
+		const sel = document.getElementById('fwlive-limit');
+		if (cb)
+			cb.checked = !this.paused;
+		if (sel)
+			sel.value = String(this.rowLimit);
+	},
+
+	onAutoRefreshChange(ev) {
+		const wasPaused = this.paused;
+		this.paused = !(ev && ev.target && ev.target.checked);
+		this.updateStreamControlsUi();
+
+		if (!wasPaused && this.paused) {
+			this.sessionAtPause = this.sessionNewTotal;
+			this.pauseBufferLoading = true;
+			this.updateStatus();
+			this.fetchEntries().then(() => {
+				this.pauseBufferLoading = false;
+				this.updateStatus();
+			});
+			return;
+		}
+
+		if (wasPaused && !this.paused) {
+			this.trimEntriesToLiveCap();
+			this.fetchEntries().then(() => this.renderRows(true));
+			return;
+		}
+
+		if (this.paused)
+			this.updateStatus();
+		else
+			this.renderRows(true);
+	},
+
+	onRowLimitChange(ev) {
+		const n = parseInt(ev && ev.target ? ev.target.value : '', 10);
+		if (!isFinite(n) || ROW_LIMIT_OPTIONS.indexOf(n) < 0)
+			return;
+
+		this.applyRowLimit(n);
+		this.saveRowLimit();
+		this.updateHash(this.readFilters());
+		if (!this.paused)
+			this.renderRows(true);
+		else
+			this.updateStatus();
+		this.fetchEntries().then(() => {
+			if (this.paused)
+				this.updateStatus();
+			else
+				this.renderRows(true);
+		});
+	},
+
+	limitSelectOptions() {
+		const opts = [];
+		for (let i = 0; i < ROW_LIMIT_OPTIONS.length; i++) {
+			const n = ROW_LIMIT_OPTIONS[i];
+			opts.push(E('option', { 'value': String(n) }, String(n)));
+		}
+		return opts;
 	},
 
 	filterClick(field, value, ev) {
@@ -233,7 +507,7 @@ return view.extend({
 				continue;
 
 			chips.push(E('span', { 'class': 'fwlive-chip' }, [
-				E('span', { 'class': 'fwlive-chip-label' }, '%s: %s'.format(spec.label, val)),
+				E('span', { 'class': 'fwlive-chip-label' }, log.formatFilterChipLabel(spec.label, val)),
 				E('a', {
 					'href': '#',
 					'class': 'fwlive-chip-remove',
@@ -260,19 +534,47 @@ return view.extend({
 		}, _('Clear all')));
 	},
 
-	togglePaused() {
-		this.paused = !this.paused;
-		const btn = document.getElementById('fwlive-pause');
-		if (btn)
-			btn.textContent = this.paused ? _('Resume') : _('Pause');
+	readMessageLayout() {
+		try {
+			return localStorage.getItem('fwlive-msg-layout') === 'oneline' ? 'oneline' : 'wrap';
+		} catch (e) {
+			return 'wrap';
+		}
+	},
 
+	saveMessageLayout() {
+		try {
+			localStorage.setItem('fwlive-msg-layout', this.messageLayout);
+		} catch (e) {
+			/* private mode / no storage */
+		}
+	},
+
+	updateMessageLayoutUi() {
+		const scroll = document.getElementById('fwlive-scroll');
+		const btn = document.getElementById('fwlive-msg-layout');
+		if (scroll) {
+			scroll.classList.toggle('fwlive-msg-oneline', this.messageLayout === 'oneline');
+			scroll.classList.toggle('fwlive-msg-wrap', this.messageLayout === 'wrap');
+		}
+		if (btn) {
+			btn.textContent = this.messageLayout === 'oneline'
+				? _('Message: one line')
+				: _('Message: wrap');
+		}
+	},
+
+	toggleMessageLayout() {
+		this.messageLayout = this.messageLayout === 'oneline' ? 'wrap' : 'oneline';
+		this.saveMessageLayout();
+		this.updateMessageLayoutUi();
 		if (this.paused)
 			this.updateStatus();
 		else
-			this.renderRows();
+			this.renderRows(true);
 	},
 
-	renderRows() {
+	renderRows(force) {
 		const table = document.getElementById('fwlive-table');
 		if (!table)
 			return;
@@ -283,6 +585,22 @@ return view.extend({
 		this.updateHash(this.readFilters());
 
 		const rows = this.filteredRows();
+		const cost = force ? Math.max(1, rows.length) : this.renderBudgetCost(rows);
+
+		if (!force && cost === 0) {
+			this.floodSuppressed = false;
+			this.updateFloodBanner();
+			this.updateStatus(rows);
+			return;
+		}
+
+		if (!force && !this.consumeRenderBudget(cost)) {
+			this.updateFloodBanner();
+			this.updateStatus(rows);
+			return;
+		}
+
+		this.updateFloodBanner();
 
 		const atTop = scroll ? scroll.scrollTop < 8 : true;
 		const prevScroll = scroll ? scroll.scrollTop : 0;
@@ -295,7 +613,7 @@ return view.extend({
 
 		for (let i = 0; i < rows.length; i++) {
 			const r = rows[i];
-			const msgDisplay = log.formatMessageDisplay(r.message);
+			const msgDisplay = log.formatMessageDisplay(r.message, this.messageLayout);
 			const actionCell = r.action && r.action !== 'unknown'
 				? this.filterLink('action', r.action, log.formatActionLabel(r.action))
 				: log.formatActionLabel(r.action);
@@ -327,6 +645,9 @@ return view.extend({
 			else
 				scroll.scrollTop = prevScroll;
 		}
+
+		this.lastRenderedRowCount = rows.length;
+		this.lastRenderedHeadId = rows.length ? rows[0].id : '';
 	},
 
 	onFilterInput() {
@@ -334,7 +655,7 @@ return view.extend({
 			this.renderFilterChips();
 			this.updateStatus();
 		} else {
-			this.renderRows();
+			this.renderRows(true);
 		}
 	},
 
@@ -349,9 +670,17 @@ return view.extend({
 				el.addEventListener('change', this.onFilterInput.bind(this));
 		}
 
-		const pauseBtn = document.getElementById('fwlive-pause');
-		if (pauseBtn)
-			pauseBtn.addEventListener('click', this.togglePaused.bind(this));
+		const refreshCb = document.getElementById('fwlive-autorefresh');
+		if (refreshCb)
+			refreshCb.addEventListener('change', this.onAutoRefreshChange.bind(this));
+
+		const limitSel = document.getElementById('fwlive-limit');
+		if (limitSel)
+			limitSel.addEventListener('change', this.onRowLimitChange.bind(this));
+
+		const msgBtn = document.getElementById('fwlive-msg-layout');
+		if (msgBtn)
+			msgBtn.addEventListener('click', this.toggleMessageLayout.bind(this));
 	},
 
 	async pollData() {
@@ -359,17 +688,18 @@ return view.extend({
 		if (this.paused)
 			this.updateStatus();
 		else
-			this.renderRows();
+			this.renderRows(false);
 	},
 
 	load() {
 		poll.add(this.pollData.bind(this), 1);
-		return this.fetchEntries();
+		return this.loadRulesMap().then(() => this.fetchEntries());
 	},
 
 	render() {
-		return E('div', { 'class': 'cbi-map' }, [
+		return E('div', { 'class': 'cbi-map fwlive-map' }, [
 			E('style', {}, `
+				.fwlive-map { max-width: none; width: 100%; }
 				.fwlive-toolbar {
 					display: flex;
 					align-items: center;
@@ -377,17 +707,31 @@ return view.extend({
 					margin-bottom: 10px;
 					flex-wrap: wrap;
 				}
+				.fwlive-ctl {
+					display: inline-flex;
+					align-items: center;
+					gap: 6px;
+					font-size: 0.92em;
+					white-space: nowrap;
+				}
+				#fwlive-limit { width: auto; min-width: 4.5em; }
 				.fwlive-grid { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
 				.fwlive-status { margin: 0; color: #666; font-size: 0.92em; flex: 1; min-width: 200px; }
 				.fwlive-status-paused { color: #a65e00; font-weight: 600; }
 				.fwlive-scroll {
-					max-height: min(70vh, 640px);
+					max-height: min(78vh, 800px);
 					overflow: auto;
 					border: 1px solid #ddd;
 					border-radius: 3px;
 					background: #fff;
+					width: 100%;
 				}
 				#fwlive-table { margin: 0; width: 100%; table-layout: auto; border-collapse: collapse; }
+				.fwlive-scroll.fwlive-msg-oneline #fwlive-table {
+					width: max-content;
+					min-width: 100%;
+				}
+				.fwlive-scroll.fwlive-msg-oneline tbody td { vertical-align: middle; }
 				#fwlive-table thead th {
 					position: sticky;
 					top: 0;
@@ -437,12 +781,24 @@ return view.extend({
 				.fwlive-pass { color: #1f7a1f; }
 				.fwlive-unknown { color: #666; font-weight: 500; }
 				.fwlive-message {
-					max-width: 28em;
-					min-width: 12em;
-					word-break: break-word;
 					font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 					font-size: 0.85em;
 					color: #444;
+				}
+				.fwlive-scroll.fwlive-msg-wrap .fwlive-message {
+					min-width: 16em;
+					max-width: none;
+					white-space: normal;
+					word-break: break-word;
+				}
+				.fwlive-scroll.fwlive-msg-oneline .fwlive-message {
+					white-space: nowrap;
+					max-width: none;
+					min-width: 32em;
+				}
+				#fwlive-table th.fwlive-th-message,
+				.fwlive-scroll.fwlive-msg-oneline .fwlive-message {
+					width: 99%;
 				}
 				.fwlive-empty { margin: 12px 0; padding: 10px; background: #f8f8f8; border: 1px dashed #ccc; }
 				.fwlive-filter-link {
@@ -480,17 +836,41 @@ return view.extend({
 					font-size: 0.88em;
 					margin-left: 4px;
 				}
+				.fwlive-flood {
+					display: none;
+					margin: 0 0 10px;
+					padding: 8px 12px;
+					background: #fff8e6;
+					border: 1px solid #e6c200;
+					border-radius: 3px;
+					color: #664d00;
+					font-size: 0.92em;
+				}
 			`),
 			E('h2', {}, _('Firewall Live View')),
 			E('p', {}, _('Live nftables/firewall4 events from logd (firewall-shaped lines only).')),
 			E('div', { 'class': 'fwlive-toolbar' }, [
+				E('label', { 'class': 'fwlive-ctl' }, [
+					E('input', {
+						'id': 'fwlive-autorefresh',
+						'type': 'checkbox',
+						'checked': 'checked'
+					}),
+					_('Auto-refresh')
+				]),
+				E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-limit' }, _('Limit')),
+				E('select', {
+					'id': 'fwlive-limit',
+					'class': 'cbi-input-select'
+				}, this.limitSelectOptions()),
 				E('button', {
-					'id': 'fwlive-pause',
-					'class': 'cbi-button cbi-button-action',
+					'id': 'fwlive-msg-layout',
+					'class': 'cbi-button',
 					'type': 'button'
-				}, _('Pause')),
+				}, _('Message: wrap')),
 				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, '')
 			]),
+			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ''),
 			E('div', { 'class': 'fwlive-grid' }, [
 				E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
 				E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
@@ -499,14 +879,18 @@ return view.extend({
 					E('option', { 'value': 'block' }, 'block'),
 					E('option', { 'value': 'drop' }, 'drop'),
 					E('option', { 'value': 'reject' }, 'reject'),
-					E('option', { 'value': 'unknown' }, 'unknown')
+					E('option', { 'value': 'unknown' }, 'unknown'),
+					E('option', { 'value': '!pass' }, _('not pass')),
+					E('option', { 'value': '!drop' }, _('not drop')),
+					E('option', { 'value': '!block' }, _('not block')),
+					E('option', { 'value': '!reject' }, _('not reject'))
 				]),
-				E('input', { 'id': 'fwlive-interface', 'class': 'cbi-input-text', 'placeholder': _('Interface IN or OUT') }),
-				E('input', { 'id': 'fwlive-proto', 'class': 'cbi-input-text', 'placeholder': _('Protocol (TCP/UDP/ICMP)') }),
-				E('input', { 'id': 'fwlive-src', 'class': 'cbi-input-text', 'placeholder': _('Source IP contains') }),
-				E('input', { 'id': 'fwlive-sport', 'class': 'cbi-input-text', 'placeholder': _('Source port') }),
-				E('input', { 'id': 'fwlive-dst', 'class': 'cbi-input-text', 'placeholder': _('Destination IP contains') }),
-				E('input', { 'id': 'fwlive-dport', 'class': 'cbi-input-text', 'placeholder': _('Destination port') })
+				E('input', { 'id': 'fwlive-interface', 'class': 'cbi-input-text', 'placeholder': _('Interface (prefix ! to exclude)') }),
+				E('input', { 'id': 'fwlive-proto', 'class': 'cbi-input-text', 'placeholder': _('Protocol (prefix ! to exclude)') }),
+				E('input', { 'id': 'fwlive-src', 'class': 'cbi-input-text', 'placeholder': _('Source IP contains (! to exclude)') }),
+				E('input', { 'id': 'fwlive-sport', 'class': 'cbi-input-text', 'placeholder': _('Source port (! to exclude)') }),
+				E('input', { 'id': 'fwlive-dst', 'class': 'cbi-input-text', 'placeholder': _('Destination IP contains (! to exclude)') }),
+				E('input', { 'id': 'fwlive-dport', 'class': 'cbi-input-text', 'placeholder': _('Destination port (! to exclude)') })
 			]),
 			E('div', { 'id': 'fwlive-chips', 'class': 'fwlive-chips' }, []),
 			E('p', {
@@ -514,7 +898,7 @@ return view.extend({
 				'class': 'fwlive-empty',
 				'style': 'display:none'
 			}, _('No firewall log events yet. Add log to fw4/nft rules — see docs/fwlive-nft-logging.md on the build host.')),
-			E('div', { 'id': 'fwlive-scroll', 'class': 'fwlive-scroll' }, [
+			E('div', { 'id': 'fwlive-scroll', 'class': 'fwlive-scroll fwlive-msg-wrap' }, [
 				E('table', { 'id': 'fwlive-table', 'class': 'table cbi-section-table' }, [
 					E('thead', {}, E('tr', {}, [
 						E('th', {}, _('Time')),
@@ -530,18 +914,22 @@ return view.extend({
 						E('th', {}, _('DPort')),
 						E('th', {}, _('Flags')),
 						E('th', {}, _('Len')),
-						E('th', {}, _('Message'))
+						E('th', { 'class': 'fwlive-th-message' }, _('Message'))
 					])),
 					E('tbody', {}, [])
 				])
 			]),
-			E('p', { 'class': 'cbi-value-description' }, _('Tip: click table values to filter; Ctrl+click Rule to open firewall settings. URL hash preserves filter fields on reload.'))
+			E('p', { 'class': 'cbi-value-description' }, _('Tip: prefix a filter with ! to exclude (not / not contains). Uncheck Auto-refresh to freeze the table while the ingest buffer keeps growing. Ctrl+click Rule opens firewall settings.'))
 		]);
 	},
 
 	addFooter() {
+		this.messageLayout = this.readMessageLayout();
+		this.applyRowLimit(this.readRowLimit());
 		this.applyHash();
 		this.attachHandlers();
-		this.renderRows();
+		this.updateMessageLayoutUi();
+		this.updateStreamControlsUi();
+		this.renderRows(true);
 	}
 });

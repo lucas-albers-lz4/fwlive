@@ -9,7 +9,8 @@
 - Filters apply immediately for action/interface/protocol/src/dst/ports.
 - Quick search matches across all normalized fields.
 - URL hash preserves active filters on reload.
-- Pause freezes the table while polling continues; Resume refreshes from the buffer (stage 4).
+- **Auto-refresh** checkbox freezes the table while polling continues; re-check updates the grid (stage 4b).
+- **Limit** dropdown (25…2000, default 100) caps buffer and visible rows; persisted in browser (stage 4b).
 
 ## Performance
 
