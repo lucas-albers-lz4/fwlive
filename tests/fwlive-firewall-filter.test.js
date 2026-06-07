@@ -19,8 +19,8 @@ function run() {
 	assert.equal(rows.length, 4);
 
 	const actions = rows.map((r) => r.action);
-	assert.ok(actions.includes('DROP'));
-	assert.ok(actions.includes('ACCEPT'));
+	assert.ok(actions.includes('drop'));
+	assert.ok(actions.includes('pass'));
 
 	const msgs = rows.map((r) => r.message).join('\n');
 	assert.ok(!msgs.includes('dnsmasq'));
@@ -30,6 +30,10 @@ function run() {
 	const filtered = rows.filter((r) => core.matchesFilter(r, { src: '192.168.1.150' }));
 	assert.equal(filtered.length, 1);
 	assert.equal(filtered[0].dport, '443');
+	assert.equal(filtered[0].action, 'drop');
+
+	const byNorm = rows.filter((r) => core.matchesFilter(r, { action: 'drop' }));
+	assert.ok(byNorm.length >= 1);
 
 	console.log('fwlive firewall filter tests passed');
 }

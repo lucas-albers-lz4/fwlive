@@ -23,6 +23,9 @@ echo "== fwlive parser/filter ==" >&2
 echo "== fwlive firewall filter (fixtures) ==" >&2
 "$NODE" tests/fwlive-firewall-filter.test.js
 
+echo "== fwlive schema (stage 2) ==" >&2
+"$NODE" tests/fwlive-schema.test.js
+
 echo "== fwlive CLI pipeline ==" >&2
 "$NODE" tests/fwlive-cli-pipeline.test.js
 

@@ -115,7 +115,13 @@ if [[ "$LEGACY_HOSTFWD" -eq 1 ]]; then
 	echo "Legacy mode: assuming QEMU hostfwd tcp::${OPENWRT_SSH_PORT}-:22 and LuCI on host port 8080→guest 80."
 fi
 
-scp -P "${OPENWRT_SSH_PORT}" "${SSH_OPTS[@]}" "$IPK_PATH" "${OPENWRT_USER}@${HOST}:${REMOTE_IPK}"
+if scp -O -P "${OPENWRT_SSH_PORT}" "${SSH_OPTS[@]}" "$IPK_PATH" \
+	"${OPENWRT_USER}@${HOST}:${REMOTE_IPK}" 2>/dev/null; then
+	:
+else
+	ssh -p "${OPENWRT_SSH_PORT}" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${HOST}" \
+		"cat > ${REMOTE_IPK}" < "$IPK_PATH"
+fi
 ssh -p "${OPENWRT_SSH_PORT}" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${HOST}" \
 	"opkg install ${REMOTE_IPK}"
 

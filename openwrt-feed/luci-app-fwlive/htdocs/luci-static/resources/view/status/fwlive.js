@@ -93,15 +93,18 @@ return view.extend({
 		for (let i = 0; i < rows.length; i++) {
 			const r = rows[i];
 			const tr = E('tr', {}, [
-				E('td', {}, r.timestamp || '-'),
-				E('td', { 'class': log.actionRowClass(r.action) }, r.action),
-				E('td', {}, r.interface || '-'),
+				E('td', {}, r.timestamp_display || '-'),
+				E('td', { 'class': log.actionRowClass(r.action) }, r.action || '-'),
+				E('td', {}, r.interface_in || '-'),
+				E('td', {}, r.interface_out || '-'),
 				E('td', {}, r.direction || '-'),
 				E('td', {}, r.proto || '-'),
 				E('td', {}, r.src || '-'),
 				E('td', {}, r.sport || '-'),
 				E('td', {}, r.dst || '-'),
 				E('td', {}, r.dport || '-'),
+				E('td', {}, r.flags || '-'),
+				E('td', {}, r.length != null ? String(r.length) : '-'),
 				E('td', { 'class': 'fwlive-message' }, r.message || '-')
 			]);
 			body.appendChild(tr);
@@ -133,7 +136,7 @@ return view.extend({
 				.fwlive-grid { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
 				.fwlive-deny { color: #b30000; font-weight: 700; }
 				.fwlive-pass { color: #1f7a1f; font-weight: 700; }
-				.fwlive-message { max-width: 420px; word-break: break-word; }
+				.fwlive-message { max-width: 360px; word-break: break-word; }
 				.fwlive-empty { margin: 12px 0; padding: 10px; background: #f8f8f8; border: 1px dashed #ccc; }
 			`),
 			E('h2', {}, _('Firewall Live View')),
@@ -142,16 +145,13 @@ return view.extend({
 				E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
 				E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
 					E('option', { 'value': '' }, _('Any action')),
-					E('option', { 'value': 'ACCEPT' }, 'ACCEPT'),
-					E('option', { 'value': 'ALLOW' }, 'ALLOW'),
-					E('option', { 'value': 'PASS' }, 'PASS'),
-					E('option', { 'value': 'DROP' }, 'DROP'),
-					E('option', { 'value': 'REJECT' }, 'REJECT'),
-					E('option', { 'value': 'DENY' }, 'DENY'),
-					E('option', { 'value': 'BLOCK' }, 'BLOCK'),
-					E('option', { 'value': 'UNKNOWN' }, 'UNKNOWN')
+					E('option', { 'value': 'pass' }, 'pass'),
+					E('option', { 'value': 'block' }, 'block'),
+					E('option', { 'value': 'drop' }, 'drop'),
+					E('option', { 'value': 'reject' }, 'reject'),
+					E('option', { 'value': 'unknown' }, 'unknown')
 				]),
-				E('input', { 'id': 'fwlive-interface', 'class': 'cbi-input-text', 'placeholder': _('Interface (IN/OUT)') }),
+				E('input', { 'id': 'fwlive-interface', 'class': 'cbi-input-text', 'placeholder': _('Interface IN or OUT') }),
 				E('input', { 'id': 'fwlive-proto', 'class': 'cbi-input-text', 'placeholder': _('Protocol (TCP/UDP/ICMP)') }),
 				E('input', { 'id': 'fwlive-src', 'class': 'cbi-input-text', 'placeholder': _('Source IP contains') }),
 				E('input', { 'id': 'fwlive-sport', 'class': 'cbi-input-text', 'placeholder': _('Source port') }),
@@ -167,13 +167,16 @@ return view.extend({
 				E('thead', {}, E('tr', {}, [
 					E('th', {}, _('Time')),
 					E('th', {}, _('Action')),
-					E('th', {}, _('Interface')),
+					E('th', {}, _('IN')),
+					E('th', {}, _('OUT')),
 					E('th', {}, _('Direction')),
 					E('th', {}, _('Proto')),
 					E('th', {}, _('Source')),
 					E('th', {}, _('SPort')),
 					E('th', {}, _('Destination')),
 					E('th', {}, _('DPort')),
+					E('th', {}, _('Flags')),
+					E('th', {}, _('Len')),
 					E('th', {}, _('Message'))
 				])),
 				E('tbody', {}, [])
