@@ -157,6 +157,39 @@ return baseclass.extend({
 		);
 	},
 
+	formatTimestampCompact: function(unix) {
+		if (unix == null || !isFinite(unix))
+			return '';
+
+		const d = new Date(unix * 1000);
+		const pad = function(n) { return (n < 10 ? '0' : '') + n; };
+
+		return '%s:%s:%s'.format(pad(d.getHours()), pad(d.getMinutes()), pad(d.getSeconds()));
+	},
+
+	formatFlowDisplay: function(row) {
+		const src = row && row.src ? String(row.src) : '';
+		const dst = row && row.dst ? String(row.dst) : '';
+		const sport = row && row.sport ? String(row.sport) : '';
+		const dport = row && row.dport ? String(row.dport) : '';
+		let left = src;
+		let right = dst;
+
+		if (sport)
+			left = left ? (left + ':' + sport) : (':' + sport);
+		if (dport)
+			right = right ? (right + ':' + dport) : (':' + dport);
+
+		if (!left && !right)
+			return '—';
+		if (!right)
+			return left;
+		if (!left)
+			return '→ ' + right;
+
+		return left + ' → ' + right;
+	},
+
 	formatCell: function(value) {
 		if (value == null || value === '')
 			return '';

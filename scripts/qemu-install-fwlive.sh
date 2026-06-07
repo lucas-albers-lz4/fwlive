@@ -101,6 +101,7 @@ FWLIVE_PKG="$ROOT/openwrt-feed/luci-app-fwlive"
 FWLIVE_DIR="$FWLIVE_PKG/htdocs/luci-static/resources"
 RPCD_BIN="$FWLIVE_PKG/root/usr/libexec/rpcd/fwlive"
 ACL_JSON="$FWLIVE_PKG/root/usr/share/rpcd/acl.d/luci-app-fwlive.json"
+MENU_JSON="$FWLIVE_PKG/root/usr/share/luci/menu.d/luci-app-fwlive.json"
 if [[ -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
 	echo "Syncing dev JS from feed (may be ahead of .ipk)..."
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
@@ -128,6 +129,13 @@ if [[ -f "$RPCD_BIN" ]]; then
 	fi
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"/etc/init.d/rpcd restart"
+fi
+if [[ -f "$MENU_JSON" ]]; then
+	echo "Syncing LuCI menu entry..."
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+		"cat > /usr/share/luci/menu.d/luci-app-fwlive.json" < "$MENU_JSON"
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+		"rm -f /tmp/luci-indexcache; /etc/init.d/uhttpd restart"
 fi
 
 echo ""

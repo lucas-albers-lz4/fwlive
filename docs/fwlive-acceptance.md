@@ -1,5 +1,7 @@
 # Firewall Live View Acceptance Criteria
 
+> **Developers:** [Contributing](developer/contributing.md) · [Build & test](developer/build-and-test.md)
+
 ## MVP status
 
 **MVP and pre-backport feature work are complete** (stages 1–5 core, 4b, 3.4b, 5.6). Stage 6+ remains backlog — see [Stage 6 (next)](#stage-6--inspect--enrichment-backlog) below.
@@ -54,6 +56,11 @@ Build:
 - **Rule labels** resolve UCI/fw4 names via `ubus fwlive rules` (stage 3.4b); test rule `fwlive-ping` falls back to cosmetic label.
 - **Filter operators:** prefix `!` for is-not / not-contains; action dropdown includes **not pass**, **not drop**, etc. (stage 5.6).
 - **Flood banner** appears under high ingest rate only (token bucket charges new events per poll, not full row count).
+- **Simple view** (default): Action, Time (compact), Interface, Flow, Proto, Rule; no horizontal scroll on typical laptop widths.
+- **Detailed view**: 14-column table including Message, Flags, Len, Dir (via **Show Detail** toggle).
+- **Detail toggle** persists in `localStorage` after user toggles; `view=detailed` in URL hash restores Detailed mode.
+- **Zero-config**: first visit shows live table with auto-refresh; empty state and **Help** are on-router (no build-host doc paths).
+- **Simple row expand**: click row shows full netfilter message; second click collapses; filter links do not toggle expand.
 
 ---
 

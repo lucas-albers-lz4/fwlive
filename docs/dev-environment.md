@@ -1,5 +1,7 @@
 # Development environment (Linux x86_64)
 
+> **Prefer:** [Developer guide → Environment](developer/environment.md) · [Build & test](developer/build-and-test.md)
+
 Canonical setup for **fwview**: cross-build **`luci-app-fwlive`** on **Linux x86_64**, test on **OpenWrt `armsr` / `armv8`** in QEMU.
 
 ## Build host vs OpenWrt target

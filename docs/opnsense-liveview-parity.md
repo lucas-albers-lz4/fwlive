@@ -33,6 +33,7 @@ See **[`fwlive-development-plan.md`](fwlive-development-plan.md)** for stages, C
 - Deferred (stage 4): 250/s render cap + suppression banner.
 - Deferred: session running-total / rate counter (not in OPNsense limit spec).
 - Implemented (stage 5, partial): click-to-filter (src/dst/proto/iface/action); filter chip bar with clear.
+- **Deliberate difference:** **Simple / Detailed toggle** (single **Show Detail** button) — OPNsense uses one table layout; we default to a compact Simple grid and optional Detailed 14-column forensic view ([`fwlive-ui-design-target.md`](fwlive-ui-design-target.md) § View modes).
 - Deferred (stage 5): advanced filter operators (`is not`, `contains`); token array tests.
 - Deferred (stage 6): reverse DNS lookup and rule overlay / modal details.
 - Deferred (stage 7): server-driven digest deltas and SSE streaming endpoint.
