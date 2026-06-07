@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Run OpenWrt armsr/armv8 disk image in QEMU on Linux x86_64.
 #
-# Default: slirp + LAN dhcp + hostfwd (see lib/qemu-lab-net.sh). Optional dual-NIC (WAN + LAN).
+# Networking matches the verified x86 lab layout (single slirp NIC + hostfwd):
+#   -nic user,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22
+#   guest network.lan.proto=dhcp (qemu-lab-prepare-image.sh)
 #
-#   ./scripts/run-openwrt-armsr-armv8-qemu.sh          # start (foreground)
-#   ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop   # kill running instance
-#   OWRT_QEMU_SINGLE_NIC=1 ...                         # one NIC only (simpler debug)
+#   ./scripts/run-openwrt-armsr-armv8-qemu.sh
+#   ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop
+#   OWRT_QEMU_DUAL_NIC=1 ...   # optional legacy dual-NIC (not recommended)
 #
-# LuCI http://127.0.0.1:8080  SSH ssh -p 2222 root@127.0.0.1
-# Deploy: scripts/agent-build-and-deploy.sh --legacy-hostfwd
+# LuCI http://localhost:8080/cgi-bin/luci/
+# SSH   ssh -p 2222 root@localhost
 #
 # Legacy macOS (vmnet): scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh
 #
@@ -30,7 +32,7 @@ OWRT_HOSTFWD_SSH="${OWRT_HOSTFWD_SSH:-2222}"
 OWRT_CONSOLE_LOG="${OWRT_CONSOLE_LOG:-${ROOT}/lab/qemu-console.log}"
 OWRT_SERIAL_TCP="${OWRT_SERIAL_TCP:-127.0.0.1:4445}"
 OWRT_QEMU_SMP="${OWRT_QEMU_SMP:-2}"
-OWRT_QEMU_MEM="${OWRT_QEMU_MEM:-2048}"
+OWRT_QEMU_MEM="${OWRT_QEMU_MEM:-1024}"
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -47,7 +49,7 @@ check_host_ports() {
 	for spec in "${OWRT_HOSTFWD_HTTP}:HTTP" "${OWRT_HOSTFWD_SSH}:SSH"; do
 		port="${spec%%:*}"
 		if ss -tlnH "sport = :${port}" 2>/dev/null | grep -q .; then
-			die "host port ${port} (${spec#*:}) already in use — stop Docker owrt-x64-exp or another QEMU (./scripts/run-openwrt-armsr-armv8-qemu.sh --stop)"
+			die "host port ${port} (${spec#*:}) already in use — stop other QEMU (./scripts/run-openwrt-armsr-armv8-qemu.sh --stop)"
 		fi
 	done
 }
@@ -77,31 +79,30 @@ resolve_uboot() {
 OWRT_IMG="$(resolve_disk)"
 OWRT_UBOOT="$(resolve_uboot)"
 
-[[ -n "${OWRT_IMG}" && -f "${OWRT_IMG}" ]] || { echo "No disk image under ${IMG_DIR}/ — run scripts/download-openwrt-armsr-armv8.sh" >&2; exit 1; }
-[[ -n "${OWRT_UBOOT}" && -f "${OWRT_UBOOT}" ]] || { echo "Missing U-Boot — run scripts/download-openwrt-armsr-armv8.sh" >&2; exit 1; }
+[[ -n "${OWRT_IMG}" && -f "${OWRT_IMG}" ]] || die "No disk image under ${IMG_DIR}/ — run scripts/download-openwrt-armsr-armv8.sh"
+[[ -n "${OWRT_UBOOT}" && -f "${OWRT_UBOOT}" ]] || die "Missing U-Boot — run scripts/download-openwrt-armsr-armv8.sh"
 
 check_host_ports
-
 mkdir -p "$(dirname "${OWRT_CONSOLE_LOG}")"
 : > "${OWRT_CONSOLE_LOG}"
+
+NIC_USER="$(qemu_lab_nic_user "${OWRT_HOSTFWD_HTTP}" "${OWRT_HOSTFWD_SSH}")"
 
 echo "Using disk:  ${OWRT_IMG}"
 echo "Using U-Boot: ${OWRT_UBOOT}"
 echo "Console log: ${OWRT_CONSOLE_LOG}"
-NETDEV_LAN="$(qemu_lab_netdev_lan "${OWRT_HOSTFWD_HTTP}" "${OWRT_HOSTFWD_SSH}")"
-echo "netdev:      ${NETDEV_LAN}"
+echo "Accel:       tcg"
+echo "NIC:         -nic ${NIC_USER}"
 echo "LuCI  http://localhost:${OWRT_HOSTFWD_HTTP}/cgi-bin/luci/"
 echo "SSH   ssh -p ${OWRT_HOSTFWD_SSH} root@localhost"
 echo "Serial:      nc ${OWRT_SERIAL_TCP}"
 if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]]; then
-	echo "Guest LAN:   dhcp on slirp (sudo ./scripts/qemu-lab-prepare-image.sh)"
-else
-	echo "Guest LAN:   ${OWRT_LAB_IP} (${OWRT_LAB_SUBNET})"
+	echo "Guest LAN:   dhcp on slirp (prepare image: sudo OWRT_IMG=${OWRT_IMG} ./scripts/qemu-lab-prepare-image.sh)"
 fi
-if [[ "${OWRT_QEMU_SINGLE_NIC:-0}" == "1" ]]; then
-	echo "NIC layout: single user netdev (eth0 / br-lan)"
+if [[ "${OWRT_QEMU_DUAL_NIC:-0}" == "1" ]]; then
+	echo "NIC layout:  dual user netdevs (legacy — OWRT_QEMU_DUAL_NIC=1)"
 else
-	echo "NIC layout: dual user netdevs (eth0=LAN hostfwd, eth1=WAN)"
+	echo "NIC layout:  single user netdev (same as x86 lab)"
 fi
 
 QEMU_ARGS=(
@@ -111,14 +112,18 @@ QEMU_ARGS=(
 	-smp "${OWRT_QEMU_SMP}" -m "${OWRT_QEMU_MEM}"
 	-drive "file=${OWRT_IMG},format=raw,index=0,media=disk"
 	-device virtio-rng-pci
-	-netdev "${NETDEV_LAN}"
-	-device virtio-net-pci,netdev="${OWRT_LAB_NETDEV_ID}",mac=52:54:00:44:55:66
 )
-if [[ "${OWRT_QEMU_SINGLE_NIC:-0}" != "1" ]]; then
+
+if [[ "${OWRT_QEMU_DUAL_NIC:-0}" == "1" ]]; then
+	NETDEV_LAN="$(qemu_lab_netdev_lan "${OWRT_HOSTFWD_HTTP}" "${OWRT_HOSTFWD_SSH}")"
 	QEMU_ARGS+=(
+		-netdev "${NETDEV_LAN}"
+		-device virtio-net-pci,netdev="${OWRT_LAB_NETDEV_ID}",mac=52:54:00:44:55:66
 		-netdev "user,id=wan0,net=${OWRT_LAB_WAN_SUBNET}"
 		-device virtio-net-pci,netdev=wan0,mac=52:54:00:11:22:33
 	)
+else
+	QEMU_ARGS+=(-nic "${NIC_USER}")
 fi
 
 QEMU_ARGS+=(
@@ -126,4 +131,5 @@ QEMU_ARGS+=(
 	-serial chardev:ser0
 	-monitor none
 )
+
 exec qemu-system-aarch64 "${QEMU_ARGS[@]}" 2>&1 | tee -a "${OWRT_CONSOLE_LOG}"

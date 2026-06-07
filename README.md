@@ -44,7 +44,9 @@ LuCI **Firewall Live View** for OpenWrt (nftables / firewall4), inspired by OPNs
 
 | Phase | Focus |
 | ----- | ----- |
-| **Now** | Stage 4 pause/resume → Stage 5 click-to-filter → Stage 3 rule labels |
+| **Now** | Armsr / 23.05 backport validation |
+| **Done** | Feature completion: 3.4b rule names, 5.6 filter operators, stream UI |
+| **Later** | Stage 6 DNS/modal, digest/SSE |
 | **Later** | DNS hover, digest/SSE, saved filter templates |
 
 Architecture target: [`docs/fwlive-ui-design-target.md`](docs/fwlive-ui-design-target.md) (client-side LuCI JS, not OPNsense PHP).

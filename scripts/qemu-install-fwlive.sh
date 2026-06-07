@@ -57,7 +57,10 @@ fi
 ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 	"opkg install ${REMOTE} && rm -f ${REMOTE}"
 
-FWLIVE_DIR="$ROOT/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources"
+FWLIVE_PKG="$ROOT/openwrt-feed/luci-app-fwlive"
+FWLIVE_DIR="$FWLIVE_PKG/htdocs/luci-static/resources"
+RPCD_BIN="$FWLIVE_PKG/root/usr/libexec/rpcd/fwlive"
+ACL_JSON="$FWLIVE_PKG/root/usr/share/rpcd/acl.d/luci-app-fwlive.json"
 if [[ -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
 	echo "Syncing dev JS from feed (may be ahead of .ipk)..."
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
@@ -70,6 +73,21 @@ if [[ -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
 		< "$FWLIVE_DIR/fwlive/log.js"
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"rm -f /www/luci-static/resources/fwlive/parser.js"
+fi
+if [[ -f "$RPCD_BIN" ]]; then
+	echo "Syncing rpcd fwlive plugin + ACL..."
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+		"mkdir -p /usr/libexec/rpcd /usr/share/rpcd/acl.d"
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+		"cat > /usr/libexec/rpcd/fwlive && chmod +x /usr/libexec/rpcd/fwlive" \
+		< "$RPCD_BIN"
+	if [[ -f "$ACL_JSON" ]]; then
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"cat > /usr/share/rpcd/acl.d/luci-app-fwlive.json" \
+			< "$ACL_JSON"
+	fi
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+		"/etc/init.d/rpcd restart"
 fi
 
 echo ""

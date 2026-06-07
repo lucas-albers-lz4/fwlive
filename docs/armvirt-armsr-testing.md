@@ -45,7 +45,12 @@ Then build **`luci-app-fwlive`** with the SDK ([`minimal-build-sdk.md`](minimal-
    sudo ./scripts/qemu-lab-prepare-image.sh
    sudo OWRT_IMG=lab/images/openwrt-x86-64.img ./scripts/qemu-lab-prepare-image.sh
    ```
-3. **Networking (verified):** default **slirp + DHCP** — no custom `192.168.x` guest IP (avoids clashes with real routers). `qemu-lab-prepare-image.sh` sets `network.lan.proto=dhcp`. QEMU uses:
+3. **Networking (verified, same as x86 lab):** single **`-nic user,hostfwd=...`** + guest LAN **DHCP**. Prepare the image before first boot:
+   ```sh
+   sudo OWRT_IMG=lab/images/openwrt-armsr-armv8.img ./scripts/qemu-lab-prepare-image.sh
+   ```
+   (Also clears root password for lab SSH — armsr images may ship with a hash; x86 lab images are usually already blank.)
+   Legacy dual-NIC mode: `OWRT_QEMU_DUAL_NIC=1` (not recommended). QEMU uses:
    - `-nic user,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22`
    - LuCI **http://localhost:8080/cgi-bin/luci/** · SSH **`ssh -p 2222 root@localhost`**
 4. **Static guest IP (optional):** `OWRT_LAB_NET_MODE=static` plus `OWRT_LAB_SUBNET` / `OWRT_LAB_IP` before prepare + run scripts.

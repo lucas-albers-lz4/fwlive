@@ -5,6 +5,7 @@
 # - rfc1918_filter off (slirp host may not match strict LAN checks)
 # - syn_flood off (avoid lockout while retrying SSH during slow TCG boot)
 # - defaults input ACCEPT (lab only — do not use on production routers)
+# - clear root password (armsr images may ship with one; x86 lab expects empty)
 #
 # Usage: sudo ./scripts/qemu-lab-prepare-image.sh
 set -euo pipefail
@@ -41,6 +42,19 @@ else
 fi
 sed -i "s/option syn_flood '1'/option syn_flood '0'/" "$MNT/etc/config/firewall"
 sed -i "s/option input 'REJECT'/option input 'ACCEPT'/" "$MNT/etc/config/firewall"
+
+# QEMU lab: empty root password for SSH/LuCI (x86 images often already blank).
+if [[ -f "$MNT/etc/shadow" ]]; then
+	sed -i 's/^root:[^:]*:/root::/' "$MNT/etc/shadow"
+fi
+if [[ -f "$MNT/etc/config/dropbear" ]]; then
+	grep -q "option PasswordAuth" "$MNT/etc/config/dropbear" \
+		|| echo "	option PasswordAuth 'on'" >>"$MNT/etc/config/dropbear"
+	grep -q "option RootPasswordAuth" "$MNT/etc/config/dropbear" \
+		|| echo "	option RootPasswordAuth 'on'" >>"$MNT/etc/config/dropbear"
+	sed -i "s/option PasswordAuth 'off'/option PasswordAuth 'on'/" "$MNT/etc/config/dropbear"
+	sed -i "s/option RootPasswordAuth 'off'/option RootPasswordAuth 'on'/" "$MNT/etc/config/dropbear"
+fi
 
 # LAN: DHCP for default slirp (recommended); static only when OWRT_LAB_NET_MODE=static.
 if [[ -f "$MNT/etc/config/network" ]]; then

@@ -1,0 +1,101 @@
+#!/bin/sh
+# rpcd plugin: ubus object "fwlive" — resolve log rule_hint → human labels.
+# Maps nft log prefixes and fw4/UCI rule names for luci-app-fwlive.
+
+FW4_TAG='!fw4: '
+
+json_escape() {
+	sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g"
+}
+
+slug_key() {
+	echo "$1" | tr 'A-Z' 'a-z' | tr ' _' '--'
+}
+
+# Append "key":"value" to JSON object body in $OUT (comma-separated pairs).
+map_add() {
+	key="$1"
+	val="$2"
+	[ -n "$key" ] || return 0
+	[ -n "$val" ] || return 0
+	esc_key=$(printf '%s' "$key" | json_escape)
+	esc_val=$(printf '%s' "$val" | json_escape)
+	if [ -n "$OUT" ]; then
+		OUT="${OUT},"
+	fi
+	OUT="${OUT}\"${esc_key}\":\"${esc_val}\""
+}
+
+# UCI firewall @rule names (Allow-Ping, Allow-DHCP-Renew, …).
+uci_rule_names() {
+	uci -q show firewall 2>/dev/null | sed -n "s/^firewall\.@rule\[[0-9]*\]\.name='\(.*\)'$/\1/p"
+}
+
+# fw4 comment suffix when it matches a UCI rule name (not free-form prose).
+is_uci_style_name() {
+	case "$1" in
+		*' '*|*'"'*|*"'"*) return 1 ;;
+		[!A-Za-z0-9_-]*) return 1 ;;
+	esac
+	return 0
+}
+
+build_rules_map() {
+	OUT=''
+
+	# Index UCI rule names by hint variants.
+	for name in $(uci_rule_names); do
+		map_add "$name" "$name"
+		map_add "$(slug_key "$name")" "$name"
+	done
+
+	nft list ruleset 2>/dev/null > /tmp/fwlive-nft.txt
+	while IFS= read -r line; do
+		prefix=$(echo "$line" | sed -n 's/.*log prefix "\([^"]*\)".*/\1/p')
+		comment=$(echo "$line" | sed -n 's/.*comment "\([^"]*\)".*/\1/p')
+		label=''
+
+		case "$comment" in
+			"${FW4_TAG}"*)
+				suffix="${comment#${FW4_TAG}}"
+				if is_uci_style_name "$suffix"; then
+					label="$suffix"
+				fi
+				;;
+		esac
+
+		if [ -n "$prefix" ]; then
+			if [ -n "$label" ]; then
+				map_add "$prefix" "$label"
+				map_add "$(slug_key "$prefix")" "$label"
+			else
+				cosmetic=$(echo "$prefix" | tr '-' ' ')
+				map_add "$prefix" "$cosmetic"
+				map_add "$(slug_key "$prefix")" "$cosmetic"
+			fi
+		elif [ -n "$label" ]; then
+			map_add "$label" "$label"
+			map_add "$(slug_key "$label")" "$label"
+		fi
+	done < /tmp/fwlive-nft.txt
+	rm -f /tmp/fwlive-nft.txt
+
+	printf '{"rules":{%s}}' "$OUT"
+}
+
+case "$1" in
+	list)
+		echo '{"rules":{}}'
+		;;
+	call)
+		case "$2" in
+			rules)
+				build_rules_map
+				;;
+			*)
+				echo '{"error":"Method not found"}'
+				exit 1
+				;;
+		esac
+		;;
+esac

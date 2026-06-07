@@ -45,6 +45,7 @@ return view.extend({
 	lastPollNewEvents: 0,
 	lastRenderedRowCount: 0,
 	lastRenderedHeadId: '',
+	followLive: true,
 	rulesMap: {},
 
 	FILTER_CHIP_FIELDS: [
@@ -160,7 +161,8 @@ return view.extend({
 
 		this.lastPollNewEvents = pollNew;
 
-		this.entries = normalized.reverse().slice(-this.ingestCap());
+		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
+		this.entries = normalized.slice(-this.ingestCap());
 		this.trimEntriesToLiveCap();
 	},
 
@@ -188,6 +190,8 @@ return view.extend({
 			bits.push(_('buffer full'));
 		if (this.floodSuppressed)
 			bits.push(_('render paused (high rate)'));
+		if (!this.paused && !this.followLive)
+			bits.push(_('scroll frozen — scroll to top to follow live'));
 		return bits.length ? ' — ' + bits.join(', ') : '';
 	},
 
@@ -349,6 +353,9 @@ return view.extend({
 			});
 			return;
 		}
+
+		if (wasPaused && !this.paused)
+			this.followLive = true;
 
 		if (wasPaused && !this.paused) {
 			this.trimEntriesToLiveCap();
@@ -602,7 +609,6 @@ return view.extend({
 
 		this.updateFloodBanner();
 
-		const atTop = scroll ? scroll.scrollTop < 8 : true;
 		const prevScroll = scroll ? scroll.scrollTop : 0;
 
 		body.innerHTML = '';
@@ -640,7 +646,7 @@ return view.extend({
 		}
 
 		if (scroll) {
-			if (atTop)
+			if (!this.paused && this.followLive)
 				scroll.scrollTop = 0;
 			else
 				scroll.scrollTop = prevScroll;
@@ -659,7 +665,20 @@ return view.extend({
 		}
 	},
 
+	onScrollArea(ev) {
+		const scroll = ev && ev.target;
+		if (!scroll || this.paused)
+			return;
+
+		this.followLive = scroll.scrollTop < 8;
+		this.updateStatus();
+	},
+
 	attachHandlers() {
+		const scroll = document.getElementById('fwlive-scroll');
+		if (scroll)
+			scroll.addEventListener('scroll', this.onScrollArea.bind(this));
+
 		const ids = [ 'q', 'action', 'interface', 'proto', 'src', 'dst', 'sport', 'dport' ];
 		for (let i = 0; i < ids.length; i++) {
 			const el = document.getElementById('fwlive-' + ids[i]);
@@ -919,7 +938,7 @@ return view.extend({
 					E('tbody', {}, [])
 				])
 			]),
-			E('p', { 'class': 'cbi-value-description' }, _('Tip: prefix a filter with ! to exclude (not / not contains). Uncheck Auto-refresh to freeze the table while the ingest buffer keeps growing. Ctrl+click Rule opens firewall settings.'))
+			E('p', { 'class': 'cbi-value-description' }, _('Tip: live view is newest-first at the top; with Auto-refresh on, new rows appear there (scroll down to inspect older rows — scroll back to top to follow live). Prefix ! to exclude. Ctrl+click Rule opens firewall settings.'))
 		]);
 	},
 
