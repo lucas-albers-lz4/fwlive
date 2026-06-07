@@ -52,6 +52,7 @@ The **Message: wrap / one-line** toolbar control applies in Detailed view only.
 | **Auto-refresh** | When checked, the table updates each poll (~1s). Uncheck to freeze the display while polling continues. |
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. |
 | **Show Detail / Hide Detail** | Toggles Simple ↔ Detailed; preference saved in `localStorage` after you use it. |
+| **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns; hover shows the IP. Click still filters by IP. |
 | **Quick search** | Matches across all normalized fields. |
 
 ## Filtering

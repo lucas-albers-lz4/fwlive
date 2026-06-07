@@ -1,8 +1,14 @@
 #!/bin/sh
-# rpcd plugin: ubus object "fwlive" — resolve log rule_hint → human labels.
-# Maps nft log prefixes and fw4/UCI rule names for luci-app-fwlive.
+# rpcd plugin: ubus object "fwlive"
+#   rules   — rule hint map (no args)
+#   poll    — firewall-only log tail; pass line count as addresses[0] (rpcd array schema)
+#   resolve — reverse DNS for IP addresses (getent)
 
 FW4_TAG='!fw4: '
+LIBEXEC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+FILTER_SH="$LIBEXEC_DIR/fwlive-log-filter.sh"
+RESOLVE_MAX=32
+RESOLVE_TIMEOUT=1
 
 json_escape() {
 	sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g"
@@ -12,7 +18,6 @@ slug_key() {
 	echo "$1" | tr 'A-Z' 'a-z' | tr ' _' '--'
 }
 
-# Append "key":"value" to JSON object body in $OUT (comma-separated pairs).
 map_add() {
 	key="$1"
 	val="$2"
@@ -26,12 +31,10 @@ map_add() {
 	OUT="${OUT}\"${esc_key}\":\"${esc_val}\""
 }
 
-# UCI firewall @rule names (Allow-Ping, Allow-DHCP-Renew, …).
 uci_rule_names() {
 	uci -q show firewall 2>/dev/null | sed -n "s/^firewall\.@rule\[[0-9]*\]\.name='\(.*\)'$/\1/p"
 }
 
-# fw4 comment suffix when it matches a UCI rule name (not free-form prose).
 is_uci_style_name() {
 	case "$1" in
 		*' '*|*'"'*|*"'"*) return 1 ;;
@@ -43,7 +46,6 @@ is_uci_style_name() {
 build_rules_map() {
 	OUT=''
 
-	# Index UCI rule names by hint variants.
 	for name in $(uci_rule_names); do
 		map_add "$name" "$name"
 		map_add "$(slug_key "$name")" "$name"
@@ -83,14 +85,130 @@ build_rules_map() {
 	printf '{"rules":{%s}}' "$OUT"
 }
 
+poll_lines_from_input() {
+	input="$1"
+	lines=50
+
+	if ! command -v jshn >/dev/null 2>&1; then
+		printf '%s' "$lines"
+		return 0
+	fi
+
+	. /usr/share/libubox/jshn.sh
+	json_load "$input" 2>/dev/null || {
+		printf '%s' "$lines"
+		return 0
+	}
+
+	if json_select addresses 2>/dev/null; then
+		json_get_var first 1
+		json_select ..
+		case "$first" in
+			''|*[!0-9]*) ;;
+			*) lines="$first" ;;
+		esac
+	fi
+
+	printf '%s' "$lines"
+}
+
+fetch_firewall_logs() {
+	input="$1"
+	lines=$(poll_lines_from_input "$input")
+	stream=false
+	oneshot=true
+	case "$stream" in
+		true|1) stream=true ;;
+		*) stream=false ;;
+	esac
+	case "$oneshot" in
+		false|0) oneshot=false ;;
+		*) oneshot=true ;;
+	esac
+
+	raw=$(sh -c "ubus call log read '{\"lines\":$lines,\"stream\":$stream,\"oneshot\":$oneshot}'" 2>/dev/null) \
+		|| raw='{"log":[]}'
+
+	out=$(printf '%s' "$raw" | "$FILTER_SH" 2>/dev/null) || out='{"log":[]}'
+	printf '%s' "$out"
+}
+
+poll_logs() {
+	if [ -n "$3" ]; then
+		input="$3"
+	else
+		input="$(cat)"
+	fi
+	fetch_firewall_logs "$input"
+}
+
+resolve_hostname() {
+	ip="$1"
+	[ -n "$ip" ] || return 1
+	line=""
+	if command -v timeout >/dev/null 2>&1; then
+		line=$(timeout "$RESOLVE_TIMEOUT" getent hosts "$ip" 2>/dev/null | head -1)
+	else
+		line=$(getent hosts "$ip" 2>/dev/null | head -1)
+	fi
+	[ -n "$line" ] || return 1
+	set -- $line
+	[ "$#" -ge 2 ] || return 1
+	printf '%s' "$2"
+}
+
+resolve_addresses() {
+	if [ -n "$3" ]; then
+		input="$3"
+	else
+		input="$(cat)"
+	fi
+	count=0
+	OUT=''
+
+	if ! command -v jshn >/dev/null 2>&1; then
+		printf '{"names":{}}'
+		return 0
+	fi
+
+	. /usr/share/libubox/jshn.sh
+	json_load "$input" 2>/dev/null || {
+		printf '{"names":{}}'
+		return 0
+	}
+
+	if json_select addresses 2>/dev/null; then
+		idx=1
+		while json_get_type atype "$idx" && [ "$atype" = string ]; do
+			[ "$count" -ge "$RESOLVE_MAX" ] && break
+			json_get_var ip "$idx"
+			name=$(resolve_hostname "$ip")
+			if [ -n "$name" ]; then
+				map_add "$ip" "$name"
+				count=$((count + 1))
+			fi
+			idx=$((idx + 1))
+		done
+		json_select ..
+	fi
+
+	printf '{"names":{%s}}' "$OUT"
+}
+
 case "$1" in
 	list)
-		echo '{"rules":{}}'
+		echo '{"rules":{},"poll":{"addresses":[]},"resolve":{"addresses":[]}}'
 		;;
 	call)
 		case "$2" in
 			rules)
 				build_rules_map
+				;;
+			poll)
+				poll_logs
+				;;
+			resolve)
+				resolve_addresses
 				;;
 			*)
 				echo '{"error":"Method not found"}'

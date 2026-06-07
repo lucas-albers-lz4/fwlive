@@ -1,6 +1,6 @@
 'use strict';
 /*
- * LuCI Firewall Live View — client-side view (view.extend + ubus log.read).
+ * LuCI Firewall Live View — client-side view (view.extend + ubus fwlive.poll).
  * UI interaction patterns inspired by OPNsense Live View; original implementation
  * for OpenWrt (Apache-2.0). See docs/fwlive-ui-design-target.md in the fwview repo.
  */
@@ -9,10 +9,10 @@
 'require rpc';
 'require fwlive.log as log';
 
-const callLogRead = rpc.declare({
-	object: 'log',
-	method: 'read',
-	params: [ 'lines', 'stream', 'oneshot' ],
+const callFwlivePoll = rpc.declare({
+	object: 'fwlive',
+	method: 'poll',
+	params: [ 'addresses' ],
 	expect: { log: [] }
 });
 
@@ -20,6 +20,13 @@ const callFwliveRules = rpc.declare({
 	object: 'fwlive',
 	method: 'rules',
 	expect: { rules: {} }
+});
+
+const callFwliveResolve = rpc.declare({
+	object: 'fwlive',
+	method: 'resolve',
+	params: [ 'addresses' ],
+	expect: { names: {} }
 });
 
 const ROW_LIMIT_OPTIONS = [ 25, 50, 100, 250, 500, 1000, 2000 ];
@@ -48,6 +55,10 @@ return view.extend({
 	renderBucketMs: 0,
 	floodSuppressed: false,
 	lastPollNewEvents: 0,
+	showHostnames: false,
+	hostnameCache: null,
+	hostnameFailed: null,
+	resolveInFlight: false,
 	lastRenderedRowCount: 0,
 	lastRenderedHeadId: '',
 	followLive: true,
@@ -144,6 +155,29 @@ return view.extend({
 		}
 	},
 
+	readShowHostnames() {
+		try {
+			return localStorage.getItem('fwlive-show-hostnames') === '1';
+		} catch (e) {
+			return false;
+		}
+	},
+
+	saveShowHostnames() {
+		try {
+			localStorage.setItem('fwlive-show-hostnames', this.showHostnames ? '1' : '0');
+		} catch (e) {
+			/* private mode / no storage */
+		}
+	},
+
+	isLikelyIp(addr) {
+		if (!addr)
+			return false;
+
+		return /^[\da-fA-F:.]+$/.test(addr);
+	},
+
 	activeColumns() {
 		return COLUMN_SETS[this.viewMode] || COLUMN_SETS.simple;
 	},
@@ -237,12 +271,12 @@ return view.extend({
 
 	flowCell(row) {
 		const parts = [];
-		const pushEndpoint = (addr, port, addrField, portField) => {
+		const pushAddr = (addr, port, addrField, portField) => {
 			if (!addr && !port)
 				return;
 
 			if (addr)
-				parts.push(this.filterLink(addrField, addr));
+				parts.push(this.addrFilterLink(addrField, addr));
 			if (port) {
 				if (addr)
 					parts.push(':');
@@ -250,10 +284,10 @@ return view.extend({
 			}
 		};
 
-		pushEndpoint(row.src, row.sport, 'src', 'sport');
+		pushAddr(row.src, row.sport, 'src', 'sport');
 		if (parts.length && (row.dst || row.dport))
 			parts.push(E('span', { 'class': 'fwlive-flow-arrow' }, ' → '));
-		pushEndpoint(row.dst, row.dport, 'dst', 'dport');
+		pushAddr(row.dst, row.dport, 'dst', 'dport');
 
 		if (!parts.length)
 			return '—';
@@ -288,11 +322,11 @@ return view.extend({
 		case 'proto':
 			return E('td', { 'class': 'fwlive-proto' }, this.filterLink('proto', row.proto));
 		case 'src':
-			return E('td', { 'class': 'fwlive-addr' }, this.filterLink('src', row.src));
+			return E('td', { 'class': 'fwlive-addr' }, this.addrFilterLink('src', row.src));
 		case 'sport':
 			return E('td', { 'class': 'fwlive-port' }, this.filterLink('sport', row.sport));
 		case 'dst':
-			return E('td', { 'class': 'fwlive-addr' }, this.filterLink('dst', row.dst));
+			return E('td', { 'class': 'fwlive-addr' }, this.addrFilterLink('dst', row.dst));
 		case 'dport':
 			return E('td', { 'class': 'fwlive-port' }, this.filterLink('dport', row.dport));
 		case 'flags':
@@ -362,7 +396,7 @@ return view.extend({
 		if (!this.sessionSeen)
 			this.sessionSeen = new Set();
 
-		const raw = await callLogRead(this.fetchLines, false, true);
+		const raw = await callFwlivePoll({ addresses: [ String(this.fetchLines) ] });
 		const normalized = [];
 		const seen = {};
 		let pollNew = 0;
@@ -556,10 +590,23 @@ return view.extend({
 	updateStreamControlsUi() {
 		const cb = document.getElementById('fwlive-autorefresh');
 		const sel = document.getElementById('fwlive-limit');
+		const hostCb = document.getElementById('fwlive-show-hostnames');
 		if (cb)
 			cb.checked = !this.paused;
 		if (sel)
 			sel.value = String(this.rowLimit);
+		if (hostCb)
+			hostCb.checked = !!this.showHostnames;
+	},
+
+	onShowHostnamesChange(ev) {
+		this.showHostnames = !!(ev && ev.target && ev.target.checked);
+		this.saveShowHostnames();
+
+		if (this.showHostnames)
+			this.resolveHostnamesForEntries(this.filteredRows());
+		else
+			this.renderRows(true);
 	},
 
 	onAutoRefreshChange(ev) {
@@ -646,6 +693,84 @@ return view.extend({
 			'title': _('Filter by %s').format(field),
 			'click': this.filterClick.bind(this, field, value)
 		}, label || value);
+	},
+
+	addrFilterLink(field, ip) {
+		if (!ip)
+			return log.formatCell(ip);
+
+		const name = this.showHostnames && this.hostnameCache
+			? this.hostnameCache.get(ip) : null;
+		const display = name || ip;
+		const title = name ? ip : _('Filter by %s').format(field);
+
+		return E('a', {
+			'href': '#',
+			'class': 'fwlive-filter-link',
+			'title': title,
+			'click': this.filterClick.bind(this, field, ip)
+		}, display);
+	},
+
+	collectIpsFromEntries(entries) {
+		const ips = new Set();
+
+		for (let i = 0; i < entries.length; i++) {
+			const r = entries[i];
+			if (r.src && this.isLikelyIp(r.src))
+				ips.add(r.src);
+			if (r.dst && this.isLikelyIp(r.dst))
+				ips.add(r.dst);
+		}
+
+		return Array.from(ips);
+	},
+
+	async resolveHostnamesForEntries(entries) {
+		if (!this.showHostnames || this.resolveInFlight)
+			return;
+
+		if (!this.hostnameCache)
+			this.hostnameCache = new Map();
+		if (!this.hostnameFailed)
+			this.hostnameFailed = new Set();
+
+		const ips = this.collectIpsFromEntries(entries);
+		const need = [];
+
+		for (let i = 0; i < ips.length && need.length < 32; i++) {
+			const ip = ips[i];
+			if (!this.hostnameCache.has(ip) && !this.hostnameFailed.has(ip))
+				need.push(ip);
+		}
+
+		if (!need.length)
+			return;
+
+		this.resolveInFlight = true;
+
+		try {
+			const res = await callFwliveResolve({ addresses: need });
+			const names = (res && res.names) || {};
+			let updated = false;
+
+			for (let i = 0; i < need.length; i++) {
+				const ip = need[i];
+				if (names[ip]) {
+					this.hostnameCache.set(ip, names[ip]);
+					updated = true;
+				} else {
+					this.hostnameFailed.add(ip);
+				}
+			}
+
+			if (updated)
+				this.renderRows(true);
+		} catch (e) {
+			/* resolve unavailable — show IPs */
+		} finally {
+			this.resolveInFlight = false;
+		}
 	},
 
 	ruleAdminPath(hint) {
@@ -926,6 +1051,10 @@ return view.extend({
 		const msgBtn = document.getElementById('fwlive-msg-layout');
 		if (msgBtn)
 			msgBtn.addEventListener('click', this.toggleMessageLayout.bind(this));
+
+		const hostCb = document.getElementById('fwlive-show-hostnames');
+		if (hostCb)
+			hostCb.addEventListener('change', this.onShowHostnamesChange.bind(this));
 	},
 
 	async pollData() {
@@ -934,6 +1063,8 @@ return view.extend({
 			this.updateStatus();
 		else
 			this.renderRows(false);
+
+		await this.resolveHostnamesForEntries(this.filteredRows());
 	},
 
 	load() {
@@ -1168,6 +1299,13 @@ return view.extend({
 					'id': 'fwlive-limit',
 					'class': 'cbi-input-select'
 				}, this.limitSelectOptions()),
+				E('label', { 'class': 'fwlive-ctl' }, [
+					E('input', {
+						'id': 'fwlive-show-hostnames',
+						'type': 'checkbox'
+					}),
+					_('Show hostnames')
+				]),
 				E('button', {
 					'id': 'fwlive-detail-toggle',
 					'class': 'cbi-button',
@@ -1246,6 +1384,9 @@ return view.extend({
 	addFooter() {
 		this.viewMode = this.readViewMode();
 		this.messageLayout = this.readMessageLayout();
+		this.showHostnames = this.readShowHostnames();
+		this.hostnameCache = new Map();
+		this.hostnameFailed = new Set();
 		this.applyRowLimit(this.readRowLimit());
 		this.applyHash();
 		this.attachHandlers();
@@ -1254,5 +1395,7 @@ return view.extend({
 		this.updateDetailToggleUi();
 		this.renderThead();
 		this.renderRows(true);
+		if (this.showHostnames)
+			this.resolveHostnamesForEntries(this.filteredRows());
 	}
 });

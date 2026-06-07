@@ -7,7 +7,7 @@
 | **Firewall** | **firewall4** (nftables) — menu entry requires `/usr/sbin/nft` |
 | **LuCI** | Modern JS LuCI (`luci-base`) |
 | **Logging** | `logd` (standard on OpenWrt images) |
-| **RPC** | `rpcd` (for `ubus log.read` and rule metadata) |
+| **RPC** | `rpcd` (for `ubus fwlive poll` / `resolve` / `rules`) |
 
 ## Supported OpenWrt releases
 
