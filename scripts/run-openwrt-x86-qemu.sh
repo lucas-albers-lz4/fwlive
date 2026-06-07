@@ -21,7 +21,21 @@ export OWRT_LAB_NET_MODE="${OWRT_LAB_NET_MODE:-dhcp}"
 # shellcheck source=lib/qemu-lab-net.sh
 source "${ROOT}/scripts/lib/qemu-lab-net.sh"
 IMG_DIR="${ROOT}/lab/images"
-OWRT_IMG="${OWRT_X86_IMG:-${IMG_DIR}/openwrt-x86-64.img}"
+resolve_x86_disk() {
+	if [[ -n "${OWRT_X86_IMG:-}" ]]; then echo "${OWRT_X86_IMG}"; return; fi
+	if [[ -n "${OWRT_RELEASE:-}" ]]; then
+		local rel_img="${IMG_DIR}/openwrt-x86-64-${OWRT_RELEASE}.img"
+		[[ -f "${rel_img}" ]] && echo "${rel_img}" && return
+	fi
+	if [[ -f "${IMG_DIR}/openwrt-x86-64.img" ]]; then echo "${IMG_DIR}/openwrt-x86-64.img"; return; fi
+	shopt -s nullglob
+	local candidates=( "${IMG_DIR}"/openwrt-x86-64-*.img )
+	shopt -u nullglob
+	[[ ${#candidates[@]} -ge 1 ]] && echo "${candidates[0]}" && return
+	echo ""
+}
+
+OWRT_IMG="$(resolve_x86_disk)"
 OWRT_HOSTFWD_HTTP="${OWRT_HOSTFWD_HTTP:-8080}"
 OWRT_HOSTFWD_SSH="${OWRT_HOSTFWD_SSH:-2222}"
 OWRT_CONSOLE_LOG="${OWRT_CONSOLE_LOG:-${ROOT}/lab/qemu-x86-console.log}"
@@ -55,7 +69,7 @@ if [[ "${1:-}" == "--stop" ]]; then
 	exit 0
 fi
 
-[[ -f "${OWRT_IMG}" ]] || die "No disk image at ${OWRT_IMG} — run: RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh"
+[[ -n "${OWRT_IMG}" && -f "${OWRT_IMG}" ]] || die "No disk image under ${IMG_DIR}/ — run: RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh"
 [[ -f "${OVMF_CODE}" ]] || die "Missing OVMF firmware (${OVMF_CODE}) — install qemu-system-x86 ovmf"
 if [[ ! -f "${OVMF_VARS}" ]]; then
 	cp /usr/share/OVMF/OVMF_VARS_4M.fd "${OVMF_VARS}"
@@ -81,14 +95,25 @@ if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]]; then
 	echo "Guest LAN:   dhcp on slirp (prepare image: sudo OWRT_IMG=${OWRT_IMG} ./scripts/qemu-lab-prepare-image.sh)"
 fi
 
-exec qemu-system-x86_64 \
-	-machine q35 -accel "${ACCEL}" -cpu host \
-	-smp 2 -m "${OWRT_QEMU_MEM}" \
-	-chardev "socket,id=ser0,host=${OWRT_SERIAL_TCP%:*},port=${OWRT_SERIAL_TCP#*:},server=on,wait=off" \
-	-serial chardev:ser0 \
-	-monitor none \
-	-drive if=pflash,format=raw,readonly=on,file="${OVMF_CODE}" \
-	-drive if=pflash,format=raw,file="${OVMF_VARS}" \
-	-drive "file=${OWRT_IMG},format=raw,if=virtio" \
-	-nic "${NIC_USER}" \
-	2>&1 | tee -a "${OWRT_CONSOLE_LOG}"
+QEMU_ARGS=(
+	-machine q35 -accel "${ACCEL}" -cpu host
+	-smp 2 -m "${OWRT_QEMU_MEM}"
+	-display none -nographic
+	-monitor none
+	-drive "if=pflash,format=raw,readonly=on,file=${OVMF_CODE}"
+	-drive "if=pflash,format=raw,file=${OVMF_VARS}"
+	-drive "file=${OWRT_IMG},format=raw,if=virtio"
+	-nic "${NIC_USER}"
+)
+
+# Default: mon:stdio (headless boot + tee console log). Socket serial: OWRT_QEMU_SERIAL_SOCKET=1
+if [[ "${OWRT_QEMU_SERIAL_SOCKET:-0}" == "1" ]]; then
+	QEMU_ARGS+=(
+		-chardev "socket,id=ser0,host=${OWRT_SERIAL_TCP%:*},port=${OWRT_SERIAL_TCP#*:},server=on,wait=off"
+		-serial chardev:ser0
+	)
+else
+	QEMU_ARGS+=(-serial mon:stdio)
+fi
+
+exec qemu-system-x86_64 "${QEMU_ARGS[@]}" 2>&1 | tee -a "${OWRT_CONSOLE_LOG}"

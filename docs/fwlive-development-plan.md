@@ -154,6 +154,25 @@ Later: saved filter templates.
 
 ---
 
+## Validation matrix (infrastructure)
+
+**Goal:** One parameterized path to build and smoke-test **every supported OpenWrt version** on **x86** and **armsr** lab targets — without duplicating the 23.05 one-off script.
+
+| Step | Script | Status |
+|------|--------|--------|
+| Baseline gate (parser + script checks) | `./scripts/validate-baseline.sh` | **done** |
+| Single cell (version + qemu + sdk) | `./scripts/validate-openwrt.sh --version VER` | **done** |
+| All versions build (no QEMU) | `./scripts/validate-openwrt-all.sh build` | **done** |
+| All versions x86 smoke | `./scripts/validate-openwrt-all.sh smoke-x86` | **done** |
+| Full SDK matrix | `validate-openwrt-all.sh build-full` / `docker-sdk.sh build-all` | **done** |
+| **25.12** in SDK + validation matrix | `sdk-matrix.sh` → 25.12.0 | **done** |
+
+**Phased use:** baseline → build all versions → smoke **24.10 x86** (reference) → `smoke-x86` for all → armsr sign-off per release.
+
+Spec: [`validation-matrix.md`](validation-matrix.md).
+
+---
+
 ## Stage 7 — Transport efficiency (post-MVP)
 
 **Goal:** Sub-second updates at scale.

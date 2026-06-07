@@ -26,7 +26,7 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 
 | Milestone | State | Notes |
 | --------- | ----- | ----- |
-| **MVP** | **Done** | Real nft logs on QEMU x86; stages 1–2; formatting pass |
+| **MVP** | **Done** | Real nft logs on QEMU; stages 1–5 core, 4b, 3.4b; acceptance signed off |
 | **Infra** | **Done** | QEMU x86 lab, `qemu-install-fwlive.sh`, nft ping helper |
 | **Stage 4** | **Done (core)** | Pause/resume + buffer status; message layout toggle |
 | **Stage 4b** | **Done** | Auto-refresh checkbox + row limit dropdown — [spec](fwlive-stream-controls-spec.md) |
@@ -39,12 +39,12 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 ## Post-MVP priority
 
 ```
-Stage 4 ✓ ──► Stage 5 ✓ ──► Stage 3 ✓ ──► Stage 4b (stream UI) ──► armsr backport ──► Stage 6+
+Stage 4 ✓ ──► Stage 5 ✓ ──► Stage 3 ✓ ──► Stage 4b ✓ ──► backport ✓ ──► publish prep ──► Stage 6+
 ```
 
-**Next:** armsr / 23.05 backport validation (after feature completion).
+**Next:** publish upstream · expand validation matrix sign-off (25.12) · Stage 6 (DNS hover, rule overlay).
 
-**Feature completion (pre-backport):** 3.4b rule names · filter operators — **done**. Stage 6+ remains backlog.
+**Backport / versions:** armsr 24.10 + 23.05 (x86 smoke) — **done**. See [`fwlive-acceptance.md`](fwlive-acceptance.md).
 
 ---
 

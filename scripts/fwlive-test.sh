@@ -17,6 +17,9 @@ if [[ -z "$NODE" ]]; then
 	fi
 fi
 
+echo "== fwlive parser sync (core vs LuCI) ==" >&2
+"$NODE" tests/fwlive-parser-sync.test.js
+
 echo "== fwlive parser/filter ==" >&2
 "$NODE" tests/fwlive-parser-filter.test.js
 

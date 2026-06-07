@@ -8,7 +8,7 @@ Canonical setup for **fwview**: cross-build **`luci-app-fwlive`** on **Linux x86
 |------|----------------|--------|
 | **Build host** | **Linux x86_64** only | OpenWrt publishes SDKs as **`…Linux-x86_64.tar.zst`**. Do not use Linux **aarch64**, **macOS**, or **ARM Mac** as the compile host. |
 | **OpenWrt targets** | **`armsr` / `armv8`** (AArch64), **`x86/64`** | Package dirs: **`aarch64_generic`**, **`x86_64`**. QEMU ARM guest uses TCG on x86_64. |
-| **OpenWrt versions** | **23.05**, **24.10**, **snapshot** | See [`sdk-build-matrix.md`](sdk-build-matrix.md). |
+| **OpenWrt versions** | **23.05**, **24.10**, **25.12**, **snapshot** | [`sdk-build-matrix.md`](sdk-build-matrix.md) · smoke: [`validation-matrix.md`](validation-matrix.md) |
 
 ## Quick start
 
@@ -48,7 +48,7 @@ Legacy one-liners (same default cell):
 
 Uses **[`ghcr.io/openwrt/sdk`](https://github.com/openwrt/docker)** (`linux/amd64`). Artifacts: **`out/<arch>/<version>/fwview/`** — see [`sdk-build-matrix.md`](sdk-build-matrix.md).
 
-**Fallback:** fwview-built SDK image + tarball import — [`minimal-build-sdk.md`](minimal-build-sdk.md) §4a (`docker-sdk-import-tar.sh`, etc.).
+**Fallback:** archived tarball SDK path — [`archive/scripts/`](../archive/scripts/) (prefer `docker-sdk.sh`).
 
 **Native (no Docker):** extract SDK on host — [`minimal-build-sdk.md`](minimal-build-sdk.md) §2–4.
 
@@ -85,4 +85,4 @@ Acceptance: [`fwlive-acceptance.md`](fwlive-acceptance.md) · OPNsense parity: [
 - **Full firmware** `make world` as the default loop — optional only: [`openwrt-full-source-build.md`](openwrt-full-source-build.md)
 - **Vagrant** full-build VMs (heavy; not maintained here)
 
-Legacy **macOS** QEMU (vmnet): [`scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh`](../scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh) — unmaintained.
+Legacy **macOS** QEMU (vmnet): [`archive/scripts/legacy/`](../archive/scripts/legacy/) — unmaintained. Builds require Linux x86_64.

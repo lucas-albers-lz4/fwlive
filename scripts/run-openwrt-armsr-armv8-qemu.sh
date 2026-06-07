@@ -12,13 +12,13 @@
 # LuCI http://localhost:8080/cgi-bin/luci/
 # SSH   ssh -p 2222 root@localhost
 #
-# Legacy macOS (vmnet): scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh
+# Legacy macOS (unmaintained): archive/scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh
 #
 set -euo pipefail
 
 if [[ "$(uname -s)" != Linux ]]; then
 	echo "Supported platform: Linux x86_64 only." >&2
-	echo "Legacy macOS: scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh" >&2
+	echo "Legacy macOS: archive/scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh" >&2
 	exit 1
 fi
 
@@ -61,9 +61,16 @@ fi
 
 resolve_disk() {
 	if [[ -n "${OWRT_IMG:-}" ]]; then echo "${OWRT_IMG}"; return; fi
+	if [[ -n "${OWRT_RELEASE:-}" ]]; then
+		local rel_img="${IMG_DIR}/openwrt-armsr-armv8-${OWRT_RELEASE}.img"
+		[[ -f "${rel_img}" ]] && echo "${rel_img}" && return
+	fi
 	if [[ -f "${IMG_DIR}/openwrt-armsr-armv8.img" ]]; then echo "${IMG_DIR}/openwrt-armsr-armv8.img"; return; fi
 	shopt -s nullglob
-	local candidates=( "${IMG_DIR}"/openwrt-*-armsr-armv8-generic-ext4-combined-efi.img )
+	local candidates=(
+		"${IMG_DIR}"/openwrt-armsr-armv8-*.img
+		"${IMG_DIR}"/openwrt-*-armsr-armv8-generic-ext4-combined-efi.img
+	)
 	shopt -u nullglob
 	[[ ${#candidates[@]} -ge 1 ]] && echo "${candidates[0]}" && return
 	echo ""
@@ -71,8 +78,16 @@ resolve_disk() {
 
 resolve_uboot() {
 	if [[ -n "${OWRT_UBOOT:-}" ]]; then echo "${OWRT_UBOOT}"; return; fi
+	if [[ -n "${OWRT_RELEASE:-}" ]]; then
+		local rel_uboot="${IMG_DIR}/u-boot-qemu_armv8-${OWRT_RELEASE}.bin"
+		[[ -f "${rel_uboot}" ]] && echo "${rel_uboot}" && return
+	fi
 	[[ -f "${IMG_DIR}/u-boot-qemu_armv8.bin" ]] && echo "${IMG_DIR}/u-boot-qemu_armv8.bin" && return
 	[[ -f "${IMG_DIR}/u-boot-qemu_armv8/u-boot.bin" ]] && echo "${IMG_DIR}/u-boot-qemu_armv8/u-boot.bin" && return
+	shopt -s nullglob
+	local candidates=( "${IMG_DIR}"/u-boot-qemu_armv8-*.bin )
+	shopt -u nullglob
+	[[ ${#candidates[@]} -ge 1 ]] && echo "${candidates[0]}" && return
 	echo ""
 }
 
@@ -126,10 +141,16 @@ else
 	QEMU_ARGS+=(-nic "${NIC_USER}")
 fi
 
-QEMU_ARGS+=(
-	-chardev "socket,id=ser0,host=${OWRT_SERIAL_TCP%:*},port=${OWRT_SERIAL_TCP#*:},server=on,wait=off"
-	-serial chardev:ser0
-	-monitor none
-)
+QEMU_ARGS+=(-monitor none)
+
+# Default: mon:stdio (headless boot + tee console log). Socket serial: OWRT_QEMU_SERIAL_SOCKET=1
+if [[ "${OWRT_QEMU_SERIAL_SOCKET:-0}" == "1" ]]; then
+	QEMU_ARGS+=(
+		-chardev "socket,id=ser0,host=${OWRT_SERIAL_TCP%:*},port=${OWRT_SERIAL_TCP#*:},server=on,wait=off"
+		-serial chardev:ser0
+	)
+else
+	QEMU_ARGS+=(-serial mon:stdio)
+fi
 
 exec qemu-system-aarch64 "${QEMU_ARGS[@]}" 2>&1 | tee -a "${OWRT_CONSOLE_LOG}"

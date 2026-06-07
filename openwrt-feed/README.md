@@ -11,9 +11,8 @@ OpenWrt separates **build logic** (packages under `package/`, `feeds/*/`) from *
 
 ## Deploy the `.ipk`
 
-- **Router on LAN:** `scp` to **`root@<router-ip>:22`**, then `opkg install` (see minimal-build-sdk).
-- **QEMU on Linux (default in this repo):** user networking + **hostfwd** — LuCI **`http://127.0.0.1:8080`**, SSH **`ssh -p 2222 root@127.0.0.1`**, deploy with **`../scripts/agent-build-and-deploy.sh --legacy-hostfwd`**.
-- **QEMU:** host script or lab — LuCI **http://127.0.0.1:8080**, SSH **port 2222**, **`../scripts/agent-build-and-deploy.sh --legacy-hostfwd`**.
+- **Router on LAN:** `scp` + `opkg install` (see minimal-build-sdk).
+- **QEMU lab:** LuCI `http://127.0.0.1:8080`, SSH `ssh -p 2222 root@127.0.0.1` — **`../scripts/qemu-install-fwlive.sh`** or **`../scripts/agent-build-and-deploy.sh --legacy-hostfwd`**.
 
 ## Wire into OpenWrt 24.10 (full tree or SDK — same feed steps)
 
@@ -24,7 +23,7 @@ OpenWrt separates **build logic** (packages under `package/`, `feeds/*/`) from *
    ./scripts/feeds install luci-base
    ```
 
-2. Register this feed (absolute path to this `openwrt-feed` directory):
+2. Register this feed — see **`../feeds.conf.example`**:
 
    ```sh
    echo "src-link fwview /absolute/path/to/fwview/openwrt-feed" >> feeds.conf

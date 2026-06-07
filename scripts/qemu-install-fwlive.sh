@@ -13,23 +13,56 @@ OPENWRT_SSH_PORT="${OPENWRT_SSH_PORT:-2222}"
 OPENWRT_USER="${OPENWRT_USER:-root}"
 IPK="${1:-}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+FWLIVE_VERSION="${OWRT_FWLIVE_VERSION:-}"
 
 if [[ -z "$IPK" ]]; then
 	shopt -s nullglob
-	candidates=(
-		"$ROOT"/out/x86_64/24.10.5/fwview/luci-app-fwlive_*.ipk
-		"$ROOT"/out/x86_64/24.10/fwview/luci-app-fwlive_*.ipk
-		"$ROOT"/out/aarch64_generic/24.10.5/fwview/luci-app-fwlive_*.ipk
-		"$ROOT"/out/aarch64_generic/24.10/fwview/luci-app-fwlive_*.ipk
-	)
+	_pkg_globs() {
+		local base="$1"
+		printf '%s/luci-app-fwlive_*.ipk %s/luci-app-fwlive-*.apk %s/luci-app-fwlive_*.apk' "$base" "$base" "$base"
+	}
+	if [[ -n "$FWLIVE_VERSION" ]]; then
+		shopt -s nullglob
+		# Prefer guest arch when known (x86 QEMU lab vs armsr SDK default).
+		arch_order=(x86_64 aarch64_generic)
+		if [[ "${OWRT_FWLIVE_ARCH:-}" == aarch64_generic ]]; then
+			arch_order=(aarch64_generic x86_64)
+		fi
+		for arch in "${arch_order[@]}"; do
+			base="$ROOT/out/${arch}/${FWLIVE_VERSION}/fwview"
+			# shellcheck disable=SC2086
+			candidates+=( $(_pkg_globs "$base") )
+		done
+		shopt -u nullglob
+	else
+		shopt -s nullglob
+		for ver in 25.12.0 24.10.5 24.10 23.05.5 23.05 snapshot; do
+			for arch in x86_64 aarch64_generic; do
+				base="$ROOT/out/${arch}/${ver}/fwview"
+				# shellcheck disable=SC2086
+				candidates+=( $(_pkg_globs "$base") )
+			done
+		done
+		shopt -u nullglob
+	fi
 	shopt -u nullglob
 	[[ ${#candidates[@]} -ge 1 ]] || {
-		echo "No .ipk found. Build first:" >&2
+		echo "No package found (.ipk/.apk). Build first:" >&2
 		echo "  ./scripts/docker-sdk.sh build --target x86-64 --version 24.10" >&2
 		echo "  ./scripts/docker-sdk.sh build --target armsr-armv8 --version 24.10" >&2
+		echo "  ./scripts/docker-sdk.sh build --target armsr-armv8 --version 23.05" >&2
 		exit 1
 	}
-	IPK="${candidates[0]}"
+	chosen=""
+	if [[ -n "${OWRT_FWLIVE_ARCH:-}" ]]; then
+		for c in "${candidates[@]}"; do
+			if [[ "$c" == *"/${OWRT_FWLIVE_ARCH}/"* ]]; then
+				chosen="$c"
+				break
+			fi
+		done
+	fi
+	IPK="${chosen:-$(ls -t "${candidates[@]}" 2>/dev/null | head -1)}"
 fi
 [[ -f "$IPK" ]] || { echo "ipk not found: $IPK" >&2; exit 1; }
 
@@ -39,11 +72,12 @@ case "$ARCH" in
 	aarch64) want='aarch64_generic' ;;
 	*) echo "unsupported guest arch: $ARCH" >&2; exit 1 ;;
 esac
-if [[ "$IPK" != *"$want"* && "$IPK" != *"all.ipk"* ]]; then
-	echo "warn: ipk path may not match guest arch ($ARCH): $IPK" >&2
+if [[ "$IPK" != *"$want"* && "$IPK" != *"all.ipk"* && "$IPK" != *"all.apk"* ]]; then
+	echo "warn: package path may not match guest arch ($ARCH): $IPK" >&2
 fi
 
-REMOTE="/tmp/luci-app-fwlive.ipk"
+pkg_ext="${IPK##*.}"
+REMOTE="/tmp/luci-app-fwlive.${pkg_ext}"
 echo "Installing $IPK → ${OPENWRT_USER}@${OPENWRT_HOST}:${OPENWRT_SSH_PORT}"
 
 # Dropbear has no sftp-server; prefer legacy scp, fall back to ssh stdin.
@@ -54,8 +88,14 @@ else
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"cat > ${REMOTE}" < "$IPK"
 fi
-ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
-	"opkg install ${REMOTE} && rm -f ${REMOTE}"
+if [[ "$pkg_ext" == apk ]] || ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+	'command -v apk >/dev/null'; then
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+		"apk add --allow-untrusted ${REMOTE} && rm -f ${REMOTE}"
+else
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+		"opkg install ${REMOTE} && rm -f ${REMOTE}"
+fi
 
 FWLIVE_PKG="$ROOT/openwrt-feed/luci-app-fwlive"
 FWLIVE_DIR="$FWLIVE_PKG/htdocs/luci-static/resources"

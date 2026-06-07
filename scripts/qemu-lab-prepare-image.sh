@@ -28,20 +28,36 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ -b "${LOOP}p2" ]] && command -v e2fsck >/dev/null 2>&1; then
+	e2fsck -fy "${LOOP}p2" >/dev/null 2>&1 || true
+fi
+
 mkdir -p "$MNT"
 mount -o rw "${LOOP}p2" "$MNT"
 
-if grep -q "ucode_prefix" "$MNT/etc/config/uhttpd" 2>/dev/null; then
-	sed -i "s|list ucode_prefix.*|list ucode_prefix '/cgi-bin/luci=/usr/share/ucode/luci/dispatcher.uc'|" "$MNT/etc/config/uhttpd"
-	sed -i "/listen_https/d; /option cert /d; /option key /d" "$MNT/etc/config/uhttpd"
+# LuCI/uhttpd tweaks (release images; snapshot minimal images may omit uhttpd).
+if [[ -f "$MNT/etc/config/uhttpd" ]]; then
+	if [[ -f "$MNT/usr/share/ucode/luci/dispatcher.uc" ]] || grep -q "ucode_prefix" "$MNT/etc/config/uhttpd" 2>/dev/null; then
+		if grep -q "ucode_prefix" "$MNT/etc/config/uhttpd" 2>/dev/null; then
+			sed -i "s|list ucode_prefix.*|list ucode_prefix '/cgi-bin/luci=/usr/share/ucode/luci/dispatcher.uc'|" "$MNT/etc/config/uhttpd"
+		else
+			sed -i "/config uhttpd 'main'/a\\
+	list ucode_prefix '/cgi-bin/luci=/usr/share/ucode/luci/dispatcher.uc'
+" "$MNT/etc/config/uhttpd"
+		fi
+		sed -i "/lua_prefix/d" "$MNT/etc/config/uhttpd"
+	fi
 	sed -i "s/option rfc1918_filter '1'/option rfc1918_filter '0'/" "$MNT/etc/config/uhttpd"
-else
-	# Legacy lua LuCI images
-	sed -i "s/option rfc1918_filter '1'/option rfc1918_filter '0'/" "$MNT/etc/config/uhttpd"
-	sed -i "/listen_https/d; /option cert /d; /option key /d" "$MNT/etc/config/uhttpd"
+	sed -i "/listen_https/d; /option cert/d; /option key/d" "$MNT/etc/config/uhttpd"
 fi
-sed -i "s/option syn_flood '1'/option syn_flood '0'/" "$MNT/etc/config/firewall"
-sed -i "s/option input 'REJECT'/option input 'ACCEPT'/" "$MNT/etc/config/firewall"
+# defaults section only (24.10+ uses tabs without quotes; older releases use quoted values).
+if [[ -f "$MNT/etc/config/firewall" ]]; then
+	sed -i "s/option syn_flood '1'/option syn_flood '0'/" "$MNT/etc/config/firewall"
+	sed -i '/^config defaults$/,/^$/{
+		s/^\(\t*option syn_flood\)[[:space:]]*1$/\1\t0/
+		s/^\(\t*option input\)[[:space:]]*REJECT$/\1\tACCEPT/
+	}' "$MNT/etc/config/firewall"
+fi
 
 # QEMU lab: empty root password for SSH/LuCI (x86 images often already blank).
 if [[ -f "$MNT/etc/shadow" ]]; then
@@ -70,6 +86,11 @@ if [[ -f "$MNT/etc/config/network" ]]; then
 			s/option ipaddr '[^']*'/option ipaddr '${OWRT_LAB_IP}'/
 			s/option netmask '[^']*'/option netmask '255.255.255.0'/
 		}" "$MNT/etc/config/network"
+	fi
+	if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]] \
+		&& ! sed -n "/config interface 'lan'/,/^$/p" "$MNT/etc/config/network" | grep -q "option proto 'dhcp'"; then
+		echo "error: failed to set network.lan proto=dhcp on $IMG" >&2
+		exit 1
 	fi
 fi
 

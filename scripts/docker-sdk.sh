@@ -31,7 +31,7 @@ Commands:
 
 Options:
   --target TARGET    armsr-armv8 | x86-64   (default: armsr-armv8)
-  --version VERSION  snapshot | 24.10 | 23.05   (default: snapshot)
+  --version VERSION  snapshot | 25.12 | 24.10 | 23.05   (default: snapshot)
 
 Make parallelism (host CPUs):
   Default -j8 on 8+ core hosts (nproc capped at 16). Override:

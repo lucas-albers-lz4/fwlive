@@ -7,11 +7,15 @@
 
 ## Expected image files (prefer download over build)
 
-- **`lab/images/openwrt-armsr-armv8.img`** + **`lab/images/u-boot-qemu_armv8.bin`** — official **24.10 `armsr/armv8`** artifacts (see [`docs/armvirt-armsr-testing.md`](../docs/armvirt-armsr-testing.md)).
+- **`lab/images/openwrt-armsr-armv8-<RELEASE>.img`** + **`u-boot-qemu_armv8-<RELEASE>.bin`** — official **`armsr/armv8`** artifacts (see [`docs/armvirt-armsr-testing.md`](../docs/armvirt-armsr-testing.md)). Default symlink `openwrt-armsr-armv8.img` → 24.10.5.
 
   ```sh
-  RELEASE=24.10.0 ./scripts/download-openwrt-armsr-armv8.sh
+  RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
+  RELEASE=23.05.5 ./scripts/download-openwrt-armsr-armv8.sh
+  RELEASE=23.05.5 ./scripts/download-openwrt-x86-64.sh
   ```
+
+  **23.05 validation:** [`docs/openwrt-23.05-compat.md`](../docs/openwrt-23.05-compat.md) · `./scripts/validate-openwrt-23.05.sh`
 
 - `lab/images/openwrt-x64.img` — x86_64 (future; download from `targets/x86/64/` when needed)
 - `lab/images/opnsense-amd64.img` — optional reference VM

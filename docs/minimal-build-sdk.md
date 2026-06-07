@@ -42,7 +42,7 @@ The container runs **`./setup.sh`** on first use to download the matching SDK (n
 
 ### Fallback: fwview SDK image + volume (§4a below)
 
-Use **`docker-sdk-import-tar.sh`** / **`docker-sdk-setup-feeds.sh`** / **`docker-sdk-make.sh`** if the official image path does not work for your feed layout.
+**Archived fallback** (tarball import + fwview-built SDK image): [`archive/scripts/`](../archive/scripts/) — only if `docker-sdk.sh` + official images fail.
 
 ## Current focus: QEMU ARM virtual (`armsr`)
 

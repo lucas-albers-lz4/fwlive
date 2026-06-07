@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 die() { echo "error: $*" >&2; exit 1; }
 
-docker inspect "$CONTAINER" >/dev/null 2>&1 || die "container '$CONTAINER' not running — start: ./scripts/run-openwrt-rootfs-x86-docker.sh"
+docker inspect "$CONTAINER" >/dev/null 2>&1 || die "container '$CONTAINER' not running — start: ./scripts/run-openwrt-x86-experiment.sh"
 
 IP="$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER")"
 GW="$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.Gateway}}{{end}}' "$CONTAINER")"

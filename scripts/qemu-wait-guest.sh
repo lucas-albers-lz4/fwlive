@@ -42,5 +42,5 @@ while [[ $SECONDS -lt $deadline ]]; do
 done
 
 echo "error: guest not reachable on ${HOST}:${PORT} within ${MAX_WAIT}s" >&2
-echo "hint: ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop && ./scripts/run-openwrt-armsr-armv8-qemu.sh" >&2
+echo "hint: stop other QEMU, then ./scripts/run-openwrt-x86-qemu.sh or ./scripts/run-openwrt-armsr-armv8-qemu.sh" >&2
 exit 1

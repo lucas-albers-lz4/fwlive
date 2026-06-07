@@ -2,7 +2,7 @@
 # Deploy luci-app-fwlive .ipk to a running OpenWrt guest.
 #
 # Linux x86_64 + run-openwrt-armsr-armv8-qemu.sh: --legacy-hostfwd (127.0.0.1:2222, LuCI :8080).
-# Legacy macOS vmnet: scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh (unmaintained).
+# Legacy macOS vmnet: archive/scripts/legacy/ (unmaintained).
 # Usage:
 #   export QEMU_MAC_LAN=52:54:00:44:55:66
 #   ./scripts/agent-build-and-deploy.sh --ipk out/luci-app-fwlive_*.ipk

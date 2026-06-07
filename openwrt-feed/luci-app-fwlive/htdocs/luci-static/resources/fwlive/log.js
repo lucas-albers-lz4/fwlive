@@ -3,6 +3,7 @@
 
 /**
  * LuCI wrapper — keep logic aligned with core/fwlive-log.js (see scripts/fwlive-test.sh).
+ * PARSER_SYNC_VERSION: 1
  */
 return baseclass.extend({
 	NON_FIREWALL_PREFIX: /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)\b/i,
