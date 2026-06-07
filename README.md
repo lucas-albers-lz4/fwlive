@@ -20,6 +20,30 @@ Traffic appears only when firewall rules include **`log`** — see the [logging 
 
 ---
 
+## Install
+
+**Recommended — [GitHub Releases](https://github.com/lucas-albers-lz4/fwview/releases):** download the package for your OpenWrt version and install on the router.
+
+| OpenWrt | Package | Install |
+|---------|---------|---------|
+| **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg install /tmp/luci-app-fwlive_*.ipk` |
+| **25.12+** | `luci-app-fwlive-*.apk` | `apk add --allow-untrusted /tmp/luci-app-fwlive-*.apk` |
+
+The package is **`_all`** (LuCI JS + shell) — one artifact works on any router architecture for that OpenWrt release.
+
+**Build from feed** (firmware/SDK builders):
+
+```sh
+git clone https://github.com/lucas-albers-lz4/fwview.git
+echo "src-link fwview $(pwd)/fwview/openwrt-feed" >> feeds.conf
+./scripts/feeds update fwview
+./scripts/feeds install luci-app-fwlive
+```
+
+Full paths: [Installation guide](docs/user/installation.md) · [Release workflow](docs/release.md) (maintainers)
+
+---
+
 ## Documentation
 
 | I want to… | Start here |

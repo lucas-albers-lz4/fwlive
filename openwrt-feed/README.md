@@ -9,15 +9,28 @@ Third-party feed containing one package: **LuCI Firewall Live View**.
 | **Install & use on a router** | [`../docs/user/README.md`](../docs/user/README.md) |
 | **Build from source / develop** | [`../docs/developer/README.md`](../docs/developer/README.md) |
 
+## Distribution
+
+| Path | Audience |
+|------|----------|
+| **[GitHub Releases](https://github.com/lucas-albers-lz4/fwview/releases)** | Router owners — prebuilt `.ipk` / `.apk` |
+| **`src-link` feed** (below) | Firmware / SDK builders |
+| **Docker SDK** | Contributors — see [build & test](../docs/developer/build-and-test.md) |
+
+Maintainers: [Release workflow](../docs/release.md)
+
 ## Wire the feed
 
 ```sh
+git clone https://github.com/lucas-albers-lz4/fwview.git
 echo "src-link fwview /absolute/path/to/fwview/openwrt-feed" >> feeds.conf
 ./scripts/feeds update fwview
 ./scripts/feeds install luci-app-fwlive
 ```
 
 Template: [`../feeds.conf.example`](../feeds.conf.example)
+
+Use **`src-link`** with an absolute path after cloning. Do **not** use `src-git` on the main `fwview` repo — packages live under `openwrt-feed/`, not the repo root.
 
 Enable in `menuconfig`: **LuCI → Applications → luci-app-fwlive**
 
@@ -32,5 +45,5 @@ Enable in `menuconfig`: **LuCI → Applications → luci-app-fwlive**
 ## Runtime
 
 - **nftables / firewall4** only (`/usr/sbin/nft`)
-- Reads **`ubus log.read`** — firewall rules must **`log`** matching traffic
+- Polls **`ubus fwlive poll`** (filtered firewall log lines from logd) — firewall rules must **`log`** matching traffic
 - See [`../docs/user/enabling-firewall-logs.md`](../docs/user/enabling-firewall-logs.md)
