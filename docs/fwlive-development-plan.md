@@ -2,14 +2,15 @@
 
 Roadmap from current MVP (generic `log.read` table) toward OPNsense Live View parity. Each stage is **deployable** and **verifiable from the shell** without opening a browser.
 
-**References:** [OPNsense parity matrix](opnsense-liveview-parity.md) · [event schema](openwrt-fwlive-schema.md) · [nft logging](fwlive-nft-logging.md)
+**References:** [UI design target](fwlive-ui-design-target.md) · [OPNsense parity matrix](opnsense-liveview-parity.md) · [event schema](openwrt-fwlive-schema.md) · [nft logging](fwlive-nft-logging.md)
 
 ## Design principles
 
 1. **Portable layer = firewall log lines** (not PF↔nft rule translation).
-2. **Source of truth for parsing/filter logic:** [`core/fwlive-log.js`](../core/fwlive-log.js) (Node); LuCI [`fwlive/log.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js) mirrors it for the UI.
-3. **CLI-first tests** on every stage; LuCI is a thin consumer of the same rules.
-4. **Small deployable steps** — ship after each stage passes `scripts/fwlive-test.sh`.
+2. **Client-side LuCI JS** (`view.extend()` + `rpc.declare` → ubus) — not legacy Lua CBI; not OPNsense PHP/Volt. See [fwlive-ui-design-target.md](fwlive-ui-design-target.md).
+3. **Source of truth for parsing/filter logic:** [`core/fwlive-log.js`](../core/fwlive-log.js) (Node); LuCI [`fwlive/log.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js) mirrors it for the UI; [`fwlive.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js) owns layout and polling.
+4. **CLI-first tests** on every stage; LuCI is a thin consumer of the same rules.
+5. **Small deployable steps** — ship after each stage passes `scripts/fwlive-test.sh`.
 
 ## Command-line test approach
 

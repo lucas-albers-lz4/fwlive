@@ -17,7 +17,7 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 
 - `id`: deterministic key for dedupe and stable row identity.
 - `timestamp`: **Unix epoch seconds** (integer) from log entry time.
-- `timestamp_display`: ISO-8601 string for LuCI display only.
+- `timestamp_display`: ISO-8601 in normalized JSON; LuCI renders local `YYYY-MM-DD HH:MM:SS` via `formatTimestampLocal()`.
 - `action`: normalized enum: `pass`, `block`, `drop`, `reject`, or `unknown`.
 - `action_raw`: original token from the log line (`ACCEPT`, `DROP`, …).
 - `interface`: `IN` or `OUT` (legacy convenience).

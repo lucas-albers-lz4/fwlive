@@ -88,6 +88,49 @@ return baseclass.extend({
 		return new Date(unix * 1000).toISOString();
 	},
 
+	formatTimestampLocal: function(unix) {
+		if (unix == null || !isFinite(unix))
+			return '';
+
+		const d = new Date(unix * 1000);
+		const pad = function(n) { return (n < 10 ? '0' : '') + n; };
+
+		return '%d-%s-%s %s:%s:%s'.format(
+			d.getFullYear(),
+			pad(d.getMonth() + 1),
+			pad(d.getDate()),
+			pad(d.getHours()),
+			pad(d.getMinutes()),
+			pad(d.getSeconds())
+		);
+	},
+
+	formatCell: function(value) {
+		if (value == null || value === '')
+			return '';
+
+		return String(value);
+	},
+
+	formatActionLabel: function(action) {
+		const a = (action || '').toLowerCase();
+		if (!a || a === 'unknown')
+			return '—';
+		return a;
+	},
+
+	formatMessageDisplay: function(message) {
+		let m = this.normalizeNetfilterMessage(message || '');
+		m = m.replace(/^\[\s*[\d.]+\]\s*/, '');
+		m = m.replace(/\bMAC=[^\s]+/g, '');
+		m = m.replace(/\s+/g, ' ').trim();
+
+		if (m.length > 140)
+			return m.substring(0, 137) + '…';
+
+		return m;
+	},
+
 	isFirewallEvent: function(entry) {
 		const msg = this.normalizeNetfilterMessage((entry && entry.msg) || '');
 		if (!msg.trim())
@@ -183,9 +226,9 @@ return baseclass.extend({
 	actionRowClass: function(action) {
 		const a = (action || '').toLowerCase();
 		if (a === 'drop' || a === 'reject' || a === 'block')
-			return 'fwlive-deny';
+			return 'fwlive-action fwlive-deny';
 		if (a === 'pass')
-			return 'fwlive-pass';
-		return '';
+			return 'fwlive-action fwlive-pass';
+		return 'fwlive-action fwlive-unknown';
 	}
 });
