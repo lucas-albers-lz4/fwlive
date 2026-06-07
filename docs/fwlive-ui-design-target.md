@@ -102,6 +102,23 @@ If we later import **substantial** OPNsense-licensed code, add explicit BSD noti
 
 ---
 
+## View modes (Simple / Detailed)
+
+Intentional fork from OPNsense’s single wide table — OpenWrt LuCI benefits from a compact default.
+
+| Mode | Default | Columns | Message |
+| ---- | ------- | ------- | ------- |
+| **Simple** | Yes | Action, Time (compact), Interface, Flow, Proto, Rule | Click row → expand/collapse raw line |
+| **Detailed** | No | All 14 schema columns incl. Message, Flags, Len, Dir | Inline column; wrap/one-line toggle |
+
+- Toolbar: single **Show Detail** / **Hide Detail** button; persisted in `localStorage` (`fwlive-view-mode`) after user toggles.
+- URL hash: `view=detailed` when sharing Detailed layout (`view=advanced` accepted for back-compat).
+- Zero-config: first visit polls immediately; empty state and collapsed **Help** on-page (no external docs).
+- Simple filters: quick search + action + proto; **More filters** for the rest.
+- Screenshots: [`user/assets/`](user/assets/) · capture: [`user/assets/capture-screenshots.md`](user/assets/capture-screenshots.md)
+
+---
+
 ## Implementation map (stages ↔ UI work)
 
 | Stage | UI deliverable |

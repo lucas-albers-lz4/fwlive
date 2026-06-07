@@ -1,0 +1,41 @@
+# Documentation
+
+Two audiences, two entry points:
+
+## [User guide](user/README.md)
+
+Install and use **Firewall Live View** on an OpenWrt router.
+
+- [What it does](user/overview.md)
+- [Install](user/installation.md)
+- [Using the UI](user/using-the-ui.md) — includes screenshots
+- [Enable firewall logs](user/enabling-firewall-logs.md)
+
+## [Developer guide](developer/README.md)
+
+Build, test, and extend the package from this repository.
+
+- [Environment](developer/environment.md)
+- [Architecture](developer/architecture.md)
+- [Build & test](developer/build-and-test.md)
+- [QEMU lab](developer/qemu-lab.md)
+- [Contributing](developer/contributing.md)
+
+---
+
+## Reference (deep dives)
+
+| Document | Topic |
+|----------|-------|
+| [fwlive-acceptance.md](fwlive-acceptance.md) | Sign-off criteria |
+| [fwlive-ui-design-target.md](fwlive-ui-design-target.md) | UI module map |
+| [fwlive-development-plan.md](fwlive-development-plan.md) | Staged plan |
+| [openwrt-fwlive-schema.md](openwrt-fwlive-schema.md) | Normalized log schema |
+| [fwlive-nft-logging.md](fwlive-nft-logging.md) | nft/fw4 logging reference |
+| [sdk-build-matrix.md](sdk-build-matrix.md) | SDK versions & targets |
+| [validation-matrix.md](validation-matrix.md) | QEMU validation scripts |
+| [opnsense-liveview-parity.md](opnsense-liveview-parity.md) | Parity matrix |
+| [ROADMAP.md](ROADMAP.md) | Milestones & backlog |
+| [github-publish-checklist.md](github-publish-checklist.md) | Pre-publish checks |
+
+Legacy paths (`dev-environment.md`, etc.) remain for existing links; prefer the user/developer guides above.

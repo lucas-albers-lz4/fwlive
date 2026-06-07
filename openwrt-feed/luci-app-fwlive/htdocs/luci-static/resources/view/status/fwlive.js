@@ -26,6 +26,11 @@ const ROW_LIMIT_OPTIONS = [ 25, 50, 100, 250, 500, 1000, 2000 ];
 const DEFAULT_ROW_LIMIT = 100;
 const FETCH_LINES_MAX = 2000;
 const RENDER_CAP_PER_SEC = 250;
+const VIEW_MODES = [ 'simple', 'detailed' ];
+const COLUMN_SETS = {
+	simple: [ 'action', 'time', 'iface', 'flow', 'proto', 'rule' ],
+	detailed: [ 'time', 'action', 'rule', 'iface_in', 'iface_out', 'dir', 'proto', 'src', 'sport', 'dst', 'dport', 'flags', 'len', 'message' ]
+};
 
 return view.extend({
 	rowLimit: DEFAULT_ROW_LIMIT,
@@ -47,6 +52,8 @@ return view.extend({
 	lastRenderedHeadId: '',
 	followLive: true,
 	rulesMap: {},
+	viewMode: 'simple',
+	expandedRowId: null,
 
 	FILTER_CHIP_FIELDS: [
 		{ key: 'q', label: 'search' },
@@ -78,6 +85,8 @@ return view.extend({
 			.map((k) => '%s=%s'.format(encodeURIComponent(k), encodeURIComponent(filters[k])));
 		if (this.rowLimit !== DEFAULT_ROW_LIMIT)
 			parts.push('limit=%s'.format(encodeURIComponent(this.rowLimit)));
+		if (this.viewMode === 'detailed')
+			parts.push('view=detailed');
 		location.hash = parts.join('&');
 	},
 
@@ -100,9 +109,224 @@ return view.extend({
 				}
 				continue;
 			}
+			if (key === 'view') {
+				if (val === 'advanced' || val === 'detailed')
+					this.viewMode = 'detailed';
+				else if (val === 'simple')
+					this.viewMode = 'simple';
+				continue;
+			}
 			const el = document.getElementById('fwlive-' + key);
 			if (el)
 				el.value = val;
+		}
+	},
+
+	readViewMode() {
+		try {
+			const v = localStorage.getItem('fwlive-view-mode');
+			if (v === 'advanced' || v === 'detailed')
+				return 'detailed';
+			if (v === 'simple')
+				return 'simple';
+		} catch (e) {
+			/* private mode / no storage */
+		}
+
+		return 'simple';
+	},
+
+	saveViewMode() {
+		try {
+			localStorage.setItem('fwlive-view-mode', this.viewMode);
+		} catch (e) {
+			/* private mode / no storage */
+		}
+	},
+
+	activeColumns() {
+		return COLUMN_SETS[this.viewMode] || COLUMN_SETS.simple;
+	},
+
+	columnLabel(col) {
+		const labels = {
+			time: _('Time'),
+			action: _('Action'),
+			rule: _('Rule'),
+			iface: _('Interface'),
+			iface_in: _('IN'),
+			iface_out: _('OUT'),
+			dir: _('Dir'),
+			proto: _('Proto'),
+			src: _('Source'),
+			dst: _('Destination'),
+			sport: _('SPort'),
+			dport: _('DPort'),
+			flags: _('Flags'),
+			len: _('Len'),
+			flow: _('Flow'),
+			message: _('Message')
+		};
+
+		return labels[col] || col;
+	},
+
+	setViewMode(mode) {
+		if (VIEW_MODES.indexOf(mode) < 0 || mode === this.viewMode)
+			return;
+
+		this.viewMode = mode;
+		this.expandedRowId = null;
+		this.saveViewMode();
+		this.updateDetailToggleUi();
+		this.renderThead();
+		this.updateHash(this.readFilters());
+		this.renderRows(true);
+	},
+
+	toggleDetailView(ev) {
+		if (ev && ev.preventDefault)
+			ev.preventDefault();
+
+		this.setViewMode(this.viewMode === 'simple' ? 'detailed' : 'simple');
+	},
+
+	updateDetailToggleUi() {
+		const btn = document.getElementById('fwlive-detail-toggle');
+		if (btn) {
+			const detailed = this.viewMode === 'detailed';
+			btn.textContent = detailed ? _('Hide Detail') : _('Show Detail');
+			btn.setAttribute('aria-pressed', detailed ? 'true' : 'false');
+		}
+
+		const map = document.querySelector('.fwlive-map');
+		if (map)
+			map.setAttribute('data-view', this.viewMode);
+
+		this.updateFilterPanelUi();
+	},
+
+	updateFilterPanelUi() {
+		const details = document.getElementById('fwlive-more-filters');
+		if (!details)
+			return;
+
+		if (this.viewMode === 'detailed') {
+			details.open = true;
+			return;
+		}
+
+		const filters = this.readFilters();
+		const hasExtra = !!(filters.interface || filters.src || filters.dst
+			|| filters.sport || filters.dport);
+		if (hasExtra)
+			details.open = true;
+	},
+
+	onRowClick(rowId, ev) {
+		if (this.viewMode !== 'simple')
+			return;
+
+		if (ev && ev.target && ev.target.closest
+			&& ev.target.closest('a.fwlive-filter-link'))
+			return;
+
+		this.expandedRowId = this.expandedRowId === rowId ? null : rowId;
+		this.renderRows(true);
+	},
+
+	flowCell(row) {
+		const parts = [];
+		const pushEndpoint = (addr, port, addrField, portField) => {
+			if (!addr && !port)
+				return;
+
+			if (addr)
+				parts.push(this.filterLink(addrField, addr));
+			if (port) {
+				if (addr)
+					parts.push(':');
+				parts.push(this.filterLink(portField, port, port));
+			}
+		};
+
+		pushEndpoint(row.src, row.sport, 'src', 'sport');
+		if (parts.length && (row.dst || row.dport))
+			parts.push(E('span', { 'class': 'fwlive-flow-arrow' }, ' → '));
+		pushEndpoint(row.dst, row.dport, 'dst', 'dport');
+
+		if (!parts.length)
+			return '—';
+
+		return E('span', { 'class': 'fwlive-flow' }, parts);
+	},
+
+	buildColumnCell(col, row) {
+		const msgDisplay = log.formatMessageDisplay(row.message, this.messageLayout);
+		const actionCell = row.action && row.action !== 'unknown'
+			? this.filterLink('action', row.action, log.formatActionLabel(row.action))
+			: log.formatActionLabel(row.action);
+
+		switch (col) {
+		case 'time':
+			return E('td', { 'class': 'fwlive-time' },
+				this.viewMode === 'simple'
+					? log.formatTimestampCompact(row.timestamp)
+					: log.formatTimestampLocal(row.timestamp));
+		case 'action':
+			return E('td', { 'class': log.actionRowClass(row.action) }, actionCell);
+		case 'rule':
+			return E('td', { 'class': 'fwlive-rule' }, this.ruleAdminLink(row.rule_hint, row.rule_label));
+		case 'iface':
+			return E('td', { 'class': 'fwlive-iface' }, this.ifaceLink(row.interface_in));
+		case 'iface_in':
+			return E('td', { 'class': 'fwlive-iface' }, this.ifaceLink(row.interface_in));
+		case 'iface_out':
+			return E('td', { 'class': 'fwlive-iface' }, this.ifaceLink(row.interface_out));
+		case 'dir':
+			return E('td', { 'class': 'fwlive-dir' }, log.formatCell(row.direction));
+		case 'proto':
+			return E('td', { 'class': 'fwlive-proto' }, this.filterLink('proto', row.proto));
+		case 'src':
+			return E('td', { 'class': 'fwlive-addr' }, this.filterLink('src', row.src));
+		case 'sport':
+			return E('td', { 'class': 'fwlive-port' }, this.filterLink('sport', row.sport));
+		case 'dst':
+			return E('td', { 'class': 'fwlive-addr' }, this.filterLink('dst', row.dst));
+		case 'dport':
+			return E('td', { 'class': 'fwlive-port' }, this.filterLink('dport', row.dport));
+		case 'flags':
+			return E('td', { 'class': 'fwlive-flags' }, log.formatCell(row.flags));
+		case 'len':
+			return E('td', { 'class': 'fwlive-len' }, row.length != null ? String(row.length) : '');
+		case 'flow':
+			return E('td', { 'class': 'fwlive-flow-cell' }, this.flowCell(row));
+		case 'message':
+			return E('td', {
+				'class': 'fwlive-message',
+				'title': row.message || ''
+			}, msgDisplay || '—');
+		default:
+			return E('td', {}, '');
+		}
+	},
+
+	renderThead() {
+		const table = document.getElementById('fwlive-table');
+		if (!table)
+			return;
+
+		const tr = table.querySelector('thead tr');
+		if (!tr)
+			return;
+
+		const cols = this.activeColumns();
+		tr.innerHTML = '';
+
+		for (let i = 0; i < cols.length; i++) {
+			const col = cols[i];
+			const thClass = col === 'message' ? 'fwlive-th-message' : '';
+			tr.appendChild(E('th', { 'class': thClass }, this.columnLabel(col)));
 		}
 	},
 
@@ -617,32 +841,34 @@ return view.extend({
 		this.updateStatus(rows);
 		this.renderFilterChips();
 
+		const cols = this.activeColumns();
 		for (let i = 0; i < rows.length; i++) {
 			const r = rows[i];
-			const msgDisplay = log.formatMessageDisplay(r.message, this.messageLayout);
-			const actionCell = r.action && r.action !== 'unknown'
-				? this.filterLink('action', r.action, log.formatActionLabel(r.action))
-				: log.formatActionLabel(r.action);
-			const tr = E('tr', { 'class': i % 2 ? 'fwlive-row-alt' : '' }, [
-				E('td', { 'class': 'fwlive-time' }, log.formatTimestampLocal(r.timestamp)),
-				E('td', { 'class': log.actionRowClass(r.action) }, actionCell),
-				E('td', { 'class': 'fwlive-rule' }, this.ruleAdminLink(r.rule_hint, r.rule_label)),
-				E('td', { 'class': 'fwlive-iface' }, this.ifaceLink(r.interface_in)),
-				E('td', { 'class': 'fwlive-iface' }, this.ifaceLink(r.interface_out)),
-				E('td', { 'class': 'fwlive-dir' }, log.formatCell(r.direction)),
-				E('td', { 'class': 'fwlive-proto' }, this.filterLink('proto', r.proto)),
-				E('td', { 'class': 'fwlive-addr' }, this.filterLink('src', r.src)),
-				E('td', { 'class': 'fwlive-port' }, this.filterLink('sport', r.sport)),
-				E('td', { 'class': 'fwlive-addr' }, this.filterLink('dst', r.dst)),
-				E('td', { 'class': 'fwlive-port' }, this.filterLink('dport', r.dport)),
-				E('td', { 'class': 'fwlive-flags' }, log.formatCell(r.flags)),
-				E('td', { 'class': 'fwlive-len' }, r.length != null ? String(r.length) : ''),
-				E('td', {
-					'class': 'fwlive-message',
-					'title': r.message || ''
-				}, msgDisplay || '—')
-			]);
+			const rowClass = [
+				i % 2 ? 'fwlive-row-alt' : '',
+				this.viewMode === 'simple' ? 'fwlive-row-clickable' : '',
+				this.expandedRowId === r.id ? 'fwlive-row-expanded' : ''
+			].filter(Boolean).join(' ');
+			const cells = [];
+			for (let c = 0; c < cols.length; c++)
+				cells.push(this.buildColumnCell(cols[c], r));
+
+			const tr = E('tr', {
+				'class': rowClass,
+				'click': this.viewMode === 'simple'
+					? this.onRowClick.bind(this, r.id) : null
+			}, cells);
 			body.appendChild(tr);
+
+			if (this.viewMode === 'simple' && this.expandedRowId === r.id) {
+				body.appendChild(E('tr', { 'class': 'fwlive-msg-expand' }, [
+					E('td', { 'colspan': String(cols.length) }, [
+						E('div', { 'class': 'fwlive-msg-expand-label' }, _('Message')),
+						E('pre', { 'class': 'fwlive-msg-expand-body' },
+							log.formatMessageDisplay(r.message, 'wrap') || '—')
+					])
+				]));
+			}
 		}
 
 		if (scroll) {
@@ -716,7 +942,7 @@ return view.extend({
 	},
 
 	render() {
-		return E('div', { 'class': 'cbi-map fwlive-map' }, [
+		return E('div', { 'class': 'cbi-map fwlive-map', 'data-view': 'simple' }, [
 			E('style', {}, `
 				.fwlive-map { max-width: none; width: 100%; }
 				.fwlive-toolbar {
@@ -865,9 +1091,69 @@ return view.extend({
 					color: #664d00;
 					font-size: 0.92em;
 				}
+				.fwlive-map[data-view="simple"] #fwlive-msg-layout { display: none; }
+				.fwlive-help {
+					margin: 10px 0 0;
+					font-size: 0.92em;
+					color: #555;
+				}
+				.fwlive-help ul { margin: 6px 0 0 1.2em; padding: 0; }
+				.fwlive-help li { margin: 4px 0; }
+				.fwlive-intro { margin: 0 0 12px; color: #444; }
+				.fwlive-filter-panel { margin-bottom: 12px; }
+				.fwlive-map[data-view="simple"] .fwlive-grid-core {
+					display: grid;
+					grid-template-columns: repeat(3, minmax(140px, 1fr));
+					gap: 8px;
+				}
+				.fwlive-map[data-view="simple"] .fwlive-more-filters { margin-top: 8px; }
+				.fwlive-map[data-view="simple"] .fwlive-grid-extra {
+					display: grid;
+					grid-template-columns: repeat(4, minmax(140px, 1fr));
+					gap: 8px;
+					margin-top: 8px;
+				}
+				.fwlive-map[data-view="detailed"] .fwlive-more-filters > summary { display: none; }
+				.fwlive-map[data-view="detailed"] .fwlive-filter-panel {
+					display: grid;
+					grid-template-columns: repeat(4, minmax(140px, 1fr));
+					gap: 8px;
+				}
+				.fwlive-map[data-view="detailed"] .fwlive-grid-core,
+				.fwlive-map[data-view="detailed"] .fwlive-grid-extra,
+				.fwlive-map[data-view="detailed"] .fwlive-more-filters { display: contents; }
+				.fwlive-row-clickable { cursor: pointer; }
+				.fwlive-row-expanded td { border-bottom-color: transparent; }
+				.fwlive-msg-expand td {
+					background: #f5f8fc;
+					padding: 8px 12px 10px;
+					border-bottom: 1px solid #dde4ee;
+				}
+				.fwlive-msg-expand-label {
+					font-size: 0.82em;
+					color: #666;
+					margin-bottom: 4px;
+					font-weight: 600;
+				}
+				.fwlive-msg-expand-body {
+					margin: 0;
+					white-space: pre-wrap;
+					word-break: break-word;
+					font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+					font-size: 0.85em;
+					color: #333;
+				}
+				.fwlive-flow-arrow { color: #888; }
+				.fwlive-flow-cell { white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+				.fwlive-map[data-view="simple"] .fwlive-action.fwlive-pass { color: #157815; }
+				.fwlive-map[data-view="simple"] .fwlive-action.fwlive-deny { color: #cc0000; }
+				.fwlive-iface-badge {
+					border-radius: 10px;
+					padding: 2px 8px;
+				}
 			`),
 			E('h2', {}, _('Firewall Live View')),
-			E('p', {}, _('Live nftables/firewall4 events from logd (firewall-shaped lines only).')),
+			E('p', { 'class': 'fwlive-intro' }, _('Live firewall log table — refreshes every second. Shows traffic your firewall already logs; use filters or Show Detail when you need more.')),
 			E('div', { 'class': 'fwlive-toolbar' }, [
 				E('label', { 'class': 'fwlive-ctl' }, [
 					E('input', {
@@ -883,6 +1169,13 @@ return view.extend({
 					'class': 'cbi-input-select'
 				}, this.limitSelectOptions()),
 				E('button', {
+					'id': 'fwlive-detail-toggle',
+					'class': 'cbi-button',
+					'type': 'button',
+					'aria-pressed': 'false',
+					'click': this.toggleDetailView.bind(this)
+				}, _('Show Detail')),
+				E('button', {
 					'id': 'fwlive-msg-layout',
 					'class': 'cbi-button',
 					'type': 'button'
@@ -890,65 +1183,76 @@ return view.extend({
 				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, '')
 			]),
 			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ''),
-			E('div', { 'class': 'fwlive-grid' }, [
-				E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
-				E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
-					E('option', { 'value': '' }, _('Any action')),
-					E('option', { 'value': 'pass' }, 'pass'),
-					E('option', { 'value': 'block' }, 'block'),
-					E('option', { 'value': 'drop' }, 'drop'),
-					E('option', { 'value': 'reject' }, 'reject'),
-					E('option', { 'value': 'unknown' }, 'unknown'),
-					E('option', { 'value': '!pass' }, _('not pass')),
-					E('option', { 'value': '!drop' }, _('not drop')),
-					E('option', { 'value': '!block' }, _('not block')),
-					E('option', { 'value': '!reject' }, _('not reject'))
+			E('div', { 'id': 'fwlive-filter-panel', 'class': 'fwlive-filter-panel' }, [
+				E('div', { 'class': 'fwlive-grid fwlive-grid-core' }, [
+					E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
+					E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
+						E('option', { 'value': '' }, _('Any action')),
+						E('option', { 'value': 'pass' }, 'pass'),
+						E('option', { 'value': 'block' }, 'block'),
+						E('option', { 'value': 'drop' }, 'drop'),
+						E('option', { 'value': 'reject' }, 'reject'),
+						E('option', { 'value': 'unknown' }, 'unknown'),
+						E('option', { 'value': '!pass' }, _('not pass')),
+						E('option', { 'value': '!drop' }, _('not drop')),
+						E('option', { 'value': '!block' }, _('not block')),
+						E('option', { 'value': '!reject' }, _('not reject'))
+					]),
+					E('input', { 'id': 'fwlive-proto', 'class': 'cbi-input-text', 'placeholder': _('Protocol (prefix ! to exclude)') })
 				]),
-				E('input', { 'id': 'fwlive-interface', 'class': 'cbi-input-text', 'placeholder': _('Interface (prefix ! to exclude)') }),
-				E('input', { 'id': 'fwlive-proto', 'class': 'cbi-input-text', 'placeholder': _('Protocol (prefix ! to exclude)') }),
-				E('input', { 'id': 'fwlive-src', 'class': 'cbi-input-text', 'placeholder': _('Source IP contains (! to exclude)') }),
-				E('input', { 'id': 'fwlive-sport', 'class': 'cbi-input-text', 'placeholder': _('Source port (! to exclude)') }),
-				E('input', { 'id': 'fwlive-dst', 'class': 'cbi-input-text', 'placeholder': _('Destination IP contains (! to exclude)') }),
-				E('input', { 'id': 'fwlive-dport', 'class': 'cbi-input-text', 'placeholder': _('Destination port (! to exclude)') })
+				E('details', { 'id': 'fwlive-more-filters', 'class': 'fwlive-more-filters' }, [
+					E('summary', {}, _('More filters')),
+					E('div', { 'class': 'fwlive-grid fwlive-grid-extra' }, [
+						E('input', { 'id': 'fwlive-interface', 'class': 'cbi-input-text', 'placeholder': _('Interface (prefix ! to exclude)') }),
+						E('input', { 'id': 'fwlive-src', 'class': 'cbi-input-text', 'placeholder': _('Source IP contains (! to exclude)') }),
+						E('input', { 'id': 'fwlive-sport', 'class': 'cbi-input-text', 'placeholder': _('Source port (! to exclude)') }),
+						E('input', { 'id': 'fwlive-dst', 'class': 'cbi-input-text', 'placeholder': _('Destination IP contains (! to exclude)') }),
+						E('input', { 'id': 'fwlive-dport', 'class': 'cbi-input-text', 'placeholder': _('Destination port (! to exclude)') })
+					])
+				])
 			]),
 			E('div', { 'id': 'fwlive-chips', 'class': 'fwlive-chips' }, []),
-			E('p', {
+			E('div', {
 				'id': 'fwlive-empty',
 				'class': 'fwlive-empty',
 				'style': 'display:none'
-			}, _('No firewall log events yet. Add log to fw4/nft rules — see docs/fwlive-nft-logging.md on the build host.')),
+			}, [
+				E('p', {}, _('No firewall events yet. Traffic appears when nftables/fw4 rules include log. Existing logged traffic (for example default WAN drops) should show here automatically.')),
+				E('p', {}, [
+					_('To log additional traffic, add log on a rule under '),
+					E('a', { 'href': this.luciUrl('admin/network/firewall') }, _('Network → Firewall')),
+					_('.')
+				])
+			]),
 			E('div', { 'id': 'fwlive-scroll', 'class': 'fwlive-scroll fwlive-msg-wrap' }, [
 				E('table', { 'id': 'fwlive-table', 'class': 'table cbi-section-table' }, [
-					E('thead', {}, E('tr', {}, [
-						E('th', {}, _('Time')),
-						E('th', {}, _('Action')),
-						E('th', {}, _('Rule')),
-						E('th', {}, _('IN')),
-						E('th', {}, _('OUT')),
-						E('th', {}, _('Dir')),
-						E('th', {}, _('Proto')),
-						E('th', {}, _('Source')),
-						E('th', {}, _('SPort')),
-						E('th', {}, _('Destination')),
-						E('th', {}, _('DPort')),
-						E('th', {}, _('Flags')),
-						E('th', {}, _('Len')),
-						E('th', { 'class': 'fwlive-th-message' }, _('Message'))
-					])),
+					E('thead', {}, E('tr', {}, [])),
 					E('tbody', {}, [])
 				])
 			]),
-			E('p', { 'class': 'cbi-value-description' }, _('Tip: live view is newest-first at the top; with Auto-refresh on, new rows appear there (scroll down to inspect older rows — scroll back to top to follow live). Prefix ! to exclude. Ctrl+click Rule opens firewall settings.'))
+			E('p', { 'class': 'cbi-value-description' }, _('Click a row for the full log line. Show Detail for all columns. Prefix ! in a filter to exclude. Ctrl+click a rule to open firewall settings.')),
+			E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
+				E('summary', {}, _('Help')),
+				E('ul', {}, [
+					E('li', {}, _('The table updates automatically — no setup needed when your firewall already logs traffic.')),
+					E('li', {}, _('Click a row to see the full log line (Simple view).')),
+					E('li', {}, _('Click an IP, action, or protocol to filter.')),
+					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).'))
+				])
+			])
 		]);
 	},
 
 	addFooter() {
+		this.viewMode = this.readViewMode();
 		this.messageLayout = this.readMessageLayout();
 		this.applyRowLimit(this.readRowLimit());
 		this.applyHash();
 		this.attachHandlers();
 		this.updateMessageLayoutUi();
 		this.updateStreamControlsUi();
+		this.updateDetailToggleUi();
+		this.renderThead();
 		this.renderRows(true);
 	}
 });

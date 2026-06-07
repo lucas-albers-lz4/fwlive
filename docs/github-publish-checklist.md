@@ -5,7 +5,7 @@ Use before making this repo public upstream.
 ## Pre-flight
 
 - [ ] Replace `YOUR_ORG` in `openwrt-feed/luci-app-fwlive/Makefile` `PKG_MAINTAINER` URL
-- [ ] Choose license visibility (Apache-2.0 SPDX already in Makefile)
+- [ ] Review [LICENSE](../LICENSE) (Apache-2.0) and [ATTRIBUTION.md](../ATTRIBUTION.md) (OPNsense BSD 2-Clause)
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
@@ -21,7 +21,7 @@ Use before making this repo public upstream.
 | `core/fwlive-log.js` | Parser source of truth + Node tests |
 | `tests/`, `scripts/`, `docs/` | Tests, lab tooling, documentation |
 | `feeds.conf.example` | Feed wiring template |
-| `README.md`, `.gitignore`, `docker-compose.yml` | Entry points |
+| `README.md`, `docs/user/`, `docs/developer/`, `.gitignore`, `docker-compose.yml` | Entry points |
 
 **Exclude** (already in `.gitignore` or should stay untracked):
 

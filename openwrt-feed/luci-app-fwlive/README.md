@@ -20,6 +20,7 @@ No `luasrc/` — modern JS-only app. No `po/` until translations are requested.
 - `luci-base`, `logd`, `rpcd`, `firewall4` (nft/fw4)
 - Menu depends on executable `/usr/sbin/nft`
 
-## Build
+## Documentation
 
-See [`../../docs/dev-environment.md`](../../docs/dev-environment.md) and [`../README.md`](../README.md).
+- **Users:** [`../../docs/user/installation.md`](../../docs/user/installation.md)
+- **Developers:** [`../../docs/developer/README.md`](../../docs/developer/README.md)
