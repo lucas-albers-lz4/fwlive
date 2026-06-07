@@ -22,7 +22,7 @@ See **[`fwlive-development-plan.md`](fwlive-development-plan.md)** for stages, C
 - Implemented: quick search + field filters for action/interface/protocol/src/dst/ports.
 - Implemented: URL hash filter persistence for shareable troubleshooting context.
 - Implemented (stage 1): **firewall-only feed** — `isFirewallEvent()` drops dnsmasq/procd/etc.; CLI: `./scripts/fwlive-test.sh`.
-- Deferred (stage 2+): schema hardening (`interface_in`/`out`, action enum, flags/length).
+- Implemented (stage 2): **schema hardening** — unix `timestamp`, normalized `action` enum, `interface_in`/`out`, `flags`, `length`; tests: `tests/fwlive-schema.test.js`.
 - Deferred (stage 3): rule attribution (`tracking_id` → `rule_label`).
 - Deferred (stage 4): pause/resume, 250/s render cap + suppression banner.
 - Deferred (stage 5): advanced filter operators and tag UI.

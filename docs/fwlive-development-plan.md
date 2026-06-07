@@ -38,7 +38,7 @@ No browser required until you explicitly want UI regression checks.
 
 ---
 
-## Stage 1 — Firewall-only feed (current sprint)
+## Stage 1 — Firewall-only feed (done)
 
 **Problem:** UI shows all `logread` traffic (dnsmasq, procd, …) as `UNKNOWN`.
 
@@ -57,7 +57,7 @@ No browser required until you explicitly want UI regression checks.
 
 ---
 
-## Stage 2 — Schema hardening
+## Stage 2 — Schema hardening (done)
 
 **Goal:** Align normalized rows with the [functional spec](opnsense-liveview-parity.md) data matrix (subset achievable from Linux netfilter logs).
 

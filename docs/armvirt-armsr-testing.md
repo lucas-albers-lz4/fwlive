@@ -37,6 +37,22 @@ Build the `.ipk` with the SDK that matches **the same release and `armsr/armv8` 
 
 Then build **`luci-app-fwlive`** with the SDK ([`minimal-build-sdk.md`](minimal-build-sdk.md)) or a full OpenWrt tree ([`openwrt-full-source-build.md`](openwrt-full-source-build.md)).
 
+## QEMU lab on this machine (important)
+
+1. **Stop Docker** if it holds ports 2222/8080: `docker stop owrt-x64-exp`
+2. **Prepare images once** (relaxed firewall, HTTP-only uhttpd, ucode LuCI path):
+   ```sh
+   sudo ./scripts/qemu-lab-prepare-image.sh
+   sudo OWRT_IMG=lab/images/openwrt-x86-64.img ./scripts/qemu-lab-prepare-image.sh
+   ```
+3. **Networking (verified):** default **slirp + DHCP** — no custom `192.168.x` guest IP (avoids clashes with real routers). `qemu-lab-prepare-image.sh` sets `network.lan.proto=dhcp`. QEMU uses:
+   - `-nic user,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22`
+   - LuCI **http://localhost:8080/cgi-bin/luci/** · SSH **`ssh -p 2222 root@localhost`**
+4. **Static guest IP (optional):** `OWRT_LAB_NET_MODE=static` plus `OWRT_LAB_SUBNET` / `OWRT_LAB_IP` before prepare + run scripts.
+5. **Serial console** if needed: `nc 127.0.0.1:4445` (armsr) or `:4444` (x86).
+6. **x86_64 + KVM** (fast UI lab on an Intel/AMD host): `./scripts/run-openwrt-x86-qemu.sh` (needs `qemu-system-x86` / `ovmf`).
+7. **armsr** (production target): `./scripts/run-openwrt-armsr-armv8-qemu.sh` (TCG — boot is slow).
+
 ## 3. Run in QEMU (armv8, EFI + U-Boot)
 
 After download (or manual `gunzip` of the `.img.gz`):

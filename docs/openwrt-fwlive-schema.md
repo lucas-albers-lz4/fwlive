@@ -13,19 +13,20 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 - Input format: log message text containing nftables/kernel key-value segments such as `IN=`, `OUT=`, `SRC=`, `DST=`, `PROTO=`, `SPT=`, `DPT=`.
 - Requires fw4/nft rules with **`log`** for traffic to appear — [`fwlive-nft-logging.md`](fwlive-nft-logging.md).
 
-## Normalized event
+## Normalized event (stage 2)
 
 - `id`: deterministic key for dedupe and stable row identity.
-- `timestamp`: ISO timestamp from log entry time.
-- `action`: detected action token (`ACCEPT`, `DROP`, `REJECT`, etc.), or `UNKNOWN`.
-- `interface`: `IN` or `OUT` value (display convenience).
-- `interface_in` / `interface_out`: split from `IN=` / `OUT=` (stage 2 display).
+- `timestamp`: **Unix epoch seconds** (integer) from log entry time.
+- `timestamp_display`: ISO-8601 string for LuCI display only.
+- `action`: normalized enum: `pass`, `block`, `drop`, `reject`, or `unknown`.
+- `action_raw`: original token from the log line (`ACCEPT`, `DROP`, …).
+- `interface`: `IN` or `OUT` (legacy convenience).
+- `interface_in` / `interface_out`: from `IN=` / `OUT=`.
 - `direction`: `in`, `out`, `forward`, or `unknown`.
 - `proto`: upper-cased `PROTO`.
-- `src`: source IP.
-- `sport`: source port.
-- `dst`: destination IP.
-- `dport`: destination port.
+- `src`, `sport`, `dst`, `dport`: 5-tuple fields.
+- `flags`: TCP flag text (`SYN`, `SYN,ACK`, …) or `TCPFLAGS=` / `FLAGS=` when present.
+- `length`: packet length from `LEN=` when present (integer, else `null`).
 - `message`: original unmodified log message.
 
 ## Retention and query model

@@ -4,6 +4,8 @@
 
 - Live view refresh interval is approximately one second.
 - New firewall log lines appear without page reload.
+- Only firewall-shaped `log.read` lines are shown (stage 1).
+- Normalized schema: unix `timestamp`, `action` enum, `interface_in`/`out`, `flags`, `length` (stage 2).
 - Filters apply immediately for action/interface/protocol/src/dst/ports.
 - Quick search matches across all normalized fields.
 - URL hash preserves active filters on reload.
