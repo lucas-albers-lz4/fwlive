@@ -29,6 +29,9 @@ echo "== fwlive firewall filter (fixtures) ==" >&2
 echo "== fwlive shell filter parity ==" >&2
 "$NODE" tests/fwlive-shell-filter.test.js
 
+echo "== fwlive rpcd security ==" >&2
+"$NODE" tests/fwlive-rpcd-security.test.js
+
 echo "== fwlive schema (stage 2) ==" >&2
 "$NODE" tests/fwlive-schema.test.js
 
