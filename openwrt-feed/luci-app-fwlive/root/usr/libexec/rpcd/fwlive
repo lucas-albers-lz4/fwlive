@@ -9,9 +9,21 @@ LIBEXEC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FILTER_SH="$LIBEXEC_DIR/fwlive-log-filter.sh"
 RESOLVE_MAX=32
 RESOLVE_TIMEOUT=1
+POLL_LINES_MAX=2000
 
 json_escape() {
-	sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g"
+	awk 'BEGIN { RS = ""; ORS = "" }
+	{
+		for (i = 1; i <= length($0); i++) {
+			c = substr($0, i, 1)
+			if (c == "\\") printf "\\\\"
+			else if (c == "\"") printf "\\\""
+			else if (c == "\t") printf "\\t"
+			else if (c == "\r") printf "\\r"
+			else if (c == "\n") printf "\\n"
+			else printf "%s", c
+		}
+	}'
 }
 
 slug_key() {
@@ -109,6 +121,10 @@ poll_lines_from_input() {
 		esac
 	fi
 
+	if [ "$lines" -gt "$POLL_LINES_MAX" ] 2>/dev/null; then
+		lines="$POLL_LINES_MAX"
+	fi
+
 	printf '%s' "$lines"
 }
 
@@ -195,7 +211,40 @@ resolve_addresses() {
 	printf '{"names":{%s}}' "$OUT"
 }
 
+run_selftest() {
+	input=$(printf 'a\\b"c\nd\te')
+	escaped=$(printf '%s' "$input" | json_escape)
+	expected=$(printf 'a\\\\b\\"c\\nd\\te')
+	if [ "$escaped" != "$expected" ]; then
+		echo "json_escape: mismatch" >&2
+		return 1
+	fi
+
+	if ! command -v jshn >/dev/null 2>&1; then
+		echo "skip: jshn not available (poll cap not tested)" >&2
+		return 0
+	fi
+
+	got=$(poll_lines_from_input '{"addresses":["999999"]}')
+	if [ "$got" != "$POLL_LINES_MAX" ]; then
+		echo "poll_lines_from_input: expected $POLL_LINES_MAX got $got" >&2
+		return 1
+	fi
+
+	got=$(poll_lines_from_input '{"addresses":["100"]}')
+	if [ "$got" != "100" ]; then
+		echo "poll_lines_from_input: expected 100 got $got" >&2
+		return 1
+	fi
+
+	return 0
+}
+
 case "$1" in
+	__selftest)
+		run_selftest
+		exit $?
+		;;
 	list)
 		echo '{"rules":{},"poll":{"addresses":[]},"resolve":{"addresses":[]}}'
 		;;
