@@ -31,10 +31,12 @@ Firewall Live View gives operators a **dedicated, always-on table** that:
 flowchart LR
   A[nftables / fw4 rule with log] --> B[kernel log]
   B --> C[logd]
-  C --> D[ubus log.read]
+  C --> D["ubus fwlive poll"]
   D --> E[LuCI Firewall Live View]
   E --> F[Parse, filter, render table]
 ```
+
+`fwlive poll` wraps filtered `log.read` — only firewall-shaped lines are sent to the browser.
 
 Traffic only appears when your firewall rules include **`log`** (or equivalent) for the traffic you care about. See [Enabling firewall logs](enabling-firewall-logs.md).
 

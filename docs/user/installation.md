@@ -1,10 +1,19 @@
 # Installation
 
-Three common paths: **prebuilt package**, **feed in your build**, or **SDK output from this repo**.
+Three paths: **GitHub Release** (recommended for router owners), **feed via `src-link`** (firmware/SDK builders), or **Docker SDK** (developers / lab).
 
-## Option A — Install a prebuilt package (fastest)
+## 1. GitHub Release (recommended)
 
-On the router (or QEMU lab), copy the artifact and install:
+Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-albers-lz4/fwview/releases)** for your OpenWrt version.
+
+| OpenWrt | Artifact | Package manager |
+|---------|----------|-----------------|
+| **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg` |
+| **25.12+** | `luci-app-fwlive-*.apk` | `apk` |
+
+The package is **`_all`** — architecture-independent. One `.ipk` or `.apk` per OpenWrt release works on any router (ARM, x86, etc.).
+
+Copy to the router and install:
 
 **OpenWrt 23.05 / 24.10** (`opkg`):
 
@@ -22,13 +31,17 @@ ssh root@192.168.1.1 apk add --allow-untrusted /tmp/luci-app-fwlive-*.apk
 
 Refresh LuCI in the browser. The menu appears under **Status → Firewall Live View**.
 
-## Option B — Add this feed to your OpenWrt build
+## 2. Feed via src-link (builders)
 
-Use when you already compile firmware or run the official SDK.
+Use when you compile firmware or run the official OpenWrt SDK and want `luci-app-fwlive` in your tree.
 
-1. Clone this repository on your build machine.
+1. Clone this repository on your build machine:
 
-2. Register the feed (adjust the path):
+   ```sh
+   git clone https://github.com/lucas-albers-lz4/fwview.git
+   ```
+
+2. Register the feed with an **absolute path** to `openwrt-feed/`:
 
    ```sh
    echo "src-link fwview /absolute/path/to/fwview/openwrt-feed" >> feeds.conf
@@ -37,6 +50,8 @@ Use when you already compile firmware or run the official SDK.
    ```
 
    Template: [`feeds.conf.example`](../../feeds.conf.example)
+
+   **Note:** Do **not** use `src-git` pointing at the main `fwview` repo. OpenWrt expects packages at the feed checkout root; this monorepo keeps the feed under `openwrt-feed/`. Use `src-link` after clone.
 
 3. Enable in `menuconfig`: **LuCI → Applications → luci-app-fwlive**
 
@@ -48,7 +63,7 @@ Use when you already compile firmware or run the official SDK.
 
    Install the resulting file from `bin/packages/.../luci-app-fwlive_*.ipk` (or `.apk` on newer branches).
 
-## Option C — Build with this repo’s Docker SDK (developers / lab)
+## 3. Docker SDK (developers / lab)
 
 On **Linux x86_64**:
 
@@ -58,7 +73,7 @@ On **Linux x86_64**:
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 ```
 
-Packages land under `out/<arch>/<version>/fwview/`. Deploy with `scp` + `opkg`/`apk` as in option A.
+Packages land under `out/<arch>/<version>/fwview/`. Deploy with `scp` + `opkg`/`apk` as in section 1.
 
 For a full QEMU lab loop (build → boot → install), see [Developer: QEMU lab](../developer/qemu-lab.md).
 

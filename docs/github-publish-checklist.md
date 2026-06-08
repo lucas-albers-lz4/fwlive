@@ -4,12 +4,21 @@ Use before making this repo public upstream.
 
 ## Pre-flight
 
-- [ ] Replace `YOUR_ORG` in `openwrt-feed/luci-app-fwlive/Makefile` `PKG_MAINTAINER` URL
+- [x] Replace `YOUR_ORG` in `openwrt-feed/luci-app-fwlive/Makefile` `PKG_MAINTAINER` URL → `lucas-albers-lz4`
 - [ ] Review [LICENSE](../LICENSE) (Apache-2.0) and [ATTRIBUTION.md](../ATTRIBUTION.md) (OPNsense BSD 2-Clause)
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
 - [ ] Review [`archive/README.md`](../archive/README.md) — nothing there should be required for new users
+
+## Distribution (canonical: A + C)
+
+| Path | Audience | Doc |
+|------|----------|-----|
+| **GitHub Releases** — prebuilt `.ipk` / `.apk` | Router owners | [release.md](release.md), [user/installation.md](user/installation.md) |
+| **`src-link`** to `openwrt-feed/` | Firmware / SDK builders | [feeds.conf.example](../feeds.conf.example) |
+
+`src-git` to the main `fwview` repo is **not supported** (feed root is `openwrt-feed/`, not repo root). A separate feed-only mirror would be needed for `src-git`; not required for v1.
 
 ## Repo contents
 
@@ -20,8 +29,9 @@ Use before making this repo public upstream.
 | `openwrt-feed/` | Feed root (`luci-app-fwlive`) |
 | `core/fwlive-log.js` | Parser source of truth + Node tests |
 | `tests/`, `scripts/`, `docs/` | Tests, lab tooling, documentation |
-| `feeds.conf.example` | Feed wiring template |
+| `feeds.conf.example` | Feed wiring template (`src-link`) |
 | `README.md`, `docs/user/`, `docs/developer/`, `.gitignore`, `docker-compose.yml` | Entry points |
+| `.github/workflows/fwlive-test.yml` | Parser CI on push/PR |
 
 **Exclude** (already in `.gitignore` or should stay untracked):
 
@@ -30,12 +40,12 @@ Use before making this repo public upstream.
 
 ## OpenWrt feed integration
 
-This repo uses **`src-link`** to `openwrt-feed/` (see `feeds.conf.example`). That is the standard third-party feed pattern.
+This repo uses **`src-link`** to `openwrt-feed/` (see `feeds.conf.example`). That is the standard third-party feed pattern for a monorepo.
 
-Alternatives:
+Alternatives (not primary):
 
-- **`src-git`** to your public repo — OpenWrt expects packages at the **checkout root**. Either publish a feed-only repo whose root *is* `luci-app-fwlive`, or keep `src-link` / tarball.
 - **LuCI tree fork** — copy `luci-app-fwlive/` into `luci/applications/` (see `openwrt-feed/README.md`).
+- **`src-git` feed-only repo** — only if you later publish a mirror whose root *is* the feed.
 
 ## Package conventions (verified)
 
@@ -53,13 +63,10 @@ Alternatives:
 
 ## After publish
 
-1. Tag a release (e.g. `v0.1.0-mvp`) when the first public ipk is announced
-2. Document install one-liner in README: SDK build + `opkg install` path
+1. Follow [release.md](release.md): tag `v0.1.0`, attach ipk/apk to GitHub Release
+2. Confirm README install section points at Releases + `src-link`
 3. Optional: submit to third-party OpenWrt feed index (outside this checklist)
 
-## CI suggestion (optional)
+## CI
 
-```yaml
-# Minimal gate: parser tests only (no Docker/QEMU in CI)
-- run: ./scripts/fwlive-test.sh
-```
+Parser tests run on push/PR via `.github/workflows/fwlive-test.yml` (`./scripts/fwlive-test.sh`). No Docker/QEMU in CI.

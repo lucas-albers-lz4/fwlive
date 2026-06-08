@@ -80,7 +80,7 @@ test -f feeds.conf || cp feeds.conf.default feeds.conf
 
 ## 3. Add this project as a feed
 
-Use an **absolute path** to your checkout’s `openwrt-feed` directory (or a `src-git` URL after you publish to GitHub):
+Use an **absolute path** to your checkout’s `openwrt-feed` directory (`src-link` after cloning — not `src-git` on the main `fwview` repo; see [`feeds.conf.example`](../feeds.conf.example)):
 
 ```sh
 echo "src-link fwview /path/to/fwview/openwrt-feed" >> feeds.conf
@@ -214,7 +214,7 @@ If the table is empty, see **[`fwlive-nft-logging.md`](fwlive-nft-logging.md)**.
 
 After install, open **Status → Firewall Live View** (requires **`/usr/sbin/nft`**).
 
-- If the table stays **empty**, add **nft/fw4 rules that `log`** for the traffic you are testing. The UI reads **`ubus log.read`** / logd, not raw `nft` counters.
+- If the table stays **empty**, add **nft/fw4 rules that `log`** for the traffic you are testing. The UI reads **`ubus fwlive poll`** (filtered logd lines), not raw `nft` counters.
 - On the device: `logread -f` or **System Log** in LuCI should show firewall lines once rules log traffic.
 
 This matches the same checklist as a full buildroot image — only the transport to the guest differs (vmnet vs LAN).
