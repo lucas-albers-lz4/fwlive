@@ -10,6 +10,6 @@ const RPCD = path.join(ROOT,
 
 const out = execFileSync('sh', [RPCD, '__selftest'], { encoding: 'utf8' });
 if (out.includes('skip:'))
-	console.log('fwlive rpcd security: %s', out.trim());
+	console.log('fwlive rpcd security: ' + out.trim());
 
 console.log('fwlive rpcd security: OK');
