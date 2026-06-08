@@ -5,7 +5,7 @@ Repeatable steps for updating images in this directory from the QEMU x86 lab.
 ## Prerequisites
 
 - Linux host with QEMU, Docker SDK build (optional), Node.js
-- Playwright (one-time): `npm install --no-save playwright && npx playwright install chromium`
+- Playwright (one-time): `npm install` then `npx playwright install chromium`
 
 ## Lab setup
 

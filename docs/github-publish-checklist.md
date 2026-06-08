@@ -11,6 +11,14 @@ Use before making this repo public upstream.
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
 - [ ] Review [`archive/README.md`](../archive/README.md) — nothing there should be required for new users
 
+### Security (pre-release)
+
+- [ ] rpcd `poll` line count capped server-side (`POLL_LINES_MAX=2000`) — [`rpcd/fwlive`](../openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive)
+- [ ] rpcd JSON responses escape control characters (`json_escape` / `map_add`)
+- [ ] `core/fwlive-log.js` tracked as a normal file (not a stale submodule gitlink)
+- [ ] `node_modules/` not committed; dev deps declared in root `package.json`
+- [ ] ACL scope understood: read-only firewall logs / rule hints / optional reverse DNS — grant `luci-app-fwlive` only to trusted admin LuCI users
+
 ## Distribution (canonical: A + C)
 
 | Path | Audience | Doc |
@@ -35,6 +43,7 @@ Use before making this repo public upstream.
 
 **Exclude** (already in `.gitignore` or should stay untracked):
 
+- `node_modules/` (dev-only; install via `npm install` for screenshot capture)
 - `lab/images/*.img`, SDK tarballs, `out/`, local `openwrt/` / `luci/` clones
 - Full OPNsense `core` submodule (removed — we ship only `core/fwlive-log.js`)
 
