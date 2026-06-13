@@ -37,6 +37,12 @@ sdk-*-openwrt-*/
 *.ipk
 /out/
 /out-sdk-packages/
+/feed-staging/
+/bin/usign
+/opkg-secret.key
+apk-secret.rsa
+fwlive-feed.rsa.pub
+public.key
 # Accidental OpenWrt dirs at repo root (SDK trees belong under openwrt-sdk-*/ or .sdk/ above)
 /staging_dir/
 /build_dir/

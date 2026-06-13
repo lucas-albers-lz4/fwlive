@@ -1,8 +1,28 @@
 # Installation
 
-Three paths: **GitHub Release** (recommended for router owners), **feed via `src-link`** (firmware/SDK builders), or **Docker SDK** (developers / lab).
+Four paths: **opkg/apk feed** (recommended for router owners), **GitHub Release** download, **feed via `src-link`** (builders), or **Docker SDK** (developers / lab).
 
-## 1. GitHub Release (recommended)
+## 1. Binary feed (recommended)
+
+Install directly from the signed GitHub Pages feed — no manual download.
+
+| OpenWrt | Package manager | Feed doc |
+|---------|-----------------|----------|
+| **23.05** / **24.10** | `opkg` | [Binary feed — opkg](../binary-feed.md#openwrt-2410-opkg) |
+| **25.12+** | `apk` | [Binary feed — apk](../binary-feed.md#openwrt-2512-apk) |
+
+**OpenWrt 24.10** example:
+
+```sh
+wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
+opkg-key add /tmp/fwlive.key
+echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >> /etc/opkg/customfeeds.conf
+opkg update && opkg install luci-app-fwlive
+```
+
+Use `…/23.05` for OpenWrt 23.05. For 25.12+, see the apk section in [binary-feed.md](../binary-feed.md).
+
+## 2. GitHub Release (manual download)
 
 Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases)** for your OpenWrt version.
 

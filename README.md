@@ -22,7 +22,17 @@ Traffic appears only when firewall rules include **`log`** — see the [logging 
 
 ## Install
 
-**Recommended — [GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases):** download the package for your OpenWrt version and install on the router.
+**Recommended — [binary feed](docs/binary-feed.md)** (`opkg` / `apk` from GitHub Pages):
+
+```sh
+# OpenWrt 24.10 example — see docs/binary-feed.md for 23.05 and 25.12
+wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
+opkg-key add /tmp/fwlive.key
+echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >> /etc/opkg/customfeeds.conf
+opkg update && opkg install luci-app-fwlive
+```
+
+**Alternative — [GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases):** download the package for your OpenWrt version and install manually.
 
 | OpenWrt | Package | Install |
 |---------|---------|---------|
@@ -40,7 +50,7 @@ echo "src-link fwlive $(pwd)/fwlive/openwrt-feed" >> feeds.conf
 ./scripts/feeds install luci-app-fwlive
 ```
 
-Full paths: [Installation guide](docs/user/installation.md) · [Release workflow](docs/release.md) (maintainers)
+Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](docs/binary-feed.md) · [Release workflow](docs/release.md) (maintainers)
 
 ---
 

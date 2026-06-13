@@ -19,14 +19,22 @@ Use before making this repo public upstream.
 - [ ] `node_modules/` not committed; dev deps declared in root `package.json`
 - [ ] ACL scope understood: read-only firewall logs / rule hints / optional reverse DNS — grant `luci-app-fwlive` only to trusted admin LuCI users
 
-## Distribution (canonical: A + C)
+## Distribution (canonical)
 
 | Path | Audience | Doc |
 |------|----------|-----|
-| **GitHub Releases** — prebuilt `.ipk` / `.apk` | Router owners | [release.md](release.md), [user/installation.md](user/installation.md) |
+| **GitHub Pages feed** — signed opkg/apk | Router owners (`opkg install` / `apk add`) | [binary-feed.md](binary-feed.md) |
+| **GitHub Releases** — prebuilt `.ipk` / `.apk` | Router owners (manual download) | [release.md](release.md), [user/installation.md](user/installation.md) |
 | **`src-link`** to `openwrt-feed/` | Firmware / SDK builders | [feeds.conf.example](../feeds.conf.example) |
 
-`src-git` to the main `fwlive` repo is **not supported** (feed root is `openwrt-feed/`, not repo root). A separate feed-only mirror would be needed for `src-git`; not required for v1.
+### External repo: `fwlive-packages`
+
+- [ ] Create public repo **`lucas-albers-lz4/fwlive-packages`** (GitHub Pages via `gh-pages`, written by CI)
+- [ ] Add deploy key → secret `FEED_DEPLOY_KEY` on **`fwlive`**
+- [ ] Generate usign + RSA keys → secrets `OPKG_FEED_*`, `APK_FEED_*` on **`fwlive`**
+- [ ] See [binary-feed.md](binary-feed.md) for one-time setup
+
+`src-git` to the main `fwlive` repo is **not supported** (feed root is `openwrt-feed/`, not repo root). A separate feed-only **source** mirror would be needed for `src-git`; not required for v1.
 
 ## Repo contents
 
@@ -38,8 +46,10 @@ Use before making this repo public upstream.
 | `core/fwlive-log.js` | Parser source of truth + Node tests |
 | `tests/`, `scripts/`, `docs/` | Tests, lab tooling, documentation |
 | `feeds.conf.example` | Feed wiring template (`src-link`) |
+| `scripts/feeds.lock/` | Pinned OpenWrt feed commits (reproducible SDK builds) |
 | `README.md`, `docs/user/`, `docs/developer/`, `.gitignore`, `docker-compose.yml` | Entry points |
 | `.github/workflows/fwlive-test.yml` | Parser CI on push/PR |
+| `.github/workflows/publish-packages.yml` | Release → build, feed deploy, QEMU smoke |
 
 **Exclude** (already in `.gitignore` or should stay untracked):
 
@@ -72,10 +82,14 @@ Alternatives (not primary):
 
 ## After publish
 
-1. Follow [release.md](release.md): tag `v0.1.0`, attach ipk/apk to GitHub Release
-2. Confirm README install section points at Releases + `src-link`
-3. Optional: submit to third-party OpenWrt feed index (outside this checklist)
+1. Follow [release.md](release.md): publish GitHub Release → CI builds feed + attaches assets
+2. Confirm [binary feed](binary-feed.md) URLs respond
+3. Confirm README install section points at feed + Releases + `src-link`
+4. Optional: submit to third-party OpenWrt feed index (outside this checklist)
 
 ## CI
 
-Parser tests run on push/PR via `.github/workflows/fwlive-test.yml` (`./scripts/fwlive-test.sh`). No Docker/QEMU in CI.
+| Workflow | When |
+|----------|------|
+| `fwlive-test.yml` | Every push/PR — parser tests |
+| `publish-packages.yml` | Release published — SDK build, reproducibility, Pages deploy, feed smoke |
