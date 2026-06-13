@@ -1,0 +1,99 @@
+name: publish-packages
+
+on:
+  release:
+    types: [published]
+
+env:
+  FWLIVE_FEED_BASE_URL: https://lucas-albers-lz4.github.io/fwlive-packages
+  FWLIVE_PACKAGES_REPO: lucas-albers-lz4/fwlive-packages
+  OWRT_VALIDATE_SSH_WAIT_X86: "600"
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set SOURCE_DATE_EPOCH from release tag
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      - name: Validate baseline
+        run: ./scripts/validate-baseline.sh
+
+      - name: Build packages (23.05, 24.10, 25.12)
+        run: |
+          for ver in 23.05 24.10 25.12; do
+            ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
+          done
+
+      - name: Verify reproducible builds
+        run: ./scripts/verify-reproducible-build.sh
+
+      - name: Write signing keys
+        env:
+          OPKG_SECRET: ${{ secrets.OPKG_FEED_SECRET_KEY }}
+          APK_SECRET: ${{ secrets.APK_FEED_SECRET_KEY }}
+          OPKG_PUB: ${{ secrets.OPKG_FEED_PUBLIC_KEY }}
+          APK_PUB: ${{ secrets.APK_FEED_PUBLIC_KEY }}
+        run: |
+          test -n "$OPKG_SECRET" && test -n "$APK_SECRET"
+          printf '%s' "$OPKG_SECRET" > opkg-secret.key
+          printf '%s' "$APK_SECRET" > apk-secret.rsa
+          printf '%s' "$OPKG_PUB" > public.key
+          printf '%s' "$APK_PUB" > fwlive-feed.rsa.pub
+          chmod 600 opkg-secret.key apk-secret.rsa
+
+      - name: Stage signed feed
+        env:
+          OPKG_FEED_SECRET_KEY: ${{ github.workspace }}/opkg-secret.key
+          OPKG_FEED_PUBLIC_KEY: ${{ github.workspace }}/public.key
+          APK_FEED_SECRET_KEY: ${{ github.workspace }}/apk-secret.rsa
+          APK_FEED_PUBLIC_KEY: ${{ github.workspace }}/fwlive-feed.rsa.pub
+          FWLIVE_GIT_TAG: ${{ github.event.release.tag_name }}
+        run: ./scripts/publish-packages.sh feed-staging
+
+      - name: Deploy to GitHub Pages (fwlive-packages)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.FEED_DEPLOY_KEY }}
+          external_repository: ${{ env.FWLIVE_PACKAGES_REPO }}
+          publish_branch: gh-pages
+          publish_dir: feed-staging
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+
+      - name: Upload GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          assets=()
+          while IFS= read -r f; do
+            assets+=("$f")
+          done < <(find out/x86_64 -type f \( -name 'luci-app-fwlive_*_all.ipk' -o -name 'luci-app-fwlive-*.apk' \))
+          gh release upload "$tag" "${assets[@]}" --clobber
+
+  smoke-from-feed:
+    needs: build-publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install lab dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 ovmf openssh-client curl
+
+      - name: Wait for GitHub Pages propagation
+        run: ./scripts/wait-feed-pages.sh "$FWLIVE_FEED_BASE_URL"
+
+      - name: Feed smoke (23.05, 24.10, 25.12)
+        env:
+          FWLIVE_FEED_BASE_URL: ${{ env.FWLIVE_FEED_BASE_URL }}
+        run: |
+          for ver in 23.05 24.10 25.12; do
+            ./scripts/validate-feed-smoke.sh --version "$ver"
+          done
