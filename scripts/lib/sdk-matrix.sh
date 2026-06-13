@@ -126,12 +126,12 @@ sdk_matrix_feeds_setup() {
 		if [ -f feeds.conf.default ] && ! grep -q "^src-git.*base" feeds.conf 2>/dev/null; then
 			cp feeds.conf.default feeds.conf
 		fi
-		grep -q "^src-link fwview" feeds.conf 2>/dev/null || echo "src-link fwview /work/fwview/openwrt-feed" >> feeds.conf
+		grep -q "^src-link fwlive" feeds.conf 2>/dev/null || echo "src-link fwlive /work/fwlive/openwrt-feed" >> feeds.conf
 
 		./scripts/feeds update base luci packages
 		./scripts/feeds install -p base liblua libucode libubox libubus libuci rpcd
 		./scripts/feeds install luci-base
-		./scripts/feeds update fwview
+		./scripts/feeds update fwlive
 		./scripts/feeds install luci-app-fwlive
 		rm -rf tmp
 		make defconfig
@@ -189,12 +189,12 @@ sdk_matrix_copy_out() {
 		docker compose run --rm -v "${out_mount}:/out" sdk sh -ec "
 			dest=/out/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}
 			mkdir -p \"\$dest\"
-			if [ -d /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/fwview ]; then
-				cp -a /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/fwview \"\$dest/\"
+			if [ -d /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/fwlive ]; then
+				cp -a /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/fwlive \"\$dest/\"
 			else
 				cp -a /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/. \"\$dest/\" 2>/dev/null || true
 			fi
-			ls -la \"\$dest\"/fwview/luci-app-fwlive* 2>/dev/null || ls -la \"\$dest\"/luci-app-fwlive* 2>/dev/null || true
+			ls -la \"\$dest\"/fwlive/luci-app-fwlive* 2>/dev/null || ls -la \"\$dest\"/luci-app-fwlive* 2>/dev/null || true
 		"
 	)
 	echo "Packages under: ${SDK_MATRIX_OUT_DIR}/" >&2

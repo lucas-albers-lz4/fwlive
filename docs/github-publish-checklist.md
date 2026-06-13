@@ -26,7 +26,7 @@ Use before making this repo public upstream.
 | **GitHub Releases** — prebuilt `.ipk` / `.apk` | Router owners | [release.md](release.md), [user/installation.md](user/installation.md) |
 | **`src-link`** to `openwrt-feed/` | Firmware / SDK builders | [feeds.conf.example](../feeds.conf.example) |
 
-`src-git` to the main `fwview` repo is **not supported** (feed root is `openwrt-feed/`, not repo root). A separate feed-only mirror would be needed for `src-git`; not required for v1.
+`src-git` to the main `fwlive` repo is **not supported** (feed root is `openwrt-feed/`, not repo root). A separate feed-only mirror would be needed for `src-git`; not required for v1.
 
 ## Repo contents
 

@@ -2,7 +2,7 @@
 /*
  * LuCI Firewall Live View — client-side view (view.extend + ubus fwlive.poll).
  * UI interaction patterns inspired by OPNsense Live View; original implementation
- * for OpenWrt (Apache-2.0). See docs/fwlive-ui-design-target.md in the fwview repo.
+ * for OpenWrt (Apache-2.0). See docs/fwlive-ui-design-target.md in the fwlive repo.
  */
 'require view';
 'require poll';

@@ -1,7 +1,7 @@
 {
   "name": "fwlive",
   "private": true,
-  "description": "Dev dependencies for fwview / luci-app-fwlive tooling (not shipped on router)",
+  "description": "Dev dependencies for fwlive / luci-app-fwlive tooling (not shipped on router)",
   "devDependencies": {
     "playwright": "1.60.0"
   }

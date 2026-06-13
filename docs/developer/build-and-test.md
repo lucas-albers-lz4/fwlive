@@ -9,7 +9,7 @@
 ./scripts/docker-sdk.sh build-all          # all version × target cells
 ```
 
-Artifacts: `out/<arch>/<version>/fwview/luci-app-fwlive*.{ipk,apk}`
+Artifacts: `out/<arch>/<version>/fwlive/luci-app-fwlive*.{ipk,apk}`
 
 Matrix reference: [`../sdk-build-matrix.md`](../sdk-build-matrix.md)  
 Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)

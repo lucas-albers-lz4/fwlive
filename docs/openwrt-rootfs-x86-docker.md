@@ -2,7 +2,7 @@
 
 Use this to **debug web/SSH reachability** on your desktop without QEMU slirp/hostfwd. It uses the **official** [`ghcr.io/openwrt/rootfs:x86-64`](https://github.com/openwrt/docker) image (OpenWrt **SNAPSHOT**, `x86/64`).
 
-This is **not** the production test target for **fwview** (`armsr` / `armv8`). It is a fast loop for “can we see LuCI in a browser?” and UCI/firewall experiments.
+This is **not** the production test target for **fwlive** (`armsr` / `armv8`). It is a fast loop for “can we see LuCI in a browser?” and UCI/firewall experiments.
 
 **Why Docker (not QEMU/Vagrant/LXD here):** the official `rootfs` image is built for container CI; it boots in seconds, publishes ports directly to the host, and avoids slirp subnet / NIC-order bugs we hit on armsr QEMU.
 
@@ -31,7 +31,7 @@ Then open **[http://127.0.0.1:8080/cgi-bin/luci/](http://127.0.0.1:8080/cgi-bin/
 | LuCI | Not on minimal armsr download image by default | Install via `apk add luci-base` |
 | Privileges | None | `--privileged` + `NET_ADMIN` (OpenWrt manages netdevs) |
 
-## Official vs fwview wrapper
+## Official vs fwlive wrapper
 
 [openwrt/docker](https://github.com/openwrt/docker) documents the **`rootfs`** image as **experimental CI runtime** — run, test a package, exit:
 

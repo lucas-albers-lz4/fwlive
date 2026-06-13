@@ -2,7 +2,7 @@
 
 Colloquially people still say **“armvirt”** for *OpenWrt in QEMU on a virtual ARM machine*. In current OpenWrt trees, that role is filled by the **`armsr`** target (**Arm SystemReady**), subtargets **`armv7`** (32-bit) and **`armv8`** (64-bit / AArch64).
 
-**Recommendation for fwview:** use **`armsr` / `armv8`** on OpenWrt **24.10**. **Prefer downloading** official images from [downloads.openwrt.org](https://downloads.openwrt.org/releases/) instead of building them. Reserve **x86_64** for later.
+**Recommendation for fwlive:** use **`armsr` / `armv8`** on OpenWrt **24.10**. **Prefer downloading** official images from [downloads.openwrt.org](https://downloads.openwrt.org/releases/) instead of building them. Reserve **x86_64** for later.
 
 ## 1. Download images (preferred)
 

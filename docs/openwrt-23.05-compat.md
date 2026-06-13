@@ -20,7 +20,7 @@ No separate 23.05 code branch — one feed, one JS view, one parser.
 
 ```sh
 ./scripts/docker-sdk.sh build --target armsr-armv8 --version 23.05
-# ipk: out/aarch64_generic/23.05.5/fwview/luci-app-fwlive_*_all.ipk
+# ipk: out/aarch64_generic/23.05.5/fwlive/luci-app-fwlive_*_all.ipk
 ```
 
 The `_all` arch ipk installs on any target (x86_64, armsr, …).

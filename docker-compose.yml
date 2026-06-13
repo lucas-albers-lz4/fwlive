@@ -44,7 +44,7 @@ services:
     working_dir: /builder
     volumes:
       - ${OWRT_SDK_VOLUME:-openwrt_sdk_official}:/builder
-      - ${FWVIEW_MOUNT:-.}:/work/fwview:ro
+      - ${FWLIVE_MOUNT:-.}:/work/fwlive:ro
     stdin_open: true
     tty: true
 
@@ -55,21 +55,21 @@ services:
     working_dir: /builder
     volumes:
       - openwrt_sdk_official:/builder
-      - ${FWVIEW_MOUNT:-.}:/work/fwview:ro
+      - ${FWLIVE_MOUNT:-.}:/work/fwlive:ro
     stdin_open: true
     tty: true
 
-  # Archived: fwview-built SDK + tarball import — see archive/scripts/
+  # Archived: fwlive-built SDK + tarball import — see archive/scripts/
   sdk-legacy:
     profiles: ["legacy"]
     build:
       context: .
       dockerfile: build/openwrt-sdk.Dockerfile
-    image: fwview-openwrt-sdk:24.10
+    image: fwlive-openwrt-sdk:24.10
     platform: linux/amd64
     working_dir: /openwrt-sdk
     volumes:
       - openwrt_sdk:/openwrt-sdk
-      - ${FWVIEW_MOUNT:-.}:/work/fwview:ro
+      - ${FWLIVE_MOUNT:-.}:/work/fwlive:ro
     stdin_open: true
     tty: true

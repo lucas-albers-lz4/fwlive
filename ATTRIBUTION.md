@@ -1,6 +1,6 @@
 # Attribution
 
-Third-party inspiration and notices for **fwview** / **luci-app-fwlive**.
+Third-party inspiration and notices for **fwlive** / **luci-app-fwlive**.
 
 Project license: **[LICENSE](LICENSE)** (Apache-2.0).
 

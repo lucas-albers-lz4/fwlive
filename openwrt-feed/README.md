@@ -13,7 +13,7 @@ Third-party feed containing one package: **LuCI Firewall Live View**.
 
 | Path | Audience |
 |------|----------|
-| **[GitHub Releases](https://github.com/lucas-albers-lz4/fwview/releases)** | Router owners — prebuilt `.ipk` / `.apk` |
+| **[GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases)** | Router owners — prebuilt `.ipk` / `.apk` |
 | **`src-link` feed** (below) | Firmware / SDK builders |
 | **Docker SDK** | Contributors — see [build & test](../docs/developer/build-and-test.md) |
 
@@ -22,15 +22,15 @@ Maintainers: [Release workflow](../docs/release.md)
 ## Wire the feed
 
 ```sh
-git clone https://github.com/lucas-albers-lz4/fwview.git
-echo "src-link fwview /absolute/path/to/fwview/openwrt-feed" >> feeds.conf
-./scripts/feeds update fwview
+git clone https://github.com/lucas-albers-lz4/fwlive.git
+echo "src-link fwlive /absolute/path/to/fwlive/openwrt-feed" >> feeds.conf
+./scripts/feeds update fwlive
 ./scripts/feeds install luci-app-fwlive
 ```
 
 Template: [`../feeds.conf.example`](../feeds.conf.example)
 
-Use **`src-link`** with an absolute path after cloning. Do **not** use `src-git` on the main `fwview` repo — packages live under `openwrt-feed/`, not the repo root.
+Use **`src-link`** with an absolute path after cloning. Do **not** use `src-git` on the main `fwlive` repo — packages live under `openwrt-feed/`, not the repo root.
 
 Enable in `menuconfig`: **LuCI → Applications → luci-app-fwlive**
 

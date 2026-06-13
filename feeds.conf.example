@@ -8,21 +8,21 @@
 #   src-git packages https://git.openwrt.org/feed/packages.git
 #   src-git luci https://github.com/openwrt/luci.git
 #
-# --- fwview feed (canonical: src-link) ---
+# --- fwlive feed (canonical: src-link) ---
 #
 # This monorepo keeps packages under openwrt-feed/, not at the repo root.
-# src-link is the supported integration after cloning fwview.
-# Do NOT use src-git to github.com/lucas-albers-lz4/fwview — OpenWrt would
+# src-link is the supported integration after cloning fwlive.
+# Do NOT use src-git to github.com/lucas-albers-lz4/fwlive — OpenWrt would
 # expect luci-app-fwlive at the checkout root.
 #
 # After clone:
-#   git clone https://github.com/lucas-albers-lz4/fwview.git
-#   src-link fwview /absolute/path/to/fwview/openwrt-feed
+#   git clone https://github.com/lucas-albers-lz4/fwlive.git
+#   src-link fwlive /absolute/path/to/fwlive/openwrt-feed
 #
-src-link fwview /absolute/path/to/fwview/openwrt-feed
+src-link fwlive /absolute/path/to/fwlive/openwrt-feed
 
 # After editing feeds.conf:
-#   ./scripts/feeds update luci packages fwview
+#   ./scripts/feeds update luci packages fwlive
 #   ./scripts/feeds install luci-base
 #   ./scripts/feeds install luci-app-fwlive
 #

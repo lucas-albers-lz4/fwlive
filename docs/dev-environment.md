@@ -2,7 +2,7 @@
 
 > **Prefer:** [Developer guide → Environment](developer/environment.md) · [Build & test](developer/build-and-test.md)
 
-Canonical setup for **fwview**: cross-build **`luci-app-fwlive`** on **Linux x86_64**, test on **OpenWrt `armsr` / `armv8`** in QEMU.
+Canonical setup for **fwlive**: cross-build **`luci-app-fwlive`** on **Linux x86_64**, test on **OpenWrt `armsr` / `armv8`** in QEMU.
 
 ## Build host vs OpenWrt target
 
@@ -48,7 +48,7 @@ Legacy one-liners (same default cell):
 ./scripts/docker-sdk-official-copy-out.sh
 ```
 
-Uses **[`ghcr.io/openwrt/sdk`](https://github.com/openwrt/docker)** (`linux/amd64`). Artifacts: **`out/<arch>/<version>/fwview/`** — see [`sdk-build-matrix.md`](sdk-build-matrix.md).
+Uses **[`ghcr.io/openwrt/sdk`](https://github.com/openwrt/docker)** (`linux/amd64`). Artifacts: **`out/<arch>/<version>/fwlive/`** — see [`sdk-build-matrix.md`](sdk-build-matrix.md).
 
 **Fallback:** archived tarball SDK path — [`archive/scripts/`](../archive/scripts/) (prefer `docker-sdk.sh`).
 
@@ -72,7 +72,7 @@ Uses **[`ghcr.io/openwrt/sdk`](https://github.com/openwrt/docker)** (`linux/amd6
 
 ```sh
 ./scripts/agent-build-and-deploy.sh --legacy-hostfwd \
-  --ipk out/aarch64_generic/snapshot/fwview/luci-app-fwlive_*.ipk
+  --ipk out/aarch64_generic/snapshot/fwlive/luci-app-fwlive_*.ipk
 ```
 
 Install **`luci-base`** ipk first if the image has no LuCI.

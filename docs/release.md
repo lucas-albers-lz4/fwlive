@@ -1,6 +1,6 @@
 # Release workflow
 
-How maintainers publish **GitHub Releases** with prebuilt `luci-app-fwlive` packages. End users install from [Releases](https://github.com/lucas-albers-lz4/fwview/releases); builders use **`src-link`** — see [Installation](user/installation.md).
+How maintainers publish **GitHub Releases** with prebuilt `luci-app-fwlive` packages. End users install from [Releases](https://github.com/lucas-albers-lz4/fwlive/releases); builders use **`src-link`** — see [Installation](user/installation.md).
 
 ## Distribution model
 
@@ -33,9 +33,9 @@ Full publish checklist: [github-publish-checklist.md](github-publish-checklist.m
 Artifacts land under:
 
 ```
-out/x86_64/23.05.5/fwview/luci-app-fwlive_*_all.ipk
-out/x86_64/24.10.5/fwview/luci-app-fwlive_*_all.ipk
-out/x86_64/25.12.0/fwview/luci-app-fwlive-*.apk
+out/x86_64/23.05.5/fwlive/luci-app-fwlive_*_all.ipk
+out/x86_64/24.10.5/fwlive/luci-app-fwlive_*_all.ipk
+out/x86_64/25.12.0/fwlive/luci-app-fwlive-*.apk
 ```
 
 Verify filenames match `PKG_VERSION` in [`openwrt-feed/luci-app-fwlive/Makefile`](../openwrt-feed/luci-app-fwlive/Makefile).
@@ -51,7 +51,7 @@ Bump `PKG_VERSION` / `PKG_RELEASE` in the Makefile before tagging the next relea
 
 ## Create GitHub Release
 
-1. Open **Releases → Draft a new release** on [github.com/lucas-albers-lz4/fwview](https://github.com/lucas-albers-lz4/fwview).
+1. Open **Releases → Draft a new release** on [github.com/lucas-albers-lz4/fwlive](https://github.com/lucas-albers-lz4/fwlive).
 2. Choose tag `v0.1.0`.
 3. Title: e.g. `v0.1.0 — Firewall Live View MVP`.
 4. Attach the three built packages (rename in release notes if helpful, e.g. `luci-app-fwlive_0.1.0-1_24.10.5_all.ipk`).
@@ -67,9 +67,9 @@ Bump `PKG_VERSION` / `PKG_RELEASE` in the Makefile before tagging the next relea
 gh release create v0.1.0 \
   --title "v0.1.0 — Firewall Live View MVP" \
   --notes-file docs/release-notes-v0.1.0.md \
-  out/x86_64/23.05.5/fwview/luci-app-fwlive_*_all.ipk \
-  out/x86_64/24.10.5/fwview/luci-app-fwlive_*_all.ipk \
-  out/x86_64/25.12.0/fwview/luci-app-fwlive-*.apk
+  out/x86_64/23.05.5/fwlive/luci-app-fwlive_*_all.ipk \
+  out/x86_64/24.10.5/fwlive/luci-app-fwlive_*_all.ipk \
+  out/x86_64/25.12.0/fwlive/luci-app-fwlive-*.apk
 ```
 
 (Create `docs/release-notes-v0.1.0.md` ad hoc or paste notes inline with `--notes`.)

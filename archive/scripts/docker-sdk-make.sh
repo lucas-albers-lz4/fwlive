@@ -28,7 +28,7 @@ if [[ "${USE_SDK_BIND:-0}" == "1" ]]; then
 		echo "Not an SDK root: ${OPENWRT_SDK_MOUNT}" >&2
 		exit 1
 	fi
-	if [[ ! -f "${OPENWRT_SDK_MOUNT}/feeds/fwview/luci-app-fwlive/Makefile" && ! -f "${OPENWRT_SDK_MOUNT}/package/feeds/luci-app-fwlive/Makefile" ]]; then
+	if [[ ! -f "${OPENWRT_SDK_MOUNT}/feeds/fwlive/luci-app-fwlive/Makefile" && ! -f "${OPENWRT_SDK_MOUNT}/package/feeds/luci-app-fwlive/Makefile" ]]; then
 		echo "luci-app-fwlive missing in SDK tree. Complete docs/minimal-build-sdk.md §2–4 on the host." >&2
 		exit 1
 	fi

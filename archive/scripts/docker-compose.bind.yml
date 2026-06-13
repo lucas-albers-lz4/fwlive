@@ -8,11 +8,11 @@
 
 services:
   sdk-bind:
-    image: fwview-openwrt-sdk:24.10
+    image: fwlive-openwrt-sdk:24.10
     platform: linux/amd64
     working_dir: /openwrt-sdk
     volumes:
       - ${OPENWRT_SDK_MOUNT:?Set OPENWRT_SDK_MOUNT to the extracted SDK root}:/openwrt-sdk
-      - ${FWVIEW_MOUNT:-.}:/work/fwview:ro
+      - ${FWLIVE_MOUNT:-.}:/work/fwlive:ro
     stdin_open: true
     tty: true

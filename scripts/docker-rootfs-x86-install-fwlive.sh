@@ -10,11 +10,11 @@ if [[ -z "$APK" ]]; then
 	shopt -s nullglob
 	# Prefer x86_64 builds for the x86 rootfs experiment; fall back to legacy flat paths.
 	candidates=(
-		"$ROOT"/out/x86_64/snapshot/fwview/luci-app-fwlive-*.apk
-		"$ROOT"/out/x86_64/*/fwview/luci-app-fwlive-*.apk
-		"$ROOT"/out/x86_64/fwview/luci-app-fwlive-*.apk
-		"$ROOT"/out/aarch64_generic/snapshot/fwview/luci-app-fwlive-*.apk
-		"$ROOT"/out/aarch64_generic/fwview/luci-app-fwlive-*.apk
+		"$ROOT"/out/x86_64/snapshot/fwlive/luci-app-fwlive-*.apk
+		"$ROOT"/out/x86_64/*/fwlive/luci-app-fwlive-*.apk
+		"$ROOT"/out/x86_64/fwlive/luci-app-fwlive-*.apk
+		"$ROOT"/out/aarch64_generic/snapshot/fwlive/luci-app-fwlive-*.apk
+		"$ROOT"/out/aarch64_generic/fwlive/luci-app-fwlive-*.apk
 	)
 	shopt -u nullglob
 	[[ ${#candidates[@]} -ge 1 ]] || {

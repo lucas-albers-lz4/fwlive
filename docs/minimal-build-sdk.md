@@ -40,9 +40,9 @@ The container runs **`./setup.sh`** on first use to download the matching SDK (n
 
 `docker-sdk-official-setup-feeds.sh` also enables the **`base`** feed and installs **`liblua`**, **`libucode`**, and related packages. The official SDK image is minimal: LuCI pulls **`lucihttp`**, which needs Lua 5.1 and ucode headers from **`feeds/base`**, not only from **`luci`** / **`packages`**. If you see `lua.h: No such file or directory` or `ucode/module.h: No such file or directory`, re-run setup (do not skip the base-feed step).
 
-### Fallback: fwview SDK image + volume (§4a below)
+### Fallback: fwlive SDK image + volume (§4a below)
 
-**Archived fallback** (tarball import + fwview-built SDK image): [`archive/scripts/`](../archive/scripts/) — only if `docker-sdk.sh` + official images fail.
+**Archived fallback** (tarball import + fwlive-built SDK image): [`archive/scripts/`](../archive/scripts/) — only if `docker-sdk.sh` + official images fail.
 
 ## Current focus: QEMU ARM virtual (`armsr`)
 
@@ -80,11 +80,11 @@ test -f feeds.conf || cp feeds.conf.default feeds.conf
 
 ## 3. Add this project as a feed
 
-Use an **absolute path** to your checkout’s `openwrt-feed` directory (`src-link` after cloning — not `src-git` on the main `fwview` repo; see [`feeds.conf.example`](../feeds.conf.example)):
+Use an **absolute path** to your checkout’s `openwrt-feed` directory (`src-link` after cloning — not `src-git` on the main `fwlive` repo; see [`feeds.conf.example`](../feeds.conf.example)):
 
 ```sh
-echo "src-link fwview /path/to/fwview/openwrt-feed" >> feeds.conf
-./scripts/feeds update fwview
+echo "src-link fwlive /path/to/fwlive/openwrt-feed" >> feeds.conf
+./scripts/feeds update fwlive
 ./scripts/feeds install luci-app-fwlive
 ```
 
@@ -116,7 +116,7 @@ Or: `docker compose -f docker-compose.yml -f docker-compose.bind.yml run --rm sd
 
 #### macOS / ARM compile hosts (not supported)
 
-**fwview** does not support compiling the SDK on **macOS** or **Linux aarch64**. Use a **Linux x86_64** machine (or x86_64 VM) with **`sdk-official`** or native SDK.
+**fwlive** does not support compiling the SDK on **macOS** or **Linux aarch64**. Use a **Linux x86_64** machine (or x86_64 VM) with **`sdk-official`** or native SDK.
 
 The legacy **`sdk`** + volume import scripts remain for reference only.
 
@@ -160,7 +160,7 @@ Similarly, **`tmp/.config-package.in` … redefinition** and **`Config-build.in`
 
 If you see **`tmp/.packagedeps: … unterminated variable reference`**, stale **`tmp/`** can confuse **`make`**. The setup script removes **`tmp/`** before **`defconfig`**; if it still appears, run **`rm -rf tmp`** in the SDK tree and **`make defconfig`** again.
 
-If **`docker-sdk-make.sh`** says feeds are not configured but you already ran **`docker-sdk-setup-feeds.sh`**, that was a **false negative**: **`feeds/fwview/`** is usually a **symlink** to **`/work/fwview/openwrt-feed`**, and plain **`find`** does not follow symlinked directories. The script uses **`find -L`** (or explicit **`test -f`**) so the check matches OpenWrt’s layout.
+If **`docker-sdk-make.sh`** says feeds are not configured but you already ran **`docker-sdk-setup-feeds.sh`**, that was a **false negative**: **`feeds/fwlive/`** is usually a **symlink** to **`/work/fwlive/openwrt-feed`**, and plain **`find`** does not follow symlinked directories. The script uses **`find -L`** (or explicit **`test -f`**) so the check matches OpenWrt’s layout.
 
 ## 5. Deploy on the router or QEMU guest
 

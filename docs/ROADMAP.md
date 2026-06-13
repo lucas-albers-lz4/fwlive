@@ -1,4 +1,4 @@
-# fwview — structured roadmap
+# fwlive — structured roadmap
 
 Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX on OpenWrt, client-side JS + `ubus fwlive.poll`.
 

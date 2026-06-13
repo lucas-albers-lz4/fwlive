@@ -4,7 +4,7 @@ Three paths: **GitHub Release** (recommended for router owners), **feed via `src
 
 ## 1. GitHub Release (recommended)
 
-Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-albers-lz4/fwview/releases)** for your OpenWrt version.
+Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases)** for your OpenWrt version.
 
 | OpenWrt | Artifact | Package manager |
 |---------|----------|-----------------|
@@ -38,20 +38,20 @@ Use when you compile firmware or run the official OpenWrt SDK and want `luci-app
 1. Clone this repository on your build machine:
 
    ```sh
-   git clone https://github.com/lucas-albers-lz4/fwview.git
+   git clone https://github.com/lucas-albers-lz4/fwlive.git
    ```
 
 2. Register the feed with an **absolute path** to `openwrt-feed/`:
 
    ```sh
-   echo "src-link fwview /absolute/path/to/fwview/openwrt-feed" >> feeds.conf
-   ./scripts/feeds update fwview
+   echo "src-link fwlive /absolute/path/to/fwlive/openwrt-feed" >> feeds.conf
+   ./scripts/feeds update fwlive
    ./scripts/feeds install luci-app-fwlive
    ```
 
    Template: [`feeds.conf.example`](../../feeds.conf.example)
 
-   **Note:** Do **not** use `src-git` pointing at the main `fwview` repo. OpenWrt expects packages at the feed checkout root; this monorepo keeps the feed under `openwrt-feed/`. Use `src-link` after clone.
+   **Note:** Do **not** use `src-git` pointing at the main `fwlive` repo. OpenWrt expects packages at the feed checkout root; this monorepo keeps the feed under `openwrt-feed/`. Use `src-link` after clone.
 
 3. Enable in `menuconfig`: **LuCI → Applications → luci-app-fwlive**
 
@@ -73,7 +73,7 @@ On **Linux x86_64**:
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 ```
 
-Packages land under `out/<arch>/<version>/fwview/`. Deploy with `scp` + `opkg`/`apk` as in section 1.
+Packages land under `out/<arch>/<version>/fwlive/`. Deploy with `scp` + `opkg`/`apk` as in section 1.
 
 For a full QEMU lab loop (build → boot → install), see [Developer: QEMU lab](../developer/qemu-lab.md).
 

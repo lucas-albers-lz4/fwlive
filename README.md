@@ -1,4 +1,4 @@
-# fwview — Firewall Live View for OpenWrt
+# fwlive — Firewall Live View for OpenWrt
 
 LuCI **Firewall Live View**: a live, filterable table of **nftables / firewall4** log events on OpenWrt — inspired by OPNsense Live View, implemented as a small, portable LuCI app.
 
@@ -22,7 +22,7 @@ Traffic appears only when firewall rules include **`log`** — see the [logging 
 
 ## Install
 
-**Recommended — [GitHub Releases](https://github.com/lucas-albers-lz4/fwview/releases):** download the package for your OpenWrt version and install on the router.
+**Recommended — [GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases):** download the package for your OpenWrt version and install on the router.
 
 | OpenWrt | Package | Install |
 |---------|---------|---------|
@@ -34,9 +34,9 @@ The package is **`_all`** (LuCI JS + shell) — one artifact works on any router
 **Build from feed** (firmware/SDK builders):
 
 ```sh
-git clone https://github.com/lucas-albers-lz4/fwview.git
-echo "src-link fwview $(pwd)/fwview/openwrt-feed" >> feeds.conf
-./scripts/feeds update fwview
+git clone https://github.com/lucas-albers-lz4/fwlive.git
+echo "src-link fwlive $(pwd)/fwlive/openwrt-feed" >> feeds.conf
+./scripts/feeds update fwlive
 ./scripts/feeds install luci-app-fwlive
 ```
 

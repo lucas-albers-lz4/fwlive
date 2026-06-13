@@ -1,6 +1,6 @@
 # Developer guide
 
-Documentation for **building, testing, and extending** `luci-app-fwlive` and the fwview repository.
+Documentation for **building, testing, and extending** `luci-app-fwlive` and the fwlive repository.
 
 ## Start here
 

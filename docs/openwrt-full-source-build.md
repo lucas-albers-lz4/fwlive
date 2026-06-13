@@ -1,6 +1,6 @@
 # Full OpenWrt source: tools + toolchain (no SDK tarball)
 
-> **Optional / not the default.** For day-to-day **fwview** work use the **SDK** on **Linux x86_64** — [`dev-environment.md`](dev-environment.md) and [`minimal-build-sdk.md`](minimal-build-sdk.md). Only use this doc if you need a custom firmware image or full buildroot.
+> **Optional / not the default.** For day-to-day **fwlive** work use the **SDK** on **Linux x86_64** — [`dev-environment.md`](dev-environment.md) and [`minimal-build-sdk.md`](minimal-build-sdk.md). Only use this doc if you need a custom firmware image or full buildroot.
 
 If you prefer **not** to download the **SDK** `.tar.zst`, check out the **OpenWrt buildroot** for the same release as your image (e.g. **24.10**), wire in this repo’s feed, then build **host tools** and the **cross toolchain** inside the tree. The first run is **slow** and needs **disk space** (~15 GB+ is common), but setup is straightforward: one git clone, standard feed commands, then **`make tools/install`** and **`make toolchain/install`** before compiling the package.
 
@@ -31,13 +31,13 @@ test -f feeds.conf || cp feeds.conf.default feeds.conf
 ./scripts/feeds install luci-base
 ```
 
-## 3. Add the `fwview` feed and install the package
+## 3. Add the `fwlive` feed and install the package
 
 Use an **absolute path** to this repo’s **`openwrt-feed`** directory:
 
 ```sh
-echo "src-link fwview /absolute/path/to/fwview/openwrt-feed" >> feeds.conf
-./scripts/feeds update fwview
+echo "src-link fwlive /absolute/path/to/fwlive/openwrt-feed" >> feeds.conf
+./scripts/feeds update fwlive
 ./scripts/feeds install luci-app-fwlive
 ```
 

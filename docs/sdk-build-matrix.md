@@ -41,16 +41,16 @@ OWRT_MAKE_JOBS=16 ./scripts/docker-sdk.sh make --target x86-64
 Artifacts land under:
 
 ```text
-out/<package-arch>/<version>/fwview/luci-app-fwlive-*.apk
+out/<package-arch>/<version>/fwlive/luci-app-fwlive-*.apk
 ```
 
 Examples:
 
-- `out/aarch64_generic/snapshot/fwview/…`
-- `out/aarch64_generic/24.10.5/fwview/…`
-- `out/x86_64/23.05.5/fwview/…`
+- `out/aarch64_generic/snapshot/fwlive/…`
+- `out/aarch64_generic/24.10.5/fwlive/…`
+- `out/x86_64/23.05.5/fwlive/…`
 
-Legacy flat path `out/aarch64_generic/fwview/` is no longer written by default; use the versioned subdirs above.
+Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; use the versioned subdirs above.
 
 ## Build everything
 
@@ -89,15 +89,15 @@ Pass matrix options through them:
 
 | Runtime | Package path |
 |---------|----------------|
-| QEMU **armsr** guest | `out/aarch64_generic/<version>/fwview/*.apk` |
-| **x86** Docker experiment | `out/x86_64/<version>/fwview/*.apk` |
+| QEMU **armsr** guest | `out/aarch64_generic/<version>/fwlive/*.apk` |
+| **x86** Docker experiment | `out/x86_64/<version>/fwlive/*.apk` |
 
 ```sh
 ./scripts/agent-build-and-deploy.sh --legacy-hostfwd \
-  --ipk out/aarch64_generic/snapshot/fwview/luci-app-fwlive_*.ipk
+  --ipk out/aarch64_generic/snapshot/fwlive/luci-app-fwlive_*.ipk
 
 ./scripts/docker-rootfs-x86-install-fwlive.sh \
-  out/x86_64/snapshot/fwview/luci-app-fwlive-*.apk
+  out/x86_64/snapshot/fwlive/luci-app-fwlive-*.apk
 ```
 
 ## Environment overrides
@@ -106,7 +106,7 @@ Pass matrix options through them:
 |----------|---------|---------|
 | `OWRT_SDK_TARGET` | `armsr-armv8` | Default target for `docker-sdk.sh` |
 | `OWRT_SDK_VERSION` | `snapshot` | Default version |
-| `FWVIEW_MOUNT` | `.` | Repo mount inside SDK container |
+| `FWLIVE_MOUNT` | `.` | Repo mount inside SDK container |
 
 Docker Compose service **`sdk`** reads `OWRT_SDK_IMAGE` and `OWRT_SDK_VOLUME` (set automatically by `scripts/lib/sdk-matrix.sh`). Service **`sdk-official`** remains a fixed alias for the original default volume.
 

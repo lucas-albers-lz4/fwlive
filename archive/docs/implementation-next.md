@@ -22,7 +22,7 @@
 ./scripts/docker-sdk.sh build                    # armsr-armv8 + snapshot
 ./scripts/docker-sdk.sh build-all              # optional: all version × target cells
 ./scripts/run-openwrt-armsr-armv8-qemu.sh
-./scripts/agent-build-and-deploy.sh --legacy-hostfwd --ipk out/aarch64_generic/snapshot/fwview/luci-app-fwlive_*.ipk
+./scripts/agent-build-and-deploy.sh --legacy-hostfwd --ipk out/aarch64_generic/snapshot/fwlive/luci-app-fwlive_*.ipk
 ```
 
 **Still manual (you):** MVP sign-off on live guest per [`fwlive-acceptance.md`](fwlive-acceptance.md) and [`opnsense-liveview-parity.md`](opnsense-liveview-parity.md).
