@@ -110,6 +110,12 @@ sdk_matrix_compose_run() {
 	)
 }
 
+sdk_matrix_feeds_lock_path() {
+	local label
+	label="$(sdk_matrix_version_label "$1")"
+	printf '%s/scripts/feeds.lock/%s/feeds.conf' "$(sdk_matrix_root)" "$label"
+}
+
 sdk_matrix_feeds_ready() {
 	sdk_matrix_compose_run sh -c \
 		'test -f /builder/.config && find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q .' \
@@ -117,16 +123,20 @@ sdk_matrix_feeds_ready() {
 }
 
 sdk_matrix_feeds_setup() {
-	sdk_matrix_compose_run sh -ec '
+	local lock_path
+	lock_path="$(sdk_matrix_feeds_lock_path "$SDK_MATRIX_VERSION")"
+	[[ -f "$lock_path" ]] || {
+		echo "missing pinned feeds lock: $lock_path" >&2
+		return 1
+	}
+	sdk_matrix_compose_run sh -ec "
 		cd /builder
 		export TERM=dumb
-		if [ ! -f Makefile ]; then echo "Running ./setup.sh ..."; ./setup.sh; fi
+		if [ ! -f Makefile ]; then echo 'Running ./setup.sh ...'; ./setup.sh; fi
 		test -f Makefile
 
-		if [ -f feeds.conf.default ] && ! grep -q "^src-git.*base" feeds.conf 2>/dev/null; then
-			cp feeds.conf.default feeds.conf
-		fi
-		grep -q "^src-link fwlive" feeds.conf 2>/dev/null || echo "src-link fwlive /work/fwlive/openwrt-feed" >> feeds.conf
+		cp /work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf feeds.conf
+		grep -q '^src-link fwlive' feeds.conf || echo 'src-link fwlive /work/fwlive/openwrt-feed' >> feeds.conf
 
 		./scripts/feeds update base luci packages
 		./scripts/feeds install -p base liblua libucode libubox libubus libuci rpcd
@@ -135,7 +145,25 @@ sdk_matrix_feeds_setup() {
 		./scripts/feeds install luci-app-fwlive
 		rm -rf tmp
 		make defconfig
-	'
+	"
+}
+
+# Epoch for reproducible package timestamps (override via SOURCE_DATE_EPOCH env).
+sdk_matrix_source_date_epoch() {
+	if [[ -n "${SOURCE_DATE_EPOCH:-}" ]]; then
+		printf '%s' "$SOURCE_DATE_EPOCH"
+		return
+	fi
+	local root epoch
+	root="$(sdk_matrix_root)"
+	if git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+		epoch="$(git -C "$root" log -1 --format=%ct 2>/dev/null || true)"
+		if [[ -n "$epoch" ]]; then
+			printf '%s' "$epoch"
+			return
+		fi
+	fi
+	printf '%s' '0'
 }
 
 # Parallel make jobs on the build host (override: OWRT_MAKE_JOBS=16).
@@ -173,8 +201,16 @@ sdk_matrix_make() {
 	done
 	[[ $has_j -eq 0 ]] && args=(-j"$jobs" "${args[@]}")
 	quoted="$(printf ' %q' "${args[@]}")"
-	echo "→ make package/luci-app-fwlive/compile V=s${quoted}" >&2
-	sdk_matrix_compose_run sh -ec "cd /builder && export TERM=dumb && make package/luci-app-fwlive/compile V=s${quoted}"
+	local sde
+	sde="$(sdk_matrix_source_date_epoch)"
+	echo "→ SOURCE_DATE_EPOCH=${sde} make package/luci-app-fwlive/compile V=s${quoted}" >&2
+	sdk_matrix_compose_run sh -ec "cd /builder && export TERM=dumb SOURCE_DATE_EPOCH=${sde} && make package/luci-app-fwlive/compile V=s${quoted}"
+}
+
+sdk_matrix_clean_package() {
+	sdk_matrix_feeds_ready \
+		|| { echo "Run: ./scripts/docker-sdk.sh setup --target $SDK_MATRIX_TARGET --version $SDK_MATRIX_VERSION" >&2; return 1; }
+	sdk_matrix_compose_run sh -ec 'cd /builder && export TERM=dumb && make package/luci-app-fwlive/clean V=s'
 }
 
 sdk_matrix_copy_out() {

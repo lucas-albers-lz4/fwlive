@@ -25,7 +25,16 @@ required=(
 	scripts/fwlive-test.sh
 	scripts/docker-sdk.sh
 	scripts/lib/sdk-matrix.sh
+	scripts/lib/feed-publish.sh
 	scripts/lib/validate-matrix.sh
+	scripts/verify-reproducible-build.sh
+	scripts/publish-packages.sh
+	scripts/qemu-install-from-feed.sh
+	scripts/validate-feed-smoke.sh
+	scripts/wait-feed-pages.sh
+	scripts/feeds.lock/23.05.5/feeds.conf
+	scripts/feeds.lock/24.10.5/feeds.conf
+	scripts/feeds.lock/25.12.0/feeds.conf
 	scripts/qemu-smoke-fwlive.sh
 	scripts/qemu-install-fwlive.sh
 	scripts/qemu-lab-prepare-image.sh
@@ -36,6 +45,8 @@ required=(
 	scripts/run-openwrt-armsr-armv8-qemu.sh
 	core/fwlive-log.js
 	openwrt-feed/luci-app-fwlive/Makefile
+	.github/workflows/publish-packages.yml
+	docs/binary-feed.md
 )
 
 for f in "${required[@]}"; do
