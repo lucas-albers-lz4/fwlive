@@ -11,8 +11,13 @@ LUCI_DESCRIPTION:=Live nftables firewall log table with filters (OPNsense-style)
 LUCI_DEPENDS:=+luci-base +logd +rpcd +firewall4
 LUCI_PKGARCH:=all
 
-PKG_VERSION:=0.1.0
-PKG_RELEASE:=1
+PKG_VERSION:=0.1.1
+PKG_RELEASE:=2
+
+# Reproducible build: honor SOURCE_DATE_EPOCH from the build environment (set by docker-sdk.sh / CI).
+ifdef SOURCE_DATE_EPOCH
+export SOURCE_DATE_EPOCH
+endif
 
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=fwlive contributors <https://github.com/lucas-albers-lz4/fwlive>
