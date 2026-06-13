@@ -25,7 +25,9 @@ jobs:
 
       - name: Build packages (23.05, 24.10, 25.12)
         run: |
+          mkdir -p out
           for ver in 23.05 24.10 25.12; do
+            echo "=== docker-sdk build: OpenWrt ${ver} ==="
             ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
           done
 

@@ -214,15 +214,17 @@ sdk_matrix_clean_package() {
 }
 
 sdk_matrix_copy_out() {
-	local root out_mount
+	local root out_mount dest_host
 	root="$(sdk_matrix_root)"
 	out_mount="${root}/out"
-	mkdir -p "$out_mount"
+	dest_host="${out_mount}/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}"
+	mkdir -p "$dest_host"
+	# SDK image runs as buildbot (uid 1000); GHA workspace is often uid 1001 — copy as root.
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
-		docker compose run --rm -v "${out_mount}:/out" sdk sh -ec "
+		docker compose run --rm --user root -v "${out_mount}:/out" sdk sh -ec "
 			dest=/out/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}
 			mkdir -p \"\$dest\"
 			if [ -d /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/fwlive ]; then
@@ -230,6 +232,7 @@ sdk_matrix_copy_out() {
 			else
 				cp -a /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/. \"\$dest/\" 2>/dev/null || true
 			fi
+			chmod -R a+rX /out
 			ls -la \"\$dest\"/fwlive/luci-app-fwlive* 2>/dev/null || ls -la \"\$dest\"/luci-app-fwlive* 2>/dev/null || true
 		"
 	)
