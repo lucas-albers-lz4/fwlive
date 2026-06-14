@@ -116,7 +116,7 @@ Expected apk secret shape: PEM `-----BEGIN PRIVATE KEY-----` (openssl genrsa out
 
 ## Automated publish (CI)
 
-On **GitHub Release publish**, [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml):
+On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml):
 
 1. Validates signing keys via [`validate-feed-keys.sh`](../scripts/validate-feed-keys.sh) (before build).
 2. Builds `luci-app-fwlive` for **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).

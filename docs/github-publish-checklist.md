@@ -93,4 +93,4 @@ Alternatives (not primary):
 | Workflow | When |
 |----------|------|
 | `fwlive-test.yml` | Every push/PR — parser tests |
-| `publish-packages.yml` | Release published — SDK build, reproducibility, Pages deploy, feed smoke |
+| `publish-packages.yml` | Tag push `v*` — SDK build, reproducibility, Pages deploy, release assets, feed smoke |

@@ -28,20 +28,21 @@ Full publish checklist: [github-publish-checklist.md](github-publish-checklist.m
 1. Bump `PKG_VERSION` / `PKG_RELEASE` in [`openwrt-feed/luci-app-fwlive/Makefile`](../openwrt-feed/luci-app-fwlive/Makefile).
 2. Update [`scripts/feeds.lock/`](../scripts/feeds.lock/) if the OpenWrt point release changed — see [binary-feed.md](binary-feed.md).
 3. Merge to main.
-4. Tag and publish a GitHub Release:
+4. Tag and push — **do not** create or publish a GitHub Release first; CI creates it with assets attached:
 
    ```sh
    git tag -a v0.1.0 -m "Firewall Live View — 23.05 / 24.10 / 25.12"
    git push origin v0.1.0
-   gh release create v0.1.0 --title "v0.1.0 — Firewall Live View MVP" --notes "…"
    ```
 
-5. **Publish the release** on GitHub (draft → published). This triggers [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml), which:
+   Pushing the tag triggers [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml), which:
    - Builds packages for **23.05**, **24.10**, **25.12**
    - Verifies reproducible builds ([`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh))
    - Signs and deploys the feed to **`lucas-albers-lz4/fwlive-packages`** (GitHub Pages)
    - Uploads release assets
    - Runs QEMU smoke tests installing from the live feed URL
+
+   GitHub **immutable releases** cannot receive assets after publish. If you already published an empty release, delete it on GitHub (keep the tag) and re-run the workflow from Actions → **Run workflow**.
 
 Ensure GitHub Actions secrets are configured — see [binary-feed.md](binary-feed.md).
 
