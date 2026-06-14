@@ -12,6 +12,8 @@ env:
 jobs:
   build-publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,10 +80,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ github.event.release.tag_name }}"
-          assets=()
-          while IFS= read -r f; do
-            assets+=("$f")
-          done < <(find out/x86_64 -type f \( -name 'luci-app-fwlive_*_all.ipk' -o -name 'luci-app-fwlive-*.apk' \))
+          mapfile -t assets < <(find out/x86_64 -type f \( -name 'luci-app-fwlive_*_all.ipk' -o -name 'luci-app-fwlive-*.apk' \) | sort)
+          if ((${#assets[@]} == 0)); then
+            echo "No .ipk/.apk artifacts under out/x86_64/" >&2
+            exit 1
+          fi
+          printf 'Uploading %s release asset(s) to %s\n' "${#assets[@]}" "$tag"
           gh release upload "$tag" "${assets[@]}" --clobber
 
   smoke-from-feed:

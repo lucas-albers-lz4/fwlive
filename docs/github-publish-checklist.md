@@ -32,6 +32,7 @@ Use before making this repo public upstream.
 - [ ] Create public repo **`lucas-albers-lz4/fwlive-packages`** (GitHub Pages via `gh-pages`, written by CI)
 - [ ] Add deploy key → secret `FEED_DEPLOY_KEY` on **`fwlive`**
 - [ ] Generate usign + RSA keys → secrets `OPKG_FEED_*`, `APK_FEED_*` on **`fwlive`**
+- [ ] **Settings → Actions → General → Workflow permissions:** “Read and write permissions” (or rely on `contents: write` in `publish-packages.yml`)
 - [ ] See [binary-feed.md](binary-feed.md) for one-time setup
 
 `src-git` to the main `fwlive` repo is **not supported** (feed root is `openwrt-feed/`, not repo root). A separate feed-only **source** mirror would be needed for `src-git`; not required for v1.
