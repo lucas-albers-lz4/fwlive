@@ -25,6 +25,9 @@ if [[ -n "${1:-}" ]]; then
 	STAGING="$1"
 fi
 
+mkdir -p "$STAGING"
+STAGING="$(feed_publish_abspath "$STAGING")"
+
 rm -rf "$STAGING"
 mkdir -p "$STAGING"
 

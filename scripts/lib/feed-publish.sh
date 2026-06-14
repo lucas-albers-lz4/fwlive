@@ -12,6 +12,17 @@ feed_publish_root() {
 	printf '%s' "$here"
 }
 
+feed_publish_abspath() {
+	local path="$1"
+	if [[ "$path" != /* ]]; then
+		path="$(feed_publish_root)/${path#./}"
+	fi
+	(
+		cd "$(dirname "$path")"
+		printf '%s/%s' "$(pwd)" "$(basename "$path")"
+	)
+}
+
 # Map user version key → feed directory name on GitHub Pages.
 feed_publish_feed_dir() {
 	case "$(sdk_matrix_version_label "$1")" in
@@ -99,8 +110,10 @@ feed_publish_stage_opkg_host() {
 
 feed_publish_stage_opkg_sdk() {
 	local version_key="$1" pkg_dir="$2"
-	local root
+	local root pkg_abs key_abs
 	root="$(feed_publish_root)"
+	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
+	key_abs="$(feed_publish_abspath "$OPKG_FEED_SECRET_KEY")"
 	sdk_matrix_resolve x86-64 "$version_key"
 	sdk_matrix_feeds_ready \
 		|| { echo "run docker-sdk.sh build --version ${version_key} before staging opkg feed" >&2; return 1; }
@@ -110,7 +123,7 @@ feed_publish_stage_opkg_sdk() {
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
 		docker compose run --rm --user root \
 			-v "${pkg_dir}:/feed/pkgdir" \
-			-v "${OPKG_FEED_SECRET_KEY}:/feed/opkg-secret.key:ro" \
+			-v "${key_abs}:/feed/opkg-secret.key:ro" \
 			sdk sh -ec '
 				set -e
 				USIGN=/builder/staging_dir/host/bin/usign
@@ -175,15 +188,17 @@ feed_publish_stage_apk() {
 	sdk_matrix_resolve x86-64 "$version_key"
 	sdk_matrix_feeds_ready \
 		|| { echo "run docker-sdk.sh build --version ${version_key} before staging apk feed" >&2; return 1; }
-	local root
+	local root pkg_abs key_abs
 	root="$(feed_publish_root)"
+	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
+	key_abs="$(feed_publish_abspath "$APK_FEED_SECRET_KEY")"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
 		docker compose run --rm --user root \
 			-v "${pkg_dir}:/feed/pkgdir" \
-			-v "${APK_FEED_SECRET_KEY}:/feed/apk-secret.rsa:ro" \
+			-v "${key_abs}:/feed/apk-secret.rsa:ro" \
 			sdk sh -ec '
 				set -e
 				APK=/builder/staging_dir/host/bin/apk
