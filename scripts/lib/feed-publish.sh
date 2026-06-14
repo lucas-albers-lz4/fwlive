@@ -72,27 +72,87 @@ feed_publish_ipkg_index_script() {
 	printf '%s' "$dest"
 }
 
+feed_publish_stage_opkg_host() {
+	local pkg_dir="$1" ver_label="$2"
+	local index_script raw
+	index_script="$(feed_publish_ipkg_index_script "$ver_label")"
+	raw="$(mktemp)"
+	if ! ( cd "$pkg_dir" && "$index_script" . >"$raw" ); then
+		echo "ipkg-make-index failed for ${ver_label}" >&2
+		cat "$raw" >&2
+		rm -f "$raw"
+		return 1
+	fi
+	grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' "$raw" > "${pkg_dir}/Packages" || true
+	rm -f "$raw"
+	[[ -s "${pkg_dir}/Packages" ]] || {
+		echo "empty Packages index for ${ver_label}" >&2
+		return 1
+	}
+	gzip -9cn "${pkg_dir}/Packages" > "${pkg_dir}/Packages.gz"
+	feed_publish_ensure_usign || {
+		echo "usign not available (install or run after docker-sdk build)" >&2
+		return 1
+	}
+	usign -S -m "${pkg_dir}/Packages" -s "$OPKG_FEED_SECRET_KEY" -x "${pkg_dir}/Packages.sig"
+}
+
+feed_publish_stage_opkg_sdk() {
+	local version_key="$1" pkg_dir="$2"
+	local root
+	root="$(feed_publish_root)"
+	sdk_matrix_resolve x86-64 "$version_key"
+	sdk_matrix_feeds_ready \
+		|| { echo "run docker-sdk.sh build --version ${version_key} before staging opkg feed" >&2; return 1; }
+	(
+		cd "$root"
+		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
+		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
+		docker compose run --rm --user root \
+			-v "${pkg_dir}:/feed/pkgdir" \
+			-v "${OPKG_FEED_SECRET_KEY}:/feed/opkg-secret.key:ro" \
+			sdk sh -ec '
+				set -e
+				USIGN=/builder/staging_dir/host/bin/usign
+				INDEX=/builder/scripts/ipkg-make-index.sh
+				test -x "$USIGN"
+				test -x "$INDEX"
+				cd /feed/pkgdir
+				RAW="$(mktemp)"
+				"$INDEX" . >"$RAW"
+				grep -vE "^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)" "$RAW" > Packages || true
+				rm -f "$RAW"
+				test -s Packages
+				gzip -9cn Packages > Packages.gz
+				"$USIGN" -S -m Packages -s /feed/opkg-secret.key -x Packages.sig
+			'
+	)
+}
+
 feed_publish_stage_opkg() {
 	local version_key="$1" staging="$2"
-	local ver_label feed_dir artifact index_script pkg_dir
+	local ver_label feed_dir artifact pkg_dir
 	ver_label="$(sdk_matrix_version_label "$version_key")"
 	feed_dir="${staging}/$(feed_publish_feed_dir "$version_key")"
 	artifact="$(feed_publish_find_artifact "$ver_label")" || {
 		echo "missing built ipk for ${ver_label} under out/x86_64/${ver_label}/fwlive/" >&2
 		return 1
 	}
-	mkdir -p "$feed_dir"
-	cp -a "$artifact" "$feed_dir/"
-	pkg_dir="$feed_dir"
-	index_script="$(feed_publish_ipkg_index_script "$ver_label")"
-	( cd "$pkg_dir" && "$index_script" . 2>/dev/null | grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' > Packages )
-	gzip -9cn "$pkg_dir/Packages" > "$pkg_dir/Packages.gz"
-	feed_publish_ensure_usign
 	[[ -n "${OPKG_FEED_SECRET_KEY:-}" ]] || {
 		echo "OPKG_FEED_SECRET_KEY must point to usign secret key file" >&2
 		return 1
 	}
-	usign -S -m "$pkg_dir/Packages" -s "$OPKG_FEED_SECRET_KEY" -x "$pkg_dir/Packages.sig"
+	mkdir -p "$feed_dir"
+	cp -a "$artifact" "$feed_dir/"
+	pkg_dir="$feed_dir"
+	sdk_matrix_resolve x86-64 "$version_key"
+	if sdk_matrix_feeds_ready 2>/dev/null; then
+		echo "  index+sign via SDK (${SDK_MATRIX_IMAGE})" >&2
+		feed_publish_stage_opkg_sdk "$version_key" "$pkg_dir"
+	else
+		echo "  index+sign on host (no SDK volume)" >&2
+		feed_publish_stage_opkg_host "$pkg_dir" "$ver_label"
+	fi
 	printf '%s' "$artifact"
 }
 
@@ -121,7 +181,7 @@ feed_publish_stage_apk() {
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
-		docker compose run --rm \
+		docker compose run --rm --user root \
 			-v "${pkg_dir}:/feed/pkgdir" \
 			-v "${APK_FEED_SECRET_KEY}:/feed/apk-secret.rsa:ro" \
 			sdk sh -ec '
