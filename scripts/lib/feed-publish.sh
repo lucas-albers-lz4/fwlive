@@ -85,10 +85,20 @@ feed_publish_ipkg_index_script() {
 
 feed_publish_stage_opkg_host() {
 	local pkg_dir="$1" ver_label="$2"
-	local index_script raw
+	local index_script raw mkhash
 	index_script="$(feed_publish_ipkg_index_script "$ver_label")"
 	raw="$(mktemp)"
-	if ! ( cd "$pkg_dir" && "$index_script" . >"$raw" ); then
+	# ipkg-make-index.sh uses $MKHASH sha256 (OpenWrt mkhash), not sha256sum alone.
+	mkhash=""
+	for ver in 25.12 24.10 23.05; do
+		sdk_matrix_resolve x86-64 "$ver" 2>/dev/null || continue
+		if sdk_matrix_feeds_ready 2>/dev/null; then
+			mkhash="$(sdk_matrix_compose_run sh -c 'test -x /builder/staging_dir/host/bin/mkhash && echo /builder/staging_dir/host/bin/mkhash' 2>/dev/null | tr -d '\r' || true)"
+			[[ -n "$mkhash" ]] && break
+		fi
+	done
+	[[ -n "$mkhash" ]] || mkhash="$(command -v mkhash || true)"
+	if ! ( cd "$pkg_dir" && MKHASH="${mkhash:-mkhash}" "$index_script" . >"$raw" ); then
 		echo "ipkg-make-index failed for ${ver_label}" >&2
 		cat "$raw" >&2
 		rm -f "$raw"
@@ -128,8 +138,11 @@ feed_publish_stage_opkg_sdk() {
 				set -e
 				USIGN=/builder/staging_dir/host/bin/usign
 				INDEX=/builder/scripts/ipkg-make-index.sh
+				MKHASH=/builder/staging_dir/host/bin/mkhash
+				export MKHASH
 				test -x "$USIGN"
 				test -x "$INDEX"
+				test -x "$MKHASH"
 				cd /feed/pkgdir
 				RAW="$(mktemp)"
 				"$INDEX" . >"$RAW"
