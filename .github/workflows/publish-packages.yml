@@ -42,11 +42,17 @@ jobs:
           APK_PUB: ${{ secrets.APK_FEED_PUBLIC_KEY }}
         run: |
           test -n "$OPKG_SECRET" && test -n "$APK_SECRET"
-          printf '%s' "$OPKG_SECRET" > opkg-secret.key
-          printf '%s' "$APK_SECRET" > apk-secret.rsa
-          printf '%s' "$OPKG_PUB" > public.key
-          printf '%s' "$APK_PUB" > fwlive-feed.rsa.pub
-          chmod 600 opkg-secret.key apk-secret.rsa
+          # shellcheck source=scripts/lib/feed-keys.sh
+          source ./scripts/lib/feed-keys.sh
+          feed_keys_write_from_env "$GITHUB_WORKSPACE"
+
+      - name: Validate signing keys
+        env:
+          OPKG_FEED_SECRET_KEY: ${{ github.workspace }}/opkg-secret.key
+          OPKG_FEED_PUBLIC_KEY: ${{ github.workspace }}/public.key
+          APK_FEED_SECRET_KEY: ${{ github.workspace }}/apk-secret.rsa
+          APK_FEED_PUBLIC_KEY: ${{ github.workspace }}/fwlive-feed.rsa.pub
+        run: ./scripts/validate-feed-keys.sh
 
       - name: Stage signed feed
         env:
