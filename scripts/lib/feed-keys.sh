@@ -10,25 +10,28 @@ feed_keys_root() {
 }
 
 # usign expects two lines; GitHub secret paste often collapses to one line → "Premature end of file".
-feed_keys_normalize_usign_secret() {
+feed_keys_normalize_usign_keyfile() {
 	local f="$1"
 	[[ -f "$f" && -s "$f" ]] || return 1
 
-	# GitHub paste / tr "\n" " " often leaves trailing whitespace.
 	sed -i 's/[[:space:]]*$//' "$f"
 
-	if grep -qE '^RW[A-Za-z0-9+/=]+=?$' "$f"; then
+	if grep -qE '^RW[A-Za-z0-9+/=]+$' "$f"; then
 		return 0
 	fi
 
-	if grep -q 'untrusted comment:' "$f" && grep -qE ' RW[A-Za-z0-9+/=]+=?$' "$f"; then
-		sed -E 's/^(untrusted comment: .+) (RW[A-Za-z0-9+/=]+=?)[[:space:]]*$/\1\
+	if grep -q 'untrusted comment:' "$f" && grep -qE ' RW[A-Za-z0-9+/=]+$' "$f"; then
+		sed -E 's/^(untrusted comment: .+) (RW[A-Za-z0-9+/=]+)[[:space:]]*$/\1\
 \2/' "$f" > "${f}.tmp"
 		mv "${f}.tmp" "$f"
 	fi
 
-	grep -qE '^RW[A-Za-z0-9+/=]+=?$' "$f" || return 1
+	grep -qE '^RW[A-Za-z0-9+/=]+$' "$f" || return 1
 	return 0
+}
+
+feed_keys_normalize_usign_secret() {
+	feed_keys_normalize_usign_keyfile "$1"
 }
 
 # Optional: store whole key file as base64 in GitHub secret (avoids newline issues).
@@ -65,6 +68,11 @@ feed_keys_write_from_env() {
 	feed_keys_normalize_usign_secret "${dest}/opkg-secret.key" \
 		|| {
 			echo "feed-keys: OPKG_FEED_SECRET_KEY must be usign secret (usign -G) or its base64" >&2
+			return 1
+		}
+	feed_keys_normalize_usign_keyfile "${dest}/public.key" \
+		|| {
+			echo "feed-keys: OPKG_FEED_PUBLIC_KEY must be usign public key (from usign -G) or its base64" >&2
 			return 1
 		}
 }

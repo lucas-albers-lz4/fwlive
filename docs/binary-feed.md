@@ -98,11 +98,12 @@ Store **private** keys only in GitHub Actions secrets. Never commit them to eith
 Verify locally before updating GitHub secrets:
 
 ```sh
-# After builds exist under out/x86_64/
 OPKG_FEED_SECRET_KEY=./opkg-secret.key OPKG_FEED_PUBLIC_KEY=./public.key \
 APK_FEED_SECRET_KEY=./apk-secret.rsa APK_FEED_PUBLIC_KEY=./fwlive-feed.rsa.pub \
   ./scripts/validate-feed-keys.sh
 ```
+
+No package build required. CI runs this immediately after writing keys from GitHub secrets (before the ~30 minute SDK build).
 
 Expected usign secret shape:
 
@@ -117,12 +118,13 @@ Expected apk secret shape: PEM `-----BEGIN PRIVATE KEY-----` (openssl genrsa out
 
 On **GitHub Release publish**, [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml):
 
-1. Builds `luci-app-fwlive` for **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
-2. Runs [`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh) (double-build sha256 gate).
-3. Stages signed feed via [`publish-packages.sh`](../scripts/publish-packages.sh).
-4. Deploys to **`fwlive-packages`** `gh-pages`.
-5. Uploads `.ipk` / `.apk` to the GitHub Release.
-6. Boots QEMU x86 guests and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh)).
+1. Validates signing keys via [`validate-feed-keys.sh`](../scripts/validate-feed-keys.sh) (before build).
+2. Builds `luci-app-fwlive` for **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
+3. Runs [`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh) (double-build sha256 gate).
+4. Stages signed feed via [`publish-packages.sh`](../scripts/publish-packages.sh).
+5. Deploys to **`fwlive-packages`** `gh-pages`.
+6. Uploads `.ipk` / `.apk` to the GitHub Release.
+7. Boots QEMU x86 guests and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh)).
 
 ## Manual publish (fallback)
 

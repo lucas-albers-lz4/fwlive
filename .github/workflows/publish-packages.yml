@@ -23,17 +23,6 @@ jobs:
       - name: Validate baseline
         run: ./scripts/validate-baseline.sh
 
-      - name: Build packages (23.05, 24.10, 25.12)
-        run: |
-          mkdir -p out
-          for ver in 23.05 24.10 25.12; do
-            echo "=== docker-sdk build: OpenWrt ${ver} ==="
-            ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
-          done
-
-      - name: Verify reproducible builds
-        run: ./scripts/verify-reproducible-build.sh
-
       - name: Write signing keys
         env:
           OPKG_SECRET: ${{ secrets.OPKG_FEED_SECRET_KEY }}
@@ -53,6 +42,17 @@ jobs:
           APK_FEED_SECRET_KEY: ${{ github.workspace }}/apk-secret.rsa
           APK_FEED_PUBLIC_KEY: ${{ github.workspace }}/fwlive-feed.rsa.pub
         run: ./scripts/validate-feed-keys.sh
+
+      - name: Build packages (23.05, 24.10, 25.12)
+        run: |
+          mkdir -p out
+          for ver in 23.05 24.10 25.12; do
+            echo "=== docker-sdk build: OpenWrt ${ver} ==="
+            ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
+          done
+
+      - name: Verify reproducible builds
+        run: ./scripts/verify-reproducible-build.sh
 
       - name: Stage signed feed
         env:
