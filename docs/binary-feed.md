@@ -90,6 +90,29 @@ openssl rsa -in apk-secret.rsa -pubout -out fwlive-feed.rsa.pub
 
 Store **private** keys only in GitHub Actions secrets. Never commit them to either repo.
 
+**Common mistakes**
+
+- `OPKG_FEED_SECRET_KEY` must be the **usign** secret from `usign -G` (two lines: `untrusted comment:` + `RW…` base64). The **openssl RSA** key is only for `APK_FEED_SECRET_KEY`.
+- Pasting the secret into GitHub as **one line** (no newline between comment and key) makes usign fail with **`Premature end of file`**. Either paste the file verbatim with its line break, or store **`base64 -w0 opkg-secret.key`** in the secret (CI auto-decodes).
+
+Verify locally before updating GitHub secrets:
+
+```sh
+# After builds exist under out/x86_64/
+OPKG_FEED_SECRET_KEY=./opkg-secret.key OPKG_FEED_PUBLIC_KEY=./public.key \
+APK_FEED_SECRET_KEY=./apk-secret.rsa APK_FEED_PUBLIC_KEY=./fwlive-feed.rsa.pub \
+  ./scripts/validate-feed-keys.sh
+```
+
+Expected usign secret shape:
+
+```text
+untrusted comment: fwlive opkg feed
+RWRCSwAAAAD…base64…=
+```
+
+Expected apk secret shape: PEM `-----BEGIN PRIVATE KEY-----` (openssl genrsa output).
+
 ## Automated publish (CI)
 
 On **GitHub Release publish**, [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml):

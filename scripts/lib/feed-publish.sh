@@ -150,7 +150,12 @@ feed_publish_stage_opkg_sdk() {
 				rm -f "$RAW"
 				test -s Packages
 				gzip -9cn Packages > Packages.gz
-				"$USIGN" -S -m Packages -s /feed/opkg-secret.key -x Packages.sig
+				if ! "$USIGN" -S -m Packages -s /feed/opkg-secret.key -x Packages.sig; then
+					echo "usign failed: OPKG_FEED_SECRET_KEY must be the full usign secret from:" >&2
+					echo "  usign -G -s opkg-secret.key -p public.key -c \"fwlive opkg feed\"" >&2
+					echo "(not the apk RSA key; include both comment and base64 lines)" >&2
+					exit 1
+				fi
 			'
 	)
 }
