@@ -11,7 +11,7 @@ LUCI_DESCRIPTION:=Live nftables firewall log table with filters (OPNsense-style)
 LUCI_DEPENDS:=+luci-base +logd +rpcd +firewall4
 LUCI_PKGARCH:=all
 
-PKG_VERSION:=0.1.11
+PKG_VERSION:=0.1.12
 PKG_RELEASE:=2
 
 # Reproducible build: honor SOURCE_DATE_EPOCH from the build environment (set by docker-sdk.sh / CI).
