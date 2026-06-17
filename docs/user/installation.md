@@ -51,7 +51,7 @@ ssh root@192.168.1.1 apk add --allow-untrusted /tmp/luci-app-fwlive-*.apk
 
 Refresh LuCI in the browser. The menu appears under **Status → Firewall Live View**.
 
-## 2. Feed via src-link (builders)
+## 3. Feed via src-link (builders)
 
 Use when you compile firmware or run the official OpenWrt SDK and want `luci-app-fwlive` in your tree.
 
@@ -83,7 +83,7 @@ Use when you compile firmware or run the official OpenWrt SDK and want `luci-app
 
    Install the resulting file from `bin/packages/.../luci-app-fwlive_*.ipk` (or `.apk` on newer branches).
 
-## 3. Docker SDK (developers / lab)
+## 4. Docker SDK (developers / lab)
 
 On **Linux x86_64**:
 

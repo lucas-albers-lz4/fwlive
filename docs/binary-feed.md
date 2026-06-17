@@ -10,6 +10,7 @@ Manual `.ipk` / `.apk` downloads remain on [GitHub Releases](https://github.com/
 
 ```text
 fwlive-packages/          (gh-pages branch)
+  README.md               repo landing page (from packages-repo/ in fwlive)
   public.key              opkg trust anchor
   fwlive-feed.rsa.pub     apk trust anchor
   manifest.json           release metadata + sha256

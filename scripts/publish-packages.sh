@@ -44,6 +44,10 @@ feed_publish_stage_apk 25.12 "$STAGING"
 feed_publish_copy_keys "$STAGING"
 feed_publish_write_manifest "$STAGING" "$GIT_TAG"
 
+if [[ -f "${ROOT}/packages-repo/README.md" ]]; then
+	cp "${ROOT}/packages-repo/README.md" "${STAGING}/README.md"
+fi
+
 echo "== staged feed ==" >&2
 find "$STAGING" -type f | sort
 echo "Ready to deploy ${STAGING}/ to fwlive-packages gh-pages." >&2
