@@ -35,6 +35,7 @@ Writes:
 | `fwlive-expanded-message.png` | Simple view, one row expanded (Message) |
 | `fwlive-filters.png` | Filter bar + chips crop |
 | `fwlive-main-view.png` | Detailed view (all columns) |
+| `fwlive-dark-mode.png` | Simple view in LuCI dark mode (`data-darkmode="true"`) |
 
 ## Manual capture
 

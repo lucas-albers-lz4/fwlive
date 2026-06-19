@@ -35,6 +35,9 @@ echo "== fwlive rpcd security ==" >&2
 echo "== fwlive schema (stage 2) ==" >&2
 "$NODE" tests/fwlive-schema.test.js
 
+echo "== fwlive theme CSS (LuCI dark mode) ==" >&2
+"$NODE" tests/fwlive-theme-css.test.js
+
 echo "== fwlive CLI pipeline ==" >&2
 "$NODE" tests/fwlive-cli-pipeline.test.js
 

@@ -42,6 +42,12 @@ async function openFwlive(page, hash = '') {
 	await page.waitForTimeout(2000);
 }
 
+async function enableDarkMode(page) {
+	await page.evaluate(() => {
+		document.documentElement.setAttribute('data-darkmode', 'true');
+	});
+}
+
 async function main() {
 	await mkdir(OUT, { recursive: true });
 
@@ -75,6 +81,11 @@ async function main() {
 	await page.locator('#fwlive-detail-toggle').click();
 	await page.waitForTimeout(1500);
 	await page.screenshot({ path: path.join(OUT, 'fwlive-main-view.png'), fullPage: true });
+
+	// Dark mode (LuCI bootstrap data-darkmode)
+	await enableDarkMode(page);
+	await openFwlive(page, '#proto=icmp');
+	await page.screenshot({ path: path.join(OUT, 'fwlive-dark-mode.png'), fullPage: true });
 
 	await browser.close();
 	console.log('Screenshots written to', OUT);
