@@ -53,5 +53,5 @@ Traffic only appears when your firewall rules include **`log`** (or equivalent) 
 
 1. Check [Requirements](requirements.md)
 2. [Install](installation.md) the package
-3. [Enable logging](enabling-firewall-logs.md) on the rules you want to see
+3. [Enable logging — quick start](enabling-firewall-logs.md#quick-start-after-install) (WAN drops or ping test; stock images log nothing by default)
 4. Open **Status → Firewall Live View** and read [Using the UI](using-the-ui.md)

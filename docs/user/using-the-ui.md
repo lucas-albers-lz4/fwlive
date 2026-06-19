@@ -76,7 +76,7 @@ When fw4 logs a **prefix** (e.g. `fwlive-ping `), the UI shows a label. Ctrl+cli
 
 ## Empty table
 
-If no events appear, the page shows an on-router hint: traffic needs **`log`** on fw4/nft rules. A link to **Network → Firewall** is provided. Logged WAN drops and similar traffic should appear without any configuration on this page.
+If no events appear, the page shows an on-router hint: traffic needs **`log`** on fw4/nft rules. A link to **Network → Firewall** is provided. On a **stock** router nothing is logged yet — follow **[Quick start after install](enabling-firewall-logs.md#quick-start-after-install)** (WAN zone logging or the ping test) before expecting rows here.
 
 ## High traffic rate
 

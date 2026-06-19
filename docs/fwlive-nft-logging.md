@@ -1,6 +1,6 @@
 # Enable firewall logs for Firewall Live View
 
-> **End users:** [User guide → Enabling firewall logs](user/enabling-firewall-logs.md) (shorter). This file is the full reference.
+> **End users:** start with [User guide → Enabling firewall logs](user/enabling-firewall-logs.md) (**quick start after install**, zone vs rule logging, kernel checks). This file is the full reference.
 
 **Firewall Live View** reads **`ubus fwlive poll`** (logd via filtered `log.read`). The UI only shows traffic when **nftables / fw4** rules **log** matching packets.
 

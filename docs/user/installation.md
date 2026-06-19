@@ -100,7 +100,7 @@ For a full QEMU lab loop (build → boot → install), see [Developer: QEMU lab]
 ## After install
 
 1. Confirm the menu: **Status → Firewall Live View**
-2. [Enable firewall logging](enabling-firewall-logs.md) — the table stays empty until rules log traffic
+2. **[Enable logging — quick start](enabling-firewall-logs.md#quick-start-after-install)** — the table is empty on stock configs until you turn logging on. Run the WAN zone one-liner there to see real drop/reject traffic, or the ping test for a quick pass row.
 3. Read [Using the UI](using-the-ui.md)
 
 ## Uninstall
