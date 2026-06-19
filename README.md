@@ -16,7 +16,7 @@ LuCI **Firewall Live View**: a live, filterable table of **nftables / firewall4*
 
 **Menu:** Status → Firewall Live View (`/cgi-bin/luci/admin/status/fwlive`)
 
-Traffic appears only when firewall rules include **`log`** — see the [logging guide](docs/user/enabling-firewall-logs.md).
+Traffic appears only when firewall rules include **`log`**. After install, run the [quick-start commands](docs/user/enabling-firewall-logs.md#quick-start-after-install) (WAN zone logging or ping test) — stock configs log nothing by default.
 
 ---
 
