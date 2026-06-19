@@ -1355,11 +1355,13 @@ return view.extend({
 				'class': 'fwlive-empty',
 				'style': 'display:none'
 			}, [
-				E('p', {}, _('No firewall events yet. Traffic appears when nftables/fw4 rules include log. Existing logged traffic (for example default WAN drops) should show here automatically.')),
+				E('p', {}, _('No firewall events yet. Stock configs log nothing until you turn logging on — enable zone logging on WAN (Network → Firewall) for inbound drops, or add log to the rule you are debugging.')),
 				E('p', {}, [
-					_('To log additional traffic, add log on a rule under '),
-					E('a', { 'href': this.luciUrl('admin/network/firewall') }, _('Network → Firewall')),
-					_('.')
+					_('Quick test in System → Terminal: '),
+					E('code', {}, 'nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept'),
+					_(' then ping the router. For WAN scan/drop traffic, set '),
+					E('code', {}, "option log '1'"),
+					_(' on the wan zone and reload the firewall.')
 				])
 			]),
 			E('div', { 'id': 'fwlive-scroll', 'class': 'fwlive-scroll fwlive-msg-wrap' }, [
