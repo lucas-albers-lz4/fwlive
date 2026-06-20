@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
@@ -84,7 +84,7 @@ jobs:
         run: ./scripts/publish-packages.sh feed-staging
 
       - name: Deploy to GitHub Pages (fwlive-packages)
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@v4.1.0
         with:
           deploy_key: ${{ secrets.FEED_DEPLOY_KEY }}
           external_repository: ${{ env.FWLIVE_PACKAGES_REPO }}
@@ -129,7 +129,7 @@ jobs:
       OWRT_QEMU_ACCEL: tcg
       OWRT_VALIDATE_SSH_WAIT_X86: "900"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install lab dependencies
         run: |
