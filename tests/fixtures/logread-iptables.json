@@ -1,0 +1,24 @@
+{
+  "log": [
+    {
+      "time": 1717675800,
+      "msg": "[  123.456789] fwlive-ping: IN=br-lan OUT= MAC=00:11:22:33:44:55:66:77 SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP TYPE=8 CODE=0"
+    },
+    {
+      "time": 1717675801,
+      "msg": "iptables: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP SPT=54321 DPT=22"
+    },
+    {
+      "time": 1717675802,
+      "msg": "custom-chain: ACCEPT IN=lan OUT= SRC=10.0.0.5 DST=8.8.8.8 PROTO=UDP SPT=5353 DPT=5353"
+    },
+    {
+      "time": 1717675803,
+      "msg": "fwlive-testIN=eth0 OUT= SRC=192.168.1.20 DST=1.1.1.1 PROTO=ICMP"
+    },
+    {
+      "time": 1717675804,
+      "msg": "dnsmasq[1]: query[A] example.com from 192.168.1.5"
+    }
+  ]
+}
