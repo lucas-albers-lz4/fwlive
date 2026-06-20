@@ -250,6 +250,22 @@ ssh root@192.168.1.1 'ping -c 5 127.0.0.1'
 
 ---
 
+## iptables / fw3 (best-effort, 23.05+)
+
+On routers that use **iptables** instead of nft (unusual on stock 23.05+), enable **`LOG`** on the rules you care about — same logd pipeline, not TRACE:
+
+```sh
+iptables -I INPUT -p icmp --icmp-type echo-request \
+  -j LOG --log-prefix "fwlive-ping: "
+iptables -I INPUT -p icmp --icmp-type echo-request -j ACCEPT
+```
+
+Verify with `logread | grep fwlive-ping`. LuCI shows a short **`iptables`** backend label when detected.
+
+Details: **[`../fwlive-iptables-logging.md`](../fwlive-iptables-logging.md)**
+
+---
+
 ## Full reference
 
 Advanced scenarios, Docker lab caveats, IPv6, and parser details: **[`../fwlive-nft-logging.md`](../fwlive-nft-logging.md)**

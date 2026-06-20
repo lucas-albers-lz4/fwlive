@@ -27,6 +27,8 @@ function runMsgParity() {
 	const extra = [
 		{ msg: 'fw4: ACCEPT without key values' },
 		{ msg: '[  239.247521] fwlive-pingIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP' },
+		{ msg: '[  123.456789] fwlive-ping: IN=br-lan OUT= SRC=192.168.1.10 DST=192.168.1.1 PROTO=ICMP' },
+		{ msg: 'iptables: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22' },
 		{ msg: '' },
 		{ msg: '   ' }
 	];

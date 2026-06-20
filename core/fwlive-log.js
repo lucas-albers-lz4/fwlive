@@ -3,7 +3,7 @@
 /**
  * Shared firewall log parsing and filtering (Node CLI + unit tests).
  * Keep in sync with openwrt-feed/.../fwlive/log.js (LuCI baseclass wrapper).
- * PARSER_SYNC_VERSION: 1
+ * PARSER_SYNC_VERSION: 2
  */
 
 const NON_FIREWALL_PREFIX = /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)\b/i;
@@ -63,7 +63,7 @@ function parseRuleHint(message) {
 	const colon = msg.match(/^([A-Za-z0-9_.-]+):/);
 	if (colon) {
 		const tag = colon[1].toLowerCase();
-		if (tag !== 'kernel')
+		if (tag !== 'kernel' && tag !== 'iptables')
 			return colon[1];
 	}
 

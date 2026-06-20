@@ -2,6 +2,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const core = require('../core/fwlive-log.js');
 
 function run() {
@@ -68,6 +70,27 @@ function run() {
 	};
 	const kernelRow = core.normalizeEntry(kernelOnly);
 	assert.equal(kernelRow.action, 'unknown');
+
+	// iptables LOG samples (issue #7).
+	const iptFixture = path.join(__dirname, 'fixtures', 'logread-iptables.json');
+	const iptPayload = JSON.parse(fs.readFileSync(iptFixture, 'utf8'));
+	for (const entry of iptPayload.log) {
+		const js = core.isFirewallEvent(entry);
+		const expected = !(entry.msg || '').includes('dnsmasq');
+		assert.equal(js, expected, `iptables fixture: ${entry.msg}`);
+	}
+	const iptPing = core.normalizeEntry(iptPayload.log[0]);
+	assert.equal(iptPing.rule_hint, 'fwlive-ping');
+	assert.equal(iptPing.action, 'pass');
+	assert.equal(iptPing.interface_in, 'br-lan');
+	const iptDrop = core.normalizeEntry(iptPayload.log[1]);
+	assert.equal(iptDrop.action, 'drop');
+	assert.equal(iptDrop.rule_hint, '');
+	const iptChain = core.normalizeEntry(iptPayload.log[2]);
+	assert.equal(iptChain.rule_hint, 'custom-chain');
+	assert.equal(iptChain.action, 'pass');
+	const iptGlued = core.normalizeEntry(iptPayload.log[3]);
+	assert.equal(iptGlued.rule_hint, 'fwlive-test');
 
 	console.log('fwlive parser/filter tests passed');
 }

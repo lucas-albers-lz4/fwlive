@@ -18,8 +18,7 @@ const callFwlivePoll = rpc.declare({
 
 const callFwliveRules = rpc.declare({
 	object: 'fwlive',
-	method: 'rules',
-	expect: { rules: {} }
+	method: 'rules'
 });
 
 const callFwliveResolve = rpc.declare({
@@ -63,6 +62,7 @@ return view.extend({
 	lastRenderedHeadId: '',
 	followLive: true,
 	rulesMap: {},
+	firewallBackend: 'nft',
 	viewMode: 'simple',
 	expandedRowId: null,
 
@@ -368,9 +368,69 @@ return view.extend({
 		try {
 			const res = await callFwliveRules();
 			this.rulesMap = (res && res.rules) || {};
+			this.firewallBackend = (res && res.backend) || 'nft';
 		} catch (e) {
 			this.rulesMap = {};
+			this.firewallBackend = 'nft';
 		}
+		this.updateBackendUi();
+	},
+
+	backendDisplayLabel() {
+		if (this.firewallBackend === 'iptables')
+			return _('using iptables');
+		if (this.firewallBackend === 'nft')
+			return _('using fw4');
+		return '';
+	},
+
+	updateBackendUi() {
+		const map = document.querySelector('.fwlive-map');
+		if (map)
+			map.setAttribute('data-backend', this.firewallBackend || 'unknown');
+
+		const label = document.getElementById('fwlive-backend');
+		if (label)
+			label.textContent = this.backendDisplayLabel();
+
+		this.updateEmptyStateUi();
+	},
+
+	emptyStateIntroText() {
+		return _('No firewall events yet. Stock configs log nothing until you turn logging on — enable zone logging on WAN (Network → Firewall) for inbound drops, or add log to the rule you are debugging.');
+	},
+
+	emptyStateQuickTestNodes() {
+		if (this.firewallBackend === 'iptables') {
+			return E('p', {}, [
+				_('Quick test in System → Terminal: '),
+				E('code', {}, 'iptables -I INPUT -p icmp --icmp-type echo-request -j LOG --log-prefix "fwlive-ping: "'),
+				_(' then ping the router. For WAN scan/drop traffic, set '),
+				E('code', {}, "option log '1'"),
+				_(' on the wan zone and reload the firewall.')
+			]);
+		}
+
+		return E('p', {}, [
+			_('Quick test in System → Terminal: '),
+			E('code', {}, 'nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept'),
+			_(' then ping the router. For WAN scan/drop traffic, set '),
+			E('code', {}, "option log '1'"),
+			_(' on the wan zone and reload the firewall.')
+		]);
+	},
+
+	updateEmptyStateUi() {
+		const empty = document.getElementById('fwlive-empty');
+		if (!empty)
+			return;
+
+		const visible = empty.style.display !== 'none';
+		empty.innerHTML = '';
+		empty.appendChild(E('p', {}, this.emptyStateIntroText()));
+		empty.appendChild(this.emptyStateQuickTestNodes());
+		if (visible)
+			empty.style.display = 'block';
 	},
 
 	resolveRuleLabel(hint) {
@@ -396,7 +456,15 @@ return view.extend({
 		if (!this.sessionSeen)
 			this.sessionSeen = new Set();
 
-		const raw = await callFwlivePoll({ addresses: [ String(this.fetchLines) ] });
+		let raw;
+		try {
+			raw = await callFwlivePoll({ addresses: [ String(this.fetchLines) ] });
+		} catch (e) {
+			return;
+		}
+		if (!Array.isArray(raw))
+			return;
+
 		const normalized = [];
 		const seen = {};
 		let pollNew = 0;
@@ -420,8 +488,32 @@ return view.extend({
 		this.lastPollNewEvents = pollNew;
 
 		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
-		this.entries = normalized.slice(-this.ingestCap());
+		if (this.paused)
+			this.mergeEntries(normalized);
+		else
+			this.entries = normalized.slice(-this.ingestCap());
 		this.trimEntriesToLiveCap();
+	},
+
+	mergeEntries(normalized) {
+		if (!normalized.length)
+			return;
+
+		const byId = {};
+		for (let i = 0; i < this.entries.length; i++)
+			byId[this.entries[i].id] = this.entries[i];
+		for (let i = 0; i < normalized.length; i++)
+			byId[normalized[i].id] = normalized[i];
+
+		const merged = Object.keys(byId).map((id) => byId[id]);
+		merged.sort((a, b) => {
+			const ta = a.timestamp || 0;
+			const tb = b.timestamp || 0;
+			if (ta !== tb)
+				return ta - tb;
+			return (a.log_id || 0) - (b.log_id || 0);
+		});
+		this.entries = merged.slice(-this.ingestCap());
 	},
 
 	ingestCap() {
@@ -438,9 +530,8 @@ return view.extend({
 	statusSuffix() {
 		const bits = [];
 		if (this.paused) {
-			const since = this.sessionNewTotal - (this.sessionAtPause || 0);
-			if (since > 0)
-				bits.push(_('+%d since pause').format(since));
+			if (this.pauseBufferLoading)
+				bits.push(_('loading buffer'));
 		}
 
 		const cap = this.ingestCap();
@@ -519,24 +610,46 @@ return view.extend({
 			.reverse();
 	},
 
+	pausedStatusText(matchCount) {
+		const ingested = this.entries.length;
+		const since = this.sessionNewTotal - (this.sessionAtPause || 0);
+		const limit = this.rowLimit;
+		const suffix = this.statusSuffix();
+
+		if (this.pauseBufferLoading && ingested === 0)
+			return _('Paused — loading ingest buffer…');
+
+		if (matchCount) {
+			if (since > 0)
+				return _('Paused — %d ingested (+%d since pause), %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s')
+					.format(ingested, since, Math.min(matchCount, limit), limit, matchCount, suffix);
+			return _('Paused — %d ingested, %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s')
+				.format(ingested, Math.min(matchCount, limit), limit, matchCount, suffix);
+		}
+
+		if (since > 0)
+			return _('Paused — %d ingested (+%d since pause) (%d shown when live). Enable auto-refresh to update the table.%s')
+				.format(ingested, since, limit, suffix);
+
+		return _('Paused — %d ingested (%d shown when live). Enable auto-refresh to update the table.%s')
+			.format(ingested, limit, suffix);
+	},
+
 	updateStatus(rows) {
 		const status = document.getElementById('fwlive-status');
 		if (!status)
 			return;
 
 		const matchCount = rows ? rows.length : this.filteredRows().length;
-
 		const suffix = this.statusSuffix();
 
 		if (this.paused) {
 			status.className = 'fwlive-status fwlive-status-paused';
-			if (this.pauseBufferLoading) {
-				status.textContent = _('Paused — loading ingest buffer…');
-				return;
+			try {
+				status.textContent = this.pausedStatusText(matchCount);
+			} catch (e) {
+				status.textContent = 'Paused — ' + this.entries.length + ' ingested. Enable auto-refresh to update the table.';
 			}
-			status.textContent = matchCount
-				? _('Paused — %d ingested, %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s').format(this.entries.length, Math.min(matchCount, this.rowLimit), this.rowLimit, matchCount, suffix)
-				: _('Paused — %d ingested (%d shown when live). Enable auto-refresh to update the table.%s').format(this.entries.length, this.rowLimit, suffix);
 			return;
 		}
 
@@ -616,12 +729,15 @@ return view.extend({
 
 		if (!wasPaused && this.paused) {
 			this.sessionAtPause = this.sessionNewTotal;
+			this.updateStatus();
 			this.pauseBufferLoading = true;
 			this.updateStatus();
-			this.fetchEntries().then(() => {
-				this.pauseBufferLoading = false;
-				this.updateStatus();
-			});
+			this.fetchEntries()
+				.catch(function() {})
+				.finally(function() {
+					this.pauseBufferLoading = false;
+					this.updateStatus();
+				}.bind(this));
 			return;
 		}
 
@@ -776,6 +892,9 @@ return view.extend({
 	ruleAdminPath(hint) {
 		if (hint === 'fw4')
 			return 'admin/network/firewall/rules';
+
+		if (this.firewallBackend === 'iptables')
+			return 'admin/status/iptables';
 
 		return 'admin/status/nftables';
 	},
@@ -1058,13 +1177,22 @@ return view.extend({
 	},
 
 	async pollData() {
-		await this.fetchEntries();
+		try {
+			await this.fetchEntries();
+		} catch (e) {
+			/* keep existing buffer on poll errors */
+		}
+
 		if (this.paused)
 			this.updateStatus();
 		else
 			this.renderRows(false);
 
-		await this.resolveHostnamesForEntries(this.filteredRows());
+		try {
+			await this.resolveHostnamesForEntries(this.filteredRows());
+		} catch (e) {
+			/* resolve unavailable — show IPs */
+		}
 	},
 
 	load() {
@@ -1239,6 +1367,13 @@ return view.extend({
 				.fwlive-help ul { margin: 6px 0 0 1.2em; padding: 0; }
 				.fwlive-help li { margin: 4px 0; }
 				.fwlive-intro { margin: 0 0 12px; color: var(--text-color-high); }
+				.fwlive-backend {
+					font-size: 0.65em;
+					font-weight: normal;
+					color: var(--text-color-medium);
+					margin-left: 8px;
+					vertical-align: middle;
+				}
 				.fwlive-filter-panel { margin-bottom: 12px; }
 				.fwlive-map[data-view="simple"] .fwlive-grid-core {
 					display: grid;
@@ -1291,7 +1426,10 @@ return view.extend({
 					padding: 2px 8px;
 				}
 			`),
-			E('h2', {}, _('Firewall Live View')),
+			E('h2', {}, [
+				_('Firewall Live View'),
+				E('span', { 'id': 'fwlive-backend', 'class': 'fwlive-backend' }, '')
+			]),
 			E('p', { 'class': 'fwlive-intro' }, _('Live firewall log table — refreshes every second. Shows traffic your firewall already logs; use filters or Show Detail when you need more.')),
 			E('div', { 'class': 'fwlive-toolbar' }, [
 				E('label', { 'class': 'fwlive-ctl' }, [
@@ -1362,16 +1500,7 @@ return view.extend({
 				'id': 'fwlive-empty',
 				'class': 'fwlive-empty',
 				'style': 'display:none'
-			}, [
-				E('p', {}, _('No firewall events yet. Stock configs log nothing until you turn logging on — enable zone logging on WAN (Network → Firewall) for inbound drops, or add log to the rule you are debugging.')),
-				E('p', {}, [
-					_('Quick test in System → Terminal: '),
-					E('code', {}, 'nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept'),
-					_(' then ping the router. For WAN scan/drop traffic, set '),
-					E('code', {}, "option log '1'"),
-					_(' on the wan zone and reload the firewall.')
-				])
-			]),
+			}, []),
 			E('div', { 'id': 'fwlive-scroll', 'class': 'fwlive-scroll fwlive-msg-wrap' }, [
 				E('table', { 'id': 'fwlive-table', 'class': 'table cbi-section-table' }, [
 					E('thead', {}, E('tr', {}, [])),
@@ -1404,6 +1533,8 @@ return view.extend({
 		this.updateStreamControlsUi();
 		this.updateDetailToggleUi();
 		this.renderThead();
+		this.updateEmptyStateUi();
+		this.updateBackendUi();
 		this.renderRows(true);
 		if (this.showHostnames)
 			this.resolveHostnamesForEntries(this.filteredRows());

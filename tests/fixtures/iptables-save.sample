@@ -1,0 +1,5 @@
+# Sample iptables-save snippets for rules-map tests (not a live ruleset).
+-A INPUT -p icmp -m icmp --icmp-type 8 -m comment --comment "fwlive-ping" -j LOG --log-prefix "fwlive-ping: "
+-A INPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
+-A FORWARD -m comment --comment "Allow-DNS" -j LOG --log-prefix "allow-dns "
+-A custom_chain -s 10.0.0.0/8 -j DROP

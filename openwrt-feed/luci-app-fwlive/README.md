@@ -19,8 +19,9 @@ No `luasrc/` — modern JS-only app. No `po/` until translations are requested.
 
 ## Dependencies
 
-- `luci-base`, `logd`, `rpcd`, `firewall4` (nft/fw4)
-- Menu depends on executable `/usr/sbin/nft`
+- `luci-base`, `logd`, `rpcd` (no hard `firewall4` dependency)
+- Menu visible when **`/usr/sbin/nft`** or **`/usr/sbin/iptables`** is executable
+- **fw4/nft** supported; **iptables LOG** best-effort on OpenWrt 23.05+
 
 ## Documentation
 

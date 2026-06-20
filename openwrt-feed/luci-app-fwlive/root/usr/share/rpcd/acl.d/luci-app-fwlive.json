@@ -3,7 +3,8 @@
 		"description": "Grant access to firewall live log view",
 		"read": {
 			"ubus": {
-				"fwlive": [ "rules", "poll", "resolve" ]
+				"fwlive": [ "rules", "poll", "resolve" ],
+				"log": [ "read" ]
 			}
 		}
 	}

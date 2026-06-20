@@ -33,6 +33,8 @@ Re-validate after changes:
 
 **Production target:** armsr **24.10.5**. **23.05.5** supported — see [`openwrt-23.05-compat.md`](openwrt-23.05-compat.md).
 
+**iptables LOG (issue #7):** best-effort on **23.05+** when iptables is present without nft — covered by `./scripts/fwlive-test.sh` fixtures; **not** a release sign-off requirement. OpenWrt releases **before 23.05** are out of scope.
+
 Build:
 
 ```sh
