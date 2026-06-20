@@ -205,6 +205,50 @@ return view.extend({
 		return labels[col] || col;
 	},
 
+	columnCellClass(col) {
+		switch (col) {
+		case 'time': return 'fwlive-time';
+		case 'action': return 'fwlive-action';
+		case 'rule': return 'fwlive-rule';
+		case 'iface':
+		case 'iface_in':
+		case 'iface_out': return 'fwlive-iface';
+		case 'dir': return 'fwlive-dir';
+		case 'proto': return 'fwlive-proto';
+		case 'src':
+		case 'dst': return 'fwlive-addr';
+		case 'sport':
+		case 'dport': return 'fwlive-port';
+		case 'flags': return 'fwlive-flags';
+		case 'len': return 'fwlive-len';
+		case 'flow': return 'fwlive-flow-cell';
+		case 'message': return 'fwlive-message fwlive-th-message';
+		default: return '';
+		}
+	},
+
+	filterChipLabelNodes(field, val) {
+		const p = log.parseFilterValue(val);
+		if (!p.value)
+			return [ '' ];
+
+		if (!p.negate)
+			return [ log.formatFilterChipLabel(field, val) ];
+
+		if (field === 'q' || field === 'src' || field === 'dst')
+			return [
+				field + ': ',
+				E('strong', { 'class': 'fwlive-chip-not' }, 'not'),
+				' contains ' + p.value
+			];
+
+		return [
+			field + ': ',
+			E('strong', { 'class': 'fwlive-chip-not' }, 'not'),
+			' ' + p.value
+		];
+	},
+
 	setViewMode(mode) {
 		if (VIEW_MODES.indexOf(mode) < 0 || mode === this.viewMode)
 			return;
@@ -303,38 +347,38 @@ return view.extend({
 
 		switch (col) {
 		case 'time':
-			return E('td', { 'class': 'fwlive-time' },
+			return E('td', { 'class': this.columnCellClass(col) },
 				this.viewMode === 'simple'
 					? log.formatTimestampCompact(row.timestamp)
 					: log.formatTimestampLocal(row.timestamp));
 		case 'action':
 			return E('td', { 'class': log.actionRowClass(row.action) }, actionCell);
 		case 'rule':
-			return E('td', { 'class': 'fwlive-rule' }, this.ruleAdminLink(row.rule_hint, row.rule_label));
+			return E('td', { 'class': this.columnCellClass(col) }, this.ruleAdminLink(row.rule_hint, row.rule_label));
 		case 'iface':
-			return E('td', { 'class': 'fwlive-iface' }, this.ifaceLink(row.interface_in));
+			return E('td', { 'class': this.columnCellClass(col) }, this.ifaceLink(row.interface_in));
 		case 'iface_in':
-			return E('td', { 'class': 'fwlive-iface' }, this.ifaceLink(row.interface_in));
 		case 'iface_out':
-			return E('td', { 'class': 'fwlive-iface' }, this.ifaceLink(row.interface_out));
+			return E('td', { 'class': this.columnCellClass(col) }, this.ifaceLink(
+				col === 'iface_in' ? row.interface_in : row.interface_out));
 		case 'dir':
-			return E('td', { 'class': 'fwlive-dir' }, log.formatCell(row.direction));
+			return E('td', { 'class': this.columnCellClass(col) }, log.formatCell(row.direction));
 		case 'proto':
-			return E('td', { 'class': 'fwlive-proto' }, this.filterLink('proto', row.proto));
+			return E('td', { 'class': this.columnCellClass(col) }, this.filterLink('proto', row.proto));
 		case 'src':
-			return E('td', { 'class': 'fwlive-addr' }, this.addrFilterLink('src', row.src));
+			return E('td', { 'class': this.columnCellClass(col) }, this.addrFilterLink('src', row.src));
 		case 'sport':
-			return E('td', { 'class': 'fwlive-port' }, this.filterLink('sport', row.sport));
+			return E('td', { 'class': this.columnCellClass(col) }, this.filterLink('sport', row.sport));
 		case 'dst':
-			return E('td', { 'class': 'fwlive-addr' }, this.addrFilterLink('dst', row.dst));
+			return E('td', { 'class': this.columnCellClass(col) }, this.addrFilterLink('dst', row.dst));
 		case 'dport':
-			return E('td', { 'class': 'fwlive-port' }, this.filterLink('dport', row.dport));
+			return E('td', { 'class': this.columnCellClass(col) }, this.filterLink('dport', row.dport));
 		case 'flags':
-			return E('td', { 'class': 'fwlive-flags' }, log.formatCell(row.flags));
+			return E('td', { 'class': this.columnCellClass(col) }, log.formatCell(row.flags));
 		case 'len':
-			return E('td', { 'class': 'fwlive-len' }, row.length != null ? String(row.length) : '');
+			return E('td', { 'class': this.columnCellClass(col) }, row.length != null ? String(row.length) : '');
 		case 'flow':
-			return E('td', { 'class': 'fwlive-flow-cell' }, this.flowCell(row));
+			return E('td', { 'class': this.columnCellClass(col) }, this.flowCell(row));
 		case 'message':
 			return E('td', {
 				'class': 'fwlive-message',
@@ -355,12 +399,20 @@ return view.extend({
 			return;
 
 		const cols = this.activeColumns();
+		let colgroup = table.querySelector('colgroup');
+
+		if (!colgroup) {
+			colgroup = E('colgroup', {});
+			table.insertBefore(colgroup, table.firstChild);
+		}
+
+		colgroup.innerHTML = '';
 		tr.innerHTML = '';
 
 		for (let i = 0; i < cols.length; i++) {
 			const col = cols[i];
-			const thClass = col === 'message' ? 'fwlive-th-message' : '';
-			tr.appendChild(E('th', { 'class': thClass }, this.columnLabel(col)));
+			colgroup.appendChild(E('col', { 'class': 'fwlive-col fwlive-col-' + col.replace(/_/g, '-') }));
+			tr.appendChild(E('th', { 'class': this.columnCellClass(col) }, this.columnLabel(col)));
 		}
 	},
 
@@ -788,14 +840,11 @@ return view.extend({
 	filterClick(field, value, ev) {
 		if (ev && ev.preventDefault)
 			ev.preventDefault();
+
 		if (!value)
 			return;
 
-		const el = document.getElementById('fwlive-' + field);
-		if (!el)
-			return;
-
-		el.value = value;
+		this.setFilterFieldValue(field, value);
 		this.onFilterInput();
 	},
 
@@ -943,14 +992,37 @@ return view.extend({
 		}, value);
 	},
 
+	setFilterFieldValue(field, value) {
+		const el = document.getElementById('fwlive-' + field);
+		if (!el)
+			return false;
+
+		el.value = value;
+		if (el.tagName === 'SELECT')
+			el.dispatchEvent(new Event('change', { bubbles: true }));
+
+		return true;
+	},
+
 	clearFilter(field, ev) {
 		if (ev && ev.preventDefault)
 			ev.preventDefault();
 
-		const el = document.getElementById('fwlive-' + field);
-		if (el)
-			el.value = '';
+		this.setFilterFieldValue(field, '');
+		this.onFilterInput();
+	},
 
+	invertFilter(field, ev) {
+		if (ev) {
+			ev.preventDefault();
+			ev.stopPropagation();
+		}
+
+		const el = document.getElementById('fwlive-' + field);
+		if (!el || !el.value)
+			return;
+
+		this.setFilterFieldValue(field, log.toggleFilterNegation(el.value));
 		this.onFilterInput();
 	},
 
@@ -981,8 +1053,23 @@ return view.extend({
 			if (!val)
 				continue;
 
-			chips.push(E('span', { 'class': 'fwlive-chip' }, [
-				E('span', { 'class': 'fwlive-chip-label' }, log.formatFilterChipLabel(spec.label, val)),
+			const parsed = log.parseFilterValue(val);
+			const negated = parsed.negate;
+
+			chips.push(E('span', {
+				'class': 'fwlive-chip' + (negated ? ' fwlive-chip-negated' : '')
+			}, [
+				E('span', { 'class': 'fwlive-chip-label' }, this.filterChipLabelNodes(spec.label, val)),
+				E('span', {
+					'class': 'fwlive-chip-invert-wrap',
+					'data-tip': negated ? _('Include instead') : _('Exclude instead')
+				}, [
+					E('button', {
+						'type': 'button',
+						'class': 'fwlive-chip-invert',
+						'click': this.invertFilter.bind(this, spec.key)
+					}, '≠')
+				]),
 				E('a', {
 					'href': '#',
 					'class': 'fwlive-chip-remove',
@@ -1127,12 +1214,7 @@ return view.extend({
 	},
 
 	onFilterInput() {
-		if (this.paused) {
-			this.renderFilterChips();
-			this.updateStatus();
-		} else {
-			this.renderRows(true);
-		}
+		this.renderRows(true);
 	},
 
 	onScrollArea(ev) {
@@ -1229,8 +1311,32 @@ return view.extend({
 					border-radius: 3px;
 					background: var(--background-color-high);
 					width: 100%;
+					scrollbar-gutter: stable;
 				}
 				#fwlive-table { margin: 0; width: 100%; table-layout: auto; border-collapse: collapse; }
+				.fwlive-map[data-view="simple"] #fwlive-table { table-layout: fixed; width: 100%; }
+				.fwlive-map[data-view="simple"] col.fwlive-col-action { width: 5rem; }
+				.fwlive-map[data-view="simple"] col.fwlive-col-time { width: 5rem; }
+				.fwlive-map[data-view="simple"] col.fwlive-col-iface { width: 5.5rem; }
+				.fwlive-map[data-view="simple"] col.fwlive-col-proto { width: 4rem; }
+				.fwlive-map[data-view="simple"] col.fwlive-col-rule { width: 12rem; }
+				.fwlive-map[data-view="detailed"] .fwlive-scroll #fwlive-table {
+					width: max-content;
+					min-width: 100%;
+				}
+				.fwlive-map[data-view="detailed"] col.fwlive-col-time { width: 11rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-action { width: 4.5rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-rule { width: 8rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-iface-in,
+				.fwlive-map[data-view="detailed"] col.fwlive-col-iface-out { width: 3.5rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-dir { width: 3rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-proto { width: 3.25rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-src,
+				.fwlive-map[data-view="detailed"] col.fwlive-col-dst { width: 9rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-sport,
+				.fwlive-map[data-view="detailed"] col.fwlive-col-dport { width: 3.75rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-flags { width: 5rem; }
+				.fwlive-map[data-view="detailed"] col.fwlive-col-len { width: 3.25rem; }
 				.fwlive-scroll.fwlive-msg-oneline #fwlive-table {
 					width: max-content;
 					min-width: 100%;
@@ -1243,11 +1349,26 @@ return view.extend({
 					background: var(--background-color-low);
 					border-bottom: 2px solid var(--border-color-high);
 					white-space: nowrap;
-					padding: 6px 8px;
+					padding: 5px 8px;
 					font-size: 0.9em;
+					font-weight: 600;
+					vertical-align: top;
+					text-align: left;
+				}
+				#fwlive-table thead th.fwlive-port,
+				#fwlive-table thead th.fwlive-len {
+					text-align: right;
+				}
+				.fwlive-map[data-view="simple"] #fwlive-table thead th,
+				.fwlive-map[data-view="simple"] #fwlive-table tbody td {
+					vertical-align: top;
+				}
+				#fwlive-table thead th.fwlive-action {
+					font-weight: 700;
+					text-transform: lowercase;
 				}
 				#fwlive-table tbody td {
-					padding: 4px 8px;
+					padding: 5px 8px;
 					border-bottom: 1px solid var(--border-color-low);
 					vertical-align: top;
 					font-size: 0.92em;
@@ -1327,6 +1448,12 @@ return view.extend({
 					gap: 6px;
 					margin: 0 0 10px;
 				}
+				.fwlive-chip-label {
+					line-height: 1.3;
+				}
+				.fwlive-chip-not {
+					font-weight: 700;
+				}
 				.fwlive-chip {
 					display: inline-flex;
 					align-items: center;
@@ -1337,6 +1464,52 @@ return view.extend({
 					border-radius: 3px;
 					font-size: 0.88em;
 				}
+				.fwlive-chip-negated {
+					border-style: dashed;
+					background: var(--background-color-medium);
+				}
+				.fwlive-chip-invert-wrap {
+					position: relative;
+					display: inline-flex;
+				}
+				.fwlive-chip-invert-wrap::before {
+					content: attr(data-tip);
+					position: absolute;
+					bottom: calc(100% + 6px);
+					left: 50%;
+					transform: translateX(-50%);
+					white-space: nowrap;
+					padding: 4px 8px;
+					font-size: 0.85em;
+					font-weight: normal;
+					color: var(--text-color-high);
+					background: var(--background-color-high);
+					border: 1px solid var(--border-color-medium);
+					border-radius: 3px;
+					box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+					opacity: 0;
+					visibility: hidden;
+					pointer-events: none;
+					z-index: 20;
+					transition: opacity 0.15s ease 1.5s, visibility 0s linear 2s;
+				}
+				.fwlive-chip-invert-wrap:hover::before,
+				.fwlive-chip-invert-wrap:focus-within::before {
+					opacity: 1;
+					visibility: visible;
+					transition: opacity 0.12s ease 0.35s, visibility 0s;
+				}
+				.fwlive-chip-invert {
+					color: var(--text-color-medium);
+					background: none;
+					border: none;
+					padding: 0;
+					font: inherit;
+					font-weight: 700;
+					line-height: 1;
+					cursor: pointer;
+				}
+				.fwlive-chip-invert:hover { color: var(--primary-color-high); }
 				.fwlive-chip-remove {
 					color: var(--text-color-medium);
 					text-decoration: none;
@@ -1480,7 +1653,8 @@ return view.extend({
 						E('option', { 'value': '!pass' }, _('not pass')),
 						E('option', { 'value': '!drop' }, _('not drop')),
 						E('option', { 'value': '!block' }, _('not block')),
-						E('option', { 'value': '!reject' }, _('not reject'))
+						E('option', { 'value': '!reject' }, _('not reject')),
+						E('option', { 'value': '!unknown' }, _('not unknown'))
 					]),
 					E('input', { 'id': 'fwlive-proto', 'class': 'cbi-input-text', 'placeholder': _('Protocol (prefix ! to exclude)') })
 				]),
@@ -1507,13 +1681,13 @@ return view.extend({
 					E('tbody', {}, [])
 				])
 			]),
-			E('p', { 'class': 'cbi-value-description' }, _('Click a row for the full log line. Show Detail for all columns. Prefix ! in a filter to exclude. Ctrl+click a rule to open firewall settings.')),
+			E('p', { 'class': 'cbi-value-description' }, _('Click a row for the full log line. Show Detail for all columns. Click a cell to filter; use ≠ on a chip to exclude. Ctrl+click a rule to open firewall settings.')),
 			E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
 				E('summary', {}, _('Help')),
 				E('ul', {}, [
 					E('li', {}, _('The table updates automatically — no setup needed when your firewall already logs traffic.')),
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
-					E('li', {}, _('Click an IP, action, or protocol to filter.')),
+					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
 					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).'))
 				])
 			])

@@ -304,6 +304,14 @@ return baseclass.extend({
 		return { negate: false, value: s };
 	},
 
+	toggleFilterNegation: function(val) {
+		const p = this.parseFilterValue(val);
+		if (!p.value)
+			return val;
+
+		return p.negate ? p.value : '!' + p.value;
+	},
+
 	formatFilterChipLabel: function(field, val) {
 		const p = this.parseFilterValue(val);
 		if (!p.value)

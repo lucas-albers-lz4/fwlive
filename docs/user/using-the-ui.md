@@ -58,8 +58,8 @@ The **Message: wrap / one-line** toolbar control applies in Detailed view only.
 ## Filtering
 
 - **Click any cell** (action, IP, protocol, interface, flow endpoint) to filter.
-- Active filters appear as **chips** — remove one or clear all.
-- Prefix text filters with **`!`** for negation.
+- Active filters appear as **chips** — click **≠** on a chip to flip include ↔ exclude; **×** removes one; **Clear all** resets.
+- You can also prefix text filters with **`!`** for negation (same as **≠** on a chip).
 - **URL hash** stores filters, limit, and `view=detailed` for shareable links.
 
 ### Filter tips
@@ -67,6 +67,7 @@ The **Message: wrap / one-line** toolbar control applies in Detailed view only.
 | Goal | Approach |
 |------|------------|
 | See only drops | Action → `drop` |
+| Hide passes | Click **pass** in the table, then **≠** on the `action: pass` chip |
 | One client | Click source in **Flow** or use **More filters → Source** |
 | ICMP test | Protocol `icmp` after [enabling ping logging](enabling-firewall-logs.md) |
 

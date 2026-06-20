@@ -38,6 +38,9 @@ echo "== fwlive schema (stage 2) ==" >&2
 echo "== fwlive theme CSS (LuCI dark mode) ==" >&2
 "$NODE" tests/fwlive-theme-css.test.js
 
+echo "== fwlive filter negate toggle ==" >&2
+"$NODE" tests/fwlive-filter-negate.test.js
+
 echo "== fwlive rules map (iptables-save) ==" >&2
 "$NODE" tests/fwlive-rules-map.test.js
 

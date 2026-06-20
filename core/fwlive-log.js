@@ -230,6 +230,14 @@ function parseFilterValue(val) {
 	return { negate: false, value: s };
 }
 
+function toggleFilterNegation(val) {
+	const p = parseFilterValue(val);
+	if (!p.value)
+		return val;
+
+	return p.negate ? p.value : '!' + p.value;
+}
+
 function formatFilterChipLabel(field, val) {
 	const p = parseFilterValue(val);
 	if (!p.value)
@@ -418,6 +426,7 @@ module.exports = {
 	isFirewallEvent,
 	normalizeEntry,
 	parseFilterValue,
+	toggleFilterNegation,
 	formatFilterChipLabel,
 	matchesFilter,
 	actionRowClass,
