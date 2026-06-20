@@ -75,6 +75,16 @@ if ssh_guest 'command -v nft >/dev/null 2>&1'; then
 	else
 		echo "smoke WARN: no parsed firewall rows yet (nft log rule may need traffic)" >&2
 	fi
+elif ssh_guest 'command -v iptables >/dev/null 2>&1'; then
+	"${ROOT}/scripts/fwlive-iptables-ping-log.sh" add --ssh >/dev/null 2>&1 || true
+	ssh_guest 'ping -c 3 -W 1 127.0.0.1 >/dev/null 2>&1' || true
+	sleep 1
+	ROWS="$("${ROOT}/scripts/fwlive-ubus-read.sh" --lines 30 2>/dev/null | wc -l | tr -d ' ')"
+	if [[ "${ROWS:-0}" -ge 1 ]]; then
+		ok "firewall log pipeline iptables (${ROWS} parsed row(s))"
+	else
+		echo "smoke WARN: no parsed firewall rows yet (iptables LOG rule may need traffic)" >&2
+	fi
 fi
 
 echo "== smoke passed ==" >&2

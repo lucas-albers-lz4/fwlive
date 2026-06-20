@@ -1,6 +1,6 @@
 # fwlive — Firewall Live View for OpenWrt
 
-LuCI **Firewall Live View**: a live, filterable table of **nftables / firewall4** log events on OpenWrt — inspired by OPNsense Live View, implemented as a small, portable LuCI app.
+LuCI **Firewall Live View**: a live, filterable table of firewall **LOG** events on OpenWrt (firewall4/nft primary; iptables LOG best-effort on 23.05+) — inspired by OPNsense Live View, implemented as a small, portable LuCI app.
 
 ![Firewall Live View — Simple view](docs/user/assets/fwlive-simple-view.png)
 
@@ -12,7 +12,7 @@ LuCI **Firewall Live View**: a live, filterable table of **nftables / firewall4*
 - **Show Detail** — one-button toggle to the full 14-column Detailed view
 - **Filter** by action, interface, protocol, addresses, ports; quick search across fields
 - **Click-to-filter** and **URL hash** state for shareable troubleshooting views
-- Resolves **rule names** from fw4/nft metadata where possible
+- Resolves **rule names** from fw4/nft or iptables `--log-prefix` metadata where possible
 
 **Menu:** Status → Firewall Live View (`/cgi-bin/luci/admin/status/fwlive`)
 

@@ -55,15 +55,40 @@ is_uci_style_name() {
 	return 0
 }
 
-build_rules_map() {
-	OUT=''
+normalize_log_prefix() {
+	printf '%s' "$1" | sed 's/[[:space:]]*$//; s/:$//'
+}
 
+map_log_prefix_entry() {
+	prefix="$1"
+	comment="$2"
+	label=''
+
+	if [ -n "$comment" ] && is_uci_style_name "$comment"; then
+		label="$comment"
+	fi
+
+	prefix=$(normalize_log_prefix "$prefix")
+	[ -n "$prefix" ] || return 0
+
+	if [ -n "$label" ]; then
+		map_add "$prefix" "$label"
+		map_add "$(slug_key "$prefix")" "$label"
+	else
+		cosmetic=$(echo "$prefix" | tr '-' ' ')
+		map_add "$prefix" "$cosmetic"
+		map_add "$(slug_key "$prefix")" "$cosmetic"
+	fi
+}
+
+map_uci_rule_names() {
 	for name in $(uci_rule_names); do
 		map_add "$name" "$name"
 		map_add "$(slug_key "$name")" "$name"
 	done
+}
 
-	nft list ruleset 2>/dev/null > /tmp/fwlive-nft.txt
+map_from_nft_stream() {
 	while IFS= read -r line; do
 		prefix=$(echo "$line" | sed -n 's/.*log prefix "\([^"]*\)".*/\1/p')
 		comment=$(echo "$line" | sed -n 's/.*comment "\([^"]*\)".*/\1/p')
@@ -91,10 +116,61 @@ build_rules_map() {
 			map_add "$label" "$label"
 			map_add "$(slug_key "$label")" "$label"
 		fi
-	done < /tmp/fwlive-nft.txt
-	rm -f /tmp/fwlive-nft.txt
+	done
+}
 
-	printf '{"rules":{%s}}' "$OUT"
+map_from_iptables_save_stream() {
+	while IFS= read -r line; do
+		case "$line" in
+			-*) ;;
+			*) continue ;;
+		esac
+		prefix=$(echo "$line" | sed -n 's/.*--log-prefix "\([^"]*\)".*/\1/p')
+		comment=$(echo "$line" | sed -n 's/.*--comment "\([^"]*\)".*/\1/p')
+		[ -n "$prefix" ] || continue
+		map_log_prefix_entry "$prefix" "$comment"
+	done
+}
+
+detect_firewall_backend() {
+	if command -v nft >/dev/null 2>&1 && nft list ruleset >/dev/null 2>&1; then
+		printf '%s' nft
+		return 0
+	fi
+	if command -v iptables-save >/dev/null 2>&1; then
+		printf '%s' iptables
+		return 0
+	fi
+	printf '%s' unknown
+}
+
+build_rules_map() {
+	OUT=''
+	backend=$(detect_firewall_backend)
+
+	map_uci_rule_names
+
+	case "$backend" in
+		nft)
+			nft list ruleset 2>/dev/null | map_from_nft_stream
+			;;
+		iptables)
+			iptables-save 2>/dev/null | map_from_iptables_save_stream
+			if command -v ip6tables-save >/dev/null 2>&1; then
+				ip6tables-save 2>/dev/null | map_from_iptables_save_stream
+			fi
+			;;
+	esac
+
+	printf '{"backend":"%s","rules":{%s}}' "$backend" "$OUT"
+}
+
+rulesmap_from_iptables_file() {
+	file="$1"
+	OUT=''
+	[ -n "$file" ] && [ -f "$file" ] || return 1
+	map_from_iptables_save_stream < "$file"
+	printf '{"backend":"iptables","rules":{%s}}' "$OUT"
 }
 
 poll_lines_from_input() {
@@ -245,8 +321,12 @@ case "$1" in
 		run_selftest
 		exit $?
 		;;
+	__rulesmap_iptables)
+		rulesmap_from_iptables_file "$2"
+		exit $?
+		;;
 	list)
-		echo '{"rules":{},"poll":{"addresses":[]},"resolve":{"addresses":[]}}'
+		echo '{"rules":{},"backend":"unknown","poll":{"addresses":[]},"resolve":{"addresses":[]}}'
 		;;
 	call)
 		case "$2" in

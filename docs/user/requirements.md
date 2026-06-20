@@ -4,14 +4,18 @@
 
 | Item | Detail |
 |------|--------|
-| **Firewall** | **firewall4** (nftables) — menu entry requires `/usr/sbin/nft` |
+| **OpenWrt** | **23.05+** (minimum; releases before 23.05 are not supported) |
+| **Firewall (supported)** | **firewall4** / nftables — default on 23.05+ images |
+| **Firewall (best-effort)** | **iptables** LOG when `/usr/sbin/iptables` is present without nft — not guaranteed |
 | **LuCI** | Modern JS LuCI (`luci-base`) |
 | **Logging** | `logd` (standard on OpenWrt images) |
 | **RPC** | `rpcd` (for `ubus fwlive poll` / `resolve` / `rules`) |
 
+Menu entry requires **`/usr/sbin/nft` or `/usr/sbin/iptables`**.
+
 ## Supported OpenWrt releases
 
-Validated in this project’s lab for:
+Validated in this project’s lab for **firewall4**:
 
 | Release | Package format | Notes |
 |---------|----------------|-------|
@@ -19,6 +23,8 @@ Validated in this project’s lab for:
 | **24.10.x** | `.ipk` (`opkg`) | Primary production target |
 | **25.12.x** | `.apk` (`apk`) | Same app; package manager differs |
 | **snapshot** | `.apk` | Best-effort; minimal images may omit LuCI |
+
+**iptables LOG** on 23.05+ is **best-effort** (fixture-tested; optional manual validation). This is a **log viewer**, not iptables TRACE — see [iptables logging reference](../fwlive-iptables-logging.md).
 
 The application itself has **no per-SoC binaries** — one build runs on any board that ships the dependencies above.
 
@@ -32,7 +38,7 @@ The application itself has **no per-SoC binaries** — one build runs on any boa
 
 - Docker, QEMU, or a Linux build host on the router
 - OPNsense or any non-OpenWrt software
-- Kernel modules beyond normal firewall4
+- iptables TRACE or nft trace (LOG rules are enough for this app)
 
 ## Build host (only if you compile yourself)
 
