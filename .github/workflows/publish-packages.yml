@@ -124,6 +124,10 @@ jobs:
   smoke-from-feed:
     needs: build-publish
     runs-on: ubuntu-latest
+    env:
+      # GitHub-hosted runners expose /dev/kvm but deny KVM init; use TCG for feed smoke.
+      OWRT_QEMU_ACCEL: tcg
+      OWRT_VALIDATE_SSH_WAIT_X86: "900"
     steps:
       - uses: actions/checkout@v4
 

@@ -8,6 +8,7 @@ Downloaded to `lab/images/`:
 
 ```sh
 RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh
+RELEASE=23.05.5 ./scripts/download-openwrt-x86-64.sh
 RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
 ```
 

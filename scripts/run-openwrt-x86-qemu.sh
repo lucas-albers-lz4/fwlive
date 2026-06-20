@@ -79,14 +79,28 @@ check_host_ports
 mkdir -p "$(dirname "${OWRT_CONSOLE_LOG}")"
 : > "${OWRT_CONSOLE_LOG}"
 
-ACCEL="tcg"
-[[ -e /dev/kvm ]] && ACCEL="kvm"
+# OWRT_QEMU_ACCEL=tcg|kvm overrides auto-detect (CI runners may expose /dev/kvm without usable KVM).
+resolve_x86_qemu_accel() {
+	if [[ -n "${OWRT_QEMU_ACCEL:-}" ]]; then
+		printf '%s' "$OWRT_QEMU_ACCEL"
+		return
+	fi
+	if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+		printf '%s' kvm
+	else
+		printf '%s' tcg
+	fi
+}
+
+ACCEL="$(resolve_x86_qemu_accel)"
+CPU="${OWRT_QEMU_CPU:-host}"
+[[ "$ACCEL" == "tcg" ]] && CPU="${OWRT_QEMU_CPU:-max}"
 
 NIC_USER="$(qemu_lab_nic_user "${OWRT_HOSTFWD_HTTP}" "${OWRT_HOSTFWD_SSH}")"
 
 echo "Using disk:  ${OWRT_IMG}"
 echo "Console log: ${OWRT_CONSOLE_LOG}"
-echo "Accel:       ${ACCEL}"
+echo "Accel:       ${ACCEL} (cpu ${CPU})"
 echo "NIC:         -nic ${NIC_USER}"
 echo "LuCI  http://localhost:${OWRT_HOSTFWD_HTTP}/cgi-bin/luci/"
 echo "SSH   ssh -p ${OWRT_HOSTFWD_SSH} root@localhost"
@@ -96,7 +110,7 @@ if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]]; then
 fi
 
 QEMU_ARGS=(
-	-machine q35 -accel "${ACCEL}" -cpu host
+	-machine q35 -accel "${ACCEL}" -cpu "${CPU}"
 	-smp 2 -m "${OWRT_QEMU_MEM}"
 	-display none -nographic
 	-monitor none
