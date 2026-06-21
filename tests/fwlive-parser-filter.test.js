@@ -91,6 +91,10 @@ function run() {
 	assert.equal(iptChain.action, 'pass');
 	const iptGlued = core.normalizeEntry(iptPayload.log[3]);
 	assert.equal(iptGlued.rule_hint, 'fwlive-test');
+	const ipt2102 = core.normalizeEntry(iptPayload.log[5]);
+	assert.equal(ipt2102.rule_hint, 'fwlive-custom');
+	assert.equal(ipt2102.action, 'pass');
+	assert.equal(ipt2102.interface_in, 'lo');
 
 	console.log('fwlive parser/filter tests passed');
 }

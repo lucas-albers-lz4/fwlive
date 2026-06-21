@@ -49,7 +49,7 @@ flowchart TB
 | Opt-in hostnames | `fwlive.resolve` via `getent`; checkbox default off |
 | `core/` + LuCI mirror | Parser tested without browser or router |
 | nft/fw4 primary | Validated on 23.05 / 24.10 / 25.12 lab matrix |
-| iptables LOG best-effort | Same logd pipe; rule map from `iptables-save`; UI label `iptables` vs `fw4` — not sign-off required |
+| iptables LOG | Primary on **21.02.x** (fw3); best-effort on 23.05+ when nft absent — same logd pipe; rule map from `iptables-save` |
 | OPNsense as reference | Interaction and layout patterns, not PHP/Volt port |
 
 ## Normalized event schema

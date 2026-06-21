@@ -14,6 +14,9 @@ fwlive-packages/          (gh-pages branch)
   public.key              opkg trust anchor
   fwlive-feed.rsa.pub     apk trust anchor
   manifest.json           release metadata + sha256
+  21.02/
+    luci-app-fwlive_*_all.ipk
+    Packages  Packages.gz  Packages.sig
   23.05/
     luci-app-fwlive_*_all.ipk
     Packages  Packages.gz  Packages.sig
@@ -28,6 +31,20 @@ fwlive-packages/          (gh-pages branch)
 The package is **`_all`** — one feed URL per OpenWrt release line, not per CPU architecture.
 
 ## User install
+
+### OpenWrt 21.02.x (opkg, legacy fw3)
+
+OpenWrt **21.02 is EOL** — use only if you are stuck on fw3/iptables. Feed path **`21.02`**; install the **21.02-built** package from this feed (not 23.05+).
+
+```sh
+wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
+opkg-key add /tmp/fwlive.key
+echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/21.02' >> /etc/opkg/customfeeds.conf
+opkg update
+opkg install luci-app-fwlive
+```
+
+See [21.02 compat](openwrt-21.02-compat.md).
 
 ### OpenWrt 24.10 (opkg)
 
@@ -120,18 +137,19 @@ Expected apk secret shape: PEM `-----BEGIN PRIVATE KEY-----` (openssl genrsa out
 On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml):
 
 1. Validates signing keys via [`validate-feed-keys.sh`](../scripts/validate-feed-keys.sh) (before build).
-2. Builds `luci-app-fwlive` for **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
+2. Builds `luci-app-fwlive` for **21.02**, **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
 3. Runs [`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh) (double-build sha256 gate).
 4. Stages signed feed via [`publish-packages.sh`](../scripts/publish-packages.sh).
 5. Deploys to **`fwlive-packages`** `gh-pages`.
 6. Uploads `.ipk` / `.apk` to the GitHub Release.
-7. Boots QEMU x86 guests and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh)).
+7. Boots QEMU x86 guests and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh)) — *currently disabled in CI* ([#10](https://github.com/lucas-albers-lz4/fwlive/issues/10)).
 
 ## Manual publish (fallback)
 
 ```sh
 # Build
 export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+./scripts/docker-sdk.sh build --target x86-64 --version 21.02
 ./scripts/docker-sdk.sh build --target x86-64 --version 23.05
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 ./scripts/docker-sdk.sh build --target x86-64 --version 25.12

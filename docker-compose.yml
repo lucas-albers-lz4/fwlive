@@ -17,6 +17,7 @@ volumes:
   openwrt_sdk_x86_64_25_12_0:
   openwrt_sdk_x86_64_24_10_5:
   openwrt_sdk_x86_64_23_05_5:
+  openwrt_sdk_x86_64_21_02_7:
   openwrt_sdk:
 
 services:

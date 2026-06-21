@@ -63,10 +63,10 @@ jobs:
           APK_FEED_PUBLIC_KEY: ${{ github.workspace }}/fwlive-feed.rsa.pub
         run: ./scripts/validate-feed-keys.sh
 
-      - name: Build packages (23.05, 24.10, 25.12)
+      - name: Build packages (21.02, 23.05, 24.10, 25.12)
         run: |
           mkdir -p out
-          for ver in 23.05 24.10 25.12; do
+          for ver in 21.02 23.05 24.10 25.12; do
             echo "=== docker-sdk build: OpenWrt ${ver} ==="
             ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
           done
@@ -121,7 +121,10 @@ jobs:
             gh release create "$tag" "${assets[@]}" --title "$tag" --generate-notes
           fi
 
+  # Disabled: QEMU feed smoke burns GHA minutes; KVM/TCG+SSH issues on hosted runners.
+  # Re-enable when https://github.com/lucas-albers-lz4/fwlive/issues/10 is resolved.
   smoke-from-feed:
+    if: false
     needs: build-publish
     runs-on: ubuntu-latest
     env:
@@ -139,10 +142,10 @@ jobs:
       - name: Wait for GitHub Pages propagation
         run: ./scripts/wait-feed-pages.sh "$FWLIVE_FEED_BASE_URL"
 
-      - name: Feed smoke (23.05, 24.10, 25.12)
+      - name: Feed smoke (21.02, 23.05, 24.10, 25.12)
         env:
           FWLIVE_FEED_BASE_URL: ${{ env.FWLIVE_FEED_BASE_URL }}
         run: |
-          for ver in 23.05 24.10 25.12; do
+          for ver in 21.02 23.05 24.10 25.12; do
             ./scripts/validate-feed-smoke.sh --version "$ver"
           done

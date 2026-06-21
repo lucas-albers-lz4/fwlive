@@ -8,6 +8,7 @@ Install directly from the signed GitHub Pages feed — no manual download.
 
 | OpenWrt | Package manager | Feed doc |
 |---------|-----------------|----------|
+| **21.02.x** (legacy fw3) | `opkg` | [Binary feed — 21.02](../binary-feed.md#openwrt-2102x-opkg-legacy-fw3) |
 | **23.05** / **24.10** | `opkg` | [Binary feed — opkg](../binary-feed.md#openwrt-2410-opkg) |
 | **25.12+** | `apk` | [Binary feed — apk](../binary-feed.md#openwrt-2512-apk) |
 
@@ -20,7 +21,7 @@ echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >>
 opkg update && opkg install luci-app-fwlive
 ```
 
-Use `…/23.05` for OpenWrt 23.05. For 25.12+, see the apk section in [binary-feed.md](../binary-feed.md).
+Use `…/23.05` for OpenWrt 23.05, `…/21.02` for legacy **21.02.x (fw3)**. For 25.12+, see the apk section in [binary-feed.md](../binary-feed.md).
 
 ## 2. GitHub Release (manual download)
 
@@ -28,7 +29,7 @@ Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-
 
 | OpenWrt | Artifact | Package manager |
 |---------|----------|-----------------|
-| **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg` |
+| **21.02.x** / **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg` |
 | **25.12+** | `luci-app-fwlive-*.apk` | `apk` |
 
 The package is **`_all`** — architecture-independent. One `.ipk` or `.apk` per OpenWrt release works on any router (ARM, x86, etc.).

@@ -20,7 +20,7 @@ usage() {
 Usage: validate-feed-smoke.sh [options]
 
 Options:
-  --version VERSION   23.05 | 24.10 | 25.12 (default: 24.10)
+  --version VERSION   21.02 | 23.05 | 24.10 | 25.12 (default: 24.10)
   --feed-url URL      override FWLIVE_FEED_BASE_URL
   -h, --help
 EOF

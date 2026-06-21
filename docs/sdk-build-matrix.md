@@ -10,13 +10,14 @@ Cross-build **`luci-app-fwlive`** for multiple OpenWrt releases and CPU targets 
 | **25.12** | `-25.12.0` | Current stable release |
 | **24.10** | `-24.10.5` | Pinned to current 24.10 point release |
 | **23.05** | `-23.05.5` | Pinned to current 23.05 point release |
+| **21.02** | `-21.02.7` | Legacy fw3/iptables — published **opkg** feed (`…/21.02`) |
 
 | Target | SDK image prefix | Package arch dir |
 |--------|------------------|------------------|
 | **armsr-armv8** | `ghcr.io/openwrt/sdk:armsr-armv8` | `aarch64_generic` |
 | **x86-64** | `ghcr.io/openwrt/sdk:x86-64` | `x86_64` |
 
-**Eight cells** by default: 4 versions × 2 targets.
+**Nine cells** by default: 5 versions × 2 targets (21.02 is legacy lab scope; feed publish deferred).
 
 Each cell uses its **own Docker volume** (separate SDK tree + `.config`). First use runs `./setup.sh` inside the container to download the matching SDK archive.
 

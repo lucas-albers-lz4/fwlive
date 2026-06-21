@@ -33,6 +33,7 @@ required=(
 	scripts/validate-feed-smoke.sh
 	scripts/wait-feed-pages.sh
 	scripts/feeds.lock/23.05.5/feeds.conf
+	scripts/feeds.lock/21.02.7/feeds.conf
 	scripts/feeds.lock/24.10.5/feeds.conf
 	scripts/feeds.lock/25.12.0/feeds.conf
 	scripts/qemu-smoke-fwlive.sh

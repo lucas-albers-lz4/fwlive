@@ -94,7 +94,8 @@ validate_matrix_start_qemu() {
 	cp /usr/share/OVMF/OVMF_VARS_4M.fd "${root}/lab/images/OVMF_VARS_4M.fd" 2>/dev/null || true
 	case "$qemu_target" in
 		x86)
-			OWRT_RELEASE="$lab_slug" "${root}/scripts/run-openwrt-x86-qemu.sh" &
+			OWRT_RELEASE="$lab_slug" OWRT_QEMU_SERIAL_SOCKET=1 \
+				"${root}/scripts/run-openwrt-x86-qemu.sh" &
 			;;
 		armsr)
 			OWRT_RELEASE="$lab_slug" "${root}/scripts/run-openwrt-armsr-armv8-qemu.sh" &
@@ -150,6 +151,14 @@ validate_matrix_run_cell() {
 	version_label="$(validate_matrix_version_label "$version_key")"
 	img="$(validate_matrix_image_path "$qemu_target" "$version_key")"
 
+	cleanup_on_fail() {
+		local rc=$?
+		[[ $rc -eq 0 ]] && return 0
+		validate_matrix_stop_qemu
+		return "$rc"
+	}
+	trap cleanup_on_fail EXIT
+
 	echo "== validate ${version_key} (lab ${lab_slug}) qemu=${qemu_target} sdk=${sdk_target} ==" >&2
 
 	if [[ "$skip_build" -eq 0 ]]; then
@@ -180,5 +189,6 @@ validate_matrix_run_cell() {
 	validate_matrix_smoke
 
 	validate_matrix_stop_qemu
+	trap - EXIT
 	echo "== validate passed: ${version_key} / ${qemu_target} ==" >&2
 }

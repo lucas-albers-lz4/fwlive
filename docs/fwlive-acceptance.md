@@ -25,6 +25,7 @@ Re-validate after changes:
 
 | OpenWrt | SDK build | Lab target | End-to-end sign-off |
 | ------- | --------- | ---------- | ------------------- |
+| **21.02.7** | ✓ x86-64 | **x86_64** (KVM, fw3/iptables) | ✓ `qemu-smoke-fwlive.sh` (2026-06-20) |
 | **24.10.5** | ✓ armsr-armv8, x86-64 | **armsr/armv8** (production) | ✓ LuCI, ubus, nft log, rules |
 | **24.10.5** | ✓ | **x86_64** (fast KVM lab) | ✓ primary dev loop |
 | **23.05.5** | ✓ armsr-armv8 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` |
@@ -33,7 +34,7 @@ Re-validate after changes:
 
 **Production target:** armsr **24.10.5**. **23.05.5** supported — see [`openwrt-23.05-compat.md`](openwrt-23.05-compat.md).
 
-**iptables LOG (issue #7):** best-effort on **23.05+** when iptables is present without nft — covered by `./scripts/fwlive-test.sh` fixtures; **not** a release sign-off requirement. OpenWrt releases **before 23.05** are out of scope.
+**iptables LOG (issue #7):** On **21.02.x**, iptables LOG is the **primary** path (lab sign-off on 21.02.7 x86). On **23.05+**, iptables LOG is **best-effort** when iptables is present without nft — fixture-tested; not a modern release sign-off requirement. **22.03.x is unsupported** (fw4 era). See [`openwrt-21.02-compat.md`](openwrt-21.02-compat.md).
 
 Build:
 

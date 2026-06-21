@@ -78,15 +78,19 @@ return view.extend({
 	],
 
 	readFilters() {
+		const val = (id) => {
+			const el = document.getElementById(id);
+			return el ? (el.value || '') : '';
+		};
 		return {
-			q: (document.getElementById('fwlive-q')?.value || '').trim(),
-			action: document.getElementById('fwlive-action')?.value || '',
-			interface: document.getElementById('fwlive-interface')?.value || '',
-			proto: document.getElementById('fwlive-proto')?.value || '',
-			src: (document.getElementById('fwlive-src')?.value || '').trim(),
-			dst: (document.getElementById('fwlive-dst')?.value || '').trim(),
-			sport: (document.getElementById('fwlive-sport')?.value || '').trim(),
-			dport: (document.getElementById('fwlive-dport')?.value || '').trim()
+			q: val('fwlive-q').trim(),
+			action: val('fwlive-action'),
+			interface: val('fwlive-interface'),
+			proto: val('fwlive-proto'),
+			src: val('fwlive-src').trim(),
+			dst: val('fwlive-dst').trim(),
+			sport: val('fwlive-sport').trim(),
+			dport: val('fwlive-dport').trim()
 		};
 	},
 

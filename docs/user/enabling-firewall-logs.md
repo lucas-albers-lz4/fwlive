@@ -250,9 +250,9 @@ ssh root@192.168.1.1 'ping -c 5 127.0.0.1'
 
 ---
 
-## iptables / fw3 (best-effort, 23.05+)
+## iptables / fw3 (21.02.x primary; best-effort on 23.05+)
 
-On routers that use **iptables** instead of nft (unusual on stock 23.05+), enable **`LOG`** on the rules you care about — same logd pipeline, not TRACE:
+On **21.02.x** (fw3), iptables LOG is the normal path. On **23.05+**, iptables is unusual (most images use nft) — same enablement either way. Enable **`LOG`** on the rules you care about — same logd pipeline, not TRACE:
 
 ```sh
 iptables -I INPUT -p icmp --icmp-type echo-request \

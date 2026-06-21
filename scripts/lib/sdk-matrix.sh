@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SDK_MATRIX_TARGETS=(armsr-armv8 x86-64)
-SDK_MATRIX_VERSIONS=(snapshot 25.12 24.10 23.05)
+SDK_MATRIX_VERSIONS=(snapshot 25.12 24.10 23.05 21.02)
 
 sdk_matrix_root() {
 	local here
@@ -19,6 +19,7 @@ sdk_matrix_version_patch() {
 		25.12 | 25.12.*) printf '%s' '25.12.0' ;;
 		24.10 | 24.10.*) printf '%s' '24.10.5' ;;
 		23.05 | 23.05.*) printf '%s' '23.05.5' ;;
+		21.02 | 21.02.*) printf '%s' '21.02.7' ;;
 		*) printf '%s' "$1" ;;
 	esac
 }
@@ -93,7 +94,7 @@ sdk_matrix_validate_version() {
 		[[ "$1" == "$v" || "$1" == "$(sdk_matrix_version_patch "$1")" ]] && return 0
 	done
 	case "$1" in
-		25.12.* | 24.10.* | 23.05.*) return 0 ;;
+		25.12.* | 24.10.* | 23.05.* | 21.02.*) return 0 ;;
 	esac
 	echo "invalid --version $1 (choose: ${SDK_MATRIX_VERSIONS[*]})" >&2
 	return 1
@@ -122,9 +123,23 @@ sdk_matrix_feeds_ready() {
 		2>/dev/null
 }
 
+sdk_matrix_feeds_base_packages() {
+	local label
+	label="$(sdk_matrix_version_label "$SDK_MATRIX_VERSION")"
+	case "$label" in
+		21.02.*)
+			printf '%s' 'liblua libubox libubus libuci rpcd'
+			;;
+		*)
+			printf '%s' 'liblua libucode libubox libubus libuci rpcd'
+			;;
+	esac
+}
+
 sdk_matrix_feeds_setup() {
-	local lock_path
+	local lock_path base_pkgs
 	lock_path="$(sdk_matrix_feeds_lock_path "$SDK_MATRIX_VERSION")"
+	base_pkgs="$(sdk_matrix_feeds_base_packages)"
 	[[ -f "$lock_path" ]] || {
 		echo "missing pinned feeds lock: $lock_path" >&2
 		return 1
@@ -139,7 +154,7 @@ sdk_matrix_feeds_setup() {
 		grep -q '^src-link fwlive' feeds.conf || echo 'src-link fwlive /work/fwlive/openwrt-feed' >> feeds.conf
 
 		./scripts/feeds update base luci packages
-		./scripts/feeds install -p base liblua libucode libubox libubus libuci rpcd
+		./scripts/feeds install -p base ${base_pkgs}
 		./scripts/feeds install luci-base
 		./scripts/feeds update fwlive
 		./scripts/feeds install luci-app-fwlive
