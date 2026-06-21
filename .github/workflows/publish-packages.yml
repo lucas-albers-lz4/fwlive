@@ -98,27 +98,47 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${FWLIVE_RELEASE_TAG}"
-          mapfile -t assets < <(find out/x86_64 -type f \( -name 'luci-app-fwlive_*_all.ipk' -o -name 'luci-app-fwlive-*.apk' \) | sort)
+          staging="${RUNNER_TEMP}/fwlive-release-assets"
+          # shellcheck source=scripts/lib/feed-publish.sh
+          source ./scripts/lib/feed-publish.sh
+          feed_publish_stage_release_assets "$staging"
+          mapfile -t assets < <(find "$staging" -type f | sort)
           if ((${#assets[@]} == 0)); then
             echo "No .ipk/.apk artifacts under out/x86_64/" >&2
             exit 1
           fi
           printf 'Publishing %s release asset(s) for %s\n' "${#assets[@]}" "$tag"
+          printf '  %s\n' "${assets[@]##*/}"
+
+          publish_new() {
+            gh release create "$tag" "${assets[@]}" --title "$tag" --generate-notes
+          }
 
           if gh release view "$tag" >/dev/null 2>&1; then
             immutable="$(gh release view "$tag" --json isImmutable -q '.isImmutable')"
             draft="$(gh release view "$tag" --json isDraft -q '.isDraft')"
+            asset_count="$(gh release view "$tag" --json assets -q '.assets | length')"
             if [[ "$immutable" == "true" && "$draft" == "false" ]]; then
-              echo "Release $tag is already published (immutable). GitHub cannot attach assets after publish." >&2
+              if [[ "$asset_count" -gt 0 ]]; then
+                echo "Release $tag already published with ${asset_count} asset(s); skipping upload." >&2
+                exit 0
+              fi
+              echo "Release $tag is published (immutable) with no assets." >&2
               echo "Delete the empty release on GitHub (keep the git tag), then re-run this workflow." >&2
               exit 1
             fi
-            gh release upload "$tag" "${assets[@]}" --clobber
-            if [[ "$draft" == "true" ]]; then
-              gh release edit "$tag" --draft=false
+            if [[ "$asset_count" -eq 0 ]]; then
+              echo "Removing empty release $tag before creating with assets..." >&2
+              gh release delete "$tag" --yes
+              publish_new
+            else
+              gh release upload "$tag" "${assets[@]}" --clobber
+              if [[ "$draft" == "true" ]]; then
+                gh release edit "$tag" --draft=false
+              fi
             fi
           else
-            gh release create "$tag" "${assets[@]}" --title "$tag" --generate-notes
+            publish_new
           fi
 
   # Disabled: QEMU feed smoke burns GHA minutes; KVM/TCG+SSH issues on hosted runners.

@@ -36,10 +36,10 @@ Full publish checklist: [github-publish-checklist.md](github-publish-checklist.m
    ```
 
    Pushing the tag triggers [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml), which:
-   - Builds packages for **23.05**, **24.10**, **25.12**
+   - Builds packages for **21.02**, **23.05**, **24.10**, **25.12**
    - Verifies reproducible builds ([`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh))
    - Signs and deploys the feed to **`lucas-albers-lz4/fwlive-packages`** (GitHub Pages)
-   - Uploads release assets
+   - Uploads release assets (one `.ipk` per opkg line, `.apk` for 25.12 — filenames include the OpenWrt line, e.g. `luci-app-fwlive_0.1.16_21.02_all.ipk`)
    - Runs QEMU smoke tests installing from the live feed URL
 
    GitHub **immutable releases** cannot receive assets after publish. If you already published an empty release, delete it on GitHub (keep the tag) and re-run the workflow from Actions → **Run workflow**.
@@ -61,10 +61,13 @@ export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
 Artifacts:
 
 ```text
+out/x86_64/21.02.7/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/23.05.5/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/24.10.5/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/25.12.0/fwlive/luci-app-fwlive-*.apk
 ```
+
+GitHub Release attachments are renamed with the OpenWrt line suffix (e.g. `_21.02_all.ipk`) so multiple `_all.ipk` builds do not collide on upload.
 
 Verify filenames match `PKG_VERSION` in the Makefile.
 
