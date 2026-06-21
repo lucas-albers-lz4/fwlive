@@ -7,6 +7,10 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/sdk-matrix.sh"
 
 feed_publish_root() {
+	if [[ -n "${FEED_PUBLISH_ROOT:-}" ]]; then
+		printf '%s' "$FEED_PUBLISH_ROOT"
+		return 0
+	fi
 	local here
 	here="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 	printf '%s' "$here"
@@ -44,6 +48,50 @@ feed_publish_find_artifact() {
 	shopt -u nullglob
 	[[ ${#candidates[@]} -ge 1 ]] || return 1
 	ls -1 "${candidates[@]}" 2>/dev/null | head -1
+}
+
+# Map SDK output dir (e.g. 21.02.7) → feed/release key (e.g. 21.02).
+feed_publish_release_key() {
+	case "$1" in
+		21.02.7) printf '%s' '21.02' ;;
+		23.05.5) printf '%s' '23.05' ;;
+		24.10.5) printf '%s' '24.10' ;;
+		25.12.0) printf '%s' '25.12' ;;
+		*) printf '%s' "$1" ;;
+	esac
+}
+
+# GitHub Releases require unique asset basenames; each OpenWrt line builds the same _all.ipk name.
+feed_publish_release_asset_basename() {
+	local path="$1"
+	local ver_label base key
+	ver_label="$(basename "$(dirname "$(dirname "$path")")")"
+	base="$(basename "$path")"
+	key="$(feed_publish_release_key "$ver_label")"
+	if [[ "$base" == *.ipk ]]; then
+		printf '%s' "${base/_all.ipk/_${key}_all.ipk}"
+	else
+		printf '%s' "$base"
+	fi
+}
+
+# Copy built artifacts into a flat dir with unique release asset names.
+feed_publish_stage_release_assets() {
+	local dest="$1"
+	local ver ver_label path name
+	mkdir -p "$dest"
+	find "$dest" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+	for ver in 21.02 23.05 24.10 25.12; do
+		ver_label="$(sdk_matrix_version_label "$ver")"
+		path="$(feed_publish_find_artifact "$ver_label" 2>/dev/null || true)"
+		[[ -n "$path" ]] || continue
+		name="$(feed_publish_release_asset_basename "$path")"
+		if [[ -e "${dest}/${name}" ]]; then
+			echo "duplicate release asset name: ${name} (${path})" >&2
+			return 1
+		fi
+		cp -a "$path" "${dest}/${name}"
+	done
 }
 
 feed_publish_ensure_usign() {

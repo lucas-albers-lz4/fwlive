@@ -384,6 +384,12 @@ return view.extend({
 		case 'flow':
 			return E('td', { 'class': this.columnCellClass(col) }, this.flowCell(row));
 		case 'message':
+			if (this.messageLayout === 'wrap') {
+				return E('td', {
+					'class': 'fwlive-message',
+					'title': row.message || ''
+				}, E('div', { 'class': 'fwlive-message-wrap' }, msgDisplay || '—'));
+			}
 			return E('td', {
 				'class': 'fwlive-message',
 				'title': row.message || ''
@@ -1120,8 +1126,14 @@ return view.extend({
 		const scroll = document.getElementById('fwlive-scroll');
 		const btn = document.getElementById('fwlive-msg-layout');
 		if (scroll) {
-			scroll.classList.toggle('fwlive-msg-oneline', this.messageLayout === 'oneline');
-			scroll.classList.toggle('fwlive-msg-wrap', this.messageLayout === 'wrap');
+			/* add/remove — classList.toggle(name, force) is unsupported on some 21.02-era browsers */
+			if (this.messageLayout === 'oneline') {
+				scroll.classList.add('fwlive-msg-oneline');
+				scroll.classList.remove('fwlive-msg-wrap');
+			} else {
+				scroll.classList.add('fwlive-msg-wrap');
+				scroll.classList.remove('fwlive-msg-oneline');
+			}
 		}
 		if (btn) {
 			btn.textContent = this.messageLayout === 'oneline'
@@ -1252,10 +1264,6 @@ return view.extend({
 		const limitSel = document.getElementById('fwlive-limit');
 		if (limitSel)
 			limitSel.addEventListener('change', this.onRowLimitChange.bind(this));
-
-		const msgBtn = document.getElementById('fwlive-msg-layout');
-		if (msgBtn)
-			msgBtn.addEventListener('click', this.toggleMessageLayout.bind(this));
 
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 		if (hostCb)
@@ -1417,11 +1425,13 @@ return view.extend({
 					font-size: 0.85em;
 					color: var(--text-color-high);
 				}
-				.fwlive-scroll.fwlive-msg-wrap .fwlive-message {
+				.fwlive-scroll.fwlive-msg-wrap .fwlive-message-wrap {
+					display: block;
 					min-width: 16em;
-					max-width: none;
+					max-width: 42em;
 					white-space: normal;
 					word-break: break-word;
+					word-wrap: break-word;
 				}
 				.fwlive-scroll.fwlive-msg-oneline .fwlive-message {
 					white-space: nowrap;
@@ -1639,7 +1649,8 @@ return view.extend({
 				E('button', {
 					'id': 'fwlive-msg-layout',
 					'class': 'cbi-button',
-					'type': 'button'
+					'type': 'button',
+					'click': this.toggleMessageLayout.bind(this)
 				}, _('Message: wrap')),
 				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, '')
 			]),

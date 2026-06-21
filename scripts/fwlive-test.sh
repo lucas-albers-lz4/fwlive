@@ -41,6 +41,9 @@ echo "== fwlive theme CSS (LuCI dark mode) ==" >&2
 echo "== fwlive filter negate toggle ==" >&2
 "$NODE" tests/fwlive-filter-negate.test.js
 
+echo "== fwlive feed release assets ==" >&2
+bash tests/feed-publish-release-assets.test.sh
+
 echo "== fwlive rules map (iptables-save) ==" >&2
 "$NODE" tests/fwlive-rules-map.test.js
 
