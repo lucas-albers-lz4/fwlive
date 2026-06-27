@@ -55,7 +55,7 @@ LuCI: `http://localhost:8080/cgi-bin/luci/admin/status/fwlive` (login required o
 
 2. **Fresh x86 images** — 22.03.7 combined images may ship **without** `/etc/config/network`; `qemu-lab-prepare-image.sh` seeds a DHCP `lan` section before first boot (required for slirp hostfwd SSH).
 
-3. **uhttpd / LuCI** — Many 22.03 images ship `luci-base` with the **ucode** dispatcher (`/usr/share/ucode/luci/dispatcher.uc`) but `uhttpd` still points at legacy `lua_prefix`. `qemu-lab-prepare-image.sh` adds `ucode_prefix` and removes `lua_prefix` when the dispatcher exists.
+3. **uhttpd / LuCI** — `qemu-lab-prepare-image.sh` switches `uhttpd` from `lua_prefix` to `ucode_prefix` **only when** `/usr/share/ucode/luci/dispatcher.uc` exists. Stock **22.03.7 x86 combined** lab images use the **lua** dispatcher (no ucode tweak). Some other 22.03 profiles may ship ucode — same prepare logic as [23.05 compat](openwrt-23.05-compat.md).
 
 4. **ext4 journal** — Official `.img.gz` artifacts may need `e2fsck` before first boot (prepare script runs this automatically).
 

@@ -54,13 +54,15 @@ LuCI: `http://localhost:8080/cgi-bin/luci/admin/status/fwlive` (login required o
 
 1. **Image names** — 23.05 armsr ships `generic-ext4-combined.img.gz` (no `-efi` suffix). Download scripts probe both variants.
 
-2. **uhttpd / LuCI** — Many 23.05 images ship `luci-base` with the **ucode** dispatcher (`/usr/share/ucode/luci/dispatcher.uc`) but `uhttpd` still points at legacy `lua_prefix`. `qemu-lab-prepare-image.sh` adds `ucode_prefix` and removes `lua_prefix` when the dispatcher exists.
+2. **Network config** — 23.05 x86 images include `/etc/config/network`; **22.03.x** fresh x86 images may not — see [22.03 compat](openwrt-22.03-compat.md) (prepare script seeds DHCP `lan`).
 
-3. **ext4 journal** — Official `.img.gz` artifacts may need `e2fsck` before first boot (prepare script runs this automatically).
+3. **uhttpd / LuCI** — Many 23.05 images ship `luci-base` with the **ucode** dispatcher (`/usr/share/ucode/luci/dispatcher.uc`) but `uhttpd` still points at legacy `lua_prefix`. `qemu-lab-prepare-image.sh` adds `ucode_prefix` and removes `lua_prefix` when the dispatcher exists.
 
-4. **LuCI HTTP 403** — Unauthenticated requests return 403 with `x-luci-login-required: yes`; smoke tests treat this as success (dispatcher reachable).
+4. **ext4 journal** — Official `.img.gz` artifacts may need `e2fsck` before first boot (prepare script runs this automatically).
 
-5. **Log format** — Kernel nft log lines parse correctly on 23.05.5; `rule_label` resolves via `fwlive rules` ubus.
+5. **LuCI HTTP 403** — Unauthenticated requests return 403 with `x-luci-login-required: yes`; smoke tests treat this as success (dispatcher reachable).
+
+6. **Log format** — Kernel nft log lines parse correctly on 23.05.5; `rule_label` resolves via `fwlive rules` ubus.
 
 ## Expected field variance
 

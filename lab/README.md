@@ -12,10 +12,11 @@
   ```sh
   RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
   RELEASE=23.05.5 ./scripts/download-openwrt-armsr-armv8.sh
-  RELEASE=23.05.5 ./scripts/download-openwrt-x86-64.sh
+  RELEASE=22.03.7 ./scripts/download-openwrt-x86-64.sh
+  RELEASE=21.02.7 ./scripts/download-openwrt-x86-64.sh
   ```
 
-  **23.05 validation:** [`docs/openwrt-23.05-compat.md`](../docs/openwrt-23.05-compat.md) · `./scripts/validate-openwrt-23.05.sh`
+  **Version validation:** [22.03 compat](../docs/openwrt-22.03-compat.md) · `./scripts/validate-openwrt-22.03.sh` · [23.05 compat](../docs/openwrt-23.05-compat.md) · `./scripts/validate-openwrt-23.05.sh` · [21.02 compat](../docs/openwrt-21.02-compat.md)
 
 - `lab/images/openwrt-x64.img` — x86_64 (future; download from `targets/x86/64/` when needed)
 - `lab/images/opnsense-amd64.img` — optional reference VM

@@ -77,7 +77,7 @@ Verify filenames match `PKG_VERSION` in the Makefile.
 
 Include in each release:
 
-- Supported OpenWrt: **22.03**, **23.05**, **24.10**, **25.12**
+- Supported OpenWrt: **21.02**, **22.03**, **23.05**, **24.10** (opkg) · **25.12** (apk)
 - Feed install: [binary-feed.md](binary-feed.md)
 - Menu: **Status → Firewall Live View**
 - Requires firewall rules with **`log`** — [enabling firewall logs](user/enabling-firewall-logs.md)

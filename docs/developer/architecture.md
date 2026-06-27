@@ -48,8 +48,8 @@ flowchart TB
 | Client-side normalize/filter | Normalization stays in JS; `isFirewallEvent` retained as safety net |
 | Opt-in hostnames | `fwlive.resolve` via `getent`; checkbox default off |
 | `core/` + LuCI mirror | Parser tested without browser or router |
-| nft/fw4 primary | Validated on 23.05 / 24.10 / 25.12 lab matrix |
-| iptables LOG | Primary on **21.02.x** (fw3); best-effort on 23.05+ when nft absent — same logd pipe; rule map from `iptables-save` |
+| nft/fw4 primary | Validated on **21.02.7** (fw3 lab), **22.03.7**, **23.05.5**, **24.10.5**, **25.12.0** lab matrix |
+| iptables LOG | Primary on **21.02.x** (fw3); best-effort on **22.03+** when nft absent — same logd pipe; rule map from `iptables-save` |
 | OPNsense as reference | Interaction and layout patterns, not PHP/Volt port |
 
 ## Normalized event schema

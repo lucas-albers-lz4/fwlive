@@ -131,7 +131,7 @@ ssh -p 2222 root@127.0.0.1 'ping 127.0.0.1'   # 1 pkt/s baseline
 | Headless smoke (`qemu-smoke-fwlive.sh`) on 23.05.5 x86 | ✓ |
 | armsr 24.10.5 LuCI page loads in browser | ✓ |
 
-Validated on **QEMU x86_64 24.10** (KVM) and **armsr 24.10.5** (TCG); **23.05.5** via x86 smoke + same `_all` ipk.
+Validated on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 24.10.5** (TCG); **23.05.5** via x86 smoke + same `_all` ipk.
 
 ---
 

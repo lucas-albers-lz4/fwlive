@@ -48,6 +48,8 @@ OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 
 | Key | Lab slug | Package mgr |
 |-----|----------|-------------|
+| 21.02 | 21.02.7 | opkg / `.ipk` (fw3 legacy, EOL) |
+| 22.03 | 22.03.7 | opkg / `.ipk` (fw4, EOL — SDK build x86-64 only) |
 | 23.05 | 23.05.5 | opkg / `.ipk` |
 | 24.10 | 24.10.5 | opkg / `.ipk` |
 | 25.12 | 25.12.0 | apk |

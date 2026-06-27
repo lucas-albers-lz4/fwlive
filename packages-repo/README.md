@@ -15,7 +15,7 @@ echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >>
 opkg update && opkg install luci-app-fwlive
 ```
 
-Use feed path `…/23.05` for OpenWrt 23.05, `…/21.02` for legacy **21.02.x (fw3)**. For **25.12+** (`apk`), see [binary-feed.md](https://github.com/lucas-albers-lz4/fwlive/blob/main/docs/binary-feed.md#openwrt-2512-apk).
+Use feed path `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x (EOL)**, `…/21.02` for legacy **21.02.x (fw3)**. For **25.12+** (`apk`), see [binary-feed.md](https://github.com/lucas-albers-lz4/fwlive/blob/main/docs/binary-feed.md#openwrt-2512-apk).
 
 Menu after install: **Status → Firewall Live View**.
 

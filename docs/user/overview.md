@@ -1,6 +1,6 @@
 # What is Firewall Live View?
 
-**Firewall Live View** is a LuCI page for OpenWrt that shows **live firewall log events** in a sortable, filterable table — similar in spirit to OPNsense’s Live View, built for **nftables / firewall4**.
+**Firewall Live View** is a LuCI page for OpenWrt that shows **live firewall log events** in a sortable, filterable table — similar in spirit to OPNsense’s Live View. On **22.03+** images it targets **nftables / firewall4**; on legacy **21.02.x** it uses **iptables LOG** (fw3).
 
 ## The problem it solves
 

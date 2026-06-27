@@ -37,7 +37,7 @@ The package is **`_all`** — architecture-independent. One `.ipk` or `.apk` per
 
 Copy to the router and install:
 
-**OpenWrt 23.05 / 24.10** (`opkg`):
+**OpenWrt 21.02 / 22.03 / 23.05 / 24.10** (`opkg`):
 
 ```sh
 scp luci-app-fwlive_*.ipk root@192.168.1.1:/tmp/
@@ -108,7 +108,7 @@ For a full QEMU lab loop (build → boot → install), see [Developer: QEMU lab]
 ## Uninstall
 
 ```sh
-opkg remove luci-app-fwlive    # 23.05 / 24.10
+opkg remove luci-app-fwlive    # 21.02 / 22.03 / 23.05 / 24.10
 apk del luci-app-fwlive        # 25.12+
 ```
 

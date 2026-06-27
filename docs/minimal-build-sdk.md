@@ -13,7 +13,7 @@ For **proving `luci-app-fwlive` and deploying an `.ipk`**, use the **OpenWrt SDK
 | **Compile host** | **Linux x86_64** (Intel/AMD). SDK tarballs are **`…Linux-x86_64.tar.zst`**. |
 | **Not supported** | Linux **aarch64**, **macOS**, Windows as compile hosts |
 | **Targets** | **`armsr` / `armv8`** (`aarch64_generic`) and **`x86/64`** (`x86_64`); QEMU ARM guest is emulated on x86_64 |
-| **Versions** | **23.05**, **24.10**, **snapshot** — [`sdk-build-matrix.md`](sdk-build-matrix.md) |
+| **Versions** | **21.02**, **22.03**, **23.05**, **24.10**, **25.12**, **snapshot** — [`sdk-build-matrix.md`](sdk-build-matrix.md) |
 
 **Host packages:** `sudo apt install build-essential libncurses-dev gawk` (optional: `jsmin`, `csstidy`).
 
@@ -25,7 +25,7 @@ On **Linux x86_64**, prefer **[`ghcr.io/openwrt/sdk`](https://github.com/openwrt
 ./scripts/docker-sdk.sh list
 ./scripts/docker-sdk.sh build                                    # armsr-armv8 + snapshot
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
-./scripts/docker-sdk.sh build-all                                # 23.05, 24.10, snapshot × both targets
+./scripts/docker-sdk.sh build-all                                # 21.02–snapshot × both targets (22.03: x86-64 only)
 ```
 
 Legacy wrappers (same default cell):

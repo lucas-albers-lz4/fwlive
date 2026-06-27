@@ -9,12 +9,14 @@ Downloaded to `lab/images/`:
 ```sh
 RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh
 RELEASE=23.05.5 ./scripts/download-openwrt-x86-64.sh
+RELEASE=22.03.7 ./scripts/download-openwrt-x86-64.sh
+RELEASE=21.02.7 ./scripts/download-openwrt-x86-64.sh
 RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
 ```
 
 ## Prepare image (required once per image)
 
-Sets LAN **dhcp** for slirp, relaxes lab firewall, empty root password, dropbear auth, uhttpd/LuCI fixes:
+Sets LAN **dhcp** for slirp, relaxes lab firewall, empty root password, dropbear auth, uhttpd/LuCI fixes. **22.03.x** fresh x86 images may lack `/etc/config/network` — the script seeds DHCP `lan` before first boot (see [22.03 compat](../openwrt-22.03-compat.md)):
 
 ```sh
 sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.5.img ./scripts/qemu-lab-prepare-image.sh

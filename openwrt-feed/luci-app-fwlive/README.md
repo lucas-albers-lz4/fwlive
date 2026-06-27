@@ -21,7 +21,7 @@ No `luasrc/` — modern JS-only app. No `po/` until translations are requested.
 
 - `luci-base`, `logd`, `rpcd` (no hard `firewall4` dependency)
 - Menu visible when **`/usr/sbin/nft`** or **`/usr/sbin/iptables`** is executable
-- **fw4/nft** primary on 23.05+; **iptables LOG** primary on legacy **21.02.x** (fw3), best-effort on 23.05+ when nft absent
+- **fw4/nft** primary on **22.03+**; **iptables LOG** primary on legacy **21.02.x** (fw3), best-effort on 22.03+ when nft absent
 
 ## Documentation
 

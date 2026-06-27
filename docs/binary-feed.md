@@ -63,6 +63,10 @@ opkg install luci-app-fwlive
 
 See [22.03 compat](openwrt-22.03-compat.md).
 
+### OpenWrt 23.05 (opkg)
+
+Same as 24.10; use feed URL `…/fwlive-packages/23.05`.
+
 ### OpenWrt 24.10 (opkg)
 
 ```sh
@@ -72,10 +76,6 @@ echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >>
 opkg update
 opkg install luci-app-fwlive
 ```
-
-### OpenWrt 23.05 (opkg)
-
-Same as 24.10; use feed URL `…/fwlive-packages/23.05`.
 
 ### OpenWrt 25.12+ (apk)
 

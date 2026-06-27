@@ -8,9 +8,9 @@
 | **OpenWrt (22.03.x)** | **22.03.x** — firewall4/nft; **EOL** — lab-validated on 22.03.7 x86 — see [22.03 compat](../openwrt-22.03-compat.md) |
 | **OpenWrt (legacy fw3)** | **21.02.x** — fw3/iptables primary; EOL release, lab-validated on 21.02.7 x86 — see [21.02 compat](../openwrt-21.02-compat.md) |
 | **Not supported** | Releases before 21.02 |
-| **Firewall (23.05+)** | **firewall4** / nftables — default on supported modern images |
+| **Firewall (22.03+)** | **firewall4** / nftables — default on supported modern images (22.03 is EOL) |
 | **Firewall (21.02.x)** | **fw3 / iptables** — `-j LOG` or UCI `option log '1'` on rules you want visible |
-| **Firewall (best-effort on 23.05+)** | **iptables** LOG when `/usr/sbin/iptables` is present without nft — not guaranteed |
+| **Firewall (best-effort on 22.03+)** | **iptables** LOG when `/usr/sbin/iptables` is present without nft — not guaranteed |
 | **LuCI** | Modern JS LuCI (`luci-base`) |
 | **Logging** | `logd` (standard on OpenWrt images) |
 | **RPC** | `rpcd` (for `ubus fwlive poll` / `resolve` / `rules`) |
@@ -30,7 +30,7 @@ Validated in this project’s lab for **firewall4**:
 | **25.12.x** | `.apk` (`apk`) | Same app; package manager differs |
 | **snapshot** | `.apk` | Best-effort; minimal images may omit LuCI |
 
-**iptables LOG** on 23.05+ is **best-effort** (fixture-tested; optional manual validation). On **21.02.x**, iptables LOG is the **primary** path. This is a **log viewer**, not iptables TRACE — see [iptables logging reference](../fwlive-iptables-logging.md).
+**iptables LOG** on **22.03+** is **best-effort** (fixture-tested; optional manual validation). On **21.02.x**, iptables LOG is the **primary** path. This is a **log viewer**, not iptables TRACE — see [iptables logging reference](../fwlive-iptables-logging.md).
 
 **22.03.x** uses firewall4/nft like 23.05+ but is **EOL** — upgrade to 23.05+ when possible.
 

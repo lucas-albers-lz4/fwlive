@@ -10,7 +10,7 @@ Canonical setup for **fwlive**: cross-build **`luci-app-fwlive`** on **Linux x86
 |------|----------------|--------|
 | **Build host** | **Linux x86_64** only | OpenWrt publishes SDKs as **`…Linux-x86_64.tar.zst`**. Do not use Linux **aarch64**, **macOS**, or **ARM Mac** as the compile host. |
 | **OpenWrt targets** | **`armsr` / `armv8`** (AArch64), **`x86/64`** | Package dirs: **`aarch64_generic`**, **`x86_64`**. QEMU ARM guest uses TCG on x86_64. |
-| **OpenWrt versions** | **23.05**, **24.10**, **25.12**, **snapshot** | [`sdk-build-matrix.md`](sdk-build-matrix.md) · smoke: [`validation-matrix.md`](validation-matrix.md) |
+| **OpenWrt versions** | **21.02**, **22.03**, **23.05**, **24.10**, **25.12**, **snapshot** | [`sdk-build-matrix.md`](sdk-build-matrix.md) · smoke: [`validation-matrix.md`](validation-matrix.md) |
 
 ## Quick start
 
@@ -37,7 +37,7 @@ Uses official [downloads.openwrt.org](https://downloads.openwrt.org/releases/) *
 ./scripts/docker-sdk.sh list
 ./scripts/docker-sdk.sh build                              # armsr-armv8 + snapshot (default)
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
-./scripts/docker-sdk.sh build-all                          # all 6 version × target cells
+./scripts/docker-sdk.sh build-all                          # all version × target cells (22.03: x86-64 only)
 ```
 
 Legacy one-liners (same default cell):

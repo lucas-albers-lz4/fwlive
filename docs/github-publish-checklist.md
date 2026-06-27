@@ -73,7 +73,7 @@ Alternatives (not primary):
 - `LUCI_PKGARCH:=all` — pure JS + shell rpcd, no target binaries
 - `htdocs/` + `root/` layout per LuCI.mk
 - `menu.d` JSON + `rpcd` ACL + `usr/libexec/rpcd/fwlive` (`list` / `call`)
-- `LUCI_DEPENDS` on `luci-base`, `logd`, `rpcd`, `firewall4`
+- `LUCI_DEPENDS` on `luci-base`, `logd`, `rpcd` (no hard `firewall4` dependency)
 - No `po/` until i18n is requested
 
 ## macOS contributors

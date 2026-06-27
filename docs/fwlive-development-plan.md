@@ -168,6 +168,8 @@ Later: saved filter templates.
 | All versions x86 smoke | `./scripts/validate-openwrt-all.sh smoke-x86` | **done** |
 | Full SDK matrix | `validate-openwrt-all.sh build-full` / `docker-sdk.sh build-all` | **done** |
 | **25.12** in SDK + validation matrix | `sdk-matrix.sh` → 25.12.0 | **done** |
+| **22.03** in SDK + validation matrix | `sdk-matrix.sh` → 22.03.7 (x86-64 SDK; lab sign-off) | **done** |
+| **21.02** in SDK + validation matrix | `sdk-matrix.sh` → 21.02.7 (fw3 lab) | **done** |
 
 **Phased use:** baseline → build all versions → smoke **24.10 x86** (reference) → `smoke-x86` for all → armsr sign-off per release.
 
