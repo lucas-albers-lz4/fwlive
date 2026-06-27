@@ -21,7 +21,7 @@
 
 **Validation depth:** App stack sign-off on **21.02.7 x86-64 QEMU lab** only. Typical fw3 fleets use MIPS/ARM — treat other SoCs as best-effort until hardware or armsr lab is run.
 
-OpenWrt **21.02 is EOL** — support is for operators stuck on fw3, not a recommended baseline. **22.03+ uses firewall4 (nft), not fw3** — see [requirements](user/requirements.md).
+OpenWrt **21.02 is EOL** — support is for operators stuck on fw3, not a recommended baseline. **22.03+ uses firewall4 (nft)** — see [22.03 compat](openwrt-22.03-compat.md) and [requirements](user/requirements.md).
 
 ## Build
 

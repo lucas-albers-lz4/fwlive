@@ -27,7 +27,7 @@ usage() {
 Usage: validate-openwrt.sh [options]
 
 Options:
-  --version VERSION     snapshot | 25.12 | 24.10 | 23.05 | 21.02 | full patch (default: 24.10)
+  --version VERSION     snapshot | 25.12 | 24.10 | 23.05 | 22.03 | 21.02 | full patch (default: 24.10)
   --qemu-target TARGET  x86 | armsr   (default: x86 — fast KVM lab)
   --sdk-target TARGET   armsr-armv8 | x86-64   (default: armsr-armv8)
   --skip-build          assume ipk already built for this version

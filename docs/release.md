@@ -31,12 +31,12 @@ Full publish checklist: [github-publish-checklist.md](github-publish-checklist.m
 4. Tag and push — **do not** create or publish a GitHub Release first; CI creates it with assets attached:
 
    ```sh
-   git tag -a v0.1.0 -m "Firewall Live View — 23.05 / 24.10 / 25.12"
+   git tag -a v0.1.0 -m "Firewall Live View — 22.03 / 23.05 / 24.10 / 25.12"
    git push origin v0.1.0
    ```
 
    Pushing the tag triggers [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml), which:
-   - Builds packages for **21.02**, **23.05**, **24.10**, **25.12**
+   - Builds packages for **21.02**, **22.03**, **23.05**, **24.10**, **25.12**
    - Verifies reproducible builds ([`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh))
    - Signs and deploys the feed to **`lucas-albers-lz4/fwlive-packages`** (GitHub Pages)
    - Uploads release assets (one `.ipk` per opkg line, `.apk` for 25.12 — filenames include the OpenWrt line, e.g. `luci-app-fwlive_0.1.16_21.02_all.ipk`)
@@ -52,6 +52,7 @@ Ensure GitHub Actions secrets are configured — see [binary-feed.md](binary-fee
 
 ```sh
 export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+./scripts/docker-sdk.sh build --target x86-64 --version 22.03
 ./scripts/docker-sdk.sh build --target x86-64 --version 23.05
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 ./scripts/docker-sdk.sh build --target x86-64 --version 25.12
@@ -62,6 +63,7 @@ Artifacts:
 
 ```text
 out/x86_64/21.02.7/fwlive/luci-app-fwlive_*_all.ipk
+out/x86_64/22.03.7/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/23.05.5/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/24.10.5/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/25.12.0/fwlive/luci-app-fwlive-*.apk
@@ -75,7 +77,7 @@ Verify filenames match `PKG_VERSION` in the Makefile.
 
 Include in each release:
 
-- Supported OpenWrt: **23.05**, **24.10**, **25.12**
+- Supported OpenWrt: **22.03**, **23.05**, **24.10**, **25.12**
 - Feed install: [binary-feed.md](binary-feed.md)
 - Menu: **Status → Firewall Live View**
 - Requires firewall rules with **`log`** — [enabling firewall logs](user/enabling-firewall-logs.md)

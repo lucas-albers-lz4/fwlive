@@ -31,6 +31,7 @@ feed_publish_abspath() {
 feed_publish_feed_dir() {
 	case "$(sdk_matrix_version_label "$1")" in
 		21.02.7) printf '%s' '21.02' ;;
+		22.03.7) printf '%s' '22.03' ;;
 		23.05.5) printf '%s' '23.05' ;;
 		24.10.5) printf '%s' '24.10' ;;
 		25.12.0) printf '%s' '25.12' ;;
@@ -54,6 +55,7 @@ feed_publish_find_artifact() {
 feed_publish_release_key() {
 	case "$1" in
 		21.02.7) printf '%s' '21.02' ;;
+		22.03.7) printf '%s' '22.03' ;;
 		23.05.5) printf '%s' '23.05' ;;
 		24.10.5) printf '%s' '24.10' ;;
 		25.12.0) printf '%s' '25.12' ;;
@@ -81,7 +83,7 @@ feed_publish_stage_release_assets() {
 	local ver ver_label path name
 	mkdir -p "$dest"
 	find "$dest" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-	for ver in 21.02 23.05 24.10 25.12; do
+	for ver in 21.02 22.03 23.05 24.10 25.12; do
 		ver_label="$(sdk_matrix_version_label "$ver")"
 		path="$(feed_publish_find_artifact "$ver_label" 2>/dev/null || true)"
 		[[ -n "$path" ]] || continue
@@ -120,6 +122,7 @@ feed_publish_ipkg_index_script() {
 	local tag
 	case "$ver_label" in
 		21.02.7) tag='v21.02.7' ;;
+		22.03.7) tag='openwrt-22.03' ;;
 		23.05.5) tag='openwrt-23.05' ;;
 		24.10.5) tag='v24.10.5' ;;
 		*) tag='v24.10.5' ;;
@@ -140,7 +143,7 @@ feed_publish_stage_opkg_host() {
 	raw="$(mktemp)"
 	# ipkg-make-index.sh uses $MKHASH sha256 (OpenWrt mkhash), not sha256sum alone.
 	mkhash=""
-	for ver in 25.12 24.10 23.05 21.02; do
+	for ver in 25.12 24.10 23.05 22.03 21.02; do
 		sdk_matrix_resolve x86-64 "$ver" 2>/dev/null || continue
 		if sdk_matrix_feeds_ready 2>/dev/null; then
 			mkhash="$(sdk_matrix_compose_run sh -c 'test -x /builder/staging_dir/host/bin/mkhash && echo /builder/staging_dir/host/bin/mkhash' 2>/dev/null | tr -d '\r' || true)"
@@ -292,7 +295,7 @@ feed_publish_write_manifest() {
 	: > "$manifest"
 	printf '{\n  "git_tag": "%s",\n  "packages": [\n' "${git_tag//\"/\\\"}" >> "$manifest"
 	local first=1
-	for ver in 21.02 23.05 24.10 25.12; do
+	for ver in 21.02 22.03 23.05 24.10 25.12; do
 		ver_label="$(sdk_matrix_version_label "$ver")"
 		artifact="$(feed_publish_find_artifact "$ver_label" 2>/dev/null || true)"
 		[[ -n "$artifact" ]] || continue

@@ -10,6 +10,7 @@ Cross-build **`luci-app-fwlive`** for multiple OpenWrt releases and CPU targets 
 | **25.12** | `-25.12.0` | Current stable release |
 | **24.10** | `-24.10.5` | Pinned to current 24.10 point release |
 | **23.05** | `-23.05.5` | Pinned to current 23.05 point release |
+| **22.03** | `-22.03.7` | EOL — published **opkg** feed (`…/22.03`); SDK image **x86-64 only** on ghcr.io |
 | **21.02** | `-21.02.7` | Legacy fw3/iptables — published **opkg** feed (`…/21.02`) |
 
 | Target | SDK image prefix | Package arch dir |
@@ -17,7 +18,7 @@ Cross-build **`luci-app-fwlive`** for multiple OpenWrt releases and CPU targets 
 | **armsr-armv8** | `ghcr.io/openwrt/sdk:armsr-armv8` | `aarch64_generic` |
 | **x86-64** | `ghcr.io/openwrt/sdk:x86-64` | `x86_64` |
 
-**Nine cells** by default: 5 versions × 2 targets (21.02 is legacy lab scope; feed publish deferred).
+**Twelve cells** by default: 6 versions × 2 targets (22.03 armsr SDK image not published — use x86-64 build for `_all` ipk).
 
 Each cell uses its **own Docker volume** (separate SDK tree + `.config`). First use runs `./setup.sh` inside the container to download the matching SDK archive.
 
@@ -49,6 +50,7 @@ Examples:
 
 - `out/aarch64_generic/snapshot/fwlive/…`
 - `out/aarch64_generic/24.10.5/fwlive/…`
+- `out/x86_64/22.03.7/fwlive/…`
 - `out/x86_64/23.05.5/fwlive/…`
 
 Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; use the versioned subdirs above.
@@ -66,7 +68,7 @@ Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; 
 
 Expect **long runtime** on first `build-all` (six SDK downloads + six feed setups). The **x86-64** cells (especially **snapshot**) may compile a large slice of the **`base`** feed on first `make` (kernel modules, nftables stack); subsequent builds are incremental.
 
-Pinned point releases: **25.12 → 25.12.0**, **24.10 → 24.10.5**, **23.05 → 23.05.5** (override with full patch in `--version` if needed).
+Pinned point releases: **25.12 → 25.12.0**, **24.10 → 24.10.5**, **23.05 → 23.05.5**, **22.03 → 22.03.7** (override with full patch in `--version` if needed).
 
 QEMU smoke per version: [`validation-matrix.md`](validation-matrix.md).
 

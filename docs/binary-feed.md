@@ -17,6 +17,9 @@ fwlive-packages/          (gh-pages branch)
   21.02/
     luci-app-fwlive_*_all.ipk
     Packages  Packages.gz  Packages.sig
+  22.03/
+    luci-app-fwlive_*_all.ipk
+    Packages  Packages.gz  Packages.sig
   23.05/
     luci-app-fwlive_*_all.ipk
     Packages  Packages.gz  Packages.sig
@@ -45,6 +48,20 @@ opkg install luci-app-fwlive
 ```
 
 See [21.02 compat](openwrt-21.02-compat.md).
+
+### OpenWrt 22.03.x (opkg, EOL)
+
+OpenWrt **22.03 is EOL** — use only if you cannot upgrade to 23.05+ yet. Feed path **`22.03`**; install the **22.03-built** package from this feed (not 23.05+).
+
+```sh
+wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
+opkg-key add /tmp/fwlive.key
+echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/22.03' >> /etc/opkg/customfeeds.conf
+opkg update
+opkg install luci-app-fwlive
+```
+
+See [22.03 compat](openwrt-22.03-compat.md).
 
 ### OpenWrt 24.10 (opkg)
 
@@ -137,7 +154,7 @@ Expected apk secret shape: PEM `-----BEGIN PRIVATE KEY-----` (openssl genrsa out
 On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml):
 
 1. Validates signing keys via [`validate-feed-keys.sh`](../scripts/validate-feed-keys.sh) (before build).
-2. Builds `luci-app-fwlive` for **21.02**, **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
+2. Builds `luci-app-fwlive` for **21.02**, **22.03**, **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
 3. Runs [`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh) (double-build sha256 gate).
 4. Stages signed feed via [`publish-packages.sh`](../scripts/publish-packages.sh).
 5. Deploys to **`fwlive-packages`** `gh-pages`.
@@ -150,6 +167,7 @@ On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-
 # Build
 export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
 ./scripts/docker-sdk.sh build --target x86-64 --version 21.02
+./scripts/docker-sdk.sh build --target x86-64 --version 22.03
 ./scripts/docker-sdk.sh build --target x86-64 --version 23.05
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 ./scripts/docker-sdk.sh build --target x86-64 --version 25.12

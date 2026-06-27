@@ -11,6 +11,7 @@ INTERVAL="${FEED_PAGES_WAIT_INTERVAL:-10}"
 
 urls=(
 	"${BASE}/21.02/Packages.gz"
+	"${BASE}/22.03/Packages.gz"
 	"${BASE}/24.10/Packages.gz"
 	"${BASE}/23.05/Packages.gz"
 	"${BASE}/25.12/all/packages.adb"

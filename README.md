@@ -25,16 +25,17 @@ Traffic appears only when firewall rules include **`log`**. After install, run t
 | Release | Validated patch | Firewall stack | Package format |
 |---------|-----------------|----------------|----------------|
 | **21.02.x** | **21.02.7** | fw3 / iptables (legacy, EOL) | `.ipk` (`opkg`) |
+| **22.03.x** | **22.03.7** | firewall4 / nft (EOL) | `.ipk` (`opkg`) |
 | **23.05.x** | **23.05.5** | firewall4 / nft | `.ipk` (`opkg`) |
 | **24.10.x** | **24.10.5** | firewall4 / nft | `.ipk` (`opkg`) |
 | **25.12.x** | **25.12.0** | firewall4 / nft | `.apk` (`apk`) |
 | **snapshot** | latest | firewall4 / nft | `.apk` (best-effort) |
 
-**Not supported:** **22.03.x** and releases before **21.02**. Use **21.02.x** for fw3/iptables or **23.05+** for firewall4/nft.
+**Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** is supported but EOL — prefer **23.05+** for new deployments.
 
 The package is **`_all`** (LuCI JS + shell) — one artifact per OpenWrt release line works on any router architecture.
 
-Details: [Requirements](docs/user/requirements.md) · [21.02 compat](docs/openwrt-21.02-compat.md) · [23.05 compat](docs/openwrt-23.05-compat.md)
+Details: [Requirements](docs/user/requirements.md) · [21.02 compat](docs/openwrt-21.02-compat.md) · [22.03 compat](docs/openwrt-22.03-compat.md) · [23.05 compat](docs/openwrt-23.05-compat.md)
 
 ---
 
@@ -43,7 +44,7 @@ Details: [Requirements](docs/user/requirements.md) · [21.02 compat](docs/openwr
 **Recommended — [binary feed](docs/binary-feed.md)** (`opkg` / `apk` from GitHub Pages):
 
 ```sh
-# OpenWrt 24.10 example — see docs/binary-feed.md for 21.02, 23.05, and 25.12
+# OpenWrt 24.10 example — see docs/binary-feed.md for 21.02, 22.03, 23.05, and 25.12
 wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
 opkg-key add /tmp/fwlive.key
 echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >> /etc/opkg/customfeeds.conf
@@ -54,7 +55,7 @@ opkg update && opkg install luci-app-fwlive
 
 | OpenWrt | Package | Install |
 |---------|---------|---------|
-| **21.02.x** / **23.05.x** / **24.10.x** | `luci-app-fwlive_*_all.ipk` | `opkg install /tmp/luci-app-fwlive_*.ipk` |
+| **21.02.x** / **22.03.x** / **23.05.x** / **24.10.x** | `luci-app-fwlive_*_all.ipk` | `opkg install /tmp/luci-app-fwlive_*.ipk` |
 | **25.12+** | `luci-app-fwlive-*.apk` | `apk add --allow-untrusted /tmp/luci-app-fwlive-*.apk` |
 
 **Build from feed** (firmware/SDK builders):
@@ -101,7 +102,7 @@ Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](doc
 
 ## Status
 
-**Basic functionality complete** — validated on **21.02.7**, **23.05.5**, **24.10.5**, and **25.12.0** (x86 KVM lab). Details: [acceptance criteria](docs/fwlive-acceptance.md).
+**Basic functionality complete** — validated on **21.02.7**, **22.03.7**, **23.05.5**, **24.10.5**, and **25.12.0** (x86 KVM lab). Details: [acceptance criteria](docs/fwlive-acceptance.md).
 
 | Phase | State |
 |-------|-------|

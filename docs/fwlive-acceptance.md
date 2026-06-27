@@ -26,20 +26,22 @@ Re-validate after changes:
 | OpenWrt | SDK build | Lab target | End-to-end sign-off |
 | ------- | --------- | ---------- | ------------------- |
 | **21.02.7** | ✓ x86-64 | **x86_64** (KVM, fw3/iptables) | ✓ `qemu-smoke-fwlive.sh` (2026-06-20) |
+| **22.03.7** | ✓ x86-64 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` (2026-06-27) |
 | **24.10.5** | ✓ armsr-armv8, x86-64 | **armsr/armv8** (production) | ✓ LuCI, ubus, nft log, rules |
 | **24.10.5** | ✓ | **x86_64** (fast KVM lab) | ✓ primary dev loop |
 | **23.05.5** | ✓ armsr-armv8 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` |
 | **23.05.5** | ✓ (same `_all` ipk) | armsr/armv8 | Same package; TCG QEMU boot slow — not re-signed in lab |
 | **snapshot** | ✓ matrix | — | Best-effort; not formally signed off |
 
-**Production target:** armsr **24.10.5**. **23.05.5** supported — see [`openwrt-23.05-compat.md`](openwrt-23.05-compat.md).
+**Production target:** armsr **24.10.5**. **23.05.5** and **22.03.7** supported — see [`openwrt-23.05-compat.md`](openwrt-23.05-compat.md) and [`openwrt-22.03-compat.md`](openwrt-22.03-compat.md).
 
-**iptables LOG (issue #7):** On **21.02.x**, iptables LOG is the **primary** path (lab sign-off on 21.02.7 x86). On **23.05+**, iptables LOG is **best-effort** when iptables is present without nft — fixture-tested; not a modern release sign-off requirement. **22.03.x is unsupported** (fw4 era). See [`openwrt-21.02-compat.md`](openwrt-21.02-compat.md).
+**iptables LOG (issue #7):** On **21.02.x**, iptables LOG is the **primary** path (lab sign-off on 21.02.7 x86). On **22.03+**, **firewall4/nft** is the supported path; **iptables LOG** is best-effort when iptables is present without nft — fixture-tested. See [`openwrt-21.02-compat.md`](openwrt-21.02-compat.md).
 
 Build:
 
 ```sh
 ./scripts/docker-sdk.sh build --target armsr-armv8 --version 24.10
+./scripts/docker-sdk.sh build --target x86-64 --version 22.03
 ./scripts/docker-sdk.sh build --target armsr-armv8 --version 23.05
 ```
 

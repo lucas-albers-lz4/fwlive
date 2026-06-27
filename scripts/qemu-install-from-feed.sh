@@ -27,7 +27,7 @@ usage() {
 Usage: qemu-install-from-feed.sh [options]
 
 Options:
-  --version VERSION   21.02 | 23.05 | 24.10 | 25.12 (default: 24.10)
+  --version VERSION   21.02 | 22.03 | 23.05 | 24.10 | 25.12 (default: 24.10)
   --no-smoke          skip qemu-smoke-fwlive.sh after install
   -h, --help
 

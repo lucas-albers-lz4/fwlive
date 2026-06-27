@@ -7,7 +7,7 @@
 #   APK_FEED_PUBLIC_KEY=./fwlive-feed.rsa.pub \
 #     ./scripts/publish-packages.sh feed-staging
 #
-# Prerequisite: ./scripts/docker-sdk.sh build --target x86-64 for 21.02, 23.05, 24.10, 25.12
+# Prerequisite: ./scripts/docker-sdk.sh build --target x86-64 for 21.02, 22.03, 23.05, 24.10, 25.12
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -33,7 +33,7 @@ mkdir -p "$STAGING"
 
 echo "== publish-packages → ${STAGING} (tag: ${GIT_TAG}) ==" >&2
 
-for ver in 21.02 23.05 24.10; do
+for ver in 21.02 22.03 23.05 24.10; do
 	echo "→ staging opkg feed ${ver}..." >&2
 	feed_publish_stage_opkg "$ver" "$STAGING"
 done

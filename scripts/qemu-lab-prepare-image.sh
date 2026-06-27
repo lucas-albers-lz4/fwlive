@@ -73,7 +73,29 @@ if [[ -f "$MNT/etc/config/dropbear" ]]; then
 fi
 
 # LAN: DHCP for default slirp (recommended); static only when OWRT_LAB_NET_MODE=static.
-if [[ -f "$MNT/etc/config/network" ]]; then
+if [[ ! -f "$MNT/etc/config/network" ]]; then
+	# 22.03.x combined images may omit network until first boot — seed lab defaults.
+	cat >"$MNT/etc/config/network" <<'EOF'
+config interface 'loopback'
+	option device 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config globals 'globals'
+	option ula_prefix 'auto'
+
+config device
+	option name 'br-lan'
+	option type 'bridge'
+	list ports 'eth0'
+
+config interface 'lan'
+	option device 'br-lan'
+	option proto 'dhcp'
+	option ip6assign '60'
+EOF
+elif [[ -f "$MNT/etc/config/network" ]]; then
 	if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]]; then
 		sed -i "/config interface 'lan'/,/^$/{
 			s/option proto '[^']*'/option proto 'dhcp'/
@@ -87,6 +109,8 @@ if [[ -f "$MNT/etc/config/network" ]]; then
 			s/option netmask '[^']*'/option netmask '255.255.255.0'/
 		}" "$MNT/etc/config/network"
 	fi
+fi
+if [[ -f "$MNT/etc/config/network" ]]; then
 	if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]] \
 		&& ! sed -n "/config interface 'lan'/,/^$/p" "$MNT/etc/config/network" | grep -q "option proto 'dhcp'"; then
 		echo "error: failed to set network.lan proto=dhcp on $IMG" >&2

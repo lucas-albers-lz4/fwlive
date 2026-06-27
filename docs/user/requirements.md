@@ -5,8 +5,9 @@
 | Item | Detail |
 |------|--------|
 | **OpenWrt (primary)** | **23.05+** — firewall4/nft default |
+| **OpenWrt (22.03.x)** | **22.03.x** — firewall4/nft; **EOL** — lab-validated on 22.03.7 x86 — see [22.03 compat](../openwrt-22.03-compat.md) |
 | **OpenWrt (legacy fw3)** | **21.02.x** — fw3/iptables primary; EOL release, lab-validated on 21.02.7 x86 — see [21.02 compat](../openwrt-21.02-compat.md) |
-| **Not supported** | **22.03.x** (fw4 era, not fw3) and releases before 21.02 |
+| **Not supported** | Releases before 21.02 |
 | **Firewall (23.05+)** | **firewall4** / nftables — default on supported modern images |
 | **Firewall (21.02.x)** | **fw3 / iptables** — `-j LOG` or UCI `option log '1'` on rules you want visible |
 | **Firewall (best-effort on 23.05+)** | **iptables** LOG when `/usr/sbin/iptables` is present without nft — not guaranteed |
@@ -23,6 +24,7 @@ Validated in this project’s lab for **firewall4**:
 | Release | Package format | Notes |
 |---------|----------------|-------|
 | **21.02.x** | `.ipk` (`opkg`) | **Legacy fw3/iptables** — install 21.02-built ipk only; see [21.02 compat](../openwrt-21.02-compat.md) |
+| **22.03.x** | `.ipk` (`opkg`) | firewall4/nft; **EOL** — see [22.03 compat](../openwrt-22.03-compat.md) |
 | **23.05.x** | `.ipk` (`opkg`) | LuCI ucode dispatcher; see [23.05 compat](../openwrt-23.05-compat.md) |
 | **24.10.x** | `.ipk` (`opkg`) | Primary production target |
 | **25.12.x** | `.apk` (`apk`) | Same app; package manager differs |
@@ -30,7 +32,7 @@ Validated in this project’s lab for **firewall4**:
 
 **iptables LOG** on 23.05+ is **best-effort** (fixture-tested; optional manual validation). On **21.02.x**, iptables LOG is the **primary** path. This is a **log viewer**, not iptables TRACE — see [iptables logging reference](../fwlive-iptables-logging.md).
 
-**Why not 22.03?** OpenWrt 22.03+ ships **firewall4/nft**, not fw3. Use **21.02.x** for fw3 or **23.05+** for fw4.
+**22.03.x** uses firewall4/nft like 23.05+ but is **EOL** — upgrade to 23.05+ when possible.
 
 The application itself has **no per-SoC binaries** — one build runs on any board that ships the dependencies above.
 
