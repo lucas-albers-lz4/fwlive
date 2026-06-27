@@ -85,7 +85,7 @@ Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](doc
 
 ## Status
 
-**MVP complete** — stages 1–5 core, stream controls, rule labels. Validated on **23.05**, **24.10**, **25.12** (x86 KVM lab). Details: [acceptance criteria](docs/fwlive-acceptance.md).
+**Basic Functionality complete** — stages 1–5 core, stream controls, rule labels. Validated on **23.05**, **24.10**, **25.12** (x86 KVM lab). Details: [acceptance criteria](docs/fwlive-acceptance.md).
 
 | Phase | State |
 |-------|-------|
