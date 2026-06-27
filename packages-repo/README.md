@@ -6,16 +6,39 @@ Signed **opkg** / **apk** binary feed for [`luci-app-fwlive`](https://github.com
 
 ## Install
 
-See the [installation guide](https://github.com/lucas-albers-lz4/fwlive/blob/main/docs/user/installation.md#1-binary-feed-recommended) in the main repo. Quick example for **OpenWrt 24.10**:
+**Recommended — binary feed** (`opkg` on **21.02–24.10**, `apk` on **25.12+** from GitHub Pages). Full guide: [installation](https://github.com/lucas-albers-lz4/fwlive/blob/main/docs/user/installation.md#1-binary-feed-recommended).
+
+**opkg (21.02.x – 24.10.x)** — run on the router; picks the feed for your OpenWrt release:
 
 ```sh
-wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
+BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
+. /etc/openwrt_release
+feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
+case "$feed" in
+  21.02|22.03|23.05|24.10) ;;
+  *)
+    echo "Release $DISTRIB_RELEASE uses apk — use the OpenWrt 25.12+ commands below" >&2
+    exit 1
+    ;;
+esac
+wget -O /tmp/fwlive.key "$BASE/public.key"
 opkg-key add /tmp/fwlive.key
-echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >> /etc/opkg/customfeeds.conf
+echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
 opkg update && opkg install luci-app-fwlive
 ```
 
-Use feed path `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x (EOL)**, `…/21.02` for legacy **21.02.x (fw3)**. For **25.12+** (`apk`), see [binary-feed.md](https://github.com/lucas-albers-lz4/fwlive/blob/main/docs/binary-feed.md#openwrt-2512-apk).
+**apk (25.12+)** — hardcoded example for OpenWrt **25.12**:
+
+```sh
+wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
+mkdir -p /etc/apk/keys
+cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
+echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb' \
+  >> /etc/apk/repositories.d/fwlive.list
+apk update && apk add luci-app-fwlive
+```
+
+More detail: [binary feed](https://github.com/lucas-albers-lz4/fwlive/blob/main/docs/binary-feed.md) · per-release notes in [21.02](https://github.com/lucas-albers-lz4/fwlive/blob/main/docs/openwrt-21.02-compat.md) / [22.03](https://github.com/lucas-albers-lz4/fwlive/blob/main/docs/openwrt-22.03-compat.md) compat docs.
 
 Menu after install: **Status → Firewall Live View**.
 
