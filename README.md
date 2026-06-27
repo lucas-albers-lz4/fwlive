@@ -41,15 +41,39 @@ Details: [Requirements](docs/user/requirements.md) · [21.02 compat](docs/openwr
 
 ## Install
 
-**Recommended — [binary feed](docs/binary-feed.md)** (`opkg` / `apk` from GitHub Pages):
+**Recommended — [binary feed](docs/binary-feed.md)** (`opkg` on **21.02–24.10**, `apk` on **25.12+** from GitHub Pages).
+
+**opkg (21.02.x – 24.10.x)** — run on the router; picks the feed for your OpenWrt release:
 
 ```sh
-# OpenWrt 24.10 example — see docs/binary-feed.md for 21.02, 22.03, 23.05, and 25.12
-wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
+BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
+. /etc/openwrt_release
+feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
+case "$feed" in
+  21.02|22.03|23.05|24.10) ;;
+  *)
+    echo "Release $DISTRIB_RELEASE uses apk — use the OpenWrt 25.12+ commands below" >&2
+    exit 1
+    ;;
+esac
+wget -O /tmp/fwlive.key "$BASE/public.key"
 opkg-key add /tmp/fwlive.key
-echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >> /etc/opkg/customfeeds.conf
+echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
 opkg update && opkg install luci-app-fwlive
 ```
+
+**apk (25.12+)** — hardcoded example for OpenWrt **25.12**:
+
+```sh
+wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
+mkdir -p /etc/apk/keys
+cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
+echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb' \
+  >> /etc/apk/repositories.d/fwlive.list
+apk update && apk add luci-app-fwlive
+```
+
+More detail: [binary feed](docs/binary-feed.md) · per-release notes in [21.02](docs/openwrt-21.02-compat.md) / [22.03](docs/openwrt-22.03-compat.md) compat docs.
 
 **Alternative — [GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases):** download the package for your OpenWrt version and install manually.
 
