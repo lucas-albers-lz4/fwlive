@@ -17,7 +17,7 @@ Use before making this repo public upstream.
 - [ ] rpcd JSON responses escape control characters (`json_escape` / `map_add`)
 - [ ] `core/fwlive-log.js` tracked as a normal file (not a stale submodule gitlink)
 - [ ] `node_modules/` not committed; dev deps declared in root `package.json`
-- [ ] ACL scope understood: read-only firewall logs / rule hints / optional reverse DNS — grant `luci-app-fwlive` only to trusted admin LuCI users
+- [ ] ACL scope understood: `luci-app-fwlive` grants read (logs, rules, `logging_status`) and write (`enable_wan_logging`, `disable_wan_logging`) — grant only to trusted admin LuCI users
 
 ## Distribution (canonical)
 

@@ -100,6 +100,7 @@ fi
 FWLIVE_PKG="$ROOT/openwrt-feed/luci-app-fwlive"
 FWLIVE_DIR="$FWLIVE_PKG/htdocs/luci-static/resources"
 RPCD_BIN="$FWLIVE_PKG/root/usr/libexec/rpcd/fwlive"
+LIBEXEC_LOGGING="$FWLIVE_PKG/root/usr/libexec/fwlive-logging.sh"
 LIBEXEC_FILTER="$FWLIVE_PKG/root/usr/libexec/fwlive-log-filter.sh"
 LIBEXEC_ISFW="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.sh"
 ACL_JSON="$FWLIVE_PKG/root/usr/share/rpcd/acl.d/luci-app-fwlive.json"
@@ -124,6 +125,11 @@ if [[ -f "$RPCD_BIN" ]]; then
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"cat > /usr/libexec/rpcd/fwlive && chmod +x /usr/libexec/rpcd/fwlive" \
 		< "$RPCD_BIN"
+	if [[ -f "$LIBEXEC_LOGGING" ]]; then
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"cat > /usr/libexec/fwlive-logging.sh && chmod +x /usr/libexec/fwlive-logging.sh" \
+			< "$LIBEXEC_LOGGING"
+	fi
 	if [[ -f "$LIBEXEC_FILTER" ]]; then
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 			"cat > /usr/libexec/fwlive-log-filter.sh && chmod +x /usr/libexec/fwlive-log-filter.sh" \

@@ -28,6 +28,32 @@ const callFwliveResolve = rpc.declare({
 	expect: { names: {} }
 });
 
+const callFwliveLoggingStatus = rpc.declare({
+	object: 'fwlive',
+	method: 'logging_status',
+	expect: { '': {
+		wan_zone: null,
+		wan_log: false,
+		wan_log_limit: null,
+		nf_log_ipv4: false,
+		nf_log_ipv6: false,
+		ready: false,
+		blockers: []
+	} }
+});
+
+const callFwliveEnableLogging = rpc.declare({
+	object: 'fwlive',
+	method: 'enable_wan_logging',
+	expect: { '': { ok: false, changed: false, wan_zone: null } }
+});
+
+const callFwliveDisableLogging = rpc.declare({
+	object: 'fwlive',
+	method: 'disable_wan_logging',
+	expect: { '': { ok: false, changed: false, wan_zone: null } }
+});
+
 const ROW_LIMIT_OPTIONS = [ 25, 50, 100, 250, 500, 1000, 2000 ];
 const DEFAULT_ROW_LIMIT = 100;
 const FETCH_LINES_MAX = 2000;
@@ -65,6 +91,9 @@ return view.extend({
 	firewallBackend: 'nft',
 	viewMode: 'simple',
 	expandedRowId: null,
+	loggingStatus: null,
+	loggingBusy: false,
+	loggingNotice: '',
 
 	FILTER_CHIP_FIELDS: [
 		{ key: 'q', label: 'search' },
@@ -458,28 +487,247 @@ return view.extend({
 		this.updateEmptyStateUi();
 	},
 
-	emptyStateIntroText() {
-		return _('No firewall events yet. Stock configs log nothing until you turn logging on — enable zone logging on WAN (Network → Firewall) for inbound drops, or add log to the rule you are debugging.');
+	firewallZonesPath() {
+		return 'admin/network/firewall/zones';
 	},
 
-	emptyStateQuickTestNodes() {
+	firewallZonesUrl() {
+		return this.luciUrl(this.firewallZonesPath());
+	},
+
+	firewallZonesLink(label) {
+		return E('a', {
+			'href': this.firewallZonesUrl(),
+			'class': 'fwlive-filter-link'
+		}, label || _('Network → Firewall'));
+	},
+
+	loggingHasBlocker(code) {
+		const blockers = (this.loggingStatus && this.loggingStatus.blockers) || [];
+		return blockers.indexOf(code) >= 0;
+	},
+
+	loggingBlockerMessage() {
+		if (this.loggingHasBlocker('no_wan_zone'))
+			return 'no_wan_zone';
+
+		if (this.loggingHasBlocker('nf_log_ipv4_missing') ||
+		    this.loggingHasBlocker('nf_log_ipv6_missing'))
+			return 'nf_log_missing';
+
+		return '';
+	},
+
+	manualLoggingTestNodes() {
 		if (this.firewallBackend === 'iptables') {
-			return E('p', {}, [
-				_('Quick test in System → Terminal: '),
+			return E('li', {}, [
+				_('Manual test (System → Terminal): '),
 				E('code', {}, 'iptables -I INPUT -p icmp --icmp-type echo-request -j LOG --log-prefix "fwlive-ping: "'),
-				_(' then ping the router. For WAN scan/drop traffic, set '),
-				E('code', {}, "option log '1'"),
-				_(' on the wan zone and reload the firewall.')
+				_(' then ping the router.')
 			]);
 		}
 
-		return E('p', {}, [
-			_('Quick test in System → Terminal: '),
+		return E('li', {}, [
+			_('Manual test (System → Terminal): '),
 			E('code', {}, 'nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept'),
-			_(' then ping the router. For WAN scan/drop traffic, set '),
-			E('code', {}, "option log '1'"),
-			_(' on the wan zone and reload the firewall.')
+			_(' then ping the router.')
 		]);
+	},
+
+	async loadLoggingStatus() {
+		try {
+			this.loggingStatus = await callFwliveLoggingStatus();
+		} catch (e) {
+			this.loggingStatus = null;
+		}
+		this.updateLoggingToolbarUi();
+		this.updateEmptyStateUi();
+	},
+
+	async handleEnableLogging() {
+		if (this.loggingBusy)
+			return;
+
+		this.loggingBusy = true;
+		this.loggingNotice = '';
+		this.updateEmptyStateUi();
+		this.updateLoggingToolbarUi();
+
+		try {
+			const res = await callFwliveEnableLogging();
+			if (!res || !res.ok) {
+				if (res && res.error === 'nf_log_missing')
+					this.loggingNotice = _('Cannot enable logging until kernel log modules are installed.');
+				else
+					this.loggingNotice = _('Could not enable logging.');
+				await this.loadLoggingStatus();
+				return;
+			}
+
+			if (res.changed)
+				this.loggingNotice = _('WAN logging enabled. Blocked inbound traffic should appear shortly.');
+			else
+				this.loggingNotice = _('WAN logging is already enabled.');
+
+			await this.loadLoggingStatus();
+		} catch (e) {
+			this.loggingNotice = _('Administrator access is required to enable logging.');
+			await this.loadLoggingStatus();
+		} finally {
+			this.loggingBusy = false;
+			this.updateEmptyStateUi();
+			this.updateLoggingToolbarUi();
+		}
+	},
+
+	async handleDisableLogging() {
+		if (this.loggingBusy)
+			return;
+
+		this.loggingBusy = true;
+		this.loggingNotice = '';
+		this.updateLoggingToolbarUi();
+
+		try {
+			const res = await callFwliveDisableLogging();
+			if (!res || !res.ok) {
+				this.loggingNotice = _('Could not disable logging.');
+				await this.loadLoggingStatus();
+				return;
+			}
+
+			if (res.changed)
+				this.loggingNotice = _('WAN logging disabled.');
+			await this.loadLoggingStatus();
+		} catch (e) {
+			this.loggingNotice = _('Administrator access is required to disable logging.');
+			await this.loadLoggingStatus();
+		} finally {
+			this.loggingBusy = false;
+			this.updateEmptyStateUi();
+			this.updateLoggingToolbarUi();
+		}
+	},
+
+	updateLoggingToolbarUi() {
+		const bar = document.getElementById('fwlive-logging-bar');
+		if (!bar)
+			return;
+
+		bar.innerHTML = '';
+		const st = this.loggingStatus;
+		if (!st) {
+			bar.style.display = 'none';
+			return;
+		}
+
+		if (!st.wan_log && this.entries.length === 0) {
+			bar.style.display = 'none';
+			return;
+		}
+
+		bar.style.display = 'flex';
+		const blocker = this.loggingBlockerMessage();
+		if (blocker === 'no_wan_zone') {
+			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
+				_('WAN logging unavailable: no WAN zone')));
+			bar.appendChild(this.firewallZonesLink());
+			return;
+		}
+
+		if (blocker === 'nf_log_missing') {
+			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
+				_('WAN logging unavailable: missing kernel log modules')));
+			return;
+		}
+
+		const limit = st.wan_log_limit || _('default 10/minute');
+		if (st.wan_log) {
+			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' }, [
+				_('WAN logging on ('),
+				E('a', {
+					'href': '#fwlive-help',
+					'class': 'fwlive-filter-link',
+					'title': _('This is the firewall zone log_limit. fwlive only displays events after fw3/fw4 applies this rate cap.'),
+					'click': function(ev) {
+						const help = document.getElementById('fwlive-help');
+						if (ev && ev.preventDefault)
+							ev.preventDefault();
+						if (help) {
+							help.open = true;
+							help.scrollIntoView({ block: 'nearest' });
+						}
+					}
+				}, limit),
+				_(')')
+			]));
+			bar.appendChild(E('button', {
+				'class': 'cbi-button cbi-button-action',
+				'type': 'button',
+				'disabled': this.loggingBusy ? '' : null,
+				'click': this.handleDisableLogging.bind(this)
+			}, this.loggingBusy ? _('Disabling…') : _('Disable logging')));
+			return;
+		}
+
+		bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
+			_('WAN logging off')));
+		bar.appendChild(E('button', {
+			'class': 'cbi-button cbi-button-action',
+			'type': 'button',
+			'disabled': this.loggingBusy ? '' : null,
+			'click': this.handleEnableLogging.bind(this)
+		}, this.loggingBusy ? _('Enabling…') : _('Enable logging')));
+	},
+
+	buildEmptyStateNodes() {
+		const nodes = [];
+		const st = this.loggingStatus;
+		const blocker = this.loggingBlockerMessage();
+
+		if (this.loggingNotice) {
+			nodes.push(E('p', { 'class': 'fwlive-logging-notice' }, [
+				this.loggingNotice,
+				' ',
+				this.firewallZonesLink()
+			]));
+		}
+
+		if (blocker === 'no_wan_zone') {
+			nodes.push(E('p', {}, [
+				_('No WAN firewall zone found in /etc/config/firewall. Configure zones under '),
+				this.firewallZonesLink()
+			]));
+			return nodes;
+		}
+
+		if (blocker === 'nf_log_missing') {
+			nodes.push(E('p', {}, _('Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall.')));
+			nodes.push(E('p', {}, [
+				E('code', {}, 'opkg update && opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6')
+			]));
+			return nodes;
+		}
+
+		if (st && st.wan_log) {
+			nodes.push(E('p', {}, _('Logging is enabled on WAN. Waiting for firewall events — blocked inbound traffic appears here (not normal LAN browsing).')));
+			nodes.push(E('p', {}, this.firewallZonesLink(_('Open firewall zone settings'))));
+			return nodes;
+		}
+
+		nodes.push(E('p', {}, _('No firewall events yet. OpenWrt does not log firewall traffic until you turn it on.')));
+		nodes.push(E('p', {}, _('Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged.')));
+		nodes.push(E('p', {}, [
+			E('button', {
+				'class': 'cbi-button cbi-button-action',
+				'type': 'button',
+				'disabled': this.loggingBusy ? '' : null,
+				'click': this.handleEnableLogging.bind(this)
+			}, this.loggingBusy ? _('Enabling…') : _('Enable logging')),
+			' ',
+			this.firewallZonesLink()
+		]));
+		return nodes;
 	},
 
 	updateEmptyStateUi() {
@@ -488,9 +736,10 @@ return view.extend({
 			return;
 
 		const visible = empty.style.display !== 'none';
+		const nodes = this.buildEmptyStateNodes();
 		empty.innerHTML = '';
-		empty.appendChild(E('p', {}, this.emptyStateIntroText()));
-		empty.appendChild(this.emptyStateQuickTestNodes());
+		for (let i = 0; i < nodes.length; i++)
+			empty.appendChild(nodes[i]);
 		if (visible)
 			empty.style.display = 'block';
 	},
@@ -1164,6 +1413,7 @@ return view.extend({
 
 		const rows = this.filteredRows();
 		const cost = force ? Math.max(1, rows.length) : this.renderBudgetCost(rows);
+		this.updateLoggingToolbarUi();
 
 		if (!force && cost === 0) {
 			this.floodSuppressed = false;
@@ -1291,7 +1541,10 @@ return view.extend({
 
 	load() {
 		poll.add(this.pollData.bind(this), 1);
-		return this.loadRulesMap().then(() => this.fetchEntries());
+		return Promise.all([
+			this.loadRulesMap(),
+			this.loadLoggingStatus()
+		]).then(() => this.fetchEntries());
 	},
 
 	render() {
@@ -1447,6 +1700,20 @@ return view.extend({
 					padding: 10px;
 					background: var(--background-color-medium);
 					border: 1px dashed var(--border-color-high);
+				}
+				.fwlive-logging-bar {
+					display: none;
+					align-items: center;
+					gap: 10px;
+					margin: 0 0 10px;
+					flex-wrap: wrap;
+				}
+				.fwlive-logging-status {
+					font-size: 0.92em;
+					color: var(--text-color-medium);
+				}
+				.fwlive-logging-notice {
+					color: var(--success-color-high);
 				}
 				.fwlive-filter-link {
 					color: inherit;
@@ -1655,6 +1922,7 @@ return view.extend({
 				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, '')
 			]),
 			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ''),
+			E('div', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
 			E('div', { 'id': 'fwlive-filter-panel', 'class': 'fwlive-filter-panel' }, [
 				E('div', { 'class': 'fwlive-grid fwlive-grid-core' }, [
 					E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
@@ -1700,7 +1968,10 @@ return view.extend({
 			E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
 				E('summary', {}, _('Help')),
 				E('ul', {}, [
-					E('li', {}, _('The table updates automatically — no setup needed when your firewall already logs traffic.')),
+					E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Enable logging if the table is empty on a stock config.')),
+					E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
+					E('li', {}, _('The rate shown next to WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
+					this.manualLoggingTestNodes(),
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
 					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
 					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).'))
@@ -1722,6 +1993,7 @@ return view.extend({
 		this.updateStreamControlsUi();
 		this.updateDetailToggleUi();
 		this.renderThead();
+		this.updateLoggingToolbarUi();
 		this.updateEmptyStateUi();
 		this.updateBackendUi();
 		this.renderRows(true);
