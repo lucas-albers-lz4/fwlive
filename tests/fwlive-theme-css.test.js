@@ -54,7 +54,11 @@ const keySelectors = [
 	'#fwlive-table thead th',
 	'.fwlive-empty',
 	'.fwlive-deny',
-	'.fwlive-pass'
+	'.fwlive-pass',
+	'#fwlive-table td.fwlive-action.fwlive-pass',
+	'#fwlive-table td.fwlive-action.fwlive-deny',
+	'#fwlive-table tbody tr.fwlive-row-pass td',
+	'#fwlive-table tbody tr.fwlive-row-deny td'
 ];
 
 for (const sel of keySelectors) {
@@ -68,6 +72,28 @@ for (const sel of keySelectors) {
 		console.error(`selector ${sel} has no var(--...) color rule nearby`);
 		process.exit(1);
 	}
+}
+
+const rowTintPass = css.indexOf('#fwlive-table tbody tr.fwlive-row-pass td');
+const rowTintDeny = css.indexOf('#fwlive-table tbody tr.fwlive-row-deny td');
+const passChunk = css.slice(rowTintPass, rowTintPass + 200);
+const denyChunk = css.slice(rowTintDeny, rowTintDeny + 200);
+if (!/color-mix\(in srgb,\s*var\(--success-color-high\)/.test(passChunk)) {
+	console.error('fwlive-row-pass must use color-mix with --success-color-high');
+	process.exit(1);
+}
+if (!/color-mix\(in srgb,\s*var\(--error-color-high\)/.test(denyChunk)) {
+	console.error('fwlive-row-deny must use color-mix with --error-color-high');
+	process.exit(1);
+}
+
+if (!text.includes("localStorage.getItem('fwlive-row-tint')")) {
+	console.error('missing fwlive-row-tint localStorage persistence');
+	process.exit(1);
+}
+if (!text.includes("'id': 'fwlive-row-tint'")) {
+	console.error('missing Row tint checkbox in toolbar');
+	process.exit(1);
 }
 
 console.log('fwlive theme CSS tests passed');

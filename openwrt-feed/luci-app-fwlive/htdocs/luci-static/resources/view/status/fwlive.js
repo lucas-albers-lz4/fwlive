@@ -81,6 +81,7 @@ return view.extend({
 	floodSuppressed: false,
 	lastPollNewEvents: 0,
 	showHostnames: false,
+	rowTint: true,
 	hostnameCache: null,
 	hostnameFailed: null,
 	resolveInFlight: false,
@@ -202,6 +203,34 @@ return view.extend({
 		} catch (e) {
 			/* private mode / no storage */
 		}
+	},
+
+	readRowTint() {
+		try {
+			const v = localStorage.getItem('fwlive-row-tint');
+			if (v === null)
+				return true;
+			return v === '1';
+		} catch (e) {
+			return true;
+		}
+	},
+
+	saveRowTint() {
+		try {
+			localStorage.setItem('fwlive-row-tint', this.rowTint ? '1' : '0');
+		} catch (e) {
+			/* private mode / no storage */
+		}
+	},
+
+	actionRowTintClass(action) {
+		const a = (action || '').toLowerCase();
+		if (a === 'pass')
+			return 'fwlive-row-pass';
+		if (a === 'drop' || a === 'reject' || a === 'block')
+			return 'fwlive-row-deny';
+		return '';
 	},
 
 	isLikelyIp(addr) {
@@ -1015,12 +1044,15 @@ return view.extend({
 		const cb = document.getElementById('fwlive-autorefresh');
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
+		const tintCb = document.getElementById('fwlive-row-tint');
 		if (cb)
 			cb.checked = !this.paused;
 		if (sel)
 			sel.value = String(this.rowLimit);
 		if (hostCb)
 			hostCb.checked = !!this.showHostnames;
+		if (tintCb)
+			tintCb.checked = !!this.rowTint;
 	},
 
 	onShowHostnamesChange(ev) {
@@ -1031,6 +1063,12 @@ return view.extend({
 			this.resolveHostnamesForEntries(this.filteredRows());
 		else
 			this.renderRows(true);
+	},
+
+	onRowTintChange(ev) {
+		this.rowTint = !!(ev && ev.target && ev.target.checked);
+		this.saveRowTint();
+		this.renderRows(true);
 	},
 
 	onAutoRefreshChange(ev) {
@@ -1444,7 +1482,8 @@ return view.extend({
 			const rowClass = [
 				i % 2 ? 'fwlive-row-alt' : '',
 				this.viewMode === 'simple' ? 'fwlive-row-clickable' : '',
-				this.expandedRowId === r.id ? 'fwlive-row-expanded' : ''
+				this.expandedRowId === r.id ? 'fwlive-row-expanded' : '',
+				this.rowTint ? this.actionRowTintClass(r.action) : ''
 			].filter(Boolean).join(' ');
 			const cells = [];
 			for (let c = 0; c < cols.length; c++)
@@ -1518,6 +1557,10 @@ return view.extend({
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 		if (hostCb)
 			hostCb.addEventListener('change', this.onShowHostnamesChange.bind(this));
+
+		const tintCb = document.getElementById('fwlive-row-tint');
+		if (tintCb)
+			tintCb.addEventListener('change', this.onRowTintChange.bind(this));
 	},
 
 	async pollData() {
@@ -1672,6 +1715,26 @@ return view.extend({
 				}
 				.fwlive-deny { color: var(--error-color-high); }
 				.fwlive-pass { color: var(--success-color-high); }
+				#fwlive-table td.fwlive-action.fwlive-pass,
+				#fwlive-table td.fwlive-action.fwlive-pass a.fwlive-filter-link {
+					color: var(--success-color-high);
+				}
+				#fwlive-table td.fwlive-action.fwlive-deny,
+				#fwlive-table td.fwlive-action.fwlive-deny a.fwlive-filter-link {
+					color: var(--error-color-high);
+				}
+				#fwlive-table tbody tr.fwlive-row-pass td {
+					background: color-mix(in srgb, var(--success-color-high) 12%, transparent);
+				}
+				#fwlive-table tbody tr.fwlive-row-pass.fwlive-row-alt td {
+					background: color-mix(in srgb, var(--success-color-high) 12%, var(--background-color-medium));
+				}
+				#fwlive-table tbody tr.fwlive-row-deny td {
+					background: color-mix(in srgb, var(--error-color-high) 12%, transparent);
+				}
+				#fwlive-table tbody tr.fwlive-row-deny.fwlive-row-alt td {
+					background: color-mix(in srgb, var(--error-color-high) 12%, var(--background-color-medium));
+				}
 				.fwlive-unknown { color: var(--text-color-medium); font-weight: 500; }
 				.fwlive-message {
 					font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1873,8 +1936,14 @@ return view.extend({
 				}
 				.fwlive-flow-arrow { color: var(--text-color-low); }
 				.fwlive-flow-cell { white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
-				.fwlive-map[data-view="simple"] .fwlive-action.fwlive-pass { color: var(--success-color-high); }
-				.fwlive-map[data-view="simple"] .fwlive-action.fwlive-deny { color: var(--error-color-high); }
+				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-pass,
+				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-pass a.fwlive-filter-link {
+					color: var(--success-color-high);
+				}
+				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-deny,
+				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-deny a.fwlive-filter-link {
+					color: var(--error-color-high);
+				}
 				.fwlive-iface-badge {
 					border-radius: 10px;
 					padding: 2px 8px;
@@ -1905,6 +1974,14 @@ return view.extend({
 						'type': 'checkbox'
 					}),
 					_('Show hostnames')
+				]),
+				E('label', { 'class': 'fwlive-ctl' }, [
+					E('input', {
+						'id': 'fwlive-row-tint',
+						'type': 'checkbox',
+						'checked': 'checked'
+					}),
+					_('Row tint')
 				]),
 				E('button', {
 					'id': 'fwlive-detail-toggle',
@@ -1984,6 +2061,7 @@ return view.extend({
 		this.viewMode = this.readViewMode();
 		this.messageLayout = this.readMessageLayout();
 		this.showHostnames = this.readShowHostnames();
+		this.rowTint = this.readRowTint();
 		this.hostnameCache = new Map();
 		this.hostnameFailed = new Set();
 		this.applyRowLimit(this.readRowLimit());
