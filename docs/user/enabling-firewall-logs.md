@@ -2,15 +2,23 @@
 
 Firewall Live View shows traffic only when **nftables / fw4** writes firewall-shaped lines to **logd**. The UI reads those lines — it does not tap the firewall directly.
 
-**After a fresh install the table is usually empty.** Stock OpenWrt rarely logs traffic until you turn logging on. This guide gets you from **install → visible traffic** in a few shell commands, then explains how to log more (zone drops, specific rules, or temporary debug rules).
+**After a fresh install the table is usually empty.** Stock OpenWrt rarely logs traffic until you turn logging on. The fastest path is the **Enable logging** button on **Status → Firewall Live View** (same as WAN zone logging in **Network → Firewall**). This guide also covers shell setup, logging more traffic, and troubleshooting.
 
 ---
 
 ## Quick start after install
 
-Run these on the router as **root** (SSH or **System → Terminal** in LuCI).
+### Option A — LuCI button (recommended)
 
-### 1. Confirm kernel logging works
+1. Open **Status → Firewall Live View**.
+2. If the table is empty, click **Enable logging**.
+3. Wait for blocked inbound WAN traffic (background scans, rejected probes). Normal LAN browsing is **not** logged.
+
+Use **Disable logging** in the toolbar to turn WAN zone logging off again. Rate limiting uses the OpenWrt default (`10/minute`) unless you already set `log_limit` on the WAN zone.
+
+### Option B — shell (SSH or System → Terminal)
+
+#### 1. Confirm kernel logging works
 
 `nft log` needs netfilter log modules. On minimal images they may be missing — logging fails silently without them.
 
@@ -29,7 +37,7 @@ opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6 2>/dev/null \
 /etc/init.d/firewall reload
 ```
 
-### 2. Enable WAN zone logging (rejected / dropped inbound)
+#### 2. Enable WAN zone logging (rejected / dropped inbound)
 
 This is the fastest way to see **real** traffic without a synthetic ping test. fw4 adds log rules for **rejected and dropped** packets on that zone (not every accepted packet).
 
@@ -40,11 +48,12 @@ if [ -z "$WAN" ]; then
   exit 1
 fi
 uci set "firewall.${WAN}.log=1"
-uci set "firewall.${WAN}.log_limit=30/minute"
 uci commit firewall
 /etc/init.d/firewall reload
-echo "Enabled zone logging on firewall.${WAN} (limit 30/minute)"
+echo "Enabled zone logging on firewall.${WAN}"
 ```
+
+OpenWrt applies the default **`log_limit`** (`10/minute`) when the option is not set in UCI.
 
 Generate traffic: from the internet, probe the router WAN (or wait for background scans). From LAN, browse the web — that traffic is **accepted** and will **not** appear until you add rule-level or forward logging (below).
 
@@ -60,12 +69,11 @@ To turn zone logging off later:
 
 ```sh
 uci delete "firewall.${WAN}.log"
-uci delete "firewall.${WAN}.log_limit"
 uci commit firewall
 /etc/init.d/firewall reload
 ```
 
-### 3. Optional — confirm the UI with a ping (synthetic pass events)
+#### 3. Optional — confirm the UI with a ping (synthetic pass events)
 
 Useful when WAN is quiet or you want a guaranteed **pass** row:
 

@@ -41,6 +41,10 @@ ssh_guest 'ubus call fwlive rules' >/dev/null \
 	|| die "ubus fwlive rules failed (rpcd plugin / ACL?)"
 ok "ubus fwlive rules"
 
+ssh_guest 'ubus call fwlive logging_status' >/dev/null \
+	|| die "ubus fwlive logging_status failed"
+ok "ubus fwlive logging_status"
+
 ssh_guest 'test -f /www/luci-static/resources/view/status/fwlive.js' \
 	|| die "missing LuCI view JS"
 ssh_guest 'test -f /www/luci-static/resources/fwlive/log.js' \

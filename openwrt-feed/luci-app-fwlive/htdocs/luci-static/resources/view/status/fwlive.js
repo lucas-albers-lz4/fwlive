@@ -28,6 +28,32 @@ const callFwliveResolve = rpc.declare({
 	expect: { names: {} }
 });
 
+const callFwliveLoggingStatus = rpc.declare({
+	object: 'fwlive',
+	method: 'logging_status',
+	expect: { '': {
+		wan_zone: null,
+		wan_log: false,
+		wan_log_limit: null,
+		nf_log_ipv4: false,
+		nf_log_ipv6: false,
+		ready: false,
+		blockers: []
+	} }
+});
+
+const callFwliveEnableLogging = rpc.declare({
+	object: 'fwlive',
+	method: 'enable_wan_logging',
+	expect: { '': { ok: false, changed: false, wan_zone: null } }
+});
+
+const callFwliveDisableLogging = rpc.declare({
+	object: 'fwlive',
+	method: 'disable_wan_logging',
+	expect: { '': { ok: false, changed: false, wan_zone: null } }
+});
+
 const ROW_LIMIT_OPTIONS = [ 25, 50, 100, 250, 500, 1000, 2000 ];
 const DEFAULT_ROW_LIMIT = 100;
 const FETCH_LINES_MAX = 2000;
@@ -55,6 +81,7 @@ return view.extend({
 	floodSuppressed: false,
 	lastPollNewEvents: 0,
 	showHostnames: false,
+	rowTint: true,
 	hostnameCache: null,
 	hostnameFailed: null,
 	resolveInFlight: false,
@@ -65,6 +92,9 @@ return view.extend({
 	firewallBackend: 'nft',
 	viewMode: 'simple',
 	expandedRowId: null,
+	loggingStatus: null,
+	loggingBusy: false,
+	loggingNotice: '',
 
 	FILTER_CHIP_FIELDS: [
 		{ key: 'q', label: 'search' },
@@ -173,6 +203,34 @@ return view.extend({
 		} catch (e) {
 			/* private mode / no storage */
 		}
+	},
+
+	readRowTint() {
+		try {
+			const v = localStorage.getItem('fwlive-row-tint');
+			if (v === null)
+				return true;
+			return v === '1';
+		} catch (e) {
+			return true;
+		}
+	},
+
+	saveRowTint() {
+		try {
+			localStorage.setItem('fwlive-row-tint', this.rowTint ? '1' : '0');
+		} catch (e) {
+			/* private mode / no storage */
+		}
+	},
+
+	actionRowTintClass(action) {
+		const a = (action || '').toLowerCase();
+		if (a === 'pass')
+			return 'fwlive-row-pass';
+		if (a === 'drop' || a === 'reject' || a === 'block')
+			return 'fwlive-row-deny';
+		return '';
 	},
 
 	isLikelyIp(addr) {
@@ -458,28 +516,247 @@ return view.extend({
 		this.updateEmptyStateUi();
 	},
 
-	emptyStateIntroText() {
-		return _('No firewall events yet. Stock configs log nothing until you turn logging on — enable zone logging on WAN (Network → Firewall) for inbound drops, or add log to the rule you are debugging.');
+	firewallZonesPath() {
+		return 'admin/network/firewall/zones';
 	},
 
-	emptyStateQuickTestNodes() {
+	firewallZonesUrl() {
+		return this.luciUrl(this.firewallZonesPath());
+	},
+
+	firewallZonesLink(label) {
+		return E('a', {
+			'href': this.firewallZonesUrl(),
+			'class': 'fwlive-filter-link'
+		}, label || _('Network → Firewall'));
+	},
+
+	loggingHasBlocker(code) {
+		const blockers = (this.loggingStatus && this.loggingStatus.blockers) || [];
+		return blockers.indexOf(code) >= 0;
+	},
+
+	loggingBlockerMessage() {
+		if (this.loggingHasBlocker('no_wan_zone'))
+			return 'no_wan_zone';
+
+		if (this.loggingHasBlocker('nf_log_ipv4_missing') ||
+		    this.loggingHasBlocker('nf_log_ipv6_missing'))
+			return 'nf_log_missing';
+
+		return '';
+	},
+
+	manualLoggingTestNodes() {
 		if (this.firewallBackend === 'iptables') {
-			return E('p', {}, [
-				_('Quick test in System → Terminal: '),
+			return E('li', {}, [
+				_('Manual test (System → Terminal): '),
 				E('code', {}, 'iptables -I INPUT -p icmp --icmp-type echo-request -j LOG --log-prefix "fwlive-ping: "'),
-				_(' then ping the router. For WAN scan/drop traffic, set '),
-				E('code', {}, "option log '1'"),
-				_(' on the wan zone and reload the firewall.')
+				_(' then ping the router.')
 			]);
 		}
 
-		return E('p', {}, [
-			_('Quick test in System → Terminal: '),
+		return E('li', {}, [
+			_('Manual test (System → Terminal): '),
 			E('code', {}, 'nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept'),
-			_(' then ping the router. For WAN scan/drop traffic, set '),
-			E('code', {}, "option log '1'"),
-			_(' on the wan zone and reload the firewall.')
+			_(' then ping the router.')
 		]);
+	},
+
+	async loadLoggingStatus() {
+		try {
+			this.loggingStatus = await callFwliveLoggingStatus();
+		} catch (e) {
+			this.loggingStatus = null;
+		}
+		this.updateLoggingToolbarUi();
+		this.updateEmptyStateUi();
+	},
+
+	async handleEnableLogging() {
+		if (this.loggingBusy)
+			return;
+
+		this.loggingBusy = true;
+		this.loggingNotice = '';
+		this.updateEmptyStateUi();
+		this.updateLoggingToolbarUi();
+
+		try {
+			const res = await callFwliveEnableLogging();
+			if (!res || !res.ok) {
+				if (res && res.error === 'nf_log_missing')
+					this.loggingNotice = _('Cannot enable logging until kernel log modules are installed.');
+				else
+					this.loggingNotice = _('Could not enable logging.');
+				await this.loadLoggingStatus();
+				return;
+			}
+
+			if (res.changed)
+				this.loggingNotice = _('WAN logging enabled. Blocked inbound traffic should appear shortly.');
+			else
+				this.loggingNotice = _('WAN logging is already enabled.');
+
+			await this.loadLoggingStatus();
+		} catch (e) {
+			this.loggingNotice = _('Administrator access is required to enable logging.');
+			await this.loadLoggingStatus();
+		} finally {
+			this.loggingBusy = false;
+			this.updateEmptyStateUi();
+			this.updateLoggingToolbarUi();
+		}
+	},
+
+	async handleDisableLogging() {
+		if (this.loggingBusy)
+			return;
+
+		this.loggingBusy = true;
+		this.loggingNotice = '';
+		this.updateLoggingToolbarUi();
+
+		try {
+			const res = await callFwliveDisableLogging();
+			if (!res || !res.ok) {
+				this.loggingNotice = _('Could not disable logging.');
+				await this.loadLoggingStatus();
+				return;
+			}
+
+			if (res.changed)
+				this.loggingNotice = _('WAN logging disabled.');
+			await this.loadLoggingStatus();
+		} catch (e) {
+			this.loggingNotice = _('Administrator access is required to disable logging.');
+			await this.loadLoggingStatus();
+		} finally {
+			this.loggingBusy = false;
+			this.updateEmptyStateUi();
+			this.updateLoggingToolbarUi();
+		}
+	},
+
+	updateLoggingToolbarUi() {
+		const bar = document.getElementById('fwlive-logging-bar');
+		if (!bar)
+			return;
+
+		bar.innerHTML = '';
+		const st = this.loggingStatus;
+		if (!st) {
+			bar.style.display = 'none';
+			return;
+		}
+
+		if (!st.wan_log && this.entries.length === 0) {
+			bar.style.display = 'none';
+			return;
+		}
+
+		bar.style.display = 'flex';
+		const blocker = this.loggingBlockerMessage();
+		if (blocker === 'no_wan_zone') {
+			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
+				_('WAN logging unavailable: no WAN zone')));
+			bar.appendChild(this.firewallZonesLink());
+			return;
+		}
+
+		if (blocker === 'nf_log_missing') {
+			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
+				_('WAN logging unavailable: missing kernel log modules')));
+			return;
+		}
+
+		const limit = st.wan_log_limit || _('default 10/minute');
+		if (st.wan_log) {
+			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' }, [
+				_('WAN logging on ('),
+				E('a', {
+					'href': '#fwlive-help',
+					'class': 'fwlive-filter-link',
+					'title': _('This is the firewall zone log_limit. fwlive only displays events after fw3/fw4 applies this rate cap.'),
+					'click': function(ev) {
+						const help = document.getElementById('fwlive-help');
+						if (ev && ev.preventDefault)
+							ev.preventDefault();
+						if (help) {
+							help.open = true;
+							help.scrollIntoView({ block: 'nearest' });
+						}
+					}
+				}, limit),
+				_(')')
+			]));
+			bar.appendChild(E('button', {
+				'class': 'cbi-button cbi-button-action',
+				'type': 'button',
+				'disabled': this.loggingBusy ? '' : null,
+				'click': this.handleDisableLogging.bind(this)
+			}, this.loggingBusy ? _('Disabling…') : _('Disable logging')));
+			return;
+		}
+
+		bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
+			_('WAN logging off')));
+		bar.appendChild(E('button', {
+			'class': 'cbi-button cbi-button-action',
+			'type': 'button',
+			'disabled': this.loggingBusy ? '' : null,
+			'click': this.handleEnableLogging.bind(this)
+		}, this.loggingBusy ? _('Enabling…') : _('Enable logging')));
+	},
+
+	buildEmptyStateNodes() {
+		const nodes = [];
+		const st = this.loggingStatus;
+		const blocker = this.loggingBlockerMessage();
+
+		if (this.loggingNotice) {
+			nodes.push(E('p', { 'class': 'fwlive-logging-notice' }, [
+				this.loggingNotice,
+				' ',
+				this.firewallZonesLink()
+			]));
+		}
+
+		if (blocker === 'no_wan_zone') {
+			nodes.push(E('p', {}, [
+				_('No WAN firewall zone found in /etc/config/firewall. Configure zones under '),
+				this.firewallZonesLink()
+			]));
+			return nodes;
+		}
+
+		if (blocker === 'nf_log_missing') {
+			nodes.push(E('p', {}, _('Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall.')));
+			nodes.push(E('p', {}, [
+				E('code', {}, 'opkg update && opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6')
+			]));
+			return nodes;
+		}
+
+		if (st && st.wan_log) {
+			nodes.push(E('p', {}, _('Logging is enabled on WAN. Waiting for firewall events — blocked inbound traffic appears here (not normal LAN browsing).')));
+			nodes.push(E('p', {}, this.firewallZonesLink(_('Open firewall zone settings'))));
+			return nodes;
+		}
+
+		nodes.push(E('p', {}, _('No firewall events yet. OpenWrt does not log firewall traffic until you turn it on.')));
+		nodes.push(E('p', {}, _('Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged.')));
+		nodes.push(E('p', {}, [
+			E('button', {
+				'class': 'cbi-button cbi-button-action',
+				'type': 'button',
+				'disabled': this.loggingBusy ? '' : null,
+				'click': this.handleEnableLogging.bind(this)
+			}, this.loggingBusy ? _('Enabling…') : _('Enable logging')),
+			' ',
+			this.firewallZonesLink()
+		]));
+		return nodes;
 	},
 
 	updateEmptyStateUi() {
@@ -488,9 +765,10 @@ return view.extend({
 			return;
 
 		const visible = empty.style.display !== 'none';
+		const nodes = this.buildEmptyStateNodes();
 		empty.innerHTML = '';
-		empty.appendChild(E('p', {}, this.emptyStateIntroText()));
-		empty.appendChild(this.emptyStateQuickTestNodes());
+		for (let i = 0; i < nodes.length; i++)
+			empty.appendChild(nodes[i]);
 		if (visible)
 			empty.style.display = 'block';
 	},
@@ -766,12 +1044,15 @@ return view.extend({
 		const cb = document.getElementById('fwlive-autorefresh');
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
+		const tintCb = document.getElementById('fwlive-row-tint');
 		if (cb)
 			cb.checked = !this.paused;
 		if (sel)
 			sel.value = String(this.rowLimit);
 		if (hostCb)
 			hostCb.checked = !!this.showHostnames;
+		if (tintCb)
+			tintCb.checked = !!this.rowTint;
 	},
 
 	onShowHostnamesChange(ev) {
@@ -782,6 +1063,12 @@ return view.extend({
 			this.resolveHostnamesForEntries(this.filteredRows());
 		else
 			this.renderRows(true);
+	},
+
+	onRowTintChange(ev) {
+		this.rowTint = !!(ev && ev.target && ev.target.checked);
+		this.saveRowTint();
+		this.renderRows(true);
 	},
 
 	onAutoRefreshChange(ev) {
@@ -1164,6 +1451,7 @@ return view.extend({
 
 		const rows = this.filteredRows();
 		const cost = force ? Math.max(1, rows.length) : this.renderBudgetCost(rows);
+		this.updateLoggingToolbarUi();
 
 		if (!force && cost === 0) {
 			this.floodSuppressed = false;
@@ -1194,7 +1482,8 @@ return view.extend({
 			const rowClass = [
 				i % 2 ? 'fwlive-row-alt' : '',
 				this.viewMode === 'simple' ? 'fwlive-row-clickable' : '',
-				this.expandedRowId === r.id ? 'fwlive-row-expanded' : ''
+				this.expandedRowId === r.id ? 'fwlive-row-expanded' : '',
+				this.rowTint ? this.actionRowTintClass(r.action) : ''
 			].filter(Boolean).join(' ');
 			const cells = [];
 			for (let c = 0; c < cols.length; c++)
@@ -1268,6 +1557,10 @@ return view.extend({
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 		if (hostCb)
 			hostCb.addEventListener('change', this.onShowHostnamesChange.bind(this));
+
+		const tintCb = document.getElementById('fwlive-row-tint');
+		if (tintCb)
+			tintCb.addEventListener('change', this.onRowTintChange.bind(this));
 	},
 
 	async pollData() {
@@ -1291,7 +1584,10 @@ return view.extend({
 
 	load() {
 		poll.add(this.pollData.bind(this), 1);
-		return this.loadRulesMap().then(() => this.fetchEntries());
+		return Promise.all([
+			this.loadRulesMap(),
+			this.loadLoggingStatus()
+		]).then(() => this.fetchEntries());
 	},
 
 	render() {
@@ -1419,6 +1715,26 @@ return view.extend({
 				}
 				.fwlive-deny { color: var(--error-color-high); }
 				.fwlive-pass { color: var(--success-color-high); }
+				#fwlive-table td.fwlive-action.fwlive-pass,
+				#fwlive-table td.fwlive-action.fwlive-pass a.fwlive-filter-link {
+					color: var(--success-color-high);
+				}
+				#fwlive-table td.fwlive-action.fwlive-deny,
+				#fwlive-table td.fwlive-action.fwlive-deny a.fwlive-filter-link {
+					color: var(--error-color-high);
+				}
+				#fwlive-table tbody tr.fwlive-row-pass td {
+					background: color-mix(in srgb, var(--success-color-high) 12%, transparent);
+				}
+				#fwlive-table tbody tr.fwlive-row-pass.fwlive-row-alt td {
+					background: color-mix(in srgb, var(--success-color-high) 12%, var(--background-color-medium));
+				}
+				#fwlive-table tbody tr.fwlive-row-deny td {
+					background: color-mix(in srgb, var(--error-color-high) 12%, transparent);
+				}
+				#fwlive-table tbody tr.fwlive-row-deny.fwlive-row-alt td {
+					background: color-mix(in srgb, var(--error-color-high) 12%, var(--background-color-medium));
+				}
 				.fwlive-unknown { color: var(--text-color-medium); font-weight: 500; }
 				.fwlive-message {
 					font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1447,6 +1763,20 @@ return view.extend({
 					padding: 10px;
 					background: var(--background-color-medium);
 					border: 1px dashed var(--border-color-high);
+				}
+				.fwlive-logging-bar {
+					display: none;
+					align-items: center;
+					gap: 10px;
+					margin: 0 0 10px;
+					flex-wrap: wrap;
+				}
+				.fwlive-logging-status {
+					font-size: 0.92em;
+					color: var(--text-color-medium);
+				}
+				.fwlive-logging-notice {
+					color: var(--success-color-high);
 				}
 				.fwlive-filter-link {
 					color: inherit;
@@ -1606,8 +1936,14 @@ return view.extend({
 				}
 				.fwlive-flow-arrow { color: var(--text-color-low); }
 				.fwlive-flow-cell { white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
-				.fwlive-map[data-view="simple"] .fwlive-action.fwlive-pass { color: var(--success-color-high); }
-				.fwlive-map[data-view="simple"] .fwlive-action.fwlive-deny { color: var(--error-color-high); }
+				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-pass,
+				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-pass a.fwlive-filter-link {
+					color: var(--success-color-high);
+				}
+				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-deny,
+				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-deny a.fwlive-filter-link {
+					color: var(--error-color-high);
+				}
 				.fwlive-iface-badge {
 					border-radius: 10px;
 					padding: 2px 8px;
@@ -1639,6 +1975,14 @@ return view.extend({
 					}),
 					_('Show hostnames')
 				]),
+				E('label', { 'class': 'fwlive-ctl' }, [
+					E('input', {
+						'id': 'fwlive-row-tint',
+						'type': 'checkbox',
+						'checked': 'checked'
+					}),
+					_('Row tint')
+				]),
 				E('button', {
 					'id': 'fwlive-detail-toggle',
 					'class': 'cbi-button',
@@ -1655,6 +1999,7 @@ return view.extend({
 				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, '')
 			]),
 			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ''),
+			E('div', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
 			E('div', { 'id': 'fwlive-filter-panel', 'class': 'fwlive-filter-panel' }, [
 				E('div', { 'class': 'fwlive-grid fwlive-grid-core' }, [
 					E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
@@ -1700,7 +2045,10 @@ return view.extend({
 			E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
 				E('summary', {}, _('Help')),
 				E('ul', {}, [
-					E('li', {}, _('The table updates automatically — no setup needed when your firewall already logs traffic.')),
+					E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Enable logging if the table is empty on a stock config.')),
+					E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
+					E('li', {}, _('The rate shown next to WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
+					this.manualLoggingTestNodes(),
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
 					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
 					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).'))
@@ -1713,6 +2061,7 @@ return view.extend({
 		this.viewMode = this.readViewMode();
 		this.messageLayout = this.readMessageLayout();
 		this.showHostnames = this.readShowHostnames();
+		this.rowTint = this.readRowTint();
 		this.hostnameCache = new Map();
 		this.hostnameFailed = new Set();
 		this.applyRowLimit(this.readRowLimit());
@@ -1722,6 +2071,7 @@ return view.extend({
 		this.updateStreamControlsUi();
 		this.updateDetailToggleUi();
 		this.renderThead();
+		this.updateLoggingToolbarUi();
 		this.updateEmptyStateUi();
 		this.updateBackendUi();
 		this.renderRows(true);

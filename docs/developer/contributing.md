@@ -29,7 +29,7 @@
 
 - `Makefile` — `LUCI_DEPENDS`, version, maintainer
 - `menu.d` — path `admin/status/fwlive`
-- `rpcd/acl.d` — grant `fwlive.rules`, `fwlive.poll`, `fwlive.resolve`
+- `rpcd/acl.d` — grant `fwlive.rules`, `fwlive.poll`, `fwlive.resolve`, `fwlive.logging_status` (read); `fwlive.enable_wan_logging`, `fwlive.disable_wan_logging` (write)
 
 Package README: [`../../openwrt-feed/luci-app-fwlive/README.md`](../../openwrt-feed/luci-app-fwlive/README.md)
 
