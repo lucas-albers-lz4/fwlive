@@ -64,6 +64,65 @@ const COLUMN_SETS = {
 	detailed: [ 'time', 'action', 'rule', 'iface_in', 'iface_out', 'dir', 'proto', 'src', 'sport', 'dst', 'dport', 'flags', 'len', 'message' ]
 };
 
+/* FWLIVE_TINT_HELPERS_START */
+var FWLIVE_TINT_PAINT_DELTA_MIN = 8;
+var FWLIVE_TINT_PASS_HEX = '#46a546';
+var FWLIVE_TINT_DENY_HEX = '#ca3c3c';
+
+function fwliveParseCssRgbChannels(value) {
+	if (!value)
+		return null;
+
+	const s = String(value).trim().toLowerCase();
+	if (s === 'transparent' || s === 'rgba(0, 0, 0, 0)' || s === 'rgba(0,0,0,0)')
+		return null;
+
+	const rgb = s.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+	if (rgb)
+		return [ parseFloat(rgb[1]), parseFloat(rgb[2]), parseFloat(rgb[3]) ];
+
+	/* color-mix() often serializes as color(srgb r g b[/a]) with 0..1 channels. */
+	const modern = s.match(/color\(\s*srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i);
+	if (modern)
+		return [
+			parseFloat(modern[1]) * 255,
+			parseFloat(modern[2]) * 255,
+			parseFloat(modern[3]) * 255
+		];
+
+	return null;
+}
+
+function fwliveCssColorPaintDelta(a, b) {
+	const ca = fwliveParseCssRgbChannels(a);
+	const cb = fwliveParseCssRgbChannels(b);
+	/* Transparent vs opaque color is a real paint change (common off-state). */
+	if (!ca && !cb)
+		return 0;
+	if (!ca && cb)
+		return Math.abs(cb[0]) + Math.abs(cb[1]) + Math.abs(cb[2]);
+	if (ca && !cb)
+		return Math.abs(ca[0]) + Math.abs(ca[1]) + Math.abs(ca[2]);
+
+	return Math.abs(ca[0] - cb[0]) + Math.abs(ca[1] - cb[1]) + Math.abs(ca[2] - cb[2]);
+}
+
+function fwliveTintShouldEngageFallback(opts) {
+	const o = opts || {};
+	const minDelta = (typeof o.minDelta === 'number') ? o.minDelta : FWLIVE_TINT_PAINT_DELTA_MIN;
+
+	/* Visible paint is the success criterion; token/CSS.supports are only used when
+	   paint cannot be measured (no delta sample yet). */
+	if (typeof o.paintDelta === 'number')
+		return o.paintDelta < minDelta;
+
+	if (o.tokenResolved === false)
+		return true;
+
+	return false;
+}
+/* FWLIVE_TINT_HELPERS_END */
+
 return view.extend({
 	rowLimit: DEFAULT_ROW_LIMIT,
 	maxHistory: DEFAULT_ROW_LIMIT,
@@ -95,6 +154,8 @@ return view.extend({
 	loggingStatus: null,
 	loggingBusy: false,
 	loggingNotice: '',
+	tintFallbackActive: false,
+	tintProbeDone: false,
 
 	FILTER_CHIP_FIELDS: [
 		{ key: 'q', label: 'search' },
@@ -231,6 +292,88 @@ return view.extend({
 		if (a === 'drop' || a === 'reject' || a === 'block')
 			return 'fwlive-row-deny';
 		return '';
+	},
+
+	applyTintFallback(map) {
+		if (!map)
+			return;
+
+		map.style.setProperty('--fwlive-pass-color', FWLIVE_TINT_PASS_HEX);
+		map.style.setProperty('--fwlive-deny-color', FWLIVE_TINT_DENY_HEX);
+		map.setAttribute('data-tint-fallback', '1');
+		this.tintFallbackActive = true;
+		this.updateTintWarnUi();
+	},
+
+	clearTintFallback(map) {
+		if (!map)
+			return;
+
+		map.style.removeProperty('--fwlive-pass-color');
+		map.style.removeProperty('--fwlive-deny-color');
+		map.removeAttribute('data-tint-fallback');
+		this.tintFallbackActive = false;
+		this.updateTintWarnUi();
+	},
+
+	updateTintWarnUi() {
+		const el = document.getElementById('fwlive-tint-warn');
+		if (!el)
+			return;
+
+		el.style.display = this.tintFallbackActive ? 'inline' : 'none';
+	},
+
+	probeRowTintPaint() {
+		const map = document.querySelector('.fwlive-map');
+		const body = document.querySelector('#fwlive-table tbody');
+		if (!map || !body)
+			return;
+
+		/* Prefer a non-alt row — zebra --background-color-medium can look "tinted" when transparent. */
+		let tr = body.querySelector('tr:not(.fwlive-row-alt)');
+		if (!tr)
+			tr = body.querySelector('tr');
+		if (!tr)
+			return;
+
+		const td = tr.querySelector('td');
+		if (!td || typeof getComputedStyle !== 'function')
+			return;
+
+		const hadPass = tr.classList.contains('fwlive-row-pass');
+		const hadDeny = tr.classList.contains('fwlive-row-deny');
+		const probeClass = hadDeny ? 'fwlive-row-deny' : 'fwlive-row-pass';
+
+		tr.classList.remove('fwlive-row-pass', 'fwlive-row-deny');
+		const offBg = getComputedStyle(td).backgroundColor;
+		tr.classList.add(probeClass);
+		const onBg = getComputedStyle(td).backgroundColor;
+
+		tr.classList.remove('fwlive-row-pass', 'fwlive-row-deny');
+		if (hadPass)
+			tr.classList.add('fwlive-row-pass');
+		if (hadDeny)
+			tr.classList.add('fwlive-row-deny');
+
+		const passToken = getComputedStyle(map).getPropertyValue('--fwlive-pass-color').trim();
+		const paintDelta = fwliveCssColorPaintDelta(onBg, offBg);
+		map.setAttribute('data-tint-probe-delta', String(paintDelta));
+		map.setAttribute('data-tint-probe-on', onBg || '');
+		map.setAttribute('data-tint-probe-off', offBg || '');
+		const broken = fwliveTintShouldEngageFallback({
+			paintDelta: paintDelta,
+			tokenResolved: !!passToken,
+			minDelta: FWLIVE_TINT_PAINT_DELTA_MIN
+		});
+
+		this.tintProbeDone = true;
+		if (broken)
+			this.applyTintFallback(map);
+		else if (this.tintFallbackActive)
+			this.clearTintFallback(map);
+		else
+			this.updateTintWarnUi();
 	},
 
 	isLikelyIp(addr) {
@@ -1068,6 +1211,7 @@ return view.extend({
 	onRowTintChange(ev) {
 		this.rowTint = !!(ev && ev.target && ev.target.checked);
 		this.saveRowTint();
+		this.tintProbeDone = false;
 		this.renderRows(true);
 	},
 
@@ -1516,6 +1660,20 @@ return view.extend({
 
 		this.lastRenderedRowCount = rows.length;
 		this.lastRenderedHeadId = rows.length ? rows[0].id : '';
+
+		if (rows.length && this.rowTint && !this.tintProbeDone) {
+			const runProbe = () => {
+				if (!this.tintProbeDone)
+					this.probeRowTintPaint();
+			};
+			if (typeof requestAnimationFrame === 'function')
+				requestAnimationFrame(() => requestAnimationFrame(runProbe));
+			else
+				setTimeout(runProbe, 0);
+		} else if (!this.rowTint && this.tintFallbackActive) {
+			this.clearTintFallback(document.querySelector('.fwlive-map'));
+			this.tintProbeDone = false;
+		}
 	},
 
 	onFilterInput() {
@@ -1593,7 +1751,12 @@ return view.extend({
 	render() {
 		return E('div', { 'class': 'cbi-map fwlive-map', 'data-view': 'simple' }, [
 			E('style', {}, `
-				.fwlive-map { max-width: none; width: 100%; }
+				.fwlive-map {
+					max-width: none;
+					width: 100%;
+					--fwlive-pass-color: var(--success-color-high, var(--success-color, #46a546));
+					--fwlive-deny-color: var(--error-color-high, var(--error-color, #ca3c3c));
+				}
 				.fwlive-toolbar {
 					display: flex;
 					align-items: center;
@@ -1713,27 +1876,43 @@ return view.extend({
 					text-transform: lowercase;
 					white-space: nowrap;
 				}
-				.fwlive-deny { color: var(--error-color-high); }
-				.fwlive-pass { color: var(--success-color-high); }
+				.fwlive-deny { color: var(--fwlive-deny-color); }
+				.fwlive-pass { color: var(--fwlive-pass-color); }
 				#fwlive-table td.fwlive-action.fwlive-pass,
 				#fwlive-table td.fwlive-action.fwlive-pass a.fwlive-filter-link {
-					color: var(--success-color-high);
+					color: var(--fwlive-pass-color);
 				}
 				#fwlive-table td.fwlive-action.fwlive-deny,
 				#fwlive-table td.fwlive-action.fwlive-deny a.fwlive-filter-link {
-					color: var(--error-color-high);
+					color: var(--fwlive-deny-color);
 				}
 				#fwlive-table tbody tr.fwlive-row-pass td {
-					background: color-mix(in srgb, var(--success-color-high) 12%, transparent);
+					background: rgba(70, 165, 70, 0.12);
+					background: color-mix(in srgb, var(--fwlive-pass-color) 12%, transparent);
 				}
 				#fwlive-table tbody tr.fwlive-row-pass.fwlive-row-alt td {
-					background: color-mix(in srgb, var(--success-color-high) 12%, var(--background-color-medium));
+					background: rgba(70, 165, 70, 0.18);
+					background: color-mix(in srgb, var(--fwlive-pass-color) 12%, var(--background-color-medium, transparent));
 				}
 				#fwlive-table tbody tr.fwlive-row-deny td {
-					background: color-mix(in srgb, var(--error-color-high) 12%, transparent);
+					background: rgba(202, 60, 60, 0.12);
+					background: color-mix(in srgb, var(--fwlive-deny-color) 12%, transparent);
 				}
 				#fwlive-table tbody tr.fwlive-row-deny.fwlive-row-alt td {
-					background: color-mix(in srgb, var(--error-color-high) 12%, var(--background-color-medium));
+					background: rgba(202, 60, 60, 0.18);
+					background: color-mix(in srgb, var(--fwlive-deny-color) 12%, var(--background-color-medium, transparent));
+				}
+				.fwlive-map[data-tint-fallback="1"] #fwlive-table tbody tr.fwlive-row-pass td {
+					background: rgba(70, 165, 70, 0.12);
+				}
+				.fwlive-map[data-tint-fallback="1"] #fwlive-table tbody tr.fwlive-row-pass.fwlive-row-alt td {
+					background: rgba(70, 165, 70, 0.18);
+				}
+				.fwlive-map[data-tint-fallback="1"] #fwlive-table tbody tr.fwlive-row-deny td {
+					background: rgba(202, 60, 60, 0.12);
+				}
+				.fwlive-map[data-tint-fallback="1"] #fwlive-table tbody tr.fwlive-row-deny.fwlive-row-alt td {
+					background: rgba(202, 60, 60, 0.18);
 				}
 				.fwlive-unknown { color: var(--text-color-medium); font-weight: 500; }
 				.fwlive-message {
@@ -1776,7 +1955,7 @@ return view.extend({
 					color: var(--text-color-medium);
 				}
 				.fwlive-logging-notice {
-					color: var(--success-color-high);
+					color: var(--fwlive-pass-color);
 				}
 				.fwlive-filter-link {
 					color: inherit;
@@ -1860,7 +2039,7 @@ return view.extend({
 					font-weight: 700;
 					line-height: 1;
 				}
-				.fwlive-chip-remove:hover { color: var(--error-color-high); }
+				.fwlive-chip-remove:hover { color: var(--fwlive-deny-color); }
 				.fwlive-chip-clear {
 					font-size: 0.88em;
 					margin-left: 4px;
@@ -1874,6 +2053,13 @@ return view.extend({
 					border-radius: 3px;
 					color: var(--text-color-high);
 					font-size: 0.92em;
+				}
+				.fwlive-tint-warn {
+					display: none;
+					color: var(--warn-color-high);
+					font-size: 0.92em;
+					font-weight: 600;
+					white-space: nowrap;
 				}
 				.fwlive-map[data-view="simple"] #fwlive-msg-layout { display: none; }
 				.fwlive-help {
@@ -1938,11 +2124,11 @@ return view.extend({
 				.fwlive-flow-cell { white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
 				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-pass,
 				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-pass a.fwlive-filter-link {
-					color: var(--success-color-high);
+					color: var(--fwlive-pass-color);
 				}
 				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-deny,
 				.fwlive-map[data-view="simple"] #fwlive-table td.fwlive-action.fwlive-deny a.fwlive-filter-link {
-					color: var(--error-color-high);
+					color: var(--fwlive-deny-color);
 				}
 				.fwlive-iface-badge {
 					border-radius: 10px;
@@ -1996,7 +2182,12 @@ return view.extend({
 					'type': 'button',
 					'click': this.toggleMessageLayout.bind(this)
 				}, _('Message: wrap')),
-				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, '')
+				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, ''),
+				E('span', {
+					'id': 'fwlive-tint-warn',
+					'class': 'fwlive-tint-warn',
+					'title': _('Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds.')
+				}, _('Theme tint fallback active'))
 			]),
 			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ''),
 			E('div', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
@@ -2051,7 +2242,8 @@ return view.extend({
 					this.manualLoggingTestNodes(),
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
 					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
-					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).'))
+					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
+					E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
 				])
 			])
 		]);
@@ -2074,6 +2266,7 @@ return view.extend({
 		this.updateLoggingToolbarUi();
 		this.updateEmptyStateUi();
 		this.updateBackendUi();
+		this.updateTintWarnUi();
 		this.renderRows(true);
 		if (this.showHostnames)
 			this.resolveHostnamesForEntries(this.filteredRows());
