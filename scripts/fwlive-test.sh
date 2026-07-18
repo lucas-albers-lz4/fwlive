@@ -35,8 +35,11 @@ echo "== fwlive rpcd security ==" >&2
 echo "== fwlive schema (stage 2) ==" >&2
 "$NODE" tests/fwlive-schema.test.js
 
-echo "== fwlive theme CSS (LuCI dark mode) ==" >&2
+echo "== fwlive theme CSS (LuCI dark mode / tint resilience) ==" >&2
 "$NODE" tests/fwlive-theme-css.test.js
+
+echo "== fwlive theme tint helpers ==" >&2
+"$NODE" tests/fwlive-theme-tint.test.js
 
 echo "== fwlive filter negate toggle ==" >&2
 "$NODE" tests/fwlive-filter-negate.test.js

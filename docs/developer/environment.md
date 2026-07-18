@@ -57,6 +57,26 @@ OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 
 See [`../sdk-build-matrix.md`](../sdk-build-matrix.md).
 
+## Theme tint matrix (lab overlay)
+
+Row tint must stay visible under Bootstrap and Material (issue #14). This is a **lab overlay** check — it may `opkg`/`apk` install `luci-theme-material` on the guest. It is **not** part of published-feed smoke.
+
+Prereqs: QEMU guest running, `luci-app-fwlive` installed, host has Node + Playwright.
+
+```sh
+./scripts/qemu-install-fwlive.sh
+./scripts/qemu-theme-tint-smoke.sh
+```
+
+Optional overrides: `OPENWRT_SSH_PORT`, `OWRT_HOSTFWD_HTTP`, `FWLIVE_URL`.
+
+What it asserts:
+
+1. Guest `fwlive.js` includes scoped `--fwlive-pass-color` / Material `var(--success-color, …)` / rgba base rules
+2. Under Bootstrap and Material, toggling Row tint changes a **non-alt** row background (paint delta)
+
+Host-only (no guest): `./scripts/fwlive-test.sh` covers CSS hardening + tint helper unit tests.
+
 ## Next
 
 - [Build & test](build-and-test.md)
