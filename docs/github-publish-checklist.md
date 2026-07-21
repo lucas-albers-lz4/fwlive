@@ -4,7 +4,7 @@ Use before making this repo public upstream.
 
 ## Pre-flight
 
-- [x] Replace `YOUR_ORG` in `openwrt-feed/luci-app-fwlive/Makefile` `PKG_MAINTAINER` URL → `lucas-albers-lz4`
+- [x] `PKG_MAINTAINER` set to `Lucas Albers <lucas.b.albers@gmail.com>` (Name \<email\> format for upstream)
 - [ ] Review [LICENSE](../LICENSE) (Apache-2.0) and [ATTRIBUTION.md](../ATTRIBUTION.md) (OPNsense BSD 2-Clause)
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
@@ -68,13 +68,22 @@ Alternatives (not primary):
 - **LuCI tree fork** — copy `luci-app-fwlive/` into `luci/applications/` (see `openwrt-feed/README.md`).
 - **`src-git` feed-only repo** — only if you later publish a mirror whose root *is* the feed.
 
+### Upstream cut into `openwrt/luci`
+
+When copying `openwrt-feed/luci-app-fwlive/` into `luci/applications/luci-app-fwlive/` for an upstream PR:
+
+- [ ] Rewrite Makefile include: `include $(TOPDIR)/feeds/luci/luci.mk` → `include ../../luci.mk` (feed path stays as-is in this monorepo)
+- [ ] Strip or rewrite package `README.md` links that point at monorepo `docs/` paths (dead after the copy)
+- [ ] Confirm `po/templates/luci-app-fwlive.pot` is included
+- [ ] State Apache-2.0 in the PR body (`PKG_LICENSE` is already set; no `PKG_LICENSE_FILES` needed to match peer LuCI apps)
+
 ## Package conventions (verified)
 
 - `LUCI_PKGARCH:=all` — pure JS + shell rpcd, no target binaries
 - `htdocs/` + `root/` layout per LuCI.mk
 - `menu.d` JSON + `rpcd` ACL + `usr/libexec/rpcd/fwlive` (`list` / `call`)
-- `LUCI_DEPENDS` on `luci-base`, `logd`, `rpcd` (no hard `firewall4` dependency)
-- No `po/` until i18n is requested
+- `LUCI_DEPENDS` on `luci-base`, `logd` (`rpcd` comes via `luci-base`; no hard `firewall4` dependency)
+- `po/templates/luci-app-fwlive.pot` — i18n scaffolding (strings marked with `_()` in the view)
 
 ## macOS contributors
 

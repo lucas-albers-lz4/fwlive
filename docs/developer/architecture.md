@@ -65,6 +65,8 @@ flowchart TB
 | Helps OpenWrt/LuCI upstream? | **No** — upstream wants a PR into `luci/applications/`, not a third-party feed repo |
 | When to revisit | Many external image builders need `src-git`, or we grow multiple packages needing a stable feed root |
 
+When cutting an upstream PR, keep the monorepo feed Makefile include as `$(TOPDIR)/feeds/luci/luci.mk`; rewrite to `include ../../luci.mk` only in the copied tree under `luci/applications/`. See [Upstream cut](../github-publish-checklist.md#upstream-cut-into-openwrtluci).
+
 Related: [`../github-publish-checklist.md`](../github-publish-checklist.md) (distribution), [`../../feeds.conf.example`](../../feeds.conf.example).
 
 ## Normalized event schema
