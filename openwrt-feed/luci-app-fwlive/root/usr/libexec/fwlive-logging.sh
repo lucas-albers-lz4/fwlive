@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2025-2026 Lucas Albers <lucas.b.albers@gmail.com>
+#
 # WAN zone logging helpers for ubus fwlive (logging_status / enable / disable).
 
 NF_LOG_IPV4='/proc/sys/net/netfilter/nf_log/2'

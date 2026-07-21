@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=Firewall Live View
 LUCI_DESCRIPTION:=Live firewall log table (nftables/fw4 and iptables LOG) with filters
-LUCI_DEPENDS:=+luci-base +logd +rpcd
+LUCI_DEPENDS:=+luci-base +logd
 LUCI_PKGARCH:=all
 
 PKG_VERSION:=0.1.25
@@ -20,7 +20,7 @@ export SOURCE_DATE_EPOCH
 endif
 
 PKG_LICENSE:=Apache-2.0
-PKG_MAINTAINER:=fwlive contributors <https://github.com/lucas-albers-lz4/fwlive>
+PKG_MAINTAINER:=Lucas Albers <lucas.b.albers@gmail.com>
 
 include $(TOPDIR)/feeds/luci/luci.mk
 

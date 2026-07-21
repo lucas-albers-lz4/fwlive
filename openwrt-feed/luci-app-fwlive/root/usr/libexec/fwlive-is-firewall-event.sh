@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2025-2026 Lucas Albers <lucas.b.albers@gmail.com>
+#
 # Shared isFirewallEvent parity logic (shell). Sourced by fwlive-log-filter.sh and tests.
 # Keep aligned with core/fwlive-log.js — see tests/fwlive-shell-filter.test.js
 

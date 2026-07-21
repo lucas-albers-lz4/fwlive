@@ -15,12 +15,13 @@ LuCI **Firewall Live View** — client-side JS view polling `ubus fwlive poll` (
 | `root/usr/libexec/fwlive-logging.sh` | WAN zone logging helpers |
 | `root/usr/libexec/fwlive-log-filter.sh` | Server-side firewall-only filter (`isFirewallEvent` parity) |
 | `root/usr/libexec/fwlive-is-firewall-event.sh` | Shared filter logic (sourced by filter + tests) |
+| `po/templates/luci-app-fwlive.pot` | i18n template (English msgid scaffolding) |
 
-No `luasrc/` — modern JS-only app. No `po/` until translations are requested.
+No `luasrc/` — modern JS-only app.
 
 ## Dependencies
 
-- `luci-base`, `logd`, `rpcd` (no hard `firewall4` dependency)
+- `luci-base`, `logd` (`rpcd` via `luci-base`; no hard `firewall4` dependency)
 - Menu visible when **`/usr/sbin/nft`** or **`/usr/sbin/iptables`** is executable
 - **fw4/nft** primary on **22.03+**; **iptables LOG** primary on legacy **21.02.x** (fw3), best-effort on 22.03+ when nft absent
 

@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2025-2026 Lucas Albers <lucas.b.albers@gmail.com>
+#
 # rpcd plugin: ubus object "fwlive"
 #   rules   — rule hint map (no args)
 #   poll    — firewall-only log tail; pass line count as addresses[0] (rpcd array schema)

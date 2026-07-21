@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2025-2026 Lucas Albers <lucas.b.albers@gmail.com>
+#
 # Filter log.read JSON to firewall-only entries (isFirewallEvent parity).
 # Usage: ubus call log read '...' | /usr/libexec/fwlive-log-filter.sh
 
