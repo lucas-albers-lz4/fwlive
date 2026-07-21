@@ -36,7 +36,7 @@ Use before making this repo public upstream.
 - [x] See [binary-feed.md](binary-feed.md) for one-time setup
 - [x] Add repo README — [`packages-repo/README.md`](../packages-repo/README.md) (copied to `gh-pages` by [`publish-packages.sh`](../scripts/publish-packages.sh))
 
-`src-git` to the main `fwlive` repo is **not supported** (feed root is `openwrt-feed/`, not repo root). A separate feed-only **source** mirror would be needed for `src-git`; not required for v1.
+`src-git` to the main `fwlive` repo is **not supported** (feed root is `openwrt-feed/`, not repo root). A separate feed-only **source** mirror would be needed for `src-git`; not required for v1 — see [Feed layout decision](developer/architecture.md#feed-layout-decision).
 
 ## Repo contents
 

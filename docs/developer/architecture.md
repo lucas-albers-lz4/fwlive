@@ -52,6 +52,20 @@ flowchart TB
 | nft/fw4 primary | Validated on **21.02.7** (fw3 lab), **22.03.7**, **23.05.5**, **24.10.5**, **25.12.0** lab matrix |
 | iptables LOG | Primary on **21.02.x** (fw3); best-effort on **22.03+** when nft absent — same logd pipe; rule map from `iptables-save` |
 | OPNsense as reference | Interaction and layout patterns, not PHP/Volt port |
+| Keep monorepo + `src-link` | See [Feed layout decision](#feed-layout-decision) |
+
+## Feed layout decision
+
+**Do not** split `openwrt-feed/` into a submodule or feed-only source repo unless external builders demand `src-git` and that friction is real.
+
+| Question | Answer |
+|----------|--------|
+| Premature? | **Yes** — ship surface is ~11 files; monorepo bulk is docs/tests/tooling |
+| Helps build/ship? | **No** — Releases + binary feed + `src-link` already cover it |
+| Helps OpenWrt/LuCI upstream? | **No** — upstream wants a PR into `luci/applications/`, not a third-party feed repo |
+| When to revisit | Many external image builders need `src-git`, or we grow multiple packages needing a stable feed root |
+
+Related: [`../github-publish-checklist.md`](../github-publish-checklist.md) (distribution), [`../../feeds.conf.example`](../../feeds.conf.example).
 
 ## Normalized event schema
 

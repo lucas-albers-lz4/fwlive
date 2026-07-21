@@ -35,6 +35,7 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 | QEMU lab (x86 + armsr) | [qemu-lab.md](qemu-lab.md) |
 | Roadmap | [`../ROADMAP.md`](../ROADMAP.md) |
 | Publish checklist | [`../github-publish-checklist.md`](../github-publish-checklist.md) |
+| Feed layout (no submodule split) | [architecture.md § Feed layout decision](architecture.md#feed-layout-decision) |
 
 ## User documentation
 
