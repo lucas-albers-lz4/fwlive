@@ -3,7 +3,7 @@
 
 /**
  * Guard: fwlive view styles use LuCI theme CSS variables (no hardcoded hex outside tint fallbacks).
- * See GitHub issue #6 (dark mode) and #14 (Material / missing *-color-high resilience).
+ * See GitHub issue #6 (dark mode), #14 (Material pass/deny), and #15 (zebra / bg-medium).
  */
 
 const fs = require('fs');
@@ -22,13 +22,21 @@ if (!styleMatch)
 
 const css = styleMatch[1];
 
-/* Hex is allowed only in scoped tint token chains and rgba tint base / fallback rules. */
-const tintHexAllowRe = /--fwlive-(?:pass|deny)-color:\s*var\([^;]*#[0-9a-fA-F]{3,8}/g;
+/* Hex is allowed only in scoped tint/zebra token chains and zebra dual-paint base. */
+const tintHexAllowRe = /--fwlive-(?:(?:pass|deny)-color|bg-medium):\s*var\([^;]*#[0-9a-fA-F]{3,8}/g;
 const tintAllowedHex = new Set();
 let allowMatch;
 while ((allowMatch = tintHexAllowRe.exec(css)) !== null) {
 	const hexes = allowMatch[0].match(/#[0-9a-fA-F]{3,8}\b/g) || [];
 	hexes.forEach((h) => tintAllowedHex.add(h.toLowerCase()));
+}
+
+const zebraAltIdx = css.indexOf('.fwlive-row-alt td');
+if (zebraAltIdx >= 0) {
+	const zebraBaseChunk = css.slice(zebraAltIdx, zebraAltIdx + 200);
+	const zebraHex = zebraBaseChunk.match(/background:\s*(#[0-9a-fA-F]{3,8})\b/);
+	if (zebraHex)
+		tintAllowedHex.add(zebraHex[1].toLowerCase());
 }
 
 const allHex = css.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
@@ -73,9 +81,17 @@ if (!hasVarUsage(css, '--error-color')) {
 	console.error('missing Material fallback chain var(--error-color, ...)');
 	process.exit(1);
 }
+if (!hasVarUsage(css, '--white-color-low')) {
+	console.error('missing Material fallback chain var(--white-color-low, ...)');
+	process.exit(1);
+}
 
 if (!css.includes('--fwlive-pass-color:') || !css.includes('--fwlive-deny-color:')) {
 	console.error('missing scoped --fwlive-pass-color / --fwlive-deny-color tokens');
+	process.exit(1);
+}
+if (!css.includes('--fwlive-bg-medium:')) {
+	console.error('missing scoped --fwlive-bg-medium token');
 	process.exit(1);
 }
 
@@ -88,7 +104,8 @@ const keySelectors = [
 	'#fwlive-table td.fwlive-action.fwlive-pass',
 	'#fwlive-table td.fwlive-action.fwlive-deny',
 	'#fwlive-table tbody tr.fwlive-row-pass td',
-	'#fwlive-table tbody tr.fwlive-row-deny td'
+	'#fwlive-table tbody tr.fwlive-row-deny td',
+	'.fwlive-row-alt td'
 ];
 
 for (const sel of keySelectors) {
@@ -98,10 +115,20 @@ for (const sel of keySelectors) {
 		process.exit(1);
 	}
 	const chunk = css.slice(idx, idx + 400);
-	if (!/var\(--/.test(chunk) && !/rgba\(/.test(chunk)) {
-		console.error(`selector ${sel} has no var(--...) or rgba(...) color rule nearby`);
+	if (!/var\(--/.test(chunk) && !/rgba\(/.test(chunk) && !/#[0-9a-fA-F]{3,8}/.test(chunk)) {
+		console.error(`selector ${sel} has no var(--...) / rgba(...) / hex color rule nearby`);
 		process.exit(1);
 	}
+}
+
+const zebraChunk = css.slice(zebraAltIdx, zebraAltIdx + 200);
+if (!/background:\s*#[0-9a-fA-F]{3,8}/.test(zebraChunk)) {
+	console.error('.fwlive-row-alt must include solid hex base (non-var fallback)');
+	process.exit(1);
+}
+if (!/background:\s*var\(--fwlive-bg-medium\)/.test(zebraChunk)) {
+	console.error('.fwlive-row-alt must use background: var(--fwlive-bg-medium)');
+	process.exit(1);
 }
 
 const rowTintPass = css.indexOf('#fwlive-table tbody tr.fwlive-row-pass td');
@@ -123,6 +150,19 @@ if (!/color-mix\(in srgb,\s*var\(--fwlive-pass-color\)/.test(passChunk)) {
 }
 if (!/color-mix\(in srgb,\s*var\(--fwlive-deny-color\)/.test(denyChunk)) {
 	console.error('fwlive-row-deny must use color-mix with --fwlive-deny-color');
+	process.exit(1);
+}
+
+const passAltIdx = css.indexOf('tr.fwlive-row-pass.fwlive-row-alt td');
+const denyAltIdx = css.indexOf('tr.fwlive-row-deny.fwlive-row-alt td');
+const passAltChunk = css.slice(passAltIdx, passAltIdx + 250);
+const denyAltChunk = css.slice(denyAltIdx, denyAltIdx + 250);
+if (!/color-mix\(in srgb,\s*var\(--fwlive-pass-color\)\s+12%,\s*var\(--fwlive-bg-medium\)\)/.test(passAltChunk)) {
+	console.error('fwlive-row-pass.fwlive-row-alt must color-mix onto --fwlive-bg-medium');
+	process.exit(1);
+}
+if (!/color-mix\(in srgb,\s*var\(--fwlive-deny-color\)\s+12%,\s*var\(--fwlive-bg-medium\)\)/.test(denyAltChunk)) {
+	console.error('fwlive-row-deny.fwlive-row-alt must color-mix onto --fwlive-bg-medium');
 	process.exit(1);
 }
 

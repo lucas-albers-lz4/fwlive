@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lab overlay smoke: bootstrap + Material LuCI themes, assert visible Row tint.
+# Lab overlay smoke: bootstrap + Material LuCI themes, assert visible Row tint + zebra.
 # Not published-feed purity — installs theme packages on a running QEMU guest.
 #
 # Prereqs:
@@ -51,6 +51,10 @@ ssh_guest 'grep -q -- "var(--success-color," /www/luci-static/resources/view/sta
 	|| die "guest fwlive.js missing Material --success-color chain"
 ssh_guest 'grep -q "rgba(70, 165, 70" /www/luci-static/resources/view/status/fwlive.js' \
 	|| die "guest fwlive.js missing rgba base tint"
+ssh_guest 'grep -q -- "--fwlive-bg-medium" /www/luci-static/resources/view/status/fwlive.js' \
+	|| die "guest fwlive.js missing --fwlive-bg-medium (zebra resilience)"
+ssh_guest 'grep -q -- "var(--white-color-low," /www/luci-static/resources/view/status/fwlive.js' \
+	|| die "guest fwlive.js missing Material --white-color-low chain"
 ok "guest CSS has tint resilience tokens"
 
 # Seed firewall log rows when possible (same helpers as qemu-smoke-fwlive.sh).

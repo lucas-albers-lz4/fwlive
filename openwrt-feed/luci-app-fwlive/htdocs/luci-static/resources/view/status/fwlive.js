@@ -1756,6 +1756,7 @@ return view.extend({
 					width: 100%;
 					--fwlive-pass-color: var(--success-color-high, var(--success-color, #46a546));
 					--fwlive-deny-color: var(--error-color-high, var(--error-color, #ca3c3c));
+					--fwlive-bg-medium: var(--background-color-medium, var(--white-color-low, #f9f9f9));
 				}
 				.fwlive-toolbar {
 					display: flex;
@@ -1844,7 +1845,10 @@ return view.extend({
 					vertical-align: top;
 					font-size: 0.92em;
 				}
-				.fwlive-row-alt td { background: var(--background-color-medium); }
+				.fwlive-row-alt td {
+					background: #f9f9f9;
+					background: var(--fwlive-bg-medium);
+				}
 				.fwlive-time, .fwlive-addr, .fwlive-port, .fwlive-len {
 					font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 					white-space: nowrap;
@@ -1892,7 +1896,7 @@ return view.extend({
 				}
 				#fwlive-table tbody tr.fwlive-row-pass.fwlive-row-alt td {
 					background: rgba(70, 165, 70, 0.18);
-					background: color-mix(in srgb, var(--fwlive-pass-color) 12%, var(--background-color-medium, transparent));
+					background: color-mix(in srgb, var(--fwlive-pass-color) 12%, var(--fwlive-bg-medium));
 				}
 				#fwlive-table tbody tr.fwlive-row-deny td {
 					background: rgba(202, 60, 60, 0.12);
@@ -1900,7 +1904,7 @@ return view.extend({
 				}
 				#fwlive-table tbody tr.fwlive-row-deny.fwlive-row-alt td {
 					background: rgba(202, 60, 60, 0.18);
-					background: color-mix(in srgb, var(--fwlive-deny-color) 12%, var(--background-color-medium, transparent));
+					background: color-mix(in srgb, var(--fwlive-deny-color) 12%, var(--fwlive-bg-medium));
 				}
 				.fwlive-map[data-tint-fallback="1"] #fwlive-table tbody tr.fwlive-row-pass td {
 					background: rgba(70, 165, 70, 0.12);
