@@ -42,6 +42,24 @@ wan_filter_log_target_value() {
 	esac
 }
 
+# Clear filter-log bit 0 only. Prints remaining value, or empty when the option
+# should be deleted (no bits left / non-numeric / already empty).
+wan_filter_log_clear_value() {
+	current="$1"
+	case "$current" in
+		''|*[!0-9]*)
+			printf ''
+			return 0
+			;;
+	esac
+	cleared=$((current & ~1))
+	if [ "$cleared" -eq 0 ]; then
+		printf ''
+	else
+		printf '%d' "$cleared"
+	fi
+}
+
 read_nf_log_backend() {
 	path="$1"
 	[ -f "$path" ] || return 1
@@ -176,9 +194,17 @@ disable_wan_logging() {
 		return 0
 	fi
 
-	if ! uci delete "firewall.${zone}.log"; then
-		printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"uci_delete_failed"}' "$zone"
-		return 0
+	target=$(wan_filter_log_clear_value "$current")
+	if [ -z "$target" ]; then
+		if ! uci delete "firewall.${zone}.log"; then
+			printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"uci_delete_failed"}' "$zone"
+			return 0
+		fi
+	else
+		if ! uci set "firewall.${zone}.log=${target}"; then
+			printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"uci_set_failed"}' "$zone"
+			return 0
+		fi
 	fi
 
 	if ! uci commit firewall; then
@@ -228,6 +254,37 @@ run_logging_selftest() {
 	got=$(wan_filter_log_target_value '1')
 	if [ "$got" != '1' ]; then
 		echo "wan_filter_log_target_value 1: expected 1 got $got" >&2
+		return 1
+	fi
+
+	# Disable clears bit 0 only: log=3 -> 2; log=1 -> delete (empty).
+	got=$(wan_filter_log_clear_value '3')
+	if [ "$got" != '2' ]; then
+		echo "wan_filter_log_clear_value 3: expected 2 got $got" >&2
+		return 1
+	fi
+
+	got=$(wan_filter_log_clear_value '1')
+	if [ -n "$got" ]; then
+		echo "wan_filter_log_clear_value 1: expected empty got $got" >&2
+		return 1
+	fi
+
+	got=$(wan_filter_log_clear_value '2')
+	if [ "$got" != '2' ]; then
+		echo "wan_filter_log_clear_value 2: expected 2 got $got" >&2
+		return 1
+	fi
+
+	# Enable/disable parity around multi-bit values.
+	got=$(wan_filter_log_target_value '2')
+	if [ "$got" != '3' ]; then
+		echo "enable from 2: expected 3 got $got" >&2
+		return 1
+	fi
+	got=$(wan_filter_log_clear_value '3')
+	if [ "$got" != '2' ]; then
+		echo "disable from 3: expected 2 got $got" >&2
 		return 1
 	fi
 
