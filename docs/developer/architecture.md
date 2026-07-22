@@ -47,7 +47,11 @@ flowchart TB
 |--------|-----------|
 | Poll `fwlive.poll` (~1s) | Wraps `log.read` + server firewall filter; line count in `addresses[0]` |
 | Client-side normalize/filter | Normalization stays in JS; `isFirewallEvent` retained as safety net |
-| Opt-in hostnames | `fwlive.resolve` via `getent`; checkbox default off |
+| Parser disagreement | After poll, the client re-applies `isFirewallEvent`; **client wins** (drops lines the shell kept if heuristics disagree) |
+| MAC redaction | Client display only (`formatMessageDisplay` strips `MAC=…`, including message `title`); poll JSON may still contain MACs on the wire |
+| Rule / prefix XSS | Rule labels render via LuCI `E(..., text)` (text nodes); server map keys gated by `is_uci_style_name` |
+| Log filter injection | `fwlive-log-filter.sh` feeds messages as data through jsonfilter/grep stdin — not a shell-injection surface |
+| Opt-in hostnames | `fwlive.resolve` via `getent`; checkbox default off; server validates IPv4/IPv6 shape before lookup |
 | `core/` + LuCI mirror | Parser tested without browser or router |
 | nft/fw4 primary | Validated on **21.02.7** (fw3 lab), **22.03.7**, **23.05.5**, **24.10.5**, **25.12.0** lab matrix |
 | iptables LOG | Primary on **21.02.x** (fw3); best-effort on **22.03+** when nft absent — same logd pipe; rule map from `iptables-save` |

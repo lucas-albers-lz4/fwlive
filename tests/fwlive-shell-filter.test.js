@@ -67,9 +67,43 @@ function runJsonParity() {
 	assert.deepEqual(shMsgs, jsMsgs);
 }
 
+function runMetacharSafety() {
+	const nasty = [
+		'$(reboot); IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP SPT=1 DPT=2',
+		'`id` IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=UDP SPT=1 DPT=53',
+		'IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP; rm -rf /',
+		'IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP $(echo pwned)',
+		'dropbear[1]: Bad packet length 12345'
+	];
+
+	for (const msg of nasty) {
+		assert.doesNotThrow(() => shellIsFirewall(msg));
+	}
+
+	if (!fs.existsSync(FILTER_SH))
+		throw new Error('missing fwlive-log-filter.sh');
+
+	const jf = spawnSync('sh', ['-c', 'command -v jsonfilter'], { encoding: 'utf8' });
+	if (jf.status !== 0 || !jf.stdout.trim()) {
+		console.log('fwlive shell filter: skip metachar JSON round-trip (jsonfilter not on host)');
+		return;
+	}
+
+	const payload = JSON.stringify({
+		log: nasty.map((msg, i) => ({ msg, id: i }))
+	});
+	const filtered = spawnSync('sh', [FILTER_SH], {
+		input: payload,
+		encoding: 'utf8'
+	});
+	assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+	assert.doesNotThrow(() => JSON.parse(filtered.stdout));
+}
+
 function run() {
 	runMsgParity();
 	runJsonParity();
+	runMetacharSafety();
 	console.log('fwlive shell filter parity tests passed');
 }
 
