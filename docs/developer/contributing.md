@@ -29,7 +29,7 @@
 
 - `Makefile` — `LUCI_DEPENDS`, version, maintainer
 - `menu.d` — path `admin/status/fwlive`
-- `rpcd/acl.d` — grant `fwlive.rules`, `fwlive.poll`, `fwlive.resolve`, `fwlive.logging_status` (read); `fwlive.enable_wan_logging`, `fwlive.disable_wan_logging` (write)
+- `rpcd/acl.d` — grant `fwlive.rules`, `fwlive.poll`, `fwlive.resolve`, `fwlive.logging_status` (read); `fwlive.enable_wan_logging`, `fwlive.disable_wan_logging` (write). Do **not** grant `ubus log.read` — poll performs filtered log reads inside the root rpcd plugin
 
 Package README: [`../../openwrt-feed/luci-app-fwlive/README.md`](../../openwrt-feed/luci-app-fwlive/README.md)
 

@@ -53,7 +53,7 @@ The **Message: wrap / one-line** toolbar control applies in Detailed view only.
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. |
 | **Show Detail / Hide Detail** | Toggles Simple ↔ Detailed; preference saved in `localStorage` after you use it. |
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns; hover shows the IP. Click still filters by IP. |
-| **Enable logging / Disable logging** | Toggles WAN zone drop/reject logging. The shown rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
+| **Enable logging / Disable logging** | Toggles WAN zone drop/reject logging (mutates firewall UCI and reloads). No confirm step — use carefully on shared admin sessions. Concurrent toggles from multiple admins are last-writer-wins. The shown rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
 | **Quick search** | Matches across all normalized fields. |
 
 ## Filtering

@@ -39,14 +39,16 @@ flowchart TB
 | **Rule map** | `root/usr/libexec/rpcd/fwlive` | `rules`, `poll` (filtered log), `resolve` (reverse DNS), `logging_status`, `enable_wan_logging`, `disable_wan_logging` |
 | **WAN logging** | `root/usr/libexec/fwlive-logging.sh` | WAN zone `log=1` helpers (sourced by rpcd) |
 | **Log filter** | `root/usr/libexec/fwlive-log-filter.sh` | Shell `isFirewallEvent` parity before JSON leaves router |
-| **Menu / ACL** | `root/usr/share/luci/menu.d`, `rpcd/acl.d` | `admin/status/fwlive`, read `fwlive.*` + write enable/disable |
+| **Menu / ACL** | `root/usr/share/luci/menu.d`, `rpcd/acl.d` | `admin/status/fwlive`, read `fwlive.*` only (no session `log.read`) + write enable/disable |
 
 ## Design choices
 
 | Choice | Rationale |
 |--------|-----------|
 | Poll `fwlive.poll` (~1s) | Wraps `log.read` + server firewall filter; line count in `addresses[0]` |
+| ACL omits `log.read` | Session callers use `fwlive.poll` only; the rpcd plugin invokes `ubus call log read` as root |
 | Client-side normalize/filter | Normalization stays in JS; `isFirewallEvent` retained as safety net |
+| Enable/disable concurrency | No confirm dialog / no flock — low multi-admin risk; UI uses `loggingBusy`; concurrent toggles are last-writer-wins |
 | Parser disagreement | After poll, the client re-applies `isFirewallEvent`; **client wins** (drops lines the shell kept if heuristics disagree) |
 | MAC redaction | Client display only (`formatMessageDisplay` strips `MAC=…`, including message `title`); poll JSON may still contain MACs on the wire |
 | Rule / prefix XSS | Rule labels render via LuCI `E(..., text)` (text nodes); server map keys gated by `is_uci_style_name` |
