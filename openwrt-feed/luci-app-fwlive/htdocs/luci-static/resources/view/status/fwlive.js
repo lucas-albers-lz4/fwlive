@@ -11,6 +11,9 @@
 'require fwlive.constants as constants';
 'require fwlive.css as css';
 'require fwlive.tint as tint';
+'require fwlive.links as links';
+'require fwlive.chips as chips';
+'require fwlive.logging as logging';
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -367,27 +370,6 @@ return view.extend({
 		}
 	},
 
-	filterChipLabelNodes(field, val) {
-		const p = log.parseFilterValue(val);
-		if (!p.value)
-			return [ '' ];
-
-		if (!p.negate)
-			return [ log.formatFilterChipLabel(field, val) ];
-
-		if (field === 'q' || field === 'src' || field === 'dst')
-			return [
-				field + ': ',
-				E('strong', { 'class': 'fwlive-chip-not' }, 'not'),
-				' contains ' + p.value
-			];
-
-		return [
-			field + ': ',
-			E('strong', { 'class': 'fwlive-chip-not' }, 'not'),
-			' ' + p.value
-		];
-	},
 
 	setViewMode(mode) {
 		if (constants.VIEW_MODES.indexOf(mode) < 0 || mode === this.viewMode)
@@ -595,18 +577,15 @@ return view.extend({
 	},
 
 	firewallZonesPath() {
-		return 'admin/network/firewall/zones';
+		return links.firewallZonesPath();
 	},
 
 	firewallZonesUrl() {
-		return this.luciUrl(this.firewallZonesPath());
+		return links.firewallZonesUrl();
 	},
 
 	firewallZonesLink(label) {
-		return E('a', {
-			'href': this.firewallZonesUrl(),
-			'class': 'fwlive-filter-link'
-		}, label || _('Network → Firewall'));
+		return links.firewallZonesLink(label);
 	},
 
 	loggingHasBlocker(code) {
@@ -625,21 +604,6 @@ return view.extend({
 		return '';
 	},
 
-	manualLoggingTestNodes() {
-		if (this.firewallBackend === 'iptables') {
-			return E('li', {}, [
-				_('Manual test (System → Terminal): '),
-				E('code', {}, 'iptables -I INPUT -p icmp --icmp-type echo-request -j LOG --log-prefix "fwlive-ping: "'),
-				_(' then ping the router.')
-			]);
-		}
-
-		return E('li', {}, [
-			_('Manual test (System → Terminal): '),
-			E('code', {}, 'nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept'),
-			_(' then ping the router.')
-		]);
-	},
 
 	async loadLoggingStatus() {
 		try {
@@ -716,125 +680,25 @@ return view.extend({
 		}
 	},
 
+	loggingState() {
+		return {
+			loggingStatus: this.loggingStatus,
+			loggingBusy: this.loggingBusy,
+			entriesLength: this.entries.length,
+			loggingNotice: this.loggingNotice,
+			firewallBackend: this.firewallBackend
+		};
+	},
+
 	updateLoggingToolbarUi() {
 		const bar = document.getElementById('fwlive-logging-bar');
 		if (!bar)
 			return;
 
-		bar.innerHTML = '';
-		const st = this.loggingStatus;
-		if (!st) {
-			bar.style.display = 'none';
-			return;
-		}
-
-		if (!st.wan_log && this.entries.length === 0) {
-			bar.style.display = 'none';
-			return;
-		}
-
-		bar.style.display = 'flex';
-		const blocker = this.loggingBlockerMessage();
-		if (blocker === 'no_wan_zone') {
-			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-				_('WAN logging unavailable: no WAN zone')));
-			bar.appendChild(this.firewallZonesLink());
-			return;
-		}
-
-		if (blocker === 'nf_log_missing') {
-			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-				_('WAN logging unavailable: missing kernel log modules')));
-			return;
-		}
-
-		const limit = st.wan_log_limit || _('default 10/minute');
-		if (st.wan_log) {
-			bar.appendChild(E('span', { 'class': 'fwlive-logging-status' }, [
-				_('WAN logging on ('),
-				E('a', {
-					'href': '#fwlive-help',
-					'class': 'fwlive-filter-link',
-					'title': _('This is the firewall zone log_limit. fwlive only displays events after fw3/fw4 applies this rate cap.'),
-					'click': function(ev) {
-						const help = document.getElementById('fwlive-help');
-						if (ev && ev.preventDefault)
-							ev.preventDefault();
-						if (help) {
-							help.open = true;
-							help.scrollIntoView({ block: 'nearest' });
-						}
-					}
-				}, limit),
-				_(')')
-			]));
-			bar.appendChild(E('button', {
-				'class': 'cbi-button cbi-button-action',
-				'type': 'button',
-				'disabled': this.loggingBusy ? '' : null,
-				'click': this.handleDisableLogging.bind(this)
-			}, this.loggingBusy ? _('Disabling…') : _('Disable logging')));
-			return;
-		}
-
-		bar.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-			_('WAN logging off')));
-		bar.appendChild(E('button', {
-			'class': 'cbi-button cbi-button-action',
-			'type': 'button',
-			'disabled': this.loggingBusy ? '' : null,
-			'click': this.handleEnableLogging.bind(this)
-		}, this.loggingBusy ? _('Enabling…') : _('Enable logging')));
-	},
-
-	buildEmptyStateNodes() {
-		const nodes = [];
-		const st = this.loggingStatus;
-		const blocker = this.loggingBlockerMessage();
-
-		if (this.loggingNotice) {
-			nodes.push(E('p', { 'class': 'fwlive-logging-notice' }, [
-				this.loggingNotice,
-				' ',
-				this.firewallZonesLink()
-			]));
-		}
-
-		if (blocker === 'no_wan_zone') {
-			nodes.push(E('p', {}, [
-				_('No WAN firewall zone found in /etc/config/firewall. Configure zones under '),
-				this.firewallZonesLink()
-			]));
-			return nodes;
-		}
-
-		if (blocker === 'nf_log_missing') {
-			nodes.push(E('p', {}, _('Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall.')));
-			nodes.push(E('p', {}, [
-				E('code', {}, 'opkg update && opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6')
-			]));
-			return nodes;
-		}
-
-		if (st && st.wan_log) {
-			nodes.push(E('p', {}, _('Logging is enabled on WAN. Waiting for firewall events — blocked inbound traffic appears here (not normal LAN browsing).')));
-			nodes.push(E('p', {}, this.firewallZonesLink(_('Open firewall zone settings'))));
-			return nodes;
-		}
-
-		nodes.push(E('p', {}, _('No firewall events yet. OpenWrt does not log firewall traffic until you turn it on.')));
-		nodes.push(E('p', {}, _('Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged.')));
-		nodes.push(E('p', {}, [
-			E('button', {
-				'class': 'cbi-button cbi-button-action',
-				'type': 'button',
-				'disabled': this.loggingBusy ? '' : null,
-				'click': this.handleEnableLogging.bind(this)
-			}, this.loggingBusy ? _('Enabling…') : _('Enable logging')),
-			' ',
-			this.firewallZonesLink()
-		]));
-		return nodes;
+		logging.renderToolbar(bar, this.loggingState(), {
+			onEnable: () => this.handleEnableLogging(),
+			onDisable: () => this.handleDisableLogging()
+		});
 	},
 
 	updateEmptyStateUi() {
@@ -843,10 +707,9 @@ return view.extend({
 			return;
 
 		const visible = empty.style.display !== 'none';
-		const nodes = this.buildEmptyStateNodes();
-		empty.innerHTML = '';
-		for (let i = 0; i < nodes.length; i++)
-			empty.appendChild(nodes[i]);
+		logging.renderEmptyState(empty, this.loggingState(), {
+			onEnable: () => this.handleEnableLogging()
+		});
 		if (visible)
 			empty.style.display = 'block';
 	},
@@ -1225,32 +1088,14 @@ return view.extend({
 	},
 
 	filterLink(field, value, label) {
-		if (!value)
-			return log.formatCell(value);
-
-		return E('a', {
-			'href': '#',
-			'class': 'fwlive-filter-link',
-			'title': _('Filter by %s').format(field),
-			'click': this.filterClick.bind(this, field, value)
-		}, label || value);
+		return links.filterLink(field, value, label,
+			(f, v, ev) => this.filterClick(f, v, ev));
 	},
 
 	addrFilterLink(field, ip) {
-		if (!ip)
-			return log.formatCell(ip);
-
-		const name = this.showHostnames && this.hostnameCache
-			? this.hostnameCache.get(ip) : null;
-		const display = name || ip;
-		const title = name ? ip : _('Filter by %s').format(field);
-
-		return E('a', {
-			'href': '#',
-			'class': 'fwlive-filter-link',
-			'title': title,
-			'click': this.filterClick.bind(this, field, ip)
-		}, display);
+		return links.addrFilterLink(field, ip,
+			this.showHostnames, this.hostnameCache,
+			(f, v, ev) => this.filterClick(f, v, ev));
 	},
 
 	collectIpsFromEntries(entries) {
@@ -1315,57 +1160,20 @@ return view.extend({
 	},
 
 	ruleAdminPath(hint) {
-		if (hint === 'fw4')
-			return 'admin/network/firewall/rules';
-
-		if (this.firewallBackend === 'iptables')
-			return 'admin/status/iptables';
-
-		return 'admin/status/nftables';
+		return links.ruleAdminPath(hint, this.firewallBackend);
 	},
 
 	luciUrl(path) {
-		if (typeof L !== 'undefined' && L.url)
-			return L.url(path);
-
-		return '/cgi-bin/luci/' + path;
+		return links.luciUrl(path);
 	},
 
 	ruleAdminLink(hint, label) {
-		if (!hint)
-			return log.formatCell(hint);
-
-		const path = this.ruleAdminPath(hint);
-		const url = '%s#%s'.format(this.luciUrl(path), encodeURIComponent(hint));
-		const text = label || hint;
-
-		return E('a', {
-			'href': '#',
-			'class': 'fwlive-filter-link fwlive-rule-link',
-			'title': _('Filter logs by rule (hint: %s). Ctrl+click to open firewall settings.').format(hint),
-			'click': function(ev) {
-				if (ev && (ev.ctrlKey || ev.metaKey)) {
-					if (ev.preventDefault)
-						ev.preventDefault();
-					window.location = url;
-					return;
-				}
-
-				this.filterClick('q', hint, ev);
-			}.bind(this)
-		}, text);
+		return links.ruleAdminLink(hint, label, this.firewallBackend,
+			(f, v, ev) => this.filterClick(f, v, ev));
 	},
 
 	ifaceLink(value) {
-		if (!value)
-			return log.formatCell(value);
-
-		return E('a', {
-			'href': '#',
-			'class': 'fwlive-filter-link fwlive-iface-badge',
-			'title': _('Filter by interface'),
-			'click': this.filterClick.bind(this, 'interface', value)
-		}, value);
+		return links.ifaceLink(value, (f, v, ev) => this.filterClick(f, v, ev));
 	},
 
 	setFilterFieldValue(field, value) {
@@ -1420,56 +1228,14 @@ return view.extend({
 		if (!bar)
 			return;
 
-		const filters = this.readFilters();
-		const chips = [];
-
-		for (let i = 0; i < this.FILTER_CHIP_FIELDS.length; i++) {
-			const spec = this.FILTER_CHIP_FIELDS[i];
-			const val = filters[spec.key];
-			if (!val)
-				continue;
-
-			const parsed = log.parseFilterValue(val);
-			const negated = parsed.negate;
-
-			chips.push(E('span', {
-				'class': 'fwlive-chip' + (negated ? ' fwlive-chip-negated' : '')
-			}, [
-				E('span', { 'class': 'fwlive-chip-label' }, this.filterChipLabelNodes(spec.label, val)),
-				E('span', {
-					'class': 'fwlive-chip-invert-wrap',
-					'data-tip': negated ? _('Include instead') : _('Exclude instead')
-				}, [
-					E('button', {
-						'type': 'button',
-						'class': 'fwlive-chip-invert',
-						'click': this.invertFilter.bind(this, spec.key)
-					}, '≠')
-				]),
-				E('a', {
-					'href': '#',
-					'class': 'fwlive-chip-remove',
-					'title': _('Remove filter'),
-					'click': this.clearFilter.bind(this, spec.key)
-				}, '×')
-			]));
-		}
-
-		bar.innerHTML = '';
-		if (!chips.length) {
-			bar.style.display = 'none';
-			return;
-		}
-
-		bar.style.display = 'flex';
-		for (let i = 0; i < chips.length; i++)
-			bar.appendChild(chips[i]);
-
-		bar.appendChild(E('a', {
-			'href': '#',
-			'class': 'fwlive-chip-clear',
-			'click': this.clearAllFilters.bind(this)
-		}, _('Clear all')));
+		chips.renderFilterChips(bar, {
+			filters: Object.assign({}, this.readFilters()),
+			chipFields: this.FILTER_CHIP_FIELDS
+		}, {
+			onInvert: (field, ev) => this.invertFilter(field, ev),
+			onClear: (field, ev) => this.clearFilter(field, ev),
+			onClearAll: (ev) => this.clearAllFilters(ev)
+		});
 	},
 
 	readMessageLayout() {
@@ -1790,7 +1556,7 @@ return view.extend({
 					E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Enable logging if the table is empty on a stock config.')),
 					E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
 					E('li', {}, _('The rate shown next to WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
-					this.manualLoggingTestNodes(),
+					E('li', { 'id': 'fwlive-manual-test' }, []),
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
 					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
 					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
@@ -1819,6 +1585,9 @@ return view.extend({
 		this.updateBackendUi();
 		this.updateTintWarnUi();
 		this.renderRows(true);
+		const testLi = document.getElementById('fwlive-manual-test');
+		if (testLi)
+			logging.renderManualTestNodes(testLi, { firewallBackend: this.firewallBackend }, {});
 		if (this.showHostnames)
 			this.resolveHostnamesForEntries(this.filteredRows());
 	}
