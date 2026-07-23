@@ -112,9 +112,15 @@ if [[ -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"cat > /www/luci-static/resources/view/status/fwlive.js" \
 		< "$FWLIVE_DIR/view/status/fwlive.js"
-	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
-		"cat > /www/luci-static/resources/fwlive/log.js" \
-		< "$FWLIVE_DIR/fwlive/log.js"
+	shopt -s nullglob
+	for js in "$FWLIVE_DIR"/fwlive/*.js; do
+		base=$(basename "$js")
+		echo "  sync fwlive/${base}"
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"cat > /www/luci-static/resources/fwlive/${base}" \
+			< "$js"
+	done
+	shopt -u nullglob
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"rm -f /www/luci-static/resources/fwlive/parser.js"
 fi
