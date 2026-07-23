@@ -15,6 +15,7 @@ LuCI **Firewall Live View** — client-side JS view polling `ubus fwlive poll` (
 | `htdocs/luci-static/resources/fwlive/links.js` | Link-builder helpers (pure + filter-aware; no host) |
 | `htdocs/luci-static/resources/fwlive/chips.js` | Filter-chip DOM renderer (`renderFilterChips`) |
 | `htdocs/luci-static/resources/fwlive/logging.js` | Logging toolbar and empty-state DOM renderers |
+| `htdocs/luci-static/resources/fwlive/table.js` | Table thead/rows DOM renderer (`renderThead`, `renderRows`) |
 | `root/usr/share/luci/menu.d/*.json` | Menu entry (`admin/status/fwlive`) |
 | `root/usr/share/rpcd/acl.d/*.json` | ubus ACL (read + write for logging enable/disable) |
 | `root/usr/libexec/rpcd/fwlive` | rpcd plugin (`rules`, `poll`, `resolve`, `logging_status`, `enable_wan_logging`, `disable_wan_logging`) |
