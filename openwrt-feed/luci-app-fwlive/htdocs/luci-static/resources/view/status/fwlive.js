@@ -8,6 +8,7 @@
 'require poll';
 'require rpc';
 'require fwlive.log as log';
+'require fwlive.constants as constants';
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -53,16 +54,6 @@ const callFwliveDisableLogging = rpc.declare({
 	method: 'disable_wan_logging',
 	expect: { '': { ok: false, changed: false, wan_zone: null } }
 });
-
-const ROW_LIMIT_OPTIONS = [ 25, 50, 100, 250, 500, 1000, 2000 ];
-const DEFAULT_ROW_LIMIT = 100;
-const FETCH_LINES_MAX = 2000;
-const RENDER_CAP_PER_SEC = 250; // DOM budget: ~250 new/updated rows per second on typical LuCI routers
-const VIEW_MODES = [ 'simple', 'detailed' ];
-const COLUMN_SETS = {
-	simple: [ 'action', 'time', 'iface', 'flow', 'proto', 'rule' ],
-	detailed: [ 'time', 'action', 'rule', 'iface_in', 'iface_out', 'dir', 'proto', 'src', 'sport', 'dst', 'dport', 'flags', 'len', 'message' ]
-};
 
 /* FWLIVE_TINT_HELPERS_START */
 var FWLIVE_TINT_PAINT_DELTA_MIN = 8;
@@ -124,10 +115,10 @@ function fwliveTintShouldEngageFallback(opts) {
 /* FWLIVE_TINT_HELPERS_END */
 
 return view.extend({
-	rowLimit: DEFAULT_ROW_LIMIT,
-	maxHistory: DEFAULT_ROW_LIMIT,
-	fetchLines: FETCH_LINES_MAX,
-	visibleRows: DEFAULT_ROW_LIMIT,
+	rowLimit: constants.DEFAULT_ROW_LIMIT,
+	maxHistory: constants.DEFAULT_ROW_LIMIT,
+	fetchLines: constants.FETCH_LINES_MAX,
+	visibleRows: constants.DEFAULT_ROW_LIMIT,
 	entries: [],
 	sessionSeen: null,
 	sessionNewTotal: 0,
@@ -135,7 +126,7 @@ return view.extend({
 	pauseBufferLoading: false,
 	paused: false,
 	messageLayout: 'wrap',
-	renderBucket: RENDER_CAP_PER_SEC,
+	renderBucket: constants.RENDER_CAP_PER_SEC,
 	renderBucketMs: 0,
 	floodSuppressed: false,
 	lastPollNewEvents: 0,
@@ -189,7 +180,7 @@ return view.extend({
 		const parts = Object.keys(filters)
 			.filter((k) => filters[k])
 			.map((k) => '%s=%s'.format(encodeURIComponent(k), encodeURIComponent(filters[k])));
-		if (this.rowLimit !== DEFAULT_ROW_LIMIT)
+		if (this.rowLimit !== constants.DEFAULT_ROW_LIMIT)
 			parts.push('limit=%s'.format(encodeURIComponent(this.rowLimit)));
 		if (this.viewMode === 'detailed')
 			parts.push('view=detailed');
@@ -209,7 +200,7 @@ return view.extend({
 			const val = decodeURIComponent(kv[1]);
 			if (key === 'limit') {
 				const n = parseInt(val, 10);
-				if (isFinite(n) && ROW_LIMIT_OPTIONS.indexOf(n) >= 0) {
+				if (isFinite(n) && constants.ROW_LIMIT_OPTIONS.indexOf(n) >= 0) {
 					this.applyRowLimit(n);
 					this.saveRowLimit();
 				}
@@ -384,7 +375,7 @@ return view.extend({
 	},
 
 	activeColumns() {
-		return COLUMN_SETS[this.viewMode] || COLUMN_SETS.simple;
+		return constants.COLUMN_SETS[this.viewMode] || constants.COLUMN_SETS.simple;
 	},
 
 	columnLabel(col) {
@@ -455,7 +446,7 @@ return view.extend({
 	},
 
 	setViewMode(mode) {
-		if (VIEW_MODES.indexOf(mode) < 0 || mode === this.viewMode)
+		if (constants.VIEW_MODES.indexOf(mode) < 0 || mode === this.viewMode)
 			return;
 
 		this.viewMode = mode;
@@ -1000,7 +991,7 @@ return view.extend({
 	},
 
 	ingestCap() {
-		return this.paused ? FETCH_LINES_MAX : this.rowLimit;
+		return this.paused ? constants.FETCH_LINES_MAX : this.rowLimit;
 	},
 
 	trimEntriesToLiveCap() {
@@ -1035,8 +1026,8 @@ return view.extend({
 		const elapsed = now - this.renderBucketMs;
 		this.renderBucketMs = now;
 		this.renderBucket = Math.min(
-			RENDER_CAP_PER_SEC,
-			this.renderBucket + (elapsed * RENDER_CAP_PER_SEC / 1000)
+			constants.RENDER_CAP_PER_SEC,
+			this.renderBucket + (elapsed * constants.RENDER_CAP_PER_SEC / 1000)
 		);
 	},
 
@@ -1156,13 +1147,13 @@ return view.extend({
 	readRowLimit() {
 		try {
 			const n = parseInt(localStorage.getItem('fwlive-row-limit'), 10);
-			if (ROW_LIMIT_OPTIONS.indexOf(n) >= 0)
+			if (constants.ROW_LIMIT_OPTIONS.indexOf(n) >= 0)
 				return n;
 		} catch (e) {
 			/* private mode / no storage */
 		}
 
-		return DEFAULT_ROW_LIMIT;
+		return constants.DEFAULT_ROW_LIMIT;
 	},
 
 	saveRowLimit() {
@@ -1174,10 +1165,10 @@ return view.extend({
 	},
 
 	applyRowLimit(limit) {
-		const n = ROW_LIMIT_OPTIONS.indexOf(limit) >= 0 ? limit : DEFAULT_ROW_LIMIT;
+		const n = constants.ROW_LIMIT_OPTIONS.indexOf(limit) >= 0 ? limit : constants.DEFAULT_ROW_LIMIT;
 		this.rowLimit = n;
 		this.maxHistory = n;
-		this.fetchLines = FETCH_LINES_MAX;
+		this.fetchLines = constants.FETCH_LINES_MAX;
 		this.visibleRows = n;
 		if (!this.paused && this.entries.length > n)
 			this.entries = this.entries.slice(-n);
@@ -1251,7 +1242,7 @@ return view.extend({
 
 	onRowLimitChange(ev) {
 		const n = parseInt(ev && ev.target ? ev.target.value : '', 10);
-		if (!isFinite(n) || ROW_LIMIT_OPTIONS.indexOf(n) < 0)
+		if (!isFinite(n) || constants.ROW_LIMIT_OPTIONS.indexOf(n) < 0)
 			return;
 
 		this.applyRowLimit(n);
@@ -1271,8 +1262,8 @@ return view.extend({
 
 	limitSelectOptions() {
 		const opts = [];
-		for (let i = 0; i < ROW_LIMIT_OPTIONS.length; i++) {
-			const n = ROW_LIMIT_OPTIONS[i];
+		for (let i = 0; i < constants.ROW_LIMIT_OPTIONS.length; i++) {
+			const n = constants.ROW_LIMIT_OPTIONS[i];
 			opts.push(E('option', { 'value': String(n) }, String(n)));
 		}
 		return opts;
