@@ -14,6 +14,7 @@
 'require fwlive.links as links';
 'require fwlive.chips as chips';
 'require fwlive.logging as logging';
+'require fwlive.table as table';
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -325,52 +326,6 @@ return view.extend({
 		return constants.COLUMN_SETS[this.viewMode] || constants.COLUMN_SETS.simple;
 	},
 
-	columnLabel(col) {
-		const labels = {
-			time: _('Time'),
-			action: _('Action'),
-			rule: _('Rule'),
-			iface: _('Interface'),
-			iface_in: _('IN'),
-			iface_out: _('OUT'),
-			dir: _('Dir'),
-			proto: _('Proto'),
-			src: _('Source'),
-			dst: _('Destination'),
-			sport: _('SPort'),
-			dport: _('DPort'),
-			flags: _('Flags'),
-			len: _('Len'),
-			flow: _('Flow'),
-			message: _('Message')
-		};
-
-		return labels[col] || col;
-	},
-
-	columnCellClass(col) {
-		switch (col) {
-		case 'time': return 'fwlive-time';
-		case 'action': return 'fwlive-action';
-		case 'rule': return 'fwlive-rule';
-		case 'iface':
-		case 'iface_in':
-		case 'iface_out': return 'fwlive-iface';
-		case 'dir': return 'fwlive-dir';
-		case 'proto': return 'fwlive-proto';
-		case 'src':
-		case 'dst': return 'fwlive-addr';
-		case 'sport':
-		case 'dport': return 'fwlive-port';
-		case 'flags': return 'fwlive-flags';
-		case 'len': return 'fwlive-len';
-		case 'flow': return 'fwlive-flow-cell';
-		case 'message': return 'fwlive-message fwlive-th-message';
-		default: return '';
-		}
-	},
-
-
 	setViewMode(mode) {
 		if (constants.VIEW_MODES.indexOf(mode) < 0 || mode === this.viewMode)
 			return;
@@ -435,113 +390,12 @@ return view.extend({
 		this.renderRows(true);
 	},
 
-	flowCell(row) {
-		const parts = [];
-		const pushAddr = (addr, port, addrField, portField) => {
-			if (!addr && !port)
-				return;
-
-			if (addr)
-				parts.push(this.addrFilterLink(addrField, addr));
-			if (port) {
-				if (addr)
-					parts.push(':');
-				parts.push(this.filterLink(portField, port, port));
-			}
-		};
-
-		pushAddr(row.src, row.sport, 'src', 'sport');
-		if (parts.length && (row.dst || row.dport))
-			parts.push(E('span', { 'class': 'fwlive-flow-arrow' }, ' → '));
-		pushAddr(row.dst, row.dport, 'dst', 'dport');
-
-		if (!parts.length)
-			return '—';
-
-		return E('span', { 'class': 'fwlive-flow' }, parts);
-	},
-
-	buildColumnCell(col, row) {
-		const msgDisplay = log.formatMessageDisplay(row.message, this.messageLayout);
-		const actionCell = row.action && row.action !== 'unknown'
-			? this.filterLink('action', row.action, log.formatActionLabel(row.action))
-			: log.formatActionLabel(row.action);
-
-		switch (col) {
-		case 'time':
-			return E('td', { 'class': this.columnCellClass(col) },
-				this.viewMode === 'simple'
-					? log.formatTimestampCompact(row.timestamp)
-					: log.formatTimestampLocal(row.timestamp));
-		case 'action':
-			return E('td', { 'class': log.actionRowClass(row.action) }, actionCell);
-		case 'rule':
-			return E('td', { 'class': this.columnCellClass(col) }, this.ruleAdminLink(row.rule_hint, row.rule_label));
-		case 'iface':
-			return E('td', { 'class': this.columnCellClass(col) }, this.ifaceLink(row.interface_in));
-		case 'iface_in':
-		case 'iface_out':
-			return E('td', { 'class': this.columnCellClass(col) }, this.ifaceLink(
-				col === 'iface_in' ? row.interface_in : row.interface_out));
-		case 'dir':
-			return E('td', { 'class': this.columnCellClass(col) }, log.formatCell(row.direction));
-		case 'proto':
-			return E('td', { 'class': this.columnCellClass(col) }, this.filterLink('proto', row.proto));
-		case 'src':
-			return E('td', { 'class': this.columnCellClass(col) }, this.addrFilterLink('src', row.src));
-		case 'sport':
-			return E('td', { 'class': this.columnCellClass(col) }, this.filterLink('sport', row.sport));
-		case 'dst':
-			return E('td', { 'class': this.columnCellClass(col) }, this.addrFilterLink('dst', row.dst));
-		case 'dport':
-			return E('td', { 'class': this.columnCellClass(col) }, this.filterLink('dport', row.dport));
-		case 'flags':
-			return E('td', { 'class': this.columnCellClass(col) }, log.formatCell(row.flags));
-		case 'len':
-			return E('td', { 'class': this.columnCellClass(col) }, row.length != null ? String(row.length) : '');
-		case 'flow':
-			return E('td', { 'class': this.columnCellClass(col) }, this.flowCell(row));
-		case 'message':
-			if (this.messageLayout === 'wrap') {
-				return E('td', {
-					'class': 'fwlive-message',
-					'title': msgDisplay || ''
-				}, E('div', { 'class': 'fwlive-message-wrap' }, msgDisplay || '—'));
-			}
-			return E('td', {
-				'class': 'fwlive-message',
-				'title': msgDisplay || ''
-			}, msgDisplay || '—');
-		default:
-			return E('td', {}, '');
-		}
-	},
-
 	renderThead() {
-		const table = document.getElementById('fwlive-table');
-		if (!table)
+		const el = document.getElementById('fwlive-table');
+		if (!el)
 			return;
 
-		const tr = table.querySelector('thead tr');
-		if (!tr)
-			return;
-
-		const cols = this.activeColumns();
-		let colgroup = table.querySelector('colgroup');
-
-		if (!colgroup) {
-			colgroup = E('colgroup', {});
-			table.insertBefore(colgroup, table.firstChild);
-		}
-
-		colgroup.innerHTML = '';
-		tr.innerHTML = '';
-
-		for (let i = 0; i < cols.length; i++) {
-			const col = cols[i];
-			colgroup.appendChild(E('col', { 'class': 'fwlive-col fwlive-col-' + col.replace(/_/g, '-') }));
-			tr.appendChild(E('th', { 'class': this.columnCellClass(col) }, this.columnLabel(col)));
-		}
+		table.renderThead(el, { columns: this.activeColumns().slice() }, {});
 	},
 
 	async loadRulesMap() {
@@ -1285,11 +1139,11 @@ return view.extend({
 	},
 
 	renderRows(force) {
-		const table = document.getElementById('fwlive-table');
-		if (!table)
+		const el = document.getElementById('fwlive-table');
+		if (!el)
 			return;
 
-		const body = table.querySelector('tbody');
+		const body = el.querySelector('tbody');
 		const empty = document.getElementById('fwlive-empty');
 		const scroll = document.getElementById('fwlive-scroll');
 		this.updateHash(this.readFilters());
@@ -1315,42 +1169,26 @@ return view.extend({
 
 		const prevScroll = scroll ? scroll.scrollTop : 0;
 
-		body.innerHTML = '';
 		if (empty)
 			empty.style.display = rows.length ? 'none' : 'block';
 		this.updateStatus(rows);
 		this.renderFilterChips();
 
-		const cols = this.activeColumns();
-		for (let i = 0; i < rows.length; i++) {
-			const r = rows[i];
-			const rowClass = [
-				i % 2 ? 'fwlive-row-alt' : '',
-				this.viewMode === 'simple' ? 'fwlive-row-clickable' : '',
-				this.expandedRowId === r.id ? 'fwlive-row-expanded' : '',
-				this.rowTint ? this.actionRowTintClass(r.action) : ''
-			].filter(Boolean).join(' ');
-			const cells = [];
-			for (let c = 0; c < cols.length; c++)
-				cells.push(this.buildColumnCell(cols[c], r));
-
-			const tr = E('tr', {
-				'class': rowClass,
-				'click': this.viewMode === 'simple'
-					? this.onRowClick.bind(this, r.id) : null
-			}, cells);
-			body.appendChild(tr);
-
-			if (this.viewMode === 'simple' && this.expandedRowId === r.id) {
-				body.appendChild(E('tr', { 'class': 'fwlive-msg-expand' }, [
-					E('td', { 'colspan': String(cols.length) }, [
-						E('div', { 'class': 'fwlive-msg-expand-label' }, _('Message')),
-						E('pre', { 'class': 'fwlive-msg-expand-body' },
-							log.formatMessageDisplay(r.message, 'wrap') || '—')
-					])
-				]));
-			}
-		}
+		table.renderRows(body, {
+			rows: rows.slice(),
+			columns: this.activeColumns().slice(),
+			viewMode: this.viewMode,
+			messageLayout: this.messageLayout,
+			expandedRowId: this.expandedRowId,
+			rowTint: !!this.rowTint,
+			showHostnames: !!this.showHostnames,
+			hostnameCache: this.hostnameCache,
+			firewallBackend: this.firewallBackend
+		}, {
+			onRowClick: (rowId, ev) => this.onRowClick(rowId, ev),
+			onFilterClick: (field, value, ev) => this.filterClick(field, value, ev),
+			actionRowTintClass: (action) => this.actionRowTintClass(action)
+		});
 
 		if (scroll) {
 			if (!this.paused && this.followLive)
