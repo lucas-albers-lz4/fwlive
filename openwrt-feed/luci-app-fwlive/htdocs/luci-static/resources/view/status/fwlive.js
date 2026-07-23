@@ -57,7 +57,7 @@ const callFwliveDisableLogging = rpc.declare({
 const ROW_LIMIT_OPTIONS = [ 25, 50, 100, 250, 500, 1000, 2000 ];
 const DEFAULT_ROW_LIMIT = 100;
 const FETCH_LINES_MAX = 2000;
-const RENDER_CAP_PER_SEC = 250;
+const RENDER_CAP_PER_SEC = 250; // DOM budget: ~250 new/updated rows per second on typical LuCI routers
 const VIEW_MODES = [ 'simple', 'detailed' ];
 const COLUMN_SETS = {
 	simple: [ 'action', 'time', 'iface', 'flow', 'proto', 'rule' ],
@@ -588,12 +588,12 @@ return view.extend({
 			if (this.messageLayout === 'wrap') {
 				return E('td', {
 					'class': 'fwlive-message',
-					'title': row.message || ''
+					'title': msgDisplay || ''
 				}, E('div', { 'class': 'fwlive-message-wrap' }, msgDisplay || '—'));
 			}
 			return E('td', {
 				'class': 'fwlive-message',
-				'title': row.message || ''
+				'title': msgDisplay || ''
 			}, msgDisplay || '—');
 		default:
 			return E('td', {}, '');

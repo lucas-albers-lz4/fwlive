@@ -13,12 +13,20 @@ FW4_TAG='!fw4: '
 LIBEXEC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FILTER_SH="$LIBEXEC_DIR/fwlive-log-filter.sh"
 LOGGING_SH="$LIBEXEC_DIR/fwlive-logging.sh"
+# Max reverse-DNS lookups per resolve call (~32 names keeps getent load bounded on small routers).
 RESOLVE_MAX=32
+# Fixed 1s getent timeout; passed as argv to `timeout`, never interpolated into a shell string.
 RESOLVE_TIMEOUT=1
+# Cap raw logd lines per poll (~2000 ≈ typical logd ring / ~200 KB JSON before filter).
 POLL_LINES_MAX=2000
 
 json_escape() {
-	awk 'BEGIN { RS = ""; ORS = "" }
+	# Escape for JSON string content per RFC 8259 (including remaining C0 controls).
+	awk 'BEGIN {
+		RS = ""; ORS = ""
+		for (n = 1; n < 128; n++)
+			ord[sprintf("%c", n)] = n
+	}
 	{
 		for (i = 1; i <= length($0); i++) {
 			c = substr($0, i, 1)
@@ -27,7 +35,15 @@ json_escape() {
 			else if (c == "\t") printf "\\t"
 			else if (c == "\r") printf "\\r"
 			else if (c == "\n") printf "\\n"
-			else printf "%s", c
+			else {
+				o = ord[c] + 0
+				if (o > 0 && o < 32)
+					printf "\\u%04x", o
+				else if (o == 127)
+					printf "\\u007f"
+				else
+					printf "%s", c
+			}
 		}
 	}'
 }
@@ -245,6 +261,7 @@ poll_logs() {
 resolve_hostname() {
 	ip="$1"
 	[ -n "$ip" ] || return 1
+	is_resolvable_address "$ip" || return 1
 	line=""
 	if command -v timeout >/dev/null 2>&1; then
 		line=$(timeout "$RESOLVE_TIMEOUT" getent hosts "$ip" 2>/dev/null | head -1)
@@ -255,6 +272,18 @@ resolve_hostname() {
 	set -- $line
 	[ "$#" -ge 2 ] || return 1
 	printf '%s' "$2"
+}
+
+# Accept only IPv4/IPv6-shaped tokens before getent (reject shell metachar / hostnames).
+is_resolvable_address() {
+	addr="$1"
+	[ -n "$addr" ] || return 1
+	case "$addr" in
+		*[!0-9a-fA-F:.]*) return 1 ;;
+		*.*.*.*|*:* ) ;;
+		*) return 1 ;;
+	esac
+	return 0
 }
 
 resolve_addresses() {
@@ -282,6 +311,10 @@ resolve_addresses() {
 		while json_get_type atype "$idx" && [ "$atype" = string ]; do
 			[ "$count" -ge "$RESOLVE_MAX" ] && break
 			json_get_var ip "$idx"
+			if ! is_resolvable_address "$ip"; then
+				idx=$((idx + 1))
+				continue
+			fi
 			name=$(resolve_hostname "$ip")
 			if [ -n "$name" ]; then
 				map_add "$ip" "$name"
@@ -301,6 +334,36 @@ run_selftest() {
 	expected=$(printf 'a\\\\b\\"c\\nd\\te')
 	if [ "$escaped" != "$expected" ]; then
 		echo "json_escape: mismatch" >&2
+		return 1
+	fi
+
+	# Remaining C0 controls must become \u00XX (RFC 8259), not raw bytes.
+	input=$(printf 'x\001y\037z')
+	escaped=$(printf '%s' "$input" | json_escape)
+	expected='x\u0001y\u001fz'
+	if [ "$escaped" != "$expected" ]; then
+		echo "json_escape C0: expected $expected got $escaped" >&2
+		return 1
+	fi
+
+	if is_resolvable_address 'not an ip'; then
+		echo 'is_resolvable_address: expected reject for spaces' >&2
+		return 1
+	fi
+	if is_resolvable_address '$(reboot)'; then
+		echo 'is_resolvable_address: expected reject for metachar' >&2
+		return 1
+	fi
+	if is_resolvable_address 'example.com'; then
+		echo 'is_resolvable_address: expected reject for hostname' >&2
+		return 1
+	fi
+	if ! is_resolvable_address '192.0.2.1'; then
+		echo 'is_resolvable_address: expected accept IPv4' >&2
+		return 1
+	fi
+	if ! is_resolvable_address '2001:db8::1'; then
+		echo 'is_resolvable_address: expected accept IPv6' >&2
 		return 1
 	fi
 

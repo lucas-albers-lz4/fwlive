@@ -3,7 +3,8 @@
 # Copyright 2025-2026 Lucas Albers <lucas.b.albers@gmail.com>
 #
 # Filter log.read JSON to firewall-only entries (isFirewallEvent parity).
-# Usage: ubus call log read '...' | /usr/libexec/fwlive-log-filter.sh
+# Log messages are treated as data (jsonfilter + grep stdin); never interpolated
+# into shell command strings. Usage: ubus call log read '...' | fwlive-log-filter.sh
 
 FILTER_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$FILTER_DIR/fwlive-is-firewall-event.sh"
