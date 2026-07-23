@@ -14,13 +14,22 @@ const VIEW_PATH = path.join(
 	ROOT,
 	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js'
 );
+const CSS_PATH = path.join(
+	ROOT,
+	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/css.js'
+);
 
 const text = fs.readFileSync(VIEW_PATH, 'utf8');
-const styleMatch = text.match(/E\('style',\s*\{\},\s*`([\s\S]*?)`\)/);
-if (!styleMatch)
-	throw new Error('could not extract inline style block from fwlive.js');
+if (!text.includes("E('style', {}, css.styleText)"))
+	throw new Error('fwlive.js must inject styles via css.styleText');
 
-const css = styleMatch[1];
+const cssMod = (function () {
+	const src = fs.readFileSync(CSS_PATH, 'utf8').replace(/^'use strict';\s*/, '');
+	return new Function(src)();
+})();
+const css = cssMod.styleText;
+if (!css || typeof css !== 'string')
+	throw new Error('could not load styleText from fwlive/css.js');
 
 /* Hex is allowed only in scoped tint/zebra token chains and zebra dual-paint base. */
 const tintHexAllowRe = /--fwlive-(?:(?:pass|deny)-color|bg-medium):\s*var\([^;]*#[0-9a-fA-F]{3,8}/g;

@@ -10,6 +10,8 @@ LuCI **Firewall Live View** — client-side JS view polling `ubus fwlive poll` (
 | `htdocs/luci-static/resources/view/status/fwlive.js` | LuCI view (`view.extend`) |
 | `htdocs/luci-static/resources/fwlive/log.js` | Parser/filter module (mirror of repo `core/fwlive-log.js`) |
 | `htdocs/luci-static/resources/fwlive/constants.js` | Shared view constants (plain LuCI `return { … }` module) |
+| `htdocs/luci-static/resources/fwlive/css.js` | Inline stylesheet string (`styleText` for `E('style', …)`) |
+| `htdocs/luci-static/resources/fwlive/tint.js` | Row-tint paint helpers (plain module) |
 | `root/usr/share/luci/menu.d/*.json` | Menu entry (`admin/status/fwlive`) |
 | `root/usr/share/rpcd/acl.d/*.json` | ubus ACL (read + write for logging enable/disable) |
 | `root/usr/libexec/rpcd/fwlive` | rpcd plugin (`rules`, `poll`, `resolve`, `logging_status`, `enable_wan_logging`, `disable_wan_logging`) |

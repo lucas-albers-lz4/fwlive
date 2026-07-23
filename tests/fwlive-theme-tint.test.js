@@ -2,8 +2,8 @@
 'use strict';
 
 /**
- * Host unit tests for air-gapped row-tint paint-delta helpers (issue #14).
- * Extracts FWLIVE_TINT_HELPERS_* block from fwlive.js and exercises pure logic.
+ * Host unit tests for air-gapped row-tint paint-delta helpers (issue #14 / #23).
+ * Loads fwlive/tint.js plain-export body (strip LuCI return) and exercises pure logic.
  */
 
 const fs = require('fs');
@@ -11,29 +11,39 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
+const TINT_PATH = path.join(
+	ROOT,
+	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js'
+);
 const VIEW_PATH = path.join(
 	ROOT,
 	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js'
 );
 
+const tintSrc = fs.readFileSync(TINT_PATH, 'utf8');
 const text = fs.readFileSync(VIEW_PATH, 'utf8');
-const block = text.match(
-	/\/\* FWLIVE_TINT_HELPERS_START \*\/([\s\S]*?)\/\* FWLIVE_TINT_HELPERS_END \*\//
-);
-if (!block)
-	throw new Error('missing FWLIVE_TINT_HELPERS_START/END block in fwlive.js');
 
-const sandbox = {};
-vm.runInNewContext(block[1], sandbox);
+const sandbox = { module: { exports: {} }, exports: {} };
+// Evaluate tint.js as a LuCI-style module: capture `return {…}` via Function
+const mod = new Function(
+	'var module = this.module; var exports = this.exports;\n' +
+	tintSrc.replace(/^'use strict';/, '') +
+	'\nreturn typeof module.exports !== "undefined" ? module.exports : undefined;'
+);
+// tint.js uses top-level return — run via wrapper
+const tint = (function () {
+	const body = tintSrc.replace(/^'use strict';\s*/, '');
+	return new Function(body)();
+})();
 
 const {
-	FWLIVE_TINT_PAINT_DELTA_MIN,
-	FWLIVE_TINT_PASS_HEX,
-	FWLIVE_TINT_DENY_HEX,
-	fwliveParseCssRgbChannels,
-	fwliveCssColorPaintDelta,
-	fwliveTintShouldEngageFallback
-} = sandbox;
+	PAINT_DELTA_MIN: FWLIVE_TINT_PAINT_DELTA_MIN,
+	PASS_HEX: FWLIVE_TINT_PASS_HEX,
+	DENY_HEX: FWLIVE_TINT_DENY_HEX,
+	parseCssRgbChannels: fwliveParseCssRgbChannels,
+	cssColorPaintDelta: fwliveCssColorPaintDelta,
+	tintShouldEngageFallback: fwliveTintShouldEngageFallback
+} = tint;
 
 function assert(cond, msg) {
 	if (!cond) {
@@ -42,9 +52,9 @@ function assert(cond, msg) {
 	}
 }
 
-assert(typeof FWLIVE_TINT_PAINT_DELTA_MIN === 'number', 'missing FWLIVE_TINT_PAINT_DELTA_MIN');
-assert(FWLIVE_TINT_PASS_HEX === '#46a546', 'unexpected FWLIVE_TINT_PASS_HEX');
-assert(FWLIVE_TINT_DENY_HEX === '#ca3c3c', 'unexpected FWLIVE_TINT_DENY_HEX');
+assert(typeof FWLIVE_TINT_PAINT_DELTA_MIN === 'number', 'missing PAINT_DELTA_MIN');
+assert(FWLIVE_TINT_PASS_HEX === '#46a546', 'unexpected PASS_HEX');
+assert(FWLIVE_TINT_DENY_HEX === '#ca3c3c', 'unexpected DENY_HEX');
 
 assert(fwliveParseCssRgbChannels('transparent') === null, 'transparent should be null');
 assert(fwliveParseCssRgbChannels('rgba(0, 0, 0, 0)') === null, 'fully transparent rgba should be null');
@@ -128,6 +138,6 @@ assert(
 	text.includes('air-gapped') || text.includes('no data leaves the device'),
 	'Help text must describe air-gapped fallback'
 );
-assert(!/fetch\(|XMLHttpRequest|navigator\.sendBeacon/.test(block[1]), 'helpers must stay air-gapped');
+assert(!/fetch\(|XMLHttpRequest|navigator\.sendBeacon/.test(tintSrc), 'helpers must stay air-gapped');
 
 console.log('fwlive theme tint helper tests passed');
