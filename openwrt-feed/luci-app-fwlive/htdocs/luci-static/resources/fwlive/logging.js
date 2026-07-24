@@ -1,4 +1,5 @@
 'use strict';
+'require baseclass';
 'require fwlive.links as links';
 
 /**
@@ -178,9 +179,9 @@ function renderManualTestNodes(host, state, _callbacks) {
 	}
 }
 
-return {
+return baseclass.extend({
 	renderToolbar: renderToolbar,
 	buildEmptyStateNodes: buildEmptyStateNodes,
 	renderEmptyState: renderEmptyState,
 	renderManualTestNodes: renderManualTestNodes
-};
+});

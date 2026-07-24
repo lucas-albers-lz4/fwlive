@@ -1,7 +1,9 @@
 'use strict';
+'require baseclass';
 
 /**
- * Row-tint paint helpers for luci-app-fwlive (plain LuCI module).
+ * Row-tint paint helpers for luci-app-fwlive.
+ * LuCI modules must return baseclass.extend(...) — plain objects fail Class.isSubclass.
  */
 var PAINT_DELTA_MIN = 8;
 var PASS_HEX = '#46a546';
@@ -60,11 +62,11 @@ function tintShouldEngageFallback(opts) {
 	return false;
 }
 
-return {
+return baseclass.extend({
 	PAINT_DELTA_MIN: PAINT_DELTA_MIN,
 	PASS_HEX: PASS_HEX,
 	DENY_HEX: DENY_HEX,
 	parseCssRgbChannels: parseCssRgbChannels,
 	cssColorPaintDelta: cssColorPaintDelta,
 	tintShouldEngageFallback: tintShouldEngageFallback
-};
+});

@@ -1,4 +1,5 @@
 'use strict';
+'require baseclass';
 'require fwlive.log as log';
 'require fwlive.links as links';
 
@@ -222,7 +223,7 @@ function renderRows(host, state, callbacks) {
 	}
 }
 
-return {
+return baseclass.extend({
 	renderThead: renderThead,
 	renderRows: renderRows
-};
+});

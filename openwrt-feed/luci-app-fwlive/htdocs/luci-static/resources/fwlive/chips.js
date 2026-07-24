@@ -1,4 +1,5 @@
 'use strict';
+'require baseclass';
 'require fwlive.log as log';
 
 /**
@@ -89,6 +90,6 @@ function renderFilterChips(host, state, callbacks) {
 	}, _('Clear all')));
 }
 
-return {
+return baseclass.extend({
 	renderFilterChips: renderFilterChips
-};
+});

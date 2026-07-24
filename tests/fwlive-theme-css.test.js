@@ -24,8 +24,11 @@ if (!text.includes("E('style', {}, css.styleText)"))
 	throw new Error('fwlive.js must inject styles via css.styleText');
 
 const cssMod = (function () {
-	const src = fs.readFileSync(CSS_PATH, 'utf8').replace(/^'use strict';\s*/, '');
-	return new Function(src)();
+	const src = fs.readFileSync(CSS_PATH, 'utf8')
+		.replace(/^'use strict';\s*/, '')
+		.replace(/^'require baseclass';\s*/m, '');
+	const baseclass = { extend: (desc) => desc };
+	return new Function('baseclass', src)(baseclass);
 })();
 const css = cssMod.styleText;
 if (!css || typeof css !== 'string')

@@ -3,12 +3,11 @@
 
 /**
  * Host unit tests for air-gapped row-tint paint-delta helpers (issue #14 / #23).
- * Loads fwlive/tint.js plain-export body (strip LuCI return) and exercises pure logic.
+ * Loads fwlive/tint.js (stub baseclass.extend) and exercises pure logic.
  */
 
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
 const TINT_PATH = path.join(
@@ -23,17 +22,13 @@ const VIEW_PATH = path.join(
 const tintSrc = fs.readFileSync(TINT_PATH, 'utf8');
 const text = fs.readFileSync(VIEW_PATH, 'utf8');
 
-const sandbox = { module: { exports: {} }, exports: {} };
-// Evaluate tint.js as a LuCI-style module: capture `return {…}` via Function
-const mod = new Function(
-	'var module = this.module; var exports = this.exports;\n' +
-	tintSrc.replace(/^'use strict';/, '') +
-	'\nreturn typeof module.exports !== "undefined" ? module.exports : undefined;'
-);
-// tint.js uses top-level return — run via wrapper
+// LuCI instantiates baseclass.extend(...); stub returns the descriptor object.
 const tint = (function () {
-	const body = tintSrc.replace(/^'use strict';\s*/, '');
-	return new Function(body)();
+	const body = tintSrc
+		.replace(/^'use strict';\s*/, '')
+		.replace(/^'require baseclass';\s*/m, '');
+	const baseclass = { extend: (desc) => desc };
+	return new Function('baseclass', body)(baseclass);
 })();
 
 const {
