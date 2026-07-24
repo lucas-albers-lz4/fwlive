@@ -11,7 +11,6 @@
 'require fwlive.constants as constants';
 'require fwlive.css as css';
 'require fwlive.tint as tint';
-'require fwlive.links as links';
 'require fwlive.chips as chips';
 'require fwlive.logging as logging';
 'require fwlive.table as table';
@@ -432,35 +431,6 @@ return view.extend({
 		this.updateEmptyStateUi();
 	},
 
-	firewallZonesPath() {
-		return links.firewallZonesPath();
-	},
-
-	firewallZonesUrl() {
-		return links.firewallZonesUrl();
-	},
-
-	firewallZonesLink(label) {
-		return links.firewallZonesLink(label);
-	},
-
-	loggingHasBlocker(code) {
-		const blockers = (this.loggingStatus && this.loggingStatus.blockers) || [];
-		return blockers.indexOf(code) >= 0;
-	},
-
-	loggingBlockerMessage() {
-		if (this.loggingHasBlocker('no_wan_zone'))
-			return 'no_wan_zone';
-
-		if (this.loggingHasBlocker('nf_log_ipv4_missing') ||
-		    this.loggingHasBlocker('nf_log_ipv6_missing'))
-			return 'nf_log_missing';
-
-		return '';
-	},
-
-
 	async loadLoggingStatus() {
 		try {
 			this.loggingStatus = await callFwliveLoggingStatus();
@@ -541,8 +511,7 @@ return view.extend({
 			loggingStatus: this.loggingStatus,
 			loggingBusy: this.loggingBusy,
 			entriesLength: this.entries.length,
-			loggingNotice: this.loggingNotice,
-			firewallBackend: this.firewallBackend
+			loggingNotice: this.loggingNotice
 		};
 	},
 
@@ -561,8 +530,7 @@ return view.extend({
 			this.loggingBusy ? '1' : '0',
 			/* entries empty bit: toolbar hides when !wan_log && no rows (logging.js). */
 			this.entries.length ? '1' : '0',
-			this.loggingNotice || '',
-			this.firewallBackend || ''
+			this.loggingNotice || ''
 		].join('|');
 	},
 
@@ -574,12 +542,12 @@ return view.extend({
 		const sig = this.loggingUiSignature();
 		if (sig === this._loggingToolbarSig)
 			return;
-		this._loggingToolbarSig = sig;
 
 		logging.renderToolbar(bar, this.loggingState(), {
 			onEnable: () => this.handleEnableLogging(),
 			onDisable: () => this.handleDisableLogging()
 		});
+		this._loggingToolbarSig = sig;
 	},
 
 	updateEmptyStateUi() {
@@ -590,7 +558,6 @@ return view.extend({
 		const sig = this.loggingUiSignature();
 		if (sig === this._loggingEmptySig)
 			return;
-		this._loggingEmptySig = sig;
 
 		const visible = empty.style.display !== 'none';
 		logging.renderEmptyState(empty, this.loggingState(), {
@@ -598,6 +565,7 @@ return view.extend({
 		});
 		if (visible)
 			empty.style.display = 'block';
+		this._loggingEmptySig = sig;
 	},
 
 	resolveRuleLabel(hint) {
@@ -973,17 +941,6 @@ return view.extend({
 		this.onFilterInput();
 	},
 
-	filterLink(field, value, label) {
-		return links.filterLink(field, value, label,
-			(f, v, ev) => this.filterClick(f, v, ev));
-	},
-
-	addrFilterLink(field, ip) {
-		return links.addrFilterLink(field, ip,
-			this.showHostnames, this.hostnameCache,
-			(f, v, ev) => this.filterClick(f, v, ev));
-	},
-
 	collectIpsFromEntries(entries) {
 		const ips = new Set();
 
@@ -1043,23 +1000,6 @@ return view.extend({
 		} finally {
 			this.resolveInFlight = false;
 		}
-	},
-
-	ruleAdminPath(hint) {
-		return links.ruleAdminPath(hint, this.firewallBackend);
-	},
-
-	luciUrl(path) {
-		return links.luciUrl(path);
-	},
-
-	ruleAdminLink(hint, label) {
-		return links.ruleAdminLink(hint, label, this.firewallBackend,
-			(f, v, ev) => this.filterClick(f, v, ev));
-	},
-
-	ifaceLink(value) {
-		return links.ifaceLink(value, (f, v, ev) => this.filterClick(f, v, ev));
 	},
 
 	setFilterFieldValue(field, value) {

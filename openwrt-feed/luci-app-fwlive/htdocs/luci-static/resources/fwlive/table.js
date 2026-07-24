@@ -163,7 +163,7 @@ function buildColumnCell(col, row, state, callbacks) {
 	}
 }
 
-function renderThead(host, state, callbacks) {
+function renderThead(host, state, _callbacks) {
 	const columns = state.columns || [];
 	const tr = host.querySelector('thead tr');
 	if (!tr)
