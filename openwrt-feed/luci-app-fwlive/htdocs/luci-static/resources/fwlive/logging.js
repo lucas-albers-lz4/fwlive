@@ -89,7 +89,15 @@ function renderToolbar(host, state, callbacks) {
 			'class': 'cbi-button cbi-button-action',
 			'type': 'button',
 			'disabled': state.loggingBusy ? '' : null,
-			'click': function() { callbacks.onDisable(); }
+			/* mousedown: poll/renderRows used to rebuild this bar every second and
+			   drop the node between mousedown and click (intermittent 2nd click). */
+			'mousedown': function(ev) {
+				if (ev && ev.button != null && ev.button !== 0)
+					return;
+				if (ev && ev.preventDefault)
+					ev.preventDefault();
+				callbacks.onDisable();
+			}
 		}, state.loggingBusy ? _('Disabling…') : _('Disable logging')));
 		return;
 	}
@@ -100,7 +108,13 @@ function renderToolbar(host, state, callbacks) {
 		'class': 'cbi-button cbi-button-action',
 		'type': 'button',
 		'disabled': state.loggingBusy ? '' : null,
-		'click': function() { callbacks.onEnable(); }
+		'mousedown': function(ev) {
+			if (ev && ev.button != null && ev.button !== 0)
+				return;
+			if (ev && ev.preventDefault)
+				ev.preventDefault();
+			callbacks.onEnable();
+		}
 	}, state.loggingBusy ? _('Enabling…') : _('Enable logging')));
 }
 
@@ -146,7 +160,13 @@ function buildEmptyStateNodes(state, callbacks) {
 			'class': 'cbi-button cbi-button-action',
 			'type': 'button',
 			'disabled': state.loggingBusy ? '' : null,
-			'click': function() { callbacks.onEnable(); }
+			'mousedown': function(ev) {
+				if (ev && ev.button != null && ev.button !== 0)
+					return;
+				if (ev && ev.preventDefault)
+					ev.preventDefault();
+				callbacks.onEnable();
+			}
 		}, state.loggingBusy ? _('Enabling…') : _('Enable logging')),
 		' ',
 		links.firewallZonesLink()

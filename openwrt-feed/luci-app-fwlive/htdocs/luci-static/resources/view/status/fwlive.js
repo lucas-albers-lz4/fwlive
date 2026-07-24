@@ -544,10 +544,31 @@ return view.extend({
 		};
 	},
 
+	/* Stable signature so poll/renderRows does not wipe the logging button every
+	   second (destroys the node between mousedown and click → needs a 2nd click). */
+	loggingUiSignature() {
+		const st = this.loggingStatus;
+		const blockers = (st && st.blockers) ? st.blockers.join(',') : '';
+		return [
+			st ? (st.wan_log ? '1' : '0') : 'x',
+			st ? String(st.wan_log_limit || '') : '',
+			blockers,
+			this.loggingBusy ? '1' : '0',
+			this.entries.length ? '1' : '0',
+			this.loggingNotice || '',
+			this.firewallBackend || ''
+		].join('|');
+	},
+
 	updateLoggingToolbarUi() {
 		const bar = document.getElementById('fwlive-logging-bar');
 		if (!bar)
 			return;
+
+		const sig = this.loggingUiSignature();
+		if (sig === this._loggingToolbarSig)
+			return;
+		this._loggingToolbarSig = sig;
 
 		logging.renderToolbar(bar, this.loggingState(), {
 			onEnable: () => this.handleEnableLogging(),
@@ -559,6 +580,11 @@ return view.extend({
 		const empty = document.getElementById('fwlive-empty');
 		if (!empty)
 			return;
+
+		const sig = this.loggingUiSignature();
+		if (sig === this._loggingEmptySig)
+			return;
+		this._loggingEmptySig = sig;
 
 		const visible = empty.style.display !== 'none';
 		logging.renderEmptyState(empty, this.loggingState(), {
