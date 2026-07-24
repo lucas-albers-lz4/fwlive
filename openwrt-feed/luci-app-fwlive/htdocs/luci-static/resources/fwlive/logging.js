@@ -1,4 +1,5 @@
 'use strict';
+'require baseclass';
 'require fwlive.links as links';
 
 /**
@@ -7,8 +8,8 @@
  * renderToolbar(host, state, callbacks) → void
  *   host      - #fwlive-logging-bar element (cleared and rebuilt; element kept)
  *   state     - shallow copy: { loggingStatus, loggingBusy, entriesLength,
- *                               loggingNotice, firewallBackend }
- *   callbacks - { onEnable() → Promise, onDisable() → Promise }
+ *                               loggingNotice }
+ *   callbacks - { onEnable(), onDisable() }  (async handlers OK; invoked fire-and-forget)
  *
  * renderManualTestNodes(host, state, callbacks) → void
  *   host      - <ul> element inside #fwlive-help (cleared and rebuilt)
@@ -16,11 +17,11 @@
  *   callbacks - {} (unused; present for API consistency)
  *
  * Empty-state helpers:
- *   buildEmptyStateNodes(state) → Node[]
+ *   buildEmptyStateNodes(state, callbacks) → Node[]
  *   renderEmptyState(host, state, callbacks) → void
  *     host      - #fwlive-empty element
  *     state     - same as renderToolbar state
- *     callbacks - { onEnable() → Promise }
+ *     callbacks - { onEnable() }
  *
  * Modules must not mutate state. host is cleared then rebuilt (idempotent replace).
  */
@@ -178,9 +179,9 @@ function renderManualTestNodes(host, state, _callbacks) {
 	}
 }
 
-return {
+return baseclass.extend({
 	renderToolbar: renderToolbar,
 	buildEmptyStateNodes: buildEmptyStateNodes,
 	renderEmptyState: renderEmptyState,
 	renderManualTestNodes: renderManualTestNodes
-};
+});

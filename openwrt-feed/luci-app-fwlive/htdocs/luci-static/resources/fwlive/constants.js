@@ -1,10 +1,11 @@
 'use strict';
+'require baseclass';
 
 /**
- * Shared view constants for luci-app-fwlive (plain LuCI module export).
- * Phase 0 spike (#23): verify `'require fwlive.constants as constants'` resolves.
+ * Shared view constants for luci-app-fwlive.
+ * LuCI modules must return baseclass.extend(...) — plain objects fail Class.isSubclass.
  */
-return {
+return baseclass.extend({
 	ROW_LIMIT_OPTIONS: [ 25, 50, 100, 250, 500, 1000, 2000 ],
 	DEFAULT_ROW_LIMIT: 100,
 	FETCH_LINES_MAX: 2000,
@@ -15,4 +16,4 @@ return {
 		simple: [ 'action', 'time', 'iface', 'flow', 'proto', 'rule' ],
 		detailed: [ 'time', 'action', 'rule', 'iface_in', 'iface_out', 'dir', 'proto', 'src', 'sport', 'dst', 'dport', 'flags', 'len', 'message' ]
 	}
-};
+});

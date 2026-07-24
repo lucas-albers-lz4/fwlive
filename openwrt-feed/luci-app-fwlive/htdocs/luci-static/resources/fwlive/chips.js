@@ -1,4 +1,5 @@
 'use strict';
+'require baseclass'; /* LuCI require() needs Class.isSubclass — plain return {} fails */
 'require fwlive.log as log';
 
 /**
@@ -89,6 +90,6 @@ function renderFilterChips(host, state, callbacks) {
 	}, _('Clear all')));
 }
 
-return {
+return baseclass.extend({
 	renderFilterChips: renderFilterChips
-};
+});

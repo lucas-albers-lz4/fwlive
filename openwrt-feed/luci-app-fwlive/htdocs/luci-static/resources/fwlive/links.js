@@ -1,4 +1,5 @@
 'use strict';
+'require baseclass'; /* LuCI require() needs Class.isSubclass — plain return {} fails */
 'require fwlive.log as log';
 
 /**
@@ -137,7 +138,7 @@ function ifaceLink(value, onFilterClick) {
 	}, value);
 }
 
-return {
+return baseclass.extend({
 	luciUrl: luciUrl,
 	firewallZonesPath: firewallZonesPath,
 	firewallZonesUrl: firewallZonesUrl,
@@ -147,4 +148,4 @@ return {
 	ruleAdminPath: ruleAdminPath,
 	ruleAdminLink: ruleAdminLink,
 	ifaceLink: ifaceLink
-};
+});

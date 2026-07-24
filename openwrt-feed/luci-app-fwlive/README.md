@@ -9,9 +9,9 @@ LuCI **Firewall Live View** — client-side JS view polling `ubus fwlive poll` (
 | `Makefile` | `LUCI_TITLE`, `LUCI_DEPENDS`, includes `luci.mk` |
 | `htdocs/luci-static/resources/view/status/fwlive.js` | LuCI view (`view.extend`) |
 | `htdocs/luci-static/resources/fwlive/log.js` | Parser/filter module (mirror of repo `core/fwlive-log.js`) |
-| `htdocs/luci-static/resources/fwlive/constants.js` | Shared view constants (plain LuCI `return { … }` module) |
+| `htdocs/luci-static/resources/fwlive/constants.js` | Shared view constants (`baseclass.extend` module) |
 | `htdocs/luci-static/resources/fwlive/css.js` | Inline stylesheet string (`styleText` for `E('style', …)`) |
-| `htdocs/luci-static/resources/fwlive/tint.js` | Row-tint paint helpers (plain module) |
+| `htdocs/luci-static/resources/fwlive/tint.js` | Row-tint paint helpers (`baseclass.extend` module) |
 | `htdocs/luci-static/resources/fwlive/links.js` | Link-builder helpers (pure + filter-aware; no host) |
 | `htdocs/luci-static/resources/fwlive/chips.js` | Filter-chip DOM renderer (`renderFilterChips`) |
 | `htdocs/luci-static/resources/fwlive/logging.js` | Logging toolbar and empty-state DOM renderers |

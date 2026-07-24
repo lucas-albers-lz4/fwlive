@@ -1,4 +1,5 @@
 'use strict';
+'require baseclass';
 'require fwlive.log as log';
 'require fwlive.links as links';
 
@@ -162,7 +163,7 @@ function buildColumnCell(col, row, state, callbacks) {
 	}
 }
 
-function renderThead(host, state, callbacks) {
+function renderThead(host, state, _callbacks) {
 	const columns = state.columns || [];
 	const tr = host.querySelector('thead tr');
 	if (!tr)
@@ -222,7 +223,7 @@ function renderRows(host, state, callbacks) {
 	}
 }
 
-return {
+return baseclass.extend({
 	renderThead: renderThead,
 	renderRows: renderRows
-};
+});
