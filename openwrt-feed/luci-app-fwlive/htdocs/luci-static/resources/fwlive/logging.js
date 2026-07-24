@@ -9,7 +9,7 @@
  *   host      - #fwlive-logging-bar element (cleared and rebuilt; element kept)
  *   state     - shallow copy: { loggingStatus, loggingBusy, entriesLength,
  *                               loggingNotice, firewallBackend }
- *   callbacks - { onEnable() → Promise, onDisable() → Promise }
+ *   callbacks - { onEnable(), onDisable() }  (async handlers OK; invoked fire-and-forget)
  *
  * renderManualTestNodes(host, state, callbacks) → void
  *   host      - <ul> element inside #fwlive-help (cleared and rebuilt)
@@ -89,15 +89,7 @@ function renderToolbar(host, state, callbacks) {
 			'class': 'cbi-button cbi-button-action',
 			'type': 'button',
 			'disabled': state.loggingBusy ? '' : null,
-			/* mousedown: poll/renderRows used to rebuild this bar every second and
-			   drop the node between mousedown and click (intermittent 2nd click). */
-			'mousedown': function(ev) {
-				if (ev && ev.button != null && ev.button !== 0)
-					return;
-				if (ev && ev.preventDefault)
-					ev.preventDefault();
-				callbacks.onDisable();
-			}
+			'click': function() { callbacks.onDisable(); }
 		}, state.loggingBusy ? _('Disabling…') : _('Disable logging')));
 		return;
 	}
@@ -108,13 +100,7 @@ function renderToolbar(host, state, callbacks) {
 		'class': 'cbi-button cbi-button-action',
 		'type': 'button',
 		'disabled': state.loggingBusy ? '' : null,
-		'mousedown': function(ev) {
-			if (ev && ev.button != null && ev.button !== 0)
-				return;
-			if (ev && ev.preventDefault)
-				ev.preventDefault();
-			callbacks.onEnable();
-		}
+		'click': function() { callbacks.onEnable(); }
 	}, state.loggingBusy ? _('Enabling…') : _('Enable logging')));
 }
 
@@ -160,13 +146,7 @@ function buildEmptyStateNodes(state, callbacks) {
 			'class': 'cbi-button cbi-button-action',
 			'type': 'button',
 			'disabled': state.loggingBusy ? '' : null,
-			'mousedown': function(ev) {
-				if (ev && ev.button != null && ev.button !== 0)
-					return;
-				if (ev && ev.preventDefault)
-					ev.preventDefault();
-				callbacks.onEnable();
-			}
+			'click': function() { callbacks.onEnable(); }
 		}, state.loggingBusy ? _('Enabling…') : _('Enable logging')),
 		' ',
 		links.firewallZonesLink()

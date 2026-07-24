@@ -93,6 +93,8 @@ return view.extend({
 	loggingStatus: null,
 	loggingBusy: false,
 	loggingNotice: '',
+	_loggingToolbarSig: '',
+	_loggingEmptySig: '',
 	tintFallbackActive: false,
 	tintProbeDone: false,
 
@@ -548,12 +550,16 @@ return view.extend({
 	   second (destroys the node between mousedown and click → needs a 2nd click). */
 	loggingUiSignature() {
 		const st = this.loggingStatus;
-		const blockers = (st && st.blockers) ? st.blockers.join(',') : '';
+		/* Sort blockers so unstable backend order does not force a rebuild. */
+		const blockers = (st && st.blockers)
+			? st.blockers.slice().sort().join(',')
+			: '';
 		return [
 			st ? (st.wan_log ? '1' : '0') : 'x',
 			st ? String(st.wan_log_limit || '') : '',
 			blockers,
 			this.loggingBusy ? '1' : '0',
+			/* entries empty bit: toolbar hides when !wan_log && no rows (logging.js). */
 			this.entries.length ? '1' : '0',
 			this.loggingNotice || '',
 			this.firewallBackend || ''

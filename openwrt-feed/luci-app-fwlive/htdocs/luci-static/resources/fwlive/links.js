@@ -1,5 +1,5 @@
 'use strict';
-'require baseclass';
+'require baseclass'; /* LuCI require() needs Class.isSubclass — plain return {} fails */
 'require fwlive.log as log';
 
 /**
