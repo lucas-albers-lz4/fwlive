@@ -148,7 +148,7 @@ Production target remains **armsr**; x86 QEMU is the fast UI lab.
 
 | Doc | Purpose |
 | --- | ------- |
-| [dev-environment.md](dev-environment.md) | Host setup |
+| [Environment setup](developer/environment.md) | Host setup |
 | [fwlive-nft-logging.md](fwlive-nft-logging.md) | Enable firewall logs |
 | [opnsense-liveview-parity.md](opnsense-liveview-parity.md) | Feature matrix |
 | [openwrt-fwlive-schema.md](openwrt-fwlive-schema.md) | Event fields |

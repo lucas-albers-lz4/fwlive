@@ -80,7 +80,7 @@ Build:
 
 ## Environment
 
-Full loop on **Linux x86_64**: [`dev-environment.md`](dev-environment.md). Enable firewall **`log`**: [`fwlive-nft-logging.md`](fwlive-nft-logging.md).
+Full loop on **Linux x86_64**: [Developer guide → Environment](developer/environment.md). Enable firewall **`log`**: [`fwlive-nft-logging.md`](fwlive-nft-logging.md).
 
 **QEMU lab (recommended):**
 
