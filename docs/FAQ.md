@@ -42,7 +42,7 @@ Live View shows a **Rule** label only when the nft log line includes a **prefix*
 
 ### What does "Enable logging" on the page actually do?
 
-It sets `option log '1'` on your WAN firewall zone via UBIUS. This enables logging of rejected and dropped packets on the WAN interface. It does **not** log accepted LAN traffic.
+It sets `option log '1'` on your WAN firewall zone via ubus. This enables logging of rejected and dropped packets on the WAN interface. It does **not** log accepted LAN traffic.
 
 ---
 
