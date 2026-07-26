@@ -32,21 +32,18 @@ End-to-end validation reuses the flow proven on **23.05.5 x86** — generalized 
 # 1. Always run first
 ./scripts/validate-baseline.sh
 
-# 2. Build ipk for every version (no QEMU)
-./scripts/validate-openwrt-all.sh build
+# 2. Build (see sdk-build-matrix.md for full details)
+./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 
-# 3. Full SDK matrix (versions × sdk-targets)
-./scripts/validate-openwrt-all.sh build-full
-
-# 4. Fast smoke: each version on x86 KVM (sequential — stops QEMU between runs)
+# 3. Fast smoke: each version on x86 KVM (sequential — stops QEMU between runs)
 ./scripts/validate-openwrt-all.sh smoke-x86
 
-# 5. Single cell
+# 4. Single cell
 ./scripts/validate-openwrt.sh --version 24.10
 ./scripts/validate-openwrt.sh --version 25.12 --qemu-target armsr
 ./scripts/validate-openwrt.sh --version 23.05 --skip-build   # ipk already built
 
-# 6. List cells
+# 5. List cells
 ./scripts/validate-openwrt-all.sh list
 ```
 
