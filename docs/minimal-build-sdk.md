@@ -29,7 +29,7 @@ On **Linux x86_64**, prefer **[`ghcr.io/openwrt/sdk`](https://github.com/openwrt
 ./scripts/docker-sdk.sh list
 ./scripts/docker-sdk.sh build                                    # armsr-armv8 + snapshot
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
-./scripts/docker-sdk.sh build-all                                # 21.02–snapshot × both targets
+./scripts/docker-sdk.sh build-all                                # 21.02–snapshot × both targets (22.03: x86-64 only)
 ```
 
 Legacy wrappers (same default cell):
@@ -145,7 +145,7 @@ Custom kernel, non-default feeds baked into the image, or reproducible OEM-style
 
 ---
 
-# Troubleshooting / edge cases
+## Troubleshooting / edge cases
 
 ## Expected noise during feed setup
 
