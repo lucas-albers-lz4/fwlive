@@ -2,7 +2,7 @@
 
 Canonical setup: **Linux x86_64** build host, cross-compile for OpenWrt, test in **QEMU** (x86 KVM fast path or armsr production path).
 
-Full detail: [`../dev-environment.md`](../dev-environment.md) (legacy path — content summarized here).
+Full detail: [`../dev-environment.md`](../dev-environment.md) (legacy redirect — content consolidated here).
 
 ## Roles
 
