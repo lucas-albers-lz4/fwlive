@@ -71,5 +71,4 @@ upstream licenses and are not part of the shipped `luci-app-fwlive` package.
 ## Further reading
 
 - [UI design target — license and attribution](docs/fwlive-ui-design-target.md#license-and-attribution--evaluation)
-- [OPNsense vs OpenWrt — logging model](docs/opnsense-liveview-understanding.md)
 - [OPNsense parity matrix](docs/opnsense-liveview-parity.md)

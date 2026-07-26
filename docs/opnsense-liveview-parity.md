@@ -1,6 +1,6 @@
 # OPNsense Live View Parity Matrix (for LuCI MVP)
 
-**Context:** Parity is measured at **UI behavior** and **log-derived events**, not at PF vs nftables. OpenWrt uses nft/fw4; OPNsense uses PF — the portable layer is **firewall logging**. See **[`opnsense-liveview-understanding.md`](opnsense-liveview-understanding.md)** (PF vs nft, confidence, optional OPNsense source trace).
+**Context:** Parity is measured at **UI behavior** and **log-derived events**, not at PF vs nftables. OpenWrt uses nft/fw4; OPNsense uses PF — the portable layer is **firewall logging**. The useful comparison is what appears in firewall logs, not PF-vs-nft rule translation.
 
 **Architecture:** Our package uses the **modern LuCI JS view** (`view.extend()`, JSON-RPC ubus). OPNsense’s PHP/Volt server UI is **not** ported — only interaction and layout patterns. Target mapping: **[`fwlive-ui-design-target.md`](fwlive-ui-design-target.md)**.
 
@@ -15,7 +15,7 @@
 
 ## Staged roadmap
 
-See **[`fwlive-development-plan.md`](fwlive-development-plan.md)** for stages, CLI test commands, and exit criteria.
+See **[ROADMAP.md](ROADMAP.md)** for stages, CLI test commands, and exit criteria.
 
 ## LuCI MVP parity mapping
 

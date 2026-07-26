@@ -2,7 +2,7 @@
 
 Applies to **22.03+** images using firewall4/nft (primary path). Legacy **21.02.x** uses iptables `KEY=value` log lines — see [iptables logging reference](fwlive-iptables-logging.md). Examples below were validated on **24.10.5**; field availability may vary by release and image profile.
 
-**See also:** [OPNsense vs OpenWrt — logging-centric understanding](opnsense-liveview-understanding.md) · [OPNsense UI/API parity matrix](opnsense-liveview-parity.md)
+**See also:** [OPNsense UI/API parity matrix](opnsense-liveview-parity.md)
 
 ## Package location
 
