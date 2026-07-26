@@ -23,7 +23,7 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 - `action`: normalized enum: `pass`, `block`, `drop`, `reject`, or `unknown`.
 - `action_raw`: original token from the log line (`ACCEPT`, `DROP`, …).
 - `rule_hint`: tag parsed from log prefix / nft `log prefix` (e.g. `fwlive-ping`, `fw4`, `fwlive-test`); empty when unknown.
-- `rule_label`: display label derived from `rule_hint` (UCI name resolve deferred to stage 3.4+).
+- `rule_label`: display label derived from `rule_hint` (UCI name resolve via `ubus fwlive rules`).
 - `interface`: `IN` or `OUT` (legacy convenience).
 - `interface_in` / `interface_out`: from `IN=` / `OUT=`.
 - `direction`: `in`, `out`, `forward`, or `unknown`.

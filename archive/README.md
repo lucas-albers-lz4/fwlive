@@ -9,7 +9,7 @@ Items kept for reference. **Do not use for production builds** — use [`scripts
 | `scripts/run-openwrt-rootfs-x86-docker.sh` | Deprecated wrapper | `scripts/run-openwrt-x86-experiment.sh` |
 | `scripts/docker-compose.bind.yml` | macOS case-sensitive bind mount | Linux native or Docker volume SDK |
 | `macos/set-build-env.sh` | Homebrew GNU PATH | Build on Linux x86_64 (VM/CI) |
-| `macos/install-depends.sh` | `brew install` one-liner | [`docs/dev-environment.md`](../docs/dev-environment.md) |
+| `macos/install-depends.sh` | `brew install` one-liner | [Developer guide → Environment](../docs/developer/environment.md) |
 | `docs/implementation-next.md` | One-time 2026-03 checklist | Done — see [`docs/ROADMAP.md`](../docs/ROADMAP.md) |
 
 **macOS development:** edit JS/docs locally; run `./scripts/fwlive-test.sh` with Node. SDK builds and QEMU labs require **Linux x86_64**.

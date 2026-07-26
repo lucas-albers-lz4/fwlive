@@ -32,4 +32,4 @@
 - OpenWrt armsr (ARM64 virt) LuCI: `http://localhost:8080` (SSH host **2222** — same as [`run-openwrt-armsr-armv8-qemu.sh`](../scripts/run-openwrt-armsr-armv8-qemu.sh))
 - OPNsense Web UI: `https://localhost:8443`
 
-See [`docs/dev-environment.md`](../docs/dev-environment.md) for the full loop.
+See [Developer guide → Environment](../docs/developer/environment.md) for the full loop.

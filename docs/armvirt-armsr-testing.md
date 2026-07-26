@@ -33,7 +33,7 @@ Build the `.ipk` with the SDK that matches **the same release and `armsr/armv8` 
 | Topic | Note |
 |-------|------|
 | Typical toolchain triple | `aarch64-openwrt-linux-musl` (from SDK) |
-| SDK host | **`Linux-x86_64` only** — use [`dev-environment.md`](dev-environment.md) / official **`ghcr.io/openwrt/sdk:armsr-armv8`**. Not supported on ARM or macOS hosts. |
+| SDK host | **`Linux-x86_64` only** — use [Developer guide → Environment](developer/environment.md) / official **`ghcr.io/openwrt/sdk:armsr-armv8`**. Not supported on ARM or macOS hosts. |
 
 Then build **`luci-app-fwlive`** with the SDK ([`minimal-build-sdk.md`](minimal-build-sdk.md)) or a full OpenWrt tree ([`openwrt-full-source-build.md`](openwrt-full-source-build.md)).
 

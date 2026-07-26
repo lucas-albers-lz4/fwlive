@@ -1,10 +1,12 @@
-# Development environment (legacy redirect)
+# Development environment (stub note)
 
-> **This page is a legacy redirect.** The canonical developer environment docs are now in the [Developer guide → Environment](developer/environment.md).
+This page was previously a full development environment guide. The content has been consolidated into the developer guide:
 
-This file is kept as a redirect for external links. All content previously here has been consolidated into the developer guide:
+> **See:** [Developer guide → Environment](developer/environment.md) for host setup, Docker SDK, QEMU lab, and build instructions.
 
-- **[Environment setup](developer/environment.md)** — host packages, Docker SDK, QEMU
-- **[Build & test](developer/build-and-test.md)** — SDK matrix, validation, smoke scripts
-- **[QEMU lab](developer/qemu-lab.md)** — image download, prepare, run, install
-- **[SDK build matrix](sdk-build-matrix.md)** — version × target matrix
+### Related pages
+
+- [Environment setup](developer/environment.md) — host packages, canonical loop, theme tint matrix
+- [Build & test](developer/build-and-test.md) — SDK builds, parser tests, QEMU smoke
+- [QEMU lab](developer/qemu-lab.md) — image download, prepare, run, install
+- [SDK build matrix](sdk-build-matrix.md) — version × target matrix

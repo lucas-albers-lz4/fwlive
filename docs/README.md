@@ -43,4 +43,4 @@ Build, test, and extend the package from this repository.
 | [CHANGELOG.md](../CHANGELOG.md) | Release history |
 | [FAQ.md](FAQ.md) | Common questions |
 
-`docs/dev-environment.md` is a legacy redirect — see the [Developer guide → Environment](developer/environment.md) instead.
+`docs/dev-environment.md` is a stub note — see the [Developer guide → Environment](developer/environment.md) instead.
