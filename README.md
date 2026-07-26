@@ -102,6 +102,8 @@ Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](doc
 | **Install and use** on my router | **[User guide](docs/user/README.md)** |
 | **Build, test, or contribute** | **[Developer guide](docs/developer/README.md)** |
 | Browse all docs | [docs/README.md](docs/README.md) |
+| Release history | [CHANGELOG.md](CHANGELOG.md) |
+| FAQ | [docs/FAQ.md](docs/FAQ.md) |
 
 ### User guide (highlights)
 

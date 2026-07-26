@@ -1,0 +1,258 @@
+# Changelog
+
+All notable changes to **fwlive** / **luci-app-fwlive** are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [Unreleased]
+
+### Documentation
+- Consolidated planning/spec docs into ROADMAP.md
+- Restructured over-long user docs (Quick Start first)
+- Added CHANGELOG.md, FAQ.md
+- Fixed cross-reference accuracy throughout
+
+---
+
+## [v0.1.27] — 2026-07-24
+
+### Changed
+- Refactored `fwlive.js` into modular files: `constants.js`, `css.js`, `tint.js`, `links.js`, `chips.js`, `logging.js`, `table.js`
+- All modules now use `baseclass.extend` for proper LuCI lifecycle
+
+### Fixed
+- Firefox console errors from baseclass usage
+- `qemu-install-fwlive.sh` syncs all module files
+
+---
+
+## [v0.1.26] — 2026-07-23
+
+### Security
+- Removed session ACL grant for direct `ubus log.read` — poll now reads logd inside the rpcd plugin only
+- Hardened `resolve` reverse DNS: IPv4/IPv6 shape validation before lookup
+- JSON escaping for rpcd responses
+- MAC address redaction in UI display
+
+### Fixed
+- WAN zone logging disable: clear only filter-log bit 0, preserving other zone bits
+
+### Added
+- Po/i18n template (`luci-app-fwlive.pot`)
+- SPDX headers on shell scripts
+- Upstream publish checklist
+
+---
+
+## [v0.1.25] — 2026-07-21
+
+### Changed
+- Minor packaging fixes
+
+---
+
+## [v0.1.24] — 2026-07-18
+
+### Added
+- WAN zone enable/disable logging toolbar buttons on Live View page
+- `ubus fwlive.logging_status`, `enable_wan_logging`, `disable_wan_logging`
+- `fwlive-logging.sh` helper script
+- ACL grants for write operations
+
+---
+
+## [v0.1.23] — 2026-07-11
+
+### Changed
+- Backend and matrix improvements
+
+---
+
+## [v0.1.22] — 2026-07-03
+
+### Changed
+- CI and build improvements
+
+---
+
+## [v0.1.21] — 2026-07-03
+
+### Changed
+- Backend improvements
+
+---
+
+## [v0.1.19] — 2026-06-27
+
+### Added
+- 22.03.7 lab sign-off
+
+### Changed
+- Build and smoke infrastructure
+
+---
+
+## [v0.1.18] — 2026-06-27
+
+### Added
+- fw4 rule name resolve via `ubus fwlive rules`
+- **Show hostnames** checkbox (default off) with `ubus fwlive resolve`
+- Server-side firewall-only read via `ubus fwlive poll`
+
+---
+
+## [v0.1.17] — 2026-06-21
+
+### Added
+- 21.02.7 (fw3/iptables) lab sign-off
+- `fwlive-iptables-ping-log.sh`
+
+### Fixed
+- 21.02 LuCI compatibility (lua prefix dispatcher)
+
+---
+
+## [v0.1.15] — 2026-06-20
+
+### Added
+- 21.02.7 SDK build and x86 QEMU smoke sign-off
+
+---
+
+## [v0.1.14] — 2026-06-20
+
+### Added
+- Parameterized validation matrix (`validate-openwrt.sh`)
+- Baseline validation gate (`validate-baseline.sh`)
+- Full matrix validation (`validate-openwrt-all.sh`)
+
+---
+
+## [v0.1.13] — 2026-06-14
+
+### Added
+- Filter operators: `!` prefix for is-not / not-contains
+- Action dropdown includes **not pass**, **not drop**, etc.
+- Flood banner, token bucket render cap
+- **Simple / Detailed** view toggle with `localStorage` persistence
+- URL hash `view=detailed`
+- Click-to-filter on action, protocol, interface, address cells
+- Filter chip bar (show + clear active filters)
+- `matchesFilter()` AND logic for multi-field filtering
+- Row expand/collapse for raw message in Simple view
+- `qemu-smoke-fwlive.sh` headless checks
+
+---
+
+## [v0.1.10] — 2026-06-14
+
+### Fixed
+- Wrong CI sign path for package feed
+
+---
+
+## [v0.1.9] — 2026-06-14
+
+### Added
+- **Auto-refresh** checkbox (maps to `paused`)
+- **Limit** dropdown (25…2000, default 100)
+- `localStorage` persistence for view preferences
+- Status line: `shown/limit` while paused/live
+
+---
+
+## [v0.1.8] — 2026-06-14
+
+### Added
+- Pause/resume toolbar button
+- Buffer status line
+- Row message wrap/one-line toggle
+
+---
+
+## [v0.1.7] — 2026-06-14
+
+### Added
+- **Rule** column with `rule_hint` from nft log prefix
+- Deep link to firewall admin from Rule column
+- `ubus fwlive poll` server-side filter
+
+---
+
+## [v0.1.6] — 2026-06-14
+
+### Added
+- Stage 2 schema hardening: `interface_in`/`out` split, normalized `action` enum, `flags`/`length` parsing
+- Schema test fixtures and assertions
+
+---
+
+## [v0.1.5] — 2026-06-14
+
+### Added
+- Firewall-only feed (`isFirewallEvent` heuristic)
+- Normalized table columns and client-side filters
+- Live polling (~1s), URL hash filter persistence
+
+---
+
+## [v0.1.4] — 2026-06-14
+
+### Added
+- Initial working LuCI view (`view.extend`)
+- Basic JSON-RPC to `ubus log.read`
+- Quick search and field filters
+
+---
+
+## [v0.1.3] — 2026-06-14
+
+### Fixed
+- GitHub Actions artifact copy-out (uid mismatch)
+
+---
+
+## [v0.1.2] — 2026-06-14
+
+### Added
+- Reproducible build verification
+- SDK build matrix
+
+---
+
+## [v0.1.1] — 2026-06-14
+
+### Added
+- Signed opkg/apk feed at GitHub Pages
+- Initial GitHub Releases publishing
+- Basic CI pipeline
+
+---
+
+[Unreleased]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.27...HEAD
+[v0.1.27]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.26...v0.1.27
+[v0.1.26]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.25...v0.1.26
+[v0.1.25]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.24...v0.1.25
+[v0.1.24]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.23...v0.1.24
+[v0.1.23]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.22...v0.1.23
+[v0.1.22]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.21...v0.1.22
+[v0.1.21]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.19...v0.1.21
+[v0.1.19]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.18...v0.1.19
+[v0.1.18]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.17...v0.1.18
+[v0.1.17]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.15...v0.1.17
+[v0.1.15]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.14...v0.1.15
+[v0.1.14]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.13...v0.1.14
+[v0.1.13]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.10...v0.1.13
+[v0.1.10]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.9...v0.1.10
+[v0.1.9]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.8...v0.1.9
+[v0.1.8]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.7...v0.1.8
+[v0.1.7]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.6...v0.1.7
+[v0.1.6]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.5...v0.1.6
+[v0.1.5]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.4...v0.1.5
+[v0.1.4]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.3...v0.1.4
+[v0.1.3]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.2...v0.1.3
+[v0.1.2]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.1...v0.1.2
+[v0.1.1]: https://github.com/lucas-albers-lz4/fwlive/releases/tag/v0.1.1
