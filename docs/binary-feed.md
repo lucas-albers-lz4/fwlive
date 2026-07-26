@@ -6,6 +6,8 @@ Signed **opkg** / **apk** feed for installing `luci-app-fwlive` with `opkg insta
 
 Manual `.ipk` / `.apk` downloads remain on [GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases). See [Installation](user/installation.md).
 
+---
+
 ## Feed layout
 
 ```text
@@ -33,11 +35,13 @@ fwlive-packages/          (gh-pages branch)
 
 The package is **`_all`** — one feed URL per OpenWrt release line, not per CPU architecture.
 
+---
+
 ## User install
 
 ### OpenWrt 21.02.x (opkg, legacy fw3)
 
-OpenWrt **21.02 is EOL** — use only if you are stuck on fw3/iptables. Feed path **`21.02`**; install the **21.02-built** package from this feed (not 23.05+).
+OpenWrt **21.02 is EOL** — use only if you are stuck on fw3/iptables. Install the **21.02-built** package from this feed (not 23.05+).
 
 ```sh
 wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
@@ -51,7 +55,7 @@ See [21.02 compat](openwrt-21.02-compat.md).
 
 ### OpenWrt 22.03.x (opkg, EOL)
 
-OpenWrt **22.03 is EOL** — use only if you cannot upgrade to 23.05+ yet. Feed path **`22.03`**; install the **22.03-built** package from this feed (not 23.05+).
+OpenWrt **22.03 is EOL** — use only if you cannot upgrade to 23.05+ yet.
 
 ```sh
 wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
@@ -63,11 +67,7 @@ opkg install luci-app-fwlive
 
 See [22.03 compat](openwrt-22.03-compat.md).
 
-### OpenWrt 23.05 (opkg)
-
-Same as 24.10; use feed URL `…/fwlive-packages/23.05`.
-
-### OpenWrt 24.10 (opkg)
+### OpenWrt 23.05 / 24.10 (opkg)
 
 ```sh
 wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
@@ -76,6 +76,8 @@ echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >>
 opkg update
 opkg install luci-app-fwlive
 ```
+
+Use `…/23.05` for OpenWrt 23.05.
 
 ### OpenWrt 25.12+ (apk)
 
@@ -91,28 +93,39 @@ apk add luci-app-fwlive
 
 Menu: **Status → Firewall Live View**.
 
-## One-time repo setup (maintainers)
+---
 
-### 1. Create `fwlive-packages`
+## Lab: install from feed URL
+
+```sh
+FWLIVE_FEED_BASE_URL=https://lucas-albers-lz4.github.io/fwlive-packages \
+  ./scripts/validate-feed-smoke.sh --version 24.10
+```
+
+---
+
+# Maintainer: one-time repo setup
+
+## 1. Create `fwlive-packages`
 
 1. Create empty GitHub repo **`lucas-albers-lz4/fwlive-packages`** (public).
 2. **Settings → Pages → Build and deployment:** source = **`gh-pages`** branch (CI writes this branch; no manual Pages source needed after first deploy).
 
-### 2. Deploy key
+## 2. Deploy key
 
 On **`fwlive-packages`**: Settings → Deploy keys → Add deploy key (read/write), note the private key.
 
 On **`fwlive`**: Settings → Secrets → Actions:
 
 | Secret | Value |
-|--------|--------|
+|--------|-------|
 | `FEED_DEPLOY_KEY` | Private deploy key for `fwlive-packages` |
 | `OPKG_FEED_SECRET_KEY` | Full contents of usign secret key file |
 | `OPKG_FEED_PUBLIC_KEY` | Full contents of `public.key` |
 | `APK_FEED_SECRET_KEY` | Full contents of RSA private key (`apk-secret.rsa`) |
 | `APK_FEED_PUBLIC_KEY` | Full contents of `fwlive-feed.rsa.pub` |
 
-### 3. Generate signing keys (once, offline)
+## 3. Generate signing keys (once, offline)
 
 ```sh
 # opkg (usign)
@@ -125,7 +138,7 @@ openssl rsa -in apk-secret.rsa -pubout -out fwlive-feed.rsa.pub
 
 Store **private** keys only in GitHub Actions secrets. Never commit them to either repo.
 
-**Common mistakes**
+### Common mistakes
 
 - `OPKG_FEED_SECRET_KEY` must be the **usign** secret from `usign -G` (two lines: `untrusted comment:` + `RW…` base64). The **openssl RSA** key is only for `APK_FEED_SECRET_KEY`.
 - Pasting the secret into GitHub as **one line** (no newline between comment and key) makes usign fail with **`Premature end of file`**. Either paste the file verbatim with its line break, or store **`base64 -w0 opkg-secret.key`** in the secret (CI auto-decodes).
@@ -138,8 +151,6 @@ APK_FEED_SECRET_KEY=./apk-secret.rsa APK_FEED_PUBLIC_KEY=./fwlive-feed.rsa.pub \
   ./scripts/validate-feed-keys.sh
 ```
 
-No package build required. CI runs this immediately after writing keys from GitHub secrets (before the ~30 minute SDK build).
-
 Expected usign secret shape:
 
 ```text
@@ -148,6 +159,8 @@ RWRCSwAAAAD…base64…=
 ```
 
 Expected apk secret shape: PEM `-----BEGIN PRIVATE KEY-----` (openssl genrsa output).
+
+---
 
 ## Automated publish (CI)
 
@@ -160,6 +173,8 @@ On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-
 5. Deploys to **`fwlive-packages`** `gh-pages`.
 6. Uploads `.ipk` / `.apk` to the GitHub Release.
 7. Boots QEMU x86 guests and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh)) — *currently disabled in CI* ([#10](https://github.com/lucas-albers-lz4/fwlive/issues/10)).
+
+---
 
 ## Manual publish (fallback)
 
@@ -180,6 +195,8 @@ APK_FEED_SECRET_KEY=./apk-secret.rsa APK_FEED_PUBLIC_KEY=./fwlive-feed.rsa.pub \
 
 # Push feed-staging/ to fwlive-packages gh-pages (or open PR)
 ```
+
+---
 
 ## Reproducible builds
 
@@ -208,12 +225,7 @@ docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.6 cat feeds.conf.default
 # Update sdk_matrix_version_patch in sdk-matrix.sh
 ```
 
-## Lab: install from feed URL
-
-```sh
-FWLIVE_FEED_BASE_URL=https://lucas-albers-lz4.github.io/fwlive-packages \
-  ./scripts/validate-feed-smoke.sh --version 24.10
-```
+---
 
 ## Related
 
