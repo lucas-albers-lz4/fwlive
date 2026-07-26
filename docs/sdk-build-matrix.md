@@ -119,6 +119,6 @@ Setup enables the **`base`** feed and installs **`liblua`**, **`libucode`**, and
 
 ## Related docs
 
-- [`dev-environment.md`](dev-environment.md) — QEMU + default build loop
+- [`dev-environment.md`](dev-environment.md) — stub note redirecting to the [developer guide → Environment](developer/environment.md)
 - [`minimal-build-sdk.md`](minimal-build-sdk.md) — native SDK / fallback image
 - [`openwrt-rootfs-x86-docker.md`](openwrt-rootfs-x86-docker.md) — x86 LuCI smoke test
