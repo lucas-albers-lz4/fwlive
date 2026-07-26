@@ -41,4 +41,4 @@ Build, test, and extend the package from this repository.
 | [opnsense-liveview-parity.md](opnsense-liveview-parity.md) | Parity matrix |
 | [github-publish-checklist.md](github-publish-checklist.md) | Pre-publish checks |
 
-Legacy paths (`dev-environment.md`) remains for existing links.
+`docs/dev-environment.md` is a legacy redirect — see the [Developer guide → Environment](developer/environment.md) instead.
