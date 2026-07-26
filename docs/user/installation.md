@@ -105,6 +105,22 @@ For a full QEMU lab loop (build → boot → install), see [Developer: QEMU lab]
 2. **[Enable logging — quick start](enabling-firewall-logs.md#quick-start-after-install)** — the table is empty on stock configs until you turn logging on. Run the WAN zone one-liner there to see real drop/reject traffic, or the ping test for a quick pass row.
 3. Read [Using the UI](using-the-ui.md)
 
+## Upgrading
+
+Re-install the new version over the existing one. No configuration migration is needed — the package makes no persistent firewall changes.
+
+**opkg (21.02 – 24.10):**
+```sh
+opkg update && opkg install luci-app-fwlive
+```
+
+**apk (25.12+):**
+```sh
+apk update && apk add luci-app-fwlive
+```
+
+After upgrade, refresh the LuCI page in your browser (may need a cache-busting hard refresh: Ctrl+Shift+R / Cmd+Shift+R).
+
 ## Uninstall
 
 ```sh

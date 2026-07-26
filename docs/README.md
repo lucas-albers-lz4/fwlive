@@ -40,5 +40,7 @@ Build, test, and extend the package from this repository.
 | [validation-matrix.md](validation-matrix.md) | QEMU validation scripts |
 | [opnsense-liveview-parity.md](opnsense-liveview-parity.md) | Parity matrix |
 | [github-publish-checklist.md](github-publish-checklist.md) | Pre-publish checks |
+| [CHANGELOG.md](../CHANGELOG.md) | Release history |
+| [FAQ.md](FAQ.md) | Common questions |
 
 `docs/dev-environment.md` is a legacy redirect — see the [Developer guide → Environment](developer/environment.md) instead.
