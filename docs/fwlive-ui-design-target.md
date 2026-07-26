@@ -2,7 +2,7 @@
 
 How we pursue **OPNsense Live View** look-and-feel and interaction patterns on OpenWrt, without porting OPNsense’s server stack.
 
-**Related:** [staged plan](fwlive-development-plan.md) · [parity matrix](opnsense-liveview-parity.md) · [logging model](opnsense-liveview-understanding.md) · [event schema](openwrt-fwlive-schema.md)
+**Related:** [Roadmap](ROADMAP.md) · [parity matrix](opnsense-liveview-parity.md) · [event schema](openwrt-fwlive-schema.md)
 
 ---
 
@@ -53,7 +53,7 @@ Suggestions to replicate OPNsense’s clean tabular Live View, adapted for LuCI.
 | Build layout in `render()` with `E()` | **Adopt** | Already in use; extend with control bar + badge styling. |
 | Map `pass`/`drop` to green/red typography | **Adopt (adapted)** | Use LuCI-friendly classes: custom `.fwlive-pass` / `.fwlive-deny` (done) or map to `text-success` / `text-danger` where theme-consistent. Optional unicode/icon prefix (✔/✖) — low priority, test contrast in dark themes. |
 | Sticky header + scroll body | **Adopt** | `#fwlive-scroll` + `position: sticky` on `thead` (done). |
-| Pause / Play top bar | **Adopt** | Stage 4 **done** (`Pause` button). Stage 4b: OPNsense **Auto-refresh** checkbox alias — [fwlive-stream-controls-spec.md](fwlive-stream-controls-spec.md). |
+| Pause / Play top bar | **Adopt** | Stage 4 **done** (`Pause` button). Stage 4b: OPNsense **Auto-refresh** checkbox alias — see [ROADMAP.md](ROADMAP.md). |
 | Row limit dropdown | **Adopt** | Stage 4b: 25…2000 → `maxHistory` + `visibleRows`; default 100; cap 2000. |
 | Primary columns: Action, Time, Interface, Src/Dst, Rule | **Adopt (phased)** | Most columns exist. **Rule Info** = stage 3. Consider a combined **Src → Dst** column later to reduce width (optional polish). |
 | Interface as small grey badges | **Adopt** | Stage 4/5 polish: `E('span', { 'class': 'label' }, iface)` on `interface_in` / `out`. |
@@ -73,7 +73,7 @@ Suggestions to replicate OPNsense’s clean tabular Live View, adapted for LuCI.
 | Filter **client-side only** (no ubus filter args) | **Adopt** | **Already correct.** `log.read` returns recent lines; cheap on router; parser drops noise. |
 | Slice to visible row cap after filter | **Adopt** | `visibleRows` (200) after filter; OPNsense ~50 — tunable constant. |
 
-**Current MVP:** text inputs + URL hash persistence. **Target:** visual filter tags + click-to-filter, per stage 5 in [fwlive-development-plan.md](fwlive-development-plan.md).
+**Current MVP:** text inputs + URL hash persistence. **Target:** visual filter tags + click-to-filter, per stage 5 in [ROADMAP.md](ROADMAP.md).
 
 ---
 

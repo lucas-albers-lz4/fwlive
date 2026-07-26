@@ -33,13 +33,12 @@ Build, test, and extend the package from this repository.
 | [openwrt-23.05-compat.md](openwrt-23.05-compat.md) | 23.05.x lab notes |
 | [fwlive-acceptance.md](fwlive-acceptance.md) | Sign-off criteria |
 | [fwlive-ui-design-target.md](fwlive-ui-design-target.md) | UI module map |
-| [fwlive-development-plan.md](fwlive-development-plan.md) | Staged plan |
+| [ROADMAP.md](ROADMAP.md) | Roadmap, milestones & backlog |
 | [openwrt-fwlive-schema.md](openwrt-fwlive-schema.md) | Normalized log schema |
 | [fwlive-nft-logging.md](fwlive-nft-logging.md) | nft/fw4 logging reference |
 | [sdk-build-matrix.md](sdk-build-matrix.md) | SDK versions & targets |
 | [validation-matrix.md](validation-matrix.md) | QEMU validation scripts |
 | [opnsense-liveview-parity.md](opnsense-liveview-parity.md) | Parity matrix |
-| [ROADMAP.md](ROADMAP.md) | Milestones & backlog |
 | [github-publish-checklist.md](github-publish-checklist.md) | Pre-publish checks |
 
-Legacy paths (`dev-environment.md`, etc.) remain for existing links; prefer the user/developer guides above.
+Legacy paths (`dev-environment.md`) remains for existing links.

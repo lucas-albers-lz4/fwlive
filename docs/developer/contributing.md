@@ -50,4 +50,4 @@ Keep user docs free of QEMU/SDK detail; keep developer docs free of marketing la
 
 ## Backlog (not MVP)
 
-Stages 6–7: DNS hover, digest/SSE — see [`../fwlive-development-plan.md`](../fwlive-development-plan.md).
+Stages 6–7: DNS hover, digest/SSE — see [ROADMAP.md](../ROADMAP.md).

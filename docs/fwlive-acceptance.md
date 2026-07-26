@@ -152,4 +152,4 @@ Validated on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 2
 
 ---
 
-Stage plan: [`fwlive-development-plan.md`](fwlive-development-plan.md) · Roadmap: [`ROADMAP.md`](ROADMAP.md).
+Stage plan: [ROADMAP.md](ROADMAP.md).

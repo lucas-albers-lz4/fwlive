@@ -27,7 +27,7 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 | Topic | Document |
 |-------|----------|
 | UI design target & OPNsense parity | [`../fwlive-ui-design-target.md`](../fwlive-ui-design-target.md) |
-| Staged development plan | [`../fwlive-development-plan.md`](../fwlive-development-plan.md) |
+| Roadmap & development plan | [`../ROADMAP.md`](../ROADMAP.md) |
 | Acceptance criteria | [`../fwlive-acceptance.md`](../fwlive-acceptance.md) |
 | Event schema | [`../openwrt-fwlive-schema.md`](../openwrt-fwlive-schema.md) |
 | SDK version matrix | [`../sdk-build-matrix.md`](../sdk-build-matrix.md) |

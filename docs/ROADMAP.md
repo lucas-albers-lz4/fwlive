@@ -2,7 +2,7 @@
 
 Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX on OpenWrt, client-side JS + `ubus fwlive.poll`.
 
-**Architecture:** [fwlive-ui-design-target.md](fwlive-ui-design-target.md) · **Stages:** [fwlive-development-plan.md](fwlive-development-plan.md) · **Acceptance:** [fwlive-acceptance.md](fwlive-acceptance.md)
+**Architecture:** [fwlive-ui-design-target.md](fwlive-ui-design-target.md) · **Acceptance:** [fwlive-acceptance.md](fwlive-acceptance.md)
 
 ---
 
@@ -29,7 +29,7 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 | **MVP** | **Done** | Real nft logs on QEMU; stages 1–5 core, 4b, 3.4b; acceptance signed off |
 | **Infra** | **Done** | QEMU x86 lab, `qemu-install-fwlive.sh`, nft ping helper |
 | **Stage 4** | **Done (core)** | Pause/resume + buffer status; message layout toggle |
-| **Stage 4b** | **Done** | Auto-refresh checkbox + row limit dropdown — [spec](fwlive-stream-controls-spec.md) |
+| **Stage 4b** | **Done** | Auto-refresh checkbox + row limit dropdown |
 | **Stage 5** | **Done (core)** | Click-to-filter, chips, pass inference |
 | **Stage 3** Rule attribution | **Done (core)** | rule_hint, Rule column, deep link |
 | **Stage 6** | **Partial** | **Show hostnames** checkbox (default off) — `ubus fwlive resolve` |
@@ -69,7 +69,7 @@ Deferred within stage 5: saved filter templates.
 
 ## Stage 4b — stream controls (OPNsense parity, planned)
 
-Evaluated spec: [fwlive-stream-controls-spec.md](fwlive-stream-controls-spec.md).
+Evaluated and implemented: stream controls (auto-refresh, limit) — see [user guide](user/using-the-ui.md#shared-controls).
 
 | Step | Deliverable | Status |
 | ---- | ----------- | ------ |
