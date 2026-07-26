@@ -6,16 +6,7 @@
 
 **MVP and pre-backport feature work are complete** (stages 1–5 core, 4b, 3.4b, 5.6). Stage 6+ remains backlog — see [Stage 6 (next)](#stage-6--inspect--enrichment-backlog) below.
 
-Re-validate after changes:
-
-```sh
-./scripts/fwlive-test.sh
-./scripts/validate-baseline.sh          # parser + script gate
-./scripts/qemu-smoke-fwlive.sh          # headless guest checks (guest must be running)
-# full version loop:
-./scripts/validate-openwrt.sh --version 24.10
-./scripts/validate-openwrt-all.sh smoke-x86
-```
+Re-validate after changes — see [Build & test](developer/build-and-test.md) for the full command reference.
 
 ---
 
@@ -37,13 +28,7 @@ Re-validate after changes:
 
 **iptables LOG (issue #7):** On **21.02.x**, iptables LOG is the **primary** path (lab sign-off on 21.02.7 x86). On **22.03+**, **firewall4/nft** is the supported path; **iptables LOG** is best-effort when iptables is present without nft — fixture-tested. See [`openwrt-21.02-compat.md`](openwrt-21.02-compat.md).
 
-Build:
-
-```sh
-./scripts/docker-sdk.sh build --target armsr-armv8 --version 24.10
-./scripts/docker-sdk.sh build --target x86-64 --version 22.03
-./scripts/docker-sdk.sh build --target armsr-armv8 --version 23.05
-```
+Build: see [SDK build matrix](sdk-build-matrix.md) for the full command reference.
 
 ---
 
