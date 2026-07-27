@@ -16,6 +16,9 @@ env:
   FWLIVE_PACKAGES_REPO: lucas-albers-lz4/fwlive-packages
   OWRT_VALIDATE_SSH_WAIT_X86: "600"
 
+permissions:
+  contents: read
+
 jobs:
   build-publish:
     runs-on: ubuntu-latest
@@ -147,6 +150,8 @@ jobs:
     if: false
     needs: build-publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       # GitHub-hosted runners expose /dev/kvm but deny KVM init; use TCG for feed smoke.
       OWRT_QEMU_ACCEL: tcg
