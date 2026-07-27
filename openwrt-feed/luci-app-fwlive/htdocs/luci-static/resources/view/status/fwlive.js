@@ -78,6 +78,7 @@ return view.extend({
 	floodSuppressed: false,
 	lastPollNewEvents: 0,
 	showHostnames: false,
+	chipStyle: constants.DEFAULT_CHIP_STYLE,
 	rowTint: true,
 	hostnameCache: null,
 	hostnameFailed: null,
@@ -223,6 +224,42 @@ return view.extend({
 		} catch (e) {
 			/* private mode / no storage */
 		}
+	},
+
+	readChipStyle() {
+		try {
+			const v = localStorage.getItem('fwlive-chip-style');
+			if (constants.CHIP_STYLE_OPTIONS.indexOf(v) >= 0)
+				return v;
+		} catch (e) {
+			/* private mode / no storage */
+		}
+
+		return constants.DEFAULT_CHIP_STYLE;
+	},
+
+	saveChipStyle() {
+		try {
+			localStorage.setItem('fwlive-chip-style', this.chipStyle);
+		} catch (e) {
+			/* private mode / no storage */
+		}
+	},
+
+	chipStyleSelectOptions() {
+		return [
+			E('option', { 'value': 'labels' }, _('Labels')),
+			E('option', { 'value': 'symbols' }, _('Symbols')),
+			E('option', { 'value': 'tone' }, _('Tone'))
+		];
+	},
+
+	onChipStyleChange(ev) {
+		const v = ev && ev.target ? ev.target.value : constants.DEFAULT_CHIP_STYLE;
+		this.chipStyle = constants.CHIP_STYLE_OPTIONS.indexOf(v) >= 0
+			? v : constants.DEFAULT_CHIP_STYLE;
+		this.saveChipStyle();
+		this.renderFilterChips();
 	},
 
 	actionRowTintClass(action) {
@@ -840,10 +877,13 @@ return view.extend({
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 		const tintCb = document.getElementById('fwlive-row-tint');
+		const chipSel = document.getElementById('fwlive-chip-style');
 		if (cb)
 			cb.checked = !this.paused;
 		if (sel)
 			sel.value = String(this.rowLimit);
+		if (chipSel)
+			chipSel.value = this.chipStyle;
 		if (hostCb)
 			hostCb.checked = !!this.showHostnames;
 		if (tintCb)
@@ -1056,7 +1096,8 @@ return view.extend({
 
 		chips.renderFilterChips(bar, {
 			filters: Object.assign({}, this.readFilters()),
-			chipFields: this.FILTER_CHIP_FIELDS
+			chipFields: this.FILTER_CHIP_FIELDS,
+			chipStyle: this.chipStyle
 		}, {
 			onInvert: (field, ev) => this.invertFilter(field, ev),
 			onClear: (field, ev) => this.clearFilter(field, ev),
@@ -1230,6 +1271,10 @@ return view.extend({
 		const tintCb = document.getElementById('fwlive-row-tint');
 		if (tintCb)
 			tintCb.addEventListener('change', this.onRowTintChange.bind(this));
+
+		const chipSel = document.getElementById('fwlive-chip-style');
+		if (chipSel)
+			chipSel.addEventListener('change', this.onChipStyleChange.bind(this));
 	},
 
 	async pollData() {
@@ -1281,6 +1326,12 @@ return view.extend({
 					'id': 'fwlive-limit',
 					'class': 'cbi-input-select'
 				}, this.limitSelectOptions()),
+				E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-chip-style' }, _('Chip style')),
+				E('select', {
+					'id': 'fwlive-chip-style',
+					'class': 'cbi-input-select',
+					'title': _('How include vs exclude filters are shown on chips')
+				}, this.chipStyleSelectOptions()),
 				E('label', { 'class': 'fwlive-ctl' }, [
 					E('input', {
 						'id': 'fwlive-show-hostnames',
@@ -1369,6 +1420,7 @@ return view.extend({
 					E('li', { 'id': 'fwlive-manual-test' }, []),
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
 					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
+					E('li', {}, _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.')),
 					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
 					E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
 				])
@@ -1381,6 +1433,7 @@ return view.extend({
 		this.messageLayout = this.readMessageLayout();
 		this.showHostnames = this.readShowHostnames();
 		this.rowTint = this.readRowTint();
+		this.chipStyle = this.readChipStyle();
 		this.hostnameCache = new Map();
 		this.hostnameFailed = new Set();
 		this.applyRowLimit(this.readRowLimit());

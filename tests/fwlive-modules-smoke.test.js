@@ -42,21 +42,48 @@ console.log('fwlive-modules smoke: links OK');
 
 /* --- chips --- */
 const chips = loadFwliveModule('chips', { log: log });
-const chipHost = {
-	style: { display: '' },
-	children: [],
-	appendChild: function(n) { this.children.push(n); }
-};
-chips.renderFilterChips(chipHost, {
-	filters: { action: 'drop', q: '' },
-	chipFields: [{ key: 'action', label: 'action' }, { key: 'q', label: 'search' }]
-}, {
-	onInvert: function() {},
-	onClear: function() {},
-	onClearAll: function() {}
-});
+assert.strictEqual(chips.normalizeChipStyle('bogus'), 'labels');
+assert.strictEqual(chips.normalizeChipStyle('symbols'), 'symbols');
+assert.strictEqual(chips.normalizeChipStyle('tone'), 'tone');
+
+function renderChips(style, filters) {
+	const chipHost = {
+		className: '',
+		style: { display: '' },
+		children: [],
+		appendChild: function(n) { this.children.push(n); }
+	};
+	chips.renderFilterChips(chipHost, {
+		filters: filters || { action: 'drop', proto: '!tcp' },
+		chipFields: [
+			{ key: 'action', label: 'action' },
+			{ key: 'proto', label: 'proto' }
+		],
+		chipStyle: style
+	}, {
+		onInvert: function() {},
+		onClear: function() {},
+		onClearAll: function() {}
+	});
+	return chipHost;
+}
+
+const chipHost = renderChips('labels');
 assert.strictEqual(chipHost.style.display, 'flex');
 assert.ok(chipHost.children.length >= 1);
+assert.strictEqual(chipHost.className, 'fwlive-chips fwlive-chips-labels');
+const includeChip = chipHost.children[0];
+const excludeChip = chipHost.children[1];
+assert.ok(String(includeChip.attrs.class).indexOf('fwlive-chip-include') >= 0);
+assert.ok(String(excludeChip.attrs.class).indexOf('fwlive-chip-negated') >= 0);
+assert.ok(String(excludeChip.children[0].attrs.class).indexOf('fwlive-chip-sym') >= 0);
+
+const symHost = renderChips('symbols');
+assert.strictEqual(symHost.className, 'fwlive-chips fwlive-chips-symbols');
+assert.ok(String(symHost.children[0].children[0].attrs.class).indexOf('fwlive-chip-sym') >= 0);
+
+const toneHost = renderChips('tone');
+assert.strictEqual(toneHost.className, 'fwlive-chips fwlive-chips-tone');
 console.log('fwlive-modules smoke: chips OK');
 
 /* --- logging --- */

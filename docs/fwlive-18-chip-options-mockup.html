@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>fwlive #18 — include/exclude chip options</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --text: #1a1a1a;
+      --text-mid: #555;
+      --border: #c8c8c8;
+      --border-soft: #ddd;
+      --bg-low: #f0f0f0;
+      --bg-med: #e8e8e8;
+      --primary: #1a6fb5;
+      --primary-soft: #e8f2fa;
+      --muted: #6b7280;
+      --chip-font: 0.88rem;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      padding: 32px 24px 64px;
+    }
+
+    h1 {
+      font-size: 1.45rem;
+      font-weight: 650;
+      margin: 0 0 6px;
+      letter-spacing: -0.02em;
+    }
+    .sub {
+      color: var(--text-mid);
+      margin: 0 0 28px;
+      max-width: 52rem;
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .theme-toggle button {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.9rem;
+    }
+    .theme-toggle button[aria-pressed="true"] {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .options {
+      display: grid;
+      gap: 18px;
+      max-width: 920px;
+    }
+
+    .option {
+      background: var(--panel);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 18px 20px 20px;
+    }
+    .option h2 {
+      margin: 0 0 4px;
+      font-size: 1.05rem;
+      font-weight: 650;
+    }
+    .option .tagline {
+      margin: 0 0 14px;
+      color: var(--text-mid);
+      font-size: 0.92rem;
+    }
+
+    .bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 12px;
+      background: var(--bg);
+      border: 1px dashed var(--border-soft);
+      border-radius: 6px;
+      min-height: 48px;
+    }
+
+    .label-row {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 12px 0 6px;
+      font-weight: 600;
+    }
+
+    /* Shared chip chrome (current baseline pieces) */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: var(--bg-low);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: var(--chip-font);
+    }
+    .chip-label { line-height: 1.3; }
+    .chip-not { font-weight: 700; }
+    .chip-invert {
+      color: var(--text-mid);
+      background: none;
+      border: none;
+      padding: 0 2px;
+      font: inherit;
+      font-weight: 700;
+      cursor: default;
+      line-height: 1;
+    }
+    .chip-remove {
+      color: var(--text-mid);
+      text-decoration: none;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0 2px;
+    }
+    .chip-clear {
+      font-size: var(--chip-font);
+      margin-left: 4px;
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    /* —— Option A / Labels default: polarity + light left accent —— */
+    .a-include {
+      border-style: solid;
+      border-width: 1px;
+      border-left: 3px solid var(--primary);
+    }
+    .a-exclude {
+      border-style: dashed;
+      background: var(--bg-med);
+    }
+    .a-polarity {
+      font-weight: 700;
+      font-size: 0.78em;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+      margin-right: 2px;
+    }
+    .a-exclude .a-polarity { color: var(--text); }
+    .a-strike {
+      text-decoration: line-through;
+      text-decoration-thickness: 1.5px;
+      opacity: 0.85;
+    }
+
+    /* —— Option B: symbol polarity —— */
+    .b-include {
+      border-style: solid;
+      border-left: 3px solid var(--primary);
+      background: var(--primary-soft);
+    }
+    .b-exclude {
+      border-style: dashed;
+      background: var(--bg-med);
+    }
+    .b-sym {
+      font-weight: 700;
+      font-size: 1.05em;
+      line-height: 1;
+      margin-right: 2px;
+      min-width: 0.9em;
+      text-align: center;
+    }
+    .b-include .b-sym { color: var(--primary); }
+    .b-exclude .b-sym { color: var(--text); }
+
+    /* —— Option C: primary vs muted tone —— */
+    .c-include {
+      border: 1.5px solid var(--primary);
+      background: var(--primary-soft);
+      color: var(--text);
+    }
+    .c-exclude {
+      border: 1.5px dashed var(--muted);
+      background: var(--bg-med);
+      color: var(--text-mid);
+    }
+    .c-exclude .chip-not { color: var(--text); }
+
+    .pick {
+      margin-top: 14px;
+      font-size: 0.9rem;
+      color: var(--text-mid);
+    }
+
+    /* Dark theme */
+    body.dark {
+      --bg: #1e1e1e;
+      --panel: #2a2a2a;
+      --text: #ececec;
+      --text-mid: #b0b0b0;
+      --border: #555;
+      --border-soft: #444;
+      --bg-low: #333;
+      --bg-med: #3a3a3a;
+      --primary: #5ba3d9;
+      --primary-soft: #243848;
+      --muted: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <h1>fwlive filter chips — include vs exclude</h1>
+  <p class="sub">
+    Mockup for <strong>#18</strong>. Same sample filters on each option.
+    Invert (<strong>≠</strong>) and remove (<strong>×</strong>) stay as today.
+    In the app these are selectable via a compact toolbar
+    <strong>Chip style</strong> dropdown (Labels / Symbols / Tone); default is
+    <strong>Labels</strong> (A + light B). Toggle light/dark for LuCI-ish themes.
+  </p>
+
+  <div class="theme-toggle" role="group" aria-label="Theme">
+    <button type="button" id="light" aria-pressed="true">Light</button>
+    <button type="button" id="dark" aria-pressed="false">Dark</button>
+  </div>
+
+  <div class="options">
+
+    <!-- A -->
+    <section class="option" id="opt-a">
+      <h2>Option A → Labels (default) — polarity + light B</h2>
+      <p class="tagline">
+        App default (<code>labels</code>). Include: solid chip, small <code>is</code>,
+        subtle left accent. Exclude: dashed, bold <code>not</code>, strikethrough value,
+        light leading <code>≠</code>. No traffic-light colors.
+      </p>
+      <div class="label-row">Include chips</div>
+      <div class="bar" aria-label="Option A include">
+        <span class="chip a-include">
+          <span class="chip-label"><span class="a-polarity">is</span> proto: tcp</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip a-include">
+          <span class="chip-label"><span class="a-polarity">is</span> action: DROP</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip a-include">
+          <span class="chip-label"><span class="a-polarity">is</span> src: 10.0.0.5</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <a class="chip-clear" href="#" tabindex="-1">Clear all</a>
+      </div>
+      <div class="label-row">Exclude chips</div>
+      <div class="bar" aria-label="Option A exclude">
+        <span class="chip a-exclude">
+          <span class="b-sym" style="font-size:0.95em;color:var(--muted)" aria-hidden="true">≠</span>
+          <span class="chip-label">proto: <strong class="chip-not">not</strong> <span class="a-strike">tcp</span></span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip a-exclude">
+          <span class="b-sym" style="font-size:0.95em;color:var(--muted)" aria-hidden="true">≠</span>
+          <span class="chip-label">action: <strong class="chip-not">not</strong> <span class="a-strike">DROP</span></span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip a-exclude">
+          <span class="b-sym" style="font-size:0.95em;color:var(--muted)" aria-hidden="true">≠</span>
+          <span class="chip-label">src: <strong class="chip-not">not</strong> contains <span class="a-strike">10.0.0.5</span></span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <a class="chip-clear" href="#" tabindex="-1">Clear all</a>
+      </div>
+      <p class="pick">Default in product. Choose Labels in the Chip style dropdown.</p>
+    </section>
+
+    <!-- B -->
+    <section class="option" id="opt-b">
+      <h2>Option B → Symbols</h2>
+      <p class="tagline">
+        Include: leading <code>=</code> + solid left accent.
+        Exclude: leading <code>≠</code> on the chip + dashed.
+        Invert button still toggles.
+      </p>
+      <div class="label-row">Include chips</div>
+      <div class="bar" aria-label="Option B include">
+        <span class="chip b-include">
+          <span class="b-sym" aria-hidden="true">=</span>
+          <span class="chip-label">proto: tcp</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip b-include">
+          <span class="b-sym" aria-hidden="true">=</span>
+          <span class="chip-label">action: DROP</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip b-include">
+          <span class="b-sym" aria-hidden="true">=</span>
+          <span class="chip-label">src: 10.0.0.5</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <a class="chip-clear" href="#" tabindex="-1">Clear all</a>
+      </div>
+      <div class="label-row">Exclude chips</div>
+      <div class="bar" aria-label="Option B exclude">
+        <span class="chip b-exclude">
+          <span class="b-sym" aria-hidden="true">≠</span>
+          <span class="chip-label">proto: <strong class="chip-not">not</strong> tcp</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip b-exclude">
+          <span class="b-sym" aria-hidden="true">≠</span>
+          <span class="chip-label">action: <strong class="chip-not">not</strong> DROP</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip b-exclude">
+          <span class="b-sym" aria-hidden="true">≠</span>
+          <span class="chip-label">src: <strong class="chip-not">not</strong> contains 10.0.0.5</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <a class="chip-clear" href="#" tabindex="-1">Clear all</a>
+      </div>
+      <p class="pick">Best if you like operator-style cues (= / ≠).</p>
+    </section>
+
+    <!-- C -->
+    <section class="option" id="opt-c">
+      <h2>Option C → Tone</h2>
+      <p class="tagline">
+        Include: primary/accent border + soft fill (not green).
+        Exclude: muted dashed border + quieter text + <code>not</code>.
+        Still not pass/deny red-green.
+      </p>
+      <div class="label-row">Include chips</div>
+      <div class="bar" aria-label="Option C include">
+        <span class="chip c-include">
+          <span class="chip-label">proto: tcp</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip c-include">
+          <span class="chip-label">action: DROP</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip c-include">
+          <span class="chip-label">src: 10.0.0.5</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <a class="chip-clear" href="#" tabindex="-1">Clear all</a>
+      </div>
+      <div class="label-row">Exclude chips</div>
+      <div class="bar" aria-label="Option C exclude">
+        <span class="chip c-exclude">
+          <span class="chip-label">proto: <strong class="chip-not">not</strong> tcp</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip c-exclude">
+          <span class="chip-label">action: <strong class="chip-not">not</strong> DROP</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <span class="chip c-exclude">
+          <span class="chip-label">src: <strong class="chip-not">not</strong> contains 10.0.0.5</span>
+          <button class="chip-invert" type="button" tabindex="-1">≠</button>
+          <a class="chip-remove" href="#" tabindex="-1">×</a>
+        </span>
+        <a class="chip-clear" href="#" tabindex="-1">Clear all</a>
+      </div>
+      <p class="pick">Best if you want color hierarchy without traffic lights.</p>
+    </section>
+
+  </div>
+
+  <script>
+    const light = document.getElementById("light");
+    const dark = document.getElementById("dark");
+    function setDark(on) {
+      document.body.classList.toggle("dark", on);
+      light.setAttribute("aria-pressed", String(!on));
+      dark.setAttribute("aria-pressed", String(on));
+    }
+    light.addEventListener("click", () => setDark(false));
+    dark.addEventListener("click", () => setDark(true));
+  </script>
+</body>
+</html>

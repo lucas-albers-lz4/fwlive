@@ -187,6 +187,18 @@ if (!text.includes("localStorage.getItem('fwlive-row-tint')")) {
 	console.error('missing fwlive-row-tint localStorage persistence');
 	process.exit(1);
 }
+if (!text.includes("localStorage.getItem('fwlive-chip-style')")) {
+	console.error('missing fwlive-chip-style localStorage persistence');
+	process.exit(1);
+}
+if (!text.includes("'id': 'fwlive-chip-style'")) {
+	console.error('missing Chip style select in toolbar');
+	process.exit(1);
+}
+if (!css.includes('fwlive-chips-labels') || !css.includes('fwlive-chips-symbols') || !css.includes('fwlive-chips-tone')) {
+	console.error('missing chip style CSS variants');
+	process.exit(1);
+}
 if (!text.includes("'id': 'fwlive-row-tint'")) {
 	console.error('missing Row tint checkbox in toolbar');
 	process.exit(1);
