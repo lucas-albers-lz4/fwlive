@@ -14,6 +14,7 @@
 'require fwlive.chips as chips';
 'require fwlive.logging as logging';
 'require fwlive.table as table';
+'require fwlive.buffer as buffer';
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -72,6 +73,8 @@ return view.extend({
 	sessionAtPause: 0,
 	pauseBufferLoading: false,
 	paused: false,
+	/* One-shot: first live poll after unpause merges instead of replacing (#43). */
+	resumeMerge: false,
 	messageLayout: 'wrap',
 	renderBucket: constants.RENDER_CAP_PER_SEC,
 	renderBucketMs: 0,
@@ -660,36 +663,24 @@ return view.extend({
 		this.lastPollNewEvents = pollNew;
 
 		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
-		if (this.paused)
-			this.mergeEntries(normalized);
-		else
-			this.entries = normalized.slice(-this.ingestCap());
-		this.trimEntriesToLiveCap();
+		this.entries = buffer.applyFetchedEntries(this.entries, normalized, {
+			paused: this.paused,
+			resumeMerge: this.resumeMerge,
+			rowLimit: this.rowLimit,
+			fetchLinesMax: constants.FETCH_LINES_MAX
+		});
 	},
 
 	mergeEntries(normalized) {
-		if (!normalized.length)
-			return;
-
-		const byId = {};
-		for (let i = 0; i < this.entries.length; i++)
-			byId[this.entries[i].id] = this.entries[i];
-		for (let i = 0; i < normalized.length; i++)
-			byId[normalized[i].id] = normalized[i];
-
-		const merged = Object.keys(byId).map((id) => byId[id]);
-		merged.sort((a, b) => {
-			const ta = a.timestamp || 0;
-			const tb = b.timestamp || 0;
-			if (ta !== tb)
-				return ta - tb;
-			return (a.log_id || 0) - (b.log_id || 0);
-		});
-		this.entries = merged.slice(-this.ingestCap());
+		this.entries = buffer.mergeById(
+			this.entries,
+			normalized,
+			this.ingestCap()
+		);
 	},
 
 	ingestCap() {
-		return this.paused ? constants.FETCH_LINES_MAX : this.rowLimit;
+		return buffer.ingestCap(this.paused, this.rowLimit, constants.FETCH_LINES_MAX);
 	},
 
 	trimEntriesToLiveCap() {
@@ -926,12 +917,15 @@ return view.extend({
 			return;
 		}
 
-		if (wasPaused && !this.paused)
-			this.followLive = true;
-
 		if (wasPaused && !this.paused) {
-			this.trimEntriesToLiveCap();
-			this.fetchEntries().then(() => this.renderRows(true));
+			this.followLive = true;
+			/* Merge pause buffer with the first live poll — do not replace (#43). */
+			this.resumeMerge = true;
+			this.fetchEntries()
+				.then(() => this.renderRows(true))
+				.finally(function() {
+					this.resumeMerge = false;
+				}.bind(this));
 			return;
 		}
 
