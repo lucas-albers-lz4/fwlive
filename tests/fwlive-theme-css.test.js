@@ -175,7 +175,7 @@ if (!/rgba\(\s*202\s*,\s*60\s*,\s*60/.test(classicDenyChunk)) {
 	console.error('classic fwlive-row-deny must include red rgba base tint');
 	process.exit(1);
 }
-if (!/rgba\(\s*14\s*,\s*116\s*,\s*144/.test(accessPassChunk)) {
+if (!/rgba\(\s*13\s*,\s*148\s*,\s*136/.test(accessPassChunk)) {
 	console.error('accessible fwlive-row-pass must include teal rgba base tint');
 	process.exit(1);
 }

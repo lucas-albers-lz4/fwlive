@@ -13,7 +13,7 @@
 var PAINT_DELTA_MIN = 8;
 var CLASSIC_PASS_HEX = '#46a546';
 var CLASSIC_DENY_HEX = '#ca3c3c';
-var ACCESSIBLE_PASS_HEX = '#0e7490';
+var ACCESSIBLE_PASS_HEX = '#0d9488';
 var ACCESSIBLE_DENY_HEX = '#c2410c';
 
 /* Back-compat aliases — classic is the default palette. */

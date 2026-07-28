@@ -54,7 +54,7 @@ ssh_guest "grep -q -- 'var(--info-color,' '$CSS_JS'" \
 	|| die "guest css.js missing Material --info-color chain (accessible)"
 ssh_guest "grep -q 'rgba(70, 165, 70' '$CSS_JS'" \
 	|| die "guest css.js missing classic rgba base tint"
-ssh_guest "grep -q 'rgba(14, 116, 144' '$CSS_JS'" \
+ssh_guest "grep -q 'rgba(13, 148, 136' '$CSS_JS'" \
 	|| die "guest css.js missing accessible rgba base tint"
 ssh_guest "grep -q -- 'data-row-tint' '$CSS_JS'" \
 	|| die "guest css.js missing data-row-tint mode scopes"

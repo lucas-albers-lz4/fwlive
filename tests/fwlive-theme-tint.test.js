@@ -58,7 +58,7 @@ assert(FWLIVE_TINT_PASS_HEX === '#46a546', 'unexpected PASS_HEX (classic default
 assert(FWLIVE_TINT_DENY_HEX === '#ca3c3c', 'unexpected DENY_HEX (classic default)');
 assert(CLASSIC_PASS_HEX === '#46a546', 'unexpected CLASSIC_PASS_HEX');
 assert(CLASSIC_DENY_HEX === '#ca3c3c', 'unexpected CLASSIC_DENY_HEX');
-assert(ACCESSIBLE_PASS_HEX === '#0e7490', 'unexpected ACCESSIBLE_PASS_HEX');
+assert(ACCESSIBLE_PASS_HEX === '#0d9488', 'unexpected ACCESSIBLE_PASS_HEX');
 assert(ACCESSIBLE_DENY_HEX === '#c2410c', 'unexpected ACCESSIBLE_DENY_HEX');
 
 assert(normalizeRowTint('classic') === 'classic', 'normalize classic');
