@@ -2,13 +2,14 @@
 
 /**
  * i18n smoke test — verifies that every msgid in the POT template has a
- * non-empty msgstr in each available .po file.
+ * non-empty msgstr in each available .po file, that format specifiers (%s,
+ * %d, etc.) are preserved, and that PO syntax basics are sound.
  *
  * Usage:
  *   node tests/fwlive-i18n.test.js
  *
  * This reads POT + PO files from the openwrt-feed package directory and
- * reports missing/empty translations. Exits non-zero on any failure.
+ * reports issues. Exits non-zero on any failure.
  *
  * In a full OpenWrt build this is redundant (luci.mk already validates PO
  * syntax at build time), but as a CI gate it catches incomplete translations
@@ -22,6 +23,8 @@ const PKG_DIR = path.resolve(__dirname, '..', 'openwrt-feed', 'luci-app-fwlive')
 const PO_DIR = path.join(PKG_DIR, 'po');
 const POT_FILE = path.join(PO_DIR, 'templates', 'luci-app-fwlive.pot');
 
+const RE_FORMAT = /%[%\d.\-+#]*[sdf]/g;
+
 /**
  * Parse a .po/.pot file into an array of { msgid, msgstr } entries.
  * Returns msgstr = null for empty/untranslated entries.
@@ -31,7 +34,7 @@ function parsePoFile(filePath) {
   const lines = text.split('\n');
   const entries = [];
   let current = null;
-  let onMsgstr = false; // set after msgid line; cleared when next entry starts
+  let onMsgstr = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -47,7 +50,7 @@ function parsePoFile(filePath) {
       continue;
     }
 
-    // msgid continuation (next line after msgid "..."
+    // msgid continuation
     if (!onMsgstr && current && /^"/.test(line)) {
       const inner = line.replace(/^"((?:[^"\\]|\\.)*)"$/, '$1');
       current.msgid += inner;
@@ -57,7 +60,7 @@ function parsePoFile(filePath) {
     // msgstr
     const msMatch = line.match(/^msgstr "((?:[^"\\]|\\.)*)"/);
     if (msMatch && current) {
-      current.msgstr = msMatch[1]; // may be empty string ""
+      current.msgstr = msMatch[1];
       onMsgstr = true;
       continue;
     }
@@ -76,6 +79,14 @@ function parsePoFile(filePath) {
   return entries;
 }
 
+/**
+ * Extract format specifiers from a string. Returns sorted array.
+ */
+function extractFormats(str) {
+  if (!str) return [];
+  return (str.match(RE_FORMAT) || []).sort();
+}
+
 function main() {
   let failures = 0;
 
@@ -86,7 +97,13 @@ function main() {
 
   const potEntries = parsePoFile(POT_FILE);
   const potIds = potEntries.map(e => e.msgid).filter(id => id !== '');
-  console.log('POT: %d translatable msgids (%s)', potIds.length, POT_FILE);
+  console.log('POT: %d translatable msgids (%s)\n', potIds.length, POT_FILE);
+
+  // Build POT format-spec reference map
+  const potFormats = {};
+  for (const e of potEntries) {
+    if (e.msgid) potFormats[e.msgid] = extractFormats(e.msgid);
+  }
 
   // Find all language directories
   const langs = fs.readdirSync(PO_DIR).filter(d =>
@@ -113,26 +130,35 @@ function main() {
 
     let missing = 0;
     let empty = 0;
+    let formatMismatch = 0;
     let mismatched = 0;
 
     for (const msgid of potIds) {
       if (!poMap[msgid]) {
         missing++;
-        if (missing <= 5)
-          console.error('[FAIL] %s: missing msgid "%s"', lang, msgid);
         continue;
       }
-      if (!poMap[msgid].msgstr) {
+      const entry = poMap[msgid];
+      if (!entry.msgstr) {
         empty++;
-        if (empty <= 5)
-          console.error('[FAIL] %s: empty translation for "%s"', lang, msgid);
+        continue;
+      }
+
+      // Format specifier cross-check
+      const idFormats = potFormats[msgid] || [];
+      const strFormats = extractFormats(entry.msgstr);
+      if (JSON.stringify(idFormats) !== JSON.stringify(strFormats)) {
+        formatMismatch++;
+        if (formatMismatch <= 3)
+          console.error('[FAIL] %s: format specifier mismatch for "%s" | msgid: %s | msgstr: %s',
+            lang, msgid, idFormats.join(' '), strFormats.join(' '));
       }
     }
 
-    // Check for stale entries in PO (not in POT anymore)
+    // Stale entries
     const poIds = poEntries.map(e => e.msgid);
     for (const msgid of poIds) {
-      if (msgid === '') continue; // header is special
+      if (msgid === '') continue;
       if (potIds.indexOf(msgid) === -1) {
         mismatched++;
         if (mismatched <= 3)
@@ -140,16 +166,16 @@ function main() {
       }
     }
 
-    if (missing + empty + mismatched === 0)
-      console.log('[PASS] %s: %d/msgids translated, %d total', lang, potIds.length, poEntries.length);
+    const total = missing + empty + formatMismatch;
+    if (total + mismatched === 0)
+      console.log('[PASS] %s: %d msgids OK, %d entries total — formats verified ✓', lang, potIds.length, poEntries.length);
     else {
-      if (missing + empty > 0) {
-        failures++;
-        if (missing > 5) console.error('       ... and %d more missing', missing - 5);
-        if (empty > 5) console.error('       ... and %d more empty', empty - 5);
-      }
-      if (mismatched) 
-        console.warn('       (%d stale entries in PO — should be cleaned up)', mismatched);
+      if (missing) console.error('[FAIL] %s: %d missing msgid(s)', lang, missing);
+      if (empty) console.error('[FAIL] %s: %d empty translation(s)', lang, empty);
+      if (formatMismatch) console.error('[FAIL] %s: %d format specifier mismatch(es)', lang, formatMismatch);
+      if (missing + empty + formatMismatch > 0) failures++;
+      if (mismatched)
+        console.warn('       (%d stale entries — should be cleaned up)', mismatched);
     }
   }
 

@@ -63,7 +63,7 @@ msgstr "Alle löschen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2239
 msgid "Click a row for the full log line. Show Detail for all columns. Click a cell to filter; use ≠ on a chip to exclude. Ctrl+click a rule to open firewall settings."
-msgstr "Klicken Sie auf eine Zeile, um die vollständige Log-Zeile anzuzeigen. „Detail anzeigen" für alle Spalten. Klicken Sie auf eine Zelle, um zu filtern; verwenden Sie ≠ auf einem Chip, um auszuschließen. Strg+Klick auf eine Regel öffnet die Firewall-Einstellungen."
+msgstr "Klicken Sie auf eine Zeile, um die vollständige Log-Zeile anzuzeigen. „Detail anzeigen“ für alle Spalten. Klicken Sie auf eine Zelle, um zu filtern; verwenden Sie ≠ auf einem Chip, um auszuschließen. Strg+Klick auf eine Regel öffnet die Firewall-Einstellungen."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2247
 msgid "Click a row to see the full log line (Simple view)."
@@ -174,7 +174,7 @@ msgstr "Hohe Ereignisrate — Die Tabellenaktualisierung wird gedrosselt, um den
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2250
 msgid "If Row tint looks missing, the active LuCI theme may omit success/error CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device)."
-msgstr "Wenn die Zeileneinfärbung fehlt, verwendet das aktive LuCI-Theme möglicherweise keine Erfolgs/Fehler-CSS-Variablen; fwlive fällt auf lokale Farben zurück (luftdicht gekapselt, keine Daten verlassen das Gerät)."
+msgstr "Wenn die Zeileneinfärbung fehlt, verwendet das aktive LuCI-Theme möglicherweise keine Erfolgs/Fehler-CSS-Variablen; fwlive fällt auf lokale Farben zurück (air-gapped, keine Daten verlassen das Gerät)."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:396
 msgid "IN"
@@ -206,7 +206,7 @@ msgstr "Limit"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2146
 msgid "Live firewall log table — refreshes every second. Shows traffic your firewall already logs; use filters or Show Detail when you need more."
-msgstr "Live-Firewall-Log-Tabelle — aktualisiert jede Sekunde. Zeigt Verkehr, den Ihre Firewall bereits protokolliert; verwenden Sie Filter oder „Detail anzeigen", wenn Sie mehr benötigen."
+msgstr "Live-Firewall-Log-Tabelle — aktualisiert jede Sekunde. Zeigt Verkehr, den Ihre Firewall bereits protokolliert; verwenden Sie Filter oder „Detail anzeigen“, wenn Sie mehr benötigen."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1017
 msgid "loading buffer"
@@ -293,11 +293,11 @@ msgstr "Pausiert — %d aufgenommen (+%d seit Pause) (%d in Live-Ansicht). Aktiv
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1107
 msgid "Paused — %d ingested (+%d since pause), %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s"
-msgstr "Pausiert — %d aufgenommen (+%d seit Pause), %d/%d in Live-Ansicht (%d filterübereinstimmungen). Aktivieren Sie die Auto-Aktualisierung, um die Tabelle zu aktualisieren.%s"
+msgstr "Pausiert — %d aufgenommen (+%d seit Pause), %d/%d in Live-Ansicht (%d Filterübereinstimmungen). Aktivieren Sie die Auto-Aktualisierung, um die Tabelle zu aktualisieren.%s"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1109
 msgid "Paused — %d ingested, %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s"
-msgstr "Pausiert — %d aufgenommen, %d/%d in Live-Ansicht (%d filterübereinstimmungen). Aktivieren Sie die Auto-Aktualisierung, um die Tabelle zu aktualisieren.%s"
+msgstr "Pausiert — %d aufgenommen, %d/%d in Live-Ansicht (%d Filterübereinstimmungen). Aktivieren Sie die Auto-Aktualisierung, um die Tabelle zu aktualisieren.%s"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1103
 msgid "Paused — loading ingest buffer…"
@@ -374,7 +374,7 @@ msgstr "Die neben der WAN-Protokollierung angezeigte Rate ist der Firewall-Zonen
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2243
 msgid "The table updates automatically when your firewall logs traffic. Use Enable logging if the table is empty on a stock config."
-msgstr "Die Tabelle wird automatisch aktualisiert, wenn Ihre Firewall Verkehr protokolliert. Verwenden Sie „Protokollierung aktivieren", wenn die Tabelle bei einer Standardkonfiguration leer ist."
+msgstr "Die Tabelle wird automatisch aktualisiert, wenn Ihre Firewall Verkehr protokolliert. Verwenden Sie „Protokollierung aktivieren“, wenn die Tabelle bei einer Standardkonfiguration leer ist."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2194
 msgid "Theme tint fallback active"
@@ -390,7 +390,7 @@ msgstr "Zeit"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2249
 msgid "Use Show Detail for all columns (flags, length, raw message)."
-msgstr "Verwenden Sie „Detail anzeigen" für alle Spalten (Flags, Länge, rohe Nachricht)."
+msgstr "Verwenden Sie „Detail anzeigen“ für alle Spalten (Flags, Länge, rohe Nachricht)."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:646
 msgid "using fw4"
