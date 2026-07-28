@@ -230,15 +230,23 @@ if (!css.includes('fwlive-chips-labels') || !css.includes('fwlive-chips-symbols'
 	console.error('missing chip style CSS variants');
 	process.exit(1);
 }
-if (!text.includes("'id': 'fwlive-row-tint'") || !text.includes('rowTintSelectOptions')) {
-	console.error('missing Row tint select in toolbar');
+if (!text.includes("'id': 'fwlive-row-tint-toggle'") || !text.includes('toggleRowTint')) {
+	console.error('missing Row tint toggle button in toolbar');
 	process.exit(1);
 }
-if (!text.includes("'value': 'classic'") || !text.includes("'value': 'accessible'") || !text.includes("'value': 'off'")) {
-	console.error('missing Row tint mode options (off/classic/accessible)');
+if (!text.includes("'id': 'fwlive-row-tint'") || !text.includes('rowTintPaletteOptions')) {
+	console.error('missing Row tint palette select in toolbar');
 	process.exit(1);
 }
-if (!text.includes('DEFAULT_ROW_TINT') || !text.includes('applyRowTintMode')) {
+if (!text.includes("'value': 'classic'") || !text.includes("'value': 'accessible'")) {
+	console.error('missing Row tint palette options (classic/accessible)');
+	process.exit(1);
+}
+if (text.includes("rowTintSelectOptions") || text.includes("E('option', { 'value': 'off' }")) {
+	console.error('Row tint should not use a 3-way select with Off option');
+	process.exit(1);
+}
+if (!text.includes('DEFAULT_ROW_TINT') || !text.includes('applyRowTintMode') || !text.includes('updateRowTintUi')) {
 	console.error('missing row tint mode wiring');
 	process.exit(1);
 }

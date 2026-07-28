@@ -86,6 +86,8 @@ return view.extend({
 	showHostnames: false,
 	chipStyle: constants.DEFAULT_CHIP_STYLE,
 	rowTint: constants.DEFAULT_ROW_TINT,
+	/* Last non-off palette so toggling tint back on restores Classic/Accessible. */
+	rowTintPalette: 'classic',
 	hostnameCache: null,
 	hostnameFailed: null,
 	resolveInFlight: false,
@@ -240,9 +242,8 @@ return view.extend({
 		}
 	},
 
-	rowTintSelectOptions() {
+	rowTintPaletteOptions() {
 		return [
-			E('option', { 'value': 'off' }, _('Off')),
 			E('option', { 'value': 'classic' }, _('Classic (green/red)')),
 			E('option', { 'value': 'accessible' }, _('Accessible (teal/orange)'))
 		];
@@ -260,6 +261,58 @@ return view.extend({
 		map.setAttribute('data-row-tint', this.rowTint);
 		if (!this.rowTintEnabled() && this.tintFallbackActive)
 			this.clearTintFallback(map);
+	},
+
+	toggleRowTint(ev) {
+		if (ev && ev.preventDefault)
+			ev.preventDefault();
+
+		if (this.rowTintEnabled()) {
+			this.rowTintPalette = this.rowTint;
+			this.rowTint = 'off';
+		} else {
+			const pal = (this.rowTintPalette === 'accessible') ? 'accessible' : 'classic';
+			this.rowTintPalette = pal;
+			this.rowTint = pal;
+		}
+		this.saveRowTint();
+		this.tintProbeDone = false;
+		this.applyRowTintMode();
+		this.updateRowTintUi();
+		this.renderRows(true);
+	},
+
+	onRowTintPaletteChange(ev) {
+		const v = ev && ev.target ? ev.target.value : 'classic';
+		const pal = (v === 'accessible') ? 'accessible' : 'classic';
+		this.rowTintPalette = pal;
+		if (!this.rowTintEnabled())
+			return;
+		this.rowTint = pal;
+		this.saveRowTint();
+		this.tintProbeDone = false;
+		this.applyRowTintMode();
+		this.updateRowTintUi();
+		this.renderRows(true);
+	},
+
+	updateRowTintUi() {
+		const on = this.rowTintEnabled();
+		const btn = document.getElementById('fwlive-row-tint-toggle');
+		if (btn) {
+			btn.textContent = on ? _('Hide row tint') : _('Row tint');
+			btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+		}
+
+		const wrap = document.getElementById('fwlive-row-tint-palette-wrap');
+		if (wrap)
+			wrap.style.display = on ? 'inline-flex' : 'none';
+
+		const tintSel = document.getElementById('fwlive-row-tint');
+		if (tintSel) {
+			const pal = on ? this.rowTint : this.rowTintPalette;
+			tintSel.value = (pal === 'accessible') ? 'accessible' : 'classic';
+		}
 	},
 
 	readChipStyle() {
@@ -901,7 +954,6 @@ return view.extend({
 		const cb = document.getElementById('fwlive-autorefresh');
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
-		const tintSel = document.getElementById('fwlive-row-tint');
 		const chipSel = document.getElementById('fwlive-chip-style');
 		if (cb)
 			cb.checked = !this.paused;
@@ -911,8 +963,7 @@ return view.extend({
 			chipSel.value = this.chipStyle;
 		if (hostCb)
 			hostCb.checked = !!this.showHostnames;
-		if (tintSel)
-			tintSel.value = this.rowTint;
+		this.updateRowTintUi();
 	},
 
 	onShowHostnamesChange(ev) {
@@ -923,16 +974,6 @@ return view.extend({
 			this.resolveHostnamesForEntries(this.filteredRows());
 		else
 			this.renderRows(true);
-	},
-
-	onRowTintChange(ev) {
-		const v = ev && ev.target ? ev.target.value : constants.DEFAULT_ROW_TINT;
-		this.rowTint = constants.ROW_TINT_OPTIONS.indexOf(v) >= 0
-			? v : constants.DEFAULT_ROW_TINT;
-		this.saveRowTint();
-		this.tintProbeDone = false;
-		this.applyRowTintMode();
-		this.renderRows(true);
 	},
 
 	onAutoRefreshChange(ev) {
@@ -1312,7 +1353,7 @@ return view.extend({
 
 		const tintSel = document.getElementById('fwlive-row-tint');
 		if (tintSel)
-			tintSel.addEventListener('change', this.onRowTintChange.bind(this));
+			tintSel.addEventListener('change', this.onRowTintPaletteChange.bind(this));
 
 		const chipSel = document.getElementById('fwlive-chip-style');
 		if (chipSel)
@@ -1398,18 +1439,32 @@ return view.extend({
 					'class': 'cbi-input-select',
 					'title': _('How include vs exclude filters are shown on chips')
 				}, this.chipStyleSelectOptions()),
-				E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, _('Row tint')),
-				E('select', {
-					'id': 'fwlive-row-tint',
-					'class': 'cbi-input-select',
-					'title': _('Pass/deny row background colors. Classic is the default; Accessible avoids red/green.')
-				}, this.rowTintSelectOptions()),
 				E('label', { 'class': 'fwlive-ctl' }, [
 					E('input', {
 						'id': 'fwlive-show-hostnames',
 						'type': 'checkbox'
 					}),
 					_('Show hostnames')
+				]),
+				E('button', {
+					'id': 'fwlive-row-tint-toggle',
+					'class': 'cbi-button',
+					'type': 'button',
+					'aria-pressed': 'true',
+					'title': _('Toggle pass/deny row background colors'),
+					'click': this.toggleRowTint.bind(this)
+				}, _('Hide row tint')),
+				E('span', {
+					'id': 'fwlive-row-tint-palette-wrap',
+					'class': 'fwlive-ctl',
+					'style': 'display: inline-flex'
+				}, [
+					E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, _('Tint')),
+					E('select', {
+						'id': 'fwlive-row-tint',
+						'class': 'cbi-input-select',
+						'title': _('Classic uses green/red; Accessible uses teal/orange')
+					}, this.rowTintPaletteOptions())
 				]),
 				E('button', {
 					'id': 'fwlive-detail-toggle',
@@ -1485,7 +1540,7 @@ return view.extend({
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
 					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
 					E('li', {}, _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.')),
-					E('li', {}, _('Row tint: Off, Classic (green/red, default), or Accessible (teal/orange). Action text stays colored either way.')),
+					E('li', {}, _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.')),
 					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
 					E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
 				])
@@ -1498,6 +1553,7 @@ return view.extend({
 		this.messageLayout = this.readMessageLayout();
 		this.showHostnames = this.readShowHostnames();
 		this.rowTint = this.readRowTint();
+		this.rowTintPalette = this.rowTintEnabled() ? this.rowTint : 'classic';
 		this.chipStyle = this.readChipStyle();
 		this.hostnameCache = new Map();
 		this.hostnameFailed = new Set();
@@ -1505,6 +1561,7 @@ return view.extend({
 		this.applyHash();
 		this.attachHandlers();
 		this.applyRowTintMode();
+		this.updateRowTintUi();
 		this.updateMessageLayoutUi();
 		this.updateStreamControlsUi();
 		this.updateDetailToggleUi();

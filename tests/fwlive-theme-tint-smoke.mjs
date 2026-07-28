@@ -5,7 +5,8 @@
  *
  *   FWLIVE_URL=http://127.0.0.1:8080 node tests/fwlive-theme-tint-smoke.mjs
  *
- * Row tint is a <select> (off | classic | accessible). Default classic is green/red.
+ * Row tint: toggle button (#fwlive-row-tint-toggle) + palette select when on
+ * (classic | accessible). Default classic is green/red.
  */
 import { chromium } from 'playwright';
 
@@ -32,9 +33,35 @@ async function login(page) {
 	}
 }
 
+async function tintIsOn(page) {
+	const btn = page.locator('#fwlive-row-tint-toggle');
+	const pressed = await btn.getAttribute('aria-pressed');
+	return pressed === 'true';
+}
+
 async function setTintMode(page, mode) {
+	const btn = page.locator('#fwlive-row-tint-toggle');
+	await btn.waitFor({ timeout: 15000 });
+
+	if (mode === 'off') {
+		if (await tintIsOn(page))
+			await btn.click();
+		await page.waitForFunction(() => {
+			const map = document.querySelector('.fwlive-map');
+			const toggle = document.getElementById('fwlive-row-tint-toggle');
+			return map
+				&& map.getAttribute('data-row-tint') === 'off'
+				&& toggle
+				&& toggle.getAttribute('aria-pressed') === 'false';
+		}, { timeout: 5000 });
+		return;
+	}
+
+	if (!(await tintIsOn(page)))
+		await btn.click();
+
 	const tint = page.locator('#fwlive-row-tint');
-	await tint.waitFor({ timeout: 15000 });
+	await tint.waitFor({ state: 'visible', timeout: 5000 });
 	const tag = await tint.evaluate((el) => el.tagName);
 	if (tag !== 'SELECT')
 		throw new Error(`#fwlive-row-tint must be a <select>, got <${tag}>`);
@@ -205,7 +232,7 @@ async function main() {
 
 	await login(page);
 	await page.waitForSelector('#fwlive-table', { timeout: 30000 });
-	await page.waitForSelector('#fwlive-row-tint', { timeout: 15000 });
+	await page.waitForSelector('#fwlive-row-tint-toggle', { timeout: 15000 });
 
 	/* Wait for at least two rows so zebra alt + non-alt both exist. */
 	await page.waitForFunction(() => {
