@@ -44,6 +44,9 @@ echo "== fwlive theme tint helpers ==" >&2
 echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js
 
+echo "== fwlive pause/resume buffer ==" >&2
+"$NODE" tests/fwlive-pause-resume-buffer.test.js
+
 echo "== fwlive filter negate toggle ==" >&2
 "$NODE" tests/fwlive-filter-negate.test.js
 

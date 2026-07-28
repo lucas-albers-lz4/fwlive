@@ -176,4 +176,11 @@ assert.strictEqual(body.innerHTML, '');
 assert.ok(body._n >= 1);
 console.log('fwlive-modules smoke: table OK');
 
+/* --- buffer --- */
+const buffer = loadFwliveModule('buffer');
+assert.strictEqual(typeof buffer.applyFetchedEntries, 'function');
+assert.strictEqual(buffer.ingestCap(true, 100, 2000), 2000);
+assert.strictEqual(buffer.ingestCap(false, 100, 2000), 100);
+console.log('fwlive-modules smoke: buffer OK');
+
 console.log('fwlive modules smoke tests passed');
