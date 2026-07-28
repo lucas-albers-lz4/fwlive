@@ -1371,7 +1371,7 @@ return view.extend({
 	},
 
 	render() {
-		return E('div', { 'class': 'cbi-map fwlive-map', 'data-view': 'simple' }, [
+		return E('div', { 'class': 'cbi-map fwlive-map', 'data-view': 'simple', 'data-row-tint': 'classic' }, [
 			E('style', {}, css.styleText),
 			E('h2', {}, [
 				_('Firewall Live View'),

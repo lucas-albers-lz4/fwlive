@@ -4,6 +4,8 @@
  * Used by scripts/qemu-theme-tint-smoke.sh (bootstrap + material). Not published-feed purity.
  *
  *   FWLIVE_URL=http://127.0.0.1:8080 node tests/fwlive-theme-tint-smoke.mjs
+ *
+ * Row tint is a <select> (off | classic | accessible). Default classic is green/red.
  */
 import { chromium } from 'playwright';
 
@@ -30,14 +32,17 @@ async function login(page) {
 	}
 }
 
-async function setTint(page, on) {
+async function setTintMode(page, mode) {
 	const tint = page.locator('#fwlive-row-tint');
 	await tint.waitFor({ timeout: 15000 });
-	const checked = await tint.isChecked();
-	if (on && !checked)
-		await tint.check();
-	else if (!on && checked)
-		await tint.uncheck();
+	const tag = await tint.evaluate((el) => el.tagName);
+	if (tag !== 'SELECT')
+		throw new Error(`#fwlive-row-tint must be a <select>, got <${tag}>`);
+	await tint.selectOption(mode);
+	await page.waitForFunction((want) => {
+		const map = document.querySelector('.fwlive-map');
+		return map && map.getAttribute('data-row-tint') === want;
+	}, mode, { timeout: 5000 });
 }
 
 async function measureTintDelta(page) {
@@ -99,6 +104,7 @@ async function measureTintDelta(page) {
 		const passToken = map
 			? getComputedStyle(map).getPropertyValue('--fwlive-pass-color').trim()
 			: '';
+		const mode = map ? map.getAttribute('data-row-tint') : '';
 		const fallback = map ? map.getAttribute('data-tint-fallback') === '1' : false;
 
 		return {
@@ -108,6 +114,7 @@ async function measureTintDelta(page) {
 			onBg,
 			offBg,
 			passToken,
+			mode,
 			fallback,
 			reason: delta >= minDelta ? '' : `paint delta ${delta} < ${minDelta}`
 		};
@@ -174,6 +181,23 @@ async function measureZebraDelta(page) {
 	}, MIN_DELTA);
 }
 
+async function assertModePaint(page, mode) {
+	await setTintMode(page, mode);
+	await page.waitForTimeout(800);
+	const result = await measureTintDelta(page);
+	if (!result.ok) {
+		console.error(`theme tint smoke FAIL (${THEME}/${mode}): ${result.reason}`);
+		console.error(JSON.stringify(result, null, 2));
+		process.exit(1);
+	}
+	if (result.mode !== mode) {
+		console.error(`theme tint smoke FAIL (${THEME}/${mode}): data-row-tint=${result.mode}`);
+		process.exit(1);
+	}
+	/* Fallback is allowed on themes that break color-mix; paint delta must still pass. */
+	return result;
+}
+
 async function main() {
 	const browser = await chromium.launch({ headless: true });
 	const page = await browser.newPage();
@@ -181,6 +205,7 @@ async function main() {
 
 	await login(page);
 	await page.waitForSelector('#fwlive-table', { timeout: 30000 });
+	await page.waitForSelector('#fwlive-row-tint', { timeout: 15000 });
 
 	/* Wait for at least two rows so zebra alt + non-alt both exist. */
 	await page.waitForFunction(() => {
@@ -191,7 +216,7 @@ async function main() {
 	}, { timeout: 45000 });
 
 	/* Zebra first with row tint off (isolates alternating stripe from pass/deny). */
-	await setTint(page, false);
+	await setTintMode(page, 'off');
 	await page.waitForTimeout(400);
 	const zebra = await measureZebraDelta(page);
 	if (!zebra.ok) {
@@ -201,26 +226,16 @@ async function main() {
 		process.exit(1);
 	}
 
-	await setTint(page, true);
-	/* Allow deferred paint probe (rAF) to finish before asserting. */
-	await page.waitForTimeout(800);
+	const classic = await assertModePaint(page, 'classic');
+	const accessible = await assertModePaint(page, 'accessible');
 
-	const result = await measureTintDelta(page);
 	await browser.close();
 
-	if (!result.ok) {
-		console.error(`theme tint smoke FAIL (${THEME}): ${result.reason}`);
-		console.error(JSON.stringify(result, null, 2));
-		process.exit(1);
-	}
-
-	if (result.fallback) {
-		console.error(`theme tint smoke FAIL (${THEME}): unexpected data-tint-fallback (CSS should paint without JS fallback)`);
-		console.error(JSON.stringify(result, null, 2));
-		process.exit(1);
-	}
-
-	console.log(`theme tint smoke OK (${THEME}): zebraDelta=${zebra.delta} tintDelta=${result.delta}`);
+	console.log(
+		`theme tint smoke OK (${THEME}): zebraDelta=${zebra.delta}`
+		+ ` classicDelta=${classic.delta} classicFallback=${classic.fallback}`
+		+ ` accessibleDelta=${accessible.delta} accessibleFallback=${accessible.fallback}`
+	);
 }
 
 main().catch((e) => {
