@@ -8,6 +8,9 @@
 return baseclass.extend({
 	ROW_LIMIT_OPTIONS: [ 25, 50, 100, 250, 500, 1000, 2000 ],
 	DEFAULT_ROW_LIMIT: 100,
+	/* Filter chip polarity presentation (#18): labels = A+light B default */
+	CHIP_STYLE_OPTIONS: [ 'labels', 'symbols', 'tone' ],
+	DEFAULT_CHIP_STYLE: 'labels',
 	FETCH_LINES_MAX: 2000,
 	/* DOM budget: ~250 new/updated rows per second on typical LuCI routers */
 	RENDER_CAP_PER_SEC: 250,
