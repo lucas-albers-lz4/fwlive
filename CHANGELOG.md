@@ -9,11 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Selectable filter chip styles (Labels / Symbols / Tone) with localStorage persistence (#18, #38)
+- Row tint toggle (on/off) with Classic (green/red, default) and Accessible (teal/orange) palettes (#40, #47, #49)
+- Theme tint fallback when LuCI theme CSS variables do not paint pass/deny row backgrounds
+- Security-only Dependabot config for npm, Docker, and GitHub Actions (#42)
+- gitleaks pre-commit hook for local secret scanning (#41)
+
+### Fixed
+- Pause → resume no longer drops live events; pause buffer is merged on resume (#43, #44)
+- Parser version sync (v3), overlapping poll guard / `pagehide` cleanup, and filter input debounce (#43, #45)
+
+### Changed
+- CI workflows set explicit `GITHUB_TOKEN` permissions (#39)
+
+---
+
+## [v0.1.28] — 2026-07-27
+
 ### Documentation
 - Consolidated planning/spec docs into ROADMAP.md
 - Restructured over-long user docs (Quick Start first)
-- Added CHANGELOG.md, FAQ.md
-- Fixed cross-reference accuracy throughout
+- Added CHANGELOG.md, FAQ.md, and upgrade guide
+- Fixed cross-reference accuracy and MCR review findings throughout
 
 ---
 
