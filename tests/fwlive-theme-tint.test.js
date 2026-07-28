@@ -48,17 +48,17 @@ function assert(cond, msg) {
 }
 
 assert(typeof FWLIVE_TINT_PAINT_DELTA_MIN === 'number', 'missing PAINT_DELTA_MIN');
-assert(FWLIVE_TINT_PASS_HEX === '#46a546', 'unexpected PASS_HEX');
-assert(FWLIVE_TINT_DENY_HEX === '#ca3c3c', 'unexpected DENY_HEX');
+assert(FWLIVE_TINT_PASS_HEX === '#0e7490', 'unexpected PASS_HEX');
+assert(FWLIVE_TINT_DENY_HEX === '#c2410c', 'unexpected DENY_HEX');
 
 assert(fwliveParseCssRgbChannels('transparent') === null, 'transparent should be null');
 assert(fwliveParseCssRgbChannels('rgba(0, 0, 0, 0)') === null, 'fully transparent rgba should be null');
 assert(
-	JSON.stringify(fwliveParseCssRgbChannels('rgb(70, 165, 70)')) === JSON.stringify([70, 165, 70]),
+	JSON.stringify(fwliveParseCssRgbChannels('rgb(14, 116, 144)')) === JSON.stringify([14, 116, 144]),
 	'rgb parse failed'
 );
 assert(
-	JSON.stringify(fwliveParseCssRgbChannels('rgba(202, 60, 60, 0.12)')) === JSON.stringify([202, 60, 60]),
+	JSON.stringify(fwliveParseCssRgbChannels('rgba(194, 65, 12, 0.12)')) === JSON.stringify([194, 65, 12]),
 	'rgba parse failed'
 );
 assert(
@@ -70,9 +70,9 @@ assert(
 	'color-mix srgb serialization vs transparent must count as paint'
 );
 
-assert(fwliveCssColorPaintDelta('rgb(70, 165, 70)', 'rgb(70, 165, 70)') === 0, 'identical colors delta 0');
+assert(fwliveCssColorPaintDelta('rgb(14, 116, 144)', 'rgb(14, 116, 144)') === 0, 'identical colors delta 0');
 assert(
-	fwliveCssColorPaintDelta('rgb(70, 165, 70)', 'rgb(255, 255, 255)') > FWLIVE_TINT_PAINT_DELTA_MIN,
+	fwliveCssColorPaintDelta('rgb(14, 116, 144)', 'rgb(255, 255, 255)') > FWLIVE_TINT_PAINT_DELTA_MIN,
 	'pass tint vs white should exceed min delta'
 );
 assert(
@@ -80,7 +80,7 @@ assert(
 	'transparent vs opaque must count as paint (not 0)'
 );
 assert(
-	fwliveCssColorPaintDelta('rgba(70, 165, 70, 0.12)', 'rgba(0, 0, 0, 0)') === 70 + 165 + 70,
+	fwliveCssColorPaintDelta('rgba(14, 116, 144, 0.12)', 'rgba(0, 0, 0, 0)') === 14 + 116 + 144,
 	'tinted rgba vs fully-transparent off-state must count as paint'
 );
 assert(
