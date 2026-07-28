@@ -72,8 +72,7 @@ const requiredVars = [
 	'--border-color-medium',
 	'--border-color-low',
 	'--primary-color-high',
-	'--success-color-high',
-	'--error-color-high',
+	'--info-color-high',
 	'--warn-color-high'
 ];
 
@@ -85,12 +84,12 @@ for (const v of requiredVars) {
 }
 
 /* Material / custom themes expose short names; Bootstrap uses *-high. */
-if (!hasVarUsage(css, '--success-color')) {
-	console.error('missing Material fallback chain var(--success-color, ...)');
+if (!hasVarUsage(css, '--info-color')) {
+	console.error('missing Material fallback chain var(--info-color, ...)');
 	process.exit(1);
 }
-if (!hasVarUsage(css, '--error-color')) {
-	console.error('missing Material fallback chain var(--error-color, ...)');
+if (!hasVarUsage(css, '--warn-color')) {
+	console.error('missing Material fallback chain var(--warn-color, ...)');
 	process.exit(1);
 }
 if (!hasVarUsage(css, '--white-color-low')) {
@@ -148,11 +147,11 @@ const rowTintDeny = css.indexOf('#fwlive-table tbody tr.fwlive-row-deny td');
 const passChunk = css.slice(rowTintPass, rowTintPass + 350);
 const denyChunk = css.slice(rowTintDeny, rowTintDeny + 350);
 
-if (!/rgba\(\s*70\s*,\s*165\s*,\s*70/.test(passChunk)) {
+if (!/rgba\(\s*14\s*,\s*116\s*,\s*144/.test(passChunk)) {
 	console.error('fwlive-row-pass must include rgba base tint (non-color-mix fallback)');
 	process.exit(1);
 }
-if (!/rgba\(\s*202\s*,\s*60\s*,\s*60/.test(denyChunk)) {
+if (!/rgba\(\s*194\s*,\s*65\s*,\s*12/.test(denyChunk)) {
 	console.error('fwlive-row-deny must include rgba base tint (non-color-mix fallback)');
 	process.exit(1);
 }
@@ -180,6 +179,10 @@ if (!/color-mix\(in srgb,\s*var\(--fwlive-deny-color\)\s+12%,\s*var\(--fwlive-bg
 
 if (!css.includes('data-tint-fallback')) {
 	console.error('missing data-tint-fallback solid paint rules');
+	process.exit(1);
+}
+if (!css.includes('tr.fwlive-row-pass:hover td') || !css.includes('tr.fwlive-row-deny:hover td')) {
+	console.error('missing pass/deny row hover tint rules');
 	process.exit(1);
 }
 

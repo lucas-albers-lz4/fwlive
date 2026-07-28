@@ -44,17 +44,18 @@ echo "== fwlive theme tint smoke (root@${HOST}:${PORT}) ==" >&2
 ssh_guest 'echo connected' >/dev/null 2>&1 \
 	|| die "SSH unreachable — start QEMU and install fwlive first"
 
-# Hardened CSS must be present on the guest (Phase 1).
-ssh_guest 'grep -q -- "--fwlive-pass-color" /www/luci-static/resources/view/status/fwlive.js' \
-	|| die "guest fwlive.js missing --fwlive-pass-color (rebuild/reinstall package)"
-ssh_guest 'grep -q -- "var(--success-color," /www/luci-static/resources/view/status/fwlive.js' \
-	|| die "guest fwlive.js missing Material --success-color chain"
-ssh_guest 'grep -q "rgba(70, 165, 70" /www/luci-static/resources/view/status/fwlive.js' \
-	|| die "guest fwlive.js missing rgba base tint"
-ssh_guest 'grep -q -- "--fwlive-bg-medium" /www/luci-static/resources/view/status/fwlive.js' \
-	|| die "guest fwlive.js missing --fwlive-bg-medium (zebra resilience)"
-ssh_guest 'grep -q -- "var(--white-color-low," /www/luci-static/resources/view/status/fwlive.js' \
-	|| die "guest fwlive.js missing Material --white-color-low chain"
+# Hardened CSS must be present on the guest (Phase 1). CSS lives in fwlive/css.js.
+CSS_JS=/www/luci-static/resources/fwlive/css.js
+ssh_guest "grep -q -- '--fwlive-pass-color' '$CSS_JS'" \
+	|| die "guest css.js missing --fwlive-pass-color (rebuild/reinstall package)"
+ssh_guest "grep -q -- 'var(--info-color,' '$CSS_JS'" \
+	|| die "guest css.js missing Material --info-color chain"
+ssh_guest "grep -q 'rgba(14, 116, 144' '$CSS_JS'" \
+	|| die "guest css.js missing rgba base tint"
+ssh_guest "grep -q -- '--fwlive-bg-medium' '$CSS_JS'" \
+	|| die "guest css.js missing --fwlive-bg-medium (zebra resilience)"
+ssh_guest "grep -q -- 'var(--white-color-low,' '$CSS_JS'" \
+	|| die "guest css.js missing Material --white-color-low chain"
 ok "guest CSS has tint resilience tokens"
 
 # Seed firewall log rows when possible (same helpers as qemu-smoke-fwlive.sh).

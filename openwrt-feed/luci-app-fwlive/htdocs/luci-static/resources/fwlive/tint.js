@@ -6,8 +6,9 @@
  * LuCI modules must return baseclass.extend(...) — plain objects fail Class.isSubclass.
  */
 var PAINT_DELTA_MIN = 8;
-var PASS_HEX = '#46a546';
-var DENY_HEX = '#ca3c3c';
+/* Colorblind-safe defaults (#40): teal pass / orange deny — not green/red. */
+var PASS_HEX = '#0e7490';
+var DENY_HEX = '#c2410c';
 
 function parseCssRgbChannels(value) {
 	if (!value)
