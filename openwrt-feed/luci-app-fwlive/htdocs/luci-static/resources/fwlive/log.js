@@ -3,7 +3,7 @@
 
 /**
  * LuCI wrapper — keep logic aligned with core/fwlive-log.js (see scripts/fwlive-test.sh).
- * PARSER_SYNC_VERSION: 2
+ * PARSER_SYNC_VERSION: 3
  */
 return baseclass.extend({
 	NON_FIREWALL_PREFIX: /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)\b/i,
@@ -332,7 +332,7 @@ return baseclass.extend({
 		if (!p.value)
 			return true;
 
-		const hit = (haystack || '').includes(p.value);
+		const hit = (haystack || '').indexOf(p.value) !== -1;
 		return p.negate ? !hit : hit;
 	},
 
@@ -351,8 +351,12 @@ return baseclass.extend({
 		if (filters.q) {
 			const p = this.parseFilterValue(filters.q);
 			if (p.value) {
-				const blob = Object.values(row).join(' ').toLowerCase();
-				const hit = blob.includes(p.value.toLowerCase());
+				const keys = Object.keys(row);
+				const parts = [];
+				for (let i = 0; i < keys.length; i++)
+					parts.push(row[keys[i]]);
+				const blob = parts.join(' ').toLowerCase();
+				const hit = blob.indexOf(p.value.toLowerCase()) !== -1;
 				if (p.negate ? hit : !hit)
 					return false;
 			}

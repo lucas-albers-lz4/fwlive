@@ -3,7 +3,7 @@
 /**
  * Shared firewall log parsing and filtering (Node CLI + unit tests).
  * Keep in sync with openwrt-feed/.../fwlive/log.js (LuCI baseclass wrapper).
- * PARSER_SYNC_VERSION: 2
+ * PARSER_SYNC_VERSION: 3
  */
 
 const NON_FIREWALL_PREFIX = /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)\b/i;
@@ -126,7 +126,7 @@ function timestampUnix(entry) {
 	if (!entry || entry.time == null || entry.time === '')
 		return null;
 
-	if (typeof entry.time === 'string' && entry.time.includes('T'))
+	if (typeof entry.time === 'string' && entry.time.indexOf('T') !== -1)
 		return Math.floor(new Date(entry.time).getTime() / 1000);
 
 	const n = Number(entry.time);
@@ -258,7 +258,7 @@ function matchesTextField(haystack, spec) {
 	if (!p.value)
 		return true;
 
-	const hit = (haystack || '').includes(p.value);
+	const hit = (haystack || '').indexOf(p.value) !== -1;
 	return p.negate ? !hit : hit;
 }
 
@@ -277,8 +277,12 @@ function matchesFilter(row, filters) {
 	if (filters.q) {
 		const p = parseFilterValue(filters.q);
 		if (p.value) {
-			const blob = Object.values(row).join(' ').toLowerCase();
-			const hit = blob.includes(p.value.toLowerCase());
+			const keys = Object.keys(row);
+			const parts = [];
+			for (let i = 0; i < keys.length; i++)
+				parts.push(row[keys[i]]);
+			const blob = parts.join(' ').toLowerCase();
+			const hit = blob.indexOf(p.value.toLowerCase()) !== -1;
 			if (p.negate ? hit : !hit)
 				return false;
 		}
@@ -323,10 +327,10 @@ function matchesFilter(row, filters) {
 function actionRowClass(action) {
 	const a = (action || '').toLowerCase();
 	if (a === 'drop' || a === 'reject' || a === 'block')
-		return 'fwlive-deny';
+		return 'fwlive-action fwlive-deny';
 	if (a === 'pass')
-		return 'fwlive-pass';
-	return '';
+		return 'fwlive-action fwlive-pass';
+	return 'fwlive-action fwlive-unknown';
 }
 
 function filterLogEntries(entries, options) {
