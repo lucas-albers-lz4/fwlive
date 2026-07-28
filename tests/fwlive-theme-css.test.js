@@ -3,7 +3,7 @@
 
 /**
  * Guard: fwlive view styles use LuCI theme CSS variables (no hardcoded hex outside tint fallbacks).
- * See GitHub issue #6 (dark mode), #14 (Material pass/deny), and #15 (zebra / bg-medium).
+ * See GitHub issue #6 (dark mode), #14 (Material pass/deny), #15 (zebra), #40 (tint modes).
  */
 
 const fs = require('fs');
@@ -72,6 +72,8 @@ const requiredVars = [
 	'--border-color-medium',
 	'--border-color-low',
 	'--primary-color-high',
+	'--success-color-high',
+	'--error-color-high',
 	'--info-color-high',
 	'--warn-color-high'
 ];
@@ -84,6 +86,14 @@ for (const v of requiredVars) {
 }
 
 /* Material / custom themes expose short names; Bootstrap uses *-high. */
+if (!hasVarUsage(css, '--success-color')) {
+	console.error('missing Material fallback chain var(--success-color, ...)');
+	process.exit(1);
+}
+if (!hasVarUsage(css, '--error-color')) {
+	console.error('missing Material fallback chain var(--error-color, ...)');
+	process.exit(1);
+}
 if (!hasVarUsage(css, '--info-color')) {
 	console.error('missing Material fallback chain var(--info-color, ...)');
 	process.exit(1);
@@ -105,6 +115,10 @@ if (!css.includes('--fwlive-bg-medium:')) {
 	console.error('missing scoped --fwlive-bg-medium token');
 	process.exit(1);
 }
+if (!css.includes('data-row-tint="classic"') || !css.includes('data-row-tint="accessible"')) {
+	console.error('missing data-row-tint classic/accessible palette scopes');
+	process.exit(1);
+}
 
 const keySelectors = [
 	'.fwlive-scroll',
@@ -114,8 +128,10 @@ const keySelectors = [
 	'.fwlive-pass',
 	'#fwlive-table td.fwlive-action.fwlive-pass',
 	'#fwlive-table td.fwlive-action.fwlive-deny',
-	'#fwlive-table tbody tr.fwlive-row-pass td',
-	'#fwlive-table tbody tr.fwlive-row-deny td',
+	'data-row-tint="classic"] #fwlive-table tbody tr.fwlive-row-pass td',
+	'data-row-tint="classic"] #fwlive-table tbody tr.fwlive-row-deny td',
+	'data-row-tint="accessible"] #fwlive-table tbody tr.fwlive-row-pass td',
+	'data-row-tint="accessible"] #fwlive-table tbody tr.fwlive-row-deny td',
 	'.fwlive-row-alt td'
 ];
 
@@ -142,32 +158,44 @@ if (!/background:\s*var\(--fwlive-bg-medium\)/.test(zebraChunk)) {
 	process.exit(1);
 }
 
-const rowTintPass = css.indexOf('#fwlive-table tbody tr.fwlive-row-pass td');
-const rowTintDeny = css.indexOf('#fwlive-table tbody tr.fwlive-row-deny td');
-const passChunk = css.slice(rowTintPass, rowTintPass + 350);
-const denyChunk = css.slice(rowTintDeny, rowTintDeny + 350);
+const classicPass = css.indexOf('data-row-tint="classic"] #fwlive-table tbody tr.fwlive-row-pass td');
+const classicDeny = css.indexOf('data-row-tint="classic"] #fwlive-table tbody tr.fwlive-row-deny td');
+const accessPass = css.indexOf('data-row-tint="accessible"] #fwlive-table tbody tr.fwlive-row-pass td');
+const accessDeny = css.indexOf('data-row-tint="accessible"] #fwlive-table tbody tr.fwlive-row-deny td');
+const classicPassChunk = css.slice(classicPass, classicPass + 350);
+const classicDenyChunk = css.slice(classicDeny, classicDeny + 350);
+const accessPassChunk = css.slice(accessPass, accessPass + 350);
+const accessDenyChunk = css.slice(accessDeny, accessDeny + 350);
 
-if (!/rgba\(\s*14\s*,\s*116\s*,\s*144/.test(passChunk)) {
-	console.error('fwlive-row-pass must include rgba base tint (non-color-mix fallback)');
+if (!/rgba\(\s*70\s*,\s*165\s*,\s*70/.test(classicPassChunk)) {
+	console.error('classic fwlive-row-pass must include green rgba base tint');
 	process.exit(1);
 }
-if (!/rgba\(\s*194\s*,\s*65\s*,\s*12/.test(denyChunk)) {
-	console.error('fwlive-row-deny must include rgba base tint (non-color-mix fallback)');
+if (!/rgba\(\s*202\s*,\s*60\s*,\s*60/.test(classicDenyChunk)) {
+	console.error('classic fwlive-row-deny must include red rgba base tint');
 	process.exit(1);
 }
-if (!/color-mix\(in srgb,\s*var\(--fwlive-pass-color\)/.test(passChunk)) {
+if (!/rgba\(\s*14\s*,\s*116\s*,\s*144/.test(accessPassChunk)) {
+	console.error('accessible fwlive-row-pass must include teal rgba base tint');
+	process.exit(1);
+}
+if (!/rgba\(\s*194\s*,\s*65\s*,\s*12/.test(accessDenyChunk)) {
+	console.error('accessible fwlive-row-deny must include orange rgba base tint');
+	process.exit(1);
+}
+if (!/color-mix\(in srgb,\s*var\(--fwlive-pass-color\)/.test(classicPassChunk)) {
 	console.error('fwlive-row-pass must use color-mix with --fwlive-pass-color');
 	process.exit(1);
 }
-if (!/color-mix\(in srgb,\s*var\(--fwlive-deny-color\)/.test(denyChunk)) {
+if (!/color-mix\(in srgb,\s*var\(--fwlive-deny-color\)/.test(classicDenyChunk)) {
 	console.error('fwlive-row-deny must use color-mix with --fwlive-deny-color');
 	process.exit(1);
 }
 
-const passAltIdx = css.indexOf('tr.fwlive-row-pass.fwlive-row-alt td');
-const denyAltIdx = css.indexOf('tr.fwlive-row-deny.fwlive-row-alt td');
-const passAltChunk = css.slice(passAltIdx, passAltIdx + 250);
-const denyAltChunk = css.slice(denyAltIdx, denyAltIdx + 250);
+const passAltIdx = css.indexOf('data-row-tint="classic"] #fwlive-table tbody tr.fwlive-row-pass.fwlive-row-alt td');
+const denyAltIdx = css.indexOf('data-row-tint="classic"] #fwlive-table tbody tr.fwlive-row-deny.fwlive-row-alt td');
+const passAltChunk = css.slice(passAltIdx, passAltIdx + 280);
+const denyAltChunk = css.slice(denyAltIdx, denyAltIdx + 280);
 if (!/color-mix\(in srgb,\s*var\(--fwlive-pass-color\)\s+12%,\s*var\(--fwlive-bg-medium\)\)/.test(passAltChunk)) {
 	console.error('fwlive-row-pass.fwlive-row-alt must color-mix onto --fwlive-bg-medium');
 	process.exit(1);
@@ -202,8 +230,16 @@ if (!css.includes('fwlive-chips-labels') || !css.includes('fwlive-chips-symbols'
 	console.error('missing chip style CSS variants');
 	process.exit(1);
 }
-if (!text.includes("'id': 'fwlive-row-tint'")) {
-	console.error('missing Row tint checkbox in toolbar');
+if (!text.includes("'id': 'fwlive-row-tint'") || !text.includes('rowTintSelectOptions')) {
+	console.error('missing Row tint select in toolbar');
+	process.exit(1);
+}
+if (!text.includes("'value': 'classic'") || !text.includes("'value': 'accessible'") || !text.includes("'value': 'off'")) {
+	console.error('missing Row tint mode options (off/classic/accessible)');
+	process.exit(1);
+}
+if (!text.includes('DEFAULT_ROW_TINT') || !text.includes('applyRowTintMode')) {
+	console.error('missing row tint mode wiring');
 	process.exit(1);
 }
 if (!text.includes("'id': 'fwlive-tint-warn'")) {

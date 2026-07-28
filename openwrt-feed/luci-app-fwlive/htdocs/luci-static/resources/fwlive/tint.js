@@ -4,11 +4,33 @@
 /**
  * Row-tint paint helpers for luci-app-fwlive.
  * LuCI modules must return baseclass.extend(...) — plain objects fail Class.isSubclass.
+ *
+ * Modes (fwlive-row-tint localStorage / data-row-tint):
+ *   classic    — green/red (default)
+ *   accessible — teal/orange (colorblind-safe)
+ *   off        — no row background tint
  */
 var PAINT_DELTA_MIN = 8;
-/* Colorblind-safe defaults (#40): teal pass / orange deny — not green/red. */
-var PASS_HEX = '#0e7490';
-var DENY_HEX = '#c2410c';
+var CLASSIC_PASS_HEX = '#46a546';
+var CLASSIC_DENY_HEX = '#ca3c3c';
+var ACCESSIBLE_PASS_HEX = '#0e7490';
+var ACCESSIBLE_DENY_HEX = '#c2410c';
+
+/* Back-compat aliases — classic is the default palette. */
+var PASS_HEX = CLASSIC_PASS_HEX;
+var DENY_HEX = CLASSIC_DENY_HEX;
+
+function normalizeRowTint(mode) {
+	if (mode === 'off' || mode === 'accessible' || mode === 'classic')
+		return mode;
+	return 'classic';
+}
+
+function hexPairForMode(mode) {
+	if (normalizeRowTint(mode) === 'accessible')
+		return { pass: ACCESSIBLE_PASS_HEX, deny: ACCESSIBLE_DENY_HEX };
+	return { pass: CLASSIC_PASS_HEX, deny: CLASSIC_DENY_HEX };
+}
 
 function parseCssRgbChannels(value) {
 	if (!value)
@@ -67,6 +89,12 @@ return baseclass.extend({
 	PAINT_DELTA_MIN: PAINT_DELTA_MIN,
 	PASS_HEX: PASS_HEX,
 	DENY_HEX: DENY_HEX,
+	CLASSIC_PASS_HEX: CLASSIC_PASS_HEX,
+	CLASSIC_DENY_HEX: CLASSIC_DENY_HEX,
+	ACCESSIBLE_PASS_HEX: ACCESSIBLE_PASS_HEX,
+	ACCESSIBLE_DENY_HEX: ACCESSIBLE_DENY_HEX,
+	normalizeRowTint: normalizeRowTint,
+	hexPairForMode: hexPairForMode,
 	parseCssRgbChannels: parseCssRgbChannels,
 	cssColorPaintDelta: cssColorPaintDelta,
 	tintShouldEngageFallback: tintShouldEngageFallback

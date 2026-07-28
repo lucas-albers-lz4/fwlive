@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Host unit tests for air-gapped row-tint paint-delta helpers (issue #14 / #23).
+ * Host unit tests for air-gapped row-tint paint-delta helpers (issue #14 / #23 / #40).
  * Loads fwlive/tint.js (stub baseclass.extend) and exercises pure logic.
  */
 
@@ -35,6 +35,12 @@ const {
 	PAINT_DELTA_MIN: FWLIVE_TINT_PAINT_DELTA_MIN,
 	PASS_HEX: FWLIVE_TINT_PASS_HEX,
 	DENY_HEX: FWLIVE_TINT_DENY_HEX,
+	CLASSIC_PASS_HEX,
+	CLASSIC_DENY_HEX,
+	ACCESSIBLE_PASS_HEX,
+	ACCESSIBLE_DENY_HEX,
+	normalizeRowTint,
+	hexPairForMode,
 	parseCssRgbChannels: fwliveParseCssRgbChannels,
 	cssColorPaintDelta: fwliveCssColorPaintDelta,
 	tintShouldEngageFallback: fwliveTintShouldEngageFallback
@@ -48,17 +54,29 @@ function assert(cond, msg) {
 }
 
 assert(typeof FWLIVE_TINT_PAINT_DELTA_MIN === 'number', 'missing PAINT_DELTA_MIN');
-assert(FWLIVE_TINT_PASS_HEX === '#0e7490', 'unexpected PASS_HEX');
-assert(FWLIVE_TINT_DENY_HEX === '#c2410c', 'unexpected DENY_HEX');
+assert(FWLIVE_TINT_PASS_HEX === '#46a546', 'unexpected PASS_HEX (classic default)');
+assert(FWLIVE_TINT_DENY_HEX === '#ca3c3c', 'unexpected DENY_HEX (classic default)');
+assert(CLASSIC_PASS_HEX === '#46a546', 'unexpected CLASSIC_PASS_HEX');
+assert(CLASSIC_DENY_HEX === '#ca3c3c', 'unexpected CLASSIC_DENY_HEX');
+assert(ACCESSIBLE_PASS_HEX === '#0e7490', 'unexpected ACCESSIBLE_PASS_HEX');
+assert(ACCESSIBLE_DENY_HEX === '#c2410c', 'unexpected ACCESSIBLE_DENY_HEX');
+
+assert(normalizeRowTint('classic') === 'classic', 'normalize classic');
+assert(normalizeRowTint('accessible') === 'accessible', 'normalize accessible');
+assert(normalizeRowTint('off') === 'off', 'normalize off');
+assert(normalizeRowTint('bogus') === 'classic', 'normalize unknown → classic');
+assert(hexPairForMode('classic').pass === CLASSIC_PASS_HEX, 'classic pair pass');
+assert(hexPairForMode('accessible').deny === ACCESSIBLE_DENY_HEX, 'accessible pair deny');
+assert(hexPairForMode('off').pass === CLASSIC_PASS_HEX, 'off uses classic text palette');
 
 assert(fwliveParseCssRgbChannels('transparent') === null, 'transparent should be null');
 assert(fwliveParseCssRgbChannels('rgba(0, 0, 0, 0)') === null, 'fully transparent rgba should be null');
 assert(
-	JSON.stringify(fwliveParseCssRgbChannels('rgb(14, 116, 144)')) === JSON.stringify([14, 116, 144]),
+	JSON.stringify(fwliveParseCssRgbChannels('rgb(70, 165, 70)')) === JSON.stringify([70, 165, 70]),
 	'rgb parse failed'
 );
 assert(
-	JSON.stringify(fwliveParseCssRgbChannels('rgba(194, 65, 12, 0.12)')) === JSON.stringify([194, 65, 12]),
+	JSON.stringify(fwliveParseCssRgbChannels('rgba(202, 60, 60, 0.12)')) === JSON.stringify([202, 60, 60]),
 	'rgba parse failed'
 );
 assert(
@@ -70,9 +88,9 @@ assert(
 	'color-mix srgb serialization vs transparent must count as paint'
 );
 
-assert(fwliveCssColorPaintDelta('rgb(14, 116, 144)', 'rgb(14, 116, 144)') === 0, 'identical colors delta 0');
+assert(fwliveCssColorPaintDelta('rgb(70, 165, 70)', 'rgb(70, 165, 70)') === 0, 'identical colors delta 0');
 assert(
-	fwliveCssColorPaintDelta('rgb(14, 116, 144)', 'rgb(255, 255, 255)') > FWLIVE_TINT_PAINT_DELTA_MIN,
+	fwliveCssColorPaintDelta('rgb(70, 165, 70)', 'rgb(255, 255, 255)') > FWLIVE_TINT_PAINT_DELTA_MIN,
 	'pass tint vs white should exceed min delta'
 );
 assert(
@@ -80,7 +98,7 @@ assert(
 	'transparent vs opaque must count as paint (not 0)'
 );
 assert(
-	fwliveCssColorPaintDelta('rgba(14, 116, 144, 0.12)', 'rgba(0, 0, 0, 0)') === 14 + 116 + 144,
+	fwliveCssColorPaintDelta('rgba(70, 165, 70, 0.12)', 'rgba(0, 0, 0, 0)') === 70 + 165 + 70,
 	'tinted rgba vs fully-transparent off-state must count as paint'
 );
 assert(
@@ -129,6 +147,7 @@ assert(
 );
 assert(text.includes('probeRowTintPaint'), 'missing probeRowTintPaint');
 assert(text.includes('applyTintFallback'), 'missing applyTintFallback');
+assert(text.includes('hexPairForMode'), 'fallback must pick hex pair by mode');
 assert(
 	text.includes('air-gapped') || text.includes('no data leaves the device'),
 	'Help text must describe air-gapped fallback'
