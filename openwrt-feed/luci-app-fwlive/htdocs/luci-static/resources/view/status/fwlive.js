@@ -75,6 +75,9 @@ return view.extend({
 	paused: false,
 	/* One-shot: first live poll after unpause merges instead of replacing (#43). */
 	resumeMerge: false,
+	pollFn: null,
+	pollDataInFlight: false,
+	filterInputTimer: null,
 	messageLayout: 'wrap',
 	renderBucket: constants.RENDER_CAP_PER_SEC,
 	renderBucketMs: 0,
@@ -1226,6 +1229,15 @@ return view.extend({
 		this.renderRows(true);
 	},
 
+	onFilterInputDebounced() {
+		if (this.filterInputTimer)
+			clearTimeout(this.filterInputTimer);
+		this.filterInputTimer = setTimeout(function() {
+			this.filterInputTimer = null;
+			this.onFilterInput();
+		}.bind(this), 100);
+	},
+
 	onScrollArea(ev) {
 		const scroll = ev && ev.target;
 		if (!scroll || this.paused)
@@ -1245,9 +1257,11 @@ return view.extend({
 			const el = document.getElementById('fwlive-' + ids[i]);
 			if (!el)
 				continue;
-			el.addEventListener('input', this.onFilterInput.bind(this));
+			/* Text inputs: debounce rebuilds. Selects: apply immediately. */
 			if (el.tagName === 'SELECT')
 				el.addEventListener('change', this.onFilterInput.bind(this));
+			else
+				el.addEventListener('input', this.onFilterInputDebounced.bind(this));
 		}
 
 		const refreshCb = document.getElementById('fwlive-autorefresh');
@@ -1272,26 +1286,50 @@ return view.extend({
 	},
 
 	async pollData() {
-		try {
-			await this.fetchEntries();
-		} catch (e) {
-			/* keep existing buffer on poll errors */
-		}
+		if (this.pollDataInFlight)
+			return;
 
-		if (this.paused)
-			this.updateStatus();
-		else
-			this.renderRows(false);
-
+		this.pollDataInFlight = true;
 		try {
-			await this.resolveHostnamesForEntries(this.filteredRows());
-		} catch (e) {
-			/* resolve unavailable — show IPs */
+			try {
+				await this.fetchEntries();
+			} catch (e) {
+				/* keep existing buffer on poll errors */
+			}
+
+			if (this.paused)
+				this.updateStatus();
+			else
+				this.renderRows(false);
+
+			try {
+				await this.resolveHostnamesForEntries(this.filteredRows());
+			} catch (e) {
+				/* resolve unavailable — show IPs */
+			}
+		} finally {
+			this.pollDataInFlight = false;
 		}
 	},
 
 	load() {
-		poll.add(this.pollData.bind(this), 1);
+		if (!this.pollFn) {
+			this.pollFn = this.pollData.bind(this);
+			poll.add(this.pollFn, 1);
+			/* Best-effort teardown when leaving the page (LuCI SPA may full-reload). */
+			if (typeof window !== 'undefined' && window.addEventListener) {
+				window.addEventListener('pagehide', function() {
+					if (this.pollFn) {
+						try { poll.remove(this.pollFn); } catch (e) { /* poll gone */ }
+						this.pollFn = null;
+					}
+					if (this.filterInputTimer) {
+						clearTimeout(this.filterInputTimer);
+						this.filterInputTimer = null;
+					}
+				}.bind(this));
+			}
+		}
 		return Promise.all([
 			this.loadRulesMap(),
 			this.loadLoggingStatus()
