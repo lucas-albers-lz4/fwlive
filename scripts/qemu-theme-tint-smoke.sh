@@ -48,10 +48,16 @@ ssh_guest 'echo connected' >/dev/null 2>&1 \
 CSS_JS=/www/luci-static/resources/fwlive/css.js
 ssh_guest "grep -q -- '--fwlive-pass-color' '$CSS_JS'" \
 	|| die "guest css.js missing --fwlive-pass-color (rebuild/reinstall package)"
+ssh_guest "grep -q -- 'var(--success-color,' '$CSS_JS'" \
+	|| die "guest css.js missing Material --success-color chain (classic)"
 ssh_guest "grep -q -- 'var(--info-color,' '$CSS_JS'" \
-	|| die "guest css.js missing Material --info-color chain"
-ssh_guest "grep -q 'rgba(14, 116, 144' '$CSS_JS'" \
-	|| die "guest css.js missing rgba base tint"
+	|| die "guest css.js missing Material --info-color chain (accessible)"
+ssh_guest "grep -q 'rgba(70, 165, 70' '$CSS_JS'" \
+	|| die "guest css.js missing classic rgba base tint"
+ssh_guest "grep -q 'rgba(13, 148, 136' '$CSS_JS'" \
+	|| die "guest css.js missing accessible rgba base tint"
+ssh_guest "grep -q -- 'data-row-tint' '$CSS_JS'" \
+	|| die "guest css.js missing data-row-tint mode scopes"
 ssh_guest "grep -q -- '--fwlive-bg-medium' '$CSS_JS'" \
 	|| die "guest css.js missing --fwlive-bg-medium (zebra resilience)"
 ssh_guest "grep -q -- 'var(--white-color-low,' '$CSS_JS'" \

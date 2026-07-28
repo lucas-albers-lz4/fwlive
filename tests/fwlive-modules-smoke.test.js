@@ -20,6 +20,8 @@ assert.strictEqual(constants.DEFAULT_ROW_LIMIT, 100);
 assert.ok(Array.isArray(constants.ROW_LIMIT_OPTIONS));
 assert.ok(constants.COLUMN_SETS.simple.indexOf('flow') >= 0);
 assert.ok(constants.COLUMN_SETS.detailed.indexOf('message') >= 0);
+assert.deepStrictEqual(constants.ROW_TINT_OPTIONS, [ 'off', 'classic', 'accessible' ]);
+assert.strictEqual(constants.DEFAULT_ROW_TINT, 'classic');
 console.log('fwlive-modules smoke: constants OK');
 
 /* --- log (needed by links/chips/table) --- */

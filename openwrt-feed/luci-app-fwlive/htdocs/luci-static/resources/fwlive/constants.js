@@ -11,6 +11,9 @@ return baseclass.extend({
 	/* Filter chip polarity presentation (#18): labels = A+light B default */
 	CHIP_STYLE_OPTIONS: [ 'labels', 'symbols', 'tone' ],
 	DEFAULT_CHIP_STYLE: 'labels',
+	/* Row pass/deny tint (#40): classic green/red default; accessible teal/orange */
+	ROW_TINT_OPTIONS: [ 'off', 'classic', 'accessible' ],
+	DEFAULT_ROW_TINT: 'classic',
 	FETCH_LINES_MAX: 2000,
 	/* DOM budget: ~250 new/updated rows per second on typical LuCI routers */
 	RENDER_CAP_PER_SEC: 250,

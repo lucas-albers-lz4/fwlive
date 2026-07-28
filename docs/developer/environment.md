@@ -72,9 +72,9 @@ Optional overrides: `OPENWRT_SSH_PORT`, `OWRT_HOSTFWD_HTTP`, `FWLIVE_URL`.
 
 What it asserts:
 
-1. Guest `fwlive.js` includes scoped `--fwlive-pass-color` / Material `var(--success-color, …)` / rgba base rules and `--fwlive-bg-medium` / `var(--white-color-low, …)` for zebra
-2. Under Bootstrap and Material, with Row tint **off**, alt vs non-alt row backgrounds differ (zebra paint delta)
-3. Under Bootstrap and Material, toggling Row tint changes a **non-alt** row background (pass/deny paint delta)
+1. Guest `css.js` includes scoped `--fwlive-pass-color` / Material `var(--success-color, …)` (classic) and `var(--info-color, …)` (accessible) / rgba bases and `--fwlive-bg-medium` / `var(--white-color-low, …)` for zebra
+2. Under Bootstrap and Material, with Row tint **Off**, alt vs non-alt row backgrounds differ (zebra paint delta)
+3. Under Bootstrap and Material, **Classic** and **Accessible** modes each change a **non-alt** row background (pass/deny paint delta)
 
 Host-only (no guest): `./scripts/fwlive-test.sh` covers CSS hardening + tint helper unit tests.
 

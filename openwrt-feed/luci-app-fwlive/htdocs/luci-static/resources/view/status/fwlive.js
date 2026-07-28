@@ -85,7 +85,9 @@ return view.extend({
 	lastPollNewEvents: 0,
 	showHostnames: false,
 	chipStyle: constants.DEFAULT_CHIP_STYLE,
-	rowTint: true,
+	rowTint: constants.DEFAULT_ROW_TINT,
+	/* Last non-off palette so toggling tint back on restores Classic/Accessible. */
+	rowTintPalette: 'classic',
 	hostnameCache: null,
 	hostnameFailed: null,
 	resolveInFlight: false,
@@ -217,18 +219,99 @@ return view.extend({
 		try {
 			const v = localStorage.getItem('fwlive-row-tint');
 			if (v === null)
-				return true;
-			return v === '1';
+				return constants.DEFAULT_ROW_TINT;
+			/* Migrate pre-mode checkbox storage. */
+			if (v === '1' || v === 'true')
+				return 'classic';
+			if (v === '0' || v === 'false')
+				return 'off';
+			if (constants.ROW_TINT_OPTIONS.indexOf(v) >= 0)
+				return v;
 		} catch (e) {
-			return true;
+			/* private mode / no storage */
 		}
+
+		return constants.DEFAULT_ROW_TINT;
 	},
 
 	saveRowTint() {
 		try {
-			localStorage.setItem('fwlive-row-tint', this.rowTint ? '1' : '0');
+			localStorage.setItem('fwlive-row-tint', this.rowTint);
 		} catch (e) {
 			/* private mode / no storage */
+		}
+	},
+
+	rowTintPaletteOptions() {
+		return [
+			E('option', { 'value': 'classic' }, _('Classic (green/red)')),
+			E('option', { 'value': 'accessible' }, _('Accessible (teal/orange)'))
+		];
+	},
+
+	rowTintEnabled() {
+		return this.rowTint === 'classic' || this.rowTint === 'accessible';
+	},
+
+	applyRowTintMode() {
+		const map = document.querySelector('.fwlive-map');
+		if (!map)
+			return;
+
+		map.setAttribute('data-row-tint', this.rowTint);
+		if (!this.rowTintEnabled() && this.tintFallbackActive)
+			this.clearTintFallback(map);
+	},
+
+	toggleRowTint(ev) {
+		if (ev && ev.preventDefault)
+			ev.preventDefault();
+
+		if (this.rowTintEnabled()) {
+			this.rowTintPalette = this.rowTint;
+			this.rowTint = 'off';
+		} else {
+			const pal = (this.rowTintPalette === 'accessible') ? 'accessible' : 'classic';
+			this.rowTintPalette = pal;
+			this.rowTint = pal;
+		}
+		this.saveRowTint();
+		this.tintProbeDone = false;
+		this.applyRowTintMode();
+		this.updateRowTintUi();
+		this.renderRows(true);
+	},
+
+	onRowTintPaletteChange(ev) {
+		const v = ev && ev.target ? ev.target.value : 'classic';
+		const pal = (v === 'accessible') ? 'accessible' : 'classic';
+		this.rowTintPalette = pal;
+		if (!this.rowTintEnabled())
+			return;
+		this.rowTint = pal;
+		this.saveRowTint();
+		this.tintProbeDone = false;
+		this.applyRowTintMode();
+		this.updateRowTintUi();
+		this.renderRows(true);
+	},
+
+	updateRowTintUi() {
+		const on = this.rowTintEnabled();
+		const btn = document.getElementById('fwlive-row-tint-toggle');
+		if (btn) {
+			btn.textContent = on ? _('Hide row tint') : _('Row tint');
+			btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+		}
+
+		const wrap = document.getElementById('fwlive-row-tint-palette-wrap');
+		if (wrap)
+			wrap.style.display = on ? 'inline-flex' : 'none';
+
+		const tintSel = document.getElementById('fwlive-row-tint');
+		if (tintSel) {
+			const pal = on ? this.rowTint : this.rowTintPalette;
+			tintSel.value = (pal === 'accessible') ? 'accessible' : 'classic';
 		}
 	},
 
@@ -281,8 +364,9 @@ return view.extend({
 		if (!map)
 			return;
 
-		map.style.setProperty('--fwlive-pass-color', tint.PASS_HEX);
-		map.style.setProperty('--fwlive-deny-color', tint.DENY_HEX);
+		const pair = tint.hexPairForMode(this.rowTint);
+		map.style.setProperty('--fwlive-pass-color', pair.pass);
+		map.style.setProperty('--fwlive-deny-color', pair.deny);
 		map.setAttribute('data-tint-fallback', '1');
 		this.tintFallbackActive = true;
 		this.updateTintWarnUi();
@@ -870,7 +954,6 @@ return view.extend({
 		const cb = document.getElementById('fwlive-autorefresh');
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
-		const tintCb = document.getElementById('fwlive-row-tint');
 		const chipSel = document.getElementById('fwlive-chip-style');
 		if (cb)
 			cb.checked = !this.paused;
@@ -880,8 +963,7 @@ return view.extend({
 			chipSel.value = this.chipStyle;
 		if (hostCb)
 			hostCb.checked = !!this.showHostnames;
-		if (tintCb)
-			tintCb.checked = !!this.rowTint;
+		this.updateRowTintUi();
 	},
 
 	onShowHostnamesChange(ev) {
@@ -892,13 +974,6 @@ return view.extend({
 			this.resolveHostnamesForEntries(this.filteredRows());
 		else
 			this.renderRows(true);
-	},
-
-	onRowTintChange(ev) {
-		this.rowTint = !!(ev && ev.target && ev.target.checked);
-		this.saveRowTint();
-		this.tintProbeDone = false;
-		this.renderRows(true);
 	},
 
 	onAutoRefreshChange(ev) {
@@ -1190,7 +1265,7 @@ return view.extend({
 			viewMode: this.viewMode,
 			messageLayout: this.messageLayout,
 			expandedRowId: this.expandedRowId,
-			rowTint: !!this.rowTint,
+			rowTint: this.rowTintEnabled(),
 			showHostnames: !!this.showHostnames,
 			hostnameCache: this.hostnameCache,
 			firewallBackend: this.firewallBackend
@@ -1210,7 +1285,7 @@ return view.extend({
 		this.lastRenderedRowCount = rows.length;
 		this.lastRenderedHeadId = rows.length ? rows[0].id : '';
 
-		if (rows.length && this.rowTint && !this.tintProbeDone) {
+		if (rows.length && this.rowTintEnabled() && !this.tintProbeDone) {
 			const runProbe = () => {
 				if (!this.tintProbeDone)
 					this.probeRowTintPaint();
@@ -1219,7 +1294,7 @@ return view.extend({
 				requestAnimationFrame(() => requestAnimationFrame(runProbe));
 			else
 				setTimeout(runProbe, 0);
-		} else if (!this.rowTint && this.tintFallbackActive) {
+		} else if (!this.rowTintEnabled() && this.tintFallbackActive) {
 			this.clearTintFallback(document.querySelector('.fwlive-map'));
 			this.tintProbeDone = false;
 		}
@@ -1276,9 +1351,9 @@ return view.extend({
 		if (hostCb)
 			hostCb.addEventListener('change', this.onShowHostnamesChange.bind(this));
 
-		const tintCb = document.getElementById('fwlive-row-tint');
-		if (tintCb)
-			tintCb.addEventListener('change', this.onRowTintChange.bind(this));
+		const tintSel = document.getElementById('fwlive-row-tint');
+		if (tintSel)
+			tintSel.addEventListener('change', this.onRowTintPaletteChange.bind(this));
 
 		const chipSel = document.getElementById('fwlive-chip-style');
 		if (chipSel)
@@ -1337,7 +1412,7 @@ return view.extend({
 	},
 
 	render() {
-		return E('div', { 'class': 'cbi-map fwlive-map', 'data-view': 'simple' }, [
+		return E('div', { 'class': 'cbi-map fwlive-map', 'data-view': 'simple', 'data-row-tint': 'classic' }, [
 			E('style', {}, css.styleText),
 			E('h2', {}, [
 				_('Firewall Live View'),
@@ -1371,13 +1446,25 @@ return view.extend({
 					}),
 					_('Show hostnames')
 				]),
-				E('label', { 'class': 'fwlive-ctl' }, [
-					E('input', {
+				E('button', {
+					'id': 'fwlive-row-tint-toggle',
+					'class': 'cbi-button',
+					'type': 'button',
+					'aria-pressed': 'true',
+					'title': _('Toggle pass/deny row background colors'),
+					'click': this.toggleRowTint.bind(this)
+				}, _('Hide row tint')),
+				E('span', {
+					'id': 'fwlive-row-tint-palette-wrap',
+					'class': 'fwlive-ctl',
+					'style': 'display: inline-flex'
+				}, [
+					E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, _('Tint')),
+					E('select', {
 						'id': 'fwlive-row-tint',
-						'type': 'checkbox',
-						'checked': 'checked'
-					}),
-					_('Row tint')
+						'class': 'cbi-input-select',
+						'title': _('Classic uses green/red; Accessible uses teal/orange')
+					}, this.rowTintPaletteOptions())
 				]),
 				E('button', {
 					'id': 'fwlive-detail-toggle',
@@ -1453,8 +1540,9 @@ return view.extend({
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
 					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
 					E('li', {}, _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.')),
+					E('li', {}, _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.')),
 					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
-					E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
+					E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
 				])
 			])
 		]);
@@ -1465,12 +1553,15 @@ return view.extend({
 		this.messageLayout = this.readMessageLayout();
 		this.showHostnames = this.readShowHostnames();
 		this.rowTint = this.readRowTint();
+		this.rowTintPalette = this.rowTintEnabled() ? this.rowTint : 'classic';
 		this.chipStyle = this.readChipStyle();
 		this.hostnameCache = new Map();
 		this.hostnameFailed = new Set();
 		this.applyRowLimit(this.readRowLimit());
 		this.applyHash();
 		this.attachHandlers();
+		this.applyRowTintMode();
+		this.updateRowTintUi();
 		this.updateMessageLayoutUi();
 		this.updateStreamControlsUi();
 		this.updateDetailToggleUi();
