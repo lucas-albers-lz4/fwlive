@@ -15,6 +15,7 @@
 'require fwlive.logging as logging';
 'require fwlive.table as table';
 'require fwlive.buffer as buffer';
+'require fwlive.hostname as hostname;
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -91,6 +92,8 @@ return view.extend({
 	hostnameCache: null,
 	hostnameFailed: null,
 	resolveInFlight: false,
+	resolveGeneration: 0,
+	lastPollError: false,
 	lastRenderedRowCount: 0,
 	lastRenderedHeadId: '',
 	followLive: true,
@@ -722,10 +725,15 @@ return view.extend({
 		try {
 			raw = await callFwlivePoll({ addresses: [ String(this.fetchLines) ] });
 		} catch (e) {
+			this.lastPollError = true;
 			return;
 		}
-		if (!Array.isArray(raw))
+		if (!Array.isArray(raw)) {
+			this.lastPollError = true;
 			return;
+		}
+
+		this.lastPollError = false;
 
 		const normalized = [];
 		const seen = {};
@@ -739,8 +747,7 @@ return view.extend({
 			if (seen[row.id])
 				continue;
 			seen[row.id] = true;
-			if (!this.sessionSeen.has(row.id)) {
-				this.sessionSeen.add(row.id);
+			if (this.rememberSessionId(row.id)) {
 				this.sessionNewTotal++;
 				pollNew++;
 			}
@@ -756,6 +763,21 @@ return view.extend({
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});
+	},
+
+	rememberSessionId(id) {
+		if (!this.sessionSeen)
+			this.sessionSeen = new Set();
+		if (this.sessionSeen.has(id))
+			return false;
+
+		this.sessionSeen.add(id);
+		const cap = Math.max(this.rowLimit * 2, constants.FETCH_LINES_MAX);
+		while (this.sessionSeen.size > cap) {
+			const oldest = this.sessionSeen.values().next().value;
+			this.sessionSeen.delete(oldest);
+		}
+		return true;
 	},
 
 	mergeEntries(normalized) {
@@ -893,6 +915,12 @@ return view.extend({
 		const matchCount = rows ? rows.length : this.filteredRows().length;
 		const suffix = this.statusSuffix();
 
+		if (this.lastPollError) {
+			status.className = 'fwlive-status fwlive-status-error';
+			status.textContent = _('Connection lost — retrying…') + suffix;
+			return;
+		}
+
 		if (this.paused) {
 			status.className = 'fwlive-status fwlive-status-paused';
 			try {
@@ -969,6 +997,9 @@ return view.extend({
 	onShowHostnamesChange(ev) {
 		this.showHostnames = !!(ev && ev.target && ev.target.checked);
 		this.saveShowHostnames();
+		/* Invalidate any in-flight resolve from the previous toggle state. */
+		this.resolveGeneration = (this.resolveGeneration || 0) + 1;
+		this.resolveInFlight = false;
 
 		if (this.showHostnames)
 			this.resolveHostnamesForEntries(this.filteredRows());
@@ -1074,34 +1105,44 @@ return view.extend({
 		if (!this.hostnameCache)
 			this.hostnameCache = new Map();
 		if (!this.hostnameFailed)
-			this.hostnameFailed = new Set();
+			this.hostnameFailed = new Map();
 
 		const ips = this.collectIpsFromEntries(entries);
 		const need = [];
+		const now = Date.now();
 
 		for (let i = 0; i < ips.length && need.length < 32; i++) {
 			const ip = ips[i];
-			if (!this.hostnameCache.has(ip) && !this.hostnameFailed.has(ip))
-				need.push(ip);
+			if (this.hostnameCache.has(ip))
+				continue;
+			if (hostname.failIsHot(this.hostnameFailed, ip, now))
+				continue;
+			need.push(ip);
 		}
 
 		if (!need.length)
 			return;
 
+		this.resolveGeneration = (this.resolveGeneration || 0) + 1;
+		const gen = this.resolveGeneration;
 		this.resolveInFlight = true;
 
 		try {
 			const res = await callFwliveResolve({ addresses: need });
+			if (gen !== this.resolveGeneration)
+				return;
+
 			const names = (res && res.names) || {};
 			let updated = false;
 
 			for (let i = 0; i < need.length; i++) {
 				const ip = need[i];
 				if (names[ip]) {
-					this.hostnameCache.set(ip, names[ip]);
+					hostname.lruSet(this.hostnameCache, ip, names[ip]);
+					this.hostnameFailed.delete(ip);
 					updated = true;
 				} else {
-					this.hostnameFailed.add(ip);
+					hostname.failMark(this.hostnameFailed, ip, now);
 				}
 			}
 
@@ -1110,7 +1151,8 @@ return view.extend({
 		} catch (e) {
 			/* resolve unavailable — show IPs */
 		} finally {
-			this.resolveInFlight = false;
+			if (gen === this.resolveGeneration)
+				this.resolveInFlight = false;
 		}
 	},
 
@@ -1369,7 +1411,7 @@ return view.extend({
 			try {
 				await this.fetchEntries();
 			} catch (e) {
-				/* keep existing buffer on poll errors */
+				this.lastPollError = true;
 			}
 
 			if (this.paused)
@@ -1556,7 +1598,9 @@ return view.extend({
 		this.rowTintPalette = this.rowTintEnabled() ? this.rowTint : 'classic';
 		this.chipStyle = this.readChipStyle();
 		this.hostnameCache = new Map();
-		this.hostnameFailed = new Set();
+		this.hostnameFailed = new Map();
+		this.resolveGeneration = 0;
+		this.lastPollError = false;
 		this.applyRowLimit(this.readRowLimit());
 		this.applyHash();
 		this.attachHandlers();

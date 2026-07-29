@@ -44,6 +44,9 @@ echo "== fwlive theme tint helpers ==" >&2
 echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js
 
+echo "== fwlive hostname cache ==" >&2
+"$NODE" tests/fwlive-hostname-cache.test.js
+
 echo "== fwlive pause/resume buffer ==" >&2
 "$NODE" tests/fwlive-pause-resume-buffer.test.js
 
