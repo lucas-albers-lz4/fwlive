@@ -185,4 +185,18 @@ assert.strictEqual(buffer.ingestCap(true, 100, 2000), 2000);
 assert.strictEqual(buffer.ingestCap(false, 100, 2000), 100);
 console.log('fwlive-modules smoke: buffer OK');
 
+/* --- hostname cache --- */
+const hostname = loadFwliveModule('hostname');
+const cache = new Map();
+hostname.lruSet(cache, 'a', 'one', 2);
+hostname.lruSet(cache, 'b', 'two', 2);
+hostname.lruSet(cache, 'c', 'three', 2);
+assert.strictEqual(cache.has('a'), false);
+assert.strictEqual(cache.get('c'), 'three');
+const failed = new Map();
+hostname.failMark(failed, '10.0.0.1', 1000);
+assert.strictEqual(hostname.failIsHot(failed, '10.0.0.1', 1000 + 1000, 60000), true);
+assert.strictEqual(hostname.failIsHot(failed, '10.0.0.1', 1000 + 70000, 60000), false);
+console.log('fwlive-modules smoke: hostname OK');
+
 console.log('fwlive modules smoke tests passed');
