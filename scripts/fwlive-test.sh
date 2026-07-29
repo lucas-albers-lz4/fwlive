@@ -47,6 +47,9 @@ echo "== fwlive extracted modules smoke ==" >&2
 echo "== fwlive hostname cache ==" >&2
 "$NODE" tests/fwlive-hostname-cache.test.js
 
+echo "== fwlive i18n (PO completeness) ==" >&2
+"$NODE" tests/fwlive-i18n.test.js
+
 echo "== fwlive pause/resume buffer ==" >&2
 "$NODE" tests/fwlive-pause-resume-buffer.test.js
 

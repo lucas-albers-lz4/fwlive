@@ -1,450 +1,461 @@
 msgid ""
-msgstr "Content-Type: text/plain; charset=UTF-8"
+msgstr ""
+"Project-Id-Version: luci-app-fwlive\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-28 00:00+0000\n"
+"PO-Revision-Date: 2026-07-28 00:00+0000\n"
+"Last-Translator: lucas-albers-lz4\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1147
 msgid " (newest first)."
-msgstr ""
+msgstr " (neueste zuerst)."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:698
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:705
 msgid " then ping the router."
-msgstr ""
+msgstr " und pingen Sie den Router."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1146
 msgid ", %d seen this session"
-msgstr ""
+msgstr ", %d in dieser Sitzung gesehen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:834
 msgid ")"
-msgstr ""
+msgstr ")"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:393
 msgid "Action"
-msgstr ""
+msgstr "Aktion"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:775
 msgid "Administrator access is required to disable logging."
-msgstr ""
+msgstr "Zum Deaktivieren der Protokollierung sind Administratorrechte erforderlich."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:746
 msgid "Administrator access is required to enable logging."
-msgstr ""
+msgstr "Zum Aktivieren der Protokollierung sind Administratorrechte erforderlich."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2202
 msgid "Any action"
-msgstr ""
+msgstr "Beliebige Aktion"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2154
 msgid "Auto-refresh"
-msgstr ""
+msgstr "Auto-Aktualisierung"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1022
 msgid "buffer full"
-msgstr ""
+msgstr "Puffer voll"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:732
 msgid "Cannot enable logging until kernel log modules are installed."
-msgstr ""
+msgstr "Protokollierung kann erst aktiviert werden, wenn die Kernel-Log-Module installiert sind."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1537
 msgid "Clear all"
-msgstr ""
+msgstr "Alle löschen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2239
 msgid "Click a row for the full log line. Show Detail for all columns. Click a cell to filter; use ≠ on a chip to exclude. Ctrl+click a rule to open firewall settings."
-msgstr ""
+msgstr "Klicken Sie auf eine Zeile, um die vollständige Log-Zeile anzuzeigen. „Detail anzeigen“ für alle Spalten. Klicken Sie auf eine Zelle, um zu filtern; verwenden Sie ≠ auf einem Chip, um auszuschließen. Strg+Klick auf eine Regel öffnet die Firewall-Einstellungen."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2247
 msgid "Click a row to see the full log line (Simple view)."
-msgstr ""
+msgstr "Klicken Sie auf eine Zeile, um die vollständige Log-Zeile zu sehen (Einfache Ansicht)."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2248
 msgid "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
-msgstr ""
+msgstr "Klicken Sie auf eine IP, Aktion oder ein Protokoll, um zu filtern; klicken Sie auf ≠ auf einem Filter-Chip, um diesen Wert auszuschließen."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:766
 msgid "Could not disable logging."
-msgstr ""
+msgstr "Protokollierung konnte nicht deaktiviert werden."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:734
 msgid "Could not enable logging."
-msgstr ""
+msgstr "Protokollierung konnte nicht aktiviert werden."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:816
 msgid "default 10/minute"
-msgstr ""
+msgstr "Standard 10/Minute"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:401
 msgid "Destination"
-msgstr ""
+msgstr "Ziel"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2222
 msgid "Destination IP contains (! to exclude)"
-msgstr ""
+msgstr "Ziel-IP enthält (! zum Ausschließen)"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2223
 msgid "Destination port (! to exclude)"
-msgstr ""
+msgstr "Ziel-Port (! zum Ausschließen)"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:398
 msgid "Dir"
-msgstr ""
+msgstr "Richtung"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:841
 msgid "Disable logging"
-msgstr ""
+msgstr "Protokollierung deaktivieren"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:841
 msgid "Disabling…"
-msgstr ""
+msgstr "Deaktiviere…"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:403
 msgid "DPort"
-msgstr ""
+msgstr "Ziel-Port"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:852
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:898
 msgid "Enable logging"
-msgstr ""
+msgstr "Protokollierung aktivieren"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:891
 msgid "Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged."
-msgstr ""
+msgstr "Aktivieren Sie die Protokollierung, um blockierten eingehenden Verkehr auf dem WAN aufzuzeichnen (ratenbegrenzt). Normale LAN-Nutzung wird nicht protokolliert."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2244
 msgid "Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default."
-msgstr ""
+msgstr "Die Aktivierung der Protokollierung schaltet die WAN-Zonen-Drop/Reject-Protokollierung ein (wie unter Netzwerk → Firewall). LAN-Nutzung wird standardmäßig nicht protokolliert."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:852
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:898
 msgid "Enabling…"
-msgstr ""
+msgstr "Aktiviere…"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1506
 msgid "Exclude instead"
-msgstr ""
+msgstr "Stattdessen ausschließen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1299
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1311
 msgid "Filter by %s"
-msgstr ""
+msgstr "Filtern nach %s"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1431
 msgid "Filter by interface"
-msgstr ""
+msgstr "Nach Schnittstelle filtern"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1410
 msgid "Filter logs by rule (hint: %s). Ctrl+click to open firewall settings."
-msgstr ""
+msgstr "Logs nach Regel filtern (Hinweis: %s). Strg+Klick öffnet die Firewall-Einstellungen."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2143
 msgid "Firewall Live View"
-msgstr ""
+msgstr "Firewall-Live-Ansicht"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:404
 msgid "Flags"
-msgstr ""
+msgstr "Flags"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:406
 msgid "Flow"
-msgstr ""
+msgstr "Fluss"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2241
 msgid "Help"
-msgstr ""
+msgstr "Hilfe"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:481
 msgid "Hide Detail"
-msgstr ""
+msgstr "Detail ausblenden"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1081
 msgid "High event rate — table refresh is throttled to protect the browser. The buffer still updates; refresh will resume automatically."
-msgstr ""
+msgstr "Hohe Ereignisrate — Die Tabellenaktualisierung wird gedrosselt, um den Browser zu schützen. Der Puffer wird weiterhin aktualisiert; die Aktualisierung wird automatisch fortgesetzt."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2250
 msgid "If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device)."
-msgstr ""
+msgstr "Wenn die Zeileneinfärbung fehlt, verwendet das aktive LuCI-Theme möglicherweise keine Erfolgs/Fehler-CSS-Variablen; fwlive fällt auf lokale Farben zurück (air-gapped, keine Daten verlassen das Gerät)."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:396
 msgid "IN"
-msgstr ""
+msgstr "EINGANG"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1506
 msgid "Include instead"
-msgstr ""
+msgstr "Stattdessen einschließen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:395
 msgid "Interface"
-msgstr ""
+msgstr "Schnittstelle"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2219
 msgid "Interface (prefix ! to exclude)"
-msgstr ""
+msgstr "Schnittstelle (! voranstellen zum Ausschließen)"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:877
 msgid "Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall."
-msgstr ""
+msgstr "Kernel-Netfilter-Log-Module fehlen. Installieren Sie kmod-nf-log-ipv4 und kmod-nf-log-ipv6 (oder kmod-nf-log / kmod-nf-log6) und laden Sie dann die Firewall neu."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:405
 msgid "Len"
-msgstr ""
+msgstr "Länge"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2156
 msgid "Limit"
-msgstr ""
+msgstr "Limit"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2146
 msgid "Live firewall log table — refreshes every second. Shows traffic your firewall already logs; use filters or Show Detail when you need more."
-msgstr ""
+msgstr "Live-Firewall-Log-Tabelle — aktualisiert jede Sekunde. Zeigt Verkehr, den Ihre Firewall bereits protokolliert; verwenden Sie Filter oder „Detail anzeigen“, wenn Sie mehr benötigen."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1017
 msgid "loading buffer"
-msgstr ""
+msgstr "Lade Puffer"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:885
 msgid "Logging is enabled on WAN. Waiting for firewall events — blocked inbound traffic appears here (not normal LAN browsing)."
-msgstr ""
+msgstr "Protokollierung auf WAN ist aktiviert. Warte auf Firewall-Ereignisse — blockierter eingehender Verkehr erscheint hier (nicht normale LAN-Nutzung)."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:696
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:703
 msgid "Manual test (System → Terminal): "
-msgstr ""
+msgstr "Manueller Test (System → Terminal): "
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:407
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1646
 msgid "Message"
-msgstr ""
+msgstr "Nachricht"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1571
 msgid "Message: one line"
-msgstr ""
+msgstr "Nachricht: einzeilig"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1572
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2188
 msgid "Message: wrap"
-msgstr ""
+msgstr "Nachricht: umbrechen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2217
 msgid "More filters"
-msgstr ""
+msgstr "Weitere Filter"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:674
 msgid "Network → Firewall"
-msgstr ""
+msgstr "Netzwerk → Firewall"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:890
 msgid "No firewall events yet. OpenWrt does not log firewall traffic until you turn it on."
-msgstr ""
+msgstr "Noch keine Firewall-Ereignisse. OpenWrt protokolliert Firewall-Verkehr erst, wenn Sie es einschalten."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1150
 msgid "No rows match filters — %d/%d stored (limit %d).%s"
-msgstr ""
+msgstr "Keine Zeilen entsprechen den Filtern — %d/%d gespeichert (Limit %d).%s"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:870
 msgid "No WAN firewall zone found in /etc/config/firewall. Configure zones under "
-msgstr ""
+msgstr "Keine WAN-Firewall-Zone in /etc/config/firewall gefunden. Konfigurieren Sie Zonen unter "
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2210
 msgid "not block"
-msgstr ""
+msgstr "nicht blockieren"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2209
 msgid "not drop"
-msgstr ""
+msgstr "nicht verwerfen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2208
 msgid "not pass"
-msgstr ""
+msgstr "nicht erlauben"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2211
 msgid "not reject"
-msgstr ""
+msgstr "nicht zurückweisen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2212
 msgid "not unknown"
-msgstr ""
+msgstr "nicht unbekannt"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:886
 msgid "Open firewall zone settings"
-msgstr ""
+msgstr "Firewall-Zonen-Einstellungen öffnen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:397
 msgid "OUT"
-msgstr ""
+msgstr "AUSGANG"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1117
 msgid "Paused — %d ingested (%d shown when live). Enable auto-refresh to update the table.%s"
-msgstr ""
+msgstr "Pausiert — %d aufgenommen (%d in Live-Ansicht). Aktivieren Sie die Auto-Aktualisierung, um die Tabelle zu aktualisieren.%s"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1114
 msgid "Paused — %d ingested (+%d since pause) (%d shown when live). Enable auto-refresh to update the table.%s"
-msgstr ""
+msgstr "Pausiert — %d aufgenommen (+%d seit Pause) (%d in Live-Ansicht). Aktivieren Sie die Auto-Aktualisierung, um die Tabelle zu aktualisieren.%s"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1107
 msgid "Paused — %d ingested (+%d since pause), %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s"
-msgstr ""
+msgstr "Pausiert — %d aufgenommen (+%d seit Pause), %d/%d in Live-Ansicht (%d Filterübereinstimmungen). Aktivieren Sie die Auto-Aktualisierung, um die Tabelle zu aktualisieren.%s"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1109
 msgid "Paused — %d ingested, %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s"
-msgstr ""
+msgstr "Pausiert — %d aufgenommen, %d/%d in Live-Ansicht (%d Filterübereinstimmungen). Aktivieren Sie die Auto-Aktualisierung, um die Tabelle zu aktualisieren.%s"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1103
 msgid "Paused — loading ingest buffer…"
-msgstr ""
+msgstr "Pausiert — Lade Aufnahmepuffer…"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:399
 msgid "Proto"
-msgstr ""
+msgstr "Protokoll"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2214
 msgid "Protocol (prefix ! to exclude)"
-msgstr ""
+msgstr "Protokoll (! voranstellen zum Ausschließen)"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2200
 msgid "Quick search"
-msgstr ""
+msgstr "Schnellsuche"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1517
 msgid "Remove filter"
-msgstr ""
+msgstr "Filter entfernen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1024
 msgid "render paused (high rate)"
-msgstr ""
+msgstr "Rendering pausiert (hohe Rate)"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2174
 msgid "Row tint"
-msgstr ""
+msgstr "Zeileneinfärbung"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2193
 msgid "Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds."
-msgstr ""
+msgstr "Die Zeileneinfärbung verwendete einen lokalen Farbfallback, da das aktive LuCI-Theme keine Erlauben/Verweigern-Hintergründe anwendet."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:394
 msgid "Rule"
-msgstr ""
+msgstr "Regel"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1026
 msgid "scroll frozen — scroll to top to follow live"
-msgstr ""
+msgstr "Scrollen eingefroren — nach oben scrollen, um der Live-Ansicht zu folgen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:481
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2182
 msgid "Show Detail"
-msgstr ""
+msgstr "Detail anzeigen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2166
 msgid "Show hostnames"
-msgstr ""
+msgstr "Hostnamen anzeigen"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1144
 msgid "Showing %d matching — %d/%d stored (limit %d)"
-msgstr ""
+msgstr "Zeige %d Übereinstimmungen — %d/%d gespeichert (Limit %d)"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:400
 msgid "Source"
-msgstr ""
+msgstr "Quelle"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2220
 msgid "Source IP contains (! to exclude)"
-msgstr ""
+msgstr "Quell-IP enthält (! zum Ausschließen)"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2221
 msgid "Source port (! to exclude)"
-msgstr ""
+msgstr "Quell-Port (! zum Ausschließen)"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:402
 msgid "SPort"
-msgstr ""
+msgstr "Quell-Port"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2245
 msgid "The rate shown next to WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap."
-msgstr ""
+msgstr "Die neben der WAN-Protokollierung angezeigte Rate ist der Firewall-Zonen-log_limit. OpenWrt verwendet standardmäßig 10/Minute, wenn kein explizites Limit konfiguriert ist; fwlive gibt diese Begrenzung nicht vor."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2243
 msgid "The table updates automatically when your firewall logs traffic. Use Enable logging if the table is empty on a stock config."
-msgstr ""
+msgstr "Die Tabelle wird automatisch aktualisiert, wenn Ihre Firewall Verkehr protokolliert. Verwenden Sie „Protokollierung aktivieren“, wenn die Tabelle bei einer Standardkonfiguration leer ist."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2194
 msgid "Theme tint fallback active"
-msgstr ""
+msgstr "Theme-Einfärbungs-Fallback aktiv"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:823
 msgid "This is the firewall zone log_limit. fwlive only displays events after fw3/fw4 applies this rate cap."
-msgstr ""
+msgstr "Dies ist der Firewall-Zonen-log_limit. fwlive zeigt Ereignisse erst an, nachdem fw3/fw4 diese Ratenbegrenzung angewendet hat."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:392
 msgid "Time"
-msgstr ""
+msgstr "Zeit"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2249
 msgid "Use Show Detail for all columns (flags, length, raw message)."
-msgstr ""
+msgstr "Verwenden Sie „Detail anzeigen“ für alle Spalten (Flags, Länge, rohe Nachricht)."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:646
 msgid "using fw4"
-msgstr ""
+msgstr "mit fw4"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:644
 msgid "using iptables"
-msgstr ""
+msgstr "mit iptables"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:772
 msgid "WAN logging disabled."
-msgstr ""
+msgstr "WAN-Protokollierung deaktiviert."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:740
 msgid "WAN logging enabled. Blocked inbound traffic should appear shortly."
-msgstr ""
+msgstr "WAN-Protokollierung aktiviert. Blockierter eingehender Verkehr sollte in Kürze erscheinen."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:742
 msgid "WAN logging is already enabled."
-msgstr ""
+msgstr "WAN-Protokollierung ist bereits aktiviert."
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:846
 msgid "WAN logging off"
-msgstr ""
+msgstr "WAN-Protokollierung: AUS"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:819
 msgid "WAN logging on ("
-msgstr ""
+msgstr "WAN-Protokollierung: EIN ("
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:812
 msgid "WAN logging unavailable: missing kernel log modules"
-msgstr ""
+msgstr "WAN-Protokollierung nicht verfügbar: fehlende Kernel-Log-Module"
 
 #: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:805
 msgid "WAN logging unavailable: no WAN zone"
-msgstr ""
+msgstr "WAN-Protokollierung nicht verfügbar: keine WAN-Zone"
 msgid "Accessible (teal/orange)"
-msgstr ""
+msgstr "Barrierefrei (teal/orange)"
 msgid "Chip style"
-msgstr ""
+msgstr "Chip-Stil"
 msgid "Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels."
-msgstr ""
+msgstr "Der Chip-Stil bestimmt, wie Einschluss- und Ausschluss-Chips aussehen (Beschriftungen, Symbole oder Ton). Standard ist Beschriftungen."
 msgid "Classic (green/red)"
-msgstr ""
+msgstr "Klassisch (grün/rot)"
 msgid "Classic uses green/red; Accessible uses teal/orange"
-msgstr ""
+msgstr "Klassisch verwendet grün/rot; Barrierefrei verwendet teal/orange"
 msgid "Hide row tint"
-msgstr ""
+msgstr "Zeileneinfärbung ausblenden"
 msgid "How include vs exclude filters are shown on chips"
-msgstr ""
+msgstr "Wie Einschluss- und Ausschlussfilter auf Chips dargestellt werden"
 msgid "Labels"
-msgstr ""
+msgstr "Beschriftungen"
 msgid "Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way."
-msgstr ""
+msgstr "Zeileneinfärbung schaltet Pass/Deny-Hintergrundfarben. Wenn aktiv, wählen Sie Klassisch (grün/rot, Standard) oder Barrierefrei (teal/orange). Aktionstext bleibt in beiden Fällen farbig."
 msgid "Symbols"
-msgstr ""
+msgstr "Symbole"
 msgid "Tint"
-msgstr ""
+msgstr "Einfärbung"
 msgid "Toggle pass/deny row background colors"
-msgstr ""
+msgstr "Pass/Deny-Zeilenhintergrundfarben umschalten"
 msgid "Tone"
-msgstr ""
+msgstr "Ton"
 msgid "is"
-msgstr ""
+msgstr "ist"
 msgid "not"
-msgstr ""
+msgstr "nicht"
 msgid "Connection lost — retrying…"
-msgstr ""
+msgstr "Verbindung verloren — erneuter Versuch…"
