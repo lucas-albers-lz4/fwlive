@@ -14,6 +14,13 @@ function run() {
 	const row = core.normalizeEntry(sample);
 	assert.equal(row.timestamp, Math.floor(new Date(sample.time).getTime() / 1000));
 	assert.equal(row.timestamp_display, '2026-03-20T02:00:00.000Z');
+
+	const spaceTime = {
+		time: '2026-03-20 02:00:00',
+		msg: sample.msg
+	};
+	const spaceRow = core.normalizeEntry(spaceTime);
+	assert.equal(spaceRow.timestamp, Math.floor(new Date('2026-03-20T02:00:00').getTime() / 1000));
 	assert.equal(row.action, 'drop');
 	assert.equal(row.action_raw, 'DROP');
 	assert.equal(row.proto, 'TCP');

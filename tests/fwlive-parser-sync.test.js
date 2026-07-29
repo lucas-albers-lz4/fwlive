@@ -54,6 +54,26 @@ assert.strictEqual(core.actionRowClass('pass'), 'fwlive-action fwlive-pass');
 assert.strictEqual(core.actionRowClass('drop'), 'fwlive-action fwlive-deny');
 assert.strictEqual(core.actionRowClass('weird'), 'fwlive-action fwlive-unknown');
 
+/* Space-separated RFC3339-ish timestamps (#60) — core and LuCI must agree. */
+const spaceTs = { time: '2024-01-01 12:00:00' };
+assert.strictEqual(core.timestampUnix(spaceTs), luci.timestampUnix(spaceTs));
+assert.ok(core.timestampUnix(spaceTs) > 0);
+assert.strictEqual(
+	core.timestampUnix({ time: '2024-01-01T12:00:00Z' }),
+	luci.timestampUnix({ time: '2024-01-01T12:00:00Z' })
+);
+
+/* inferActionRaw: KV values containing DROP/PASS must not block pass inference. */
+const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
+assert.strictEqual(
+	core.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),
+	'PASS'
+);
+assert.strictEqual(
+	luci.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),
+	'PASS'
+);
+
 /* 21.02-era APIs: no String.includes / Object.values in either mirror. */
 const coreSrc = fs.readFileSync(CORE, 'utf8');
 const luciSrc = fs.readFileSync(LUCI, 'utf8');

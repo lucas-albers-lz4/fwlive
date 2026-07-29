@@ -30,7 +30,14 @@ function runMsgParity() {
 		{ msg: '[  123.456789] fwlive-ping: IN=br-lan OUT= SRC=192.168.1.10 DST=192.168.1.1 PROTO=ICMP' },
 		{ msg: 'iptables: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22' },
 		{ msg: '' },
-		{ msg: '   ' }
+		{ msg: '   ' },
+		/* #58 edge cases — keep shell/JS parity honest across engines */
+		{ msg: 'IN=wan OUT= SRC=2001:db8::1 DST=2001:db8::2 PROTO=TCP SPT=1234 DPT=443' },
+		{ msg: '\tIN=wan OUT= SRC=203.0.113.9 DST=192.0.2.9 PROTO=UDP SPT=53 DPT=53\n' },
+		{ msg: 'kernel: IN=wan OUT= SRC=203.0.113.10 DST=192.0.2.10 PROTO=ICMP' },
+		{ msg: 'fw4rejectIN=wan OUT= SRC=203.0.113.11 DST=192.0.2.11 PROTO=TCP DPT=22' },
+		{ msg: 'IN=wan OUT= SRC=203.0.113.12 DST=192.0.2.12 PROTO=TCP MAC=aa:bb:cc:dd:ee:ff PASS=noise' },
+		{ msg: 'not-a-firewall-line at all' }
 	];
 
 	for (const entry of fixture.log.concat(extra)) {
