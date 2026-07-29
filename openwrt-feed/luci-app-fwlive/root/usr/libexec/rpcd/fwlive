@@ -19,6 +19,10 @@ RESOLVE_MAX=32
 RESOLVE_TIMEOUT=1
 # Cap raw logd lines per poll (~2000 ≈ typical logd ring / ~200 KB JSON before filter).
 POLL_LINES_MAX=2000
+# Bound nft ruleset dumps (corrupted/hung nft must not block LuCI rules load).
+NFT_TIMEOUT=5
+# CLI-only iptables fixture path for __rulesmap_iptables (no arbitrary paths).
+RULESMAP_IPTABLES_FILE='/tmp/rulesmap'
 
 json_escape() {
 	# Escape for JSON string content per RFC 8259 (including remaining C0 controls).
@@ -156,8 +160,16 @@ map_from_iptables_save_stream() {
 	done
 }
 
+nft_list_ruleset() {
+	if command -v timeout >/dev/null 2>&1; then
+		timeout "$NFT_TIMEOUT" nft list ruleset 2>/dev/null
+	else
+		nft list ruleset 2>/dev/null
+	fi
+}
+
 detect_firewall_backend() {
-	if command -v nft >/dev/null 2>&1 && nft list ruleset >/dev/null 2>&1; then
+	if command -v nft >/dev/null 2>&1 && nft_list_ruleset >/dev/null; then
 		printf '%s' nft
 		return 0
 	fi
@@ -176,7 +188,7 @@ build_rules_map() {
 
 	case "$backend" in
 		nft)
-			nft list ruleset 2>/dev/null | map_from_nft_stream
+			nft_list_ruleset | map_from_nft_stream
 			;;
 		iptables)
 			iptables-save 2>/dev/null | map_from_iptables_save_stream
@@ -192,7 +204,8 @@ build_rules_map() {
 rulesmap_from_iptables_file() {
 	file="$1"
 	OUT=''
-	[ -n "$file" ] && [ -f "$file" ] || return 1
+	[ "$file" = "$RULESMAP_IPTABLES_FILE" ] || return 1
+	[ -f "$file" ] || return 1
 	map_from_iptables_save_stream < "$file"
 	printf '{"backend":"iptables","rules":{%s}}' "$OUT"
 }
@@ -231,18 +244,8 @@ poll_lines_from_input() {
 fetch_firewall_logs() {
 	input="$1"
 	lines=$(poll_lines_from_input "$input")
-	stream=false
-	oneshot=true
-	case "$stream" in
-		true|1) stream=true ;;
-		*) stream=false ;;
-	esac
-	case "$oneshot" in
-		false|0) oneshot=false ;;
-		*) oneshot=true ;;
-	esac
-
-	raw=$(sh -c "ubus call log read '{\"lines\":$lines,\"stream\":$stream,\"oneshot\":$oneshot}'" 2>/dev/null) \
+	# lines is numeric-clamped; stream/oneshot are fixed (not caller-controlled).
+	raw=$(ubus call log read "{\"lines\":$lines,\"stream\":false,\"oneshot\":true}" 2>/dev/null) \
 		|| raw='{"log":[]}'
 
 	out=$(printf '%s' "$raw" | "$FILTER_SH" 2>/dev/null) || out='{"log":[]}'
@@ -395,7 +398,8 @@ case "$1" in
 		exit $?
 		;;
 	__rulesmap_iptables)
-		rulesmap_from_iptables_file "$2"
+		# CLI selftest only — never a ubus method. Fixed path only (no argv file read).
+		rulesmap_from_iptables_file "$RULESMAP_IPTABLES_FILE"
 		exit $?
 		;;
 	list)
