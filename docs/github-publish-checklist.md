@@ -103,4 +103,4 @@ When copying `openwrt-feed/luci-app-fwlive/` into `luci/applications/luci-app-fw
 | Workflow | When |
 |----------|------|
 | `fwlive-test.yml` | Every push/PR — parser tests |
-| `publish-packages.yml` | Tag push `v*` — SDK build, reproducibility, Pages deploy, release assets, feed smoke |
+| `publish-packages.yml` | Tag push `v*` — SDK build, reproducibility, Pages deploy, release assets, single-cell QEMU feed smoke (24.10 / TCG) |

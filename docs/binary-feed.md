@@ -172,7 +172,7 @@ On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-
 4. Stages signed feed via [`publish-packages.sh`](../scripts/publish-packages.sh).
 5. Deploys to **`fwlive-packages`** `gh-pages`.
 6. Uploads `.ipk` / `.apk` to the GitHub Release.
-7. Boots QEMU x86 guests and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh)) — *currently disabled in CI* ([#10](https://github.com/lucas-albers-lz4/fwlive/issues/10)).
+7. Boots one QEMU x86 reference guest (**24.10** by default) and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh); TCG on hosted runners — [#10](https://github.com/lucas-albers-lz4/fwlive/issues/10)).
 
 ---
 
