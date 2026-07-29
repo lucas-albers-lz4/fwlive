@@ -144,6 +144,19 @@ reload_firewall() {
 	return 1
 }
 
+# Best-effort UCI rollback when firewall reload fails after commit.
+restore_wan_zone_log() {
+	zone="$1"
+	previous="$2"
+	[ -n "$zone" ] || return 1
+	if [ -z "$previous" ]; then
+		uci -q delete "firewall.${zone}.log" 2>/dev/null || true
+	else
+		uci -q set "firewall.${zone}.log=${previous}" 2>/dev/null || true
+	fi
+	uci commit firewall 2>/dev/null || true
+}
+
 enable_wan_logging() {
 	zone=$(find_wan_zone_section)
 	if [ -z "$zone" ]; then
@@ -176,6 +189,8 @@ enable_wan_logging() {
 	fi
 
 	if ! reload_firewall; then
+		restore_wan_zone_log "$zone" "$current"
+		logger -t fwlive 'Firewall reload failed after enable; reverted UCI WAN log' 2>/dev/null || true
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
 		return 0
 	fi
@@ -217,6 +232,8 @@ disable_wan_logging() {
 	fi
 
 	if ! reload_firewall; then
+		restore_wan_zone_log "$zone" "$current"
+		logger -t fwlive 'Firewall reload failed after disable; reverted UCI WAN log' 2>/dev/null || true
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
 		return 0
 	fi
