@@ -30,8 +30,8 @@ No `luasrc/` — modern JS-only app.
 ## Dependencies
 
 - `luci-base`, `logd` (`rpcd` via `luci-base`; no hard `firewall4` dependency)
-- Menu visible when **`/usr/sbin/nft`** or **`/usr/sbin/iptables`** is executable
-- **fw4/nft** primary on **22.03+**; **iptables LOG** primary on legacy **21.02.x** (fw3), best-effort on 22.03+ when nft absent
+- Menu depends on ACL only (no `fs` AND of `nft`+`iptables` — that hid the entry on stock fw3 and fw4)
+- Runtime backend detection selects **fw4/nft** (22.03+) or **iptables LOG** (21.02 fw3); best-effort iptables when nft absent
 
 ## Documentation
 

@@ -7,11 +7,7 @@
 			"path": "status/fwlive"
 		},
 		"depends": {
-			"acl": [ "luci-app-fwlive" ],
-			"fs": [
-				{ "/usr/sbin/nft": "executable" },
-				{ "/usr/sbin/iptables": "executable" }
-			]
+			"acl": [ "luci-app-fwlive" ]
 		}
 	}
 }
