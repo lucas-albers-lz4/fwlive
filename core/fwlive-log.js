@@ -3,7 +3,7 @@
 /**
  * Shared firewall log parsing and filtering (Node CLI + unit tests).
  * Keep in sync with openwrt-feed/.../fwlive/log.js (LuCI baseclass wrapper).
- * PARSER_SYNC_VERSION: 3
+ * PARSER_SYNC_VERSION: 4
  */
 
 const NON_FIREWALL_PREFIX = /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)\b/i;
@@ -87,7 +87,9 @@ function inferActionRaw(message, kv, actionRaw) {
 		return actionRaw;
 
 	const msg = normalizeNetfilterMessage(message || '');
-	if (DENY_ACTION.test(msg))
+	/* Ignore KEY=value payloads so MAC=…DROP… / PASS=… do not suppress pass inference. */
+	const withoutKv = msg.replace(/\b[A-Z]+=[^\s]*/g, ' ');
+	if (DENY_ACTION.test(withoutKv))
 		return 'UNKNOWN';
 
 	if (/^kernel:/i.test(msg.trim()))
@@ -126,8 +128,11 @@ function timestampUnix(entry) {
 	if (!entry || entry.time == null || entry.time === '')
 		return null;
 
-	if (typeof entry.time === 'string' && entry.time.indexOf('T') !== -1)
-		return Math.floor(new Date(entry.time).getTime() / 1000);
+	if (typeof entry.time === 'string' && /^\d{4}-\d{2}-\d{2}[T ]/.test(entry.time)) {
+		const ms = new Date(entry.time).getTime();
+		if (Number.isFinite(ms))
+			return Math.floor(ms / 1000);
+	}
 
 	const n = Number(entry.time);
 	if (!Number.isFinite(n))

@@ -78,10 +78,11 @@ check_nf_log_ipv6() {
 logging_blockers_append() {
 	blocker="$1"
 	[ -n "$blocker" ] || return 0
+	esc=$(printf '%s' "$blocker" | json_escape)
 	if [ -n "$LOGGING_BLOCKERS" ]; then
 		LOGGING_BLOCKERS="${LOGGING_BLOCKERS},"
 	fi
-	LOGGING_BLOCKERS="${LOGGING_BLOCKERS}\"${blocker}\""
+	LOGGING_BLOCKERS="${LOGGING_BLOCKERS}\"${esc}\""
 }
 
 collect_logging_blockers() {
@@ -143,6 +144,19 @@ reload_firewall() {
 	return 1
 }
 
+# Best-effort UCI rollback when firewall reload fails after commit.
+restore_wan_zone_log() {
+	zone="$1"
+	previous="$2"
+	[ -n "$zone" ] || return 1
+	if [ -z "$previous" ]; then
+		uci -q delete "firewall.${zone}.log" 2>/dev/null || true
+	else
+		uci -q set "firewall.${zone}.log=${previous}" 2>/dev/null || true
+	fi
+	uci commit firewall 2>/dev/null || true
+}
+
 enable_wan_logging() {
 	zone=$(find_wan_zone_section)
 	if [ -z "$zone" ]; then
@@ -150,35 +164,39 @@ enable_wan_logging() {
 		return 0
 	fi
 
+	zone_json=$(json_null_or_string "$zone")
+
 	if ! check_nf_log_ipv4 || ! check_nf_log_ipv6; then
-		printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"nf_log_missing"}' "$zone"
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"nf_log_missing"}' "$zone_json"
 		return 0
 	fi
 
 	current=$(wan_zone_log_value "$zone")
 	if wan_filter_log_enabled "$current"; then
-		printf '{"ok":true,"changed":false,"wan_zone":"%s"}' "$zone"
+		printf '{"ok":true,"changed":false,"wan_zone":%s}' "$zone_json"
 		return 0
 	fi
 
 	target=$(wan_filter_log_target_value "$current")
 	if ! uci set "firewall.${zone}.log=${target}"; then
-		printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"uci_set_failed"}' "$zone"
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_set_failed"}' "$zone_json"
 		return 0
 	fi
 
 	if ! uci commit firewall; then
-		printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"uci_commit_failed"}' "$zone"
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
 		return 0
 	fi
 
 	if ! reload_firewall; then
-		printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"firewall_reload_failed"}' "$zone"
+		restore_wan_zone_log "$zone" "$current"
+		logger -t fwlive 'Firewall reload failed after enable; reverted UCI WAN log' 2>/dev/null || true
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
 		return 0
 	fi
 
 	logger -t fwlive 'WAN zone logging enabled' 2>/dev/null || true
-	printf '{"ok":true,"changed":true,"wan_zone":"%s"}' "$zone"
+	printf '{"ok":true,"changed":true,"wan_zone":%s}' "$zone_json"
 }
 
 disable_wan_logging() {
@@ -188,37 +206,40 @@ disable_wan_logging() {
 		return 0
 	fi
 
+	zone_json=$(json_null_or_string "$zone")
 	current=$(wan_zone_log_value "$zone")
 	if [ -z "$current" ] || ! wan_filter_log_enabled "$current"; then
-		printf '{"ok":true,"changed":false,"wan_zone":"%s"}' "$zone"
+		printf '{"ok":true,"changed":false,"wan_zone":%s}' "$zone_json"
 		return 0
 	fi
 
 	target=$(wan_filter_log_clear_value "$current")
 	if [ -z "$target" ]; then
 		if ! uci delete "firewall.${zone}.log"; then
-			printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"uci_delete_failed"}' "$zone"
+			printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_delete_failed"}' "$zone_json"
 			return 0
 		fi
 	else
 		if ! uci set "firewall.${zone}.log=${target}"; then
-			printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"uci_set_failed"}' "$zone"
+			printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_set_failed"}' "$zone_json"
 			return 0
 		fi
 	fi
 
 	if ! uci commit firewall; then
-		printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"uci_commit_failed"}' "$zone"
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
 		return 0
 	fi
 
 	if ! reload_firewall; then
-		printf '{"ok":false,"changed":false,"wan_zone":"%s","error":"firewall_reload_failed"}' "$zone"
+		restore_wan_zone_log "$zone" "$current"
+		logger -t fwlive 'Firewall reload failed after disable; reverted UCI WAN log' 2>/dev/null || true
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
 		return 0
 	fi
 
 	logger -t fwlive 'WAN zone logging disabled' 2>/dev/null || true
-	printf '{"ok":true,"changed":true,"wan_zone":"%s"}' "$zone"
+	printf '{"ok":true,"changed":true,"wan_zone":%s}' "$zone_json"
 }
 
 run_logging_selftest() {

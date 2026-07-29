@@ -17,6 +17,7 @@ LuCI **Firewall Live View** — client-side JS view polling `ubus fwlive poll` (
 | `htdocs/luci-static/resources/fwlive/logging.js` | Logging toolbar and empty-state DOM renderers |
 | `htdocs/luci-static/resources/fwlive/table.js` | Table thead/rows DOM renderer (`renderThead`, `renderRows`) |
 | `htdocs/luci-static/resources/fwlive/buffer.js` | Ring-buffer apply/merge helpers (pause ingest + resume merge) |
+| `htdocs/luci-static/resources/fwlive/hostname.js` | Hostname cache LRU + failure TTL helpers |
 | `root/usr/share/luci/menu.d/*.json` | Menu entry (`admin/status/fwlive`) |
 | `root/usr/share/rpcd/acl.d/*.json` | ubus ACL (read + write for logging enable/disable) |
 | `root/usr/libexec/rpcd/fwlive` | rpcd plugin (`rules`, `poll`, `resolve`, `logging_status`, `enable_wan_logging`, `disable_wan_logging`) |
@@ -30,8 +31,8 @@ No `luasrc/` — modern JS-only app.
 ## Dependencies
 
 - `luci-base`, `logd` (`rpcd` via `luci-base`; no hard `firewall4` dependency)
-- Menu visible when **`/usr/sbin/nft`** or **`/usr/sbin/iptables`** is executable
-- **fw4/nft** primary on **22.03+**; **iptables LOG** primary on legacy **21.02.x** (fw3), best-effort on 22.03+ when nft absent
+- Menu depends on ACL only (no `fs` AND of `nft`+`iptables` — that hid the entry on stock fw3 and fw4)
+- Runtime backend detection selects **fw4/nft** (22.03+) or **iptables LOG** (21.02 fw3); best-effort iptables when nft absent
 
 ## Documentation
 

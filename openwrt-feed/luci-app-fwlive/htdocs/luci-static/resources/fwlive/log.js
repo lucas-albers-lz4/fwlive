@@ -3,7 +3,7 @@
 
 /**
  * LuCI wrapper — keep logic aligned with core/fwlive-log.js (see scripts/fwlive-test.sh).
- * PARSER_SYNC_VERSION: 3
+ * PARSER_SYNC_VERSION: 4
  */
 return baseclass.extend({
 	NON_FIREWALL_PREFIX: /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)\b/i,
@@ -83,7 +83,9 @@ return baseclass.extend({
 			return actionRaw;
 
 		const msg = this.normalizeNetfilterMessage(message || '');
-		if (this.DENY_ACTION.test(msg))
+		/* Ignore KEY=value payloads so MAC=…DROP… / PASS=… do not suppress pass inference. */
+		const withoutKv = msg.replace(/\b[A-Z]+=[^\s]*/g, ' ');
+		if (this.DENY_ACTION.test(withoutKv))
 			return 'UNKNOWN';
 
 		if (/^kernel:/i.test(msg.trim()))
@@ -122,8 +124,11 @@ return baseclass.extend({
 		if (!entry || entry.time == null || entry.time === '')
 			return null;
 
-		if (typeof entry.time === 'string' && entry.time.indexOf('T') !== -1)
-			return Math.floor(new Date(entry.time).getTime() / 1000);
+		if (typeof entry.time === 'string' && /^\d{4}-\d{2}-\d{2}[T ]/.test(entry.time)) {
+			const ms = new Date(entry.time).getTime();
+			if (isFinite(ms))
+				return Math.floor(ms / 1000);
+		}
 
 		const n = Number(entry.time);
 		if (!isFinite(n))
