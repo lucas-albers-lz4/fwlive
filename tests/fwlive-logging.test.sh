@@ -40,6 +40,29 @@ case "$out" in
 esac
 ok "build_logging_status_json shape"
 
+# restore_wan_zone_log: empty previous => delete; non-empty => set + commit
+UCI_LOG=()
+uci() {
+	UCI_LOG+=("$*")
+	return 0
+}
+UCI_LOG=()
+restore_wan_zone_log '@zone[0]' ''
+joined="${UCI_LOG[*]}"
+case "$joined" in
+	*'-q delete firewall.@zone[0].log'*'commit firewall'*) ;;
+	*) die "restore empty previous expected delete+commit, got: $joined" ;;
+esac
+UCI_LOG=()
+restore_wan_zone_log '@zone[1]' '3'
+joined="${UCI_LOG[*]}"
+case "$joined" in
+	*'-q set firewall.@zone[1].log=3'*'commit firewall'*) ;;
+	*) die "restore value expected set+commit, got: $joined" ;;
+esac
+unset -f uci
+ok "restore_wan_zone_log stubs"
+
 sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
 ok "rpcd __selftest"
 
