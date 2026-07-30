@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [v0.1.29] — 2026-07-28
 
 ### Added
 - Selectable filter chip styles (Labels / Symbols / Tone) with localStorage persistence (#18, #38)
@@ -273,7 +273,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.28...HEAD
+[v0.1.29]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.28...v0.1.29
 [v0.1.28]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.27...v0.1.28
 [v0.1.27]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.26...v0.1.27
 [v0.1.26]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.25...v0.1.26
