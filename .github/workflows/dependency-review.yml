@@ -1,0 +1,18 @@
+# Warn on new vulnerable dependencies in PRs (dependency graph).
+name: Dependency Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
