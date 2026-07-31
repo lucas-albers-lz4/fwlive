@@ -34,9 +34,9 @@ const css = cssMod.styleText;
 if (!css || typeof css !== 'string')
 	throw new Error('could not load styleText from fwlive/css.js');
 
-/* Hex is allowed only in scoped tint/zebra token chains and zebra dual-paint base.
-   Accessible palette pins fixed hex (#75/#76); classic may use var(... #hex) fallbacks. */
-const tintHexAllowRe = /--fwlive-(?:(?:pass|deny)-color|bg-medium):\s*(?:var\([^;]*|#)[0-9a-fA-F#(),.%\s-]*/g;
+/* Hex is allowed only in scoped tint/zebra/paused token chains and zebra dual-paint base.
+   Accessible palette pins fixed hex (#75/#76); paused pin (#83); classic may use var(... #hex) fallbacks. */
+const tintHexAllowRe = /--fwlive-(?:(?:pass|deny|paused)-color|bg-medium):\s*(?:var\([^;]*|#)[0-9a-fA-F#(),.%\s-]*/g;
 const tintAllowedHex = new Set();
 let allowMatch;
 while ((allowMatch = tintHexAllowRe.exec(css)) !== null) {
@@ -119,13 +119,32 @@ if (accessScope < 0) {
 	console.error('missing .fwlive-map[data-row-tint="accessible"] token scope');
 	process.exit(1);
 }
-const accessScopeChunk = css.slice(accessScope, accessScope + 450);
+/* Clamp at the scope's closing brace so neighboring rules cannot false-fail. */
+const accessScopeEnd = css.indexOf('}', accessScope);
+const accessScopeChunk = css.slice(
+	accessScope,
+	accessScopeEnd >= 0 ? accessScopeEnd + 1 : accessScope + 450
+);
 if (!accessScopeChunk.includes('#0d9488') || !accessScopeChunk.includes('#c2410c')) {
 	console.error('accessible palette must pin #0d9488 / #c2410c (not theme info/warn)');
 	process.exit(1);
 }
 if (/var\(--info-color/.test(accessScopeChunk) || /var\(--warn-color/.test(accessScopeChunk)) {
 	console.error('accessible palette must not use LuCI --info/--warn theme tokens');
+	process.exit(1);
+}
+
+if (!css.includes('--fwlive-paused-color: #b45309')) {
+	console.error('paused strip must pin --fwlive-paused-color: #b45309');
+	process.exit(1);
+}
+if (/fwlive-watch-paused[^{]*\{[^}]*var\(--warn-color-high\)/.test(css)
+	|| /\.fwlive-watch-paused \.fwlive-watch-label \{[^}]*var\(--warn-color-high\)/.test(css)) {
+	console.error('paused strip must not use --warn-color-high (yellow)');
+	process.exit(1);
+}
+if (!css.includes('background: rgba(180, 83, 9, 0.08)')) {
+	console.error('paused strip needs rgba fallback before color-mix');
 	process.exit(1);
 }
 

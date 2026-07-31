@@ -70,8 +70,6 @@ return view.extend({
 	visibleRows: constants.DEFAULT_ROW_LIMIT,
 	entries: [],
 	sessionSeen: null,
-	sessionNewTotal: 0,
-	sessionAtPause: 0,
 	pauseBufferLoading: false,
 	paused: false,
 	/* One-shot: first live poll after unpause merges instead of replacing (#43). */
@@ -746,10 +744,8 @@ return view.extend({
 			if (seen[row.id])
 				continue;
 			seen[row.id] = true;
-			if (this.rememberSessionId(row.id)) {
-				this.sessionNewTotal++;
+			if (this.rememberSessionId(row.id))
 				pollNew++;
-			}
 			normalized.push(row);
 		}
 
@@ -893,12 +889,19 @@ return view.extend({
 		const stored = this.entries.length;
 		const limit = this.rowLimit;
 		const suffix = this.statusSuffix();
+		/* While paused the buffer can grow past the display limit — count matches
+		 * over the full buffer so "matching" is not capped at visibleRows (#83). */
+		let shown = matchCount;
+		if (this.paused) {
+			const filters = this.readFilters();
+			shown = this.entries.filter((row) => log.matchesFilter(row, filters)).length;
+		}
 
 		if (this.pauseBufferLoading && stored === 0)
 			return _('loading…') + suffix;
 
-		if (matchCount)
-			return _('%d matching · %d/%d stored').format(matchCount, stored, limit) + suffix;
+		if (shown)
+			return _('%d matching · %d/%d stored').format(shown, stored, limit) + suffix;
 
 		if (stored)
 			return _('0 matching · %d/%d stored').format(stored, limit) + suffix;
@@ -1009,7 +1012,6 @@ return view.extend({
 		this.updateStreamControlsUi();
 
 		if (!wasPaused && this.paused) {
-			this.sessionAtPause = this.sessionNewTotal;
 			this.pauseBufferLoading = true;
 			this.updateStatus();
 			this.fetchEntries()
@@ -1030,13 +1032,7 @@ return view.extend({
 				.finally(function() {
 					this.resumeMerge = false;
 				}.bind(this));
-			return;
 		}
-
-		if (this.paused)
-			this.updateStatus();
-		else
-			this.renderRows(true);
 	},
 
 	onRowLimitChange(ev) {
@@ -1055,13 +1051,16 @@ return view.extend({
 			this.renderRows(true);
 		else
 			this.updateStatus();
-		this.fetchEntries().then(() => {
-			this.pendingForceRender = false;
-			if (this.paused)
-				this.updateStatus();
-			else
-				this.renderRows(true);
-		});
+		this.fetchEntries()
+			.then(() => {
+				if (this.paused)
+					this.updateStatus();
+				else
+					this.renderRows(true);
+			})
+			.finally(() => {
+				this.pendingForceRender = false;
+			});
 	},
 
 	limitSelectOptions() {
