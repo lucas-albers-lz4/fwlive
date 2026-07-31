@@ -87,6 +87,38 @@ normalize_log_prefix() {
 	printf '%s' "$1" | sed 's/[[:space:]]*$//; s/:$//'
 }
 
+read_rpc_input() {
+	if [ -n "$1" ]; then
+		printf '%s' "$1"
+	else
+		cat
+	fi
+}
+
+map_prefix_with_label() {
+	prefix="$1"
+	label="$2"
+	[ -n "$prefix" ] || return 0
+	if [ -n "$label" ]; then
+		map_add "$prefix" "$label"
+		map_add "$(slug_key "$prefix")" "$label"
+	else
+		cosmetic=$(echo "$prefix" | tr '-' ' ')
+		map_add "$prefix" "$cosmetic"
+		map_add "$(slug_key "$prefix")" "$cosmetic"
+	fi
+}
+
+run_with_timeout() {
+	secs="$1"
+	shift
+	if command -v timeout >/dev/null 2>&1; then
+		timeout "$secs" "$@" 2>/dev/null
+	else
+		"$@" 2>/dev/null
+	fi
+}
+
 map_log_prefix_entry() {
 	prefix="$1"
 	comment="$2"
@@ -99,14 +131,7 @@ map_log_prefix_entry() {
 	prefix=$(normalize_log_prefix "$prefix")
 	[ -n "$prefix" ] || return 0
 
-	if [ -n "$label" ]; then
-		map_add "$prefix" "$label"
-		map_add "$(slug_key "$prefix")" "$label"
-	else
-		cosmetic=$(echo "$prefix" | tr '-' ' ')
-		map_add "$prefix" "$cosmetic"
-		map_add "$(slug_key "$prefix")" "$cosmetic"
-	fi
+	map_prefix_with_label "$prefix" "$label"
 }
 
 map_uci_rule_names() {
@@ -132,17 +157,9 @@ map_from_nft_stream() {
 		esac
 
 		if [ -n "$prefix" ]; then
-			if [ -n "$label" ]; then
-				map_add "$prefix" "$label"
-				map_add "$(slug_key "$prefix")" "$label"
-			else
-				cosmetic=$(echo "$prefix" | tr '-' ' ')
-				map_add "$prefix" "$cosmetic"
-				map_add "$(slug_key "$prefix")" "$cosmetic"
-			fi
+			map_prefix_with_label "$prefix" "$label"
 		elif [ -n "$label" ]; then
-			map_add "$label" "$label"
-			map_add "$(slug_key "$label")" "$label"
+			map_prefix_with_label "$label" "$label"
 		fi
 	done
 }
@@ -161,11 +178,7 @@ map_from_iptables_save_stream() {
 }
 
 nft_list_ruleset() {
-	if command -v timeout >/dev/null 2>&1; then
-		timeout "$NFT_TIMEOUT" nft list ruleset 2>/dev/null
-	else
-		nft list ruleset 2>/dev/null
-	fi
+	run_with_timeout "$NFT_TIMEOUT" nft list ruleset
 }
 
 detect_firewall_backend() {
@@ -253,11 +266,7 @@ fetch_firewall_logs() {
 }
 
 poll_logs() {
-	if [ -n "$3" ]; then
-		input="$3"
-	else
-		input="$(cat)"
-	fi
+	input=$(read_rpc_input "$3")
 	fetch_firewall_logs "$input"
 }
 
@@ -265,12 +274,7 @@ resolve_hostname() {
 	ip="$1"
 	[ -n "$ip" ] || return 1
 	is_resolvable_address "$ip" || return 1
-	line=""
-	if command -v timeout >/dev/null 2>&1; then
-		line=$(timeout "$RESOLVE_TIMEOUT" getent hosts "$ip" 2>/dev/null | head -1)
-	else
-		line=$(getent hosts "$ip" 2>/dev/null | head -1)
-	fi
+	line=$(run_with_timeout "$RESOLVE_TIMEOUT" getent hosts "$ip" | head -1)
 	[ -n "$line" ] || return 1
 	set -- $line
 	[ "$#" -ge 2 ] || return 1
@@ -290,11 +294,7 @@ is_resolvable_address() {
 }
 
 resolve_addresses() {
-	if [ -n "$3" ]; then
-		input="$3"
-	else
-		input="$(cat)"
-	fi
+	input=$(read_rpc_input "$3")
 	count=0
 	OUT=''
 

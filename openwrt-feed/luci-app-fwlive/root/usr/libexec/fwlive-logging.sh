@@ -157,6 +157,28 @@ restore_wan_zone_log() {
 	uci commit firewall 2>/dev/null || true
 }
 
+commit_and_reload_wan_log() {
+	zone="$1"
+	previous="$2"
+	fail_msg="$3"
+	success_msg="$4"
+	zone_json="$5"
+
+	if ! uci commit firewall; then
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
+		return 0
+	fi
+	if ! reload_firewall; then
+		restore_wan_zone_log "$zone" "$previous"
+		logger -t fwlive "$fail_msg" 2>/dev/null || true
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
+		return 0
+	fi
+	logger -t fwlive "$success_msg" 2>/dev/null || true
+	printf '{"ok":true,"changed":true,"wan_zone":%s}' "$zone_json"
+	return 0
+}
+
 enable_wan_logging() {
 	zone=$(find_wan_zone_section)
 	if [ -z "$zone" ]; then
@@ -183,20 +205,10 @@ enable_wan_logging() {
 		return 0
 	fi
 
-	if ! uci commit firewall; then
-		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
-		return 0
-	fi
-
-	if ! reload_firewall; then
-		restore_wan_zone_log "$zone" "$current"
-		logger -t fwlive 'Firewall reload failed after enable; reverted UCI WAN log' 2>/dev/null || true
-		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
-		return 0
-	fi
-
-	logger -t fwlive 'WAN zone logging enabled' 2>/dev/null || true
-	printf '{"ok":true,"changed":true,"wan_zone":%s}' "$zone_json"
+	commit_and_reload_wan_log "$zone" "$current" \
+		'Firewall reload failed after enable; reverted UCI WAN log' \
+		'WAN zone logging enabled' \
+		"$zone_json"
 }
 
 disable_wan_logging() {
@@ -226,20 +238,10 @@ disable_wan_logging() {
 		fi
 	fi
 
-	if ! uci commit firewall; then
-		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
-		return 0
-	fi
-
-	if ! reload_firewall; then
-		restore_wan_zone_log "$zone" "$current"
-		logger -t fwlive 'Firewall reload failed after disable; reverted UCI WAN log' 2>/dev/null || true
-		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
-		return 0
-	fi
-
-	logger -t fwlive 'WAN zone logging disabled' 2>/dev/null || true
-	printf '{"ok":true,"changed":true,"wan_zone":%s}' "$zone_json"
+	commit_and_reload_wan_log "$zone" "$current" \
+		'Firewall reload failed after disable; reverted UCI WAN log' \
+		'WAN zone logging disabled' \
+		"$zone_json"
 }
 
 run_logging_selftest() {
