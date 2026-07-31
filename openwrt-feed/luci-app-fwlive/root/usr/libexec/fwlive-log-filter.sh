@@ -5,6 +5,9 @@
 # Filter log.read JSON to firewall-only entries (isFirewallEvent parity).
 # Log messages are treated as data (jsonfilter + grep stdin); never interpolated
 # into shell command strings. Usage: ubus call log read '...' | fwlive-log-filter.sh
+#
+# Perf (#85): stream @.log[*] once instead of an O(n) length probe plus two
+# jsonfilter spawns per index (~3n+1 → ~n+1 process execs per poll).
 
 FILTER_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$FILTER_DIR/fwlive-is-firewall-event.sh"
@@ -17,26 +20,17 @@ if ! command -v jsonfilter >/dev/null 2>&1; then
 	exit 0
 fi
 
-count=0
-while jsonfilter -s "$input" -e "@.log[$count]" >/dev/null 2>&1; do
-	count=$((count + 1))
-done
-
-[ "$count" -gt 0 ] || {
-	printf '%s' '{"log":[]}'
-	exit 0
-}
-
 printf '%s' '{"log":['
 sep=''
-idx=0
-while [ "$idx" -lt "$count" ]; do
-	entry=$(jsonfilter -s "$input" -e "@.log[$idx]")
-	msg=$(printf '%s' "$entry" | jsonfilter -e '@.msg' 2>/dev/null)
-	if is_firewall_event_msg "$msg"; then
-		printf '%s%s' "$sep" "$entry"
-		sep=','
-	fi
-	idx=$((idx + 1))
-done
+# Pipe group keeps sep local while still writing the filtered array to stdout.
+jsonfilter -s "$input" -e '@.log[*]' 2>/dev/null | {
+	while IFS= read -r entry || [ -n "$entry" ]; do
+		[ -n "$entry" ] || continue
+		msg=$(printf '%s' "$entry" | jsonfilter -e '@.msg' 2>/dev/null)
+		if is_firewall_event_msg "$msg"; then
+			printf '%s%s' "$sep" "$entry"
+			sep=','
+		fi
+	done
+}
 printf '%s' ']}'
