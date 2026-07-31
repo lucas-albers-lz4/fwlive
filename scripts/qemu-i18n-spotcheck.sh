@@ -2,10 +2,17 @@
 # Lab spot-check (#72 / #46): switch LuCI to de / ru / zh-cn and assert fwlive strings.
 #
 # Installs luci-i18n-fwlive-* from out/ (when present) and luci-i18n-base-* from
-# downloads.openwrt.org. Restores luci.main.lang afterward.
+# downloads.openwrt.org. Restores luci.main.lang afterward (delete if unset).
+#
+# Lab assumption: guest root has an empty password (same as other QEMU smokes).
 #
 #   ./scripts/qemu-i18n-spotcheck.sh
 #   OPENWRT_SSH_PORT=2222 ./scripts/qemu-i18n-spotcheck.sh
+#   FWLIVE_I18N_DIR=out/<arch>/<ver>/fwlive ./scripts/qemu-i18n-spotcheck.sh
+#
+# Default OUT path is the 24.10.5 x86_64 lab layout; override FWLIVE_I18N_DIR for
+# other arches/versions. Runtime UCI lang is zh-cn; PO dir is zh_Hans (luci.mk
+# LUCI_LC_ALIAS.zh_Hans=zh-cn).
 #
 # See docs/developer/environment.md (Device edge cases).
 set -euo pipefail
@@ -19,9 +26,11 @@ SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o Connect
 OUT_I18N="${FWLIVE_I18N_DIR:-${ROOT}/out/x86_64/24.10.5/fwlive}"
 NODE="${NODE:-}"
 PREV_LANG=""
+HAD_LANG=0
 
 die() { echo "i18n spotcheck FAIL: $*" >&2; exit 1; }
 ok() { echo "i18n spotcheck OK: $*"; }
+warn() { echo "i18n spotcheck WARN: $*" >&2; }
 
 ssh_guest() {
 	ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
@@ -33,11 +42,14 @@ push_file() {
 }
 
 restore_lang() {
-	if [[ -n "$PREV_LANG" ]]; then
+	if [[ "$HAD_LANG" -eq 1 ]]; then
 		ssh_guest "uci set luci.main.lang='${PREV_LANG}'; uci commit luci" 2>/dev/null || true
+	else
+		# Key was unset — delete rather than writing option lang 'auto'.
+		ssh_guest "uci -q delete luci.main.lang; uci commit luci" 2>/dev/null || true
 	fi
 }
-trap restore_lang EXIT
+trap restore_lang EXIT INT TERM HUP
 
 if [[ -z "$NODE" ]]; then
 	if command -v node >/dev/null 2>&1; then
@@ -54,18 +66,33 @@ echo "== fwlive i18n spotcheck (root@${HOST}:${PORT}) ==" >&2
 ssh_guest 'echo connected' >/dev/null 2>&1 \
 	|| die "SSH unreachable — start QEMU and install fwlive first"
 
-PREV_LANG="$(ssh_guest "uci -q get luci.main.lang || echo auto")"
-ok "saved luci.main.lang=${PREV_LANG}"
+if PREV_LANG="$(ssh_guest 'uci -q get luci.main.lang')"; then
+	HAD_LANG=1
+	ok "saved luci.main.lang=${PREV_LANG}"
+else
+	HAD_LANG=0
+	PREV_LANG=""
+	ok "luci.main.lang was unset (will delete on restore)"
+fi
 
-# Ensure base language packs (OpenWrt downloads).
+# Ensure base language packs (OpenWrt downloads). Skip a lang if base install fails
+# so offline guests can still check fwlive strings for languages already present.
 ssh_guest 'opkg update >/dev/null 2>&1 || true'
+BASE_OK=()
 for lang in de ru zh-cn; do
-	if ! ssh_guest "opkg list-installed | grep -q '^luci-i18n-base-${lang} '"; then
-		ssh_guest "opkg install luci-i18n-base-${lang}" \
-			|| die "opkg install luci-i18n-base-${lang} failed"
+	if ssh_guest "opkg list-installed | grep -q '^luci-i18n-base-${lang} '"; then
+		ok "luci-i18n-base-${lang} present"
+		BASE_OK+=("$lang")
+		continue
 	fi
-	ok "luci-i18n-base-${lang} present"
+	if ssh_guest "opkg install luci-i18n-base-${lang}"; then
+		ok "installed luci-i18n-base-${lang}"
+		BASE_OK+=("$lang")
+	else
+		warn "opkg install luci-i18n-base-${lang} failed — skip ${lang}"
+	fi
 done
+[[ ${#BASE_OK[@]} -gt 0 ]] || die "no luci-i18n-base-* languages available to test"
 
 # Push fwlive i18n packages from out/ when available.
 install_fwlive_i18n() {
@@ -75,10 +102,16 @@ install_fwlive_i18n() {
 		ok "${pkg} already installed"
 		return 0
 	fi
-	local ipk
-	ipk="$(ls -1 "${OUT_I18N}/${pkg}"_*.ipk 2>/dev/null | head -1 || true)"
+	local ipk=""
+	if [[ -d "$OUT_I18N" ]]; then
+		ipk="$(ls -1t "${OUT_I18N}/${pkg}"_*.ipk 2>/dev/null | head -1 || true)"
+	fi
 	if [[ -z "$ipk" ]]; then
-		echo "i18n spotcheck WARN: no ${pkg}_*.ipk under ${OUT_I18N} — skip ${lang}" >&2
+		# Fall back to any out/*/fwlive tree (newest matching ipk).
+		ipk="$(ls -1t "${ROOT}"/out/*/fwlive/"${pkg}"_*.ipk "${ROOT}"/out/*/*/fwlive/"${pkg}"_*.ipk 2>/dev/null | head -1 || true)"
+	fi
+	if [[ -z "$ipk" ]]; then
+		warn "no ${pkg}_*.ipk under ${OUT_I18N} (or out/*/fwlive) — skip ${lang}"
 		return 1
 	fi
 	local base
@@ -89,7 +122,7 @@ install_fwlive_i18n() {
 }
 
 LANGS=()
-for lang in de ru zh-cn; do
+for lang in "${BASE_OK[@]}"; do
 	if install_fwlive_i18n "$lang"; then
 		LANGS+=("$lang")
 	fi

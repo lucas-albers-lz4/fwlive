@@ -15,7 +15,9 @@ set -euo pipefail
 HOST="${OPENWRT_HOST:-127.0.0.1}"
 PORT="${OPENWRT_SSH_PORT:-2222}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
-WRAP_DIR="/tmp/fwlive-reload-wrap.$$"
+# Persistent overlay (not /tmp) so a guest reboot mid-test cannot lose the backup
+# while leaving the wrapper in place (#83).
+WRAP_DIR="/etc/fwlive-reload-wrap.$$"
 REAL_FW="/etc/init.d/firewall"
 BAK_FW="${WRAP_DIR}/firewall.real"
 WRAPPER_INSTALLED=0
@@ -29,14 +31,23 @@ ssh_guest() {
 
 restore_firewall() {
 	if [[ "$WRAPPER_INSTALLED" -eq 1 ]]; then
-		ssh_guest "if [ -f '${BAK_FW}' ]; then cp -a '${BAK_FW}' '${REAL_FW}'; chmod +x '${REAL_FW}'; fi; rm -rf '${WRAP_DIR}'" 2>/dev/null || true
+		ssh_guest "if [ -f '${BAK_FW}' ]; then
+			cp -a '${BAK_FW}' '${REAL_FW}'
+			chmod +x '${REAL_FW}'
+			cmp -s '${BAK_FW}' '${REAL_FW}' || exit 2
+			rm -rf '${WRAP_DIR}'
+		else
+			echo 'reload-revert: backup missing at ${BAK_FW}' >&2
+			exit 3
+		fi" || die "failed to restore ${REAL_FW} from ${BAK_FW}"
 		WRAPPER_INSTALLED=0
+		ok "restored ${REAL_FW} from persistent backup"
 	fi
 }
-trap restore_firewall EXIT
+trap restore_firewall EXIT INT TERM HUP
 
 install_failing_reload() {
-	ssh_guest "mkdir -p '${WRAP_DIR}' && cp -a '${REAL_FW}' '${BAK_FW}'"
+	ssh_guest "mkdir -p '${WRAP_DIR}' && cp -a '${REAL_FW}' '${BAK_FW}' && test -f '${BAK_FW}'"
 	# Stream wrapper over SSH stdin (local expands BAK_FW; remote keeps $1 / $@).
 	ssh "${SSH_OPTS[@]}" "root@${HOST}" "cat > '${REAL_FW}' && chmod +x '${REAL_FW}'" <<EOF
 #!/bin/sh
@@ -111,7 +122,7 @@ restore_firewall
 ssh_guest 'ubus call fwlive enable_wan_logging' >/dev/null
 ok "restored WAN logging on"
 
-# UI: enable failure surfaces a generic notice (covers reload fail among other errors).
-ok "UI maps !ok enable → “Could not enable logging.” (fwlive.js handleEnableLogging)"
+# UI error path (handleEnableLogging → "Could not enable logging.") is not
+# exercised here — covered by the JS handler; this smoke is ubus/UCI only.
 
 echo "== reload-revert smoke passed ==" >&2
