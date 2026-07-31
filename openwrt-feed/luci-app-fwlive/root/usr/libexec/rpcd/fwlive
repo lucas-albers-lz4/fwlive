@@ -52,10 +52,11 @@ json_escape() {
 	}'
 }
 
+# shellcheck disable=SC1090,SC1091 # LOGGING_SH resolves to sibling ../fwlive-logging.sh
 . "$LOGGING_SH"
 
 slug_key() {
-	echo "$1" | tr 'A-Z' 'a-z' | tr ' _' '--'
+	echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' _' '--'
 }
 
 map_add() {
@@ -149,7 +150,7 @@ map_from_nft_stream() {
 
 		case "$comment" in
 			"${FW4_TAG}"*)
-				suffix="${comment#${FW4_TAG}}"
+				suffix="${comment#"${FW4_TAG}"}"
 				if is_uci_style_name "$suffix"; then
 					label="$suffix"
 				fi
@@ -232,6 +233,8 @@ poll_lines_from_input() {
 		return 0
 	fi
 
+	# Device-only helper; not present on host CI runners.
+	# shellcheck disable=SC1091
 	. /usr/share/libubox/jshn.sh
 	json_load "$input" 2>/dev/null || {
 		printf '%s' "$lines"
@@ -239,8 +242,10 @@ poll_lines_from_input() {
 	}
 
 	if json_select addresses 2>/dev/null; then
+		# json_get_var assigns into the named shell variable (jshn).
 		json_get_var first 1
 		json_select ..
+		# shellcheck disable=SC2154 # set by json_get_var above
 		case "$first" in
 			''|*[!0-9]*) ;;
 			*) lines="$first" ;;
@@ -266,7 +271,8 @@ fetch_firewall_logs() {
 }
 
 poll_logs() {
-	input=$(read_rpc_input "$3")
+	# Optional JSON on $1 (rpcd may also pass argv $3 at the call site); else stdin.
+	input=$(read_rpc_input "$1")
 	fetch_firewall_logs "$input"
 }
 
@@ -276,6 +282,8 @@ resolve_hostname() {
 	is_resolvable_address "$ip" || return 1
 	line=$(run_with_timeout "$RESOLVE_TIMEOUT" getent hosts "$ip" | head -1)
 	[ -n "$line" ] || return 1
+	# Intentional field split of getent hosts output (IP then name).
+	# shellcheck disable=SC2086
 	set -- $line
 	[ "$#" -ge 2 ] || return 1
 	printf '%s' "$2"
@@ -294,7 +302,8 @@ is_resolvable_address() {
 }
 
 resolve_addresses() {
-	input=$(read_rpc_input "$3")
+	# Optional JSON on $1 (rpcd may also pass argv $3 at the call site); else stdin.
+	input=$(read_rpc_input "$1")
 	count=0
 	OUT=''
 
@@ -303,6 +312,7 @@ resolve_addresses() {
 		return 0
 	fi
 
+	# shellcheck disable=SC1091
 	. /usr/share/libubox/jshn.sh
 	json_load "$input" 2>/dev/null || {
 		printf '{"names":{}}'
@@ -311,6 +321,8 @@ resolve_addresses() {
 
 	if json_select addresses 2>/dev/null; then
 		idx=1
+		# json_get_type / json_get_var assign into named shell variables (jshn).
+		# shellcheck disable=SC2154
 		while json_get_type atype "$idx" && [ "$atype" = string ]; do
 			[ "$count" -ge "$RESOLVE_MAX" ] && break
 			json_get_var ip "$idx"
@@ -353,6 +365,8 @@ run_selftest() {
 		echo 'is_resolvable_address: expected reject for spaces' >&2
 		return 1
 	fi
+	# Literal metachar token (must not expand) — reject before getent.
+	# shellcheck disable=SC2016
 	if is_resolvable_address '$(reboot)'; then
 		echo 'is_resolvable_address: expected reject for metachar' >&2
 		return 1
@@ -411,10 +425,10 @@ case "$1" in
 				build_rules_map
 				;;
 			poll)
-				poll_logs
+				poll_logs "$3"
 				;;
 			resolve)
-				resolve_addresses
+				resolve_addresses "$3"
 				;;
 			logging_status)
 				build_logging_status_json

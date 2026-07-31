@@ -10,6 +10,7 @@
 # jsonfilter spawns per index (~3n+1 → ~n+1 process execs per poll).
 
 FILTER_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091 # classifier is a sibling file next to this script
 . "$FILTER_DIR/fwlive-is-firewall-event.sh"
 
 input="$(cat)"
