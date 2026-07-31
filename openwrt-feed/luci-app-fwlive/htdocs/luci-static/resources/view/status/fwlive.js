@@ -70,8 +70,6 @@ return view.extend({
 	visibleRows: constants.DEFAULT_ROW_LIMIT,
 	entries: [],
 	sessionSeen: null,
-	sessionNewTotal: 0,
-	sessionAtPause: 0,
 	pauseBufferLoading: false,
 	paused: false,
 	/* One-shot: first live poll after unpause merges instead of replacing (#43). */
@@ -83,6 +81,7 @@ return view.extend({
 	renderBucket: constants.RENDER_CAP_PER_SEC,
 	renderBucketMs: 0,
 	floodSuppressed: false,
+	pendingForceRender: false,
 	lastPollNewEvents: 0,
 	showHostnames: false,
 	chipStyle: constants.DEFAULT_CHIP_STYLE,
@@ -658,8 +657,6 @@ return view.extend({
 			st ? String(st.wan_log_limit || '') : '',
 			blockers,
 			this.loggingBusy ? '1' : '0',
-			/* entries empty bit: toolbar hides when !wan_log && no rows (logging.js). */
-			this.entries.length ? '1' : '0',
 			this.loggingNotice || ''
 		].join('|');
 	},
@@ -747,10 +744,8 @@ return view.extend({
 			if (seen[row.id])
 				continue;
 			seen[row.id] = true;
-			if (this.rememberSessionId(row.id)) {
-				this.sessionNewTotal++;
+			if (this.rememberSessionId(row.id))
 				pollNew++;
-			}
 			normalized.push(row);
 		}
 
@@ -857,6 +852,14 @@ return view.extend({
 		if (count === this.lastRenderedRowCount && headId === this.lastRenderedHeadId)
 			return 0;
 
+		/*
+		 * Visible row-count changes (Limit up/down, trim) must not be skipped by
+		 * the flood throttle — otherwise status can show N/limit while the table
+		 * still paints the previous size under ping -A.
+		 */
+		if (count !== this.lastRenderedRowCount)
+			return 1;
+
 		return Math.max(1, this.lastPollNewEvents || 1);
 	},
 
@@ -882,29 +885,28 @@ return view.extend({
 			.reverse();
 	},
 
-	pausedStatusText(matchCount) {
-		const ingested = this.entries.length;
-		const since = this.sessionNewTotal - (this.sessionAtPause || 0);
+	compactCountText(matchCount) {
+		const stored = this.entries.length;
 		const limit = this.rowLimit;
 		const suffix = this.statusSuffix();
-
-		if (this.pauseBufferLoading && ingested === 0)
-			return _('Paused — loading ingest buffer…');
-
-		if (matchCount) {
-			if (since > 0)
-				return _('Paused — %d ingested (+%d since pause), %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s')
-					.format(ingested, since, Math.min(matchCount, limit), limit, matchCount, suffix);
-			return _('Paused — %d ingested, %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s')
-				.format(ingested, Math.min(matchCount, limit), limit, matchCount, suffix);
+		/* While paused the buffer can grow past the display limit — count matches
+		 * over the full buffer so "matching" is not capped at visibleRows (#83). */
+		let shown = matchCount;
+		if (this.paused) {
+			const filters = this.readFilters();
+			shown = this.entries.filter((row) => log.matchesFilter(row, filters)).length;
 		}
 
-		if (since > 0)
-			return _('Paused — %d ingested (+%d since pause) (%d shown when live). Enable auto-refresh to update the table.%s')
-				.format(ingested, since, limit, suffix);
+		if (this.pauseBufferLoading && stored === 0)
+			return _('loading…') + suffix;
 
-		return _('Paused — %d ingested (%d shown when live). Enable auto-refresh to update the table.%s')
-			.format(ingested, limit, suffix);
+		if (shown)
+			return _('%d matching · %d/%d stored').format(shown, stored, limit) + suffix;
+
+		if (stored)
+			return _('0 matching · %d/%d stored').format(stored, limit) + suffix;
+
+		return '';
 	},
 
 	updateStatus(rows) {
@@ -921,31 +923,10 @@ return view.extend({
 			return;
 		}
 
-		if (this.paused) {
-			status.className = 'fwlive-status fwlive-status-paused';
-			try {
-				status.textContent = this.pausedStatusText(matchCount);
-			} catch (e) {
-				status.textContent = 'Paused — ' + this.entries.length + ' ingested. Enable auto-refresh to update the table.';
-			}
-			return;
-		}
-
-		status.className = 'fwlive-status';
-		const stored = this.entries.length;
-		const limit = this.rowLimit;
-		const session = this.sessionNewTotal;
-		if (matchCount) {
-			let line = _('Showing %d matching — %d/%d stored (limit %d)').format(matchCount, stored, limit, limit);
-			if (session > stored)
-				line += _(', %d seen this session').format(session);
-			line += _(' (newest first).');
-			status.textContent = line + suffix;
-		} else if (stored) {
-			status.textContent = _('No rows match filters — %d/%d stored (limit %d).%s').format(stored, limit, limit, suffix);
-		} else {
-			status.textContent = '';
-		}
+		status.className = this.paused
+			? 'fwlive-status fwlive-status-paused'
+			: 'fwlive-status';
+		status.textContent = this.compactCountText(matchCount);
 	},
 
 	readRowLimit() {
@@ -979,12 +960,30 @@ return view.extend({
 	},
 
 	updateStreamControlsUi() {
-		const cb = document.getElementById('fwlive-autorefresh');
+		const strip = document.getElementById('fwlive-watch-strip');
+		const dot = document.getElementById('fwlive-watch-dot');
+		const label = document.getElementById('fwlive-watch-label');
+		const pauseBtn = document.getElementById('fwlive-pause');
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 		const chipSel = document.getElementById('fwlive-chip-style');
-		if (cb)
-			cb.checked = !this.paused;
+
+		if (strip) {
+			if (this.paused)
+				strip.classList.add('fwlive-watch-paused');
+			else
+				strip.classList.remove('fwlive-watch-paused');
+		}
+		if (dot) {
+			if (this.paused)
+				dot.classList.remove('fwlive-dot-on');
+			else
+				dot.classList.add('fwlive-dot-on');
+		}
+		if (label)
+			label.textContent = this.paused ? _('Paused') : _('Watching');
+		if (pauseBtn)
+			pauseBtn.textContent = this.paused ? _('Resume') : _('Pause');
 		if (sel)
 			sel.value = String(this.rowLimit);
 		if (chipSel)
@@ -1007,14 +1006,12 @@ return view.extend({
 			this.renderRows(true);
 	},
 
-	onAutoRefreshChange(ev) {
+	onPauseClick() {
 		const wasPaused = this.paused;
-		this.paused = !(ev && ev.target && ev.target.checked);
+		this.paused = !this.paused;
 		this.updateStreamControlsUi();
 
 		if (!wasPaused && this.paused) {
-			this.sessionAtPause = this.sessionNewTotal;
-			this.updateStatus();
 			this.pauseBufferLoading = true;
 			this.updateStatus();
 			this.fetchEntries()
@@ -1035,13 +1032,7 @@ return view.extend({
 				.finally(function() {
 					this.resumeMerge = false;
 				}.bind(this));
-			return;
 		}
-
-		if (this.paused)
-			this.updateStatus();
-		else
-			this.renderRows(true);
 	},
 
 	onRowLimitChange(ev) {
@@ -1052,16 +1043,24 @@ return view.extend({
 		this.applyRowLimit(n);
 		this.saveRowLimit();
 		this.updateHash(this.readFilters());
+		/* Reset flood throttle so Limit changes paint even during ping -A. */
+		this.renderBucket = constants.RENDER_CAP_PER_SEC;
+		this.floodSuppressed = false;
+		this.pendingForceRender = true;
 		if (!this.paused)
 			this.renderRows(true);
 		else
 			this.updateStatus();
-		this.fetchEntries().then(() => {
-			if (this.paused)
-				this.updateStatus();
-			else
-				this.renderRows(true);
-		});
+		this.fetchEntries()
+			.then(() => {
+				if (this.paused)
+					this.updateStatus();
+				else
+					this.renderRows(true);
+			})
+			.finally(() => {
+				this.pendingForceRender = false;
+			});
 	},
 
 	limitSelectOptions() {
@@ -1381,9 +1380,9 @@ return view.extend({
 				el.addEventListener('input', this.onFilterInputDebounced.bind(this));
 		}
 
-		const refreshCb = document.getElementById('fwlive-autorefresh');
-		if (refreshCb)
-			refreshCb.addEventListener('change', this.onAutoRefreshChange.bind(this));
+		const pauseBtn = document.getElementById('fwlive-pause');
+		if (pauseBtn)
+			pauseBtn.addEventListener('click', this.onPauseClick.bind(this));
 
 		const limitSel = document.getElementById('fwlive-limit');
 		if (limitSel)
@@ -1417,7 +1416,7 @@ return view.extend({
 			if (this.paused)
 				this.updateStatus();
 			else
-				this.renderRows(false);
+				this.renderRows(!!this.pendingForceRender);
 
 			try {
 				await this.resolveHostnamesForEntries(this.filteredRows());
@@ -1460,77 +1459,101 @@ return view.extend({
 				_('Firewall Live View'),
 				E('span', { 'id': 'fwlive-backend', 'class': 'fwlive-backend' }, '')
 			]),
-			E('p', { 'class': 'fwlive-intro' }, _('Live firewall log table — refreshes every second. Shows traffic your firewall already logs; use filters or Show Detail when you need more.')),
-			E('div', { 'class': 'fwlive-toolbar' }, [
-				E('label', { 'class': 'fwlive-ctl' }, [
-					E('input', {
-						'id': 'fwlive-autorefresh',
-						'type': 'checkbox',
-						'checked': 'checked'
-					}),
-					_('Auto-refresh')
+			E('div', { 'id': 'fwlive-watch-strip', 'class': 'fwlive-watch-strip' }, [
+				E('div', { 'class': 'fwlive-watch-left' }, [
+					E('span', { 'id': 'fwlive-watch-dot', 'class': 'fwlive-dot fwlive-dot-on', 'aria-hidden': 'true' }, ''),
+					E('span', { 'id': 'fwlive-watch-label', 'class': 'fwlive-watch-label' }, _('Watching')),
+					E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, ''),
+					E('span', {
+						'id': 'fwlive-tint-warn',
+						'class': 'fwlive-tint-warn',
+						'title': _('Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds.')
+					}, _('Theme tint fallback'))
 				]),
-				E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-limit' }, _('Limit')),
-				E('select', {
-					'id': 'fwlive-limit',
-					'class': 'cbi-input-select'
-				}, this.limitSelectOptions()),
-				E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-chip-style' }, _('Chip style')),
-				E('select', {
-					'id': 'fwlive-chip-style',
-					'class': 'cbi-input-select',
-					'title': _('How include vs exclude filters are shown on chips')
-				}, this.chipStyleSelectOptions()),
-				E('label', { 'class': 'fwlive-ctl' }, [
-					E('input', {
-						'id': 'fwlive-show-hostnames',
-						'type': 'checkbox'
-					}),
-					_('Show hostnames')
-				]),
-				E('button', {
-					'id': 'fwlive-row-tint-toggle',
-					'class': 'cbi-button',
-					'type': 'button',
-					'aria-pressed': 'true',
-					'title': _('Toggle pass/deny row background colors'),
-					'click': this.toggleRowTint.bind(this)
-				}, _('Hide row tint')),
-				E('span', {
-					'id': 'fwlive-row-tint-palette-wrap',
-					'class': 'fwlive-ctl',
-					'style': 'display: inline-flex'
-				}, [
-					E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, _('Tint')),
-					E('select', {
-						'id': 'fwlive-row-tint',
-						'class': 'cbi-input-select',
-						'title': _('Classic uses green/red; Accessible uses teal/orange')
-					}, this.rowTintPaletteOptions())
-				]),
-				E('button', {
-					'id': 'fwlive-detail-toggle',
-					'class': 'cbi-button',
-					'type': 'button',
-					'aria-pressed': 'false',
-					'click': this.toggleDetailView.bind(this)
-				}, _('Show Detail')),
-				E('button', {
-					'id': 'fwlive-msg-layout',
-					'class': 'cbi-button',
-					'type': 'button',
-					'click': this.toggleMessageLayout.bind(this)
-				}, _('Message: wrap')),
-				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, ''),
-				E('span', {
-					'id': 'fwlive-tint-warn',
-					'class': 'fwlive-tint-warn',
-					'title': _('Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds.')
-				}, _('Theme tint fallback active'))
+				E('div', { 'class': 'fwlive-watch-actions' }, [
+					E('button', {
+						'id': 'fwlive-pause',
+						'class': 'cbi-button fwlive-btn-ghost',
+						'type': 'button'
+					}, _('Pause')),
+					E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
+					E('button', {
+						'id': 'fwlive-detail-toggle',
+						'class': 'cbi-button fwlive-btn-ghost',
+						'type': 'button',
+						'aria-pressed': 'false',
+						'click': this.toggleDetailView.bind(this)
+					}, _('Show Detail')),
+					E('button', {
+						'id': 'fwlive-msg-layout',
+						'class': 'cbi-button fwlive-btn-ghost',
+						'type': 'button',
+						'click': this.toggleMessageLayout.bind(this)
+					}, _('Message: wrap'))
+				])
 			]),
 			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ''),
-			E('div', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
-			E('div', { 'id': 'fwlive-filter-panel', 'class': 'fwlive-filter-panel' }, [
+			E('details', { 'id': 'fwlive-display-drawer', 'class': 'fwlive-display-drawer' }, [
+				E('summary', {}, [
+					E('span', { 'class': 'fwlive-drawer-sum' }, _('Display options'))
+				]),
+				E('div', { 'class': 'fwlive-drawer-body fwlive-drawer-grouped' }, [
+					E('div', { 'class': 'fwlive-gcol' }, [
+						E('h3', {}, _('Live')),
+						E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-limit' }, [
+							_('Limit'),
+							E('select', {
+								'id': 'fwlive-limit',
+								'class': 'cbi-input-select'
+							}, this.limitSelectOptions())
+						]),
+						E('p', { 'class': 'fwlive-drawer-hint' },
+							_('Live updates run until you Pause above.'))
+					]),
+					E('div', { 'class': 'fwlive-gcol' }, [
+						E('h3', {}, _('Row look')),
+						E('button', {
+							'id': 'fwlive-row-tint-toggle',
+							'class': 'cbi-button',
+							'type': 'button',
+							'aria-pressed': 'true',
+							'title': _('Toggle pass/deny row background colors'),
+							'click': this.toggleRowTint.bind(this)
+						}, _('Hide row tint')),
+						E('span', {
+							'id': 'fwlive-row-tint-palette-wrap',
+							'class': 'fwlive-ctl',
+							'style': 'display: inline-flex'
+						}, [
+							E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, _('Palette')),
+							E('select', {
+								'id': 'fwlive-row-tint',
+								'class': 'cbi-input-select',
+								'title': _('Classic uses green/red; Accessible uses teal/orange')
+							}, this.rowTintPaletteOptions())
+						]),
+						E('label', { 'class': 'fwlive-ctl' }, [
+							E('input', {
+								'id': 'fwlive-show-hostnames',
+								'type': 'checkbox'
+							}),
+							_('Show hostnames')
+						])
+					]),
+					E('div', { 'class': 'fwlive-gcol' }, [
+						E('h3', {}, _('Filters look')),
+						E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-chip-style' }, [
+							_('Chip style'),
+							E('select', {
+								'id': 'fwlive-chip-style',
+								'class': 'cbi-input-select',
+								'title': _('How include vs exclude filters are shown on chips')
+							}, this.chipStyleSelectOptions())
+						])
+					])
+				])
+			]),
+			E('div', { 'id': 'fwlive-filter-panel', 'class': 'fwlive-filter-panel fwlive-find-row' }, [
 				E('div', { 'class': 'fwlive-grid fwlive-grid-core' }, [
 					E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
 					E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
@@ -1560,6 +1583,8 @@ return view.extend({
 				])
 			]),
 			E('div', { 'id': 'fwlive-chips', 'class': 'fwlive-chips' }, []),
+			E('p', { 'class': 'fwlive-hint-line' },
+				_('Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings')),
 			E('div', {
 				'id': 'fwlive-empty',
 				'class': 'fwlive-empty',
@@ -1571,21 +1596,28 @@ return view.extend({
 					E('tbody', {}, [])
 				])
 			]),
-			E('p', { 'class': 'cbi-value-description' }, _('Click a row for the full log line. Show Detail for all columns. Click a cell to filter; use ≠ on a chip to exclude. Ctrl+click a rule to open firewall settings.')),
-			E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
-				E('summary', {}, _('Help')),
-				E('ul', {}, [
-					E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Enable logging if the table is empty on a stock config.')),
-					E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
-					E('li', {}, _('The rate shown next to WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
-					E('li', { 'id': 'fwlive-manual-test' }, []),
-					E('li', {}, _('Click a row to see the full log line (Simple view).')),
-					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
-					E('li', {}, _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.')),
-					E('li', {}, _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.')),
-					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
-					E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
-				])
+			E('div', { 'class': 'fwlive-help-row' }, [
+				E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
+					E('summary', {}, _('Help')),
+					E('ul', {}, [
+						E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.')),
+						E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
+						E('li', {}, _('Display options hides Limit, row tint, hostnames, and chip style.')),
+						E('li', {}, _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
+						E('li', { 'id': 'fwlive-manual-test' }, []),
+						E('li', {}, _('Click a row to see the full log line (Simple view).')),
+						E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
+						E('li', {}, _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.')),
+						E('li', {}, _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.')),
+						E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
+						E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
+					])
+				]),
+				E('span', {
+					'id': 'fwlive-build',
+					'class': 'fwlive-build',
+					'title': 'luci-app-fwlive'
+				}, 'v' + constants.APP_VERSION)
 			])
 		]);
 	},

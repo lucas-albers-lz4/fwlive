@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.1.30] — 2026-07-31
+
+### Changed
+- Live View A2 chrome: watch strip (Pause/Resume, logging CTA, Show Detail) + grouped Display options drawer; remove Auto-refresh checkbox (#77)
+
+### Fixed
+- Accessible row-tint palette pinned to teal/orange (no Bootstrap `--warn-color-high` yellow) (#75, #76)
+
+---
+
 ## [v0.1.29] — 2026-07-28
 
 ### Added

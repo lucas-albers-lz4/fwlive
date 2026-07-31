@@ -33,6 +33,14 @@ async function login(page) {
 	}
 }
 
+async function openDisplayDrawer(page) {
+	const drawer = page.locator('#fwlive-display-drawer');
+	await drawer.waitFor({ timeout: 15000 });
+	const open = await drawer.evaluate((el) => el.open);
+	if (!open)
+		await drawer.locator('summary').click();
+}
+
 async function tintIsOn(page) {
 	const btn = page.locator('#fwlive-row-tint-toggle');
 	const pressed = await btn.getAttribute('aria-pressed');
@@ -40,8 +48,9 @@ async function tintIsOn(page) {
 }
 
 async function setTintMode(page, mode) {
+	await openDisplayDrawer(page);
 	const btn = page.locator('#fwlive-row-tint-toggle');
-	await btn.waitFor({ timeout: 15000 });
+	await btn.waitFor({ state: 'visible', timeout: 15000 });
 
 	if (mode === 'off') {
 		if (await tintIsOn(page))
@@ -232,6 +241,7 @@ async function main() {
 
 	await login(page);
 	await page.waitForSelector('#fwlive-table', { timeout: 30000 });
+	await openDisplayDrawer(page);
 	await page.waitForSelector('#fwlive-row-tint-toggle', { timeout: 15000 });
 
 	/* Wait for at least two rows so zebra alt + non-alt both exist. */

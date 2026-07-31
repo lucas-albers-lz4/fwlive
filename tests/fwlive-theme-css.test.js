@@ -34,8 +34,9 @@ const css = cssMod.styleText;
 if (!css || typeof css !== 'string')
 	throw new Error('could not load styleText from fwlive/css.js');
 
-/* Hex is allowed only in scoped tint/zebra token chains and zebra dual-paint base. */
-const tintHexAllowRe = /--fwlive-(?:(?:pass|deny)-color|bg-medium):\s*var\([^;]*#[0-9a-fA-F]{3,8}/g;
+/* Hex is allowed only in scoped tint/zebra/paused token chains and zebra dual-paint base.
+   Accessible palette pins fixed hex (#75/#76); paused pin (#83); classic may use var(... #hex) fallbacks. */
+const tintHexAllowRe = /--fwlive-(?:(?:pass|deny|paused)-color|bg-medium):\s*(?:var\([^;]*|#)[0-9a-fA-F#(),.%\s-]*/g;
 const tintAllowedHex = new Set();
 let allowMatch;
 while ((allowMatch = tintHexAllowRe.exec(css)) !== null) {
@@ -74,7 +75,6 @@ const requiredVars = [
 	'--primary-color-high',
 	'--success-color-high',
 	'--error-color-high',
-	'--info-color-high',
 	'--warn-color-high'
 ];
 
@@ -85,21 +85,15 @@ for (const v of requiredVars) {
 	}
 }
 
-/* Material / custom themes expose short names; Bootstrap uses *-high. */
+/* Material / custom themes expose short names; Bootstrap uses *-high.
+   Classic pass/deny follows success/error. Accessible uses fixed teal/orange
+   hex (#75/#76) — LuCI --warn-color-high is yellow, not orange. */
 if (!hasVarUsage(css, '--success-color')) {
 	console.error('missing Material fallback chain var(--success-color, ...)');
 	process.exit(1);
 }
 if (!hasVarUsage(css, '--error-color')) {
 	console.error('missing Material fallback chain var(--error-color, ...)');
-	process.exit(1);
-}
-if (!hasVarUsage(css, '--info-color')) {
-	console.error('missing Material fallback chain var(--info-color, ...)');
-	process.exit(1);
-}
-if (!hasVarUsage(css, '--warn-color')) {
-	console.error('missing Material fallback chain var(--warn-color, ...)');
 	process.exit(1);
 }
 if (!hasVarUsage(css, '--white-color-low')) {
@@ -117,6 +111,40 @@ if (!css.includes('--fwlive-bg-medium:')) {
 }
 if (!css.includes('data-row-tint="classic"') || !css.includes('data-row-tint="accessible"')) {
 	console.error('missing data-row-tint classic/accessible palette scopes');
+	process.exit(1);
+}
+
+const accessScope = css.indexOf('.fwlive-map[data-row-tint="accessible"]');
+if (accessScope < 0) {
+	console.error('missing .fwlive-map[data-row-tint="accessible"] token scope');
+	process.exit(1);
+}
+/* Clamp at the scope's closing brace so neighboring rules cannot false-fail. */
+const accessScopeEnd = css.indexOf('}', accessScope);
+const accessScopeChunk = css.slice(
+	accessScope,
+	accessScopeEnd >= 0 ? accessScopeEnd + 1 : accessScope + 450
+);
+if (!accessScopeChunk.includes('#0d9488') || !accessScopeChunk.includes('#c2410c')) {
+	console.error('accessible palette must pin #0d9488 / #c2410c (not theme info/warn)');
+	process.exit(1);
+}
+if (/var\(--info-color/.test(accessScopeChunk) || /var\(--warn-color/.test(accessScopeChunk)) {
+	console.error('accessible palette must not use LuCI --info/--warn theme tokens');
+	process.exit(1);
+}
+
+if (!css.includes('--fwlive-paused-color: #b45309')) {
+	console.error('paused strip must pin --fwlive-paused-color: #b45309');
+	process.exit(1);
+}
+if (/fwlive-watch-paused[^{]*\{[^}]*var\(--warn-color-high\)/.test(css)
+	|| /\.fwlive-watch-paused \.fwlive-watch-label \{[^}]*var\(--warn-color-high\)/.test(css)) {
+	console.error('paused strip must not use --warn-color-high (yellow)');
+	process.exit(1);
+}
+if (!css.includes('background: rgba(180, 83, 9, 0.08)')) {
+	console.error('paused strip needs rgba fallback before color-mix');
 	process.exit(1);
 }
 
@@ -253,6 +281,20 @@ if (!text.includes('DEFAULT_ROW_TINT') || !text.includes('applyRowTintMode') || 
 if (!text.includes("'id': 'fwlive-tint-warn'")) {
 	console.error('missing theme tint warning element');
 	process.exit(1);
+}
+
+/* LuCI 'require …'; lines are not Node-parseable; still require balanced quotes.
+   Regression guard for the missing closing quote that shipped in 4af4f12. */
+const requireLines = text.match(/^'require .+$/gm) || [];
+if (!requireLines.length) {
+	console.error('fwlive.js missing LuCI require directives');
+	process.exit(1);
+}
+for (const line of requireLines) {
+	if (!/^'require [^']+';\s*$/.test(line)) {
+		console.error('malformed LuCI require directive (unbalanced quote?):', line);
+		process.exit(1);
+	}
 }
 
 console.log('fwlive theme CSS tests passed');

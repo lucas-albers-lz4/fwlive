@@ -50,8 +50,12 @@ ssh_guest "grep -q -- '--fwlive-pass-color' '$CSS_JS'" \
 	|| die "guest css.js missing --fwlive-pass-color (rebuild/reinstall package)"
 ssh_guest "grep -q -- 'var(--success-color,' '$CSS_JS'" \
 	|| die "guest css.js missing Material --success-color chain (classic)"
-ssh_guest "grep -q -- 'var(--info-color,' '$CSS_JS'" \
-	|| die "guest css.js missing Material --info-color chain (accessible)"
+ssh_guest "grep -q -- '#0d9488' '$CSS_JS'" \
+	|| die "guest css.js missing fixed accessible pass hex #0d9488"
+ssh_guest "grep -q -- '#c2410c' '$CSS_JS'" \
+	|| die "guest css.js missing fixed accessible deny hex #c2410c"
+ssh_guest "! grep -q -- 'var(--info-color,' '$CSS_JS'" \
+	|| die "guest css.js must not use --info-color for accessible tint (#75/#76)"
 ssh_guest "grep -q 'rgba(70, 165, 70' '$CSS_JS'" \
 	|| die "guest css.js missing classic rgba base tint"
 ssh_guest "grep -q 'rgba(13, 148, 136' '$CSS_JS'" \
