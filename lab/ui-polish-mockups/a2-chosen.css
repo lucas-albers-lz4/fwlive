@@ -1,0 +1,22 @@
+.proto-banner {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  background: #f5f8fb;
+  border-left: 3px solid var(--accent);
+}
+.proto-banner strong { color: var(--ink); }
+
+.drawer-hint.tight {
+  margin: 2px 0 0;
+  flex-basis: auto;
+}
+
+.preview-frame .help ul {
+  margin: 6px 0 0 1.1em;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.preview-frame .help li { margin: 4px 0; }
