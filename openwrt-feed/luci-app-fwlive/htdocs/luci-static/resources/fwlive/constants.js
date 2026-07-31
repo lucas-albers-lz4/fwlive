@@ -16,8 +16,8 @@ return baseclass.extend({
 	/* Row pass/deny tint (#40): classic green/red default; accessible teal/orange */
 	ROW_TINT_OPTIONS: [ 'off', 'classic', 'accessible' ],
 	DEFAULT_ROW_TINT: 'classic',
-	FETCH_LINES_MAX: 2000,
-	/* DOM budget: ~250 new/updated rows per second on typical LuCI routers */
+	FETCH_LINES_MAX: 2000, /* ubus poll / logd ring cap (~2000 lines ≈ typical ring) */
+	/* DOM budget: ~250 new/updated rows painted per second on typical LuCI routers */
 	RENDER_CAP_PER_SEC: 250,
 	VIEW_MODES: [ 'simple', 'detailed' ],
 	COLUMN_SETS: {

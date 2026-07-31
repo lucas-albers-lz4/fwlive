@@ -18,6 +18,8 @@ LuCI **Firewall Live View**: a live, filterable table of firewall **LOG** events
 
 Traffic appears only when firewall rules include **`log`**. After install, run the [quick-start commands](docs/user/enabling-firewall-logs.md#quick-start-after-install) (WAN zone logging or ping test) — stock configs log nothing by default.
 
+Host unit tests: `npm test` (runs `./scripts/fwlive-test.sh`). Legacy macOS/docs/scripts previously under `archive/` were removed; see git history if needed.
+
 ---
 
 ## Supported OpenWrt releases

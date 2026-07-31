@@ -18,6 +18,7 @@ Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)
 
 ```sh
 ./scripts/fwlive-test.sh
+# or: npm test
 ./scripts/validate-baseline.sh
 ```
 
