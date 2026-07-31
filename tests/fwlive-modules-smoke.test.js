@@ -7,7 +7,11 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { loadFwliveModule, fakeE } = require('./lib/load-fwlive-module');
+
+const PKG = path.join(__dirname, '..', 'openwrt-feed', 'luci-app-fwlive');
 
 function fail(msg) {
 	console.error(msg);
@@ -22,6 +26,10 @@ assert.ok(constants.COLUMN_SETS.simple.indexOf('flow') >= 0);
 assert.ok(constants.COLUMN_SETS.detailed.indexOf('message') >= 0);
 assert.deepStrictEqual(constants.ROW_TINT_OPTIONS, [ 'off', 'classic', 'accessible' ]);
 assert.strictEqual(constants.DEFAULT_ROW_TINT, 'classic');
+assert.ok(typeof constants.APP_VERSION === 'string' && /^\d+\.\d+\.\d+$/.test(constants.APP_VERSION));
+const makefile = fs.readFileSync(path.join(PKG, 'Makefile'), 'utf8');
+const mkVer = (makefile.match(/^PKG_VERSION:=(\S+)/m) || [])[1];
+assert.strictEqual(constants.APP_VERSION, mkVer, 'constants.APP_VERSION must match Makefile PKG_VERSION');
 console.log('fwlive-modules smoke: constants OK');
 
 /* --- log (needed by links/chips/table) --- */

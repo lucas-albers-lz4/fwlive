@@ -1597,21 +1597,28 @@ return view.extend({
 					E('tbody', {}, [])
 				])
 			]),
-			E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
-				E('summary', {}, _('Help')),
-				E('ul', {}, [
-					E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.')),
-					E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
-					E('li', {}, _('Display options hides Limit, row tint, hostnames, and chip style.')),
-					E('li', {}, _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
-					E('li', { 'id': 'fwlive-manual-test' }, []),
-					E('li', {}, _('Click a row to see the full log line (Simple view).')),
-					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
-					E('li', {}, _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.')),
-					E('li', {}, _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.')),
-					E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
-					E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
-				])
+			E('div', { 'class': 'fwlive-help-row' }, [
+				E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
+					E('summary', {}, _('Help')),
+					E('ul', {}, [
+						E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.')),
+						E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
+						E('li', {}, _('Display options hides Limit, row tint, hostnames, and chip style.')),
+						E('li', {}, _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
+						E('li', { 'id': 'fwlive-manual-test' }, []),
+						E('li', {}, _('Click a row to see the full log line (Simple view).')),
+						E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
+						E('li', {}, _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.')),
+						E('li', {}, _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.')),
+						E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
+						E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
+					])
+				]),
+				E('span', {
+					'id': 'fwlive-build',
+					'class': 'fwlive-build',
+					'title': 'luci-app-fwlive'
+				}, 'v' + constants.APP_VERSION)
 			])
 		]);
 	},
