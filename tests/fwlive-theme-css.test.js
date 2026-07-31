@@ -242,11 +242,11 @@ if (!css.includes('tr.fwlive-row-pass:hover td') || !css.includes('tr.fwlive-row
 	process.exit(1);
 }
 
-if (!text.includes("localStorage.getItem('fwlive-row-tint')")) {
+if (!text.includes("storedValue('fwlive-row-tint'") && !text.includes("localStorage.getItem('fwlive-row-tint')")) {
 	console.error('missing fwlive-row-tint localStorage persistence');
 	process.exit(1);
 }
-if (!text.includes("localStorage.getItem('fwlive-chip-style')")) {
+if (!text.includes("storedValue('fwlive-chip-style'") && !text.includes("localStorage.getItem('fwlive-chip-style')")) {
 	console.error('missing fwlive-chip-style localStorage persistence');
 	process.exit(1);
 }
@@ -266,7 +266,7 @@ if (!text.includes("'id': 'fwlive-row-tint'") || !text.includes('rowTintPaletteO
 	console.error('missing Row tint palette select in toolbar');
 	process.exit(1);
 }
-if (!text.includes("'value': 'classic'") || !text.includes("'value': 'accessible'")) {
+if (!text.includes("'classic'") || !text.includes("'accessible'")) {
 	console.error('missing Row tint palette options (classic/accessible)');
 	process.exit(1);
 }

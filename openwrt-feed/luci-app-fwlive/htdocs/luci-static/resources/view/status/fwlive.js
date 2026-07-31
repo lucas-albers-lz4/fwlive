@@ -62,6 +62,29 @@ const callFwliveDisableLogging = rpc.declare({
 	expect: { '': { ok: false, changed: false, wan_zone: null } }
 });
 
+function storedValue(key, fallback) {
+	try {
+		const v = localStorage.getItem(key);
+		return (v === null) ? fallback : v;
+	} catch (e) {
+		return fallback;
+	}
+}
+
+function storeValue(key, value) {
+	try {
+		localStorage.setItem(key, value);
+	} catch (e) {
+		/* private mode / no storage */
+	}
+}
+
+function optionNodes(pairs) {
+	const opts = [];
+	for (let i = 0; i < pairs.length; i++)
+		opts.push(E('option', { 'value': pairs[i][0] }, pairs[i][1]));
+	return opts;
+}
 
 return view.extend({
 	rowLimit: constants.DEFAULT_ROW_LIMIT,
@@ -180,75 +203,49 @@ return view.extend({
 	},
 
 	readViewMode() {
-		try {
-			const v = localStorage.getItem('fwlive-view-mode');
-			if (v === 'advanced' || v === 'detailed')
-				return 'detailed';
-			if (v === 'simple')
-				return 'simple';
-		} catch (e) {
-			/* private mode / no storage */
-		}
-
+		const v = storedValue('fwlive-view-mode', null);
+		if (v === 'advanced' || v === 'detailed')
+			return 'detailed';
+		if (v === 'simple')
+			return 'simple';
 		return 'simple';
 	},
 
 	saveViewMode() {
-		try {
-			localStorage.setItem('fwlive-view-mode', this.viewMode);
-		} catch (e) {
-			/* private mode / no storage */
-		}
+		storeValue('fwlive-view-mode', this.viewMode);
 	},
 
 	readShowHostnames() {
-		try {
-			return localStorage.getItem('fwlive-show-hostnames') === '1';
-		} catch (e) {
-			return false;
-		}
+		return storedValue('fwlive-show-hostnames', '') === '1';
 	},
 
 	saveShowHostnames() {
-		try {
-			localStorage.setItem('fwlive-show-hostnames', this.showHostnames ? '1' : '0');
-		} catch (e) {
-			/* private mode / no storage */
-		}
+		storeValue('fwlive-show-hostnames', this.showHostnames ? '1' : '0');
 	},
 
 	readRowTint() {
-		try {
-			const v = localStorage.getItem('fwlive-row-tint');
-			if (v === null)
-				return constants.DEFAULT_ROW_TINT;
-			/* Migrate pre-mode checkbox storage. */
-			if (v === '1' || v === 'true')
-				return 'classic';
-			if (v === '0' || v === 'false')
-				return 'off';
-			if (constants.ROW_TINT_OPTIONS.indexOf(v) >= 0)
-				return v;
-		} catch (e) {
-			/* private mode / no storage */
-		}
-
+		const v = storedValue('fwlive-row-tint', null);
+		if (v === null)
+			return constants.DEFAULT_ROW_TINT;
+		/* Migrate pre-mode checkbox storage. */
+		if (v === '1' || v === 'true')
+			return 'classic';
+		if (v === '0' || v === 'false')
+			return 'off';
+		if (constants.ROW_TINT_OPTIONS.indexOf(v) >= 0)
+			return v;
 		return constants.DEFAULT_ROW_TINT;
 	},
 
 	saveRowTint() {
-		try {
-			localStorage.setItem('fwlive-row-tint', this.rowTint);
-		} catch (e) {
-			/* private mode / no storage */
-		}
+		storeValue('fwlive-row-tint', this.rowTint);
 	},
 
 	rowTintPaletteOptions() {
-		return [
-			E('option', { 'value': 'classic' }, _('Classic (green/red)')),
-			E('option', { 'value': 'accessible' }, _('Accessible (teal/orange)'))
-		];
+		return optionNodes([
+			[ 'classic', _('Classic (green/red)') ],
+			[ 'accessible', _('Accessible (teal/orange)') ]
+		]);
 	},
 
 	rowTintEnabled() {
@@ -277,6 +274,10 @@ return view.extend({
 			this.rowTintPalette = pal;
 			this.rowTint = pal;
 		}
+		this.commitRowTintChange();
+	},
+
+	commitRowTintChange() {
 		this.saveRowTint();
 		this.tintProbeDone = false;
 		this.applyRowTintMode();
@@ -291,11 +292,7 @@ return view.extend({
 		if (!this.rowTintEnabled())
 			return;
 		this.rowTint = pal;
-		this.saveRowTint();
-		this.tintProbeDone = false;
-		this.applyRowTintMode();
-		this.updateRowTintUi();
-		this.renderRows(true);
+		this.commitRowTintChange();
 	},
 
 	updateRowTintUi() {
@@ -318,31 +315,22 @@ return view.extend({
 	},
 
 	readChipStyle() {
-		try {
-			const v = localStorage.getItem('fwlive-chip-style');
-			if (constants.CHIP_STYLE_OPTIONS.indexOf(v) >= 0)
-				return v;
-		} catch (e) {
-			/* private mode / no storage */
-		}
-
+		const v = storedValue('fwlive-chip-style', null);
+		if (constants.CHIP_STYLE_OPTIONS.indexOf(v) >= 0)
+			return v;
 		return constants.DEFAULT_CHIP_STYLE;
 	},
 
 	saveChipStyle() {
-		try {
-			localStorage.setItem('fwlive-chip-style', this.chipStyle);
-		} catch (e) {
-			/* private mode / no storage */
-		}
+		storeValue('fwlive-chip-style', this.chipStyle);
 	},
 
 	chipStyleSelectOptions() {
-		return [
-			E('option', { 'value': 'labels' }, _('Labels')),
-			E('option', { 'value': 'symbols' }, _('Symbols')),
-			E('option', { 'value': 'tone' }, _('Tone'))
-		];
+		return optionNodes([
+			[ 'labels', _('Labels') ],
+			[ 'symbols', _('Symbols') ],
+			[ 'tone', _('Tone') ]
+		]);
 	},
 
 	onChipStyleChange(ev) {
@@ -714,6 +702,27 @@ return view.extend({
 		return row;
 	},
 
+	normalizePollBatch(raw) {
+		const normalized = [];
+		const seen = {};
+		let pollNew = 0;
+
+		for (let i = 0; i < raw.length; i++) {
+			if (!log.isFirewallEvent(raw[i]))
+				continue;
+
+			const row = this.enrichEntry(log.normalizeEntry(raw[i]));
+			if (seen[row.id])
+				continue;
+			seen[row.id] = true;
+			if (this.rememberSessionId(row.id))
+				pollNew++;
+			normalized.push(row);
+		}
+
+		return { rows: normalized, pollNew: pollNew };
+	},
+
 	async fetchEntries() {
 		if (!this.sessionSeen)
 			this.sessionSeen = new Set();
@@ -732,27 +741,11 @@ return view.extend({
 
 		this.lastPollError = false;
 
-		const normalized = [];
-		const seen = {};
-		let pollNew = 0;
-
-		for (let i = 0; i < raw.length; i++) {
-			if (!log.isFirewallEvent(raw[i]))
-				continue;
-
-			const row = this.enrichEntry(log.normalizeEntry(raw[i]));
-			if (seen[row.id])
-				continue;
-			seen[row.id] = true;
-			if (this.rememberSessionId(row.id))
-				pollNew++;
-			normalized.push(row);
-		}
-
-		this.lastPollNewEvents = pollNew;
+		const batch = this.normalizePollBatch(raw);
+		this.lastPollNewEvents = batch.pollNew;
 
 		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
-		this.entries = buffer.applyFetchedEntries(this.entries, normalized, {
+		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
 			paused: this.paused,
 			resumeMerge: this.resumeMerge,
 			rowLimit: this.rowLimit,
@@ -775,23 +768,8 @@ return view.extend({
 		return true;
 	},
 
-	mergeEntries(normalized) {
-		this.entries = buffer.mergeById(
-			this.entries,
-			normalized,
-			this.ingestCap()
-		);
-	},
-
 	ingestCap() {
 		return buffer.ingestCap(this.paused, this.rowLimit, constants.FETCH_LINES_MAX);
-	},
-
-	trimEntriesToLiveCap() {
-		if (this.paused || this.entries.length <= this.rowLimit)
-			return;
-
-		this.entries = this.entries.slice(-this.rowLimit);
 	},
 
 	statusSuffix() {
@@ -930,23 +908,14 @@ return view.extend({
 	},
 
 	readRowLimit() {
-		try {
-			const n = parseInt(localStorage.getItem('fwlive-row-limit'), 10);
-			if (constants.ROW_LIMIT_OPTIONS.indexOf(n) >= 0)
-				return n;
-		} catch (e) {
-			/* private mode / no storage */
-		}
-
+		const n = parseInt(storedValue('fwlive-row-limit', null), 10);
+		if (constants.ROW_LIMIT_OPTIONS.indexOf(n) >= 0)
+			return n;
 		return constants.DEFAULT_ROW_LIMIT;
 	},
 
 	saveRowLimit() {
-		try {
-			localStorage.setItem('fwlive-row-limit', String(this.rowLimit));
-		} catch (e) {
-			/* private mode / no storage */
-		}
+		storeValue('fwlive-row-limit', String(this.rowLimit));
 	},
 
 	applyRowLimit(limit) {
@@ -1064,12 +1033,12 @@ return view.extend({
 	},
 
 	limitSelectOptions() {
-		const opts = [];
+		const pairs = [];
 		for (let i = 0; i < constants.ROW_LIMIT_OPTIONS.length; i++) {
 			const n = constants.ROW_LIMIT_OPTIONS[i];
-			opts.push(E('option', { 'value': String(n) }, String(n)));
+			pairs.push([ String(n), String(n) ]);
 		}
-		return opts;
+		return optionNodes(pairs);
 	},
 
 	filterClick(field, value, ev) {
@@ -1219,19 +1188,11 @@ return view.extend({
 	},
 
 	readMessageLayout() {
-		try {
-			return localStorage.getItem('fwlive-msg-layout') === 'oneline' ? 'oneline' : 'wrap';
-		} catch (e) {
-			return 'wrap';
-		}
+		return storedValue('fwlive-msg-layout', '') === 'oneline' ? 'oneline' : 'wrap';
 	},
 
 	saveMessageLayout() {
-		try {
-			localStorage.setItem('fwlive-msg-layout', this.messageLayout);
-		} catch (e) {
-			/* private mode / no storage */
-		}
+		storeValue('fwlive-msg-layout', this.messageLayout);
 	},
 
 	updateMessageLayoutUi() {
