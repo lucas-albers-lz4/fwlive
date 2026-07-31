@@ -1,34 +1,29 @@
-# Live View chrome polish — A2 mockups
+# Live View chrome polish — A2 mockup
 
-Static HTML prototypes for the **A2 · Grouped display drawer** redesign. Not wired into LuCI.
+Locked static prototype for **[#77](https://github.com/lucas-albers-lz4/fwlive/issues/77)**. Not wired into LuCI.
 
-## Serve locally
+## Serve
 
 ```sh
 python3 -m http.server 8765 --directory lab/ui-polish-mockups
 # open http://localhost:8765/a2-chosen.html
 ```
 
-## Chosen direction (locked)
+## Locked decisions
 
 | Decision | Choice |
 |----------|--------|
 | Layout | Watch strip → Display options (grouped) → Find row → table |
 | Drawer | **A2 Grouped**: Live · Row look · Filters look |
 | Default | Drawer **closed** |
-| Auto-refresh | **Pause/Resume only** on strip (no checkbox) |
+| Live updates | **Pause / Resume** on strip only (no Auto-refresh checkbox) |
 | Enable logging | Only filled button when logging is off |
 | Table / filters | Location and behavior unchanged |
 
 ## Files
 
-| File | Role |
-|------|------|
-| `a2-chosen.html` | **Canonical prototype** (+ scene switcher) |
-| `a-explore.html` | A1/A2/A3 + scenes (history) |
-| `a-display-drawer.html` / `b-*` / `c-*` | Earlier brainstorm |
-| `index.html` | Index |
+- `a2-chosen.html` / `.css` / `.js` — canonical prototype (+ scene switcher)
 
 ## Theme acceptance (implementation)
 
-See [#77](https://github.com/lucas-albers-lz4/fwlive/issues/77). Must verify Bootstrap, Bootstrap dark/light if present, and Material via `./scripts/qemu-theme-tint-smoke.sh` plus a short chrome smoke (drawer + strip readable, no broken layout).
+See [#77](https://github.com/lucas-albers-lz4/fwlive/issues/77). Bootstrap + Material via `./scripts/qemu-theme-tint-smoke.sh`, plus chrome readability on dark variants.
