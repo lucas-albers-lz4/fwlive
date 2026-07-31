@@ -17,6 +17,9 @@ if [[ -z "$NODE" ]]; then
 	fi
 fi
 
+echo "== fwlive view syntax (node --check) ==" >&2
+"$NODE" --check openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js
+
 echo "== fwlive parser sync (core vs LuCI) ==" >&2
 "$NODE" tests/fwlive-parser-sync.test.js
 
