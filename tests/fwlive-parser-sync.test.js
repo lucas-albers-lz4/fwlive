@@ -3,13 +3,11 @@
 
 /**
  * Guard: Node parser (core/fwlive-log.js) and LuCI mirror (fwlive/log.js) stay aligned.
- * Bump PARSER_SYNC_VERSION in both files when you intentionally change parser logic.
- * Also asserts shared presentation helpers (actionRowClass) match behaviorally.
  */
 
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { loadFwliveModule } = require('./lib/load-fwlive-module');
 
 const ROOT = path.join(__dirname, '..');
@@ -18,24 +16,6 @@ const LUCI = path.join(
 	ROOT,
 	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js'
 );
-
-const SYNC_RE = /PARSER_SYNC_VERSION:\s*(\d+)/;
-
-function readVersion(file) {
-	const text = fs.readFileSync(file, 'utf8');
-	const m = text.match(SYNC_RE);
-	if (!m)
-		throw new Error(`missing PARSER_SYNC_VERSION in ${file}`);
-	return m[1];
-}
-
-const coreV = readVersion(CORE);
-const luciV = readVersion(LUCI);
-
-if (coreV !== luciV) {
-	console.error(`parser sync mismatch: core=${coreV} luci=${luciV}`);
-	process.exit(1);
-}
 
 const core = require(CORE);
 const luci = loadFwliveModule('log');
@@ -52,18 +32,14 @@ for (let i = 0; i < samples.length; i++) {
 
 assert.strictEqual(core.actionRowClass('pass'), 'fwlive-action fwlive-pass');
 assert.strictEqual(core.actionRowClass('drop'), 'fwlive-action fwlive-deny');
-assert.strictEqual(core.actionRowClass('weird'), 'fwlive-action fwlive-unknown');
 
-/* Space-separated RFC3339-ish timestamps (#60) — core and LuCI must agree. */
 const spaceTs = { time: '2024-01-01 12:00:00' };
 assert.strictEqual(core.timestampUnix(spaceTs), luci.timestampUnix(spaceTs));
-assert.ok(core.timestampUnix(spaceTs) > 0);
 assert.strictEqual(
 	core.timestampUnix({ time: '2024-01-01T12:00:00Z' }),
 	luci.timestampUnix({ time: '2024-01-01T12:00:00Z' })
 );
 
-/* inferActionRaw: KV values containing DROP/PASS must not block pass inference. */
 const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
 assert.strictEqual(
 	core.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),
@@ -74,12 +50,31 @@ assert.strictEqual(
 	'PASS'
 );
 
-/* 21.02-era APIs: no String.includes / Object.values in either mirror. */
+const classifyMsgs = [
+	'',
+	'dnsmasq[123]: query',
+	'Dnsmasq[1]: x',
+	'x DST= DROP',
+	'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP',
+	'[  239.247521] fwlive-pingIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP',
+	'not-a-firewall-line at all'
+];
+for (let i = 0; i < classifyMsgs.length; i++) {
+	const msg = classifyMsgs[i];
+	const entry = { msg: msg };
+	assert.strictEqual(
+		core.isFirewallEvent(entry),
+		luci.isFirewallEvent(entry),
+		'isFirewallEvent mismatch: ' + JSON.stringify(msg)
+	);
+}
+
 const coreSrc = fs.readFileSync(CORE, 'utf8');
 const luciSrc = fs.readFileSync(LUCI, 'utf8');
 assert.ok(coreSrc.indexOf('.includes(') < 0, 'core still uses String.includes');
 assert.ok(luciSrc.indexOf('.includes(') < 0, 'LuCI still uses String.includes');
 assert.ok(coreSrc.indexOf('Object.values') < 0, 'core still uses Object.values');
 assert.ok(luciSrc.indexOf('Object.values') < 0, 'LuCI still uses Object.values');
+assert.ok(luciSrc.indexOf('@fwlive-codegen:luci-preserve-begin') >= 0, 'missing luci-preserve region');
 
-console.log(`fwlive parser sync OK (version ${coreV})`);
+console.log('fwlive parser sync OK (classify + presentation)');

@@ -35,6 +35,7 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 | **Stage 6** | **Partial** | **Show hostnames** checkbox (default off) — `ubus fwlive resolve` |
 | **Stage 7** | **Partial** | **`ubus fwlive poll`** — server-side firewall-only filter |
 | **Stage 6–7 rest** | Backlog | Rule overlay, digest/SSE |
+| **Classify codegen** | **Done (#84)** | `CLASSIFY_SPEC` + generated shell classifier; LuCI classify parity + preserve region |
 
 ---
 

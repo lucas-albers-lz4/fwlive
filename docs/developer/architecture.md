@@ -34,8 +34,9 @@ flowchart TB
 | Module | Location | Responsibility |
 |--------|----------|----------------|
 | **View shell** | `htdocs/.../view/status/fwlive.js` | Layout, 1s poll, pause/limit, DOM, click-to-filter |
-| **Log brain** | `htdocs/.../fwlive/log.js` | `isFirewallEvent`, `normalizeEntry`, filters, display helpers |
-| **Test twin** | `core/fwlive-log.js` | Same logic for Node tests + CLI (`fwlive-test.sh`) |
+| **Log brain** | `htdocs/.../fwlive/log.js` | `isFirewallEvent`, `normalizeEntry`, filters, display helpers (classify from `CLASSIFY_SPEC`) |
+| **Test twin / SoT** | `core/fwlive-log.js` | Editable source of truth + CLI; `./scripts/gen-all.sh` regenerates shell classifier |
+| **Shell classifier** | `root/usr/libexec/fwlive-is-firewall-event.sh` | **Generated** from `CLASSIFY_SPEC` (committed; SDK does not run Node) |
 | **Rule map** | `root/usr/libexec/rpcd/fwlive` | `rules`, `poll` (filtered log), `resolve` (reverse DNS), `logging_status`, `enable_wan_logging`, `disable_wan_logging` |
 | **WAN logging** | `root/usr/libexec/fwlive-logging.sh` | WAN zone `log=1` helpers (sourced by rpcd) |
 | **Log filter** | `root/usr/libexec/fwlive-log-filter.sh` | Shell `isFirewallEvent` parity before JSON leaves router |

@@ -2,14 +2,42 @@
 'require baseclass';
 
 /**
- * LuCI wrapper — keep logic aligned with core/fwlive-log.js (see scripts/fwlive-test.sh).
- * PARSER_SYNC_VERSION: 4
+ * GENERATED FILE — do not edit shared logic by hand. Run: ./scripts/gen-all.sh
+ * (source: core/fwlive-log.js CLASSIFY_SPEC). LuCI-only helpers live in the preserve region.
  */
 return baseclass.extend({
-	NON_FIREWALL_PREFIX: /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)\b/i,
-	FIREWALL_HINT: /\b(fw4|nft|iptables|kernel|firewall)\b/i,
+	CLASSIFY_SPEC: {
+		glueKeys: ['IN', 'OUT', 'SRC', 'DST', 'PROTO', 'SPT', 'DPT', 'LEN', 'MAC', 'TYPE', 'CODE', 'TTL', 'TOS', 'PREC', 'DF'],
+		nonFirewallPrefixes: ['dnsmasq', 'procd', 'ubusd', 'netifd', 'odhcpd', 'logd', 'dropbear', 'uhttpd', 'hostapd', 'wpad'],
+		firewallHints: ['fw4', 'nft', 'iptables', 'kernel', 'firewall'],
+		actionWords: ['ACCEPT', 'ALLOW', 'PASS', 'DROP', 'REJECT', 'DENY', 'BLOCK'],
+		rules: [
+			{ or: [
+				{ and: [ { kv: ['SRC'] }, { kv: ['DST'] } ] },
+				{ and: [ { kvAny: ['IN', 'OUT'] }, { kvAny: ['SRC', 'DST', 'PROTO', 'SPT', 'DPT'] } ] },
+				{ and: [ { action: 'known' }, { kvAny: ['IN', 'OUT', 'PROTO', 'SRC', 'DST'] } ] }
+			]},
+			{ and: [ { hint: true }, { action: 'known' } ] },
+			{ and: [ { hint: true }, { kvAny: ['IN', 'OUT', 'SRC', 'DST', 'PROTO'] } ] }
+		]
+	},
+
 	TCP_FLAG_TAIL: /\b(SYN|ACK|FIN|RST|PSH|URG)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG))*\s*$/i,
 	NETFILTER_KV_GLUE: /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=)/g,
+
+	wordPattern: function(words) {
+		const alt = words.join('|');
+		return new RegExp('(^|[^A-Za-z0-9_])(' + alt + ')([^A-Za-z0-9_]|$)', 'i');
+	},
+
+	kvHas: function(msg, key) {
+		return new RegExp('(^|[^A-Za-z0-9_])' + key + '=').test(msg);
+	},
+
+	NON_FIREWALL_PREFIX: /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)([^A-Za-z0-9_]|$)/i,
+	FIREWALL_HINT: /(^|[^A-Za-z0-9_])(fw4|nft|iptables|kernel|firewall)([^A-Za-z0-9_]|$)/i,
+	ACTION_RE: /(^|[^A-Za-z0-9_])(ACCEPT|ALLOW|PASS|DROP|REJECT|DENY|BLOCK)([^A-Za-z0-9_]|$)/i,
+	DENY_ACTION: /(^|[^A-Za-z0-9_])(DROP|REJECT|DENY|BLOCK)([^A-Za-z0-9_]|$)/i,
 
 	normalizeNetfilterMessage: function(message) {
 		return (message || '').replace(this.NETFILTER_KV_GLUE, '$1 ');
@@ -28,8 +56,65 @@ return baseclass.extend({
 	},
 
 	detectAction: function(message) {
-		const m = message.match(/\b(ACCEPT|ALLOW|PASS|DROP|REJECT|DENY|BLOCK)\b/i);
-		return m ? m[1].toUpperCase() : 'UNKNOWN';
+		const m = message.match(this.ACTION_RE);
+		return m ? m[2].toUpperCase() : 'UNKNOWN';
+	},
+
+	evaluateClassifySpec: function(message, actionRaw) {
+		const msg = this.normalizeNetfilterMessage(message || '');
+		const action = actionRaw === undefined ? this.detectAction(msg) : actionRaw;
+		const self = this;
+		const has = function(key) { return self.kvHas(msg, key); };
+		const hasAny = function(keys) {
+			for (let i = 0; i < keys.length; i++) {
+				if (has(keys[i]))
+					return true;
+			}
+			return false;
+		};
+
+		const pred = {
+			kv: function(c) {
+				for (let i = 0; i < c.kv.length; i++) {
+					if (!has(c.kv[i]))
+						return false;
+				}
+				return true;
+			},
+			kvAny: function(c) { return hasAny(c.kvAny); },
+			action: function(c) { return (c.action === 'known') ? action !== 'UNKNOWN' : true; },
+			hint: function() { return self.FIREWALL_HINT.test(msg); }
+		};
+
+		const evalNode = function(node) {
+			if (node.and) {
+				for (let i = 0; i < node.and.length; i++) {
+					if (!evalNode(node.and[i]))
+						return false;
+				}
+				return true;
+			}
+			if (node.or) {
+				for (let i = 0; i < node.or.length; i++) {
+					if (evalNode(node.or[i]))
+						return true;
+				}
+				return false;
+			}
+			const keys = Object.keys(node);
+			for (let i = 0; i < keys.length; i++) {
+				const k = keys[i];
+				if (pred[k])
+					return pred[k](node);
+			}
+			return false;
+		};
+
+		for (let i = 0; i < this.CLASSIFY_SPEC.rules.length; i++) {
+			if (evalNode(this.CLASSIFY_SPEC.rules[i]))
+				return true;
+		}
+		return false;
 	},
 
 	normalizeAction: function(raw) {
@@ -44,8 +129,6 @@ return baseclass.extend({
 			return 'block';
 		return 'unknown';
 	},
-
-	DENY_ACTION: /\b(DROP|REJECT|DENY|BLOCK)\b/i,
 
 	parseRuleHint: function(message) {
 		let msg = this.normalizeNetfilterMessage(message || '').trim();
@@ -83,7 +166,6 @@ return baseclass.extend({
 			return actionRaw;
 
 		const msg = this.normalizeNetfilterMessage(message || '');
-		/* Ignore KEY=value payloads so MAC=…DROP… / PASS=… do not suppress pass inference. */
 		const withoutKv = msg.replace(/\b[A-Z]+=[^\s]*/g, ' ');
 		if (this.DENY_ACTION.test(withoutKv))
 			return 'UNKNOWN';
@@ -145,6 +227,7 @@ return baseclass.extend({
 		return new Date(unix * 1000).toISOString();
 	},
 
+	/* @fwlive-codegen:luci-preserve-begin */
 	formatTimestampLocal: function(unix) {
 		if (unix == null || !isFinite(unix))
 			return '';
@@ -223,6 +306,7 @@ return baseclass.extend({
 
 		return m;
 	},
+	/* @fwlive-codegen:luci-preserve-end */
 
 	isFirewallEvent: function(entry) {
 		const msg = this.normalizeNetfilterMessage((entry && entry.msg) || '');
@@ -232,19 +316,7 @@ return baseclass.extend({
 		if (this.NON_FIREWALL_PREFIX.test(msg))
 			return false;
 
-		const kv = this.parseKeyValueLog(msg);
-		const hasSrcDst = !!(kv.SRC && kv.DST);
-		const hasNetfilterTuple = !!(kv.IN || kv.OUT) && !!(kv.SRC || kv.DST || kv.PROTO || kv.SPT || kv.DPT);
-		const action = this.detectAction(msg);
-		const hasActionAndContext = action !== 'UNKNOWN' && !!(kv.IN || kv.OUT || kv.PROTO || kv.SRC || kv.DST);
-
-		if (hasSrcDst || hasNetfilterTuple || hasActionAndContext)
-			return true;
-
-		if (this.FIREWALL_HINT.test(msg) && action !== 'UNKNOWN')
-			return true;
-
-		return this.FIREWALL_HINT.test(msg) && !!(kv.IN || kv.OUT || kv.SRC || kv.DST || kv.PROTO);
+		return this.evaluateClassifySpec(msg);
 	},
 
 	makeEntryId: function(entry, tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut) {

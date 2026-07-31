@@ -2,8 +2,7 @@
 
 /**
  * Shared firewall log parsing and filtering (Node CLI + unit tests).
- * Keep in sync with openwrt-feed/.../fwlive/log.js (LuCI baseclass wrapper).
- * PARSER_SYNC_VERSION: 4
+ * Single source for classification: CLASSIFY_SPEC. Regenerate via ./scripts/gen-all.sh.
  */
 
 const CLASSIFY_SPEC = {

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.1.31] — 2026-07-31
+
+### Added
+- Single-source classification: `CLASSIFY_SPEC` in `core/fwlive-log.js`, generated shell classifier, LuCI classify parity (#84)
+
+### Changed
+- Parser sync gate uses classify goldens + codegen freshness (drops `PARSER_SYNC_VERSION` counter)
+
+---
+
 ## [v0.1.30] — 2026-07-31
 
 ### Changed
