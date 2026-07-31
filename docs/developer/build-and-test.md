@@ -24,6 +24,18 @@ Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)
 Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline, and
 shellcheck on shipped `root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`).
 
+## Live View CSS (`fwlive.css` → `css.js`)
+
+Author styles in plain CSS, then embed into the LuCI module LuCI injects at runtime:
+
+```sh
+# edit: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/fwlive.css
+node scripts/embed-fwlive-css.js
+```
+
+That regenerates `…/fwlive/css.js` (`styleText` string). Do not edit `css.js` by hand;
+`tests/fwlive-theme-css.test.js` fails if the committed file is stale.
+
 ## QEMU smoke (guest running)
 
 ```sh

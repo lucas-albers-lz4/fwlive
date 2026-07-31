@@ -4,8 +4,11 @@
 /**
  * Guard: fwlive view styles use LuCI theme CSS variables (no hardcoded hex outside tint fallbacks).
  * See GitHub issue #6 (dark mode), #14 (Material pass/deny), #15 (zebra), #40 (tint modes).
+ * Also: css.js must match embed of fwlive.css (#87).
  */
 
+const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -17,6 +20,22 @@ const VIEW_PATH = path.join(
 const CSS_PATH = path.join(
 	ROOT,
 	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/css.js'
+);
+const CSS_SRC = path.join(
+	ROOT,
+	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/fwlive.css'
+);
+const EMBED = path.join(ROOT, 'scripts/embed-fwlive-css.js');
+
+if (!fs.existsSync(CSS_SRC))
+	throw new Error('missing editable CSS source: fwlive.css');
+
+const embedOut = spawnSync(process.execPath, [EMBED, '--stdout'], { encoding: 'utf8' });
+assert.equal(embedOut.status, 0, embedOut.stderr || embedOut.stdout);
+assert.strictEqual(
+	embedOut.stdout,
+	fs.readFileSync(CSS_PATH, 'utf8'),
+	'css.js is stale — edit fwlive.css then run: node scripts/embed-fwlive-css.js'
 );
 
 const text = fs.readFileSync(VIEW_PATH, 'utf8');
