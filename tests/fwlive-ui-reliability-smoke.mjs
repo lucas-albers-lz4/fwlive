@@ -6,6 +6,8 @@
  *
  * Covers: poll error banner, hostname toggle race, pause/resume, filter debounce,
  * poll leak on leave/revisit.
+ *
+ * Compatible with pre-A2 (#fwlive-autorefresh) and A2 (#fwlive-pause) chrome.
  */
 import { chromium } from 'playwright';
 
@@ -20,7 +22,7 @@ async function login(page) {
 		if (await pw.count())
 			await pw.fill('');
 		await Promise.all([
-			page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
+			page.waitForURL(/\/cgi-bin\/luci/, { timeout: 30000 }).catch(() => {}),
 			page.click('button, input[type="submit"]')
 		]);
 		await page.goto(FWLIVE, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -31,19 +33,76 @@ async function login(page) {
 function isFwlivePoll(postData) {
 	if (!postData)
 		return false;
-	return /fwlive["']?\s*,\s*["']?poll/.test(postData)
-		|| /"method"\s*:\s*"poll"/.test(postData) && /fwlive/.test(postData)
-		|| postData.includes('fwlive') && postData.includes('poll');
+	/* LuCI/ubus call shapes — keep parentheses explicit (#83). */
+	if (/fwlive["']?\s*,\s*["']?poll/.test(postData))
+		return true;
+	if (/"method"\s*:\s*"poll"/.test(postData) && /"object"\s*:\s*"fwlive"/.test(postData))
+		return true;
+	/* Fallback: JSON-RPC style with both tokens as whole words. */
+	if (/\bfwlive\b/.test(postData) && /"poll"/.test(postData))
+		return true;
+	return false;
+}
+
+function ubusRouteMatch(url) {
+	/* Playwright route predicates receive URL; request.url() is a string. */
+	const s = typeof url === 'string' ? url : (url && url.href) || String(url || '');
+	return s.includes('ubus');
+}
+
+async function openDisplayDrawer(page) {
+	const drawer = page.locator('#fwlive-display-drawer');
+	if (!(await drawer.count()))
+		return;
+	const open = await drawer.evaluate((el) => el.open);
+	if (!open)
+		await drawer.locator('summary').click();
 }
 
 async function waitForRows(page) {
 	await page.waitForSelector('#fwlive-table tbody tr', { timeout: 45000 });
 }
 
+async function isPausedUi(page) {
+	return page.evaluate(() => {
+		const strip = document.getElementById('fwlive-watch-strip');
+		if (strip)
+			return strip.classList.contains('fwlive-watch-paused');
+		const status = document.getElementById('fwlive-status');
+		return !!(status && /^Paused/i.test(status.textContent || ''));
+	});
+}
+
+async function setPaused(page, wantPaused) {
+	const pauseBtn = page.locator('#fwlive-pause');
+	if (await pauseBtn.count()) {
+		const now = await isPausedUi(page);
+		if (now !== wantPaused)
+			await pauseBtn.click();
+		await page.waitForFunction((want) => {
+			const strip = document.getElementById('fwlive-watch-strip');
+			return !!strip && strip.classList.contains('fwlive-watch-paused') === want;
+		}, wantPaused, { timeout: 10000 });
+		return;
+	}
+
+	const refresh = page.locator('#fwlive-autorefresh');
+	await refresh.waitFor({ timeout: 10000 });
+	if (wantPaused)
+		await refresh.uncheck();
+	else
+		await refresh.check();
+	await page.waitForFunction((want) => {
+		const el = document.getElementById('fwlive-status');
+		const paused = !!(el && /^Paused/i.test(el.textContent || ''));
+		return paused === want;
+	}, wantPaused, { timeout: 10000 });
+}
+
 async function testPollErrorBanner(page) {
 	await waitForRows(page);
 
-	await page.route('**/ubus/**', async (route) => {
+	await page.route(ubusRouteMatch, async (route) => {
 		const post = route.request().postData() || '';
 		if (isFwlivePoll(post)) {
 			await route.abort('failed');
@@ -57,7 +116,7 @@ async function testPollErrorBanner(page) {
 		return el && /Connection lost/i.test(el.textContent || '');
 	}, { timeout: 15000 });
 
-	await page.unroute('**/ubus/**');
+	await page.unroute(ubusRouteMatch);
 
 	await page.waitForFunction(() => {
 		const el = document.getElementById('fwlive-status');
@@ -68,54 +127,55 @@ async function testPollErrorBanner(page) {
 }
 
 async function testHostnameToggleRace(page) {
+	await openDisplayDrawer(page);
 	const host = page.locator('#fwlive-show-hostnames');
-	await host.waitFor({ timeout: 10000 });
-
-	for (let i = 0; i < 12; i++) {
-		await host.click({ force: true });
-		await page.waitForTimeout(40);
-	}
-
-	/* End unchecked — table should still render without throwing. */
-	if (await host.isChecked())
-		await host.click({ force: true });
-
-	await page.waitForTimeout(500);
-	const rows = await page.locator('#fwlive-table tbody tr').count();
-	if (rows < 1)
-		throw new Error('hostname toggle race left table empty');
+	await host.waitFor({ state: 'visible', timeout: 10000 });
 
 	const pageErrors = [];
-	page.on('pageerror', (e) => pageErrors.push(e.message));
-	await page.waitForTimeout(800);
-	if (pageErrors.length)
-		throw new Error('page errors after hostname toggles: ' + pageErrors.join('; '));
+	const onErr = (e) => pageErrors.push(e.message);
+	page.on('pageerror', onErr);
+
+	try {
+		for (let i = 0; i < 12; i++) {
+			await host.click({ force: true });
+			await page.waitForTimeout(40);
+		}
+
+		/* End unchecked — table should still render without throwing. */
+		if (await host.isChecked())
+			await host.click({ force: true });
+
+		await page.waitForTimeout(500);
+		const rows = await page.locator('#fwlive-table tbody tr').count();
+		if (rows < 1)
+			throw new Error('hostname toggle race left table empty');
+
+		await page.waitForTimeout(800);
+		if (pageErrors.length)
+			throw new Error('page errors during hostname toggles: ' + pageErrors.join('; '));
+	} finally {
+		page.off('pageerror', onErr);
+	}
 
 	console.log('OK: hostname toggle race (no empty table / pageerror)');
 }
 
 async function testPauseResume(page) {
-	const refresh = page.locator('#fwlive-autorefresh');
-	await refresh.waitFor({ timeout: 10000 });
-
 	const beforeIds = await page.evaluate(() =>
 		Array.from(document.querySelectorAll('#fwlive-table tbody tr'))
 			.map((tr) => tr.getAttribute('data-id') || tr.innerText.slice(0, 40))
 	);
 
-	await refresh.uncheck();
-	await page.waitForFunction(() => {
-		const el = document.getElementById('fwlive-status');
-		return el && /^Paused/i.test(el.textContent || '');
-	}, { timeout: 10000 });
+	await setPaused(page, true);
 
 	/* Ingest while paused — generate a bit of wait for poll buffer fill. */
 	await page.waitForTimeout(2500);
 
-	await refresh.check();
+	await setPaused(page, false);
+
 	await page.waitForFunction(() => {
 		const el = document.getElementById('fwlive-status');
-		return el && !/^Paused/i.test(el.textContent || '') && !/Connection lost/i.test(el.textContent || '');
+		return el && !/Connection lost/i.test(el.textContent || '');
 	}, { timeout: 15000 });
 
 	await waitForRows(page);
@@ -127,10 +187,8 @@ async function testPauseResume(page) {
 	if (afterIds.length < 1)
 		throw new Error('resume left table empty');
 
-	/* At least some pre-pause identity should still be representable (merge path). */
 	const overlap = beforeIds.filter((id) => afterIds.includes(id));
 	if (beforeIds.length && overlap.length < 1) {
-		/* data-id may be absent — fall back to row count stability */
 		if (afterIds.length < Math.min(3, beforeIds.length))
 			throw new Error('resume dropped most rows unexpectedly');
 	}
@@ -173,27 +231,50 @@ async function testFilterDebounce(page) {
 	if (rebuilds.mutations >= 9)
 		throw new Error(`filter debounce too chatty: ${rebuilds.mutations} mutations for 10 keystrokes`);
 
-	/* Selects apply immediately — action change should mutate promptly. */
-	const before = rebuilds.mutations;
-	await page.locator('#fwlive-action').selectOption('pass');
-	await page.waitForTimeout(200);
-	const afterSelect = await page.evaluate(() => document.getElementById('fwlive-q').value);
-	void before;
-	void afterSelect;
-
+	/* Clear search so the action select can change a non-empty table. */
 	await q.fill('');
-	await page.locator('#fwlive-action').selectOption('');
+	await page.waitForTimeout(250);
+	await waitForRows(page);
+
+	/* Selects apply immediately — expect a tbody mutation soon after change.
+	 * Prefer Playwright selectOption (fires change) and wait for observer. */
+	const selectMutations = await page.evaluate(() => {
+		window.__fwliveSelectMuts = 0;
+		const tbody = document.querySelector('#fwlive-table tbody');
+		if (!tbody)
+			return { error: 'missing tbody' };
+		if (window.__fwliveSelectObs)
+			window.__fwliveSelectObs.disconnect();
+		window.__fwliveSelectObs = new MutationObserver(() => {
+			window.__fwliveSelectMuts++;
+		});
+		window.__fwliveSelectObs.observe(tbody, { childList: true, subtree: true });
+		return { ok: true };
+	});
+	if (selectMutations.error)
+		throw new Error(selectMutations.error);
+
+	const action = page.locator('#fwlive-action');
+	const cur = await action.inputValue();
+	await action.selectOption(cur === 'pass' ? 'drop' : 'pass');
+	await page.waitForFunction(() => (window.__fwliveSelectMuts || 0) >= 1, { timeout: 3000 });
+	await page.evaluate(() => {
+		if (window.__fwliveSelectObs)
+			window.__fwliveSelectObs.disconnect();
+		window.__fwliveSelectObs = null;
+	});
+
+	await action.selectOption('');
 	await page.waitForTimeout(200);
 
-	console.log(`OK: filter debounce (${rebuilds.mutations} mutations for 10 rapid keystrokes)`);
+	console.log(`OK: filter debounce (${rebuilds.mutations} mutations for 10 rapid keystrokes; select immediate)`);
 }
 
-async function testPollLeak(page, context) {
+async function testPollLeak(page) {
 	let pollCount = 0;
 	const onReq = (req) => {
 		const post = req.postData() || '';
-		const url = req.url();
-		if ((url.includes('/ubus') || url.includes('ubus')) && isFwlivePoll(post))
+		if (ubusRouteMatch(req.url()) && isFwlivePoll(post))
 			pollCount++;
 	};
 	page.on('request', onReq);
@@ -220,43 +301,40 @@ async function testPollLeak(page, context) {
 
 	page.off('request', onReq);
 
-	/*
-	 * While on another page, poll should stop or nearly stop (pagehide removes poll).
-	 * Allow a small tail from in-flight requests.
-	 */
 	const leaked = whileGone - baseline;
 	if (leaked > 4)
 		throw new Error(`poll leak while away: +${leaked} fwlive.poll after leaving (baseline ${baseline} → ${whileGone})`);
 
-	/* After return, roughly 1/sec — not a runaway double (e.g. > 8 in 3.5s). */
 	if (afterReturn > 8)
 		throw new Error(`runaway polls after revisit: ${afterReturn} in ~3.5s`);
 
 	console.log(`OK: poll leak spot-check (baseline=${baseline}, away=+${leaked}, back=${afterReturn})`);
-	void context;
 }
 
 async function main() {
 	const browser = await chromium.launch({ headless: true });
-	const context = await browser.newContext();
-	const page = await context.newPage();
-	const errors = [];
-	page.on('pageerror', (e) => errors.push(e.message));
+	try {
+		const context = await browser.newContext();
+		const page = await context.newPage();
+		const errors = [];
+		page.on('pageerror', (e) => errors.push(e.message));
 
-	await login(page);
-	await waitForRows(page);
+		await login(page);
+		await waitForRows(page);
 
-	await testPollErrorBanner(page);
-	await testHostnameToggleRace(page);
-	await testPauseResume(page);
-	await testFilterDebounce(page);
-	await testPollLeak(page, context);
+		await testPollErrorBanner(page);
+		await testHostnameToggleRace(page);
+		await testPauseResume(page);
+		await testFilterDebounce(page);
+		await testPollLeak(page);
 
-	if (errors.length)
-		console.warn('pageerror notes:', errors.join('; '));
+		if (errors.length)
+			throw new Error('unhandled pageerror(s): ' + errors.join('; '));
 
-	console.log('fwlive UI reliability smoke OK (#71)');
-	await browser.close();
+		console.log('fwlive UI reliability smoke OK (#71)');
+	} finally {
+		await browser.close();
+	}
 }
 
 main().catch((e) => {

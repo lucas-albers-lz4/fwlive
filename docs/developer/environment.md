@@ -68,7 +68,19 @@ Prereqs: QEMU guest running, `luci-app-fwlive` installed, host has Node + Playwr
 ./scripts/qemu-theme-tint-smoke.sh
 ```
 
-Live View UI reliability (poll banner, hostname toggle, pause/resume, filter debounce, poll leak) — Playwright against QEMU (#71):
+Optional overrides: `OPENWRT_SSH_PORT`, `OWRT_HOSTFWD_HTTP`, `FWLIVE_URL`.
+
+What the theme-tint smoke asserts:
+
+1. Guest `css.js` includes scoped `--fwlive-pass-color` / Material `var(--success-color, …)` (classic) and `var(--info-color, …)` (accessible) / rgba bases and `--fwlive-bg-medium` / `var(--white-color-low, …)` for zebra
+2. Under Bootstrap and Material, with Row tint **Off**, alt vs non-alt row backgrounds differ (zebra paint delta)
+3. Under Bootstrap and Material, **Classic** and **Accessible** modes each change a **non-alt** row background (pass/deny paint delta)
+
+Host-only (no guest): `./scripts/fwlive-test.sh` covers CSS hardening + tint helper unit tests.
+
+## Live View UI reliability (lab overlay)
+
+Poll error banner, hostname toggle race, pause/resume, filter debounce, and poll leak on leave/revisit — Playwright against QEMU (#71):
 
 ```sh
 ./scripts/qemu-install-fwlive.sh
@@ -79,11 +91,11 @@ Optional overrides: `OPENWRT_SSH_PORT`, `OWRT_HOSTFWD_HTTP`, `FWLIVE_URL`.
 
 What it asserts:
 
-1. Guest `css.js` includes scoped `--fwlive-pass-color` / Material `var(--success-color, …)` (classic) and `var(--info-color, …)` (accessible) / rgba bases and `--fwlive-bg-medium` / `var(--white-color-low, …)` for zebra
-2. Under Bootstrap and Material, with Row tint **Off**, alt vs non-alt row backgrounds differ (zebra paint delta)
-3. Under Bootstrap and Material, **Classic** and **Accessible** modes each change a **non-alt** row background (pass/deny paint delta)
-
-Host-only (no guest): `./scripts/fwlive-test.sh` covers CSS hardening + tint helper unit tests.
+1. Aborting `fwlive.poll` shows a **Connection lost** status, then clears after the route is restored
+2. Rapid hostname checkbox toggles leave rows in the table and raise no `pageerror`
+3. Pause then resume keeps a usable table (status not stuck on connection lost)
+4. Filter search input is debounced (few tbody mutations for rapid keystrokes); action select rebuilds promptly
+5. Leaving Live View stops `fwlive.poll` traffic; revisit does not runaway-poll
 
 ## Device edge cases (#72)
 
