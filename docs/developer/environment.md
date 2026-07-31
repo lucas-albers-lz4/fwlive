@@ -68,6 +68,13 @@ Prereqs: QEMU guest running, `luci-app-fwlive` installed, host has Node + Playwr
 ./scripts/qemu-theme-tint-smoke.sh
 ```
 
+Live View UI reliability (poll banner, hostname toggle, pause/resume, filter debounce, poll leak) — Playwright against QEMU (#71):
+
+```sh
+./scripts/qemu-install-fwlive.sh
+./scripts/qemu-ui-reliability-smoke.sh
+```
+
 Optional overrides: `OPENWRT_SSH_PORT`, `OWRT_HOSTFWD_HTTP`, `FWLIVE_URL`.
 
 What it asserts:

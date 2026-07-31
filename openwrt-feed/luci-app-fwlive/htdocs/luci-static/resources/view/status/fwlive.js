@@ -15,7 +15,7 @@
 'require fwlive.logging as logging';
 'require fwlive.table as table';
 'require fwlive.buffer as buffer';
-'require fwlive.hostname as hostname;
+'require fwlive.hostname as hostname';
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
