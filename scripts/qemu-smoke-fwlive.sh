@@ -51,6 +51,20 @@ ssh_guest 'test -f /www/luci-static/resources/fwlive/log.js' \
 	|| die "missing fwlive/log.js"
 ok "LuCI static assets"
 
+MENU_JSON=/usr/share/luci/menu.d/luci-app-fwlive.json
+ssh_guest "test -f '$MENU_JSON'" || die "missing LuCI menu.d entry"
+# #53/#62/#70: menu must depend on ACL only — fs AND of nft+iptables hid the entry on stock fw3/fw4.
+MENU_BODY="$(ssh_guest "cat '$MENU_JSON'")"
+printf '%s' "$MENU_BODY" | grep -q 'Firewall Live View' \
+	|| die "menu.d missing Firewall Live View title"
+printf '%s' "$MENU_BODY" | grep -q 'luci-app-fwlive' \
+	|| die "menu.d missing ACL depend luci-app-fwlive"
+if printf '%s' "$MENU_BODY" | grep -qE '"fs"|/usr/sbin/nft|/usr/sbin/iptables'; then
+	die "menu.d still has fs/nft/iptables depends (breaks fw3-only or fw4-only menus)"
+fi
+ok "LuCI menu.d ACL-only depends"
+
+# Warm dispatcher so index cache includes the node, then assert Status → fwlive is satisfied.
 HTTP_HEADERS="$(curl -sS -D - -o /dev/null \
 	"http://${HOST}:${HTTP_PORT}/cgi-bin/luci/admin/status/fwlive" 2>/dev/null || true)"
 HTTP_CODE="$(printf '%s' "$HTTP_HEADERS" | awk 'toupper($1) ~ /^HTTP/ { print $2; exit }')"
@@ -68,6 +82,28 @@ case "$HTTP_CODE" in
 		;;
 	*) die "LuCI page HTTP ${HTTP_CODE} (expected 200/302/403-login)" ;;
 esac
+
+# After a page hit, LuCI writes /tmp/luci-indexcache*.json (empty-password lab) or session cache.
+CACHE_JSON="$(ssh_guest 'ls /tmp/luci-indexcache*.json 2>/dev/null | head -1')"
+if [[ -n "$CACHE_JSON" ]]; then
+	CACHE_BODY="$(ssh_guest "cat '$CACHE_JSON'")"
+	if printf '%s' "$CACHE_BODY" | grep -q 'Firewall Live View'; then
+		ok "LuCI index cache lists Firewall Live View (Status menu)"
+	else
+		die "LuCI index cache present but Firewall Live View missing"
+	fi
+else
+	echo "smoke WARN: no luci-indexcache yet (login may be required); menu.d + HTTP checks still OK" >&2
+fi
+
+if ssh_guest 'command -v nft >/dev/null 2>&1'; then
+	BACKEND=nft
+elif ssh_guest 'command -v iptables >/dev/null 2>&1'; then
+	BACKEND=iptables
+else
+	BACKEND=unknown
+fi
+ok "firewall backend probe: ${BACKEND}"
 
 if ssh_guest 'command -v nft >/dev/null 2>&1'; then
 	"${ROOT}/scripts/fwlive-nft-ping-log.sh" add --ssh >/dev/null 2>&1 || true

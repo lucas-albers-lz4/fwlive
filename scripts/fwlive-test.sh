@@ -35,6 +35,9 @@ echo "== fwlive rpcd security ==" >&2
 echo "== fwlive schema (stage 2) ==" >&2
 "$NODE" tests/fwlive-schema.test.js
 
+echo "== fwlive menu depends (ACL-only / #70) ==" >&2
+"$NODE" tests/fwlive-menu-depends.test.js
+
 echo "== fwlive theme CSS (LuCI dark mode / tint resilience) ==" >&2
 "$NODE" tests/fwlive-theme-css.test.js
 
