@@ -83,6 +83,7 @@ return view.extend({
 	renderBucket: constants.RENDER_CAP_PER_SEC,
 	renderBucketMs: 0,
 	floodSuppressed: false,
+	pendingForceRender: false,
 	lastPollNewEvents: 0,
 	showHostnames: false,
 	chipStyle: constants.DEFAULT_CHIP_STYLE,
@@ -855,6 +856,14 @@ return view.extend({
 		if (count === this.lastRenderedRowCount && headId === this.lastRenderedHeadId)
 			return 0;
 
+		/*
+		 * Visible row-count changes (Limit up/down, trim) must not be skipped by
+		 * the flood throttle — otherwise status can show N/limit while the table
+		 * still paints the previous size under ping -A.
+		 */
+		if (count !== this.lastRenderedRowCount)
+			return 1;
+
 		return Math.max(1, this.lastPollNewEvents || 1);
 	},
 
@@ -1038,11 +1047,16 @@ return view.extend({
 		this.applyRowLimit(n);
 		this.saveRowLimit();
 		this.updateHash(this.readFilters());
+		/* Reset flood throttle so Limit changes paint even during ping -A. */
+		this.renderBucket = constants.RENDER_CAP_PER_SEC;
+		this.floodSuppressed = false;
+		this.pendingForceRender = true;
 		if (!this.paused)
 			this.renderRows(true);
 		else
 			this.updateStatus();
 		this.fetchEntries().then(() => {
+			this.pendingForceRender = false;
 			if (this.paused)
 				this.updateStatus();
 			else
@@ -1403,7 +1417,7 @@ return view.extend({
 			if (this.paused)
 				this.updateStatus();
 			else
-				this.renderRows(false);
+				this.renderRows(!!this.pendingForceRender);
 
 			try {
 				await this.resolveHostnamesForEntries(this.filteredRows());
