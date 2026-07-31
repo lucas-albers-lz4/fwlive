@@ -88,9 +88,6 @@ function optionNodes(pairs) {
 
 return view.extend({
 	rowLimit: constants.DEFAULT_ROW_LIMIT,
-	maxHistory: constants.DEFAULT_ROW_LIMIT,
-	fetchLines: constants.FETCH_LINES_MAX,
-	visibleRows: constants.DEFAULT_ROW_LIMIT,
 	entries: [],
 	sessionSeen: null,
 	pauseBufferLoading: false,
@@ -729,7 +726,7 @@ return view.extend({
 
 		let raw;
 		try {
-			raw = await callFwlivePoll({ addresses: [ String(this.fetchLines) ] });
+			raw = await callFwlivePoll({ addresses: [ String(constants.FETCH_LINES_MAX) ] });
 		} catch (e) {
 			this.lastPollError = true;
 			return;
@@ -859,7 +856,7 @@ return view.extend({
 		const filters = this.readFilters();
 		return this.entries
 			.filter((row) => log.matchesFilter(row, filters))
-			.slice(-this.visibleRows)
+			.slice(-this.rowLimit)
 			.reverse();
 	},
 
@@ -921,9 +918,6 @@ return view.extend({
 	applyRowLimit(limit) {
 		const n = constants.ROW_LIMIT_OPTIONS.indexOf(limit) >= 0 ? limit : constants.DEFAULT_ROW_LIMIT;
 		this.rowLimit = n;
-		this.maxHistory = n;
-		this.fetchLines = constants.FETCH_LINES_MAX;
-		this.visibleRows = n;
 		if (!this.paused && this.entries.length > n)
 			this.entries = this.entries.slice(-n);
 	},

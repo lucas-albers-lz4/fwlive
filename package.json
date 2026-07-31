@@ -2,6 +2,10 @@
   "name": "fwlive",
   "private": true,
   "description": "Dev dependencies for fwlive / luci-app-fwlive tooling (not shipped on router)",
+  "scripts": {
+    "test": "./scripts/fwlive-test.sh",
+    "test:ui": "node scripts/capture-fwlive-screenshots.mjs"
+  },
   "devDependencies": {
     "playwright": "1.60.0"
   }

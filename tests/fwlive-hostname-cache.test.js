@@ -5,7 +5,7 @@
  * Hostname LRU + failure TTL helpers (issue #56 / #59 support).
  */
 
-const assert = require('assert');
+const assert = require('node:assert/strict');
 const { loadFwliveModule } = require('./lib/load-fwlive-module');
 
 const hostname = loadFwliveModule('hostname');

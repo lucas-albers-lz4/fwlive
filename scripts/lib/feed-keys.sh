@@ -53,11 +53,16 @@ feed_keys_write_from_env() {
 	local opkg_pub="${OPKG_PUB:?OPKG_PUB required}"
 	local apk_pub="${APK_PUB:?APK_PUB required}"
 	local dest="${1:-$(feed_keys_root)}"
+	local old_umask
 
+	# Never leave secret key material world-readable before chmod.
+	old_umask="$(umask)"
+	umask 077
 	printf '%s' "$opkg_secret" > "${dest}/opkg-secret.key"
 	printf '%s' "$apk_secret" > "${dest}/apk-secret.rsa"
 	printf '%s' "$opkg_pub" > "${dest}/public.key"
 	printf '%s' "$apk_pub" > "${dest}/fwlive-feed.rsa.pub"
+	umask "$old_umask"
 	chmod 600 "${dest}/opkg-secret.key" "${dest}/apk-secret.rsa"
 
 	feed_keys_maybe_decode_base64 "${dest}/opkg-secret.key"

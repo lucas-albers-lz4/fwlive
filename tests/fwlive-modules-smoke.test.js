@@ -6,7 +6,7 @@
  * Stubs LuCI globals; exercises public APIs enough to catch extract regressions.
  */
 
-const assert = require('assert');
+const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadFwliveModule, fakeE } = require('./lib/load-fwlive-module');

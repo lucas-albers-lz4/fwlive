@@ -5,7 +5,7 @@
  * Pause→resume buffer apply (#43): merge on resume, do not replace.
  */
 
-const assert = require('assert');
+const assert = require('node:assert/strict');
 const { loadFwliveModule } = require('./lib/load-fwlive-module');
 
 const buffer = loadFwliveModule('buffer');
