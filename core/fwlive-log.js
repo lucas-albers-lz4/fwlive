@@ -6,8 +6,50 @@
  * PARSER_SYNC_VERSION: 4
  */
 
-const NON_FIREWALL_PREFIX = /^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)\b/i;
-const FIREWALL_HINT = /\b(fw4|nft|iptables|kernel|firewall)\b/i;
+const CLASSIFY_SPEC = {
+	/* Normalization: KV keys whose glued prefix needs a space (fwlive-pingIN=lo → fwlive-ping IN=lo) */
+	glueKeys: ['IN', 'OUT', 'SRC', 'DST', 'PROTO', 'SPT', 'DPT', 'LEN', 'MAC', 'TYPE', 'CODE', 'TTL', 'TOS', 'PREC', 'DF'],
+
+	/* NON_FIREWALL_PREFIX daemon names (matched at message start) */
+	nonFirewallPrefixes: ['dnsmasq', 'procd', 'ubusd', 'netifd', 'odhcpd', 'logd', 'dropbear', 'uhttpd', 'hostapd', 'wpad'],
+
+	/* FIREWALL_HINT words */
+	firewallHints: ['fw4', 'nft', 'iptables', 'kernel', 'firewall'],
+
+	/* detectAction words (order matters: ACCEPT first) */
+	actionWords: ['ACCEPT', 'ALLOW', 'PASS', 'DROP', 'REJECT', 'DENY', 'BLOCK'],
+
+	/* Decision tree — order matters, first match wins */
+	rules: [
+		{ or: [
+			{ and: [ { kv: ['SRC'] }, { kv: ['DST'] } ] },
+			{ and: [ { kvAny: ['IN', 'OUT'] }, { kvAny: ['SRC', 'DST', 'PROTO', 'SPT', 'DPT'] } ] },
+			{ and: [ { action: 'known' }, { kvAny: ['IN', 'OUT', 'PROTO', 'SRC', 'DST'] } ] }
+		]},
+		{ and: [ { hint: true }, { action: 'known' } ] },
+		{ and: [ { hint: true }, { kvAny: ['IN', 'OUT', 'SRC', 'DST', 'PROTO'] } ] }
+	]
+};
+
+function wordPattern(words) {
+	const alt = words.join('|');
+	return new RegExp('(^|[^A-Za-z0-9_])(' + alt + ')([^A-Za-z0-9_]|$)', 'i');
+}
+
+/** Presence of `K=` in the normalized message — matches shell `_has_kv`, empty values included. */
+function kvHas(msg, key) {
+	return new RegExp('(^|[^A-Za-z0-9_])' + key + '=').test(msg);
+}
+
+/* ---- spec-derived classification regexes (explicit boundaries, no \\b) ---- */
+const NON_FIREWALL_PREFIX = new RegExp(
+	'^(' + CLASSIFY_SPEC.nonFirewallPrefixes.join('|') + ')([^A-Za-z0-9_]|$)',
+	'i'
+);
+const FIREWALL_HINT = wordPattern(CLASSIFY_SPEC.firewallHints);
+const ACTION_RE = wordPattern(CLASSIFY_SPEC.actionWords);
+const DENY_ACTION = wordPattern(CLASSIFY_SPEC.actionWords.slice(3)); /* DROP|REJECT|DENY|BLOCK */
+
 const TCP_FLAG_TAIL = /\b(SYN|ACK|FIN|RST|PSH|URG)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG))*\s*$/i;
 const NETFILTER_KV_GLUE = /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=)/g;
 
@@ -18,6 +60,7 @@ function normalizeNetfilterMessage(message) {
 
 function parseKeyValueLog(message) {
 	const out = {};
+	/* Non-empty values only — dual KV semantics vs presence-based classify (kvHas). */
 	const re = /\b([A-Z]+)=([^\s]+)/g;
 	const normalized = normalizeNetfilterMessage(message);
 	let match;
@@ -28,9 +71,66 @@ function parseKeyValueLog(message) {
 	return out;
 }
 
+/** Spec-derived action detection; m[2] is the word (group 1/3 are the boundaries). */
 function detectAction(message) {
-	const m = message.match(/\b(ACCEPT|ALLOW|PASS|DROP|REJECT|DENY|BLOCK)\b/i);
-	return m ? m[1].toUpperCase() : 'UNKNOWN';
+	const m = message.match(ACTION_RE);
+	return m ? m[2].toUpperCase() : 'UNKNOWN';
+}
+
+function evaluateClassifySpec(message, actionRaw) {
+	const msg = normalizeNetfilterMessage(message || '');
+	const action = actionRaw === undefined ? detectAction(msg) : actionRaw;
+	const has = function(key) { return kvHas(msg, key); };
+	const hasAny = function(keys) {
+		for (let i = 0; i < keys.length; i++) {
+			if (has(keys[i]))
+				return true;
+		}
+		return false;
+	};
+
+	const pred = {
+		kv: function(c) {
+			for (let i = 0; i < c.kv.length; i++) {
+				if (!has(c.kv[i]))
+					return false;
+			}
+			return true;
+		},
+		kvAny: function(c) { return hasAny(c.kvAny); },
+		action: function(c) { return (c.action === 'known') ? action !== 'UNKNOWN' : true; },
+		hint: function() { return FIREWALL_HINT.test(msg); }
+	};
+
+	const evalNode = function(node) {
+		if (node.and) {
+			for (let i = 0; i < node.and.length; i++) {
+				if (!evalNode(node.and[i]))
+					return false;
+			}
+			return true;
+		}
+		if (node.or) {
+			for (let i = 0; i < node.or.length; i++) {
+				if (evalNode(node.or[i]))
+					return true;
+			}
+			return false;
+		}
+		const keys = Object.keys(node);
+		for (let i = 0; i < keys.length; i++) {
+			const k = keys[i];
+			if (pred[k])
+				return pred[k](node);
+		}
+		return false;
+	};
+
+	for (let i = 0; i < CLASSIFY_SPEC.rules.length; i++) {
+		if (evalNode(CLASSIFY_SPEC.rules[i]))
+			return true;
+	}
+	return false;
 }
 
 function normalizeAction(raw) {
@@ -45,8 +145,6 @@ function normalizeAction(raw) {
 		return 'block';
 	return 'unknown';
 }
-
-const DENY_ACTION = /\b(DROP|REJECT|DENY|BLOCK)\b/i;
 
 /** Extract nft/fw4 log prefix or tag (e.g. fwlive-ping, fwlive-test, fw4). */
 function parseRuleHint(message) {
@@ -154,22 +252,11 @@ function isFirewallEvent(entry) {
 	if (!msg.trim())
 		return false;
 
+	/* Spec-derived prefix guard: explicit boundary + /i (matches shell case-insensitive). */
 	if (NON_FIREWALL_PREFIX.test(msg))
 		return false;
 
-	const kv = parseKeyValueLog(msg);
-	const hasSrcDst = !!(kv.SRC && kv.DST);
-	const hasNetfilterTuple = !!(kv.IN || kv.OUT) && !!(kv.SRC || kv.DST || kv.PROTO || kv.SPT || kv.DPT);
-	const action = detectAction(msg);
-	const hasActionAndContext = action !== 'UNKNOWN' && !!(kv.IN || kv.OUT || kv.PROTO || kv.SRC || kv.DST);
-
-	if (hasSrcDst || hasNetfilterTuple || hasActionAndContext)
-		return true;
-
-	if (FIREWALL_HINT.test(msg) && action !== 'UNKNOWN')
-		return true;
-
-	return FIREWALL_HINT.test(msg) && !!(kv.IN || kv.OUT || kv.SRC || kv.DST || kv.PROTO);
+	return evaluateClassifySpec(msg);
 }
 
 function makeEntryId(entry, tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut) {
@@ -433,6 +520,9 @@ module.exports = {
 	timestampUnix,
 	formatTimestampDisplay,
 	isFirewallEvent,
+	evaluateClassifySpec,
+	wordPattern,
+	kvHas,
 	normalizeEntry,
 	parseFilterValue,
 	toggleFilterNegation,
@@ -442,8 +532,10 @@ module.exports = {
 	filterLogEntries,
 	statsLogEntries,
 	readInputPayload,
+	CLASSIFY_SPEC,
 	NON_FIREWALL_PREFIX,
-	FIREWALL_HINT
+	FIREWALL_HINT,
+	DENY_ACTION
 };
 
 if (require.main === module)
