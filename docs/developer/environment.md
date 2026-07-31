@@ -78,6 +78,32 @@ What it asserts:
 
 Host-only (no guest): `./scripts/fwlive-test.sh` covers CSS hardening + tint helper unit tests.
 
+## Device edge cases (#72)
+
+Opportunistic lab checks — do not block release. Host unit coverage already exists for most of these.
+
+### Reload failure revert (#64)
+
+Force `/etc/init.d/firewall reload` to fail and assert WAN log UCI rolls back with `firewall_reload_failed`:
+
+```sh
+./scripts/qemu-reload-revert-smoke.sh
+```
+
+### Space-separated logread times (#66)
+
+Host CI already covers parse/sync (`tests/fwlive-parser-sync.test.js`, `tests/fwlive-parser-filter.test.js`) for `YYYY-MM-DD HH:MM:SS`. Lab guests typically emit classic syslog (`Fri Jul 31 …`) or unix `time` via ubus — no reliable space-timestamp sample on device. Treat as **unit-covered; lab N/A**.
+
+### LuCI i18n spot-check (#46)
+
+PO completeness is gated by `tests/fwlive-i18n.test.js`. Device UI check (installs `luci-i18n-base-*` + `luci-i18n-fwlive-*` from `out/`):
+
+```sh
+./scripts/qemu-i18n-spotcheck.sh
+```
+
+Translations ship as separate packages (`luci-i18n-fwlive-de`, …), not inside `luci-app-fwlive`. PO dirs must use luci.mk language codes (`de`, `ru`, `zh_Hans` → package `zh-cn`).
+
 ## Next
 
 - [Build & test](build-and-test.md)
