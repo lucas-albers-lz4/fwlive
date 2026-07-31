@@ -37,7 +37,11 @@ function runMsgParity() {
 		{ msg: 'kernel: IN=wan OUT= SRC=203.0.113.10 DST=192.0.2.10 PROTO=ICMP' },
 		{ msg: 'fw4rejectIN=wan OUT= SRC=203.0.113.11 DST=192.0.2.11 PROTO=TCP DPT=22' },
 		{ msg: 'IN=wan OUT= SRC=203.0.113.12 DST=192.0.2.12 PROTO=TCP MAC=aa:bb:cc:dd:ee:ff PASS=noise' },
-		{ msg: 'not-a-firewall-line at all' }
+		{ msg: 'not-a-firewall-line at all' },
+		{ msg: 'Dnsmasq[123]: query[A] example.com from 192.168.1.1' },
+		{ msg: 'PROCD[1]: service did something' },
+		{ msg: 'x DST= DROP' },
+		{ msg: 'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP' }
 	];
 
 	for (const entry of fixture.log.concat(extra)) {

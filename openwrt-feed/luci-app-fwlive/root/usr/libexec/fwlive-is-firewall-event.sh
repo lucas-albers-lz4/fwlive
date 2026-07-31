@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2025-2026 Lucas Albers <lucas.b.albers@gmail.com>
 #
+# GENERATED FILE — do not edit. Run: ./scripts/gen-all.sh
+# source: core/fwlive-log.js CLASSIFY_SPEC
 # Shared isFirewallEvent parity logic (shell). Sourced by fwlive-log-filter.sh and tests.
-# Keep aligned with core/fwlive-log.js — see tests/fwlive-shell-filter.test.js
 
 normalize_nf_msg() {
 	printf '%s' "$1" | sed \
@@ -44,57 +45,29 @@ is_firewall_event_msg() {
 	msg=$(printf '%s' "$msg" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 	[ -n "$msg" ] || return 1
 
-	case "$msg" in
-		dnsmasq*|Dnsmasq*) return 1 ;;
-		procd*|Procd*) return 1 ;;
-		ubusd*|Ubusd*) return 1 ;;
-		netifd*|Netifd*) return 1 ;;
-		odhcpd*|Odhcpd*) return 1 ;;
-		logd*|Logd*) return 1 ;;
-		dropbear*|Dropbear*) return 1 ;;
-		uhttpd*|Uhttpd*) return 1 ;;
-		hostapd*|Hostapd*) return 1 ;;
-		wpad*|Wpad*) return 1 ;;
+	msg_lc=$(printf '%s' "$msg" | tr '[:upper:]' '[:lower:]')
+	case "$msg_lc" in
+		dnsmasq*|procd*|ubusd*|netifd*|odhcpd*|logd*|dropbear*|uhttpd*|hostapd*|wpad*) return 1 ;;
 	esac
+
+	action=$(_detect_action "$msg")
 
 	if _has_kv "$msg" SRC && _has_kv "$msg" DST; then
 		return 0
 	fi
-
-	has_io=0
-	_has_kv "$msg" IN && has_io=1
-	_has_kv "$msg" OUT && has_io=1
-
-	has_tuple=0
-	_has_kv "$msg" SRC && has_tuple=1
-	_has_kv "$msg" DST && has_tuple=1
-	_has_kv "$msg" PROTO && has_tuple=1
-	_has_kv "$msg" SPT && has_tuple=1
-	_has_kv "$msg" DPT && has_tuple=1
-
-	if [ "$has_io" -eq 1 ] && [ "$has_tuple" -eq 1 ]; then
+	if { _has_kv "$msg" IN || _has_kv "$msg" OUT; } && { _has_kv "$msg" SRC || _has_kv "$msg" DST || _has_kv "$msg" PROTO || _has_kv "$msg" SPT || _has_kv "$msg" DPT; }; then
 		return 0
 	fi
-
-	action=$(_detect_action "$msg")
-	if [ "$action" != "UNKNOWN" ]; then
-		_has_kv "$msg" IN && return 0
-		_has_kv "$msg" OUT && return 0
-		_has_kv "$msg" PROTO && return 0
-		_has_kv "$msg" SRC && return 0
-		_has_kv "$msg" DST && return 0
+	if [ "$action" != "UNKNOWN" ] && { _has_kv "$msg" IN || _has_kv "$msg" OUT || _has_kv "$msg" PROTO || _has_kv "$msg" SRC || _has_kv "$msg" DST; }; then
+		return 0
 	fi
 
 	if _has_firewall_hint "$msg" && [ "$action" != "UNKNOWN" ]; then
 		return 0
 	fi
 
-	if _has_firewall_hint "$msg"; then
-		_has_kv "$msg" IN && return 0
-		_has_kv "$msg" OUT && return 0
-		_has_kv "$msg" SRC && return 0
-		_has_kv "$msg" DST && return 0
-		_has_kv "$msg" PROTO && return 0
+	if _has_firewall_hint "$msg" && { _has_kv "$msg" IN || _has_kv "$msg" OUT || _has_kv "$msg" SRC || _has_kv "$msg" DST || _has_kv "$msg" PROTO; }; then
+		return 0
 	fi
 
 	return 1
