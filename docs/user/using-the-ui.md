@@ -2,7 +2,7 @@
 
 Open **Status → Firewall Live View** in LuCI.
 
-The page loads **live firewall traffic immediately** — no setup when your firewall already logs events. **Simple** is the default layout; use **Show Detail** in the toolbar when you need the full forensic table.
+The page loads **live firewall traffic immediately** — no setup when your firewall already logs events. **Simple** is the default layout; use **Show Detail** on the watch strip when you need the full forensic table.
 
 On-page **Help** (collapsed at the bottom) covers the basics without leaving the router.
 
@@ -33,7 +33,7 @@ Quick search, **Action**, and **Protocol** are always visible. Open **More filte
 
 ## Detailed view
 
-Click **Show Detail** in the toolbar. Click **Hide Detail** to return to Simple.
+Click **Show Detail** on the watch strip. Click **Hide Detail** to return to Simple.
 
 ![Detailed view — all columns](assets/fwlive-main-view.png)
 
@@ -43,17 +43,18 @@ Time, Action, Rule, IN, OUT, Dir, Proto, Source, SPort, Destination, DPort, Flag
 
 Use Detailed when you need the raw `KEY=value` message inline without expanding rows, or when debugging flags, length, and direction fields.
 
-The **Message: wrap / one-line** toolbar control applies in Detailed view only.
+The **Message: wrap / one-line** control (next to Show Detail) applies in Detailed view only.
 
 ## Shared controls
 
 | Control | Behavior |
 |---------|----------|
-| **Auto-refresh** | When checked, the table updates each poll (~1s). Uncheck to freeze the display while polling continues. |
-| **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. |
+| **Pause / Resume** | Live updates run until you Pause. Resume continues the table; polling never stops. |
+| **Enable logging** | Filled button on the watch strip when WAN logging is off. When on, a quiet **WAN logging on** control disables it. Mutates firewall UCI and reloads — no confirm step. Concurrent toggles from multiple admins are last-writer-wins. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
 | **Show Detail / Hide Detail** | Toggles Simple ↔ Detailed; preference saved in `localStorage` after you use it. |
+| **Display options** | Closed by default. Holds **Limit**, **Row tint** / palette, **Show hostnames**, and **Chip style**. |
+| **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. |
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns; hover shows the IP. Click still filters by IP. |
-| **Enable logging / Disable logging** | Toggles WAN zone drop/reject logging (mutates firewall UCI and reloads). No confirm step — use carefully on shared admin sessions. Concurrent toggles from multiple admins are last-writer-wins. The shown rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
 | **Quick search** | Matches across all normalized fields. |
 
 ## Filtering

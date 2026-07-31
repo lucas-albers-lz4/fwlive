@@ -41,7 +41,7 @@ Build: see [SDK build matrix](sdk-build-matrix.md) for the full command referenc
 - Filters apply immediately for action/interface/protocol/src/dst/ports.
 - Quick search matches across all normalized fields.
 - URL hash preserves active filters on reload.
-- **Auto-refresh** checkbox freezes the table while polling continues; re-check updates the grid (stage 4b).
+- **Pause / Resume** freezes the table while polling continues; Resume updates the grid (stage 4b → A2 strip, #77).
 - **Limit** dropdown (25…2000, default 100) caps buffer and visible rows; persisted in browser (stage 4b).
 - **Rule labels** resolve UCI/fw4 names via `ubus fwlive rules` (stage 3.4b); test rule `fwlive-ping` falls back to cosmetic label.
 - **Filter operators:** prefix `!` for is-not / not-contains; action dropdown includes **not pass**, **not drop**, etc. (stage 5.6).

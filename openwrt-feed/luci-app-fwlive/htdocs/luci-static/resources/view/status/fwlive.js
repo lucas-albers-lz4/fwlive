@@ -658,8 +658,6 @@ return view.extend({
 			st ? String(st.wan_log_limit || '') : '',
 			blockers,
 			this.loggingBusy ? '1' : '0',
-			/* entries empty bit: toolbar hides when !wan_log && no rows (logging.js). */
-			this.entries.length ? '1' : '0',
 			this.loggingNotice || ''
 		].join('|');
 	},
@@ -882,29 +880,21 @@ return view.extend({
 			.reverse();
 	},
 
-	pausedStatusText(matchCount) {
-		const ingested = this.entries.length;
-		const since = this.sessionNewTotal - (this.sessionAtPause || 0);
+	compactCountText(matchCount) {
+		const stored = this.entries.length;
 		const limit = this.rowLimit;
 		const suffix = this.statusSuffix();
 
-		if (this.pauseBufferLoading && ingested === 0)
-			return _('Paused — loading ingest buffer…');
+		if (this.pauseBufferLoading && stored === 0)
+			return _('loading…') + suffix;
 
-		if (matchCount) {
-			if (since > 0)
-				return _('Paused — %d ingested (+%d since pause), %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s')
-					.format(ingested, since, Math.min(matchCount, limit), limit, matchCount, suffix);
-			return _('Paused — %d ingested, %d/%d shown when live (%d match filters). Enable auto-refresh to update the table.%s')
-				.format(ingested, Math.min(matchCount, limit), limit, matchCount, suffix);
-		}
+		if (matchCount)
+			return _('%d matching · %d/%d stored').format(matchCount, stored, limit) + suffix;
 
-		if (since > 0)
-			return _('Paused — %d ingested (+%d since pause) (%d shown when live). Enable auto-refresh to update the table.%s')
-				.format(ingested, since, limit, suffix);
+		if (stored)
+			return _('0 matching · %d/%d stored').format(stored, limit) + suffix;
 
-		return _('Paused — %d ingested (%d shown when live). Enable auto-refresh to update the table.%s')
-			.format(ingested, limit, suffix);
+		return '';
 	},
 
 	updateStatus(rows) {
@@ -921,31 +911,10 @@ return view.extend({
 			return;
 		}
 
-		if (this.paused) {
-			status.className = 'fwlive-status fwlive-status-paused';
-			try {
-				status.textContent = this.pausedStatusText(matchCount);
-			} catch (e) {
-				status.textContent = 'Paused — ' + this.entries.length + ' ingested. Enable auto-refresh to update the table.';
-			}
-			return;
-		}
-
-		status.className = 'fwlive-status';
-		const stored = this.entries.length;
-		const limit = this.rowLimit;
-		const session = this.sessionNewTotal;
-		if (matchCount) {
-			let line = _('Showing %d matching — %d/%d stored (limit %d)').format(matchCount, stored, limit, limit);
-			if (session > stored)
-				line += _(', %d seen this session').format(session);
-			line += _(' (newest first).');
-			status.textContent = line + suffix;
-		} else if (stored) {
-			status.textContent = _('No rows match filters — %d/%d stored (limit %d).%s').format(stored, limit, limit, suffix);
-		} else {
-			status.textContent = '';
-		}
+		status.className = this.paused
+			? 'fwlive-status fwlive-status-paused'
+			: 'fwlive-status';
+		status.textContent = this.compactCountText(matchCount);
 	},
 
 	readRowLimit() {
@@ -979,12 +948,30 @@ return view.extend({
 	},
 
 	updateStreamControlsUi() {
-		const cb = document.getElementById('fwlive-autorefresh');
+		const strip = document.getElementById('fwlive-watch-strip');
+		const dot = document.getElementById('fwlive-watch-dot');
+		const label = document.getElementById('fwlive-watch-label');
+		const pauseBtn = document.getElementById('fwlive-pause');
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 		const chipSel = document.getElementById('fwlive-chip-style');
-		if (cb)
-			cb.checked = !this.paused;
+
+		if (strip) {
+			if (this.paused)
+				strip.classList.add('fwlive-watch-paused');
+			else
+				strip.classList.remove('fwlive-watch-paused');
+		}
+		if (dot) {
+			if (this.paused)
+				dot.classList.remove('fwlive-dot-on');
+			else
+				dot.classList.add('fwlive-dot-on');
+		}
+		if (label)
+			label.textContent = this.paused ? _('Paused') : _('Watching');
+		if (pauseBtn)
+			pauseBtn.textContent = this.paused ? _('Resume') : _('Pause');
 		if (sel)
 			sel.value = String(this.rowLimit);
 		if (chipSel)
@@ -1007,14 +994,13 @@ return view.extend({
 			this.renderRows(true);
 	},
 
-	onAutoRefreshChange(ev) {
+	onPauseClick() {
 		const wasPaused = this.paused;
-		this.paused = !(ev && ev.target && ev.target.checked);
+		this.paused = !this.paused;
 		this.updateStreamControlsUi();
 
 		if (!wasPaused && this.paused) {
 			this.sessionAtPause = this.sessionNewTotal;
-			this.updateStatus();
 			this.pauseBufferLoading = true;
 			this.updateStatus();
 			this.fetchEntries()
@@ -1381,9 +1367,9 @@ return view.extend({
 				el.addEventListener('input', this.onFilterInputDebounced.bind(this));
 		}
 
-		const refreshCb = document.getElementById('fwlive-autorefresh');
-		if (refreshCb)
-			refreshCb.addEventListener('change', this.onAutoRefreshChange.bind(this));
+		const pauseBtn = document.getElementById('fwlive-pause');
+		if (pauseBtn)
+			pauseBtn.addEventListener('click', this.onPauseClick.bind(this));
 
 		const limitSel = document.getElementById('fwlive-limit');
 		if (limitSel)
@@ -1460,77 +1446,101 @@ return view.extend({
 				_('Firewall Live View'),
 				E('span', { 'id': 'fwlive-backend', 'class': 'fwlive-backend' }, '')
 			]),
-			E('p', { 'class': 'fwlive-intro' }, _('Live firewall log table — refreshes every second. Shows traffic your firewall already logs; use filters or Show Detail when you need more.')),
-			E('div', { 'class': 'fwlive-toolbar' }, [
-				E('label', { 'class': 'fwlive-ctl' }, [
-					E('input', {
-						'id': 'fwlive-autorefresh',
-						'type': 'checkbox',
-						'checked': 'checked'
-					}),
-					_('Auto-refresh')
+			E('div', { 'id': 'fwlive-watch-strip', 'class': 'fwlive-watch-strip' }, [
+				E('div', { 'class': 'fwlive-watch-left' }, [
+					E('span', { 'id': 'fwlive-watch-dot', 'class': 'fwlive-dot fwlive-dot-on', 'aria-hidden': 'true' }, ''),
+					E('span', { 'id': 'fwlive-watch-label', 'class': 'fwlive-watch-label' }, _('Watching')),
+					E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, ''),
+					E('span', {
+						'id': 'fwlive-tint-warn',
+						'class': 'fwlive-tint-warn',
+						'title': _('Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds.')
+					}, _('Theme tint fallback'))
 				]),
-				E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-limit' }, _('Limit')),
-				E('select', {
-					'id': 'fwlive-limit',
-					'class': 'cbi-input-select'
-				}, this.limitSelectOptions()),
-				E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-chip-style' }, _('Chip style')),
-				E('select', {
-					'id': 'fwlive-chip-style',
-					'class': 'cbi-input-select',
-					'title': _('How include vs exclude filters are shown on chips')
-				}, this.chipStyleSelectOptions()),
-				E('label', { 'class': 'fwlive-ctl' }, [
-					E('input', {
-						'id': 'fwlive-show-hostnames',
-						'type': 'checkbox'
-					}),
-					_('Show hostnames')
-				]),
-				E('button', {
-					'id': 'fwlive-row-tint-toggle',
-					'class': 'cbi-button',
-					'type': 'button',
-					'aria-pressed': 'true',
-					'title': _('Toggle pass/deny row background colors'),
-					'click': this.toggleRowTint.bind(this)
-				}, _('Hide row tint')),
-				E('span', {
-					'id': 'fwlive-row-tint-palette-wrap',
-					'class': 'fwlive-ctl',
-					'style': 'display: inline-flex'
-				}, [
-					E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, _('Tint')),
-					E('select', {
-						'id': 'fwlive-row-tint',
-						'class': 'cbi-input-select',
-						'title': _('Classic uses green/red; Accessible uses teal/orange')
-					}, this.rowTintPaletteOptions())
-				]),
-				E('button', {
-					'id': 'fwlive-detail-toggle',
-					'class': 'cbi-button',
-					'type': 'button',
-					'aria-pressed': 'false',
-					'click': this.toggleDetailView.bind(this)
-				}, _('Show Detail')),
-				E('button', {
-					'id': 'fwlive-msg-layout',
-					'class': 'cbi-button',
-					'type': 'button',
-					'click': this.toggleMessageLayout.bind(this)
-				}, _('Message: wrap')),
-				E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, ''),
-				E('span', {
-					'id': 'fwlive-tint-warn',
-					'class': 'fwlive-tint-warn',
-					'title': _('Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds.')
-				}, _('Theme tint fallback active'))
+				E('div', { 'class': 'fwlive-watch-actions' }, [
+					E('button', {
+						'id': 'fwlive-pause',
+						'class': 'cbi-button fwlive-btn-ghost',
+						'type': 'button'
+					}, _('Pause')),
+					E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
+					E('button', {
+						'id': 'fwlive-detail-toggle',
+						'class': 'cbi-button fwlive-btn-ghost',
+						'type': 'button',
+						'aria-pressed': 'false',
+						'click': this.toggleDetailView.bind(this)
+					}, _('Show Detail')),
+					E('button', {
+						'id': 'fwlive-msg-layout',
+						'class': 'cbi-button fwlive-btn-ghost',
+						'type': 'button',
+						'click': this.toggleMessageLayout.bind(this)
+					}, _('Message: wrap'))
+				])
 			]),
 			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ''),
-			E('div', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
-			E('div', { 'id': 'fwlive-filter-panel', 'class': 'fwlive-filter-panel' }, [
+			E('details', { 'id': 'fwlive-display-drawer', 'class': 'fwlive-display-drawer' }, [
+				E('summary', {}, [
+					E('span', { 'class': 'fwlive-drawer-sum' }, _('Display options'))
+				]),
+				E('div', { 'class': 'fwlive-drawer-body fwlive-drawer-grouped' }, [
+					E('div', { 'class': 'fwlive-gcol' }, [
+						E('h3', {}, _('Live')),
+						E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-limit' }, [
+							_('Limit'),
+							E('select', {
+								'id': 'fwlive-limit',
+								'class': 'cbi-input-select'
+							}, this.limitSelectOptions())
+						]),
+						E('p', { 'class': 'fwlive-drawer-hint' },
+							_('Live updates run until you Pause above.'))
+					]),
+					E('div', { 'class': 'fwlive-gcol' }, [
+						E('h3', {}, _('Row look')),
+						E('button', {
+							'id': 'fwlive-row-tint-toggle',
+							'class': 'cbi-button',
+							'type': 'button',
+							'aria-pressed': 'true',
+							'title': _('Toggle pass/deny row background colors'),
+							'click': this.toggleRowTint.bind(this)
+						}, _('Hide row tint')),
+						E('span', {
+							'id': 'fwlive-row-tint-palette-wrap',
+							'class': 'fwlive-ctl',
+							'style': 'display: inline-flex'
+						}, [
+							E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, _('Palette')),
+							E('select', {
+								'id': 'fwlive-row-tint',
+								'class': 'cbi-input-select',
+								'title': _('Classic uses green/red; Accessible uses teal/orange')
+							}, this.rowTintPaletteOptions())
+						]),
+						E('label', { 'class': 'fwlive-ctl' }, [
+							E('input', {
+								'id': 'fwlive-show-hostnames',
+								'type': 'checkbox'
+							}),
+							_('Show hostnames')
+						])
+					]),
+					E('div', { 'class': 'fwlive-gcol' }, [
+						E('h3', {}, _('Filters look')),
+						E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-chip-style' }, [
+							_('Chip style'),
+							E('select', {
+								'id': 'fwlive-chip-style',
+								'class': 'cbi-input-select',
+								'title': _('How include vs exclude filters are shown on chips')
+							}, this.chipStyleSelectOptions())
+						])
+					])
+				])
+			]),
+			E('div', { 'id': 'fwlive-filter-panel', 'class': 'fwlive-filter-panel fwlive-find-row' }, [
 				E('div', { 'class': 'fwlive-grid fwlive-grid-core' }, [
 					E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
 					E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
@@ -1560,6 +1570,8 @@ return view.extend({
 				])
 			]),
 			E('div', { 'id': 'fwlive-chips', 'class': 'fwlive-chips' }, []),
+			E('p', { 'class': 'fwlive-hint-line' },
+				_('Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings')),
 			E('div', {
 				'id': 'fwlive-empty',
 				'class': 'fwlive-empty',
@@ -1571,13 +1583,13 @@ return view.extend({
 					E('tbody', {}, [])
 				])
 			]),
-			E('p', { 'class': 'cbi-value-description' }, _('Click a row for the full log line. Show Detail for all columns. Click a cell to filter; use ≠ on a chip to exclude. Ctrl+click a rule to open firewall settings.')),
 			E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
 				E('summary', {}, _('Help')),
 				E('ul', {}, [
-					E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Enable logging if the table is empty on a stock config.')),
+					E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.')),
 					E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
-					E('li', {}, _('The rate shown next to WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
+					E('li', {}, _('Display options hides Limit, row tint, hostnames, and chip style.')),
+					E('li', {}, _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
 					E('li', { 'id': 'fwlive-manual-test' }, []),
 					E('li', {}, _('Click a row to see the full log line (Simple view).')),
 					E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),

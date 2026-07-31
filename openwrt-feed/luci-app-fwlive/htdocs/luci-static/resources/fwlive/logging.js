@@ -6,10 +6,13 @@
  * Logging toolbar and empty-state DOM renderers for luci-app-fwlive.
  *
  * renderToolbar(host, state, callbacks) → void
- *   host      - #fwlive-logging-bar element (cleared and rebuilt; element kept)
+ *   host      - #fwlive-logging-bar strip slot (cleared and rebuilt; element kept)
  *   state     - shallow copy: { loggingStatus, loggingBusy, entriesLength,
  *                               loggingNotice }
  *   callbacks - { onEnable(), onDisable() }  (async handlers OK; invoked fire-and-forget)
+ *
+ * A2 chrome: strip CTA only — filled Enable when off; quiet "WAN logging on"
+ * when on (click disables). No separate "WAN logging off" label.
  *
  * renderManualTestNodes(host, state, callbacks) → void
  *   host      - <ul> element inside #fwlive-help (cleared and rebuilt)
@@ -44,12 +47,7 @@ function renderToolbar(host, state, callbacks) {
 		return;
 	}
 
-	if (!st.wan_log && state.entriesLength === 0) {
-		host.style.display = 'none';
-		return;
-	}
-
-	host.style.display = 'flex';
+	host.style.display = 'contents';
 	const blocker = blockerCode(state);
 
 	if (blocker === 'no_wan_zone') {
@@ -67,35 +65,16 @@ function renderToolbar(host, state, callbacks) {
 
 	const limit = st.wan_log_limit || _('default 10/minute');
 	if (st.wan_log) {
-		host.appendChild(E('span', { 'class': 'fwlive-logging-status' }, [
-			_('WAN logging on ('),
-			E('a', {
-				'href': '#fwlive-help',
-				'class': 'fwlive-filter-link',
-				'title': _('This is the firewall zone log_limit. fwlive only displays events after fw3/fw4 applies this rate cap.'),
-				'click': function(ev) {
-					const help = document.getElementById('fwlive-help');
-					if (ev && ev.preventDefault)
-						ev.preventDefault();
-					if (help) {
-						help.open = true;
-						help.scrollIntoView({ block: 'nearest' });
-					}
-				}
-			}, limit),
-			_(')')
-		]));
 		host.appendChild(E('button', {
-			'class': 'cbi-button cbi-button-action',
+			'class': 'cbi-button fwlive-btn-quiet',
 			'type': 'button',
+			'title': _('WAN logging on (%s). Click to disable.').format(limit),
 			'disabled': state.loggingBusy ? '' : null,
 			'click': function() { callbacks.onDisable(); }
-		}, state.loggingBusy ? _('Disabling…') : _('Disable logging')));
+		}, state.loggingBusy ? _('Disabling…') : _('WAN logging on')));
 		return;
 	}
 
-	host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-		_('WAN logging off')));
 	host.appendChild(E('button', {
 		'class': 'cbi-button cbi-button-action',
 		'type': 'button',
@@ -134,13 +113,14 @@ function buildEmptyStateNodes(state, callbacks) {
 	}
 
 	if (st && st.wan_log) {
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('No firewall events yet')));
 		nodes.push(E('p', {}, _('Logging is enabled on WAN. Waiting for firewall events — blocked inbound traffic appears here (not normal LAN browsing).')));
 		nodes.push(E('p', {}, links.firewallZonesLink(_('Open firewall zone settings'))));
 		return nodes;
 	}
 
-	nodes.push(E('p', {}, _('No firewall events yet. OpenWrt does not log firewall traffic until you turn it on.')));
-	nodes.push(E('p', {}, _('Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged.')));
+	nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('No firewall events yet')));
+	nodes.push(E('p', {}, _('OpenWrt does not log firewall traffic until you turn it on. Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged.')));
 	nodes.push(E('p', {}, [
 		E('button', {
 			'class': 'cbi-button cbi-button-action',

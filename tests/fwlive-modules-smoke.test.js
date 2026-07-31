@@ -105,8 +105,17 @@ logging.renderToolbar(bar, {
 	entriesLength: 0,
 	loggingNotice: ''
 }, { onEnable: function() {}, onDisable: function() {} });
-assert.strictEqual(bar.style.display, 'flex');
+assert.strictEqual(bar.style.display, 'contents');
 assert.strictEqual(bar.innerHTML, '');
+
+/* Off: strip still shows (Enable CTA), even with zero entries. */
+logging.renderToolbar(bar, {
+	loggingStatus: { wan_log: false, wan_log_limit: null, blockers: [] },
+	loggingBusy: false,
+	entriesLength: 0,
+	loggingNotice: ''
+}, { onEnable: function() {}, onDisable: function() {} });
+assert.strictEqual(bar.style.display, 'contents');
 
 const emptyHost = { innerHTML: 'x', appendChild: function() {} };
 logging.renderEmptyState(emptyHost, {

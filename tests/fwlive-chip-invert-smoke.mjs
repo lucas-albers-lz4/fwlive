@@ -22,12 +22,16 @@ async function assertInvert(page, { paused }) {
 	await page.locator('.fwlive-chip-clear').click({ timeout: 2000 }).catch(() => {});
 	await page.waitForTimeout(200);
 
-	const refresh = page.locator('#fwlive-autorefresh');
-	if (paused)
-		await refresh.uncheck();
-	else
-		await refresh.check();
-
+	const refresh = page.locator('#fwlive-pause');
+	const label = (await refresh.textContent() || '').trim();
+	if (paused) {
+		if (label === 'Pause')
+			await refresh.click();
+	} else {
+		if (label === 'Resume')
+			await refresh.click();
+	}
+	await page.waitForTimeout(200);
 	await page.waitForSelector('#fwlive-table tbody tr', { timeout: 30000 });
 	await page.locator('a.fwlive-filter-link', { hasText: /^pass$/i }).first().click();
 	await page.waitForSelector('.fwlive-chip', { timeout: 5000 });
