@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A — Display drawer (deep dive)</title>
+<link rel="stylesheet" href="mockup-shared.css">
+<link rel="stylesheet" href="a-explore.css">
+</head>
+<body>
+<header class="luci-top">
+  <span class="brand">OpenWrt</span>
+  <nav>Status · System · Network</nav>
+  <span class="pill live" id="top-pill">LIVE</span>
+</header>
+
+<main class="page explore">
+  <p class="back">
+    <a href="index.html">← mockups</a> ·
+    <a href="a-display-drawer.html">A baseline</a> ·
+    <strong>A deep dive</strong>
+  </p>
+
+  <header class="explore-head">
+    <div>
+      <h1 class="explore-h">Prototype A — Display drawer</h1>
+      <p class="explore-lede">
+        Same table, same features. Chrome becomes a <em>watch strip</em> (primary) +
+        <em>display drawer</em> (prefs) + <em>find row</em> (filters). Flip states and drawer variants below.
+      </p>
+    </div>
+  </header>
+
+  <section class="control-board" aria-label="Mockup controls">
+    <div class="board-block">
+      <span class="board-label">Scene</span>
+      <div class="seg-btns" id="scene-btns" role="tablist">
+        <button type="button" class="seg-btn on" data-scene="watching">Watching</button>
+        <button type="button" class="seg-btn" data-scene="paused">Paused</button>
+        <button type="button" class="seg-btn" data-scene="empty">Empty (no logs)</button>
+        <button type="button" class="seg-btn" data-scene="logging">Logging on</button>
+        <button type="button" class="seg-btn" data-scene="filtered">Filters on</button>
+        <button type="button" class="seg-btn" data-scene="fallback">Tint fallback</button>
+      </div>
+    </div>
+    <div class="board-block">
+      <span class="board-label">Drawer variant</span>
+      <div class="seg-btns" id="drawer-btns" role="tablist">
+        <button type="button" class="seg-btn" data-drawer="flat">A1 · Flat</button>
+        <button type="button" class="seg-btn on" data-drawer="grouped">A2 · Grouped ★</button>
+        <button type="button" class="seg-btn" data-drawer="summary">A3 · Summary chip</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Live preview ===== -->
+  <div class="preview-frame" id="preview">
+    <h1>Firewall Live View <span class="backend">using fw4</span></h1>
+
+    <div class="watch-strip" id="watch-strip">
+      <div class="watch-left">
+        <span class="dot on" id="watch-dot"></span>
+        <span class="watch-label" id="watch-label">Watching</span>
+        <span class="count" id="watch-count">3 matching · 3/50 stored</span>
+        <span class="tint-fallback-badge" id="fallback-badge" hidden>Theme tint fallback</span>
+      </div>
+      <div class="watch-actions">
+        <button type="button" class="btn ghost" id="btn-pause">Pause</button>
+        <button type="button" class="btn" id="btn-logging">Enable logging</button>
+        <button type="button" class="btn ghost" id="btn-detail">Show Detail</button>
+      </div>
+    </div>
+
+    <details class="display-drawer" id="drawer" open>
+      <summary id="drawer-summary">
+        <span class="sum-main">Display options</span>
+        <span class="sum-chip" id="sum-chip" hidden>Tint · Tone · Limit 50</span>
+      </summary>
+
+      <!-- A1 flat -->
+      <div class="drawer-body drawer-flat" data-panel="flat">
+        <label><input type="checkbox" checked id="ar1"> Auto-refresh</label>
+        <label>Limit <select><option>50</option><option>100</option><option>250</option></select></label>
+        <label>Chip style <select><option>Tone</option><option>Labels</option><option>Symbols</option></select></label>
+        <label><input type="checkbox"> Hostnames</label>
+        <label><input type="checkbox" checked> Row tint</label>
+        <label>Palette
+          <select>
+            <option>Accessible (teal/orange)</option>
+            <option>Classic (green/red)</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- A2 grouped -->
+      <div class="drawer-body drawer-grouped" data-panel="grouped" hidden>
+        <div class="gcol">
+          <h3>Live</h3>
+          <label><input type="checkbox" checked> Auto-refresh</label>
+          <label>Limit <select><option>50</option><option>100</option></select></label>
+        </div>
+        <div class="gcol">
+          <h3>Row look</h3>
+          <label><input type="checkbox" checked> Row tint</label>
+          <label>Palette
+            <select>
+              <option>Accessible (teal/orange)</option>
+              <option>Classic (green/red)</option>
+            </select>
+          </label>
+          <label><input type="checkbox"> Hostnames</label>
+        </div>
+        <div class="gcol">
+          <h3>Filters look</h3>
+          <label>Chip style
+            <select><option>Tone</option><option>Labels</option><option>Symbols</option></select>
+          </label>
+        </div>
+      </div>
+
+      <!-- A3 uses same body as flat; summary chip when closed is the difference -->
+      <div class="drawer-body drawer-flat" data-panel="summary" hidden>
+        <label><input type="checkbox" checked> Auto-refresh</label>
+        <label>Limit <select><option selected>50</option><option>100</option></select></label>
+        <label>Chip style <select><option selected>Tone</option><option>Labels</option></select></label>
+        <label><input type="checkbox"> Hostnames</label>
+        <label><input type="checkbox" checked> Row tint</label>
+        <label>Palette
+          <select>
+            <option selected>Accessible (teal/orange)</option>
+            <option>Classic (green/red)</option>
+          </select>
+        </label>
+        <p class="drawer-hint">Closed summary shows a one-line readout of active prefs so you don’t have to open the drawer to know what’s on.</p>
+      </div>
+    </details>
+
+    <div class="find-row" id="find-row">
+      <input class="search" id="q" placeholder="Quick search" value="">
+      <select id="action"><option>Any action</option><option selected id="action-pass">pass</option><option>drop</option></select>
+      <input id="proto" placeholder="Protocol" value="">
+      <button type="button" class="linkish">More filters</button>
+    </div>
+
+    <div class="chips-demo" id="chips" hidden>
+      <span class="chip">action pass <button type="button">≠</button> <button type="button">×</button></span>
+      <span class="chip">proto ICMP <button type="button">≠</button> <button type="button">×</button></span>
+      <button type="button" class="linkish">Clear all</button>
+    </div>
+
+    <div class="hint-line" id="hint">Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings</div>
+
+    <div class="empty-panel" id="empty" hidden>
+      <p class="empty-title">No firewall events yet</p>
+      <p>OpenWrt does not log firewall traffic until you turn it on. Enable logging to record blocked inbound traffic on WAN (rate-limited).</p>
+      <button type="button" class="btn">Enable logging</button>
+    </div>
+
+    <div class="table-shell" id="table-wrap">
+      <table>
+        <thead>
+          <tr><th>action</th><th>Time</th><th>Interface</th><th>Flow</th><th>Proto</th><th>Rule</th></tr>
+        </thead>
+        <tbody id="tbody">
+          <tr class="pass"><td class="act">pass</td><td>19:13:29</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+          <tr class="pass alt"><td class="act">pass</td><td>19:13:28</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+          <tr class="pass"><td class="act">pass</td><td>19:13:27</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== Spec ===== -->
+  <section class="spec">
+    <h2>Control map (today → A)</h2>
+    <table class="spec-table">
+      <thead><tr><th>Today</th><th>In A</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Auto-refresh checkbox</td><td>Drawer + Pause on strip</td><td>Pause is the discoverable face; checkbox remains for clarity</td></tr>
+        <tr><td>Limit</td><td>Drawer</td><td>Rarely changed mid-session</td></tr>
+        <tr><td>Chip style</td><td>Drawer</td><td>Preference, not workflow</td></tr>
+        <tr><td>Show hostnames</td><td>Drawer</td><td>Same</td></tr>
+        <tr><td>Row tint + palette</td><td>Drawer</td><td>Keep toggle+palette together; A2 groups under “Row look”</td></tr>
+        <tr><td>Show Detail</td><td>Watch strip</td><td>Primary view mode — stays out</td></tr>
+        <tr><td>Enable logging / status</td><td>Watch strip CTA</td><td>When on: becomes quiet status or “Disable”</td></tr>
+        <tr><td>Status text</td><td>Watch strip count</td><td>“3 matching · 3/50 stored”</td></tr>
+        <tr><td>Tint fallback warn</td><td>Badge on strip</td><td>Only when fallback active</td></tr>
+        <tr><td>Filters + more filters</td><td>Find row (unchanged role)</td><td>Stays above table</td></tr>
+        <tr><td>Long intro paragraph</td><td>Removed / one-liner optional</td><td>Empty state + hint line carry teaching</td></tr>
+        <tr><td>Help</td><td>Bottom details</td><td>Unchanged</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Decisions (locked)</h2>
+    <p class="rec">
+      <strong>A2 · Grouped</strong> — drawer <strong>closed</strong> by default;
+      <strong>Pause/Resume only</strong> (no Auto-refresh checkbox);
+      Enable logging is the only filled button when off;
+      Find row unchanged. See <a href="a2-chosen.html">a2-chosen.html</a>.
+    </p>
+
+    <h2>Still optional later</h2>
+    <ul class="qlist">
+      <li><strong>Message wrap</strong> — show beside Detail only when Detail is on, or park under Display → Live.</li>
+    </ul>
+  </section>
+</main>
+
+<script src="a-explore.js"></script>
+</body>
+</html>

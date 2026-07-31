@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>B — Filter-first</title>
+<link rel="stylesheet" href="mockup-shared.css">
+</head>
+<body>
+<header class="luci-top">
+  <span class="brand">OpenWrt</span>
+  <nav>Status · System · Network</nav>
+  <span class="pill live">LIVE</span>
+</header>
+
+<main class="page">
+  <p class="back"><a href="index.html">← mockups</a> · <strong>B — Filter-first</strong></p>
+
+  <div class="title-row">
+    <h1>Firewall Live View <span class="backend">fw4</span></h1>
+    <div class="title-tools">
+      <button type="button" class="btn ghost compact">Detail</button>
+      <details class="view-menu">
+        <summary class="btn ghost compact">View ▾</summary>
+        <div class="menu-panel">
+          <label><input type="checkbox" checked> Auto-refresh</label>
+          <label>Limit <select><option>50</option></select></label>
+          <label>Chip style <select><option>Tone</option></select></label>
+          <label><input type="checkbox"> Hostnames</label>
+          <label><input type="checkbox" checked> Row tint</label>
+          <label>Palette <select><option>Accessible</option><option>Classic</option></select></label>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="meta-thin">
+    <span><span class="dot on"></span> 3 matching · newest first</span>
+    <span class="sep">·</span>
+    <span class="warn-soft">WAN logging off</span>
+    <button type="button" class="linkish">Enable logging</button>
+  </div>
+
+  <!-- Idea: filtering is the product; everything else is chrome -->
+  <div class="search-hero">
+    <input class="search lg" placeholder="Filter logs — IP, proto, rule, or free text" autofocus>
+    <div class="search-side">
+      <select class="lg"><option>Any action</option><option>pass</option><option>drop</option></select>
+    </div>
+  </div>
+
+  <div class="chips-demo">
+    <span class="chip">proto ICMP <button type="button" aria-label="remove">×</button></span>
+    <button type="button" class="linkish">More filters</button>
+    <button type="button" class="linkish">Clear</button>
+  </div>
+
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr><th>action</th><th>Time</th><th>Interface</th><th>Flow</th><th>Proto</th><th>Rule</th></tr>
+      </thead>
+      <tbody>
+        <tr class="pass"><td class="act">pass</td><td>19:13:29</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+        <tr class="pass alt"><td class="act">pass</td><td>19:13:28</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+        <tr class="pass"><td class="act">pass</td><td>19:13:27</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot-hint">Tip: click any cell to add a filter chip. Help stays at the bottom as today.</p>
+
+  <aside class="note">
+    <strong>What this explores:</strong> Maximum calm above the table; discovery via a bigger search affordance.
+    Risk: Enable logging + Detail are quieter — may need a first-run empty-state nudge instead.
+  </aside>
+</main>
+</body>
+</html>

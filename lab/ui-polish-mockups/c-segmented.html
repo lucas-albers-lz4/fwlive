@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>C — Segmented chrome</title>
+<link rel="stylesheet" href="mockup-shared.css">
+</head>
+<body>
+<header class="luci-top">
+  <span class="brand">OpenWrt</span>
+  <nav>Status · System · Network</nav>
+  <span class="pill live">LIVE</span>
+</header>
+
+<main class="page">
+  <p class="back"><a href="index.html">← mockups</a> · <strong>C — Segmented chrome</strong></p>
+
+  <h1>Firewall Live View <span class="backend">using fw4</span></h1>
+  <p class="intro-short">Live firewall events. Filter from the table; turn on WAN logging if the list is empty.</p>
+
+  <!-- Idea: no new containers — just visual grouping of what already exists -->
+  <div class="segments">
+    <section class="seg" aria-label="Watch">
+      <h2 class="seg-title">Watch</h2>
+      <div class="seg-body">
+        <label class="ctl"><input type="checkbox" checked> Auto-refresh</label>
+        <label class="ctl">Limit <select><option>50</option><option>100</option></select></label>
+        <span class="count quiet">3 matching · 3/50</span>
+        <button type="button" class="btn compact">Enable logging</button>
+      </div>
+    </section>
+
+    <section class="seg" aria-label="Find">
+      <h2 class="seg-title">Find</h2>
+      <div class="seg-body find">
+        <input class="search" placeholder="Quick search">
+        <select><option>Any action</option><option>pass</option></select>
+        <input placeholder="Protocol">
+        <button type="button" class="linkish">More filters</button>
+      </div>
+    </section>
+
+    <section class="seg" aria-label="View">
+      <h2 class="seg-title">View</h2>
+      <div class="seg-body">
+        <button type="button" class="btn ghost compact">Show Detail</button>
+        <label class="ctl"><input type="checkbox" checked> Row tint</label>
+        <select title="Tint palette"><option>Accessible</option><option>Classic</option></select>
+        <label class="ctl"><input type="checkbox"> Hostnames</label>
+        <label class="ctl">Chips <select><option>Tone</option><option>Labels</option></select></label>
+      </div>
+    </section>
+  </div>
+
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr><th>action</th><th>Time</th><th>Interface</th><th>Flow</th><th>Proto</th><th>Rule</th></tr>
+      </thead>
+      <tbody>
+        <tr class="pass"><td class="act">pass</td><td>19:13:29</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+        <tr class="pass alt"><td class="act">pass</td><td>19:13:28</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+        <tr class="pass"><td class="act">pass</td><td>19:13:27</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot-hint">Click a row for the full line · cell click filters · Ctrl+click opens the rule</p>
+  <details class="help"><summary>Help</summary><p>Unchanged help body.</p></details>
+
+  <aside class="note">
+    <strong>What this explores:</strong> Smallest change — regroup, shorten copy, keep every control visible.
+    Closest to “might ship nothing / ship a light pass.” Best baseline if A/B feel too bold.
+  </aside>
+</main>
+</body>
+</html>
