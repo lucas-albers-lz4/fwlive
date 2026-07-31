@@ -31,4 +31,4 @@ python3 -m http.server 8765 --directory lab/ui-polish-mockups
 
 ## Theme acceptance (implementation)
 
-See the tracking GitHub issue. Must verify Bootstrap, Bootstrap dark/light if present, and Material via `./scripts/qemu-theme-tint-smoke.sh` plus a short chrome smoke (drawer + strip readable, no broken layout).
+See [#77](https://github.com/lucas-albers-lz4/fwlive/issues/77). Must verify Bootstrap, Bootstrap dark/light if present, and Material via `./scripts/qemu-theme-tint-smoke.sh` plus a short chrome smoke (drawer + strip readable, no broken layout).
