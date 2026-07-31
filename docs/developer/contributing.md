@@ -3,7 +3,7 @@
 ## Principles
 
 - **Small steps** — one behavior per change; verify in CLI + QEMU LuCI when UI-related
-- **Parser sync** — any change to log parsing or filters must update **both** `core/fwlive-log.js` and `openwrt-feed/.../fwlive/log.js`
+- **Parser sync** — edit `core/fwlive-log.js`, run `./scripts/gen-all.sh`, keep LuCI classify helpers + preserve-region presentation in parity (`fwlive-test.sh` enforces freshness)
 - **No scope creep** — MVP is done; backlog items are in [`../ROADMAP.md`](../ROADMAP.md)
 
 ## Change workflow
@@ -21,9 +21,9 @@
    ./scripts/validate-openwrt.sh --version 24.10 --skip-build
    ```
 
-## Parser sync test
+## Parser sync / codegen
 
-`validate-baseline.sh` includes a structural sync check between `core/fwlive-log.js` and the LuCI mirror. Do not bypass — drift causes “works in tests, broken in browser” failures.
+`fwlive-test.sh` includes classify goldens, shell↔JS parity, and codegen freshness (`gen-shell-classifier.js` / `gen-luci-wrapper.js`). After editing the parser, run `./scripts/gen-all.sh` and commit generated artifacts. SDK package builds do not run Node codegen.
 
 ## Feed / package changes
 

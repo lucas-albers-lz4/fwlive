@@ -21,8 +21,9 @@ Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)
 ./scripts/validate-baseline.sh
 ```
 
-Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline, and
-shellcheck on shipped `root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`).
+Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline,
+codegen freshness (`./scripts/gen-all.sh`), and shellcheck on shipped `root/usr/libexec` scripts
+(`./scripts/fwlive-shellcheck.sh`).
 
 ## Live View CSS (`fwlive.css` → `css.js`)
 
