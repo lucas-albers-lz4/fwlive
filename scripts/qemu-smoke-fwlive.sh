@@ -64,8 +64,15 @@ if printf '%s' "$MENU_BODY" | grep -qE '"fs"|/usr/sbin/nft|/usr/sbin/iptables'; 
 fi
 ok "LuCI menu.d ACL-only depends"
 
-# Warm dispatcher so index cache includes the node, then assert Status → fwlive is satisfied.
-HTTP_HEADERS="$(curl -sS -D - -o /dev/null \
+# Warm dispatcher (authenticated when possible) so index cache includes the node.
+COOKIE_JAR="$(mktemp)"
+cleanup_cookies() { rm -f "$COOKIE_JAR"; }
+trap cleanup_cookies EXIT
+# Empty-password lab: establish a session so /tmp/luci-indexcache*.json is written.
+curl -sS -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
+	-d 'luci_username=root&luci_password=' \
+	"http://${HOST}:${HTTP_PORT}/cgi-bin/luci" >/dev/null 2>&1 || true
+HTTP_HEADERS="$(curl -sS -c "$COOKIE_JAR" -b "$COOKIE_JAR" -D - -o /dev/null \
 	"http://${HOST}:${HTTP_PORT}/cgi-bin/luci/admin/status/fwlive" 2>/dev/null || true)"
 HTTP_CODE="$(printf '%s' "$HTTP_HEADERS" | awk 'toupper($1) ~ /^HTTP/ { print $2; exit }')"
 if [[ -z "$HTTP_CODE" ]]; then
@@ -83,29 +90,18 @@ case "$HTTP_CODE" in
 	*) die "LuCI page HTTP ${HTTP_CODE} (expected 200/302/403-login)" ;;
 esac
 
-# After a page hit, LuCI writes /tmp/luci-indexcache*.json (empty-password lab) or session cache.
-CACHE_JSON="$(ssh_guest 'ls /tmp/luci-indexcache*.json 2>/dev/null | head -1')"
-if [[ -n "$CACHE_JSON" ]]; then
-	CACHE_BODY="$(ssh_guest "cat '$CACHE_JSON'")"
-	if printf '%s' "$CACHE_BODY" | grep -q 'Firewall Live View'; then
-		ok "LuCI index cache lists Firewall Live View (Status menu)"
-	else
-		die "LuCI index cache present but Firewall Live View missing"
-	fi
-else
-	echo "smoke WARN: no luci-indexcache yet (login may be required); menu.d + HTTP checks still OK" >&2
+# Prefer newest index cache (stale/other-language copies may exist).
+CACHE_JSON="$(ssh_guest 'ls -1t /tmp/luci-indexcache*.json 2>/dev/null | head -1')"
+if [[ -z "$CACHE_JSON" ]]; then
+	die "no luci-indexcache after page hit — Status menu entry not verified"
 fi
+CACHE_BODY="$(ssh_guest "cat '$CACHE_JSON'")"
+printf '%s' "$CACHE_BODY" | grep -q 'Firewall Live View' \
+	|| die "LuCI index cache present but Firewall Live View missing"
+ok "LuCI index cache lists Firewall Live View (Status menu)"
 
 if ssh_guest 'command -v nft >/dev/null 2>&1'; then
-	BACKEND=nft
-elif ssh_guest 'command -v iptables >/dev/null 2>&1'; then
-	BACKEND=iptables
-else
-	BACKEND=unknown
-fi
-ok "firewall backend probe: ${BACKEND}"
-
-if ssh_guest 'command -v nft >/dev/null 2>&1'; then
+	ok "firewall backend probe: nft"
 	"${ROOT}/scripts/fwlive-nft-ping-log.sh" add --ssh >/dev/null 2>&1 || true
 	ssh_guest 'ping -c 3 -W 1 127.0.0.1 >/dev/null 2>&1' || true
 	sleep 1
@@ -116,6 +112,7 @@ if ssh_guest 'command -v nft >/dev/null 2>&1'; then
 		echo "smoke WARN: no parsed firewall rows yet (nft log rule may need traffic)" >&2
 	fi
 elif ssh_guest 'command -v iptables >/dev/null 2>&1'; then
+	ok "firewall backend probe: iptables"
 	"${ROOT}/scripts/fwlive-iptables-ping-log.sh" add --ssh >/dev/null 2>&1 || true
 	ssh_guest 'ping -c 3 -W 1 127.0.0.1 >/dev/null 2>&1' || true
 	sleep 1
@@ -125,6 +122,8 @@ elif ssh_guest 'command -v iptables >/dev/null 2>&1'; then
 	else
 		echo "smoke WARN: no parsed firewall rows yet (iptables LOG rule may need traffic)" >&2
 	fi
+else
+	die "firewall backend probe: neither nft nor iptables found"
 fi
 
 echo "== smoke passed ==" >&2

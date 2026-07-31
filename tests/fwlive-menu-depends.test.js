@@ -15,7 +15,16 @@ const MENU_PATH = path.join(
 	'openwrt-feed/luci-app-fwlive/root/usr/share/luci/menu.d/luci-app-fwlive.json'
 );
 
-const menu = JSON.parse(fs.readFileSync(MENU_PATH, 'utf8'));
+let menu;
+let raw;
+try {
+	raw = fs.readFileSync(MENU_PATH, 'utf8');
+	menu = JSON.parse(raw);
+} catch (e) {
+	console.error('failed to read/parse menu.d JSON at %s: %s', MENU_PATH, e.message || e);
+	process.exit(1);
+}
+
 const node = menu['admin/status/fwlive'];
 if (!node) {
 	console.error('missing admin/status/fwlive menu node');
@@ -35,7 +44,6 @@ if (depends.fs) {
 	console.error('menu must not use depends.fs (breaks fw3-only / fw4-only):', depends.fs);
 	process.exit(1);
 }
-const raw = fs.readFileSync(MENU_PATH, 'utf8');
 if (/\/usr\/sbin\/nft|\/usr\/sbin\/iptables/.test(raw)) {
 	console.error('menu.d must not reference nft/iptables paths');
 	process.exit(1);
