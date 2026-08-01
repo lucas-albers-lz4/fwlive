@@ -4,7 +4,7 @@
 
 ## MVP status
 
-**MVP and pre-backport feature work are complete** (stages 1–5 core, 4b, 3.4b, 5.6). Stage 6+ remains backlog — see [Stage 6 (next)](#stage-6--inspect--enrichment-backlog) below.
+**MVP and pre-backport feature work are complete** (stages 1–5 core, 4b, 3.4b, 5.6). Stage 6 (hostnames) and Stage 7 (server-side filter) are **done** — see [Stage 6](#stage-6--inspect--enrichment-done) and [Stage 7](#stage-7--transport-done) below. Remaining backlog: rule overlay, digest/SSE.
 
 Re-validate after changes — see [Build & test](developer/build-and-test.md) for the full command reference.
 
@@ -120,7 +120,7 @@ Validated on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 2
 
 ---
 
-## Stage 6 — Inspect & enrichment (partial)
+## Stage 6 — Inspect & enrichment (done)
 
 | Item | Status |
 |------|--------|
@@ -128,7 +128,7 @@ Validated on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 2
 | Rule overlay | backlog |
 | Row detail drawer | backlog |
 
-## Stage 7 — Transport (partial)
+## Stage 7 — Transport (done)
 
 | Item | Status |
 |------|--------|

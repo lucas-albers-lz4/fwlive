@@ -15,6 +15,8 @@ See also: [nft/fw4 logging](fwlive-nft-logging.md) · [enabling logs (user)](use
 
 ## Quick lab test
 
+This test is **iptables-specific** — it uses `fwlive-iptables-ping-log.sh` and validates the fw3/21.02 path. For the nft/fw4 quick test, use the [User guide → Quick start](user/enabling-firewall-logs.md#quick-start-after-install) instead.
+
 ```sh
 ./scripts/fwlive-iptables-ping-log.sh add --ssh
 ping -c 3 $(./scripts/fwlive-iptables-ping-log.sh guest-ip)
