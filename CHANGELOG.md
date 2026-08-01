@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - User guide First visit path with empty → after-Enable → daily-use screenshots
+- Log table grows with the browser window (was capped at 800px)
+- **Show Detail** widens the page past LuCI’s 940px column; Simple view keeps the normal width
 
 ## [v0.1.31] — 2026-07-31
 

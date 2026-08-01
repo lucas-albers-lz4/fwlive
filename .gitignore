@@ -54,5 +54,8 @@ public.key
 *.swp
 *~
 
+# Playwright MCP session dumps (repo-local browser MCP)
+.cursor/browser-output/
+
 # Node dev deps (screenshot capture only — not shipped in .ipk)
 node_modules/

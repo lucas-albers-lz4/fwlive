@@ -6,6 +6,12 @@
 	--fwlive-bg-medium: var(--background-color-medium, var(--white-color-low, #f9f9f9));
 	--fwlive-paused-color: #b45309;
 }
+/* Wide page in Detail only — Simple keeps LuCI’s 940px column. */
+#maincontent.container:has(.fwlive-map[data-view="detailed"]) {
+	max-width: none;
+	padding-left: 16px;
+	padding-right: 16px;
+}
 .fwlive-map[data-row-tint="accessible"] {
 	--fwlive-pass-color: #0d9488;
 	--fwlive-deny-color: #c2410c;
@@ -151,7 +157,8 @@
 }
 .fwlive-find-row .fwlive-grid-core { margin-bottom: 0; }
 .fwlive-scroll {
-	max-height: min(78vh, 800px);
+	max-height: 78vh;
+	max-height: 78dvh;
 	overflow: auto;
 	border: 1px solid var(--border-color-medium);
 	border-radius: 3px;
