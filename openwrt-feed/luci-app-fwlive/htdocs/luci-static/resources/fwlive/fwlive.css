@@ -71,18 +71,29 @@
 	border-radius: 3px;
 	background: var(--background-color-high);
 }
-.fwlive-display-drawer > summary {
+/* Draw our own disclosure arrow — themes that restyle summary drop the native marker. */
+.fwlive-display-drawer > summary,
+.fwlive-more-filters > summary,
+.fwlive-help > summary {
 	cursor: pointer;
-	padding: 8px 12px;
-	font-weight: 600;
 	list-style: none;
 }
-.fwlive-display-drawer > summary::-webkit-details-marker { display: none; }
-.fwlive-drawer-sum::before {
+.fwlive-display-drawer > summary {
+	padding: 8px 12px;
+	font-weight: 600;
+}
+.fwlive-display-drawer > summary::-webkit-details-marker,
+.fwlive-more-filters > summary::-webkit-details-marker,
+.fwlive-help > summary::-webkit-details-marker { display: none; }
+.fwlive-drawer-sum::before,
+.fwlive-more-filters > summary::before,
+.fwlive-help > summary::before {
 	content: "▸ ";
 	color: var(--text-color-medium);
 }
-.fwlive-display-drawer[open] > summary .fwlive-drawer-sum::before { content: "▾ "; }
+.fwlive-display-drawer[open] > summary .fwlive-drawer-sum::before,
+.fwlive-more-filters[open] > summary::before,
+.fwlive-help[open] > summary::before { content: "▾ "; }
 .fwlive-drawer-body {
 	padding: 0 12px 12px;
 	border-top: 1px solid var(--border-color-low);
