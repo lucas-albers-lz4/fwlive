@@ -14,7 +14,7 @@ On-page **Help** (collapsed at the bottom) covers the basics without leaving the
 
 1. **Title** — *Logging is off on this router* (cause first, not “broken table”).
 2. **Before you enable logging** — one-time panel: what changes, what does not, how to undo.
-3. **Enable WAN drop/reject logging** — intentional step; or configure zones under **Network → Firewall** yourself.
+3. **Enable WAN drop/reject logging** — intentional step; or pick **Not now**, or configure zones under **Network → Firewall** yourself.
 4. Watch strip shows **WAN logging: off** and a short **Enable logging** button.
 
 Nothing changes until you click Enable.

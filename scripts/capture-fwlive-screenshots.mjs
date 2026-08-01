@@ -60,6 +60,23 @@ async function ensureWanLoggingOff(page) {
 	}
 }
 
+function guestSsh(cmd) {
+	return spawnSync('ssh', [
+		'-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null',
+		'-p', process.env.OPENWRT_SSH_PORT || '2222', 'root@127.0.0.1', cmd
+	], { encoding: 'utf8' });
+}
+
+/* Shot 1 needs a genuinely empty table: drop the ping rule and the log buffer. */
+function resetGuestLogs() {
+	spawnSync(path.join(ROOT, 'scripts/fwlive-nft-ping-log.sh'), ['remove', '--ssh'], {
+		cwd: ROOT, encoding: 'utf8'
+	});
+	const r = guestSsh('/etc/init.d/log restart; sleep 2; logread -c 2>/dev/null || true');
+	if (r.status !== 0)
+		console.warn('guest log reset:', r.stderr || r.stdout);
+}
+
 function runPingHelper() {
 	const script = path.join(ROOT, 'scripts/fwlive-nft-ping-log.sh');
 	let r = spawnSync(script, ['add', '--ssh'], { cwd: ROOT, encoding: 'utf8' });
@@ -72,6 +89,19 @@ function runPingHelper() {
 	], { encoding: 'utf8' });
 	if (r.status !== 0)
 		console.warn('guest ping:', r.stderr || r.stdout);
+}
+
+/* Row clicks can toggle a filter chip instead of expanding, so try a few rows. */
+async function expandFirstRow(page) {
+	const rows = page.locator('#fwlive-table tbody tr.fwlive-row-clickable');
+	const count = Math.min(await rows.count(), 5);
+	for (let i = 0; i < count; i++) {
+		await rows.nth(i).locator('td').first().click();
+		await page.waitForTimeout(400);
+		if (await page.locator('.fwlive-msg-expand').count())
+			return true;
+	}
+	return false;
 }
 
 async function enableDarkMode(page) {
@@ -90,6 +120,7 @@ async function main() {
 	await openFwlive(page);
 	await clearConsent(page);
 	await ensureWanLoggingOff(page);
+	resetGuestLogs();
 	await clearConsent(page);
 	await openFwlive(page);
 
@@ -143,11 +174,9 @@ async function main() {
 		});
 	}
 
+	runPingHelper();
 	await openFwlive(page, '#proto=icmp');
-	const actionCell = page.locator('#fwlive-table tbody tr.fwlive-row-clickable td').first();
-	if (await actionCell.count()) {
-		await actionCell.click();
-		await page.waitForSelector('.fwlive-msg-expand', { timeout: 10000 });
+	if (await expandFirstRow(page)) {
 		await page.locator('.fwlive-msg-expand').scrollIntoViewIfNeeded();
 		await page.waitForTimeout(400);
 		const expandBox = await page.locator('#fwlive-scroll').boundingBox();
@@ -165,6 +194,8 @@ async function main() {
 		} else {
 			await page.screenshot({ path: path.join(OUT, 'fwlive-expanded-message.png'), fullPage: true });
 		}
+	} else {
+		console.warn('no expandable row found; kept previous fwlive-expanded-message.png');
 	}
 
 	await page.locator('#fwlive-detail-toggle').click();

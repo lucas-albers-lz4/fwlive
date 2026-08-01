@@ -121,7 +121,7 @@ function buildConsentPanel(state, callbacks) {
 			E('li', {}, [
 				E('strong', {}, _('Undo:')),
 				' ',
-				_('use WAN logging on on the watch strip anytime.')
+				_('turn it back off with the WAN logging on control on the watch strip.')
 			])
 		]),
 		E('p', { 'class': 'fwlive-consent-check' }, [
@@ -156,7 +156,9 @@ function buildConsentPanel(state, callbacks) {
 					if (callbacks.onDismissConsent)
 						callbacks.onDismissConsent(persist);
 				}
-			}, _('Not now'))
+			}, _('Not now')),
+			' ',
+			links.firewallZonesLink(_('I’ll configure this under Network → Firewall'))
 		])
 	]);
 	return panel;
@@ -201,12 +203,15 @@ function buildEmptyStateNodes(state, callbacks) {
 		return nodes;
 	}
 
-	if (state.showConsent) {
-		nodes.push(buildConsentPanel(state, callbacks));
-	}
-
 	nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('Logging is off on this router')));
 	nodes.push(E('p', {}, _('OpenWrt does not write firewall events to the log until you turn logging on. Live View only shows what the firewall already logs — it does not add allow/deny rules.')));
+
+	/* Consent bullets already spell out the effect — do not repeat it or the CTA. */
+	if (state.showConsent) {
+		nodes.push(buildConsentPanel(state, callbacks));
+		return nodes;
+	}
+
 	nodes.push(E('p', {}, _('Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal LAN browsing is not logged.')));
 	nodes.push(E('p', { 'class': 'fwlive-empty-muted' }, _('Nothing changes until you click Enable.')));
 	nodes.push(E('p', {}, [
