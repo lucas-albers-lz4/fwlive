@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 /**
  * Capture Firewall Live View screenshots from QEMU lab LuCI.
- * Prereqs: guest running, fwlive installed, ping logs generated.
+ * Prereqs: guest running, fwlive installed. Ping helper is invoked mid-run
+ * after the empty / after-Enable shots.
  *
  *   node scripts/capture-fwlive-screenshots.mjs
  */
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'docs/user/assets');
 const BASE = process.env.FWLIVE_LUCI_URL || 'http://127.0.0.1:8080';
+const CONSENT_KEY = 'fwlive-logging-consent-v1';
 
 async function login(page) {
 	await page.goto(`${BASE}/cgi-bin/luci/`, { waitUntil: 'domcontentloaded' });
@@ -42,6 +45,35 @@ async function openFwlive(page, hash = '') {
 	await page.waitForTimeout(2000);
 }
 
+async function clearConsent(page) {
+	await page.evaluate((key) => {
+		try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
+	}, CONSENT_KEY);
+}
+
+async function ensureWanLoggingOff(page) {
+	const onBtn = page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' });
+	if (await onBtn.count()) {
+		await onBtn.click();
+		await page.waitForTimeout(2500);
+		await openFwlive(page);
+	}
+}
+
+function runPingHelper() {
+	const script = path.join(ROOT, 'scripts/fwlive-nft-ping-log.sh');
+	let r = spawnSync(script, ['add', '--ssh'], { cwd: ROOT, encoding: 'utf8' });
+	if (r.status !== 0)
+		console.warn('fwlive-nft-ping-log add:', r.stderr || r.stdout);
+	r = spawnSync('ssh', [
+		'-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null',
+		'-p', process.env.OPENWRT_SSH_PORT || '2222', 'root@127.0.0.1',
+		'ping -c 15 127.0.0.1'
+	], { encoding: 'utf8' });
+	if (r.status !== 0)
+		console.warn('guest ping:', r.stderr || r.stdout);
+}
+
 async function enableDarkMode(page) {
 	await page.evaluate(() => {
 		document.documentElement.setAttribute('data-darkmode', 'true');
@@ -55,17 +87,62 @@ async function main() {
 	const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
 	await login(page);
+	await openFwlive(page);
+	await clearConsent(page);
+	await ensureWanLoggingOff(page);
+	await clearConsent(page);
+	await openFwlive(page);
 
-	// Simple view (default) with icmp filter for chips
+	// Shot 1 — first visit: consent + logging off
+	await page.waitForSelector('#fwlive-empty', { state: 'visible', timeout: 15000 });
+	await page.waitForSelector('#fwlive-consent', { timeout: 10000 }).catch(() => {});
+	await page.screenshot({ path: path.join(OUT, 'fwlive-empty-logging-off.png'), fullPage: true });
+
+	// Shot 2 — Enable logging
+	const enableBtn = page.locator('#fwlive-empty button.cbi-button-action').first();
+	await enableBtn.click();
+	await page.waitForTimeout(3000);
+	await page.waitForSelector('text=WAN logging on', { timeout: 20000 });
+	await page.screenshot({ path: path.join(OUT, 'fwlive-after-enable.png'), fullPage: true });
+
+	// Generate visible rows
+	runPingHelper();
 	await openFwlive(page, '#proto=icmp');
+	await page.waitForTimeout(3000);
+
 	await page.screenshot({ path: path.join(OUT, 'fwlive-simple-view.png'), fullPage: true });
 
-	// Filter panel with chips (Simple)
 	await page.locator('#fwlive-more-filters').evaluate((el) => { el.open = true; });
-	await page.screenshot({ path: path.join(OUT, 'fwlive-filters.png'), fullPage: false,
-		clip: { x: 0, y: 120, width: 1440, height: 280 } });
+	await page.waitForTimeout(300);
+	if (!(await page.locator('#fwlive-chips .fwlive-chip').count())) {
+		const cell = page.locator('#fwlive-table tbody tr td.fwlive-action').first();
+		if (await cell.count())
+			await cell.click();
+		await page.waitForTimeout(400);
+	}
+	const filterBox = await page.locator('#fwlive-filter-panel').boundingBox().catch(() => null);
+	const chipsBox = await page.locator('#fwlive-chips').boundingBox().catch(() => null);
+	const hintBox = await page.locator('.fwlive-hint-line').boundingBox().catch(() => null);
+	if (filterBox) {
+		const y = Math.max(0, filterBox.y - 8);
+		const bottom = Math.max(
+			filterBox.y + filterBox.height,
+			chipsBox ? chipsBox.y + chipsBox.height : 0,
+			hintBox ? hintBox.y + hintBox.height : 0
+		);
+		await page.screenshot({
+			path: path.join(OUT, 'fwlive-filters.png'),
+			fullPage: false,
+			clip: { x: 0, y, width: 1440, height: Math.min(500, bottom - y + 16) }
+		});
+	} else {
+		await page.screenshot({
+			path: path.join(OUT, 'fwlive-filters.png'),
+			fullPage: false,
+			clip: { x: 0, y: 100, width: 1440, height: 320 }
+		});
+	}
 
-	// Expanded message row (Simple) — click Action cell to avoid filter links in Flow
 	await openFwlive(page, '#proto=icmp');
 	const actionCell = page.locator('#fwlive-table tbody tr.fwlive-row-clickable td').first();
 	if (await actionCell.count()) {
@@ -73,16 +150,27 @@ async function main() {
 		await page.waitForSelector('.fwlive-msg-expand', { timeout: 10000 });
 		await page.locator('.fwlive-msg-expand').scrollIntoViewIfNeeded();
 		await page.waitForTimeout(400);
-		await page.screenshot({ path: path.join(OUT, 'fwlive-expanded-message.png'), fullPage: false,
-			clip: { x: 0, y: 280, width: 1440, height: 420 } });
+		const expandBox = await page.locator('#fwlive-scroll').boundingBox();
+		if (expandBox) {
+			await page.screenshot({
+				path: path.join(OUT, 'fwlive-expanded-message.png'),
+				fullPage: false,
+				clip: {
+					x: 0,
+					y: Math.max(0, expandBox.y - 40),
+					width: 1440,
+					height: Math.min(480, expandBox.height + 60)
+				}
+			});
+		} else {
+			await page.screenshot({ path: path.join(OUT, 'fwlive-expanded-message.png'), fullPage: true });
+		}
 	}
 
-	// Detailed view
 	await page.locator('#fwlive-detail-toggle').click();
 	await page.waitForTimeout(1500);
 	await page.screenshot({ path: path.join(OUT, 'fwlive-main-view.png'), fullPage: true });
 
-	// Dark mode (LuCI bootstrap data-darkmode)
 	await enableDarkMode(page);
 	await openFwlive(page, '#proto=icmp');
 	await page.screenshot({ path: path.join(OUT, 'fwlive-dark-mode.png'), fullPage: true });

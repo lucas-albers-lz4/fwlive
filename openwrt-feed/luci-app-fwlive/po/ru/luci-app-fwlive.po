@@ -12,484 +12,562 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: htdocs/luci-static/resources/fwlive/chips.js:35
-msgid "is"
-msgstr "есть"
+#: htdocs/luci-static/resources/fwlive/logging.js:245
+#: htdocs/luci-static/resources/fwlive/logging.js:249
+msgid " then ping the router."
+msgstr " Ð·Ð°ÑÐµÐ¼ Ð²ÑÐ¿Ð¾Ð»Ð½Ð¸ÑÐµ ping Ð¼Ð°ÑÑÑÑÑÐ¸Ð·Ð°ÑÐ¾ÑÐ°."
 
-#: htdocs/luci-static/resources/fwlive/chips.js:45
-#: htdocs/luci-static/resources/fwlive/chips.js:52
-msgid "not"
-msgstr "не"
+#: htdocs/luci-static/resources/view/status/fwlive.js:907
+msgid "%d matching Â· %d/%d stored"
+msgstr "%d ÑÐ¾Ð²Ð¿Ð°Ð´ÐµÐ½Ð¸Ð¹ Â· %d/%d Ð² Ð±ÑÑÐµÑÐµ"
 
-#: htdocs/luci-static/resources/fwlive/chips.js:97
-msgid "Include instead"
-msgstr "Включить вместо этого"
+#: htdocs/luci-static/resources/view/status/fwlive.js:910
+msgid "0 matching Â· %d/%d stored"
+msgstr "0 ÑÐ¾Ð²Ð¿Ð°Ð´ÐµÐ½Ð¸Ð¹ Â· %d/%d Ð² Ð±ÑÑÐµÑÐµ"
 
-#: htdocs/luci-static/resources/fwlive/chips.js:97
-msgid "Exclude instead"
-msgstr "Исключить вместо этого"
+#: htdocs/luci-static/resources/view/status/fwlive.js:246
+msgid "Accessible (teal/orange)"
+msgstr "ÐÐ¾ÑÑÑÐ¿Ð½ÑÐ¹ (Ð±Ð¸ÑÑÐ·Ð¾Ð²ÑÐ¹/Ð¾ÑÐ°Ð½Ð¶ÐµÐ²ÑÐ¹)"
 
-#: htdocs/luci-static/resources/fwlive/chips.js:108
-msgid "Remove filter"
-msgstr "Удалить фильтр"
+#: htdocs/luci-static/resources/fwlive/table.js:32
+msgid "Action"
+msgstr "ÐÐµÐ¹ÑÑÐ²Ð¸Ðµ"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:617
+msgid "Administrator access is required to disable logging."
+msgstr "ÐÐ»Ñ Ð¾ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ñ ÑÑÐµÐ±ÑÑÑÑÑ Ð¿ÑÐ°Ð²Ð° Ð°Ð´Ð¼Ð¸Ð½Ð¸ÑÑÑÐ°ÑÐ¾ÑÐ°."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:588
+msgid "Administrator access is required to enable logging."
+msgstr "ÐÐ»Ñ Ð²ÐºÐ»ÑÑÐµÐ½Ð¸Ñ Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ñ ÑÑÐµÐ±ÑÑÑÑÑ Ð¿ÑÐ°Ð²Ð° Ð°Ð´Ð¼Ð¸Ð½Ð¸ÑÑÑÐ°ÑÐ¾ÑÐ°."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:119
+msgid "allow/deny rules, LAN logging, or anything else."
+msgstr "allow/deny rules, LAN logging, or anything else."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1543
+msgid "Any action"
+msgstr "ÐÑÐ±Ð¾Ðµ Ð´ÐµÐ¹ÑÑÐ²Ð¸Ðµ"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:109
+msgid "Before you enable logging"
+msgstr "Before you enable logging"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:809
+msgid "buffer full"
+msgstr "Ð±ÑÑÐµÑ Ð·Ð°Ð¿Ð¾Ð»Ð½ÐµÐ½"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:573
+msgid "Cannot enable logging until kernel log modules are installed."
+msgstr "ÐÐµÐ²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾ Ð²ÐºÐ»ÑÑÐ¸ÑÑ Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ, Ð¿Ð¾ÐºÐ° Ð½Ðµ ÑÑÑÐ°Ð½Ð¾Ð²Ð»ÐµÐ½Ñ Ð¼Ð¾Ð´ÑÐ»Ð¸ Ð¶ÑÑÐ½Ð°Ð»Ð° ÑÐ´ÑÐ°."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:112
+msgid "Changes:"
+msgstr "Changes:"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1529
+msgid "Chip style"
+msgstr "Ð¡ÑÐ¸Ð»Ñ ÑÐ¸Ð¿Ð¾Ð²"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1593
+msgid "Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels."
+msgstr "Ð¡ÑÐ¸Ð»Ñ ÑÐ¸Ð¿Ð¾Ð² Ð·Ð°Ð´Ð°ÑÑ Ð²Ð¸Ð´ Ð²ÐºÐ»ÑÑÐµÐ½Ð¸Ñ Ð¸ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ (ÐÐ¾Ð´Ð¿Ð¸ÑÐ¸, Ð¡Ð¸Ð¼Ð²Ð¾Ð»Ñ Ð¸Ð»Ð¸ Ð¢Ð¾Ð½). ÐÐ¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ â ÐÐ¾Ð´Ð¿Ð¸ÑÐ¸."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:245
+msgid "Classic (green/red)"
+msgstr "ÐÐ»Ð°ÑÑÐ¸ÑÐµÑÐºÐ¸Ð¹ (Ð·ÐµÐ»ÑÐ½ÑÐ¹/ÐºÑÐ°ÑÐ½ÑÐ¹)"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1515
+msgid "Classic uses green/red; Accessible uses teal/orange"
+msgstr "ÐÐ»Ð°ÑÑÐ¸ÑÐµÑÐºÐ¸Ð¹ â Ð·ÐµÐ»ÑÐ½ÑÐ¹/ÐºÑÐ°ÑÐ½ÑÐ¹; Ð´Ð¾ÑÑÑÐ¿Ð½ÑÐ¹ â Ð±Ð¸ÑÑÐ·Ð¾Ð²ÑÐ¹/Ð¾ÑÐ°Ð½Ð¶ÐµÐ²ÑÐ¹"
 
 #: htdocs/luci-static/resources/fwlive/chips.js:133
 msgid "Clear all"
-msgstr "Очистить всё"
+msgstr "ÐÑÐ¸ÑÑÐ¸ÑÑ Ð²ÑÑ"
 
-#: htdocs/luci-static/resources/fwlive/links.js:37
-msgid "Network → Firewall"
-msgstr "Сеть → Файрвол"
+#: htdocs/luci-static/resources/view/status/fwlive.js:1570
+msgid "Click a cell to filter Â· â  on a chip to exclude Â· Ctrl+click a rule for firewall settings"
+msgstr "ÐÐ»Ð¸Ðº Ð¿Ð¾ ÑÑÐµÐ¹ÐºÐµ â ÑÐ¸Ð»ÑÑÑ Â· â  Ð½Ð° ÑÐ¸Ð¿Ðµ â Ð¸ÑÐºÐ»ÑÑÐ¸ÑÑ Â· Ctrl+ÐºÐ»Ð¸Ðº Ð¿Ð¾ Ð¿ÑÐ°Ð²Ð¸Ð»Ñ â Ð½Ð°ÑÑÑÐ¾Ð¹ÐºÐ¸ ÑÐ°Ð¹ÑÐ²Ð¾Ð»Ð°"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1591
+msgid "Click a row to see the full log line (Simple view)."
+msgstr "ÐÐ°Ð¶Ð¼Ð¸ÑÐµ Ð½Ð° ÑÑÑÐ¾ÐºÑ, ÑÑÐ¾Ð±Ñ ÑÐ²Ð¸Ð´ÐµÑÑ Ð¿Ð¾Ð»Ð½ÑÑ ÑÑÑÐ¾ÐºÑ Ð¶ÑÑÐ½Ð°Ð»Ð° (ÐÑÐ¾ÑÑÐ¾Ð¹ Ð²Ð¸Ð´)."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1592
+msgid "Click an IP, action, or protocol to filter; click â  on a filter chip to exclude that value instead."
+msgstr "ÐÐ°Ð¶Ð¼Ð¸ÑÐµ Ð½Ð° IP, Ð´ÐµÐ¹ÑÑÐ²Ð¸Ðµ Ð¸Ð»Ð¸ Ð¿ÑÐ¾ÑÐ¾ÐºÐ¾Ð» Ð´Ð»Ñ ÑÐ¸Ð»ÑÑÑÐ°ÑÐ¸Ð¸; Ð½Ð°Ð¶Ð¼Ð¸ÑÐµ â  Ð½Ð° ÑÐ¸Ð¿Ðµ ÑÐ¸Ð»ÑÑÑÐ°, ÑÑÐ¾Ð±Ñ Ð¸ÑÐºÐ»ÑÑÐ¸ÑÑ ÑÑÐ¾ Ð·Ð½Ð°ÑÐµÐ½Ð¸Ðµ."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:925
+msgid "Connection lost â retryingâ¦"
+msgstr "Ð¡Ð¾ÐµÐ´Ð¸Ð½ÐµÐ½Ð¸Ðµ Ð¿Ð¾ÑÐµÑÑÐ½Ð¾ â Ð¿Ð¾Ð²ÑÐ¾Ñâ¦"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:608
+msgid "Could not disable logging."
+msgstr "ÐÐµ ÑÐ´Ð°Ð»Ð¾ÑÑ Ð¾ÑÐºÐ»ÑÑÐ¸ÑÑ Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:575
+msgid "Could not enable logging."
+msgstr "ÐÐµ ÑÐ´Ð°Ð»Ð¾ÑÑ Ð²ÐºÐ»ÑÑÐ¸ÑÑ Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:81
+msgid "default 10/minute"
+msgstr "Ð¿Ð¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ 10/Ð¼Ð¸Ð½"
+
+#: htdocs/luci-static/resources/fwlive/table.js:40
+msgid "Destination"
+msgstr "ÐÐ°Ð·Ð½Ð°ÑÐµÐ½Ð¸Ðµ"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1563
+msgid "Destination IP contains (! to exclude)"
+msgstr "IP Ð½Ð°Ð·Ð½Ð°ÑÐµÐ½Ð¸Ñ ÑÐ¾Ð´ÐµÑÐ¶Ð¸Ñ (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1564
+msgid "Destination port (! to exclude)"
+msgstr "ÐÐ¾ÑÑ Ð½Ð°Ð·Ð½Ð°ÑÐµÐ½Ð¸Ñ (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
+
+#: htdocs/luci-static/resources/fwlive/table.js:37
+msgid "Dir"
+msgstr "ÐÐ°Ð¿Ñ."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:91
+msgid "Disablingâ¦"
+msgstr "ÐÑÐºÐ»ÑÑÐµÐ½Ð¸Ðµâ¦"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1481
+msgid "Display options"
+msgstr "ÐÐ°ÑÐ°Ð¼ÐµÑÑÑ Ð¾ÑÐ¾Ð±ÑÐ°Ð¶ÐµÐ½Ð¸Ñ"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1588
+msgid "Display options hides Limit, row tint, hostnames, and chip style."
+msgstr "ÐÐ°ÑÐ°Ð¼ÐµÑÑÑ Ð¾ÑÐ¾Ð±ÑÐ°Ð¶ÐµÐ½Ð¸Ñ ÑÐºÑÑÐ²Ð°ÑÑ Ð»Ð¸Ð¼Ð¸Ñ, Ð¾ÐºÑÐ°ÑÐºÑ ÑÑÑÐ¾Ðº, Ð¸Ð¼ÐµÐ½Ð° ÑÐ¾ÑÑÐ¾Ð² Ð¸ ÑÑÐ¸Ð»Ñ ÑÐ¸Ð¿Ð¾Ð²."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:117
+msgid "Does not change:"
+msgstr "Does not change:"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:134
+msgid "Donât show this again"
+msgstr "Donât show this again"
+
+#: htdocs/luci-static/resources/fwlive/table.js:42
+msgid "DPort"
+msgstr "ÐÐ¾ÑÑ Ð½Ð°Ð·Ð½."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:103
+msgid "Enable logging"
+msgstr "ÐÐºÐ»ÑÑÐ¸ÑÑ Ð¶ÑÑÐ½Ð°Ð»"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1587
+msgid "Enable logging turns on WAN zone drop/reject logging only (same as Network â Firewall). It does not add rules or log normal LAN browsing."
+msgstr "Enable logging turns on WAN zone drop/reject logging only (same as Network â Firewall). It does not add rules or log normal LAN browsing."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:146
+#: htdocs/luci-static/resources/fwlive/logging.js:221
+msgid "Enable WAN drop/reject logging"
+msgstr "Enable WAN drop/reject logging"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:100
+msgid "Enable WAN zone drop/reject logging (same as Network â Firewall)."
+msgstr "Enable WAN zone drop/reject logging (same as Network â Firewall)."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:103
+#: htdocs/luci-static/resources/fwlive/logging.js:146
+msgid "Enablingâ¦"
+msgstr "ÐÐºÐ»ÑÑÐµÐ½Ð¸Ðµâ¦"
+
+#: htdocs/luci-static/resources/fwlive/chips.js:97
+msgid "Exclude instead"
+msgstr "ÐÑÐºÐ»ÑÑÐ¸ÑÑ Ð²Ð¼ÐµÑÑÐ¾ ÑÑÐ¾Ð³Ð¾"
 
 #: htdocs/luci-static/resources/fwlive/links.js:53
 #: htdocs/luci-static/resources/fwlive/links.js:71
 msgid "Filter by %s"
-msgstr "Фильтр по %s"
-
-#: htdocs/luci-static/resources/fwlive/links.js:112
-msgid "Filter logs by rule (hint: %s). Ctrl+click to open firewall settings."
-msgstr "Фильтр журналов по правилу (подсказка: %s). Ctrl+клик открывает настройки файрвола."
+msgstr "Ð¤Ð¸Ð»ÑÑÑ Ð¿Ð¾ %s"
 
 #: htdocs/luci-static/resources/fwlive/links.js:136
 msgid "Filter by interface"
-msgstr "Фильтр по интерфейсу"
+msgstr "Ð¤Ð¸Ð»ÑÑÑ Ð¿Ð¾ Ð¸Ð½ÑÐµÑÑÐµÐ¹ÑÑ"
 
-#: htdocs/luci-static/resources/fwlive/logging.js:55
-msgid "WAN logging unavailable: no WAN zone"
-msgstr "WAN-журналирование недоступно: нет зоны WAN"
+#: htdocs/luci-static/resources/fwlive/links.js:112
+msgid "Filter logs by rule (hint: %s). Ctrl+click to open firewall settings."
+msgstr "Ð¤Ð¸Ð»ÑÑÑ Ð¶ÑÑÐ½Ð°Ð»Ð¾Ð² Ð¿Ð¾ Ð¿ÑÐ°Ð²Ð¸Ð»Ñ (Ð¿Ð¾Ð´ÑÐºÐ°Ð·ÐºÐ°: %s). Ctrl+ÐºÐ»Ð¸Ðº Ð¾ÑÐºÑÑÐ²Ð°ÐµÑ Ð½Ð°ÑÑÑÐ¾Ð¹ÐºÐ¸ ÑÐ°Ð¹ÑÐ²Ð¾Ð»Ð°."
 
-#: htdocs/luci-static/resources/fwlive/logging.js:62
-msgid "WAN logging unavailable: missing kernel log modules"
-msgstr "WAN-журналирование недоступно: отсутствуют модули журнала ядра"
+#: htdocs/luci-static/resources/view/status/fwlive.js:1527
+msgid "Filters look"
+msgstr "ÐÐ¸Ð´ ÑÐ¸Ð»ÑÑÑÐ¾Ð²"
 
-#: htdocs/luci-static/resources/fwlive/logging.js:66
-msgid "default 10/minute"
-msgstr "по умолчанию 10/мин"
-
-#: htdocs/luci-static/resources/fwlive/logging.js:71
-msgid "WAN logging on (%s). Click to disable."
-msgstr "WAN-журнал: ВКЛ (%s). Нажмите, чтобы отключить."
-
-#: htdocs/luci-static/resources/fwlive/logging.js:74
-msgid "Disabling…"
-msgstr "Отключение…"
-
-#: htdocs/luci-static/resources/fwlive/logging.js:74
-msgid "WAN logging on"
-msgstr "WAN-журнал: ВКЛ"
-
-#: htdocs/luci-static/resources/fwlive/logging.js:83
-#: htdocs/luci-static/resources/fwlive/logging.js:130
-msgid "Enabling…"
-msgstr "Включение…"
-
-#: htdocs/luci-static/resources/fwlive/logging.js:83
-#: htdocs/luci-static/resources/fwlive/logging.js:130
-msgid "Enable logging"
-msgstr "Включить журнал"
-
-#: htdocs/luci-static/resources/fwlive/logging.js:101
-msgid "No WAN firewall zone found in /etc/config/firewall. Configure zones under "
-msgstr "Зона WAN файрвола не найдена в /etc/config/firewall. Настройте зоны в "
-
-#: htdocs/luci-static/resources/fwlive/logging.js:108
-msgid "Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall."
-msgstr "Отсутствуют модули журнала netfilter ядра. Установите kmod-nf-log-ipv4 и kmod-nf-log-ipv6 (или kmod-nf-log / kmod-nf-log6), затем перезагрузите файрвол."
-
-#: htdocs/luci-static/resources/fwlive/logging.js:116
-#: htdocs/luci-static/resources/fwlive/logging.js:122
-msgid "No firewall events yet"
-msgstr "Пока нет событий файрвола"
-
-#: htdocs/luci-static/resources/fwlive/logging.js:117
-msgid "Logging is enabled on WAN. Waiting for firewall events — blocked inbound traffic appears here (not normal LAN browsing)."
-msgstr "Журналирование на WAN включено. Ожидание событий файрвола — заблокированный входящий трафик отображается здесь (не обычный просмотр LAN)."
-
-#: htdocs/luci-static/resources/fwlive/logging.js:118
-msgid "Open firewall zone settings"
-msgstr "Открыть настройки зон файрвола"
-
-#: htdocs/luci-static/resources/fwlive/logging.js:123
-msgid "OpenWrt does not log firewall traffic until you turn it on. Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged."
-msgstr "OpenWrt не пишет журнал файрвола, пока вы его не включите. Включите журнал, чтобы записывать блокированный входящий трафик на WAN (с ограничением частоты). Обычный LAN-трафик не журналируется."
-
-#: htdocs/luci-static/resources/fwlive/logging.js:152
-#: htdocs/luci-static/resources/fwlive/logging.js:156
-msgid "Manual test (System → Terminal): "
-msgstr "Ручной тест (Система → Терминал): "
-
-#: htdocs/luci-static/resources/fwlive/logging.js:154
-#: htdocs/luci-static/resources/fwlive/logging.js:158
-msgid " then ping the router."
-msgstr " затем выполните ping маршрутизатора."
-
-#: htdocs/luci-static/resources/fwlive/table.js:31
-msgid "Time"
-msgstr "Время"
-
-#: htdocs/luci-static/resources/fwlive/table.js:32
-msgid "Action"
-msgstr "Действие"
-
-#: htdocs/luci-static/resources/fwlive/table.js:33
-msgid "Rule"
-msgstr "Правило"
-
-#: htdocs/luci-static/resources/fwlive/table.js:34
-msgid "Interface"
-msgstr "Интерфейс"
-
-#: htdocs/luci-static/resources/fwlive/table.js:35
-msgid "IN"
-msgstr "ВХОД"
-
-#: htdocs/luci-static/resources/fwlive/table.js:36
-msgid "OUT"
-msgstr "ВЫХОД"
-
-#: htdocs/luci-static/resources/fwlive/table.js:37
-msgid "Dir"
-msgstr "Напр."
-
-#: htdocs/luci-static/resources/fwlive/table.js:38
-msgid "Proto"
-msgstr "Протокол"
-
-#: htdocs/luci-static/resources/fwlive/table.js:39
-msgid "Source"
-msgstr "Источник"
-
-#: htdocs/luci-static/resources/fwlive/table.js:40
-msgid "Destination"
-msgstr "Назначение"
-
-#: htdocs/luci-static/resources/fwlive/table.js:41
-msgid "SPort"
-msgstr "Порт ист."
-
-#: htdocs/luci-static/resources/fwlive/table.js:42
-msgid "DPort"
-msgstr "Порт назн."
+#: htdocs/luci-static/resources/view/status/fwlive.js:1442
+msgid "Firewall Live View"
+msgstr "ÐÑÐ¾ÑÐ¼Ð¾ÑÑ ÑÐ°Ð¹ÑÐ²Ð¾Ð»Ð° Ð² ÑÐµÐ°Ð»ÑÐ½Ð¾Ð¼ Ð²ÑÐµÐ¼ÐµÐ½Ð¸"
 
 #: htdocs/luci-static/resources/fwlive/table.js:43
 msgid "Flags"
-msgstr "Флаги"
-
-#: htdocs/luci-static/resources/fwlive/table.js:44
-msgid "Len"
-msgstr "Длина"
+msgstr "Ð¤Ð»Ð°Ð³Ð¸"
 
 #: htdocs/luci-static/resources/fwlive/table.js:45
 msgid "Flow"
-msgstr "Поток"
+msgstr "ÐÐ¾ÑÐ¾Ðº"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1584
+msgid "Help"
+msgstr "Ð¡Ð¿ÑÐ°Ð²ÐºÐ°"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:470
+msgid "Hide Detail"
+msgstr "Ð¡ÐºÑÑÑÑ Ð´ÐµÑÐ°Ð»Ð¸"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:301
+#: htdocs/luci-static/resources/view/status/fwlive.js:1505
+msgid "Hide row tint"
+msgstr "Ð¡ÐºÑÑÑÑ Ð¿Ð¾Ð´ÑÐ²ÐµÑÐºÑ ÑÑÑÐ¾Ðº"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:876
+msgid "High event rate â table refresh is throttled to protect the browser. The buffer still updates; refresh will resume automatically."
+msgstr "ÐÑÑÐ¾ÐºÐ°Ñ ÑÐ°ÑÑÐ¾ÑÐ° ÑÐ¾Ð±ÑÑÐ¸Ð¹ â Ð¾Ð±Ð½Ð¾Ð²Ð»ÐµÐ½Ð¸Ðµ ÑÐ°Ð±Ð»Ð¸ÑÑ Ð¾Ð³ÑÐ°Ð½Ð¸ÑÐµÐ½Ð¾ Ð´Ð»Ñ Ð·Ð°ÑÐ¸ÑÑ Ð±ÑÐ°ÑÐ·ÐµÑÐ°. ÐÑÑÐµÑ Ð¿ÑÐ¾Ð´Ð¾Ð»Ð¶Ð°ÐµÑ Ð¾Ð±Ð½Ð¾Ð²Ð»ÑÑÑÑÑ; Ð¾Ð±Ð½Ð¾Ð²Ð»ÐµÐ½Ð¸Ðµ Ð²Ð¾Ð·Ð¾Ð±Ð½Ð¾Ð²Ð¸ÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1533
+msgid "How include vs exclude filters are shown on chips"
+msgstr "ÐÐ°Ðº Ð½Ð° ÑÐ¸Ð¿Ð°Ñ Ð¾ÑÐ¾Ð±ÑÐ°Ð¶Ð°ÑÑÑÑ ÑÐ¸Ð»ÑÑÑÑ Ð²ÐºÐ»ÑÑÐµÐ½Ð¸Ñ Ð¸ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1596
+msgid "If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device)."
+msgstr "ÐÑÐ»Ð¸ ÑÐ²ÐµÑÐ¾Ð²Ð°Ñ Ð¼Ð°ÑÐºÐ¸ÑÐ¾Ð²ÐºÐ° ÑÑÑÐ¾Ðº Ð¾ÑÑÑÑÑÑÐ²ÑÐµÑ, Ð°ÐºÑÐ¸Ð²Ð½Ð°Ñ ÑÐµÐ¼Ð° LuCI Ð¼Ð¾Ð¶ÐµÑ Ð½Ðµ ÑÐ¾Ð´ÐµÑÐ¶Ð°ÑÑ CSS-Ð¿ÐµÑÐµÐ¼ÐµÐ½Ð½ÑÐµ ÑÑÐ¿ÐµÑÐ°/Ð¾ÑÐ¸Ð±ÐºÐ¸; fwlive Ð¸ÑÐ¿Ð¾Ð»ÑÐ·ÑÐµÑ Ð»Ð¾ÐºÐ°Ð»ÑÐ½ÑÐµ ÑÐ²ÐµÑÐ° (Ð¸Ð·Ð¾Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð½Ð¾, Ð´Ð°Ð½Ð½ÑÐµ Ð½Ðµ Ð¿Ð¾ÐºÐ¸Ð´Ð°ÑÑ ÑÑÑÑÐ¾Ð¹ÑÑÐ²Ð¾)."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:199
+msgid "If the WAN is quiet, wait for probes or use the optional ping check in Help / the enabling-logs guide."
+msgstr "If the WAN is quiet, wait for probes or use the optional ping check in Help / the enabling-logs guide."
+
+#: htdocs/luci-static/resources/fwlive/table.js:35
+msgid "IN"
+msgstr "ÐÐ¥ÐÐ"
+
+#: htdocs/luci-static/resources/fwlive/chips.js:97
+msgid "Include instead"
+msgstr "ÐÐºÐ»ÑÑÐ¸ÑÑ Ð²Ð¼ÐµÑÑÐ¾ ÑÑÐ¾Ð³Ð¾"
+
+#: htdocs/luci-static/resources/fwlive/table.js:34
+msgid "Interface"
+msgstr "ÐÐ½ÑÐµÑÑÐµÐ¹Ñ"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1560
+msgid "Interface (prefix ! to exclude)"
+msgstr "ÐÐ½ÑÐµÑÑÐµÐ¹Ñ (! Ð² Ð½Ð°ÑÐ°Ð»Ðµ Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
+
+#: htdocs/luci-static/resources/fwlive/chips.js:35
+msgid "is"
+msgstr "ÐµÑÑÑ"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:223
+msgid "Iâll configure this under Network â Firewall"
+msgstr "Iâll configure this under Network â Firewall"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:188
+msgid "Kernel log modules missing"
+msgstr "Kernel log modules missing"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:189
+msgid "Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall."
+msgstr "ÐÑÑÑÑÑÑÐ²ÑÑÑ Ð¼Ð¾Ð´ÑÐ»Ð¸ Ð¶ÑÑÐ½Ð°Ð»Ð° netfilter ÑÐ´ÑÐ°. Ð£ÑÑÐ°Ð½Ð¾Ð²Ð¸ÑÐµ kmod-nf-log-ipv4 Ð¸ kmod-nf-log-ipv6 (Ð¸Ð»Ð¸ kmod-nf-log / kmod-nf-log6), Ð·Ð°ÑÐµÐ¼ Ð¿ÐµÑÐµÐ·Ð°Ð³ÑÑÐ·Ð¸ÑÐµ ÑÐ°Ð¹ÑÐ²Ð¾Ð»."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:329
+msgid "Labels"
+msgstr "ÐÐ¾Ð´Ð¿Ð¸ÑÐ¸"
+
+#: htdocs/luci-static/resources/fwlive/table.js:44
+msgid "Len"
+msgstr "ÐÐ»Ð¸Ð½Ð°"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1487
+msgid "Limit"
+msgstr "ÐÐ¸Ð¼Ð¸Ñ"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1485
+msgid "Live"
+msgstr "Live"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1494
+msgid "Live updates run until you Pause above."
+msgstr "Live-Ð¾Ð±Ð½Ð¾Ð²Ð»ÐµÐ½Ð¸Ñ Ð¸Ð´ÑÑ, Ð¿Ð¾ÐºÐ° Ð²Ñ Ð½Ðµ Ð½Ð°Ð¶Ð¼ÑÑÐµ ÐÐ°ÑÐ·Ð° Ð²ÑÑÐµ."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:804
+msgid "loading buffer"
+msgstr "Ð·Ð°Ð³ÑÑÐ·ÐºÐ° Ð±ÑÑÐµÑÐ°"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:904
+msgid "loadingâ¦"
+msgstr "Ð·Ð°Ð³ÑÑÐ·ÐºÐ°â¦"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:208
+msgid "Logging is off on this router"
+msgstr "Logging is off on this router"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:243
+#: htdocs/luci-static/resources/fwlive/logging.js:247
+msgid "Manual test (System â Terminal): "
+msgstr "Ð ÑÑÐ½Ð¾Ð¹ ÑÐµÑÑ (Ð¡Ð¸ÑÑÐµÐ¼Ð° â Ð¢ÐµÑÐ¼Ð¸Ð½Ð°Ð»): "
 
 #: htdocs/luci-static/resources/fwlive/table.js:46
 #: htdocs/luci-static/resources/fwlive/table.js:217
 msgid "Message"
-msgstr "Сообщение"
+msgstr "Ð¡Ð¾Ð¾Ð±ÑÐµÐ½Ð¸Ðµ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:250
-msgid "Classic (green/red)"
-msgstr "Классический (зелёный/красный)"
+#: htdocs/luci-static/resources/view/status/fwlive.js:1235
+msgid "Message: one line"
+msgstr "Ð¡Ð¾Ð¾Ð±ÑÐµÐ½Ð¸Ðµ: Ð¾Ð´Ð½Ð° ÑÑÑÐ¾ÐºÐ°"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:251
-msgid "Accessible (teal/orange)"
-msgstr "Доступный (бирюзовый/оранжевый)"
+#: htdocs/luci-static/resources/view/status/fwlive.js:1236
+#: htdocs/luci-static/resources/view/status/fwlive.js:1475
+msgid "Message: wrap"
+msgstr "Ð¡Ð¾Ð¾Ð±ÑÐµÐ½Ð¸Ðµ: Ð¿ÐµÑÐµÐ½Ð¾Ñ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:306
-#: htdocs/luci-static/resources/view/status/fwlive.js:1509
-msgid "Hide row tint"
-msgstr "Скрыть подсветку строк"
+#: htdocs/luci-static/resources/view/status/fwlive.js:1558
+msgid "More filters"
+msgstr "ÐÐ¾Ð»ÑÑÐµ ÑÐ¸Ð»ÑÑÑÐ¾Ð²"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:306
-msgid "Row tint"
-msgstr "Цвет строк"
+#: htdocs/luci-static/resources/fwlive/links.js:37
+msgid "Network â Firewall"
+msgstr "Ð¡ÐµÑÑ â Ð¤Ð°Ð¹ÑÐ²Ð¾Ð»"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:343
-msgid "Labels"
-msgstr "Подписи"
+#: htdocs/luci-static/resources/fwlive/logging.js:181
+msgid "No WAN firewall zone found in /etc/config/firewall. Configure zones under "
+msgstr "ÐÐ¾Ð½Ð° WAN ÑÐ°Ð¹ÑÐ²Ð¾Ð»Ð° Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ð° Ð² /etc/config/firewall. ÐÐ°ÑÑÑÐ¾Ð¹ÑÐµ Ð·Ð¾Ð½Ñ Ð² "
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:344
-msgid "Symbols"
-msgstr "Символы"
+#: htdocs/luci-static/resources/fwlive/logging.js:179
+msgid "No WAN zone found"
+msgstr "No WAN zone found"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:345
-msgid "Tone"
-msgstr "Тон"
+#: htdocs/luci-static/resources/fwlive/chips.js:45
+#: htdocs/luci-static/resources/fwlive/chips.js:52
+msgid "not"
+msgstr "Ð½Ðµ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:484
-msgid "Hide Detail"
-msgstr "Скрыть детали"
+#: htdocs/luci-static/resources/view/status/fwlive.js:1551
+msgid "not block"
+msgstr "Ð½Ðµ Ð±Ð»Ð¾ÐºÐ¸ÑÐ¾Ð²Ð°ÑÑ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:484
-#: htdocs/luci-static/resources/view/status/fwlive.js:1473
-msgid "Show Detail"
-msgstr "Показать детали"
+#: htdocs/luci-static/resources/view/status/fwlive.js:1550
+msgid "not drop"
+msgstr "Ð½Ðµ Ð¾ÑÐ±ÑÐ°ÑÑÐ²Ð°ÑÑ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:546
-msgid "using iptables"
-msgstr "используется iptables"
+#: htdocs/luci-static/resources/fwlive/logging.js:159
+msgid "Not now"
+msgstr "Not now"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:548
-msgid "using fw4"
-msgstr "используется fw4"
+#: htdocs/luci-static/resources/view/status/fwlive.js:1549
+msgid "not pass"
+msgstr "Ð½Ðµ Ð¿ÑÐ¾Ð¿ÑÑÐºÐ°ÑÑ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:587
-msgid "Cannot enable logging until kernel log modules are installed."
-msgstr "Невозможно включить журналирование, пока не установлены модули журнала ядра."
+#: htdocs/luci-static/resources/view/status/fwlive.js:1552
+msgid "not reject"
+msgstr "Ð½Ðµ Ð¾ÑÐºÐ»Ð¾Ð½ÑÑÑ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:589
-msgid "Could not enable logging."
-msgstr "Не удалось включить журналирование."
+#: htdocs/luci-static/resources/view/status/fwlive.js:1553
+msgid "not unknown"
+msgstr "Ð½Ðµ Ð½ÐµÐ¸Ð·Ð²ÐµÑÑÐ½Ð¾"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:595
-msgid "WAN logging enabled. Blocked inbound traffic should appear shortly."
-msgstr "WAN-журналирование включено. Заблокированный входящий трафик должен появиться в ближайшее время."
+#: htdocs/luci-static/resources/fwlive/logging.js:211
+msgid "Nothing changes until you click Enable."
+msgstr "Nothing changes until you click Enable."
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:597
-msgid "WAN logging is already enabled."
-msgstr "WAN-журналирование уже включено."
+#: htdocs/luci-static/resources/fwlive/logging.js:200
+msgid "Open firewall zone settings"
+msgstr "ÐÑÐºÑÑÑÑ Ð½Ð°ÑÑÑÐ¾Ð¹ÐºÐ¸ Ð·Ð¾Ð½ ÑÐ°Ð¹ÑÐ²Ð¾Ð»Ð°"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:601
-msgid "Administrator access is required to enable logging."
-msgstr "Для включения журналирования требуются права администратора."
+#: htdocs/luci-static/resources/fwlive/logging.js:209
+msgid "OpenWrt does not write firewall events to the log until you turn logging on. Live View only shows what the firewall already logs â it does not add allow/deny rules."
+msgstr "OpenWrt does not write firewall events to the log until you turn logging on. Live View only shows what the firewall already logs â it does not add allow/deny rules."
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:621
-msgid "Could not disable logging."
-msgstr "Не удалось отключить журналирование."
+#: htdocs/luci-static/resources/fwlive/table.js:36
+msgid "OUT"
+msgstr "ÐÐ«Ð¥ÐÐ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:627
-msgid "WAN logging disabled."
-msgstr "WAN-журналирование отключено."
+#: htdocs/luci-static/resources/view/status/fwlive.js:1511
+msgid "Palette"
+msgstr "ÐÐ°Ð»Ð¸ÑÑÐ°"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:630
-msgid "Administrator access is required to disable logging."
-msgstr "Для отключения журналирования требуются права администратора."
+#: htdocs/luci-static/resources/view/status/fwlive.js:977
+#: htdocs/luci-static/resources/view/status/fwlive.js:1461
+msgid "Pause"
+msgstr "ÐÐ°ÑÐ·Ð°"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:804
-msgid "loading buffer"
-msgstr "загрузка буфера"
+#: htdocs/luci-static/resources/view/status/fwlive.js:975
+msgid "Paused"
+msgstr "ÐÐ°ÑÐ·Ð°"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:809
-msgid "buffer full"
-msgstr "буфер заполнен"
+#: htdocs/luci-static/resources/fwlive/table.js:38
+msgid "Proto"
+msgstr "ÐÑÐ¾ÑÐ¾ÐºÐ¾Ð»"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1555
+msgid "Protocol (prefix ! to exclude)"
+msgstr "ÐÑÐ¾ÑÐ¾ÐºÐ¾Ð» (! Ð² Ð½Ð°ÑÐ°Ð»Ðµ Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1541
+msgid "Quick search"
+msgstr "ÐÑÑÑÑÑÐ¹ Ð¿Ð¾Ð¸ÑÐº"
+
+#: htdocs/luci-static/resources/fwlive/chips.js:108
+msgid "Remove filter"
+msgstr "Ð£Ð´Ð°Ð»Ð¸ÑÑ ÑÐ¸Ð»ÑÑÑ"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:811
 msgid "render paused (high rate)"
-msgstr "рендеринг приостановлен (высокая частота)"
+msgstr "ÑÐµÐ½Ð´ÐµÑÐ¸Ð½Ð³ Ð¿ÑÐ¸Ð¾ÑÑÐ°Ð½Ð¾Ð²Ð»ÐµÐ½ (Ð²ÑÑÐ¾ÐºÐ°Ñ ÑÐ°ÑÑÐ¾ÑÐ°)"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:813
-msgid "scroll frozen — scroll to top to follow live"
-msgstr "прокрутка заморожена — прокрутите вверх для следования за реальным временем"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:868
-msgid "High event rate — table refresh is throttled to protect the browser. The buffer still updates; refresh will resume automatically."
-msgstr "Высокая частота событий — обновление таблицы ограничено для защиты браузера. Буфер продолжает обновляться; обновление возобновится автоматически."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:889
-msgid "loading…"
-msgstr "загрузка…"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:892
-msgid "%d matching · %d/%d stored"
-msgstr "%d совпадений · %d/%d в буфере"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:895
-msgid "0 matching · %d/%d stored"
-msgstr "0 совпадений · %d/%d в буфере"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:910
-msgid "Connection lost — retrying…"
-msgstr "Соединение потеряно — повтор…"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:972
-msgid "Paused"
-msgstr "Пауза"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:972
-#: htdocs/luci-static/resources/view/status/fwlive.js:1452
-msgid "Watching"
-msgstr "Наблюдение"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:974
+#: htdocs/luci-static/resources/view/status/fwlive.js:977
 msgid "Resume"
-msgstr "Продолжить"
+msgstr "ÐÑÐ¾Ð´Ð¾Ð»Ð¶Ð¸ÑÑ"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:974
-#: htdocs/luci-static/resources/view/status/fwlive.js:1465
-msgid "Pause"
-msgstr "Пауза"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1239
-msgid "Message: one line"
-msgstr "Сообщение: одна строка"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1240
-#: htdocs/luci-static/resources/view/status/fwlive.js:1479
-msgid "Message: wrap"
-msgstr "Сообщение: перенос"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1446
-msgid "Firewall Live View"
-msgstr "Просмотр файрвола в реальном времени"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1457
-msgid "Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds."
-msgstr "Цветовая маркировка строк использовала локальный запасной цвет, так как активная тема LuCI не применяет фон пропуска/отказа."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1458
-msgid "Theme tint fallback"
-msgstr "Запасной цвет темы"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1485
-msgid "Display options"
-msgstr "Параметры отображения"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1489
-msgid "Live"
-msgstr "Live"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1491
-msgid "Limit"
-msgstr "Лимит"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1498
-msgid "Live updates run until you Pause above."
-msgstr "Live-обновления идут, пока вы не нажмёте Пауза выше."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1501
+#: htdocs/luci-static/resources/view/status/fwlive.js:1497
 msgid "Row look"
-msgstr "Вид строк"
+msgstr "ÐÐ¸Ð´ ÑÑÑÐ¾Ðº"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:1507
-msgid "Toggle pass/deny row background colors"
-msgstr "Переключить цвета фона строк pass/deny"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1515
-msgid "Palette"
-msgstr "Палитра"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1519
-msgid "Classic uses green/red; Accessible uses teal/orange"
-msgstr "Классический — зелёный/красный; доступный — бирюзовый/оранжевый"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1527
-msgid "Show hostnames"
-msgstr "Показывать имена хостов"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1531
-msgid "Filters look"
-msgstr "Вид фильтров"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1533
-msgid "Chip style"
-msgstr "Стиль чипов"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1537
-msgid "How include vs exclude filters are shown on chips"
-msgstr "Как на чипах отображаются фильтры включения и исключения"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1545
-msgid "Quick search"
-msgstr "Быстрый поиск"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1547
-msgid "Any action"
-msgstr "Любое действие"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1553
-msgid "not pass"
-msgstr "не пропускать"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1554
-msgid "not drop"
-msgstr "не отбрасывать"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1555
-msgid "not block"
-msgstr "не блокировать"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1556
-msgid "not reject"
-msgstr "не отклонять"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1557
-msgid "not unknown"
-msgstr "не неизвестно"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1559
-msgid "Protocol (prefix ! to exclude)"
-msgstr "Протокол (! в начале для исключения)"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1562
-msgid "More filters"
-msgstr "Больше фильтров"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1564
-msgid "Interface (prefix ! to exclude)"
-msgstr "Интерфейс (! в начале для исключения)"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1565
-msgid "Source IP contains (! to exclude)"
-msgstr "IP источника содержит (! для исключения)"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1566
-msgid "Source port (! to exclude)"
-msgstr "Порт источника (! для исключения)"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1567
-msgid "Destination IP contains (! to exclude)"
-msgstr "IP назначения содержит (! для исключения)"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1568
-msgid "Destination port (! to exclude)"
-msgstr "Порт назначения (! для исключения)"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1574
-msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings"
-msgstr "Клик по ячейке — фильтр · ≠ на чипе — исключить · Ctrl+клик по правилу — настройки файрвола"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1587
-msgid "Help"
-msgstr "Справка"
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1589
-msgid "The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast."
-msgstr "Таблица обновляется автоматически, когда файрвол пишет в журнал. Используйте Паузу, если слишком быстро."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1590
-msgid "Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default."
-msgstr "Включение журналирования активирует запись отбрасываний/отклонений в зоне WAN (как в Сеть → Файрвол). Просмотр LAN по умолчанию не журналируется."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1591
-msgid "Display options hides Limit, row tint, hostnames, and chip style."
-msgstr "Параметры отображения скрывают лимит, окраску строк, имена хостов и стиль чипов."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1592
-msgid "The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap."
-msgstr "Показанная частота WAN-журнала — log_limit зоны. По умолчанию OpenWrt: 10/мин без явного лимита; fwlive сам лимит не задаёт."
+#: htdocs/luci-static/resources/view/status/fwlive.js:301
+msgid "Row tint"
+msgstr "Ð¦Ð²ÐµÑ ÑÑÑÐ¾Ðº"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1594
-msgid "Click a row to see the full log line (Simple view)."
-msgstr "Нажмите на строку, чтобы увидеть полную строку журнала (Простой вид)."
+msgid "Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way."
+msgstr "ÐÐ¾Ð´ÑÐ²ÐµÑÐºÐ° ÑÑÑÐ¾Ðº Ð²ÐºÐ»ÑÑÐ°ÐµÑ ÑÐ¾Ð½Ñ pass/deny. ÐÐ¾Ð³Ð´Ð° Ð²ÐºÐ»ÑÑÐµÐ½Ð°, Ð²ÑÐ±ÐµÑÐ¸ÑÐµ ÐºÐ»Ð°ÑÑÐ¸ÑÐµÑÐºÐ¸Ð¹ (Ð·ÐµÐ»ÑÐ½ÑÐ¹/ÐºÑÐ°ÑÐ½ÑÐ¹, Ð¿Ð¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ) Ð¸Ð»Ð¸ Ð´Ð¾ÑÑÑÐ¿Ð½ÑÐ¹ (Ð±Ð¸ÑÑÐ·Ð¾Ð²ÑÐ¹/Ð¾ÑÐ°Ð½Ð¶ÐµÐ²ÑÐ¹). Ð¦Ð²ÐµÑ ÑÐµÐºÑÑÐ° Ð´ÐµÐ¹ÑÑÐ²Ð¸Ñ ÑÐ¾ÑÑÐ°Ð½ÑÐµÑÑÑ Ð² Ð»ÑÐ±Ð¾Ð¼ ÑÐ»ÑÑÐ°Ðµ."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1453
+msgid "Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds."
+msgstr "Ð¦Ð²ÐµÑÐ¾Ð²Ð°Ñ Ð¼Ð°ÑÐºÐ¸ÑÐ¾Ð²ÐºÐ° ÑÑÑÐ¾Ðº Ð¸ÑÐ¿Ð¾Ð»ÑÐ·Ð¾Ð²Ð°Ð»Ð° Ð»Ð¾ÐºÐ°Ð»ÑÐ½ÑÐ¹ Ð·Ð°Ð¿Ð°ÑÐ½Ð¾Ð¹ ÑÐ²ÐµÑ, ÑÐ°Ðº ÐºÐ°Ðº Ð°ÐºÑÐ¸Ð²Ð½Ð°Ñ ÑÐµÐ¼Ð° LuCI Ð½Ðµ Ð¿ÑÐ¸Ð¼ÐµÐ½ÑÐµÑ ÑÐ¾Ð½ Ð¿ÑÐ¾Ð¿ÑÑÐºÐ°/Ð¾ÑÐºÐ°Ð·Ð°."
+
+#: htdocs/luci-static/resources/fwlive/table.js:33
+msgid "Rule"
+msgstr "ÐÑÐ°Ð²Ð¸Ð»Ð¾"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:813
+msgid "scroll frozen â scroll to top to follow live"
+msgstr "Ð¿ÑÐ¾ÐºÑÑÑÐºÐ° Ð·Ð°Ð¼Ð¾ÑÐ¾Ð¶ÐµÐ½Ð° â Ð¿ÑÐ¾ÐºÑÑÑÐ¸ÑÐµ Ð²Ð²ÐµÑÑ Ð´Ð»Ñ ÑÐ»ÐµÐ´Ð¾Ð²Ð°Ð½Ð¸Ñ Ð·Ð° ÑÐµÐ°Ð»ÑÐ½ÑÐ¼ Ð²ÑÐµÐ¼ÐµÐ½ÐµÐ¼"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:114
+msgid "sets log on the WAN firewall zone and reloads the firewall."
+msgstr "sets log on the WAN firewall zone and reloads the firewall."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:470
+#: htdocs/luci-static/resources/view/status/fwlive.js:1469
+msgid "Show Detail"
+msgstr "ÐÐ¾ÐºÐ°Ð·Ð°ÑÑ Ð´ÐµÑÐ°Ð»Ð¸"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1523
+msgid "Show hostnames"
+msgstr "ÐÐ¾ÐºÐ°Ð·ÑÐ²Ð°ÑÑ Ð¸Ð¼ÐµÐ½Ð° ÑÐ¾ÑÑÐ¾Ð²"
+
+#: htdocs/luci-static/resources/fwlive/table.js:39
+msgid "Source"
+msgstr "ÐÑÑÐ¾ÑÐ½Ð¸Ðº"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1561
+msgid "Source IP contains (! to exclude)"
+msgstr "IP Ð¸ÑÑÐ¾ÑÐ½Ð¸ÐºÐ° ÑÐ¾Ð´ÐµÑÐ¶Ð¸Ñ (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1562
+msgid "Source port (! to exclude)"
+msgstr "ÐÐ¾ÑÑ Ð¸ÑÑÐ¾ÑÐ½Ð¸ÐºÐ° (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
+
+#: htdocs/luci-static/resources/fwlive/table.js:41
+msgid "SPort"
+msgstr "ÐÐ¾ÑÑ Ð¸ÑÑ."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:330
+msgid "Symbols"
+msgstr "Ð¡Ð¸Ð¼Ð²Ð¾Ð»Ñ"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1589
+msgid "The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap."
+msgstr "ÐÐ¾ÐºÐ°Ð·Ð°Ð½Ð½Ð°Ñ ÑÐ°ÑÑÐ¾ÑÐ° WAN-Ð¶ÑÑÐ½Ð°Ð»Ð° â log_limit Ð·Ð¾Ð½Ñ. ÐÐ¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ OpenWrt: 10/Ð¼Ð¸Ð½ Ð±ÐµÐ· ÑÐ²Ð½Ð¾Ð³Ð¾ Ð»Ð¸Ð¼Ð¸ÑÐ°; fwlive ÑÐ°Ð¼ Ð»Ð¸Ð¼Ð¸Ñ Ð½Ðµ Ð·Ð°Ð´Ð°ÑÑ."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1586
+msgid "The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast."
+msgstr "Ð¢Ð°Ð±Ð»Ð¸ÑÐ° Ð¾Ð±Ð½Ð¾Ð²Ð»ÑÐµÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸, ÐºÐ¾Ð³Ð´Ð° ÑÐ°Ð¹ÑÐ²Ð¾Ð» Ð¿Ð¸ÑÐµÑ Ð² Ð¶ÑÑÐ½Ð°Ð». ÐÑÐ¿Ð¾Ð»ÑÐ·ÑÐ¹ÑÐµ ÐÐ°ÑÐ·Ñ, ÐµÑÐ»Ð¸ ÑÐ»Ð¸ÑÐºÐ¾Ð¼ Ð±ÑÑÑÑÐ¾."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1454
+msgid "Theme tint fallback"
+msgstr "ÐÐ°Ð¿Ð°ÑÐ½Ð¾Ð¹ ÑÐ²ÐµÑ ÑÐµÐ¼Ñ"
+
+#: htdocs/luci-static/resources/fwlive/table.js:31
+msgid "Time"
+msgstr "ÐÑÐµÐ¼Ñ"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1503
+msgid "Toggle pass/deny row background colors"
+msgstr "ÐÐµÑÐµÐºÐ»ÑÑÐ¸ÑÑ ÑÐ²ÐµÑÐ° ÑÐ¾Ð½Ð° ÑÑÑÐ¾Ðº pass/deny"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:331
+msgid "Tone"
+msgstr "Ð¢Ð¾Ð½"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:210
+msgid "Turns on WAN zone drop/reject logging (same as Network â Firewall â wan â Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal LAN browsing is not logged."
+msgstr "Turns on WAN zone drop/reject logging (same as Network â Firewall â wan â Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal LAN browsing is not logged."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:122
+msgid "Undo:"
+msgstr "Undo:"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1595
-msgid "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
-msgstr "Нажмите на IP, действие или протокол для фильтрации; нажмите ≠ на чипе фильтра, чтобы исключить это значение."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1596
-msgid "Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels."
-msgstr "Стиль чипов задаёт вид включения и исключения (Подписи, Символы или Тон). По умолчанию — Подписи."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1597
-msgid "Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way."
-msgstr "Подсветка строк включает фоны pass/deny. Когда включена, выберите классический (зелёный/красный, по умолчанию) или доступный (бирюзовый/оранжевый). Цвет текста действия сохраняется в любом случае."
-
-#: htdocs/luci-static/resources/view/status/fwlive.js:1598
 msgid "Use Show Detail for all columns (flags, length, raw message)."
-msgstr "Используйте «Показать детали» для всех столбцов (флаги, длина, исходное сообщение)."
+msgstr "ÐÑÐ¿Ð¾Ð»ÑÐ·ÑÐ¹ÑÐµ Â«ÐÐ¾ÐºÐ°Ð·Ð°ÑÑ Ð´ÐµÑÐ°Ð»Ð¸Â» Ð´Ð»Ñ Ð²ÑÐµÑ ÑÑÐ¾Ð»Ð±ÑÐ¾Ð² (ÑÐ»Ð°Ð³Ð¸, Ð´Ð»Ð¸Ð½Ð°, Ð¸ÑÑÐ¾Ð´Ð½Ð¾Ðµ ÑÐ¾Ð¾Ð±ÑÐµÐ½Ð¸Ðµ)."
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:1599
-msgid "If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device)."
-msgstr "Если цветовая маркировка строк отсутствует, активная тема LuCI может не содержать CSS-переменные успеха/ошибки; fwlive использует локальные цвета (изолированно, данные не покидают устройство)."
+#: htdocs/luci-static/resources/fwlive/logging.js:124
+msgid "use WAN logging on on the watch strip anytime."
+msgstr "use WAN logging on on the watch strip anytime."
 
+#: htdocs/luci-static/resources/view/status/fwlive.js:534
+msgid "using fw4"
+msgstr "Ð¸ÑÐ¿Ð¾Ð»ÑÐ·ÑÐµÑÑÑ fw4"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:532
+msgid "using iptables"
+msgstr "Ð¸ÑÐ¿Ð¾Ð»ÑÐ·ÑÐµÑÑÑ iptables"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:197
+msgid "Waiting for firewall events"
+msgstr "Waiting for firewall events"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:614
+msgid "WAN drop/reject logging is off."
+msgstr "WAN drop/reject logging is off."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:581
+msgid "WAN drop/reject logging is on. Blocked inbound traffic should appear here as it happens â not normal LAN browsing."
+msgstr "WAN drop/reject logging is on. Blocked inbound traffic should appear here as it happens â not normal LAN browsing."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:198
+msgid "WAN drop/reject logging is on. Blocked inbound WAN traffic will show up here. Normal LAN browsing will not."
+msgstr "WAN drop/reject logging is on. Blocked inbound WAN traffic will show up here. Normal LAN browsing will not."
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:583
+msgid "WAN logging is already enabled."
+msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ ÑÐ¶Ðµ Ð²ÐºÐ»ÑÑÐµÐ½Ð¾."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:91
+msgid "WAN logging on"
+msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»: ÐÐÐ"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:88
+msgid "WAN logging on (%s). Click to disable."
+msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»: ÐÐÐ (%s). ÐÐ°Ð¶Ð¼Ð¸ÑÐµ, ÑÑÐ¾Ð±Ñ Ð¾ÑÐºÐ»ÑÑÐ¸ÑÑ."
+
+#: htdocs/luci-static/resources/fwlive/logging.js:77
+msgid "WAN logging unavailable: missing kernel log modules"
+msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ Ð½ÐµÐ´Ð¾ÑÑÑÐ¿Ð½Ð¾: Ð¾ÑÑÑÑÑÑÐ²ÑÑÑ Ð¼Ð¾Ð´ÑÐ»Ð¸ Ð¶ÑÑÐ½Ð°Ð»Ð° ÑÐ´ÑÐ°"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:70
+msgid "WAN logging unavailable: no WAN zone"
+msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ Ð½ÐµÐ´Ð¾ÑÑÑÐ¿Ð½Ð¾: Ð½ÐµÑ Ð·Ð¾Ð½Ñ WAN"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:96
+msgid "WAN logging: off"
+msgstr "WAN logging: off"
+
+#: htdocs/luci-static/resources/fwlive/logging.js:84
+msgid "WAN logging: on Â· %s"
+msgstr "WAN logging: on Â· %s"
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:975
+#: htdocs/luci-static/resources/view/status/fwlive.js:1448
+msgid "Watching"
+msgstr "ÐÐ°Ð±Ð»ÑÐ´ÐµÐ½Ð¸Ðµ"

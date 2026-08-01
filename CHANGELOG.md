@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- First-run empty state, one-time logging consent panel, and WAN logging readiness text on the watch strip
+
+### Changed
+- User guide First visit path with empty → after-Enable → daily-use screenshots
+
 ## [v0.1.31] — 2026-07-31
 
 ### Added

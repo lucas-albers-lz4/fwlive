@@ -38,7 +38,7 @@ flowchart LR
 
 `fwlive poll` wraps filtered `log.read` — only firewall-shaped lines are sent to the browser.
 
-Traffic only appears when your firewall rules include **`log`** (or equivalent) for the traffic you care about. See [Enabling firewall logs](enabling-firewall-logs.md).
+Live View shows **whatever OpenWrt is logging**. Stock configs log almost nothing — use **Enable logging** once for WAN drops/rejects (same as **Network → Firewall**). See [Enabling firewall logs](enabling-firewall-logs.md) and [Using the UI → First visit](using-the-ui.md#first-visit).
 
 ## When to use it
 
