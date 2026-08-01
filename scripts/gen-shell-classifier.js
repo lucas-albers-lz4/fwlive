@@ -54,8 +54,9 @@ function emitHint() {
 }
 
 function emitPrefixCase() {
+	/* Match JS NON_FIREWALL_PREFIX: prefix at start, then non-word or end — not prefix*. */
 	const pats = SPEC.nonFirewallPrefixes.map(function(p) {
-		return p + '*';
+		return p + '|' + p + '[!A-Za-z0-9_]*';
 	}).join('|');
 	return [
 		"\tmsg_lc=$(printf '%s' \"$msg\" | tr '[:upper:]' '[:lower:]')",

@@ -7,13 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- LuCI wrapper gate deep-equals full `CLASSIFY_SPEC` (not only `actionWords`) (#99)
+- Shell non-firewall prefixes use word-boundary globs matching JS (`dnsmasqfoo` class) (#100)
+
+### Changed
+- `normalizeAction` derives pass/deny-class words from `CLASSIFY_SPEC.actionWords` (#101)
+- Document LuCI gate-not-generator design (banner, `gen-all.sh`, contributing) (#102)
+
+### Added
+- CI shell↔JS parity under BusyBox ash (`SH=busybox sh`) (#103)
+
 ## [v0.1.31] — 2026-07-31
 
 ### Added
-- Single-source classification: `CLASSIFY_SPEC` in `core/fwlive-log.js`, generated shell classifier, LuCI classify parity (#84)
+- Single-source classification: `CLASSIFY_SPEC` in `core/fwlive-log.js`, generated shell classifier; LuCI classify parity via gate + preserve region (#84)
 
 ### Changed
-- Parser sync gate uses classify goldens + codegen freshness (drops `PARSER_SYNC_VERSION` counter)
+- Parser sync gate uses classify goldens + shell codegen freshness / LuCI wrapper gate (drops `PARSER_SYNC_VERSION` counter)
 
 ---
 

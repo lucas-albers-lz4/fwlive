@@ -15,7 +15,10 @@ const CLASSIFY_SPEC = {
 	/* FIREWALL_HINT words */
 	firewallHints: ['fw4', 'nft', 'iptables', 'kernel', 'firewall'],
 
-	/* detectAction words (order matters: ACCEPT first) */
+	/* detectAction words — positional layout (do not reorder without updating consumers):
+	 *   [0..2] pass aliases → normalizeAction 'pass'
+	 *   [3] DROP → 'drop'; [4] REJECT → 'reject'; [5..] DENY|BLOCK → 'block'
+	 *   slice(3) = deny-class for DENY_ACTION / inferActionRaw */
 	actionWords: ['ACCEPT', 'ALLOW', 'PASS', 'DROP', 'REJECT', 'DENY', 'BLOCK'],
 
 	/* Decision tree — order matters, first match wins */
@@ -47,7 +50,9 @@ const NON_FIREWALL_PREFIX = new RegExp(
 );
 const FIREWALL_HINT = wordPattern(CLASSIFY_SPEC.firewallHints);
 const ACTION_RE = wordPattern(CLASSIFY_SPEC.actionWords);
-const DENY_ACTION = wordPattern(CLASSIFY_SPEC.actionWords.slice(3)); /* DROP|REJECT|DENY|BLOCK */
+const PASS_ACTION_WORDS = CLASSIFY_SPEC.actionWords.slice(0, 3); /* ACCEPT|ALLOW|PASS */
+const DENY_CLASS_WORDS = CLASSIFY_SPEC.actionWords.slice(3); /* DROP|REJECT|DENY|BLOCK — pinned */
+const DENY_ACTION = wordPattern(DENY_CLASS_WORDS);
 
 const TCP_FLAG_TAIL = /\b(SYN|ACK|FIN|RST|PSH|URG)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG))*\s*$/i;
 const NETFILTER_KV_GLUE = /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=)/g;
@@ -134,13 +139,13 @@ function evaluateClassifySpec(message, actionRaw) {
 
 function normalizeAction(raw) {
 	const a = (raw || '').toUpperCase();
-	if (/^(ACCEPT|ALLOW|PASS)$/.test(a))
+	if (PASS_ACTION_WORDS.indexOf(a) >= 0)
 		return 'pass';
-	if (a === 'DROP')
+	if (a === CLASSIFY_SPEC.actionWords[3]) /* DROP */
 		return 'drop';
-	if (a === 'REJECT')
+	if (a === CLASSIFY_SPEC.actionWords[4]) /* REJECT */
 		return 'reject';
-	if (/^(DENY|BLOCK)$/.test(a))
+	if (DENY_CLASS_WORDS.indexOf(a) >= 0) /* DENY|BLOCK */
 		return 'block';
 	return 'unknown';
 }

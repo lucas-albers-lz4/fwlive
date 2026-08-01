@@ -13,12 +13,30 @@ const IS_FW = path.join(ROOT,
 const FILTER_SH = path.join(ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh');
 const FIXTURE = path.join(__dirname, 'fixtures', 'logread-mixed.json');
+/* Override with SH=busybox or SH='busybox sh' for ash parity (#103). */
+const SH = process.env.SH || 'sh';
+
+function shSpawn(scriptOrFile, opts) {
+	const parts = SH.split(/\s+/).filter(Boolean);
+	const cmd = parts[0];
+	const prefix = parts.slice(1);
+	if (opts && opts.argvFile) {
+		return spawnSync(cmd, prefix.concat([opts.argvFile]), {
+			input: opts.input,
+			encoding: opts.encoding || 'utf8'
+		});
+	}
+	return execFileSync(cmd, prefix.concat(['-c', scriptOrFile]), {
+		encoding: 'utf8',
+		env: opts && opts.env ? opts.env : process.env
+	});
+}
 
 function shellIsFirewall(msg) {
-	const out = execFileSync('sh', ['-c', '. "$IS_FW" && is_firewall_event_msg "$FW_MSG" && echo yes || echo no'], {
-		encoding: 'utf8',
-		env: { ...process.env, IS_FW: IS_FW, FW_MSG: msg }
-	}).trim();
+	const out = shSpawn(
+		'. "$IS_FW" && is_firewall_event_msg "$FW_MSG" && echo yes || echo no',
+		{ env: { ...process.env, IS_FW: IS_FW, FW_MSG: msg } }
+	).trim();
 	return out === 'yes';
 }
 
@@ -40,6 +58,8 @@ function runMsgParity() {
 		{ msg: 'not-a-firewall-line at all' },
 		{ msg: 'Dnsmasq[123]: query[A] example.com from 192.168.1.1' },
 		{ msg: 'PROCD[1]: service did something' },
+		/* #100 — prefix boundary: word-suffix must not match non-firewall daemon glob */
+		{ msg: 'dnsmasqfoo: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP' },
 		{ msg: 'x DST= DROP' },
 		{ msg: 'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP' }
 	];
@@ -62,10 +82,7 @@ function runJsonParity() {
 		return;
 	}
 
-	const filtered = spawnSync('sh', [FILTER_SH], {
-		input: payload,
-		encoding: 'utf8'
-	});
+	const filtered = shSpawn(null, { argvFile: FILTER_SH, input: payload, encoding: 'utf8' });
 	assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
 
 	const shellOut = JSON.parse(filtered.stdout);
@@ -103,10 +120,7 @@ function runMetacharSafety() {
 	const payload = JSON.stringify({
 		log: nasty.map((msg, i) => ({ msg, id: i }))
 	});
-	const filtered = spawnSync('sh', [FILTER_SH], {
-		input: payload,
-		encoding: 'utf8'
-	});
+	const filtered = shSpawn(null, { argvFile: FILTER_SH, input: payload, encoding: 'utf8' });
 	assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
 	assert.doesNotThrow(() => JSON.parse(filtered.stdout));
 }
@@ -115,7 +129,7 @@ function run() {
 	runMsgParity();
 	runJsonParity();
 	runMetacharSafety();
-	console.log('fwlive shell filter parity tests passed');
+	console.log('fwlive shell filter parity tests passed (SH=' + SH + ')');
 }
 
 run();
