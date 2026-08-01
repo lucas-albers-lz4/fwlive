@@ -9,7 +9,7 @@ Use before making this repo public upstream.
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
-- [ ] Review [`archive/README.md`](../archive/README.md) — nothing there should be required for new users
+- [ ] Confirm nothing in the removed `archive/` tree (deleted in #98) is required for new users — `rg -n "archive" .` should return no dead references
 
 ### Security (pre-release)
 
@@ -89,7 +89,7 @@ When copying `openwrt-feed/luci-app-fwlive/` into `luci/applications/luci-app-fw
 
 - Edit JS/docs and run `./scripts/fwlive-test.sh` locally
 - **SDK builds and QEMU labs:** Linux x86_64 (VM, CI, or remote host)
-- Unmaintained macOS QEMU: `archive/scripts/legacy/`
+- Unmaintained macOS QEMU: `archive/scripts/legacy/` *(removed in #98 — see git history)*
 
 ## After publish
 

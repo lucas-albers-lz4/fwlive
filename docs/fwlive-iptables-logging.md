@@ -11,7 +11,7 @@ Firewall Live View reads **logd** — the same pipeline as fw4. On iptables back
 
 **This is not iptables TRACE.** Silent rule hits without LOG never appear in the table.
 
-See also: [nft/fw4 logging](fwlive-nft-logging.md) · [enabling logs (user)](../user/enabling-firewall-logs.md)
+See also: [nft/fw4 logging](fwlive-nft-logging.md) · [enabling logs (user)](user/enabling-firewall-logs.md)
 
 ## Quick lab test
 
