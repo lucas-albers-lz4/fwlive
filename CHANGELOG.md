@@ -9,27 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- First-run empty state, one-time logging consent panel, and WAN logging readiness text on the watch strip
-
-### Changed
-- User guide First visit path with empty → after-Enable → daily-use screenshots
-- Log table grows with the browser window (was capped at 800px)
-- **Show Detail** widens the page past LuCI’s 940px column; Simple view keeps the normal width
-
 ## [v0.1.31] — 2026-07-31
 
 ### Added
+- First-run empty state, one-time logging consent panel, and WAN logging readiness text on the watch strip (#112)
 - Single-source classification: `CLASSIFY_SPEC` in `core/fwlive-log.js`, generated shell classifier; LuCI classify parity via gate + preserve region (#84, #95, #97)
 - CI shell↔JS parity under BusyBox ash (`SH=busybox sh`) (#103)
 - Markdown link checker (internal + external) in the host test gate (#107, #110)
 
 ### Fixed
+- First-run empty state showed Enable WAN logging twice (consent panel and empty-state CTA) (#112)
 - LuCI wrapper gate deep-equals full `CLASSIFY_SPEC` (not only `actionWords`) (#99)
 - Shell non-firewall prefixes use word-boundary globs matching JS (`dnsmasqfoo` class) (#100)
 - More filters / Help disclosure arrows under custom themes (#105)
 
 ### Changed
+- User guide First visit path with empty → after-Enable → daily-use screenshots (#112)
+- Log table grows with the browser window (was capped at 800px) (#112)
+- **Show Detail** widens the page past LuCI’s 940px column; Simple view keeps the normal width (#112)
 - Parser sync gate uses classify goldens + shell codegen freshness / LuCI wrapper gate (drops `PARSER_SYNC_VERSION` counter) (#84)
 - `normalizeAction` derives pass/deny-class words from `CLASSIFY_SPEC.actionWords` (#101)
 - Behavior-preserving cleanup: parser, rpcd shell, logging.js, view extracts (#90, #91, #92)
