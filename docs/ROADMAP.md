@@ -22,7 +22,7 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 
 ---
 
-## Status summary (2026-06)
+## Status summary (2026-07)
 
 | Milestone | State | Notes |
 | --------- | ----- | ----- |
@@ -32,8 +32,8 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 | **Stage 4b** | **Done** | Auto-refresh checkbox + row limit dropdown |
 | **Stage 5** | **Done (core)** | Click-to-filter, chips, pass inference |
 | **Stage 3** Rule attribution | **Done (core)** | rule_hint, Rule column, deep link |
-| **Stage 6** | **Partial** | **Show hostnames** checkbox (default off) — `ubus fwlive resolve` |
-| **Stage 7** | **Partial** | **`ubus fwlive poll`** — server-side firewall-only filter |
+| **Stage 6** | **Done** | **Show hostnames** checkbox (default off) — `ubus fwlive resolve` |
+| **Stage 7** | **Done** | **`ubus fwlive poll`** — server-side firewall-only filter |
 | **Stage 6–7 rest** | Backlog | Rule overlay, digest/SSE |
 | **Classify codegen** | **Done (#84)** | `CLASSIFY_SPEC` + generated shell classifier; LuCI classify parity + preserve region |
 
