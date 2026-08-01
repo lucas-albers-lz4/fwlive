@@ -7,27 +7,42 @@
  *
  * renderToolbar(host, state, callbacks) → void
  *   host      - #fwlive-logging-bar strip slot (cleared and rebuilt; element kept)
- *   state     - shallow copy: { loggingStatus, loggingBusy, entriesLength,
- *                               loggingNotice }
- *   callbacks - { onEnable(), onDisable() }  (async handlers OK; invoked fire-and-forget)
+ *   state     - { loggingStatus, loggingBusy, entriesLength, loggingNotice }
+ *   callbacks - { onEnable(), onDisable() }
  *
- * A2 chrome: strip CTA only — filled Enable when off; quiet "WAN logging on"
- * when on (click disables). No separate "WAN logging off" label.
+ * A2 chrome: readiness status + strip CTA — filled Enable when off; quiet
+ * "WAN logging on" when on (click disables).
  *
  * renderManualTestNodes(host, state, callbacks) → void
  *   host      - <ul> element inside #fwlive-help (cleared and rebuilt)
- *   state     - shallow copy: { firewallBackend }
- *   callbacks - {} (unused; present for API consistency)
+ *   state     - { firewallBackend }
  *
  * Empty-state helpers:
  *   buildEmptyStateNodes(state, callbacks) → Node[]
  *   renderEmptyState(host, state, callbacks) → void
- *     host      - #fwlive-empty element
- *     state     - same as renderToolbar state
- *     callbacks - { onEnable() }
+ *     state     - loggingState + { showConsent }
+ *     callbacks - { onEnable(), onDismissConsent(persist) }
  *
  * Modules must not mutate state. host is cleared then rebuilt (idempotent replace).
  */
+
+const CONSENT_STORAGE_KEY = 'fwlive-logging-consent-v1';
+
+function consentDismissedPermanent() {
+	try {
+		return localStorage.getItem(CONSENT_STORAGE_KEY) === '1';
+	} catch (e) {
+		return false;
+	}
+}
+
+function persistConsentDismissed() {
+	try {
+		localStorage.setItem(CONSENT_STORAGE_KEY, '1');
+	} catch (e) {
+		/* private mode / no storage */
+	}
+}
 
 function blockerCode(state) {
 	const blockers = (state.loggingStatus && state.loggingStatus.blockers) || [];
@@ -65,6 +80,8 @@ function renderToolbar(host, state, callbacks) {
 
 	const limit = st.wan_log_limit || _('default 10/minute');
 	if (st.wan_log) {
+		host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
+			_('WAN logging: on · %s').format(limit)));
 		host.appendChild(E('button', {
 			'class': 'cbi-button fwlive-btn-quiet',
 			'type': 'button',
@@ -75,12 +92,76 @@ function renderToolbar(host, state, callbacks) {
 		return;
 	}
 
+	host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
+		_('WAN logging: off')));
 	host.appendChild(E('button', {
 		'class': 'cbi-button cbi-button-action',
 		'type': 'button',
+		'title': _('Enable WAN zone drop/reject logging (same as Network → Firewall).'),
 		'disabled': state.loggingBusy ? '' : null,
 		'click': function() { callbacks.onEnable(); }
 	}, state.loggingBusy ? _('Enabling…') : _('Enable logging')));
+}
+
+function buildConsentPanel(state, callbacks) {
+	const dontShowId = 'fwlive-consent-dont-show';
+	const panel = E('div', { 'class': 'fwlive-consent', 'id': 'fwlive-consent' }, [
+		E('p', { 'class': 'fwlive-empty-title' }, _('Before you enable logging')),
+		E('ul', { 'class': 'fwlive-consent-list' }, [
+			E('li', {}, [
+				E('strong', {}, _('Changes:')),
+				' ',
+				_('sets log on the WAN firewall zone and reloads the firewall.')
+			]),
+			E('li', {}, [
+				E('strong', {}, _('Does not change:')),
+				' ',
+				_('allow/deny rules, LAN logging, or anything else.')
+			]),
+			E('li', {}, [
+				E('strong', {}, _('Undo:')),
+				' ',
+				_('turn it back off with the WAN logging on control on the watch strip.')
+			])
+		]),
+		E('p', { 'class': 'fwlive-consent-check' }, [
+			E('label', {}, [
+				E('input', {
+					'type': 'checkbox',
+					'id': dontShowId
+				}),
+				' ',
+				_('Don’t show this again')
+			])
+		]),
+		E('p', { 'class': 'fwlive-consent-actions' }, [
+			E('button', {
+				'class': 'cbi-button cbi-button-action',
+				'type': 'button',
+				'disabled': state.loggingBusy ? '' : null,
+				'click': function() {
+					persistConsentDismissed();
+					callbacks.onEnable();
+				}
+			}, state.loggingBusy ? _('Enabling…') : _('Enable WAN drop/reject logging')),
+			' ',
+			E('button', {
+				'class': 'cbi-button',
+				'type': 'button',
+				'click': function() {
+					const box = document.getElementById(dontShowId);
+					const persist = !!(box && box.checked);
+					if (persist)
+						persistConsentDismissed();
+					if (callbacks.onDismissConsent)
+						callbacks.onDismissConsent(persist);
+				}
+			}, _('Not now')),
+			' ',
+			links.firewallZonesLink(_('I’ll configure this under Network → Firewall'))
+		])
+	]);
+	return panel;
 }
 
 function buildEmptyStateNodes(state, callbacks) {
@@ -97,6 +178,7 @@ function buildEmptyStateNodes(state, callbacks) {
 	}
 
 	if (blocker === 'no_wan_zone') {
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('No WAN zone found')));
 		nodes.push(E('p', {}, [
 			_('No WAN firewall zone found in /etc/config/firewall. Configure zones under '),
 			links.firewallZonesLink()
@@ -105,6 +187,7 @@ function buildEmptyStateNodes(state, callbacks) {
 	}
 
 	if (blocker === 'nf_log_missing') {
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('Kernel log modules missing')));
 		nodes.push(E('p', {}, _('Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall.')));
 		nodes.push(E('p', {}, [
 			E('code', {}, 'opkg update && opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6')
@@ -113,23 +196,36 @@ function buildEmptyStateNodes(state, callbacks) {
 	}
 
 	if (st && st.wan_log) {
-		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('No firewall events yet')));
-		nodes.push(E('p', {}, _('Logging is enabled on WAN. Waiting for firewall events — blocked inbound traffic appears here (not normal LAN browsing).')));
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('Waiting for firewall events')));
+		nodes.push(E('p', {}, _('WAN drop/reject logging is on. Blocked inbound WAN traffic will show up here. Normal LAN browsing will not.')));
+		nodes.push(E('p', { 'class': 'fwlive-empty-muted' }, _('If the WAN is quiet, wait for probes or use the optional ping check in Help / the enabling-logs guide.')));
 		nodes.push(E('p', {}, links.firewallZonesLink(_('Open firewall zone settings'))));
 		return nodes;
 	}
 
-	nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('No firewall events yet')));
-	nodes.push(E('p', {}, _('OpenWrt does not log firewall traffic until you turn it on. Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged.')));
+	nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('Logging is off on this router')));
+	nodes.push(E('p', {}, _('OpenWrt does not write firewall events to the log until you turn logging on. Live View only shows what the firewall already logs — it does not add allow/deny rules.')));
+
+	/* Consent bullets already spell out the effect — do not repeat it or the CTA. */
+	if (state.showConsent) {
+		nodes.push(buildConsentPanel(state, callbacks));
+		return nodes;
+	}
+
+	nodes.push(E('p', {}, _('Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal LAN browsing is not logged.')));
+	nodes.push(E('p', { 'class': 'fwlive-empty-muted' }, _('Nothing changes until you click Enable.')));
 	nodes.push(E('p', {}, [
 		E('button', {
 			'class': 'cbi-button cbi-button-action',
 			'type': 'button',
 			'disabled': state.loggingBusy ? '' : null,
-			'click': function() { callbacks.onEnable(); }
-		}, state.loggingBusy ? _('Enabling…') : _('Enable logging')),
+			'click': function() {
+				persistConsentDismissed();
+				callbacks.onEnable();
+			}
+		}, state.loggingBusy ? _('Enabling…') : _('Enable WAN drop/reject logging')),
 		' ',
-		links.firewallZonesLink()
+		links.firewallZonesLink(_('I’ll configure this under Network → Firewall'))
 	]));
 	return nodes;
 }
@@ -160,6 +256,9 @@ function renderManualTestNodes(host, state, _callbacks) {
 }
 
 return baseclass.extend({
+	CONSENT_STORAGE_KEY: CONSENT_STORAGE_KEY,
+	consentDismissedPermanent: consentDismissedPermanent,
+	persistConsentDismissed: persistConsentDismissed,
 	renderToolbar: renderToolbar,
 	buildEmptyStateNodes: buildEmptyStateNodes,
 	renderEmptyState: renderEmptyState,

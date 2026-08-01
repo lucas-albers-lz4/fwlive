@@ -123,6 +123,8 @@ return view.extend({
 	loggingStatus: null,
 	loggingBusy: false,
 	loggingNotice: '',
+	/* Session-only dismiss of first-run consent (Not now without checkbox). */
+	consentDismissedSession: false,
 	_loggingToolbarSig: '',
 	_loggingEmptySig: '',
 	tintFallbackActive: false,
@@ -576,10 +578,11 @@ return view.extend({
 			}
 
 			if (res.changed)
-				this.loggingNotice = _('WAN logging enabled. Blocked inbound traffic should appear shortly.');
+				this.loggingNotice = _('WAN drop/reject logging is on. Blocked inbound traffic should appear here as it happens — not normal LAN browsing.');
 			else
 				this.loggingNotice = _('WAN logging is already enabled.');
 
+			logging.persistConsentDismissed();
 			await this.loadLoggingStatus();
 		} catch (e) {
 			this.loggingNotice = _('Administrator access is required to enable logging.');
@@ -608,7 +611,7 @@ return view.extend({
 			}
 
 			if (res.changed)
-				this.loggingNotice = _('WAN logging disabled.');
+				this.loggingNotice = _('WAN drop/reject logging is off.');
 			await this.loadLoggingStatus();
 		} catch (e) {
 			this.loggingNotice = _('Administrator access is required to disable logging.');
@@ -620,12 +623,35 @@ return view.extend({
 		}
 	},
 
+	shouldShowLoggingConsent() {
+		const st = this.loggingStatus;
+		if (!st || st.wan_log)
+			return false;
+		const blockers = st.blockers || [];
+		if (blockers.length)
+			return false;
+		if (logging.consentDismissedPermanent())
+			return false;
+		if (this.consentDismissedSession)
+			return false;
+		return true;
+	},
+
+	handleDismissConsent(persist) {
+		if (persist)
+			logging.persistConsentDismissed();
+		this.consentDismissedSession = true;
+		this._loggingEmptySig = '';
+		this.updateEmptyStateUi();
+	},
+
 	loggingState() {
 		return {
 			loggingStatus: this.loggingStatus,
 			loggingBusy: this.loggingBusy,
 			entriesLength: this.entries.length,
-			loggingNotice: this.loggingNotice
+			loggingNotice: this.loggingNotice,
+			showConsent: this.shouldShowLoggingConsent()
 		};
 	},
 
@@ -642,7 +668,8 @@ return view.extend({
 			st ? String(st.wan_log_limit || '') : '',
 			blockers,
 			this.loggingBusy ? '1' : '0',
-			this.loggingNotice || ''
+			this.loggingNotice || '',
+			this.shouldShowLoggingConsent() ? 'c1' : 'c0'
 		].join('|');
 	},
 
@@ -673,7 +700,8 @@ return view.extend({
 
 		const visible = empty.style.display !== 'none';
 		logging.renderEmptyState(empty, this.loggingState(), {
-			onEnable: () => this.handleEnableLogging()
+			onEnable: () => this.handleEnableLogging(),
+			onDismissConsent: (persist) => this.handleDismissConsent(persist)
 		});
 		if (visible)
 			empty.style.display = 'block';
@@ -1556,7 +1584,7 @@ return view.extend({
 					E('summary', {}, _('Help')),
 					E('ul', {}, [
 						E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.')),
-						E('li', {}, _('Enable logging turns on WAN zone drop/reject logging (same as Network → Firewall). LAN browsing is not logged by default.')),
+						E('li', {}, _('Enable logging turns on WAN zone drop/reject logging only (same as Network → Firewall). It does not add rules or log normal LAN browsing.')),
 						E('li', {}, _('Display options hides Limit, row tint, hostnames, and chip style.')),
 						E('li', {}, _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
 						E('li', { 'id': 'fwlive-manual-test' }, []),

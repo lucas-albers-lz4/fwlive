@@ -4,9 +4,9 @@
 
 ### The table is empty after install — what's wrong?
 
-**Nothing.** Stock OpenWrt images log almost no firewall traffic by default. You need to turn logging on.
+**Nothing.** Live View shows whatever OpenWrt is logging. Stock images log almost no firewall traffic until you turn logging on.
 
-Fastest path: open **Status → Firewall Live View** and click the **Enable logging** button. This enables WAN zone drop/reject logging. See the full [Enabling firewall logs](user/enabling-firewall-logs.md) guide.
+Fastest path: open **Status → Firewall Live View** and click **Enable WAN drop/reject logging** (or the short **Enable logging** on the watch strip). That sets WAN zone drop/reject logging only — same as **Network → Firewall** — and does not add allow/deny rules. See [Using the UI → First visit](user/using-the-ui.md#first-visit) and [Enabling firewall logs](user/enabling-firewall-logs.md).
 
 ### Can I install without the binary feed?
 
@@ -42,7 +42,7 @@ Live View shows a **Rule** label only when the nft log line includes a **prefix*
 
 ### What does "Enable logging" on the page actually do?
 
-It sets `option log '1'` on your WAN firewall zone via ubus. This enables logging of rejected and dropped packets on the WAN interface. It does **not** log accepted LAN traffic.
+It sets `option log '1'` on your WAN firewall zone via ubus and reloads the firewall. That enables logging of **rejected and dropped** packets on WAN. It does **not** add allow/deny rules and does **not** log normal LAN browsing. Click **WAN logging on** on the watch strip to turn it off again.
 
 ---
 
