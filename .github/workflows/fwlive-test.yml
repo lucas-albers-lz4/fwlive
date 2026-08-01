@@ -21,3 +21,5 @@ jobs:
       - run: ./scripts/fwlive-test.sh
       - name: Shell parity under busybox sh
         run: SH='busybox sh' node tests/fwlive-shell-filter.test.js
+      - name: Link check (internal markdown links + external URLs)
+        run: ./scripts/fwlive-linkcheck.sh
