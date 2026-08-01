@@ -105,7 +105,7 @@ No. The [Docker SDK](developer/build-and-test.md#sdk-builds) or a [minimal SDK t
 
 ### I changed the parser — why is LuCI not showing my changes?
 
-Edit `core/fwlive-log.js` (classification lives in `CLASSIFY_SPEC`), then run `./scripts/gen-all.sh` and commit the regenerated shell classifier plus any LuCI classify sync. Run `./scripts/fwlive-test.sh` (codegen freshness + parser sync), then `./scripts/qemu-install-fwlive.sh` to copy to the running guest. Package builds do **not** run codegen — artifacts are committed.
+Edit `CLASSIFY_SPEC` in `core/fwlive-log.js` **and** the same object in `htdocs/.../fwlive/log.js`, then run `./scripts/gen-all.sh` (regenerates the shell classifier; gates LuCI full-spec drift — it does not rewrite LuCI shared logic). Run `./scripts/fwlive-test.sh`, then `./scripts/qemu-install-fwlive.sh` to copy to the running guest. Package builds do **not** run Node — committed artifacts are authoritative.
 
 ### How do I run tests without a router or QEMU?
 

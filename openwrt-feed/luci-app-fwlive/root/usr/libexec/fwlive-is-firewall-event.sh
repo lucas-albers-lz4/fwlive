@@ -47,7 +47,7 @@ is_firewall_event_msg() {
 
 	msg_lc=$(printf '%s' "$msg" | tr '[:upper:]' '[:lower:]')
 	case "$msg_lc" in
-		dnsmasq*|procd*|ubusd*|netifd*|odhcpd*|logd*|dropbear*|uhttpd*|hostapd*|wpad*) return 1 ;;
+		dnsmasq|dnsmasq[!A-Za-z0-9_]*|procd|procd[!A-Za-z0-9_]*|ubusd|ubusd[!A-Za-z0-9_]*|netifd|netifd[!A-Za-z0-9_]*|odhcpd|odhcpd[!A-Za-z0-9_]*|logd|logd[!A-Za-z0-9_]*|dropbear|dropbear[!A-Za-z0-9_]*|uhttpd|uhttpd[!A-Za-z0-9_]*|hostapd|hostapd[!A-Za-z0-9_]*|wpad|wpad[!A-Za-z0-9_]*) return 1 ;;
 	esac
 
 	action=$(_detect_action "$msg")

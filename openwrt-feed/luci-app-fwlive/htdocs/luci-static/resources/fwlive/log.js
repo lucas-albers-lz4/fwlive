@@ -2,8 +2,9 @@
 'require baseclass';
 
 /**
- * GENERATED FILE — do not edit shared logic by hand. Run: ./scripts/gen-all.sh
- * (source: core/fwlive-log.js CLASSIFY_SPEC). LuCI-only helpers live in the preserve region.
+ * Shared classify logic mirrors core/fwlive-log.js CLASSIFY_SPEC — keep in sync
+ * (gen-luci-wrapper.js gates full-spec drift; ./scripts/gen-all.sh verifies).
+ * LuCI-only helpers live in the @fwlive-codegen:luci-preserve region.
  */
 return baseclass.extend({
 	CLASSIFY_SPEC: {
@@ -119,13 +120,16 @@ return baseclass.extend({
 
 	normalizeAction: function(raw) {
 		const a = (raw || '').toUpperCase();
-		if (/^(ACCEPT|ALLOW|PASS)$/.test(a))
+		const words = this.CLASSIFY_SPEC.actionWords;
+		const pass = words.slice(0, 3); /* ACCEPT|ALLOW|PASS */
+		const denyClass = words.slice(3); /* DROP|REJECT|DENY|BLOCK — positional */
+		if (pass.indexOf(a) >= 0)
 			return 'pass';
-		if (a === 'DROP')
+		if (a === words[3]) /* DROP */
 			return 'drop';
-		if (a === 'REJECT')
+		if (a === words[4]) /* REJECT */
 			return 'reject';
-		if (/^(DENY|BLOCK)$/.test(a))
+		if (denyClass.indexOf(a) >= 0) /* DENY|BLOCK */
 			return 'block';
 		return 'unknown';
 	},

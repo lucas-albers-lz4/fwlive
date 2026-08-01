@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install shellcheck and busybox
+        run: sudo apt-get update && sudo apt-get install -y shellcheck busybox
       - run: ./scripts/fwlive-test.sh
+      - name: Shell parity under busybox sh
+        run: SH='busybox sh' node tests/fwlive-shell-filter.test.js

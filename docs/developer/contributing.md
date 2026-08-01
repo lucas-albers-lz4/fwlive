@@ -3,7 +3,7 @@
 ## Principles
 
 - **Small steps** — one behavior per change; verify in CLI + QEMU LuCI when UI-related
-- **Parser sync** — edit `core/fwlive-log.js`, run `./scripts/gen-all.sh`, keep LuCI classify helpers + preserve-region presentation in parity (`fwlive-test.sh` enforces freshness)
+- **Parser sync** — edit `CLASSIFY_SPEC` in `core/fwlive-log.js`, mirror the same object in `htdocs/.../fwlive/log.js`, run `./scripts/gen-all.sh` (regenerates shell; gates LuCI full-spec drift), keep preserve-region presentation in parity
 - **No scope creep** — MVP is done; backlog items are in [`../ROADMAP.md`](../ROADMAP.md)
 
 ## Change workflow
@@ -23,7 +23,14 @@
 
 ## Parser sync / codegen
 
-`fwlive-test.sh` includes classify goldens, shell↔JS parity, and codegen freshness (`gen-shell-classifier.js` / `gen-luci-wrapper.js`). After editing the parser, run `./scripts/gen-all.sh` and commit generated artifacts. SDK package builds do not run Node codegen.
+`fwlive-test.sh` includes classify goldens, shell↔JS parity, and freshness checks:
+
+| Script | Role |
+|--------|------|
+| `gen-shell-classifier.js` | **Codegen** — emits `fwlive-is-firewall-event.sh` from `CLASSIFY_SPEC` |
+| `gen-luci-wrapper.js` | **Gate** — deep-equals full LuCI `CLASSIFY_SPEC` to core, checks preserve markers / 21.02 APIs; re-emits committed `log.js` bytes (does not transform shared logic) |
+
+After editing classification: update **both** `core/fwlive-log.js` and the LuCI `CLASSIFY_SPEC` mirror, run `./scripts/gen-all.sh`, and commit the regenerated shell classifier. A drifted LuCI wrapper fails the gate — it is not auto-fixed by `gen-all.sh`. SDK package builds do not run Node.
 
 ## Feed / package changes
 

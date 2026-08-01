@@ -23,8 +23,8 @@ Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)
 ```
 
 Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline,
-codegen freshness (`./scripts/gen-all.sh`), and shellcheck on shipped `root/usr/libexec` scripts
-(`./scripts/fwlive-shellcheck.sh`).
+shell codegen + LuCI wrapper gate (`./scripts/gen-all.sh`), and shellcheck on shipped
+`root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`). Optional: `SH='busybox sh' node tests/fwlive-shell-filter.test.js`.
 
 ## Live View CSS (`fwlive.css` → `css.js`)
 

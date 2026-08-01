@@ -35,8 +35,8 @@ flowchart TB
 |--------|----------|----------------|
 | **View shell** | `htdocs/.../view/status/fwlive.js` | Layout, 1s poll, pause/limit, DOM, click-to-filter |
 | **Log brain** | `htdocs/.../fwlive/log.js` | `isFirewallEvent`, `normalizeEntry`, filters, display helpers (classify from `CLASSIFY_SPEC`) |
-| **Test twin / SoT** | `core/fwlive-log.js` | Editable source of truth + CLI; `./scripts/gen-all.sh` regenerates shell classifier |
-| **Shell classifier** | `root/usr/libexec/fwlive-is-firewall-event.sh` | **Generated** from `CLASSIFY_SPEC` (committed; SDK does not run Node) |
+| **Test twin / SoT** | `core/fwlive-log.js` | Editable source of truth + CLI; `CLASSIFY_SPEC` drives classify |
+| **Shell classifier** | `root/usr/libexec/fwlive-is-firewall-event.sh` | **Generated** from `CLASSIFY_SPEC` via `gen-shell-classifier.js` (committed; SDK does not run Node) |
 | **Rule map** | `root/usr/libexec/rpcd/fwlive` | `rules`, `poll` (filtered log), `resolve` (reverse DNS), `logging_status`, `enable_wan_logging`, `disable_wan_logging` |
 | **WAN logging** | `root/usr/libexec/fwlive-logging.sh` | WAN zone `log=1` helpers (sourced by rpcd) |
 | **Log filter** | `root/usr/libexec/fwlive-log-filter.sh` | Shell `isFirewallEvent` parity before JSON leaves router |
@@ -56,6 +56,7 @@ flowchart TB
 | Log filter injection | `fwlive-log-filter.sh` feeds messages as data through jsonfilter/grep stdin — not a shell-injection surface |
 | Opt-in hostnames | `fwlive.resolve` via `getent`; checkbox default off; server validates IPv4/IPv6 shape before lookup |
 | `core/` + LuCI mirror | Parser tested without browser or router |
+| LuCI gate (not generator) | `gen-luci-wrapper.js` verifies full `CLASSIFY_SPEC` equality + preserve markers; shared classify in `log.js` stays hand-maintained (no text-transform codegen). Core has no `@fwlive-codegen:luci-begin/end` markers — only LuCI has a preserve region for presentation helpers. |
 | nft/fw4 primary | Validated on **21.02.7** (fw3 lab), **22.03.7**, **23.05.5**, **24.10.5**, **25.12.0** lab matrix |
 | iptables LOG | Primary on **21.02.x** (fw3); best-effort on **22.03+** when nft absent — same logd pipe; rule map from `iptables-save` |
 | OPNsense as reference | Interaction and layout patterns, not PHP/Volt port |
