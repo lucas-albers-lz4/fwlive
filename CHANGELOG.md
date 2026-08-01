@@ -9,24 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- LuCI wrapper gate deep-equals full `CLASSIFY_SPEC` (not only `actionWords`) (#99)
-- Shell non-firewall prefixes use word-boundary globs matching JS (`dnsmasqfoo` class) (#100)
-
-### Changed
-- `normalizeAction` derives pass/deny-class words from `CLASSIFY_SPEC.actionWords` (#101)
-- Document LuCI gate-not-generator design (banner, `gen-all.sh`, contributing) (#102)
-
-### Added
-- CI shell↔JS parity under BusyBox ash (`SH=busybox sh`) (#103)
-
 ## [v0.1.31] — 2026-07-31
 
 ### Added
-- Single-source classification: `CLASSIFY_SPEC` in `core/fwlive-log.js`, generated shell classifier; LuCI classify parity via gate + preserve region (#84)
+- Single-source classification: `CLASSIFY_SPEC` in `core/fwlive-log.js`, generated shell classifier; LuCI classify parity via gate + preserve region (#84, #95, #97)
+- CI shell↔JS parity under BusyBox ash (`SH=busybox sh`) (#103)
+- Markdown link checker (internal + external) in the host test gate (#107, #110)
+
+### Fixed
+- LuCI wrapper gate deep-equals full `CLASSIFY_SPEC` (not only `actionWords`) (#99)
+- Shell non-firewall prefixes use word-boundary globs matching JS (`dnsmasqfoo` class) (#100)
+- More filters / Help disclosure arrows under custom themes (#105)
 
 ### Changed
-- Parser sync gate uses classify goldens + shell codegen freshness / LuCI wrapper gate (drops `PARSER_SYNC_VERSION` counter)
+- Parser sync gate uses classify goldens + shell codegen freshness / LuCI wrapper gate (drops `PARSER_SYNC_VERSION` counter) (#84)
+- `normalizeAction` derives pass/deny-class words from `CLASSIFY_SPEC.actionWords` (#101)
+- Behavior-preserving cleanup: parser, rpcd shell, logging.js, view extracts (#90, #91, #92)
+- Extract fwlive CSS from escaped `css.js` into `fwlive.css` (#87, #96)
+- Stream `@.log[*]` once in `fwlive-log-filter.sh` (#93)
+- Shellcheck libexec/rpcd scripts in the host test gate (#94)
+- Remove `archive/`; add `npm test` alias (#98)
+
+### Documentation
+- Document LuCI gate-not-generator design (banner, `gen-all.sh`, contributing) (#102)
+- Fix broken links (`blob/main`→`master`, archive refs, iptables relative path); align Stage 6/7 status (#107, #108, #109)
 
 ---
 
@@ -306,6 +312,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.31]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.30...v0.1.31
+[v0.1.30]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.29...v0.1.30
 [v0.1.29]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.28...v0.1.29
 [v0.1.28]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.27...v0.1.28
 [v0.1.27]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.26...v0.1.27
