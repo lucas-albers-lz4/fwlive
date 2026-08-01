@@ -69,7 +69,7 @@ Click **Show Detail** on the watch strip. Click **Hide Detail** to return to Sim
 
 ![Detailed view — all columns](assets/fwlive-main-view.png)
 
-1. **Show Detail** switches to the wide forensic table.
+1. **Show Detail** switches to the forensic table and uses the full browser width (Simple keeps LuCI's normal column) — widen the window to see more per row.
 2. Every normalized field is visible in one row (including Message).
 3. **Message: wrap / one-line** (next to Show Detail) applies in Detailed view only.
 
