@@ -10,7 +10,7 @@ Install directly from the signed GitHub Pages feed — no manual download.
 |---------|-----------------|----------|
 | **21.02.x** (legacy fw3) | `opkg` | [Binary feed — 21.02](../binary-feed.md#openwrt-2102x-opkg-legacy-fw3) |
 | **22.03.x** (EOL) | `opkg` | [Binary feed — 22.03](../binary-feed.md#openwrt-2203x-opkg-eol) |
-| **23.05** / **24.10** | `opkg` | [Binary feed — opkg](../binary-feed.md#openwrt-2410-opkg) |
+| **23.05** / **24.10** | `opkg` | [Binary feed — opkg](../binary-feed.md#openwrt-2305--2410-opkg) |
 | **25.12+** | `apk` | [Binary feed — apk](../binary-feed.md#openwrt-2512-apk) |
 
 **OpenWrt 24.10** example:
