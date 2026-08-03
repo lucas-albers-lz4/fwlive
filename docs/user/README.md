@@ -6,7 +6,7 @@ Documentation for **installing and using** `luci-app-fwlive` on an OpenWrt route
 |-------|-------------------|
 | [Overview](overview.md) | What the package does and when to use it |
 | [Requirements](requirements.md) | Supported OpenWrt versions and dependencies |
-| [Installation](installation.md) | Binary feed (recommended), GitHub Release, or `src-link` feed |
+| [Installation](installation.md) | Binary feed (recommended), or other methods |
 | [Using the UI](using-the-ui.md) | First visit, Simple & Detailed views, Show Detail, Help |
 | [Enabling firewall logs](enabling-firewall-logs.md) | Quick start after install, zone/rule logging, log more traffic |
 

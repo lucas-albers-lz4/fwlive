@@ -8,7 +8,7 @@ Signed **opkg** / **apk** binary feed for [`luci-app-fwlive`](https://github.com
 
 **Recommended — binary feed** (`opkg` on **21.02–24.10**, `apk` on **25.12+** from GitHub Pages). Full guide: [installation](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/user/installation.md#1-binary-feed-recommended).
 
-**opkg (21.02.x – 24.10.x)** — run on the router; picks the feed for your OpenWrt release:
+**opkg (21.02.x – 24.10.x)** — run on the router. It picks the feed for your OpenWrt release:
 
 ```sh
 BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
@@ -27,6 +27,9 @@ echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
 opkg update && opkg install luci-app-fwlive
 ```
 
+<details>
+<summary>apk (25.12+) and more detail</summary>
+
 **apk (25.12+)** — hardcoded example for OpenWrt **25.12**:
 
 ```sh
@@ -39,6 +42,8 @@ apk update && apk add luci-app-fwlive
 ```
 
 More detail: [binary feed](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/binary-feed.md) · per-release notes in [21.02](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/openwrt-21.02-compat.md) / [22.03](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/openwrt-22.03-compat.md) compat docs.
+
+</details>
 
 Menu after install: **Status → Firewall Live View**.
 
