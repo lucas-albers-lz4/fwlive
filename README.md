@@ -43,9 +43,7 @@ Details: [Requirements](docs/user/requirements.md) · [21.02 compat](docs/openwr
 
 ## Install
 
-**Recommended — [binary feed](docs/binary-feed.md)** (`opkg` on **21.02–24.10**, `apk` on **25.12+** from GitHub Pages).
-
-**opkg (21.02.x – 24.10.x)** — run on the router; picks the feed for your OpenWrt release:
+**Recommended — [binary feed](docs/binary-feed.md).** Run this on the router. It picks the feed for your OpenWrt release:
 
 ```sh
 BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
@@ -64,6 +62,11 @@ echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
 opkg update && opkg install luci-app-fwlive
 ```
 
+**After install:** [enable logging](docs/user/enabling-firewall-logs.md#quick-start-after-install) — the table stays empty until you enable logging.
+
+<details>
+<summary>Other install methods</summary>
+
 **apk (25.12+)** — hardcoded example for OpenWrt **25.12**:
 
 ```sh
@@ -77,7 +80,7 @@ apk update && apk add luci-app-fwlive
 
 More detail: [binary feed](docs/binary-feed.md) · per-release notes in [21.02](docs/openwrt-21.02-compat.md) / [22.03](docs/openwrt-22.03-compat.md) compat docs.
 
-**Alternative — [GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases):** download the package for your OpenWrt version and install manually.
+**GitHub Releases** — download the package for your OpenWrt version and install manually:
 
 | OpenWrt | Package | Install |
 |---------|---------|---------|
@@ -92,6 +95,8 @@ echo "src-link fwlive $(pwd)/fwlive/openwrt-feed" >> feeds.conf
 ./scripts/feeds update fwlive
 ./scripts/feeds install luci-app-fwlive
 ```
+
+</details>
 
 Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](docs/binary-feed.md) · [Release workflow](docs/release.md) (maintainers)
 

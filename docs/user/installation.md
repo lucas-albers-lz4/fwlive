@@ -1,6 +1,6 @@
 # Installation
 
-Four paths: **opkg/apk feed** (recommended for router owners), **GitHub Release** download, **feed via `src-link`** (builders), or **Docker SDK** (developers / lab).
+Most users install from the **[binary feed](#1-binary-feed-recommended)**. It needs no manual download. When the feed does not work for you, use the other methods.
 
 ## 1. Binary feed (recommended)
 
@@ -23,6 +23,11 @@ opkg update && opkg install luci-app-fwlive
 ```
 
 Use `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x**, `…/21.02` for legacy **21.02.x (fw3)**. For 25.12+, see the apk section in [binary-feed.md](../binary-feed.md).
+
+<details>
+<summary>Other install methods</summary>
+
+Use these methods when the binary feed does not work for you. Most users do not need them.
 
 ## 2. GitHub Release (manual download)
 
@@ -98,6 +103,8 @@ On **Linux x86_64**:
 Packages land under `out/<arch>/<version>/fwlive/`. Deploy with `scp` + `opkg`/`apk` as in section 1.
 
 For a full QEMU lab loop (build → boot → install), see [Developer: QEMU lab](../developer/qemu-lab.md).
+
+</details>
 
 ## After install
 
