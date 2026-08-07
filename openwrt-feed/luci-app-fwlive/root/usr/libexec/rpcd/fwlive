@@ -144,8 +144,10 @@ map_uci_rule_names() {
 
 map_from_nft_stream() {
 	while IFS= read -r line; do
-		prefix=$(echo "$line" | sed -n 's/.*log prefix "\([^"]*\)".*/\1/p')
-		comment=$(echo "$line" | sed -n 's/.*comment "\([^"]*\)".*/\1/p')
+		# Capture [^"]* plus escaped-quote units (\"...) so a log prefix or
+		# comment containing an escaped quote is not truncated at the quote.
+		prefix=$(echo "$line" | sed -n 's/.*log prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+		comment=$(echo "$line" | sed -n 's/.*comment "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
 		label=''
 
 		case "$comment" in
@@ -171,8 +173,8 @@ map_from_iptables_save_stream() {
 			-*) ;;
 			*) continue ;;
 		esac
-		prefix=$(echo "$line" | sed -n 's/.*--log-prefix "\([^"]*\)".*/\1/p')
-		comment=$(echo "$line" | sed -n 's/.*--comment "\([^"]*\)".*/\1/p')
+		prefix=$(echo "$line" | sed -n 's/.*--log-prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+		comment=$(echo "$line" | sed -n 's/.*--comment "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
 		[ -n "$prefix" ] || continue
 		map_log_prefix_entry "$prefix" "$comment"
 	done
@@ -381,6 +383,26 @@ run_selftest() {
 	fi
 	if ! is_resolvable_address '2001:db8::1'; then
 		echo 'is_resolvable_address: expected accept IPv6' >&2
+		return 1
+	fi
+
+	# Escaped-quote capture: a log prefix containing \" must not be truncated
+	# at the escaped quote (nft dumps strings with backslash escapes).
+	got=$(printf '%s\n' 'log prefix "My \" Rule"' | sed -n 's/.*log prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	if [ "$got" != 'My \" Rule' ]; then
+		echo "escaped-quote prefix capture: expected 'My \\\" Rule' got '$got'" >&2
+		return 1
+	fi
+	# Plain prefix still captures unchanged.
+	got=$(printf '%s\n' 'log prefix "Plain Rule"' | sed -n 's/.*log prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	if [ "$got" != 'Plain Rule' ]; then
+		echo "plain prefix capture: expected 'Plain Rule' got '$got'" >&2
+		return 1
+	fi
+	# Empty prefix edge.
+	got=$(printf '%s\n' 'log prefix ""' | sed -n 's/.*log prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	if [ "$got" != '' ]; then
+		echo "empty prefix capture: expected '' got '$got'" >&2
 		return 1
 	fi
 
