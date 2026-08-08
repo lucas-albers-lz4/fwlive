@@ -75,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidated planning/spec docs into ROADMAP.md
 - Restructured over-long user docs (Quick Start first)
 - Added CHANGELOG.md, FAQ.md, and upgrade guide
-- Fixed cross-reference accuracy and MCR review findings throughout
+- Fixed cross-reference accuracy and review findings throughout
 
 ---
 
