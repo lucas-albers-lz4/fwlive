@@ -145,6 +145,8 @@ sdk_matrix_feeds_setup() {
 		echo "missing pinned feeds lock: $lock_path" >&2
 		return 1
 	}
+	# Retry feeds update: git.openwrt.org (and mirrors) drop TLS under CI load.
+	# HTTP/1.1 reduces curl-35 / gnutls_handshake failures (openwrt/openwrt#21854).
 	sdk_matrix_compose_run sh -ec "
 		cd /builder
 		export TERM=dumb
@@ -154,7 +156,19 @@ sdk_matrix_feeds_setup() {
 		cp /work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf feeds.conf
 		grep -q '^src-link fwlive' feeds.conf || echo 'src-link fwlive /work/fwlive/openwrt-feed' >> feeds.conf
 
-		./scripts/feeds update base luci packages
+		git config --global http.version HTTP/1.1 || true
+
+		ok=0
+		for i in 1 2 3; do
+			if ./scripts/feeds update base luci packages; then
+				ok=1
+				break
+			fi
+			echo \"feeds update attempt \$i failed; retrying in \$((i * 5))s...\" >&2
+			sleep \$((i * 5))
+		done
+		test \"\$ok\" -eq 1
+
 		./scripts/feeds install -p base ${base_pkgs}
 		./scripts/feeds install luci-base
 		./scripts/feeds update fwlive

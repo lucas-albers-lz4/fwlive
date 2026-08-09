@@ -108,7 +108,7 @@ feed_publish_ensure_usign() {
 	echo "→ building usign (one-time)..." >&2
 	mkdir -p "$build_dir"
 	if [[ ! -d "${build_dir}/src/.git" ]]; then
-		git clone --depth 1 https://git.openwrt.org/project/usign.git "${build_dir}/src"
+		git clone --depth 1 https://github.com/openwrt/usign.git "${build_dir}/src"
 	fi
 	make -C "${build_dir}/src" -j"$(nproc 2>/dev/null || echo 2)" >/dev/null
 	ln -sf "${build_dir}/src/usign" "${build_dir}/usign"

@@ -74,6 +74,18 @@ jobs:
           APK_FEED_PUBLIC_KEY: ${{ github.workspace }}/fwlive-feed.rsa.pub
         run: ./scripts/validate-feed-keys.sh
 
+      # #122: reuse feed clones + dl/ across publishes (lock hash = cache key).
+      - name: Cache SDK feeds and dl
+        uses: actions/cache@v4
+        with:
+          path: .cache/sdk-feeds
+          key: sdk-feeds-${{ runner.os }}-${{ hashFiles('scripts/feeds.lock/**') }}
+          restore-keys: |
+            sdk-feeds-${{ runner.os }}-
+
+      - name: Restore SDK feeds into docker volumes
+        run: ./scripts/ci-cache-sdk-feeds.sh restore .cache/sdk-feeds
+
       - name: Build packages (21.02, 22.03, 23.05, 24.10, 25.12)
         run: |
           mkdir -p out
@@ -81,6 +93,10 @@ jobs:
             echo "=== docker-sdk build: OpenWrt ${ver} ==="
             ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
           done
+
+      - name: Save SDK feeds from docker volumes
+        if: always()
+        run: ./scripts/ci-cache-sdk-feeds.sh save .cache/sdk-feeds
 
       - name: Verify reproducible builds
         run: ./scripts/verify-reproducible-build.sh
