@@ -204,10 +204,14 @@ Pinned inputs (regenerate when bumping OpenWrt point releases):
 
 | Input | Location |
 |-------|----------|
-| Feed commits | [`scripts/feeds.lock/`](../scripts/feeds.lock/) per SDK version |
+| Feed commits | [`scripts/feeds.lock/`](../scripts/feeds.lock/) per SDK version (GitHub mirrors of git.openwrt.org; pinned SHAs unchanged) |
 | SDK image tag | [`scripts/lib/sdk-matrix.sh`](../scripts/lib/sdk-matrix.sh) |
 | Package version | `PKG_VERSION` / `PKG_RELEASE` in package Makefile |
 | Timestamps | `SOURCE_DATE_EPOCH` (git commit epoch; set in CI on release tag) |
+
+Publish CI (`publish-packages`) retries `feeds update` (3× + HTTP/1.1) and caches
+`/builder/feeds` + `/builder/dl` across runs (`scripts/ci-cache-sdk-feeds.sh`,
+keyed on the feeds.lock tree) so a transient TLS drop does not fail a release.
 
 Verify locally:
 
