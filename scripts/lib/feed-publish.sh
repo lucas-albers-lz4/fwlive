@@ -100,16 +100,18 @@ feed_publish_ensure_usign() {
 	if command -v usign >/dev/null 2>&1; then
 		return 0
 	fi
-	local build_dir="${FEED_PUBLISH_USIGN_BUILD:-/tmp/fwlive-usign-build}"
-	if [[ -x "${build_dir}/usign" ]]; then
-		export PATH="${build_dir}:${PATH}"
-		return 0
-	fi
-	echo "→ building usign (one-time)..." >&2
-	mkdir -p "$build_dir"
-	if [[ ! -d "${build_dir}/src/.git" ]]; then
-		git clone --depth 1 https://github.com/openwrt/usign.git "${build_dir}/src"
-	fi
+	# Build into a fresh, unpredictable mktemp -d each invocation. This removes
+	# the fixed /tmp path trust (issue #131): no pre-existing /tmp/fwlive-usign-
+	# build can be hijacked, since there is no fixed path to pre-create.
+	local build_dir
+	build_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-usign.XXXXXX")"
+	# The build dir intentionally lives for the process lifetime: PATH
+	# points into it and usign is invoked later by the caller. It is a
+	# random per-process name (no fixed path to pre-create = no hijack
+	# window); /tmp is reaped on reboot. Cleanup belongs to the caller's
+	# trap, not this lib (it cannot know when the last usign use happens).
+	echo "→ building usign (isolated build dir)..." >&2
+	git clone --depth 1 https://github.com/openwrt/usign.git "${build_dir}/src"
 	make -C "${build_dir}/src" -j"$(nproc 2>/dev/null || echo 2)" >/dev/null
 	ln -sf "${build_dir}/src/usign" "${build_dir}/usign"
 	export PATH="${build_dir}:${PATH}"
@@ -118,28 +120,72 @@ feed_publish_ensure_usign() {
 
 feed_publish_ipkg_index_script() {
 	local ver_label="$1"
-	local cache="${FEED_PUBLISH_IPKG_INDEX_CACHE:-/tmp/fwlive-ipkg-make-index}"
-	local tag
+	local cache sha expected_hash dest got tmp
+	cache="${FEED_PUBLISH_IPKG_INDEX_CACHE:-/tmp/fwlive-ipkg-make-index}"
+	# Pin to immutable commit SHAs (not mutable branches) and declare the
+	# expected sha256 of ipkg-make-index.sh per OpenWrt version. The fetch URL
+	# + hash pin defeats TOFU (issue #131): a branch ref can move, but a commit
+	# SHA + verified hash cannot.
 	case "$ver_label" in
-		21.02.7) tag='v21.02.7' ;;
-		22.03.7) tag='openwrt-22.03' ;;
-		23.05.5) tag='openwrt-23.05' ;;
-		24.10.5) tag='v24.10.5' ;;
-		*) tag='v24.10.5' ;;
+		21.02.7) sha='57a6d97ddf8f6541a52e0f8fad8c6f47685a1bc3'; expected_hash='35e587385a601580d79a1b5cdbb2f591d7b34be9c07e7be36cbb8765a8ef58e6' ;;
+		22.03.7) sha='4e1d1b7df0ce6fa96d7462dc883917682f428046'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
+		23.05.5) sha='33063b4ccf00d39393796499b23df55187b192dc'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
+		24.10.5) sha='4f7e6e554be2aef6a55be36f9f954d56705eb2ee'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
+		*)       sha='4f7e6e554be2aef6a55be36f9f954d56705eb2ee'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
 	esac
-	mkdir -p "$cache"
-	local dest="${cache}/ipkg-make-index-${ver_label}.sh"
-	if [[ ! -f "$dest" ]]; then
-		curl -fsSL "https://raw.githubusercontent.com/openwrt/openwrt/${tag}/scripts/ipkg-make-index.sh" -o "$dest"
-		chmod +x "$dest"
+
+	# The returned path is ALWAYS a fresh private mktemp file that has been
+	# verified in this invocation. The cache is only ever a READ-ONLY SOURCE:
+	# its copy is re-verified before use, and the executed file is never the
+	# cache path itself — closing the TOCTOU window (a cache file swapped
+	# after verification, or a symlinked cache entry, cannot redirect what we
+	# execute, because we execute the private verified copy).
+	local verified
+	verified="$(mktemp "${TMPDIR:-/tmp}/fwlive-ipkg-index.XXXXXX")"
+
+	# Seed from cache if present and valid (fast path); else fetch pinned.
+	dest="${cache}/ipkg-make-index-${ver_label}.sh"
+	if [[ -f "$dest" ]]; then
+		got="$(sha256sum "$dest" 2>/dev/null | awk '{print $1}')"
+		if [[ "$got" == "$expected_hash" ]]; then
+			cp "$dest" "$verified"
+		else
+			rm -f "$dest"
+		fi
 	fi
-	printf '%s' "$dest"
+	# Verify the seeded private file (empty if cache was absent/invalid).
+	got="$(sha256sum "$verified" | awk '{print $1}')"
+	if [[ "$got" != "$expected_hash" ]]; then
+		# Cache was absent/invalid: fetch pinned, into the private file.
+		echo "→ fetching ipkg-make-index.sh (${ver_label}) pinned to ${sha:0:12}..." >&2
+		if ! curl -fsSL "https://raw.githubusercontent.com/openwrt/openwrt/${sha}/scripts/ipkg-make-index.sh" -o "$verified"; then
+			echo "failed to fetch ipkg-make-index.sh for ${ver_label}" >&2
+			rm -f "$verified"
+			return 1
+		fi
+		got="$(sha256sum "$verified" | awk '{print $1}')"
+		if [[ "$got" != "$expected_hash" ]]; then
+			echo "ipkg-make-index.sh sha256 mismatch for ${ver_label}: expected ${expected_hash}, got ${got}" >&2
+			rm -f "$verified"
+			return 1
+		fi
+		# Refresh the cache (best-effort; the verified file is what we return).
+		mkdir -p "$cache"
+		rm -f "$dest"
+		cp "$verified" "$dest"
+	fi
+	chmod +x "$verified"
+	printf '%s' "$verified"
 }
 
 feed_publish_stage_opkg_host() {
 	local pkg_dir="$1" ver_label="$2"
 	local index_script raw mkhash
 	index_script="$(feed_publish_ipkg_index_script "$ver_label")"
+	# Caller-owned cleanup (luna Minor fold 2026-08-10): the returned
+	# private file is executed once below, then removed on every exit
+	# path — success, index failure, and empty-Packages abort alike.
+	trap 'rm -f "$index_script"' RETURN
 	raw="$(mktemp)"
 	# ipkg-make-index.sh uses $MKHASH sha256 (OpenWrt mkhash), not sha256sum alone.
 	mkhash=""
