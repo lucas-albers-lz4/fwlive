@@ -77,6 +77,9 @@ echo "== fwlive filter negate toggle ==" >&2
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh
 
+echo "== fwlive logging lock (race) ==" >&2
+bash tests/fwlive-logging-lock.test.sh
+
 echo "== fwlive rules map (iptables-save) ==" >&2
 "$NODE" tests/fwlive-rules-map.test.js
 
