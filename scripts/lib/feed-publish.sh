@@ -350,7 +350,11 @@ feed_publish_write_manifest() {
 		# (mutable tag → digest makes the release attributable). Per-cell:
 		# resolve target×version, then inspect the pulled image.
 		sdk_matrix_resolve x86-64 "$ver"
-		sdk_digest="$(sdk_matrix_image_digest)"
+		# Explicit failure propagation (luna fold 2026-08-10): a command
+		# substitution's non-zero status is swallowed unless checked —
+		# without `|| return 1` an unresolvable digest would silently
+		# record an empty sdk_digest and the release would proceed.
+		sdk_digest="$(sdk_matrix_image_digest)" || return 1
 		[[ $first -eq 1 ]] || printf ',\n' >> "$manifest"
 		first=0
 		printf '    {"openwrt": "%s", "file": "%s", "sha256": "%s", "sdk_image": "%s", "sdk_digest": "%s"}' \

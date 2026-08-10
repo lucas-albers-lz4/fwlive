@@ -103,17 +103,25 @@ sdk_matrix_pull() {
 # `@sha256:<image ID>` and warn. An empty digest is never recorded silently: if
 # neither source yields a digest this returns non-zero (release manifest aborts).
 sdk_matrix_image_digest() {
-	local image="${SDK_MATRIX_IMAGE:?sdk_matrix_resolve first}" digest id
+	local image="${SDK_MATRIX_IMAGE:?sdk_matrix_resolve first}" repo digest id
+	# The repo prefix to match: ghcr.io/openwrt/sdk (strip any tag).
+	repo="${image%%:*}"
 	sdk_matrix_pull
-	digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$image" 2>/dev/null || true)"
+	# Select the RepoDigest matching THIS repository (luna fold 2026-08-10):
+	# an image can have multiple RepoDigests (same image pushed to several
+	# registries) with unspecified ordering — RepoDigests[0] is NOT
+	# guaranteed to be the ghcr.io/openwrt/sdk one. Match the requested
+	# repo prefix exactly.
+	digest="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" 2>/dev/null \
+		| grep -E "^${repo}@sha256:" | head -1 || true)"
 	if [[ -z "$digest" ]]; then
 		id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
 		if [[ -z "$id" ]]; then
-			echo "ERROR: cannot resolve SDK image digest for ${image} (no RepoDigests, no image ID)" >&2
+			echo "ERROR: cannot resolve SDK image digest for ${image} (no ${repo} RepoDigest, no image ID)" >&2
 			return 1
 		fi
 		digest="@${id}"
-		echo "WARNING: SDK image ${image} has no RepoDigests (locally built?); recording image ID fallback ${digest}" >&2
+		echo "WARNING: SDK image ${image} has no ${repo} RepoDigest (locally built?); recording image ID fallback ${digest}" >&2
 	fi
 	printf '%s' "$digest"
 }

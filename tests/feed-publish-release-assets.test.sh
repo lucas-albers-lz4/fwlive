@@ -48,8 +48,8 @@ test -f "$staging/luci-app-fwlive_0.1.16_22.03_all.ipk"
 test -f "$staging/luci-app-fwlive_0.1.16_23.05_all.ipk"
 
 # Guard #144: manifest records ONE SDK image digest per target×version cell.
-# Docker is mocked so the test is hermetic (RepoDigests[0] source + the
-# empty-RepoDigests → @sha256:<image ID> fallback path).
+# Docker is mocked so the test is hermetic (RepoDigests source + the
+# empty-RepoDigests → @sha256:<image ID> fallback path + abort path).
 mock_bin="${fixture}/mock-bin"
 mkdir -p "$mock_bin"
 cat > "$mock_bin/docker" <<'EOF'
@@ -59,8 +59,14 @@ image="${!#}"
 case "${1:-}" in
 	image)
 		case "${2:-}" in
-			pull) exit 0 ;;
+			pull)
+				# Record the pull so tests can assert the pull path ran.
+				[[ -n "${MOCK_PULL_LOG:-}" ]] && echo "pull $image" >> "$MOCK_PULL_LOG"
+				exit 0
+				;;
 			inspect)
+				# Bare existence check (no --format): MOCK_IMAGE_ABSENT=1
+				# simulates the image not being present → pull fires.
 				if [[ "${3:-}" == "--format" ]]; then
 					case "$4" in
 						*RepoDigests*)
@@ -69,11 +75,14 @@ case "${1:-}" in
 							exit 0
 							;;
 						*)
+							# .Id path — MOCK_NO_ID=1 simulates an unresolvable image.
+							[[ "${MOCK_NO_ID:-0}" != "1" ]] || exit 1
 							printf 'sha256:%s\n' "$(printf '%s' "$image" | sha256sum | awk '{print $1}')"
 							exit 0
 							;;
 					esac
 				fi
+				[[ "${MOCK_IMAGE_ABSENT:-0}" != "1" ]] || exit 1
 				exit 0
 				;;
 		esac
@@ -84,8 +93,16 @@ EOF
 chmod +x "$mock_bin/docker"
 PATH="$mock_bin:$PATH"
 
-mkdir -p "${fixture}/manifest-staging" "${fixture}/fallback-staging"
+mkdir -p "${fixture}/manifest-staging" "${fixture}/fallback-staging" "${fixture}/abort-staging" "${fixture}/pull-staging"
+# Assert the pull path runs: image absent (bare inspect fails) → explicit
+# pull before the digest inspect (luna fold 2026-08-10).
+pull_log="$(mktemp)"
+export MOCK_PULL_LOG="$pull_log" MOCK_IMAGE_ABSENT=1
+feed_publish_write_manifest "${fixture}/pull-staging" test-tag
+grep -q '^pull ghcr.io/openwrt/sdk:' "$pull_log" || { echo "FAIL: sdk_matrix_pull not called"; exit 1; }
+unset MOCK_IMAGE_ABSENT
 feed_publish_write_manifest "${fixture}/manifest-staging" test-tag
+grep -q '^pull ghcr.io/openwrt/sdk:' "$pull_log" || { echo "FAIL: sdk_matrix_pull not called"; exit 1; }
 test -f "${fixture}/manifest-staging/manifest.json"
 grep -q '"openwrt": "21.02"' "${fixture}/manifest-staging/manifest.json"
 grep -q '"sha256":' "${fixture}/manifest-staging/manifest.json"
@@ -105,7 +122,7 @@ fallback_warn="$(mktemp)"
 export MOCK_REPO_DIGESTS=0
 feed_publish_write_manifest "${fixture}/fallback-staging" test-tag 2>"$fallback_warn"
 grep -q '"sdk_digest": "@sha256:' "${fixture}/fallback-staging/manifest.json"
-grep -qi 'has no RepoDigests' "$fallback_warn"
+grep -qi 'has no .*RepoDigest' "$fallback_warn"
 command -v node >/dev/null 2>&1 && node -e '
 	const fs = require("fs");
 	const m = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
@@ -114,5 +131,24 @@ command -v node >/dev/null 2>&1 && node -e '
 	}
 ' "${fixture}/fallback-staging/manifest.json"
 export MOCK_REPO_DIGESTS=1
+
+# Neither RepoDigests nor .Id resolvable → manifest generation must FAIL
+# (no empty digest recorded silently; luna fold 2026-08-10).
+abort_warn="$(mktemp)"
+export MOCK_REPO_DIGESTS=0 MOCK_NO_ID=1
+if feed_publish_write_manifest "${fixture}/abort-staging" test-tag 2>"$abort_warn"; then
+	echo "FAIL: manifest generation must abort when no digest source exists" >&2
+	exit 1
+fi
+grep -qi 'cannot resolve SDK image digest' "$abort_warn" || {
+	echo "FAIL: abort must report the unresolvable digest" >&2
+	exit 1
+}
+if [[ -s "${fixture}/abort-staging/manifest.json" ]] && \
+   grep -q '"sdk_digest": ""' "${fixture}/abort-staging/manifest.json"; then
+	echo "FAIL: abort path must not record an empty digest" >&2
+	exit 1
+fi
+unset MOCK_REPO_DIGESTS MOCK_NO_ID
 
 echo "feed-publish release asset tests passed"
