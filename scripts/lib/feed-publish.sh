@@ -182,6 +182,10 @@ feed_publish_stage_opkg_host() {
 	local pkg_dir="$1" ver_label="$2"
 	local index_script raw mkhash
 	index_script="$(feed_publish_ipkg_index_script "$ver_label")"
+	# Caller-owned cleanup (luna Minor fold 2026-08-10): the returned
+	# private file is executed once below, then removed on every exit
+	# path — success, index failure, and empty-Packages abort alike.
+	trap 'rm -f "$index_script"' RETURN
 	raw="$(mktemp)"
 	# ipkg-make-index.sh uses $MKHASH sha256 (OpenWrt mkhash), not sha256sum alone.
 	mkhash=""
