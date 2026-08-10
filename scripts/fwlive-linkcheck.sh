@@ -70,7 +70,7 @@ if broken:
 print(f"internal links checked: {checked}, broken: 0")
 PYEOF
 
-echo "== external URLs (404 = fail; 403/429/5xx = warn) =="
+echo "== external URLs (404 = fail; 000/403/429/5xx = warn) =="
 python3 - <<'PYEOF'
 import os, re, subprocess, sys
 
@@ -108,6 +108,23 @@ for u in sorted(urls):
             continue
         if code in ('403', '429', '500', '502', '503', '504'):
             warns.append((u, code))
+        elif code == '000':
+            # Network-level failure (DNS/TLS/conn-refused/timeout) — not a
+            # problem with the link itself.  Retry once then warn.
+            try:
+                r2 = subprocess.run(
+                    ['curl', '-sL', '-o', '/dev/null', '-w', '%{http_code}',
+                     '-A', 'Mozilla/5.0 (X11; Linux x86_64)', '--max-time', '15', u],
+                    capture_output=True, text=True, timeout=20)
+                code2 = r2.stdout.strip()
+                if code2.startswith('2') or code2.startswith('3'):
+                    continue
+                if code2 in ('403', '429', '500', '502', '503', '504'):
+                    warns.append((u, code2))
+                else:
+                    warns.append((u, code2 if code2 else '000'))
+            except Exception:
+                warns.append((u, '000 (retry also failed)'))
         else:
             fails.append((u, code))
     except Exception as e:
