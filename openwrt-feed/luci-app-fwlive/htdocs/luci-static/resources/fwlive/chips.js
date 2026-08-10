@@ -26,13 +26,13 @@ function chipValueNodes(field, val, style) {
 		return [ '' ];
 
 	const valueNode = (style === 'labels' && p.negate)
-		? E('span', { 'class': 'fwlive-chip-strike' }, p.value)
+		? E('span', { 'class': 'fwlive-chip-strike' }, [ p.value ])
 		: p.value;
 
 	if (!p.negate) {
 		if (style === 'labels')
 			return [
-				E('span', { 'class': 'fwlive-chip-polarity' }, _('is')),
+				E('span', { 'class': 'fwlive-chip-polarity' }, [ _('is') ]),
 				' ',
 				log.formatFilterChipLabel(field, val)
 			];
@@ -42,14 +42,14 @@ function chipValueNodes(field, val, style) {
 	if (field === 'q' || field === 'src' || field === 'dst')
 		return [
 			field + ': ',
-			E('strong', { 'class': 'fwlive-chip-not' }, _('not')),
+			E('strong', { 'class': 'fwlive-chip-not' }, [ _('not') ]),
 			' contains ',
 			valueNode
 		];
 
 	return [
 		field + ': ',
-		E('strong', { 'class': 'fwlive-chip-not' }, _('not')),
+		E('strong', { 'class': 'fwlive-chip-not' }, [ _('not') ]),
 		' ',
 		valueNode
 	];
@@ -61,13 +61,13 @@ function chipLeadingSym(style, negated) {
 		return E('span', {
 			'class': 'fwlive-chip-sym',
 			'aria-hidden': 'true'
-		}, negated ? '≠' : '=');
+		}, [ negated ? '≠' : '=' ]);
 
 	if (style === 'labels' && negated)
 		return E('span', {
 			'class': 'fwlive-chip-sym fwlive-chip-sym-light',
 			'aria-hidden': 'true'
-		}, '≠');
+		}, [ '≠' ]);
 
 	return null;
 }
@@ -100,14 +100,14 @@ function renderFilterChips(host, state, callbacks) {
 				'type': 'button',
 				'class': 'fwlive-chip-invert',
 				'click': function(ev) { callbacks.onInvert(spec.key, ev); }
-			}, '≠')
+			}, [ '≠' ])
 		]));
 		kids.push(E('a', {
 			'href': '#',
 			'class': 'fwlive-chip-remove',
 			'title': _('Remove filter'),
 			'click': function(ev) { callbacks.onClear(spec.key, ev); }
-		}, '×'));
+		}, [ '×' ]));
 
 		chips.push(E('span', {
 			'class': 'fwlive-chip'
@@ -130,7 +130,7 @@ function renderFilterChips(host, state, callbacks) {
 		'href': '#',
 		'class': 'fwlive-chip-clear',
 		'click': function(ev) { callbacks.onClearAll(ev); }
-	}, _('Clear all')));
+	}, [ _('Clear all') ]));
 }
 
 return baseclass.extend({

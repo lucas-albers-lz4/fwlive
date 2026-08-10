@@ -67,59 +67,59 @@ function renderToolbar(host, state, callbacks) {
 
 	if (blocker === 'no_wan_zone') {
 		host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-			_('WAN logging unavailable: no WAN zone')));
+			[ _('WAN logging unavailable: no WAN zone') ]));
 		host.appendChild(links.firewallZonesLink());
 		return;
 	}
 
 	if (blocker === 'nf_log_missing') {
 		host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-			_('WAN logging unavailable: missing kernel log modules')));
+			[ _('WAN logging unavailable: missing kernel log modules') ]));
 		return;
 	}
 
 	const limit = st.wan_log_limit || _('default 10/minute');
 	if (st.wan_log) {
 		host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-			_('WAN logging: on · %s').format(limit)));
+			[ _('WAN logging: on · %s').format(limit) ]));
 		host.appendChild(E('button', {
 			'class': 'cbi-button fwlive-btn-quiet',
 			'type': 'button',
 			'title': _('WAN logging on (%s). Click to disable.').format(limit),
 			'disabled': state.loggingBusy ? '' : null,
 			'click': function() { callbacks.onDisable(); }
-		}, state.loggingBusy ? _('Disabling…') : _('WAN logging on')));
+		}, [ state.loggingBusy ? _('Disabling…') : _('WAN logging on') ]));
 		return;
 	}
 
 	host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-		_('WAN logging: off')));
+		[ _('WAN logging: off') ]));
 	host.appendChild(E('button', {
 		'class': 'cbi-button cbi-button-action',
 		'type': 'button',
 		'title': _('Enable WAN zone drop/reject logging (same as Network → Firewall).'),
 		'disabled': state.loggingBusy ? '' : null,
 		'click': function() { callbacks.onEnable(); }
-	}, state.loggingBusy ? _('Enabling…') : _('Enable logging')));
+	}, [ state.loggingBusy ? _('Enabling…') : _('Enable logging') ]));
 }
 
 function buildConsentPanel(state, callbacks) {
 	const dontShowId = 'fwlive-consent-dont-show';
 	const panel = E('div', { 'class': 'fwlive-consent', 'id': 'fwlive-consent' }, [
-		E('p', { 'class': 'fwlive-empty-title' }, _('Before you enable logging')),
+		E('p', { 'class': 'fwlive-empty-title' }, [ _('Before you enable logging') ]),
 		E('ul', { 'class': 'fwlive-consent-list' }, [
 			E('li', {}, [
-				E('strong', {}, _('Changes:')),
+				E('strong', {}, [ _('Changes:') ]),
 				' ',
 				_('sets log on the WAN firewall zone and reloads the firewall.')
 			]),
 			E('li', {}, [
-				E('strong', {}, _('Does not change:')),
+				E('strong', {}, [ _('Does not change:') ]),
 				' ',
 				_('allow/deny rules, LAN logging, or anything else.')
 			]),
 			E('li', {}, [
-				E('strong', {}, _('Undo:')),
+				E('strong', {}, [ _('Undo:') ]),
 				' ',
 				_('turn it back off with the WAN logging on control on the watch strip.')
 			])
@@ -143,7 +143,7 @@ function buildConsentPanel(state, callbacks) {
 					persistConsentDismissed();
 					callbacks.onEnable();
 				}
-			}, state.loggingBusy ? _('Enabling…') : _('Enable WAN drop/reject logging')),
+			}, [ state.loggingBusy ? _('Enabling…') : _('Enable WAN drop/reject logging') ]),
 			' ',
 			E('button', {
 				'class': 'cbi-button',
@@ -156,7 +156,7 @@ function buildConsentPanel(state, callbacks) {
 					if (callbacks.onDismissConsent)
 						callbacks.onDismissConsent(persist);
 				}
-			}, _('Not now')),
+			}, [ _('Not now') ]),
 			' ',
 			links.firewallZonesLink(_('I’ll configure this under Network → Firewall'))
 		])
@@ -178,7 +178,7 @@ function buildEmptyStateNodes(state, callbacks) {
 	}
 
 	if (blocker === 'no_wan_zone') {
-		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('No WAN zone found')));
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, [ _('No WAN zone found') ]));
 		nodes.push(E('p', {}, [
 			_('No WAN firewall zone found in /etc/config/firewall. Configure zones under '),
 			links.firewallZonesLink()
@@ -187,24 +187,24 @@ function buildEmptyStateNodes(state, callbacks) {
 	}
 
 	if (blocker === 'nf_log_missing') {
-		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('Kernel log modules missing')));
-		nodes.push(E('p', {}, _('Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall.')));
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, [ _('Kernel log modules missing') ]));
+		nodes.push(E('p', {}, [ _('Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall.') ]));
 		nodes.push(E('p', {}, [
-			E('code', {}, 'opkg update && opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6')
+			E('code', {}, [ 'opkg update && opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6' ])
 		]));
 		return nodes;
 	}
 
 	if (st && st.wan_log) {
-		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('Waiting for firewall events')));
-		nodes.push(E('p', {}, _('WAN drop/reject logging is on. Blocked inbound WAN traffic will show up here. Normal LAN browsing will not.')));
-		nodes.push(E('p', { 'class': 'fwlive-empty-muted' }, _('If the WAN is quiet, wait for probes or use the optional ping check in Help / the enabling-logs guide.')));
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, [ _('Waiting for firewall events') ]));
+		nodes.push(E('p', {}, [ _('WAN drop/reject logging is on. Blocked inbound WAN traffic will show up here. Normal LAN browsing will not.') ]));
+		nodes.push(E('p', { 'class': 'fwlive-empty-muted' }, [ _('If the WAN is quiet, wait for probes or use the optional ping check in Help / the enabling-logs guide.') ]));
 		nodes.push(E('p', {}, links.firewallZonesLink(_('Open firewall zone settings'))));
 		return nodes;
 	}
 
-	nodes.push(E('p', { 'class': 'fwlive-empty-title' }, _('Logging is off on this router')));
-	nodes.push(E('p', {}, _('OpenWrt does not write firewall events to the log until you turn logging on. Live View only shows what the firewall already logs — it does not add allow/deny rules.')));
+	nodes.push(E('p', { 'class': 'fwlive-empty-title' }, [ _('Logging is off on this router') ]));
+	nodes.push(E('p', {}, [ _('OpenWrt does not write firewall events to the log until you turn logging on. Live View only shows what the firewall already logs — it does not add allow/deny rules.') ]));
 
 	/* Consent bullets already spell out the effect — do not repeat it or the CTA. */
 	if (state.showConsent) {
@@ -212,8 +212,8 @@ function buildEmptyStateNodes(state, callbacks) {
 		return nodes;
 	}
 
-	nodes.push(E('p', {}, _('Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal LAN browsing is not logged.')));
-	nodes.push(E('p', { 'class': 'fwlive-empty-muted' }, _('Nothing changes until you click Enable.')));
+	nodes.push(E('p', {}, [ _('Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal LAN browsing is not logged.') ]));
+	nodes.push(E('p', { 'class': 'fwlive-empty-muted' }, [ _('Nothing changes until you click Enable.') ]));
 	nodes.push(E('p', {}, [
 		E('button', {
 			'class': 'cbi-button cbi-button-action',
@@ -223,7 +223,7 @@ function buildEmptyStateNodes(state, callbacks) {
 				persistConsentDismissed();
 				callbacks.onEnable();
 			}
-		}, state.loggingBusy ? _('Enabling…') : _('Enable WAN drop/reject logging')),
+		}, [ state.loggingBusy ? _('Enabling…') : _('Enable WAN drop/reject logging') ]),
 		' ',
 		links.firewallZonesLink(_('I’ll configure this under Network → Firewall'))
 	]));
@@ -246,11 +246,11 @@ function renderManualTestNodes(host, state, _callbacks) {
 	host.innerHTML = '';
 	if (state.firewallBackend === 'iptables') {
 		host.appendChild(document.createTextNode(_('Manual test (System → Terminal): ')));
-		host.appendChild(E('code', {}, 'iptables -I INPUT -p icmp --icmp-type echo-request -j LOG --log-prefix "fwlive-ping: "'));
+		host.appendChild(E('code', {}, [ 'iptables -I INPUT -p icmp --icmp-type echo-request -j LOG --log-prefix "fwlive-ping: "' ]));
 		host.appendChild(document.createTextNode(_(' then ping the router.')));
 	} else {
 		host.appendChild(document.createTextNode(_('Manual test (System → Terminal): ')));
-		host.appendChild(E('code', {}, 'nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept'));
+		host.appendChild(E('code', {}, [ 'nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept' ]));
 		host.appendChild(document.createTextNode(_(' then ping the router.')));
 	}
 }
