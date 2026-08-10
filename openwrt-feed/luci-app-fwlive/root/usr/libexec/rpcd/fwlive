@@ -15,8 +15,19 @@ FILTER_SH="$LIBEXEC_DIR/fwlive-log-filter.sh"
 LOGGING_SH="$LIBEXEC_DIR/fwlive-logging.sh"
 # Max reverse-DNS lookups per resolve call (~32 names keeps getent load bounded on small routers).
 RESOLVE_MAX=32
-# Fixed 1s getent timeout; passed as argv to `timeout`, never interpolated into a shell string.
-RESOLVE_TIMEOUT=1
+# Per-lookup getent timeout. LAN/local-resolver reverse lookups typically resolve
+# in single-digit milliseconds, so a sub-second ceiling lets more lookups fit the
+# wall-clock budget without letting one hung lookup block the worker. Passed as
+# argv to `timeout`, never interpolated into a shell string.
+RESOLVE_TIMEOUT=0.5
+# Wall-clock budget (seconds) for a single ubus fwlive.resolve call. The lookup
+# loop checks elapsed time and aborts cleanly once this budget is spent, so a
+# flood of unresolvable IPs cannot hold an rpcd worker for the full
+# RESOLVE_MAX * RESOLVE_TIMEOUT worst case. The client-side LRU cache
+# (FAIL_TTL_MS, 60s) absorbs partial results, so normal UI behavior is
+# unaffected by the cap. Worst case total time is budget + one in-progress
+# lookup (<= RESOLVE_TIMEOUT), i.e. ~5.5s.
+RESOLVE_BUDGET=5
 # Cap raw logd lines per poll (~2000 ≈ typical logd ring / ~200 KB JSON before filter).
 POLL_LINES_MAX=2000
 # Bound nft ruleset dumps (corrupted/hung nft must not block LuCI rules load).
@@ -322,11 +333,16 @@ resolve_addresses() {
 	}
 
 	if json_select addresses 2>/dev/null; then
+		start=$(date +%s)
 		idx=1
 		# json_get_type / json_get_var assign into named shell variables (jshn).
 		# shellcheck disable=SC2154
 		while json_get_type atype "$idx" && [ "$atype" = string ]; do
 			[ "$count" -ge "$RESOLVE_MAX" ] && break
+			# Abort cleanly once the whole-call wall-clock budget is spent;
+			# never START a lookup past the budget.
+			now=$(date +%s)
+			[ $((now - start)) -ge "$RESOLVE_BUDGET" ] && break
 			json_get_var ip "$idx"
 			if ! is_resolvable_address "$ip"; then
 				idx=$((idx + 1))
