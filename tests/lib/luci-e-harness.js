@@ -48,8 +48,15 @@ class Node {
 		// returning the resulting last child for bare strings, synthesize a
 		// single text node holding the raw string — the write is still
 		// recorded, which is what the #148 regression tests assert on.
-		this.childNodes = [new TextNode(html)];
-		this.lastChild = this.childNodes[0];
+		// EMPTY html matches real DOM: no child, lastChild === null
+		// (the renderer's clear must not leave a synthetic empty node).
+		if (html.length > 0) {
+			this.childNodes = [new TextNode(html)];
+			this.lastChild = this.childNodes[0];
+		} else {
+			this.childNodes = [];
+			this.lastChild = null;
+		}
 	}
 
 	appendChild(node) {
