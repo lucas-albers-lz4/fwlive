@@ -10,6 +10,7 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 | 2 | [Architecture](architecture.md) — modules, data path, design choices |
 | 3 | [Build & test](build-and-test.md) — SDK matrix, validation, smoke scripts |
 | 4 | [Contributing](contributing.md) — parser sync, acceptance criteria, workflow |
+| 5 | [Security model](security-model.md) — trust boundaries, invariants, audit procedure |
 
 ## Repository map
 
@@ -36,6 +37,8 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 | Roadmap | [`../ROADMAP.md`](../ROADMAP.md) |
 | Publish checklist | [`../github-publish-checklist.md`](../github-publish-checklist.md) |
 | Feed layout (no submodule split) | [architecture.md § Feed layout decision](architecture.md#feed-layout-decision) |
+| Trust boundaries & security invariants | [security-model.md](security-model.md) |
+| Agent orientation (invariants, commands) | [`../../AGENTS.md`](../../AGENTS.md) |
 
 ## User documentation
 

@@ -20,6 +20,7 @@ Build, test, and extend the package from this repository.
 - [Build & test](developer/build-and-test.md)
 - [QEMU lab](developer/qemu-lab.md)
 - [Contributing](developer/contributing.md)
+- [Security model](developer/security-model.md)
 
 ---
 
@@ -27,6 +28,7 @@ Build, test, and extend the package from this repository.
 
 | Document | Topic |
 |----------|-------|
+| [developer/security-model.md](developer/security-model.md) | Trust boundaries, security invariants, audit procedure |
 | [binary-feed.md](binary-feed.md) | Signed opkg/apk feed install |
 | [openwrt-21.02-compat.md](openwrt-21.02-compat.md) | Legacy fw3 / 21.02.x |
 | [openwrt-22.03-compat.md](openwrt-22.03-compat.md) | EOL fw4 / 22.03.x |
