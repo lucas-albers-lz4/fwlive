@@ -11,11 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Security model doc: trust boundaries, untrusted-input inventory, and testable security invariants ([`docs/developer/security-model.md`](docs/developer/security-model.md))
-- `AGENTS.md` — repository orientation and hard invariants for coding agents
-- Repeatable `security-audit` skill under `.cursor/skills/` (verified upstream facts, audit order, severity and disclosure rules)
+- `AGENTS.md` — router for coding agents; each rule links to its canonical document rather than restating it
+- Repeatable `security-audit` skill under `.cursor/skills/` (audit order, re-verification commands, severity and disclosure rules)
+- Renderer-test caveat and link-checker step in the build/test guide
 
 ### Fixed
-- Architecture doc claimed rule labels render as text nodes via `E(..., text)`; bare string children are assigned to `innerHTML` and only array children become text nodes (#137)
+- Architecture doc stated the output-encoding rule backwards; corrected and pointed at the security model as its single source (#137)
 
 ## [v0.1.31] — 2026-07-31
 

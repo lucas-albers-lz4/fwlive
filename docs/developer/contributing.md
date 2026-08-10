@@ -4,7 +4,7 @@
 
 - **Small steps** — one behavior per change; verify in CLI + QEMU LuCI when UI-related
 - **Parser sync** — edit `CLASSIFY_SPEC` in `core/fwlive-log.js`, mirror the same object in `htdocs/.../fwlive/log.js`, run `./scripts/gen-all.sh` (regenerates shell; gates LuCI full-spec drift), keep preserve-region presentation in parity
-- **Output encoding** — pass string children to `E()` as arrays (`E(tag, attrs, [ value ])`); the bare form assigns `innerHTML`. Applies to every renderer, including values that look constrained — see [Security model](security-model.md)
+- **Output encoding** — untrusted values must reach the DOM as text nodes, never through an HTML sink; applies to every renderer, including values that look constrained — see [Security model § Invariants](security-model.md#invariants)
 - **No scope creep** — MVP is done; backlog items are in [`../ROADMAP.md`](../ROADMAP.md)
 
 ## Change workflow
@@ -35,7 +35,7 @@ After editing classification: update **both** `core/fwlive-log.js` and the LuCI 
 
 ## Feed / package changes
 
-- `Makefile` — `LUCI_DEPENDS`, version, maintainer
+- `Makefile` — `LUCI_DEPENDS`, version, maintainer. `PKG_VERSION` and `APP_VERSION` in `fwlive/constants.js` must match
 - `menu.d` — path `admin/status/fwlive`
 - `rpcd/acl.d` — grant `fwlive.rules`, `fwlive.poll`, `fwlive.resolve`, `fwlive.logging_status` (read); `fwlive.enable_wan_logging`, `fwlive.disable_wan_logging` (write). Do **not** grant `ubus log.read` — poll performs filtered log reads inside the root rpcd plugin
 

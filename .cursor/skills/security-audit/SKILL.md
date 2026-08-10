@@ -24,38 +24,23 @@ backend has held up under audit.
 
 ## Verified facts — do not re-derive
 
-These were confirmed against upstream source. Trust them; re-verify only if
-upstream changed.
+The facts themselves live in the security model; this section only records **how
+to re-confirm them** if upstream changed. Read
+[`security-model.md`](../../../docs/developer/security-model.md) first — do not
+re-reason about trust boundaries from source.
 
-**LuCI `E()` renders bare string children as HTML.** `dom.append` appends array
-children via `createTextNode` but assigns bare strings to `innerHTML`. So
-`E('td', attrs, str)` is an HTML sink and `E('td', attrs, [ str ])` is not. This
-is the single most important fact for auditing this repo.
+| Fact | Re-verification |
+|------|-----------------|
+| LuCI `E()` assigns bare string children to `innerHTML`; only array children become text nodes | `curl -sS https://raw.githubusercontent.com/openwrt/luci/openwrt-24.10/modules/luci-base/htdocs/luci-static/resources/luci.js \| rg -n "innerHTML" -B 20` |
+| `logd` chmods its socket `0666`, so any local UID can inject syslog lines | `curl -sS https://raw.githubusercontent.com/openwrt/ubox/master/log/syslog.c \| rg -n "chmod"` |
+| Netfilter values parse as `[^\s]+`, so whitespace-free content survives intact | `rg -n "A-Z\]\+\)=" openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js` |
 
-Re-verify with:
+Time-savers learned the hard way:
 
-```sh
-curl -sS https://raw.githubusercontent.com/openwrt/luci/openwrt-24.10/modules/luci-base/htdocs/luci-static/resources/luci.js \
-  | rg -n "innerHTML" -B 20
-```
-
-Note `dom.js` does not exist on that branch — `dom` lives inside `luci.js`.
-
-**Any local process can inject syslog lines.** `logd` chmods its socket `0666`:
-
-```sh
-curl -sS https://raw.githubusercontent.com/openwrt/ubox/master/log/syslog.c | rg -n "chmod"
-```
-
-So firewall log content is untrusted input from *any* UID, not just root.
-
-**Netfilter values are parsed as `[^\s]+`.** `parseKeyValueLog` in
-`fwlive/log.js` — any whitespace-free payload survives into `interface_in`,
-`sport`, `dport`, `proto`, `flags`.
-
-**Host tests cannot see rendering bugs.** `tests/lib/load-fwlive-module.js`
-stubs `E()` as a non-rendering object (`fakeE`). Structural assertions pass
-regardless of encoding. Use the harness below instead.
+- `dom.js` does **not** exist on the `openwrt-24.10` branch — `dom` lives inside
+  `luci.js`. Fetching `dom.js` returns 404 and wastes a round trip.
+- Renderer tests do not render, so a green suite proves nothing about encoding —
+  [build-and-test.md § Renderer tests do not render](../../../docs/developer/build-and-test.md#renderer-tests-do-not-render).
 
 ## Step 1 — frontend rendering sinks
 
@@ -110,11 +95,9 @@ turns into a permanent regression test — check whether it already exists in
 
 ## Step 3 — rpcd plugin and ACL
 
-Read `root/usr/libexec/rpcd/fwlive` end to end; it is short. Check that the
-invariants in the security model still hold: shape-validated addresses, clamped
-line counts, `json_escape` on all string content, no `log.read` in the ACL, read
-and write methods in separate scopes, and CLI-only `__` methods absent from
-`list`.
+Read `root/usr/libexec/rpcd/fwlive` end to end; it is short. Walk the invariants
+in [`security-model.md`](../../../docs/developer/security-model.md) and confirm
+each still holds, plus that CLI-only `__` methods stay absent from `list`.
 
 ```sh
 node tests/fwlive-rpcd-security.test.js
@@ -184,11 +167,14 @@ gh api /repos/{owner}/{repo}/security-advisories --jq '.[] | "\(.ghsa_id) \(.sta
 
 ## Known-good — do not re-litigate without new evidence
 
-Audited and sound: `is_resolvable_address` metacharacter rejection,
-`poll_lines_from_input` clamping, `json_escape` C0 handling, log messages passed
-as stdin data, ACL read/write split, `__rulesmap_iptables` fixed-path guard, WAN
-log bit-0-only manipulation with UCI rollback, and secret-key file permissions
-plus gitignore coverage.
+Invariants 2–7 in [`security-model.md`](../../../docs/developer/security-model.md)
+were each audited and found correctly implemented, as were the
+`__rulesmap_iptables` fixed-path guard, the WAN-log bit-0-only manipulation with
+UCI rollback, and secret-key file permissions plus gitignore coverage.
+
+Re-examine them only with new evidence — a code change in the area, or a concrete
+bypass. Spending the pass re-reading known-good shell is the main way an audit
+runs out of time before reaching the frontend.
 
 Open items are tracked as issues — check them before re-reporting:
 

@@ -1,83 +1,64 @@
 # AGENTS.md
 
-Orientation for coding agents working in this repository. Humans should start at
-[`README.md`](README.md) and the [developer guide](docs/developer/README.md).
+Router for coding agents. Every rule below is stated once, in the document
+linked beside it — **read the link before acting on the rule**, and change the
+canonical document rather than this file when a rule evolves.
+
+Humans should start at [`README.md`](README.md) and the
+[developer guide](docs/developer/README.md).
 
 ## What this is
 
-`luci-app-fwlive` — a LuCI JavaScript app that renders a live table of firewall
-LOG events on OpenWrt. Pure client-side JS plus a small root rpcd plugin and
-shell helpers. No Lua, no custom daemon, no build step for the shipped JS.
+`luci-app-fwlive` — a LuCI JavaScript app rendering a live table of firewall LOG
+events on OpenWrt. Client-side JS plus a small root rpcd plugin and shell
+helpers. No Lua, no daemon, no build step for the shipped JS.
 
-The shipped surface is small: everything under
-`openwrt-feed/luci-app-fwlive/`. The rest of the repo is docs, tests, and lab
-tooling.
+The shipped surface is everything under `openwrt-feed/luci-app-fwlive/`; the rest
+is docs, tests, and lab tooling. Layout:
+[developer guide § Repository map](docs/developer/README.md#repository-map).
 
 ## Hard invariants
 
-Violating any of these breaks CI or ships a security regression.
+Breaking any of these fails CI or ships a security regression.
 
-**Parser sync.** `core/fwlive-log.js` is the source of truth for
-`CLASSIFY_SPEC`. The LuCI copy in
-`openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js` must
-mirror it exactly. After changing classification, edit **both**, then run
-`./scripts/gen-all.sh` and commit the regenerated shell classifier.
-`gen-luci-wrapper.js` is a gate, not a generator — it will not fix drift for you.
+| Rule | Canonical source |
+|------|------------------|
+| Untrusted values reach the DOM as text nodes, never an HTML sink | [security-model.md § Invariants](docs/developer/security-model.md#invariants) |
+| Log content, hostnames, URL-hash values, and UCI values are all untrusted | [security-model.md § Untrusted input inventory](docs/developer/security-model.md#untrusted-input-inventory) |
+| `CLASSIFY_SPEC` edits go in `core/` **and** the LuCI mirror, then `gen-all.sh` | [contributing.md § Parser sync / codegen](docs/developer/contributing.md#parser-sync--codegen) |
+| Never hand-edit generated files (shell classifier, `css.js`) | [contributing.md § Parser sync / codegen](docs/developer/contributing.md#parser-sync--codegen), [build-and-test.md](docs/developer/build-and-test.md) |
+| Sessions never get `ubus log.read`; read and write ACL scopes stay separate | [security-model.md § Invariants](docs/developer/security-model.md#invariants) |
+| `PKG_VERSION` and `APP_VERSION` must match | [contributing.md § Feed / package changes](docs/developer/contributing.md#feed--package-changes) |
 
-**Generated files.** `root/usr/libexec/fwlive-is-firewall-event.sh` is generated.
-Never hand-edit it. SDK package builds do not run Node, which is why it is
-committed.
+## Before you start
 
-**Output encoding.** LuCI's `E(tag, attrs, str)` assigns bare string children to
-`innerHTML`; only array children become text nodes. Always write
-`E(tag, attrs, [ value ])`. Log data, reverse-DNS hostnames, URL-hash filter
-values, and UCI values are all untrusted — see
-[security model](docs/developer/security-model.md).
+| Task | Read first |
+|------|------------|
+| Any change | [contributing.md](docs/developer/contributing.md) |
+| Renderers, rpcd plugin, shell helpers, release pipeline | [security-model.md](docs/developer/security-model.md) |
+| Classification or parsing | [architecture.md](docs/developer/architecture.md) |
+| A security audit | `security-audit` skill in `.cursor/skills/` |
 
-**ACL scope.** Never grant `ubus log.read` to sessions. The rpcd plugin performs
-privileged log reads as root and returns filtered output. Read methods and
-state-changing methods stay in separate ACL scopes.
+## Commands and testing
 
-**Version sync.** `PKG_VERSION` in the package `Makefile` and `APP_VERSION` in
-`fwlive/constants.js` must match.
+Commands, what each gate covers, and the QEMU flow:
+[build-and-test.md](docs/developer/build-and-test.md).
 
-## Commands
+Two traps worth knowing before you trust a green run:
 
-```sh
-npm test                          # ./scripts/fwlive-test.sh — parser, shell parity, codegen freshness, rpcd security
-./scripts/fwlive-linkcheck.sh     # markdown links + heading anchors + external URLs
-./scripts/validate-baseline.sh    # pre-release gate
-./scripts/gen-all.sh              # regenerate shell classifier, verify LuCI wrapper
-```
+- Renderer tests **do not render** — see
+  [build-and-test.md § Renderer tests do not render](docs/developer/build-and-test.md#renderer-tests-do-not-render).
+- `gen-luci-wrapper.js` is a gate, not a generator. It reports drift; it will not
+  fix it for you.
 
-Tests are host-only and need no router. UI changes still need a QEMU check —
-see [qemu-lab.md](docs/developer/qemu-lab.md).
+## Reporting security issues
 
-Docs changes must pass the link checker: it validates relative paths **and**
-heading anchors against a GitHub-style slugger.
-
-## Testing gotcha
-
-`tests/lib/load-fwlive-module.js` stubs `E()` as a plain object that never
-renders. Renderer tests assert on descriptive objects, so **no existing test can
-observe a DOM injection bug**. When touching renderers, verify through a
-LuCI-accurate `E()` harness — recipe in
-`.cursor/skills/security-audit/SKILL.md`.
-
-## Security work
-
-Read [`docs/developer/security-model.md`](docs/developer/security-model.md) for
-trust boundaries and invariants. For an audit, use the `security-audit` skill in
-`.cursor/skills/` — it carries verified upstream facts, the grep patterns, and
-severity/disclosure rules, so it avoids re-deriving known-good ground.
-
-Vulnerabilities go to a **private advisory**, never a public issue
+Vulnerabilities go to a private advisory, never a public issue
 ([`SECURITY.md`](SECURITY.md)). Hardening items are normal public issues.
 
 ## Conventions
 
-- Small changes, one behavior each; see
-  [contributing.md](docs/developer/contributing.md)
-- Tabs for indentation in shell and the shipped JS (match surrounding code)
+- Small changes, one behavior each
+- Tabs for indentation in shell and the shipped JS; match surrounding code
 - Comments explain constraints the code cannot show — not what the next line does
 - Keep user docs free of QEMU/SDK detail; keep developer docs free of marketing
