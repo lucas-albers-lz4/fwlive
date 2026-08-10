@@ -201,16 +201,18 @@ commit_wan_log_change() {
 	return 1
 }
 
-# Firewall reload + best-effort UCI rollback on reload failure. Runs WITHOUT
-# the logging lock: the reload can take seconds and a held lock would block a
-# concurrent toggle until the holder exits (BusyBox flock has no -w timeout).
+# Firewall reload + best-effort UCI rollback on reload failure. The reload
+# itself runs WITHOUT the logging lock (it can take seconds and a held lock
+# would block a concurrent toggle until the holder exits — BusyBox flock has
+# no -w timeout).
 #
-# CONDITIONAL rollback (luna fold 2026-08-10): between this caller's commit
-# and its reload, a concurrent caller may have committed a NEWER value. The
-# rollback must only restore the pre-commit value if the CURRENT value is
-# still what THIS caller committed — otherwise restoring would clobber the
-# newer toggle. `committed` is the value this caller wrote (may be empty for
-# a delete); `previous` is the pre-commit value.
+# The ROLLBACK re-acquires the lock (luna fold 2026-08-10): read->compare->
+# restore is only atomic when no other writer can commit between the read and
+# the restore. All writers hold the same flock, so re-acquiring it makes the
+# decision-and-restore a serialized unit. The lock is held only for the few
+# uci commands of the restore (short critical section), never across the
+# reload. If the lock cannot be re-acquired, skip the rollback (report the
+# reload failure; the next toggle self-corrects).
 reload_and_report_wan_log() {
 	zone="$1"
 	previous="$2"
@@ -220,14 +222,27 @@ reload_and_report_wan_log() {
 	zone_json="$6"
 
 	if ! reload_firewall; then
-		now="$(wan_zone_log_value "$zone")"
-		if [ "$now" = "$committed" ]; then
-			restore_wan_zone_log "$zone" "$previous"
-			logger -t fwlive "$fail_msg" 2>/dev/null || true
+		# Re-acquire the logging lock so the rollback decision is atomic
+		# against concurrent toggles (no check-then-restore race).
+		if acquire_wan_log_lock; then
+			now="$(wan_zone_log_value "$zone")"
+			if [ "$now" = "$committed" ]; then
+				# Current value is still what THIS caller committed — restore
+				# the pre-commit value. (If a concurrent toggle committed the
+				# same value, the toggle is idempotent: the state intent is
+				# identical, so restoring previous is the correct rollback.)
+				restore_wan_zone_log "$zone" "$previous"
+				logger -t fwlive "$fail_msg" 2>/dev/null || true
+			else
+				# A concurrent toggle changed the value after our commit; do
+				# not clobber it. Log the divergence and leave the newer value.
+				logger -t fwlive "Firewall reload failed; WAN log changed concurrently — rollback skipped" 2>/dev/null || true
+			fi
+			release_wan_log_lock
 		else
-			# A concurrent toggle changed the value after our commit; do not
-			# clobber it. Log the divergence and leave the newer value.
-			logger -t fwlive "Firewall reload failed; WAN log changed concurrently — rollback skipped" 2>/dev/null || true
+			# Cannot re-acquire the lock: skip the rollback, report the
+			# reload failure. The next toggle self-corrects the state.
+			logger -t fwlive "Firewall reload failed; rollback lock unavailable — skipped" 2>/dev/null || true
 		fi
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
 		return 0
