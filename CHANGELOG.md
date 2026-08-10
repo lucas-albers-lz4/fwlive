@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AGENTS.md` — router for coding agents; each rule links to its canonical document rather than restating it
 - Repeatable `security-audit` skill under `.cursor/skills/` (audit order, re-verification commands, severity and disclosure rules)
 - Renderer-test caveat and link-checker step in the build/test guide
+- Documentation rule-ownership policy: one owner per rule, plus the narrow forms in which restating one is allowed
 
 ### Fixed
 - Architecture doc stated the output-encoding rule backwards; corrected and pointed at the security model as its single source (#137)

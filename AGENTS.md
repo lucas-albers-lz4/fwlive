@@ -1,8 +1,11 @@
 # AGENTS.md
 
 Router for coding agents. Every rule below is stated once, in the document
-linked beside it — **read the link before acting on the rule**, and change the
-canonical document rather than this file when a rule evolves.
+linked beside it — **read the link before acting on the rule**, and edit that
+document rather than this file when a rule evolves.
+
+Which document owns which rule, and the narrow cases where restating one is
+allowed: [contributing.md § Single source of truth](docs/developer/contributing.md#single-source-of-truth).
 
 Humans should start at [`README.md`](README.md) and the
 [developer guide](docs/developer/README.md).
@@ -61,4 +64,5 @@ Vulnerabilities go to a private advisory, never a public issue
 - Small changes, one behavior each
 - Tabs for indentation in shell and the shipped JS; match surrounding code
 - Comments explain constraints the code cannot show — not what the next line does
-- Keep user docs free of QEMU/SDK detail; keep developer docs free of marketing
+- Documentation conventions, including rule ownership:
+  [contributing.md § Documentation](docs/developer/contributing.md#documentation)
