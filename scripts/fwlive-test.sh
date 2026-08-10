@@ -59,6 +59,9 @@ echo "== fwlive theme tint helpers ==" >&2
 echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js
 
+echo "== fwlive LuCI-accurate E() harness (#149) ==" >&2
+"$NODE" tests/fwlive-e-harness.test.js
+
 echo "== fwlive hostname cache ==" >&2
 "$NODE" tests/fwlive-hostname-cache.test.js
 

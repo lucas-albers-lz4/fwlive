@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const luciE = require('./luci-e-harness');
 
 const ROOT = path.join(__dirname, '..', '..');
 const FWLIVE = path.join(
@@ -69,5 +70,6 @@ module.exports = {
 	FWLIVE: FWLIVE,
 	fakeE: fakeE,
 	fakeGettext: fakeGettext,
-	loadFwliveModule: loadFwliveModule
+	loadFwliveModule: loadFwliveModule,
+	luciE: luciE
 };
