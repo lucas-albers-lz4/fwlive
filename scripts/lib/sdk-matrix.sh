@@ -106,14 +106,18 @@ sdk_matrix_image_digest() {
 	local image="${SDK_MATRIX_IMAGE:?sdk_matrix_resolve first}" repo digest id
 	# The repo prefix to match: ghcr.io/openwrt/sdk (strip any tag).
 	repo="${image%%:*}"
-	sdk_matrix_pull
+	# Explicit pull propagation (luna fold 2026-08-10): a failed pull must
+	# abort — `sdk_digest="$(...)"` disables errexit inside the function,
+	# so a failed pull could otherwise fall through to a misleading inspect.
+	sdk_matrix_pull || return 1
 	# Select the RepoDigest matching THIS repository (luna fold 2026-08-10):
 	# an image can have multiple RepoDigests (same image pushed to several
 	# registries) with unspecified ordering — RepoDigests[0] is NOT
 	# guaranteed to be the ghcr.io/openwrt/sdk one. Match the requested
-	# repo prefix exactly.
+	# repo prefix EXACTLY, literal (no regex — dots in ghcr.io are not
+	# wildcards): awk index() == 1 means the line starts with the repo.
 	digest="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" 2>/dev/null \
-		| grep -E "^${repo}@sha256:" | head -1 || true)"
+		| awk -v r="$repo" 'index($0, r "@sha256:") == 1 {print; exit}' || true)"
 	if [[ -z "$digest" ]]; then
 		id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
 		if [[ -z "$id" ]]; then

@@ -62,6 +62,10 @@ case "${1:-}" in
 			pull)
 				# Record the pull so tests can assert the pull path ran.
 				[[ -n "${MOCK_PULL_LOG:-}" ]] && echo "pull $image" >> "$MOCK_PULL_LOG"
+				# MOCK_PULL_FAIL=1 simulates a failed pull — the production
+				# code must abort (sdk_matrix_pull || return 1), not fall
+				# through to a misleading inspect.
+				[[ "${MOCK_PULL_FAIL:-0}" != "1" ]] || exit 1
 				exit 0
 				;;
 			inspect)
@@ -71,7 +75,19 @@ case "${1:-}" in
 					case "$4" in
 						*RepoDigests*)
 							[[ "${MOCK_REPO_DIGESTS:-1}" != "0" ]] || exit 1
-							printf '%s@sha256:%s\n' "${image%%:*}" "$(printf '%s' "$image" | sha256sum | awk '{print $1}')"
+							# Emit ALL RepoDigests in the SAME order docker
+							# would (multiple registries). The production code
+							# must select the one matching the image's repo
+							# (ghcr.io/openwrt/sdk), NOT RepoDigests[0] — the
+							# decoy (ghcrXio) sorts first on some docker
+							# versions, and a plain [0] pick would take it.
+							# MOCK_MULTI_REPO=1 emits the decoy FIRST.
+							if [[ "${MOCK_MULTI_REPO:-0}" == "1" ]]; then
+								printf 'ghcrXio/openwrt/sdk@sha256:%s\n' "$(printf '%s' "decoy-$image" | sha256sum | awk '{print $1}')"
+								printf '%s@sha256:%s\n' "${image%%:*}" "$(printf '%s' "$image" | sha256sum | awk '{print $1}')"
+							else
+								printf '%s@sha256:%s\n' "${image%%:*}" "$(printf '%s' "$image" | sha256sum | awk '{print $1}')"
+							fi
 							exit 0
 							;;
 						*)
@@ -93,7 +109,7 @@ EOF
 chmod +x "$mock_bin/docker"
 PATH="$mock_bin:$PATH"
 
-mkdir -p "${fixture}/manifest-staging" "${fixture}/fallback-staging" "${fixture}/abort-staging" "${fixture}/pull-staging"
+mkdir -p "${fixture}/manifest-staging" "${fixture}/fallback-staging" "${fixture}/abort-staging" "${fixture}/pull-staging" "${fixture}/pullfail-staging" "${fixture}/multi-staging"
 # Assert the pull path runs: image absent (bare inspect fails) → explicit
 # pull before the digest inspect (luna fold 2026-08-10).
 pull_log="$(mktemp)"
@@ -116,6 +132,31 @@ command -v node >/dev/null 2>&1 && node -e '
 		if (!/^ghcr\.io\/openwrt\/sdk@sha256:[0-9a-f]{64}$/.test(p.sdk_digest || "")) process.exit(1);
 	}
 ' "${fixture}/manifest-staging/manifest.json"
+
+# Multi-registry RepoDigests: the production code must select the digest
+# matching ghcr.io/openwrt/sdk, NOT RepoDigests[0] (the ghcrXio decoy is
+# emitted FIRST, like docker sometimes orders multiple registries).
+mkdir -p "${fixture}/multi-staging"
+export MOCK_MULTI_REPO=1
+feed_publish_write_manifest "${fixture}/multi-staging" test-tag
+grep -q '"sdk_digest": "ghcr.io/openwrt/sdk@sha256:' "${fixture}/multi-staging/manifest.json" \
+	|| { echo "FAIL: multi-registry manifest must select the ghcr.io digest, not the decoy"; exit 1; }
+grep -q 'ghcrXio' "${fixture}/multi-staging/manifest.json" \
+	&& { echo "FAIL: decoy digest must NOT appear in the manifest"; exit 1; }
+unset MOCK_MULTI_REPO
+echo "multi-registry digest selection OK"
+
+# Failed pull must abort (sdk_matrix_pull || return 1) — a failed pull
+# followed by a successful inspect would record a digest for an image that
+# was never pulled (luna fold 2026-08-10).
+pullfail_warn="$(mktemp)"
+export MOCK_IMAGE_ABSENT=1 MOCK_PULL_FAIL=1
+if feed_publish_write_manifest "${fixture}/pullfail-staging" test-tag 2>"$pullfail_warn"; then
+	echo "FAIL: manifest generation must abort when the SDK pull fails" >&2
+	exit 1
+fi
+unset MOCK_IMAGE_ABSENT MOCK_PULL_FAIL
+echo "pull-failure abort OK"
 
 # Empty RepoDigests → fallback to @sha256:<image ID> with a documented warning.
 fallback_warn="$(mktemp)"
