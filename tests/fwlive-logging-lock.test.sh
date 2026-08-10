@@ -209,4 +209,64 @@ if [ "$sweep_fail" -ne 0 ]; then
 fi
 ok "real enable/disable: 32 concurrent trials -> serial-consistent log bit, well-formed JSON"
 
+# --- Part C: reload-failure conditional rollback (luna fold 2026-08-10) -----
+# A failed reload must only roll back to the pre-commit value if the CURRENT
+# value is still what THIS caller committed. If a concurrent toggle changed it
+# after our commit, rollback must be SKIPPED (else the stale rollback clobbers
+# the newer toggle).
+# usage: $0 <logging-sh> <dir> <previous> <committed> -> writes the post-rollback value to stdout
+cat > "$WORK/rollback-child.sh" <<'EOF'
+#!/bin/sh
+. "$1"
+dir="$2"
+previous="$3"
+committed="$4"
+COMMIT_FILE="$dir/log"
+# uci stub (mirrors the child.sh one — keep it minimal for reload_and_report).
+uci() {
+	case "$1" in
+		-q)
+			case "$2" in
+				show) printf "firewall.@zone[0].name='wan'\n" ;;
+				get) cat "$COMMIT_FILE" 2>/dev/null ;;
+			esac
+			return 0
+			;;
+		set) STAGED="${2#*=}" ;;
+		delete) STAGED='' ;;
+		commit)
+			if [ -n "$STAGED" ]; then
+				printf '%s' "$STAGED" > "$COMMIT_FILE"
+			else
+				rm -f "$COMMIT_FILE"
+			fi
+			;;
+	esac
+	return 0
+}
+reload_firewall() { return 1; }   # reload ALWAYS fails in this part
+logger() { return 0; }
+# zone = wan (first zone section)
+find_wan_zone_section() { printf 'wan'; }
+wan_zone_log_value() { cat "$COMMIT_FILE" 2>/dev/null || true; }
+zone_json='{"zone":"wan"}'
+reload_and_report_wan_log wan "$previous" "$committed" fail-msg success-msg "$zone_json" >/dev/null 2>&1
+cat "$COMMIT_FILE" 2>/dev/null || true
+EOF
+chmod +x "$WORK/rollback-child.sh"
+
+# C1: current still == committed -> rollback restores the previous value.
+mkdir -p "$WORK/rb1"
+printf '1' > "$WORK/rb1/log"        # current value: 1 (what we committed)
+out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb1" "" "1")
+[ -z "$out" ] || die "C1: expected rollback to restore previous (empty), got '$out'"
+ok "reload failure + unchanged value -> rollback restores previous"
+
+# C2: current != committed (concurrent toggle changed it) -> rollback SKIPPED.
+mkdir -p "$WORK/rb2"
+printf '2' > "$WORK/rb2/log"        # current value: 2 (NEWER commit by B)
+out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb2" "" "1")
+[ "$out" = "2" ] || die "C2: expected rollback skipped (value stays 2), got '$out'"
+ok "reload failure + concurrent change -> rollback skipped (newer toggle preserved)"
+
 echo "fwlive-logging-lock tests passed"

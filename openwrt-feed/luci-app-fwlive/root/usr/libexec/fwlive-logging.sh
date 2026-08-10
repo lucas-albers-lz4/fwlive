@@ -204,16 +204,31 @@ commit_wan_log_change() {
 # Firewall reload + best-effort UCI rollback on reload failure. Runs WITHOUT
 # the logging lock: the reload can take seconds and a held lock would block a
 # concurrent toggle until the holder exits (BusyBox flock has no -w timeout).
+#
+# CONDITIONAL rollback (luna fold 2026-08-10): between this caller's commit
+# and its reload, a concurrent caller may have committed a NEWER value. The
+# rollback must only restore the pre-commit value if the CURRENT value is
+# still what THIS caller committed — otherwise restoring would clobber the
+# newer toggle. `committed` is the value this caller wrote (may be empty for
+# a delete); `previous` is the pre-commit value.
 reload_and_report_wan_log() {
 	zone="$1"
 	previous="$2"
-	fail_msg="$3"
-	success_msg="$4"
-	zone_json="$5"
+	committed="$3"
+	fail_msg="$4"
+	success_msg="$5"
+	zone_json="$6"
 
 	if ! reload_firewall; then
-		restore_wan_zone_log "$zone" "$previous"
-		logger -t fwlive "$fail_msg" 2>/dev/null || true
+		now="$(wan_zone_log_value "$zone")"
+		if [ "$now" = "$committed" ]; then
+			restore_wan_zone_log "$zone" "$previous"
+			logger -t fwlive "$fail_msg" 2>/dev/null || true
+		else
+			# A concurrent toggle changed the value after our commit; do not
+			# clobber it. Log the divergence and leave the newer value.
+			logger -t fwlive "Firewall reload failed; WAN log changed concurrently — rollback skipped" 2>/dev/null || true
+		fi
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_reload_failed"}' "$zone_json"
 		return 0
 	fi
@@ -263,7 +278,7 @@ enable_wan_logging() {
 	fi
 	release_wan_log_lock
 
-	reload_and_report_wan_log "$zone" "$current" \
+	reload_and_report_wan_log "$zone" "$current" "$target" \
 		'Firewall reload failed after enable; reverted UCI WAN log' \
 		'WAN zone logging enabled' \
 		"$zone_json"
@@ -314,7 +329,7 @@ disable_wan_logging() {
 	fi
 	release_wan_log_lock
 
-	reload_and_report_wan_log "$zone" "$current" \
+	reload_and_report_wan_log "$zone" "$current" "$target" \
 		'Firewall reload failed after disable; reverted UCI WAN log' \
 		'WAN zone logging disabled' \
 		"$zone_json"
