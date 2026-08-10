@@ -1,78 +1,79 @@
 #!/usr/bin/env python3
-"""Unit tests for the linkcheck external-URL classifier."""
+"""Unit tests for the linkcheck external-URL classifier (production seam).
 
+Exercises scripts/lib/linkcheck_classify.py — the SAME module the
+linkcheck script imports (not a copy). If the production classifier
+regresses (e.g. '000' re-classified as fail), these tests fail.
+"""
+
+import os
 import sys
 
-
-def classify(code):
-    """Replicate the classification logic from scripts/fwlive-linkcheck.sh."""
-    if code.startswith('2') or code.startswith('3'):
-        return 'ok'
-    if code in ('403', '429', '500', '502', '503', '504'):
-        return 'warn'
-    if code == '000':
-        return 'warn'
-    return 'fail'
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                '..', 'scripts', 'lib'))
+from linkcheck_classify import classify_code
 
 
 def test_000_warns():
-    assert classify('000') == 'warn', f"expected warn, got {classify('000')}"
+    assert classify_code('000') == 'warn'
+
+
+def test_empty_code_warns():
+    # curl reported nothing (empty) == '000' class: no HTTP response.
+    assert classify_code('') == 'warn'
+    assert classify_code(None) == 'warn'
 
 
 def test_200_ok():
-    assert classify('200') == 'ok'
+    assert classify_code('200') == 'ok'
 
 
 def test_301_ok():
-    assert classify('301') == 'ok'
+    assert classify_code('301') == 'ok'
 
 
 def test_404_fails():
-    assert classify('404') == 'fail', f"expected fail, got {classify('404')}"
+    assert classify_code('404') == 'fail'
 
 
 def test_403_warns():
-    assert classify('403') == 'warn'
+    assert classify_code('403') == 'warn'
 
 
 def test_429_warns():
-    assert classify('429') == 'warn'
+    assert classify_code('429') == 'warn'
 
 
-def test_500_warns():
-    assert classify('500') == 'warn'
-
-
-def test_502_warns():
-    assert classify('502') == 'warn'
-
-
-def test_503_warns():
-    assert classify('503') == 'warn'
-
-
-def test_504_warns():
-    assert classify('504') == 'warn'
+def test_5xx_warns():
+    for c in ('500', '502', '503', '504'):
+        assert classify_code(c) == 'warn', f'{c} should warn'
 
 
 def test_other_fail():
-    assert classify('410') == 'fail'
-    assert classify('418') == 'fail'
-    assert classify('451') == 'fail'
+    for c in ('410', '418', '451'):
+        assert classify_code(c) == 'fail', f'{c} should fail'
+
+
+def test_whitespace_stripped():
+    assert classify_code(' 404 ') == 'fail'
+    assert classify_code(' 200\n') == 'ok'
+
+
+def test_verdicts_cover_all_codes():
+    """Every plausible code gets exactly one of ok/warn/fail."""
+    for c in ('200', '301', '404', '410', '418', '451', '000', '403',
+              '429', '500', '502', '503', '504', ''):
+        v = classify_code(c)
+        assert v in ('ok', 'warn', 'fail'), f'{c!r} -> {v}'
+
+
+def _run(name):
+    fn = globals()[name]
+    fn()
+    print(f"  OK: {name}")
 
 
 if __name__ == '__main__':
-    failures = 0
-    for name, fn in list(globals().items()):
-        if name.startswith('test_') and callable(fn):
-            try:
-                fn()
-            except AssertionError as e:
-                print(f"FAIL: {name}: {e}")
-                failures += 1
-            else:
-                print(f"  OK: {name}")
-    if failures:
-        print(f"\n{failures} test(s) failed")
-        sys.exit(1)
-    print("\nall tests passed")
+    for name in sorted(n for n in globals() if n.startswith('test_')):
+        _run(name)
+    print('all tests passed')
