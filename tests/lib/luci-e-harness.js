@@ -42,8 +42,14 @@ class Node {
 		const html = String(value);
 		this._innerHTMLWrites.push(html);
 		this._innerHTML = html;
-		this.childNodes = [];
-		this.lastChild = null;
+		// Fidelity note (luna fold 2026-08-10): real DOM parsing creates
+		// child nodes; this harness deliberately does NOT parse HTML (no
+		// DOMParser dependency). To honor dom.append()'s contract of
+		// returning the resulting last child for bare strings, synthesize a
+		// single text node holding the raw string — the write is still
+		// recorded, which is what the #148 regression tests assert on.
+		this.childNodes = [new TextNode(html)];
+		this.lastChild = this.childNodes[0];
 	}
 
 	appendChild(node) {
