@@ -101,6 +101,7 @@ case "$CMD" in
 		;;
 	build)
 		run_one "$TARGET" "$VERSION"
+		sdk_matrix_pull
 		if ! sdk_matrix_feeds_ready; then
 			sdk_matrix_feeds_setup
 		fi
@@ -119,6 +120,7 @@ case "$CMD" in
 		for t in "${targets[@]}"; do
 			for v in "${versions[@]}"; do
 				run_one "$t" "$v"
+				sdk_matrix_pull
 				if ! sdk_matrix_feeds_ready; then
 					sdk_matrix_feeds_setup
 				fi

@@ -80,6 +80,44 @@ sdk_matrix_resolve() {
 	SDK_MATRIX_OUT_DIR="$(sdk_matrix_root)/out/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}"
 }
 
+# Ensure the resolved cell's SDK image is present locally. Idempotent: docker
+# pull is a no-op for an already-present tag, so on a machine that already
+# built against the image this never re-fetches (and cannot drift to a tag that
+# moved upstream between build and release). Pull must happen before digest
+# resolution — the recorded digest is the image actually used for the build.
+sdk_matrix_pull() {
+	local image="${SDK_MATRIX_IMAGE:?sdk_matrix_resolve first}"
+	if ! docker image inspect "$image" >/dev/null 2>&1; then
+		echo "→ pulling ${image}..." >&2
+		docker image pull "$image"
+	fi
+}
+
+# Resolve the immutable digest of the SDK image actually used for this cell.
+# The tag (SDK_MATRIX_IMAGE) is mutable; the digest makes a release
+# attributable to the exact image it was built from.
+#
+# Source: `docker image inspect --format '{{index .RepoDigests 0}}'` after the
+# image is pulled (registry images carry repo@sha256:… RepoDigests).
+# Fallback: a locally built / registry-less image has empty RepoDigests — record
+# `@sha256:<image ID>` and warn. An empty digest is never recorded silently: if
+# neither source yields a digest this returns non-zero (release manifest aborts).
+sdk_matrix_image_digest() {
+	local image="${SDK_MATRIX_IMAGE:?sdk_matrix_resolve first}" digest id
+	sdk_matrix_pull
+	digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$image" 2>/dev/null || true)"
+	if [[ -z "$digest" ]]; then
+		id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
+		if [[ -z "$id" ]]; then
+			echo "ERROR: cannot resolve SDK image digest for ${image} (no RepoDigests, no image ID)" >&2
+			return 1
+		fi
+		digest="@${id}"
+		echo "WARNING: SDK image ${image} has no RepoDigests (locally built?); recording image ID fallback ${digest}" >&2
+	fi
+	printf '%s' "$digest"
+}
+
 sdk_matrix_validate_target() {
 	local t
 	for t in "${SDK_MATRIX_TARGETS[@]}"; do

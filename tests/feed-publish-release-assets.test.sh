@@ -47,4 +47,72 @@ test -f "$staging/luci-app-fwlive_0.1.16_21.02_all.ipk"
 test -f "$staging/luci-app-fwlive_0.1.16_22.03_all.ipk"
 test -f "$staging/luci-app-fwlive_0.1.16_23.05_all.ipk"
 
+# Guard #144: manifest records ONE SDK image digest per target×version cell.
+# Docker is mocked so the test is hermetic (RepoDigests[0] source + the
+# empty-RepoDigests → @sha256:<image ID> fallback path).
+mock_bin="${fixture}/mock-bin"
+mkdir -p "$mock_bin"
+cat > "$mock_bin/docker" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+image="${!#}"
+case "${1:-}" in
+	image)
+		case "${2:-}" in
+			pull) exit 0 ;;
+			inspect)
+				if [[ "${3:-}" == "--format" ]]; then
+					case "$4" in
+						*RepoDigests*)
+							[[ "${MOCK_REPO_DIGESTS:-1}" != "0" ]] || exit 1
+							printf '%s@sha256:%s\n' "${image%%:*}" "$(printf '%s' "$image" | sha256sum | awk '{print $1}')"
+							exit 0
+							;;
+						*)
+							printf 'sha256:%s\n' "$(printf '%s' "$image" | sha256sum | awk '{print $1}')"
+							exit 0
+							;;
+					esac
+				fi
+				exit 0
+				;;
+		esac
+		;;
+esac
+exit 0
+EOF
+chmod +x "$mock_bin/docker"
+PATH="$mock_bin:$PATH"
+
+mkdir -p "${fixture}/manifest-staging" "${fixture}/fallback-staging"
+feed_publish_write_manifest "${fixture}/manifest-staging" test-tag
+test -f "${fixture}/manifest-staging/manifest.json"
+grep -q '"openwrt": "21.02"' "${fixture}/manifest-staging/manifest.json"
+grep -q '"sha256":' "${fixture}/manifest-staging/manifest.json"
+grep -q '"sdk_image": "ghcr.io/openwrt/sdk:x86-64-21.02.7"' "${fixture}/manifest-staging/manifest.json"
+grep -q '"sdk_digest": "ghcr.io/openwrt/sdk@sha256:' "${fixture}/manifest-staging/manifest.json"
+command -v node >/dev/null 2>&1 && node -e '
+	const fs = require("fs");
+	const m = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+	if (!Array.isArray(m.packages) || m.packages.length < 3) process.exit(1);
+	for (const p of m.packages) {
+		if (!/^ghcr\.io\/openwrt\/sdk@sha256:[0-9a-f]{64}$/.test(p.sdk_digest || "")) process.exit(1);
+	}
+' "${fixture}/manifest-staging/manifest.json"
+
+# Empty RepoDigests → fallback to @sha256:<image ID> with a documented warning.
+fallback_warn="$(mktemp)"
+export MOCK_REPO_DIGESTS=0
+feed_publish_write_manifest "${fixture}/fallback-staging" test-tag 2>"$fallback_warn"
+grep -q '"sdk_digest": "@sha256:' "${fixture}/fallback-staging/manifest.json"
+grep -qi 'has no RepoDigests' "$fallback_warn"
+command -v node >/dev/null 2>&1 && node -e '
+	const fs = require("fs");
+	const m = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+	for (const p of m.packages) {
+		if (!/^@sha256:[0-9a-f]{64}$/.test(p.sdk_digest || "")) process.exit(1);
+	}
+' "${fixture}/fallback-staging/manifest.json"
+export MOCK_REPO_DIGESTS=1
+
 echo "feed-publish release asset tests passed"

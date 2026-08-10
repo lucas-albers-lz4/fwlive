@@ -336,7 +336,7 @@ feed_publish_copy_keys() {
 
 feed_publish_write_manifest() {
 	local staging="$1" git_tag="${2:-unknown}"
-	local manifest ver artifact ver_label sum
+	local manifest ver artifact ver_label sum sdk_digest
 	manifest="${staging}/manifest.json"
 	: > "$manifest"
 	printf '{\n  "git_tag": "%s",\n  "packages": [\n' "${git_tag//\"/\\\"}" >> "$manifest"
@@ -346,9 +346,15 @@ feed_publish_write_manifest() {
 		artifact="$(feed_publish_find_artifact "$ver_label" 2>/dev/null || true)"
 		[[ -n "$artifact" ]] || continue
 		sum="$(sha256sum "$artifact" | awk '{print $1}')"
+		# Record the immutable digest of the SDK image this cell was built from
+		# (mutable tag → digest makes the release attributable). Per-cell:
+		# resolve target×version, then inspect the pulled image.
+		sdk_matrix_resolve x86-64 "$ver"
+		sdk_digest="$(sdk_matrix_image_digest)"
 		[[ $first -eq 1 ]] || printf ',\n' >> "$manifest"
 		first=0
-		printf '    {"openwrt": "%s", "file": "%s", "sha256": "%s"}' "$ver" "$(basename "$artifact")" "$sum" >> "$manifest"
+		printf '    {"openwrt": "%s", "file": "%s", "sha256": "%s", "sdk_image": "%s", "sdk_digest": "%s"}' \
+			"$ver" "$(basename "$artifact")" "$sum" "$SDK_MATRIX_IMAGE" "$sdk_digest" >> "$manifest"
 	done
 	printf '\n  ]\n}\n' >> "$manifest"
 }
