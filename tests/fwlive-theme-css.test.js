@@ -39,8 +39,8 @@ assert.strictEqual(
 );
 
 const text = fs.readFileSync(VIEW_PATH, 'utf8');
-if (!text.includes("E('style', {}, css.styleText)"))
-	throw new Error('fwlive.js must inject styles via css.styleText');
+if (!text.includes("E('style', {}, [css.styleText])"))
+	throw new Error('fwlive.js must inject styles via css.styleText (text-node form)');
 
 const cssMod = (function () {
 	const src = fs.readFileSync(CSS_PATH, 'utf8')

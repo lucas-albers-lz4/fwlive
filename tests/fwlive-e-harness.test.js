@@ -146,14 +146,10 @@ function testRealRendererIntegration() {
 	}
 
 	const panelWrites = collectSubtreeInnerHTMLWrites(panel);
-	// CHARACTERIZATION (2026-08-10): today's renderer HAS bare-string
-	// sinks — logging.js:109,112,117,122 + the consent buttons write
-	// innerHTML (verified live under the real E()). This is exactly the
-	// #137/#148 bug class. The harness makes the sinks VISIBLE; the
-	// count below is the current state. Wave #148 flips this assertion
-	// to 0 after the text-node sweep.
-	assert.ok(panelWrites.length >= 1,
-		'subtree collector must see the renderer\'s current bare-string sinks (today: ' + panelWrites.length + ')');
+	// End state (#148): every string child is routed through a text node
+	// (array form), so the consent subtree must have ZERO innerHTML writes.
+	assert.strictEqual(panelWrites.length, 0,
+		'consent panel must be zero-sink after the text-node sweep');
 	assert.ok(panel.childNodes.length >= 4, 'panel children must be appended, not stringified');
 
 	const host = new Element('div');
@@ -165,19 +161,18 @@ function testRealRendererIntegration() {
 		showConsent: false
 	}, { onEnable: function() {} });
 	const hostWrites = collectSubtreeInnerHTMLWrites(host);
-	// Same characterization: the empty-state host ALSO renders bare-string
-	// sinks today (6 writes = the clear + the renderer's bare-string
-	// children). #148 flips this to exactly 1 (only the root clear).
-	assert.ok(hostWrites.length >= 1, 'host subtree collector must see current bare-string sinks');
-	assert.strictEqual(hostWrites[0].html, '', 'the first recorded write is the renderer clearing the host');
+	// End state (#148): the only innerHTML write in the whole subtree is
+	// the renderer clearing the host (''); every string child is a text node.
+	assert.strictEqual(hostWrites.length, 1,
+		'host subtree must have exactly one innerHTML write (the root clear)');
+	assert.strictEqual(hostWrites[0].html, '', 'the only write is the renderer clearing the host');
 	assert.ok(host.childNodes.length >= 1);
-	// Today the bare-string sinks synthesize TextNode children (the
-	// setter's no-DOMParser fallback); #148's end-state makes every
-	// child an element node. Characterization asserts "renders real
-	// nodes", not the end-state shape.
+	// End state (#148): every host child is an element node — the bare-string
+	// children that used to synthesize text nodes are now text nodes inside
+	// the elements, so no top-level child is a text node.
 	for (let i = 0; i < host.childNodes.length; i++)
-		assert.ok(host.childNodes[i].nodeType === 1 || host.childNodes[i].nodeType === 3,
-			'host children must be real nodes (element or text)');
+		assert.strictEqual(host.childNodes[i].nodeType, 1,
+			'host children must all be element nodes after the text-node sweep');
 }
 
 /* --- document shim fidelity for E('a', ..., [...]) --- */

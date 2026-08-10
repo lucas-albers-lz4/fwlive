@@ -33,7 +33,7 @@ function generate(cssText) {
 		'',
 		'/**',
 		' * Inline stylesheet string for luci-app-fwlive.',
-		" * Exports CSS text for E('style', {}, css.styleText) injection — NOT a standalone .css asset.",
+		" * Exports CSS text for E('style', {}, [css.styleText]) injection — NOT a standalone .css asset.",
 		' * LuCI modules must return baseclass.extend(...) — plain objects fail Class.isSubclass.',
 		' *',
 		' * GENERATED — do not edit. Edit fwlive.css and run: node scripts/embed-fwlive-css.js',

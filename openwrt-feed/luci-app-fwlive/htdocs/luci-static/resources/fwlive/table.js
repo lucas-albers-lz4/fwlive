@@ -90,7 +90,7 @@ function flowCell(row, state, callbacks) {
 
 	pushAddr(row.src, row.sport, 'src', 'sport');
 	if (parts.length && (row.dst || row.dport))
-		parts.push(E('span', { 'class': 'fwlive-flow-arrow' }, ' → '));
+		parts.push(E('span', { 'class': 'fwlive-flow-arrow' }, [ ' → ' ]));
 	pushAddr(row.dst, row.dport, 'dst', 'dport');
 
 	if (!parts.length)
@@ -109,57 +109,57 @@ function buildColumnCell(col, row, state, callbacks) {
 	switch (col) {
 	case 'time':
 		return E('td', { 'class': columnCellClass(col) },
-			state.viewMode === 'simple'
+			[ state.viewMode === 'simple'
 				? log.formatTimestampCompact(row.timestamp)
-				: log.formatTimestampLocal(row.timestamp));
+				: log.formatTimestampLocal(row.timestamp) ]);
 	case 'action':
-		return E('td', { 'class': log.actionRowClass(row.action) }, actionCell);
+		return E('td', { 'class': log.actionRowClass(row.action) }, [ actionCell ]);
 	case 'rule':
 		return E('td', { 'class': columnCellClass(col) },
-			links.ruleAdminLink(row.rule_hint, row.rule_label, state.firewallBackend, onFilterClick));
+			[ links.ruleAdminLink(row.rule_hint, row.rule_label, state.firewallBackend, onFilterClick) ]);
 	case 'iface':
 		return E('td', { 'class': columnCellClass(col) },
-			links.ifaceLink(row.interface_in, onFilterClick));
+			[ links.ifaceLink(row.interface_in, onFilterClick) ]);
 	case 'iface_in':
 	case 'iface_out':
-		return E('td', { 'class': columnCellClass(col) }, links.ifaceLink(
-			col === 'iface_in' ? row.interface_in : row.interface_out, onFilterClick));
+		return E('td', { 'class': columnCellClass(col) }, [ links.ifaceLink(
+			col === 'iface_in' ? row.interface_in : row.interface_out, onFilterClick) ]);
 	case 'dir':
-		return E('td', { 'class': columnCellClass(col) }, log.formatCell(row.direction));
+		return E('td', { 'class': columnCellClass(col) }, [ log.formatCell(row.direction) ]);
 	case 'proto':
 		return E('td', { 'class': columnCellClass(col) },
-			links.filterLink('proto', row.proto, null, onFilterClick));
+			[ links.filterLink('proto', row.proto, null, onFilterClick) ]);
 	case 'src':
 		return E('td', { 'class': columnCellClass(col) },
-			links.addrFilterLink('src', row.src, !!state.showHostnames, state.hostnameCache, onFilterClick));
+			[ links.addrFilterLink('src', row.src, !!state.showHostnames, state.hostnameCache, onFilterClick) ]);
 	case 'sport':
 		return E('td', { 'class': columnCellClass(col) },
-			links.filterLink('sport', row.sport, null, onFilterClick));
+			[ links.filterLink('sport', row.sport, null, onFilterClick) ]);
 	case 'dst':
 		return E('td', { 'class': columnCellClass(col) },
-			links.addrFilterLink('dst', row.dst, !!state.showHostnames, state.hostnameCache, onFilterClick));
+			[ links.addrFilterLink('dst', row.dst, !!state.showHostnames, state.hostnameCache, onFilterClick) ]);
 	case 'dport':
 		return E('td', { 'class': columnCellClass(col) },
-			links.filterLink('dport', row.dport, null, onFilterClick));
+			[ links.filterLink('dport', row.dport, null, onFilterClick) ]);
 	case 'flags':
-		return E('td', { 'class': columnCellClass(col) }, log.formatCell(row.flags));
+		return E('td', { 'class': columnCellClass(col) }, [ log.formatCell(row.flags) ]);
 	case 'len':
-		return E('td', { 'class': columnCellClass(col) }, row.length != null ? String(row.length) : '');
+		return E('td', { 'class': columnCellClass(col) }, [ row.length != null ? String(row.length) : '' ]);
 	case 'flow':
-		return E('td', { 'class': columnCellClass(col) }, flowCell(row, state, callbacks));
+		return E('td', { 'class': columnCellClass(col) }, [ flowCell(row, state, callbacks) ]);
 	case 'message':
 		if (state.messageLayout === 'wrap') {
 			return E('td', {
 				'class': 'fwlive-message',
 				'title': msgDisplay || ''
-			}, E('div', { 'class': 'fwlive-message-wrap' }, msgDisplay || '—'));
+			}, E('div', { 'class': 'fwlive-message-wrap' }, [ msgDisplay || '—' ]));
 		}
 		return E('td', {
 			'class': 'fwlive-message',
 			'title': msgDisplay || ''
-		}, msgDisplay || '—');
+		}, [ msgDisplay || '—' ]);
 	default:
-		return E('td', {}, '');
+		return E('td', {}, [ '' ]);
 	}
 }
 
@@ -182,7 +182,7 @@ function renderThead(host, state, _callbacks) {
 	for (let i = 0; i < columns.length; i++) {
 		const col = columns[i];
 		colgroup.appendChild(E('col', { 'class': 'fwlive-col fwlive-col-' + col.replace(/_/g, '-') }));
-		tr.appendChild(E('th', { 'class': columnCellClass(col) }, columnLabel(col)));
+		tr.appendChild(E('th', { 'class': columnCellClass(col) }, [ columnLabel(col) ]));
 	}
 }
 
@@ -214,9 +214,9 @@ function renderRows(host, state, callbacks) {
 		if (state.viewMode === 'simple' && state.expandedRowId === r.id) {
 			host.appendChild(E('tr', { 'class': 'fwlive-msg-expand' }, [
 				E('td', { 'colspan': String(columns.length) }, [
-					E('div', { 'class': 'fwlive-msg-expand-label' }, _('Message')),
+					E('div', { 'class': 'fwlive-msg-expand-label' }, [ _('Message') ]),
 					E('pre', { 'class': 'fwlive-msg-expand-body' },
-						log.formatMessageDisplay(r.message, 'wrap') || '—')
+						[ log.formatMessageDisplay(r.message, 'wrap') || '—' ])
 				])
 			]));
 		}

@@ -34,7 +34,7 @@ function firewallZonesLink(label) {
 	return E('a', {
 		'href': firewallZonesUrl(),
 		'class': 'fwlive-filter-link'
-	}, label || _('Network → Firewall'));
+	}, [ label || _('Network → Firewall') ]);
 }
 
 /**
@@ -52,7 +52,7 @@ function filterLink(field, value, label, onFilterClick) {
 		'class': 'fwlive-filter-link',
 		'title': _('Filter by %s').format(field),
 		'click': function(ev) { onFilterClick(field, value, ev); }
-	}, label || value);
+	}, [ label || value ]);
 }
 
 /**
@@ -75,7 +75,7 @@ function addrFilterLink(field, ip, showHostnames, hostnameCache, onFilterClick) 
 		'class': 'fwlive-filter-link',
 		'title': title,
 		'click': function(ev) { onFilterClick(field, ip, ev); }
-	}, display);
+	}, [ display ]);
 }
 
 /**
@@ -119,7 +119,7 @@ function ruleAdminLink(hint, label, firewallBackend, onFilterClick) {
 			}
 			onFilterClick('q', hint, ev);
 		}
-	}, text);
+	}, [ text ]);
 }
 
 /**
@@ -135,7 +135,7 @@ function ifaceLink(value, onFilterClick) {
 		'class': 'fwlive-filter-link fwlive-iface-badge',
 		'title': _('Filter by interface'),
 		'click': function(ev) { onFilterClick('interface', value, ev); }
-	}, value);
+	}, [ value ]);
 }
 
 return baseclass.extend({

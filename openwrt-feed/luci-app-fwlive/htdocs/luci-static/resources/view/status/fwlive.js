@@ -82,7 +82,7 @@ function storeValue(key, value) {
 function optionNodes(pairs) {
 	const opts = [];
 	for (let i = 0; i < pairs.length; i++)
-		opts.push(E('option', { 'value': pairs[i][0] }, pairs[i][1]));
+		opts.push(E('option', { 'value': pairs[i][0] }, [ pairs[i][1] ]));
 	return opts;
 }
 
@@ -1437,28 +1437,28 @@ return view.extend({
 
 	render() {
 		return E('div', { 'class': 'cbi-map fwlive-map', 'data-view': 'simple', 'data-row-tint': 'classic' }, [
-			E('style', {}, css.styleText),
+			E('style', {}, [css.styleText]),
 			E('h2', {}, [
 				_('Firewall Live View'),
-				E('span', { 'id': 'fwlive-backend', 'class': 'fwlive-backend' }, '')
+				E('span', { 'id': 'fwlive-backend', 'class': 'fwlive-backend' }, [ '' ])
 			]),
 			E('div', { 'id': 'fwlive-watch-strip', 'class': 'fwlive-watch-strip' }, [
 				E('div', { 'class': 'fwlive-watch-left' }, [
-					E('span', { 'id': 'fwlive-watch-dot', 'class': 'fwlive-dot fwlive-dot-on', 'aria-hidden': 'true' }, ''),
-					E('span', { 'id': 'fwlive-watch-label', 'class': 'fwlive-watch-label' }, _('Watching')),
-					E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, ''),
+					E('span', { 'id': 'fwlive-watch-dot', 'class': 'fwlive-dot fwlive-dot-on', 'aria-hidden': 'true' }, [ '' ]),
+					E('span', { 'id': 'fwlive-watch-label', 'class': 'fwlive-watch-label' }, [ _('Watching') ]),
+					E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, [ '' ]),
 					E('span', {
 						'id': 'fwlive-tint-warn',
 						'class': 'fwlive-tint-warn',
 						'title': _('Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds.')
-					}, _('Theme tint fallback'))
+					}, [ _('Theme tint fallback') ])
 				]),
 				E('div', { 'class': 'fwlive-watch-actions' }, [
 					E('button', {
 						'id': 'fwlive-pause',
 						'class': 'cbi-button fwlive-btn-ghost',
 						'type': 'button'
-					}, _('Pause')),
+					}, [ _('Pause') ]),
 					E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
 					E('button', {
 						'id': 'fwlive-detail-toggle',
@@ -1466,23 +1466,23 @@ return view.extend({
 						'type': 'button',
 						'aria-pressed': 'false',
 						'click': this.toggleDetailView.bind(this)
-					}, _('Show Detail')),
+					}, [ _('Show Detail') ]),
 					E('button', {
 						'id': 'fwlive-msg-layout',
 						'class': 'cbi-button fwlive-btn-ghost',
 						'type': 'button',
 						'click': this.toggleMessageLayout.bind(this)
-					}, _('Message: wrap'))
+					}, [ _('Message: wrap') ])
 				])
 			]),
-			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ''),
+			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, [ '' ]),
 			E('details', { 'id': 'fwlive-display-drawer', 'class': 'fwlive-display-drawer' }, [
 				E('summary', {}, [
-					E('span', { 'class': 'fwlive-drawer-sum' }, _('Display options'))
+					E('span', { 'class': 'fwlive-drawer-sum' }, [ _('Display options') ])
 				]),
 				E('div', { 'class': 'fwlive-drawer-body fwlive-drawer-grouped' }, [
 					E('div', { 'class': 'fwlive-gcol' }, [
-						E('h3', {}, _('Live')),
+						E('h3', {}, [ _('Live') ]),
 						E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-limit' }, [
 							_('Limit'),
 							E('select', {
@@ -1491,10 +1491,10 @@ return view.extend({
 							}, this.limitSelectOptions())
 						]),
 						E('p', { 'class': 'fwlive-drawer-hint' },
-							_('Live updates run until you Pause above.'))
+							[ _('Live updates run until you Pause above.') ])
 					]),
 					E('div', { 'class': 'fwlive-gcol' }, [
-						E('h3', {}, _('Row look')),
+						E('h3', {}, [ _('Row look') ]),
 						E('button', {
 							'id': 'fwlive-row-tint-toggle',
 							'class': 'cbi-button',
@@ -1502,13 +1502,13 @@ return view.extend({
 							'aria-pressed': 'true',
 							'title': _('Toggle pass/deny row background colors'),
 							'click': this.toggleRowTint.bind(this)
-						}, _('Hide row tint')),
+						}, [ _('Hide row tint') ]),
 						E('span', {
 							'id': 'fwlive-row-tint-palette-wrap',
 							'class': 'fwlive-ctl',
 							'style': 'display: inline-flex'
 						}, [
-							E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, _('Palette')),
+							E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, [ _('Palette') ]),
 							E('select', {
 								'id': 'fwlive-row-tint',
 								'class': 'cbi-input-select',
@@ -1524,7 +1524,7 @@ return view.extend({
 						])
 					]),
 					E('div', { 'class': 'fwlive-gcol' }, [
-						E('h3', {}, _('Filters look')),
+						E('h3', {}, [ _('Filters look') ]),
 						E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-chip-style' }, [
 							_('Chip style'),
 							E('select', {
@@ -1540,22 +1540,22 @@ return view.extend({
 				E('div', { 'class': 'fwlive-grid fwlive-grid-core' }, [
 					E('input', { 'id': 'fwlive-q', 'class': 'cbi-input-text', 'placeholder': _('Quick search') }),
 					E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
-						E('option', { 'value': '' }, _('Any action')),
-						E('option', { 'value': 'pass' }, 'pass'),
-						E('option', { 'value': 'block' }, 'block'),
-						E('option', { 'value': 'drop' }, 'drop'),
-						E('option', { 'value': 'reject' }, 'reject'),
-						E('option', { 'value': 'unknown' }, 'unknown'),
-						E('option', { 'value': '!pass' }, _('not pass')),
-						E('option', { 'value': '!drop' }, _('not drop')),
-						E('option', { 'value': '!block' }, _('not block')),
-						E('option', { 'value': '!reject' }, _('not reject')),
-						E('option', { 'value': '!unknown' }, _('not unknown'))
+						E('option', { 'value': '' }, [ _('Any action') ]),
+						E('option', { 'value': 'pass' }, [ 'pass' ]),
+						E('option', { 'value': 'block' }, [ 'block' ]),
+						E('option', { 'value': 'drop' }, [ 'drop' ]),
+						E('option', { 'value': 'reject' }, [ 'reject' ]),
+						E('option', { 'value': 'unknown' }, [ 'unknown' ]),
+						E('option', { 'value': '!pass' }, [ _('not pass') ]),
+						E('option', { 'value': '!drop' }, [ _('not drop') ]),
+						E('option', { 'value': '!block' }, [ _('not block') ]),
+						E('option', { 'value': '!reject' }, [ _('not reject') ]),
+						E('option', { 'value': '!unknown' }, [ _('not unknown') ])
 					]),
 					E('input', { 'id': 'fwlive-proto', 'class': 'cbi-input-text', 'placeholder': _('Protocol (prefix ! to exclude)') })
 				]),
 				E('details', { 'id': 'fwlive-more-filters', 'class': 'fwlive-more-filters' }, [
-					E('summary', {}, _('More filters')),
+					E('summary', {}, [ _('More filters') ]),
 					E('div', { 'class': 'fwlive-grid fwlive-grid-extra' }, [
 						E('input', { 'id': 'fwlive-interface', 'class': 'cbi-input-text', 'placeholder': _('Interface (prefix ! to exclude)') }),
 						E('input', { 'id': 'fwlive-src', 'class': 'cbi-input-text', 'placeholder': _('Source IP contains (! to exclude)') }),
@@ -1567,7 +1567,7 @@ return view.extend({
 			]),
 			E('div', { 'id': 'fwlive-chips', 'class': 'fwlive-chips' }, []),
 			E('p', { 'class': 'fwlive-hint-line' },
-				_('Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings')),
+				[ _('Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings') ]),
 			E('div', {
 				'id': 'fwlive-empty',
 				'class': 'fwlive-empty',
@@ -1581,26 +1581,26 @@ return view.extend({
 			]),
 			E('div', { 'class': 'fwlive-help-row' }, [
 				E('details', { 'id': 'fwlive-help', 'class': 'fwlive-help' }, [
-					E('summary', {}, _('Help')),
+					E('summary', {}, [ _('Help') ]),
 					E('ul', {}, [
-						E('li', {}, _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.')),
-						E('li', {}, _('Enable logging turns on WAN zone drop/reject logging only (same as Network → Firewall). It does not add rules or log normal LAN browsing.')),
-						E('li', {}, _('Display options hides Limit, row tint, hostnames, and chip style.')),
-						E('li', {}, _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.')),
+						E('li', {}, [ _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.') ]),
+						E('li', {}, [ _('Enable logging turns on WAN zone drop/reject logging only (same as Network → Firewall). It does not add rules or log normal LAN browsing.') ]),
+						E('li', {}, [ _('Display options hides Limit, row tint, hostnames, and chip style.') ]),
+						E('li', {}, [ _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.') ]),
 						E('li', { 'id': 'fwlive-manual-test' }, []),
-						E('li', {}, _('Click a row to see the full log line (Simple view).')),
-						E('li', {}, _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.')),
-						E('li', {}, _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.')),
-						E('li', {}, _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.')),
-						E('li', {}, _('Use Show Detail for all columns (flags, length, raw message).')),
-						E('li', {}, _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).'))
+						E('li', {}, [ _('Click a row to see the full log line (Simple view).') ]),
+						E('li', {}, [ _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.') ]),
+						E('li', {}, [ _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.') ]),
+						E('li', {}, [ _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.') ]),
+						E('li', {}, [ _('Use Show Detail for all columns (flags, length, raw message).') ]),
+						E('li', {}, [ _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).') ])
 					])
 				]),
 				E('span', {
 					'id': 'fwlive-build',
 					'class': 'fwlive-build',
 					'title': 'luci-app-fwlive'
-				}, 'v' + constants.APP_VERSION)
+				}, [ 'v' + constants.APP_VERSION ])
 			])
 		]);
 	},
