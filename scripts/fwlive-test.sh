@@ -80,6 +80,9 @@ bash tests/feed-publish-release-assets.test.sh
 echo "== fwlive rules map (iptables-save) ==" >&2
 "$NODE" tests/fwlive-rules-map.test.js
 
+echo "== fwlive linkcheck classifier ==" >&2
+python3 tests/fwlive-linkcheck-classify.test.py
+
 echo "== fwlive CLI pipeline ==" >&2
 "$NODE" tests/fwlive-cli-pipeline.test.js
 

@@ -70,9 +70,12 @@ if broken:
 print(f"internal links checked: {checked}, broken: 0")
 PYEOF
 
-echo "== external URLs (404 = fail; 403/429/5xx = warn) =="
+echo "== external URLs (404 = fail; 000/403/429/5xx = warn) =="
 python3 - <<'PYEOF'
 import os, re, subprocess, sys
+
+sys.path.insert(0, os.path.join(os.getcwd(), 'scripts', 'lib'))
+from linkcheck_classify import classify_code
 
 files = subprocess.check_output(
     ['git', 'ls-files', '*.md'], text=True
@@ -104,10 +107,27 @@ for u in sorted(urls):
              '-A', 'Mozilla/5.0 (X11; Linux x86_64)', '--max-time', '15', u],
             capture_output=True, text=True, timeout=20)
         code = r.stdout.strip()
-        if code.startswith('2') or code.startswith('3'):
+        verdict = classify_code(code)
+        if verdict == 'ok':
             continue
-        if code in ('403', '429', '500', '502', '503', '504'):
-            warns.append((u, code))
+        if verdict == 'warn':
+            if code == '000':
+                # Network-level failure (DNS/TLS/conn-refused/timeout) —
+                # not a problem with the link itself. Retry once, then
+                # warn with the retry's verdict.
+                try:
+                    r2 = subprocess.run(
+                        ['curl', '-sL', '-o', '/dev/null', '-w', '%{http_code}',
+                         '-A', 'Mozilla/5.0 (X11; Linux x86_64)', '--max-time', '15', u],
+                        capture_output=True, text=True, timeout=20)
+                    code2 = r2.stdout.strip()
+                    if classify_code(code2) == 'ok':
+                        continue
+                    warns.append((u, code2 if code2 else '000'))
+                except Exception:
+                    warns.append((u, '000 (retry also failed)'))
+            else:
+                warns.append((u, code))
         else:
             fails.append((u, code))
     except Exception as e:
