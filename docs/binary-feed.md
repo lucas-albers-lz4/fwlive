@@ -37,6 +37,59 @@ The package is **`_all`** — one feed URL per OpenWrt release line, not per CPU
 
 ---
 
+## Release manifest
+
+`manifest.json` records release metadata plus one entry per published cell
+(**target × OpenWrt line**). The SDK images referenced by the build are
+**mutable tags** (`ghcr.io/openwrt/sdk:x86-64-21.02.7`), so each cell also
+records the **immutable digest** of the image it was actually built from —
+making a release attributable to the exact image despite the moving tag.
+
+```json
+{
+  "git_tag": "v0.1.16",
+  "packages": [
+    {
+      "openwrt": "21.02",
+      "file": "luci-app-fwlive_0.1.16_21.02_all.ipk",
+      "sha256": "…",
+      "sdk_image": "ghcr.io/openwrt/sdk:x86-64-21.02.7",
+      "sdk_digest": "ghcr.io/openwrt/sdk@sha256:…"
+    },
+    …
+  ]
+}
+```
+
+Before this change a cell was `{"openwrt", "file", "sha256"}` only; the
+`sdk_image` / `sdk_digest` pair is added alongside the per-package sha256.
+
+### Digest source
+
+After the SDK image is pulled, the digest is resolved per cell with:
+
+```sh
+docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/openwrt/sdk:x86-64-21.02.7
+# → ghcr.io/openwrt/sdk@sha256:…
+```
+
+`RepoDigests[0]` is the registry digest of the image that was actually pulled
+and built against (implemented in `scripts/lib/sdk-matrix.sh` → `sdk_matrix_image_digest`).
+
+### Fallback
+
+If `RepoDigests` is **empty** (locally built / registry-less image), the image
+ID is recorded as `@sha256:<image ID>` and a **warning** is emitted to stderr —
+an empty digest is **never** recorded silently. If neither `RepoDigests` nor
+the image ID can be read, manifest generation **fails** (no silent empty value).
+
+### Out of scope
+
+`ghcr.io/openwrt/rootfs:x86-64` is **not** recorded: it is
+docker-compose-experimental only and is never pulled by the release workflow.
+
+---
+
 ## User install
 
 ### OpenWrt 21.02.x (opkg, legacy fw3)
@@ -206,8 +259,13 @@ Pinned inputs (regenerate when bumping OpenWrt point releases):
 |-------|----------|
 | Feed commits | [`scripts/feeds.lock/`](../scripts/feeds.lock/) per SDK version (GitHub mirrors of git.openwrt.org; pinned SHAs unchanged) |
 | SDK image tag | [`scripts/lib/sdk-matrix.sh`](../scripts/lib/sdk-matrix.sh) |
+| SDK image digest | Recorded per cell in `manifest.json` ([release manifest](#release-manifest)) |
 | Package version | `PKG_VERSION` / `PKG_RELEASE` in package Makefile |
 | Timestamps | `SOURCE_DATE_EPOCH` (git commit epoch; set in CI on release tag) |
+
+`verify-reproducible-build.sh` is unchanged — it still proves input
+determinism; the recorded `sdk_digest` makes each release attributable to the
+exact SDK image it was built from.
 
 Publish CI (`publish-packages`) retries `feeds update` (3× + HTTP/1.1) and caches
 `/builder/feeds` + `/builder/dl` across runs (`scripts/ci-cache-sdk-feeds.sh`,
