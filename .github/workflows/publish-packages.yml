@@ -33,15 +33,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
 
       - name: Resolve release tag
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            tag="${{ github.event.inputs.tag }}"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            tag="$TAG"
           else
             tag="${GITHUB_REF#refs/tags/}"
           fi
@@ -76,7 +79,7 @@ jobs:
 
       # #122: reuse feed clones + dl/ across publishes (lock hash = cache key).
       - name: Cache SDK feeds and dl
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
           path: .cache/sdk-feeds
           key: sdk-feeds-${{ runner.os }}-${{ hashFiles('scripts/feeds.lock/**') }}
@@ -111,7 +114,7 @@ jobs:
         run: ./scripts/publish-packages.sh feed-staging
 
       - name: Deploy to GitHub Pages (fwlive-packages)
-        uses: peaceiris/actions-gh-pages@v4.1.0
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453  # v4.1.0
         with:
           deploy_key: ${{ secrets.FEED_DEPLOY_KEY }}
           external_repository: ${{ env.FWLIVE_PACKAGES_REPO }}
@@ -184,7 +187,7 @@ jobs:
       OWRT_QEMU_ACCEL: tcg
       OWRT_VALIDATE_SSH_WAIT_X86: "900"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
@@ -200,7 +203,8 @@ jobs:
       - name: Feed smoke (single reference cell)
         env:
           FWLIVE_FEED_BASE_URL: ${{ env.FWLIVE_FEED_BASE_URL }}
+          SMOKE_VERSION: ${{ github.event.inputs.smoke_version || '24.10' }}
         run: |
-          ver="${{ github.event.inputs.smoke_version || '24.10' }}"
+          ver="$SMOKE_VERSION"
           echo "Feed smoke OpenWrt version: $ver"
           ./scripts/validate-feed-smoke.sh --version "$ver"
