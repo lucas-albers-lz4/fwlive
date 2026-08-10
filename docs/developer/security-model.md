@@ -55,9 +55,12 @@ does not.
 Source: `modules/luci-base/htdocs/luci-static/resources/luci.js` in
 [openwrt/luci](https://github.com/openwrt/luci) (`dom.append` / `dom.create`).
 
-Bringing the shipped renderers into full compliance is tracked in
-[#137](https://github.com/lucas-albers-lz4/fwlive/issues/137); the rendering
-regression test is [#138](https://github.com/lucas-albers-lz4/fwlive/issues/138).
+The shipped renderers are in full compliance. Every `E()` string child is
+the array form. The sweep found 60 array-form calls and no bare-string
+sinks. The rendering regression harness
+([#138](https://github.com/lucas-albers-lz4/fwlive/issues/138), merged as
+`tests/` coverage) keeps it that way. The compliance sweep landed with
+[#137](https://github.com/lucas-albers-lz4/fwlive/issues/137).
 
 ### 2. Log data is never interpolated into a shell command string
 
@@ -120,9 +123,9 @@ part of the security boundary.
 | Feed signing keys | CI secrets, written under `umask 077` then `chmod 600`; only public keys are staged for publish |
 | Package contents | `verify-reproducible-build.sh` — determinism of our inputs within a run |
 | OpenWrt feeds | Pinned in `scripts/feeds.lock/` |
-| SDK base images | Referenced by mutable tag ([#133](https://github.com/lucas-albers-lz4/fwlive/issues/133)) |
-| GitHub Actions | Referenced by mutable tag ([#132](https://github.com/lucas-albers-lz4/fwlive/issues/132)) |
-| Fetched build helpers and lab images | No checksum verification ([#131](https://github.com/lucas-albers-lz4/fwlive/issues/131), [#134](https://github.com/lucas-albers-lz4/fwlive/issues/134)) |
+| SDK base images | Digests resolved per cell and recorded in the release manifest (no mutable-tag reliance) |
+| GitHub Actions | SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` |
+| Fetched build helpers and lab images | sha256-verified before execution; `/tmp` trust removed (fresh `mktemp` per invocation) |
 
 Never stage a secret key into `feed-staging/` — `feed_publish_copy_keys` copies
 public keys only, and all four key filenames are gitignored.

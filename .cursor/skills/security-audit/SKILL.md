@@ -53,7 +53,11 @@ rg -n "E\('[a-z]+',\s*(\{[^}]*\}|null),\s*[A-Za-z_$][A-Za-z0-9_.$]*(\(|\)|,|\s*\
 ```
 
 Then confirm which of those carry untrusted data by tracing the argument back to
-`normalizeEntry`, the hostname cache, or the filter state. Also check direct
+`normalizeEntry`, the hostname cache, or the filter state. The regex matches
+bare identifiers. This includes **array-typed variables**, which are safe.
+For example, `E(..., parts)` where `parts = []` creates text nodes. Trace the
+identifier declaration first. Only string-typed or function-call third
+arguments are candidates. Also check direct
 sinks:
 
 ```sh
