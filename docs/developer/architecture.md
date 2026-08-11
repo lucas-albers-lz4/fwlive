@@ -52,8 +52,9 @@ flowchart TB
 | Enable/disable concurrency | No confirm dialog / no flock — low multi-admin risk; UI uses `loggingBusy`; concurrent toggles are last-writer-wins |
 | Parser disagreement | After poll, the client re-applies `isFirewallEvent`; **client wins** (drops lines the shell kept if heuristics disagree) |
 | MAC redaction | Client display only (`formatMessageDisplay` strips `MAC=…`, including message `title`); poll JSON may still contain MACs on the wire |
-| Rule / prefix XSS | Rule labels render via LuCI `E(..., text)` (text nodes); server map keys gated by `is_uci_style_name` |
+| Output encoding | Renderers must emit untrusted values as text nodes; server map keys are additionally gated by `is_uci_style_name` — [Security model § Invariants](security-model.md#invariants) |
 | Log filter injection | `fwlive-log-filter.sh` feeds messages as data through jsonfilter/grep stdin — not a shell-injection surface |
+| Log content is untrusted | Every parsed field is attacker-influenced regardless of who wrote the firewall rule — [Security model § Untrusted input inventory](security-model.md#untrusted-input-inventory) |
 | Opt-in hostnames | `fwlive.resolve` via `getent`; checkbox default off; server validates IPv4/IPv6 shape before lookup |
 | `core/` + LuCI mirror | Parser tested without browser or router |
 | LuCI gate (not generator) | `gen-luci-wrapper.js` verifies full `CLASSIFY_SPEC` equality + preserve markers; shared classify in `log.js` stays hand-maintained (no text-transform codegen). Core has no `@fwlive-codegen:luci-begin/end` markers — only LuCI has a preserve region for presentation helpers. |

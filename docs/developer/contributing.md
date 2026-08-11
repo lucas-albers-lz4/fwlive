@@ -4,6 +4,7 @@
 
 - **Small steps** — one behavior per change; verify in CLI + QEMU LuCI when UI-related
 - **Parser sync** — edit `CLASSIFY_SPEC` in `core/fwlive-log.js`, mirror the same object in `htdocs/.../fwlive/log.js`, run `./scripts/gen-all.sh` (regenerates shell; gates LuCI full-spec drift), keep preserve-region presentation in parity
+- **Output encoding** — untrusted values must reach the DOM as text nodes, never through an HTML sink; applies to every renderer, including values that look constrained — see [Security model § Invariants](security-model.md#invariants)
 - **No scope creep** — MVP is done; backlog items are in [`../ROADMAP.md`](../ROADMAP.md)
 
 ## Change workflow
@@ -34,9 +35,16 @@ After editing classification: update **both** `core/fwlive-log.js` and the LuCI 
 
 ## Feed / package changes
 
-- `Makefile` — `LUCI_DEPENDS`, version, maintainer
+- `Makefile` — `LUCI_DEPENDS`, version, maintainer. `PKG_VERSION` and `APP_VERSION` in `fwlive/constants.js` must match
 - `menu.d` — path `admin/status/fwlive`
 - `rpcd/acl.d` — grant `fwlive.rules`, `fwlive.poll`, `fwlive.resolve`, `fwlive.logging_status` (read); `fwlive.enable_wan_logging`, `fwlive.disable_wan_logging` (write). Do **not** grant `ubus log.read` — poll performs filtered log reads inside the root rpcd plugin
+
+## Security-relevant changes
+
+Renderers, the rpcd plugin, shell helpers, and the release pipeline all sit on a
+trust boundary. Read [Security model](security-model.md) before changing them,
+and report vulnerabilities privately per [`../../SECURITY.md`](../../SECURITY.md)
+rather than opening an issue.
 
 Package README: [`../../openwrt-feed/luci-app-fwlive/README.md`](../../openwrt-feed/luci-app-fwlive/README.md)
 
@@ -50,6 +58,37 @@ Package README: [`../../openwrt-feed/luci-app-fwlive/README.md`](../../openwrt-f
 | Screenshots | `node scripts/capture-fwlive-screenshots.mjs` — see [`../user/assets/capture-screenshots.md`](../user/assets/capture-screenshots.md) |
 
 Keep user docs free of QEMU/SDK detail; keep developer docs free of marketing language.
+
+### Single source of truth
+
+Every rule has exactly one **owner** document. Everything else links to it
+instead of restating it. A stale copy of a rule is worse than no copy — an
+inverted claim about output encoding survived in `architecture.md` long enough
+to be built against (#137).
+
+| Owner | Rules it owns |
+|-------|---------------|
+| [security-model.md](security-model.md) | Trust boundaries, output encoding, untrusted inputs, ACL scope, supply-chain surface |
+| [contributing.md](contributing.md) | Workflow, parser sync / codegen, package and version rules, documentation conventions |
+| [build-and-test.md](build-and-test.md) | Commands, what each gate covers, test caveats |
+| [architecture.md](architecture.md) | Module split, data path, design rationale |
+| `.cursor/skills/security-audit/SKILL.md` | Audit procedure and re-verification commands |
+| [`../../CHANGELOG.md`](../../CHANGELOG.md) | Release history — a record, never a rule source |
+
+When a rule changes, edit its owner. If the edit forces prose changes in a second
+file, that second copy is drift — consolidate it.
+
+**Restating is allowed in exactly these forms:**
+
+| Allowed | Shape |
+|---------|-------|
+| Imperative at the point of action | One sentence where the work happens (e.g. the `log.read` warning beside the ACL grant list). No rationale, no mechanics, no examples |
+| Router entry | A rule named in one line plus a link — [`../../AGENTS.md`](../../AGENTS.md) and index tables |
+| Verification command | *How* to confirm a fact may sit with the procedure that needs it, even when the fact is owned elsewhere |
+
+Everything else stays single-sourced: rationale, code samples, upstream
+behaviour, threat descriptions, and multi-step procedures. If a restatement
+needs a "because", it belongs in the owner document.
 
 ## Before publishing
 
