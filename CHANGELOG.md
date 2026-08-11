@@ -9,15 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Security model doc: trust boundaries, untrusted-input inventory, and testable security invariants ([`docs/developer/security-model.md`](docs/developer/security-model.md))
-- `AGENTS.md` — router for coding agents; each rule links to its canonical document rather than restating it
-- Repeatable `security-audit` skill under `.cursor/skills/` (audit order, re-verification commands, severity and disclosure rules)
-- Renderer-test caveat and link-checker step in the build/test guide
-- Documentation rule-ownership policy: one owner per rule, plus the narrow forms in which restating one is allowed
+## [v0.1.32] — 2026-08-11
+
+### Security
+- Route all `E()` string children through text nodes (uniform array form); bump `PKG_VERSION` to 0.1.32 (#148, #158)
+- LuCI-accurate `E()` harness with DOM-render discrimination so renderer regressions fail CI (#149, #155)
+- Remove `/tmp` trust from feed signing paths (#142, #157)
+- SHA-pin GitHub Actions and route workflow-dispatch inputs via env (#143, #146, #156)
 
 ### Fixed
-- Architecture doc stated the output-encoding rule backwards; corrected and pointed at the security model as its single source (#137)
+- Capture log prefix/comment with escaped quotes (#124, #125)
+- Bound `ubus fwlive.resolve` to a wall-clock budget (#147, #161)
+- Serialize WAN logging toggles with `flock` (#151, #163)
+- Verify sha256 of downloaded lab images + u-boot; record resolved SDK image digests in the release manifest (#144, #145, #159, #162)
+- Resilient feed fetch and link-check retry on curl code 000 (#122, #127, #152, #160)
+
+### Added
+- `SECURITY.md` disclosure policy (#123)
+- Security model doc: trust boundaries, untrusted-input inventory, and testable security invariants ([`docs/developer/security-model.md`](docs/developer/security-model.md)) (#139)
+- `AGENTS.md` — router for coding agents; each rule links to its canonical document (#139)
+- Repeatable `security-audit` skill under `.cursor/skills/` (#139)
+- Automated git subtree re-cut script for upstream PRs (#116, #117)
+
+### Documentation
+- Architecture doc output-encoding rule corrected; security model is the single source (#137, #139)
+- Binary-feed install fold; README Tests/License badges; renderer-test and link-checker notes (#113, #119, #139)
 
 ## [v0.1.31] — 2026-07-31
 
@@ -327,6 +343,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.32]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.31...v0.1.32
 [v0.1.31]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.30...v0.1.31
 [v0.1.30]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.29...v0.1.30
 [v0.1.29]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.28...v0.1.29
