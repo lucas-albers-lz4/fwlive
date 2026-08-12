@@ -269,4 +269,27 @@ out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb2" "" "1")
 [ "$out" = "2" ] || die "C2: expected rollback skipped (value stays 2), got '$out'"
 ok "reload failure + concurrent change -> rollback skipped (newer toggle preserved)"
 
+# --- Part D: lock file mode 0600 (issue #167) ---------------------------------
+stat_mode() {
+	m=$(stat -c '%a' "$1" 2>/dev/null || stat -f '%OLp' "$1")
+	printf '%s' "$m" | sed 's/^0*//'
+}
+
+rm -f "$FWLIVE_WAN_LOG_LOCK_FILE"
+umask 022
+# shellcheck disable=SC1090
+. "$LOGGING_SH"
+acquire_wan_log_lock || die "acquire_wan_log_lock failed for mode check"
+release_wan_log_lock
+[ "$(stat_mode "$FWLIVE_WAN_LOG_LOCK_FILE")" = "600" ] \
+	|| die "lock mode $(stat_mode "$FWLIVE_WAN_LOG_LOCK_FILE") want 600"
+ok "new lock file is mode 0600"
+
+install -m 0644 /dev/null "$FWLIVE_WAN_LOG_LOCK_FILE"
+acquire_wan_log_lock || die "acquire on pre-existing 0644 failed"
+release_wan_log_lock
+[ "$(stat_mode "$FWLIVE_WAN_LOG_LOCK_FILE")" = "600" ] \
+	|| die "pre-existing 0644 lock not tightened (got $(stat_mode "$FWLIVE_WAN_LOG_LOCK_FILE"))"
+ok "pre-existing 0644 lock tightened to 0600"
+
 echo "fwlive-logging-lock tests passed"
