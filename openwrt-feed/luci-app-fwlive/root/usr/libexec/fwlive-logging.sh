@@ -43,7 +43,23 @@ release_wan_log_lock() {
 }
 
 find_wan_zone_section() {
-	uci -q show firewall 2>/dev/null | sed -n "s/^firewall\.\(@zone\[[0-9]*\]\)\.name='wan'$/\1/p" | head -1
+	# Match anonymous (@zone[N]) and named (e.g. wan) sections whose name option
+	# is 'wan'. Prefer the first section whose type is zone (issue #168); skip
+	# non-zone sections that happen to share name='wan'.
+	_zones=$(uci -q show firewall 2>/dev/null \
+		| sed -n "s/^firewall\.\([^.]*\)\.name='wan'$/\1/p")
+	for zone in $_zones; do
+		[ -n "$zone" ] || continue
+		[ "$(uci -q get "firewall.${zone}" 2>/dev/null)" = "zone" ] || continue
+		printf '%s' "$zone"
+		return 0
+	done
+	return 0
+}
+
+firewall_changes_pending() {
+	pending="$(uci -q changes firewall 2>/dev/null)"
+	[ -n "$pending" ]
 }
 
 wan_zone_log_value() {
@@ -184,6 +200,11 @@ restore_wan_zone_log() {
 	zone="$1"
 	previous="$2"
 	[ -n "$zone" ] || return 1
+	# Refuse to publish unrelated staged firewall deltas (issue #168).
+	if firewall_changes_pending; then
+		logger -t fwlive "WAN log rollback skipped: firewall changes pending" 2>/dev/null || true
+		return 1
+	fi
 	if [ -z "$previous" ]; then
 		uci -q delete "firewall.${zone}.log" 2>/dev/null || true
 	else
@@ -202,6 +223,9 @@ commit_wan_log_change() {
 	if uci commit firewall; then
 		return 0
 	fi
+	# Drop our staged log delta so a later toggle is not stuck on
+	# firewall_changes_pending from this package's own orphaned write.
+	uci -q revert firewall 2>/dev/null || true
 	printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
 	return 1
 }
@@ -236,8 +260,11 @@ reload_and_report_wan_log() {
 				# the pre-commit value. (If a concurrent toggle committed the
 				# same value, the toggle is idempotent: the state intent is
 				# identical, so restoring previous is the correct rollback.)
-				restore_wan_zone_log "$zone" "$previous"
-				logger -t fwlive "$fail_msg" 2>/dev/null || true
+				if restore_wan_zone_log "$zone" "$previous"; then
+					logger -t fwlive "$fail_msg" 2>/dev/null || true
+				else
+					logger -t fwlive "Firewall reload failed; WAN log rollback skipped (pending changes or restore failed)" 2>/dev/null || true
+				fi
 			else
 				# A concurrent toggle changed the value after our commit; do
 				# not clobber it. Log the divergence and leave the newer value.
@@ -276,6 +303,12 @@ enable_wan_logging() {
 	# from the latest committed value; a concurrent toggle cannot interleave.
 	if ! acquire_wan_log_lock; then
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"lock_failed"}' "$zone_json"
+		return 0
+	fi
+
+	if firewall_changes_pending; then
+		release_wan_log_lock
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_changes_pending"}' "$zone_json"
 		return 0
 	fi
 
@@ -319,6 +352,12 @@ disable_wan_logging() {
 	# from the latest committed value; a concurrent toggle cannot interleave.
 	if ! acquire_wan_log_lock; then
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"lock_failed"}' "$zone_json"
+		return 0
+	fi
+
+	if firewall_changes_pending; then
+		release_wan_log_lock
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_changes_pending"}' "$zone_json"
 		return 0
 	fi
 

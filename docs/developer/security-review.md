@@ -68,16 +68,16 @@ should carry a note saying what would raise it.
 | Only public keys reach `feed-staging/` | `manual` | `feed_publish_copy_keys` |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |
-| WAN toggle changes only the zone `log` bit | **partial** | [#168](https://github.com/lucas-albers-lz4/fwlive/issues/168) — the `uci commit` is package-wide |
-| The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` — lock created/tightened to `0600` |
+| WAN toggle changes only the zone `log` bit | `host` | `tests/fwlive-logging.test.sh` — pending-delta refuse; named + anonymous zone lookup |
+| The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600 |
 
 ## Open findings
 
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
-| S4 | Low | [#168](https://github.com/lucas-albers-lz4/fwlive/issues/168) | `uci commit firewall` publishes any delta staged in `/tmp/.uci/firewall`, not just our bit; and a named `config zone 'wan'` is invisible to `find_wan_zone_section` |
 
-Recommended order (remaining): S4. S1/S2/S3 closed.
+(no open findings from the 2026-08-12 wave)
+
 
 ## Accepted residuals
 
