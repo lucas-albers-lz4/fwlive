@@ -69,6 +69,7 @@ to be built against (#137).
 | Owner | Rules it owns |
 |-------|---------------|
 | [security-model.md](security-model.md) | Trust boundaries, output encoding, untrusted inputs, ACL scope, supply-chain surface |
+| [security-review.md](security-review.md) | Review state — surface coverage, proof class per control, open findings, accepted residuals |
 | [contributing.md](contributing.md) | Workflow, parser sync / codegen, package and version rules, documentation conventions |
 | [build-and-test.md](build-and-test.md) | Commands, what each gate covers, test caveats |
 | [architecture.md](architecture.md) | Module split, data path, design rationale |
