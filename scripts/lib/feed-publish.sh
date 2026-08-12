@@ -96,24 +96,54 @@ feed_publish_stage_release_assets() {
 	done
 }
 
+# Pinned usign revision for host-side opkg feed signing (no fixed /tmp path;
+# fresh build per call). Same pin as the sibling usrmanage feed-publish helper.
+# Resolved via: git ls-remote https://github.com/openwrt/usign master
+USIGN_PIN_SHA='c4c72b1b07945ee192361dc751291a7c98d6adcd'
+
 feed_publish_ensure_usign() {
 	if command -v usign >/dev/null 2>&1; then
 		return 0
 	fi
-	# Build into a fresh, unpredictable mktemp -d each invocation. This removes
-	# the fixed /tmp path trust (issue #131): no pre-existing /tmp/fwlive-usign-
-	# build can be hijacked, since there is no fixed path to pre-create.
-	local build_dir
-	build_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-usign.XXXXXX")"
-	# The build dir intentionally lives for the process lifetime: PATH
-	# points into it and usign is invoked later by the caller. It is a
-	# random per-process name (no fixed path to pre-create = no hijack
-	# window); /tmp is reaped on reboot. Cleanup belongs to the caller's
-	# trap, not this lib (it cannot know when the last usign use happens).
-	echo "→ building usign (isolated build dir)..." >&2
-	git clone --depth 1 https://github.com/openwrt/usign.git "${build_dir}/src"
-	make -C "${build_dir}/src" -j"$(nproc 2>/dev/null || echo 2)" >/dev/null
-	ln -sf "${build_dir}/src/usign" "${build_dir}/usign"
+	# Prefer the SDK's host usign when a prior docker-sdk build left it on disk.
+	local sdk_usign root
+	root="$(feed_publish_root)"
+	for sdk_usign in \
+		"${root}/.sdk"/openwrt-sdk-*/staging_dir/host/bin/usign \
+		/builder/staging_dir/host/bin/usign; do
+		if [[ -x "$sdk_usign" ]]; then
+			export PATH="$(dirname "$sdk_usign"):${PATH}"
+			command -v usign >/dev/null && return 0
+		fi
+	done
+	local build_dir rc
+	command -v cmake >/dev/null 2>&1 || {
+		echo "usign build needs cmake (pinned ${USIGN_PIN_SHA}); install cmake or put usign on PATH" >&2
+		return 1
+	}
+	# Fresh unpredictable mktemp -d each invocation (issue #131 / #166): no
+	# fixed /tmp path to pre-create, and the source is commit-pinned.
+	build_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-usign.XXXXXX")" || return 1
+	echo "→ building pinned usign (${USIGN_PIN_SHA}) in ${build_dir}..." >&2
+	rc=0
+	(
+		set -e
+		git init -q "${build_dir}/src"
+		git -C "${build_dir}/src" remote add origin "https://github.com/openwrt/usign.git"
+		git -C "${build_dir}/src" fetch -q --depth 1 origin "${USIGN_PIN_SHA}"
+		git -C "${build_dir}/src" checkout -q "${USIGN_PIN_SHA}"
+		test "$(git -C "${build_dir}/src" rev-parse HEAD)" = "${USIGN_PIN_SHA}"
+		cmake -S "${build_dir}/src" -B "${build_dir}/build" >/dev/null
+		make -C "${build_dir}/build" -j"$(nproc 2>/dev/null || echo 2)" >/dev/null
+		ln -sf "${build_dir}/build/usign" "${build_dir}/usign"
+	) || rc=1
+	if [[ "$rc" -ne 0 ]]; then
+		rm -rf "$build_dir"
+		echo "usign build failed (pinned ${USIGN_PIN_SHA})" >&2
+		return 1
+	fi
+	# Build dir lives for the process lifetime: PATH points into it and usign
+	# is invoked later. Random per-process name; /tmp reaped on reboot.
 	export PATH="${build_dir}:${PATH}"
 	command -v usign >/dev/null
 }

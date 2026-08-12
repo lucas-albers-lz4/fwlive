@@ -80,6 +80,9 @@ bash tests/feed-publish-release-assets.test.sh
 echo "== fwlive feed-keys mode (0600) ==" >&2
 bash tests/feed-keys-mode.test.sh
 
+echo "== fwlive fetch-pin gate ==" >&2
+bash tests/fetch-pin-gate.test.sh
+
 echo "== fwlive logging lock (race) ==" >&2
 bash tests/fwlive-logging-lock.test.sh
 
