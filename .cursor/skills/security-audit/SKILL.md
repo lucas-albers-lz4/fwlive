@@ -7,7 +7,14 @@ description: Audit the fwlive repository for security issues — LuCI frontend i
 
 Repeatable audit procedure. Read
 [`docs/developer/security-model.md`](../../../docs/developer/security-model.md)
-for the trust boundaries and invariants; this file is the *how*.
+for the trust boundaries and invariants, and
+[`docs/developer/security-review.md`](../../../docs/developer/security-review.md)
+for what has already been checked, with what proof, and what is open. This file
+is the *how*.
+
+A pass owes the ledger a coverage-map update, a proof class for every control it
+touches, and its non-findings — see
+[security-review.md § Review procedure](../../../docs/developer/security-review.md#review-procedure).
 
 ## Order of work
 
@@ -130,10 +137,34 @@ mutable tag (especially any step receiving a secret), fetched-and-executed
 helpers without a checksum, predictable temp paths in the signing path, and
 whether any secret can reach `feed-staging/`.
 
-Confirm key files stay ignored:
+Confirm key files stay ignored — and their temp siblings too, which is how
+[#165](https://github.com/lucas-albers-lz4/fwlive/issues/165) got past this
+check:
 
 ```sh
 git check-ignore -v opkg-secret.key apk-secret.rsa public.key fwlive-feed.rsa.pub
+git check-ignore -v opkg-secret.key.tmp apk-secret.rsa.tmp
+```
+
+**Run the key path; do not read it.** A `chmod 600` in the source proves the
+call exists, not that the mode survives the rest of the function:
+
+```sh
+( umask 022                     # GitHub runner default, not your shell's
+  source scripts/lib/feed-keys.sh
+  OPKG_SECRET=… APK_SECRET=… OPKG_PUB=… APK_PUB=… feed_keys_write_from_env "$d"
+  stat -c '%n %a' "$d"/opkg-secret.key "$d"/apk-secret.rsa
+  find "$d" -name '*.tmp' )
+```
+
+Do this for **both** documented secret formats — one-line paste and base64 —
+because they take different code paths through `feed-keys.sh`.
+
+Every `> "$f.tmp"` followed by `mv "$f.tmp" "$f"` is a mode-loss candidate,
+anywhere in the repo:
+
+```sh
+rg -n '>\s*"\$\{?\w+\}?\.tmp"' scripts openwrt-feed
 ```
 
 ## Severity calibration
@@ -172,15 +203,30 @@ gh api /repos/{owner}/{repo}/security-advisories --jq '.[] | "\(.ghsa_id) \(.sta
 ## Known-good — do not re-litigate without new evidence
 
 Invariants 2–7 in [`security-model.md`](../../../docs/developer/security-model.md)
-were each audited and found correctly implemented, as were the
-`__rulesmap_iptables` fixed-path guard, the WAN-log bit-0-only manipulation with
-UCI rollback, and secret-key file permissions plus gitignore coverage.
+were each audited and found correctly implemented, as was the
+`__rulesmap_iptables` fixed-path guard.
 
 Re-examine them only with new evidence — a code change in the area, or a concrete
 bypass. Spending the pass re-reading known-good shell is the main way an audit
 runs out of time before reaching the frontend.
 
-Open items are tracked as issues — check them before re-reporting:
+**Two entries were removed from this list on 2026-08-12**, and the reason
+matters more than the bugs:
+
+| Was listed as known-good | What running it showed |
+|--------------------------|------------------------|
+| Secret-key file permissions plus gitignore coverage | Secrets land 0644 in both documented formats, and `*.tmp` is not ignored ([#165](https://github.com/lucas-albers-lz4/fwlive/issues/165)) |
+| WAN-log bit-0-only manipulation with UCI rollback | The `set` is bit-0-only; the `uci commit firewall` is package-wide ([#168](https://github.com/lucas-albers-lz4/fwlive/issues/168)) |
+
+Both were cleared by reading the code and finding the right-looking line. That
+is the failure mode this list creates: it converts one reader's impression into
+a standing instruction not to look. Before adding an entry here, state what was
+*executed* to clear it, and prefer a test in `tests/` — an entry with a test
+behind it never needs this list.
+
+Open items are tracked as issues, and the current state with severities and
+recommended order is in
+[`security-review.md` § Open findings](../../../docs/developer/security-review.md#open-findings):
 
 ```sh
 gh issue list --label security --label supply-chain --state open

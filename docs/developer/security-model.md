@@ -7,6 +7,10 @@ pipeline.
 Reporting a vulnerability: [`SECURITY.md`](../../SECURITY.md) — private
 disclosure, never a public issue.
 
+Whether a control below is actually *proven*, and what is currently open against
+it: [security-review.md](security-review.md). This document says what must be
+true; that one says what has been checked and how hard.
+
 ## Threat model in one line
 
 fwlive renders attacker-influenced text inside a **root-equivalent** browser
@@ -110,8 +114,17 @@ The rpcd plugin runs as **root**. Its entire input surface is:
 methods. `__rulesmap_iptables` reads a fixed path and rejects argv-supplied
 files.
 
-State changes touch only bit 0 of the WAN zone `log` value and roll back UCI if
-the firewall reload fails.
+The `uci set` touches only bit 0 of the WAN zone `log` value, and UCI is rolled
+back if the firewall reload fails. The **commit** is wider than the set:
+`uci commit firewall` publishes any delta already staged in `/tmp/.uci/firewall`
+by another CLI actor ([#168](https://github.com/lucas-albers-lz4/fwlive/issues/168)).
+An unprivileged user cannot stage such a delta — `/tmp/.uci` is `0700` (libuci
+`UCI_DIRMODE`) — which is what keeps that finding Low.
+
+Serialization of the toggle depends on a lock file that is currently created
+world-readable, so any local UID can hold it and, with no BusyBox `flock -w`,
+block both toggles until reboot
+([#167](https://github.com/lucas-albers-lz4/fwlive/issues/167)).
 
 ## Supply-chain surface
 
@@ -120,15 +133,29 @@ part of the security boundary.
 
 | Surface | Control |
 |---------|---------|
-| Feed signing keys | CI secrets, written under `umask 077` then `chmod 600`; only public keys are staged for publish |
+| Feed signing keys | CI secrets, written under `umask 077` then `chmod 600`; only public keys are staged for publish. **The mode does not currently survive** — see below |
 | Package contents | `verify-reproducible-build.sh` — determinism of our inputs within a run |
 | OpenWrt feeds | Pinned in `scripts/feeds.lock/` |
 | SDK base images | Digests resolved per cell and recorded in the release manifest (no mutable-tag reliance) |
 | GitHub Actions | SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` |
-| Fetched build helpers and lab images | sha256-verified before execution; `/tmp` trust removed (fresh `mktemp` per invocation) |
+| Fetched build helpers and lab images | sha256-verified or commit-pinned before execution — **except `usign`**, see below; `/tmp` trust removed (fresh `mktemp` per invocation) |
 
 Never stage a secret key into `feed-staging/` — `feed_publish_copy_keys` copies
-public keys only, and all four key filenames are gitignored.
+public keys only, and all four key filenames are gitignored. The `${f}.tmp`
+siblings that `feed-keys.sh` creates are **not** covered by that gitignore
+([#165](https://github.com/lucas-albers-lz4/fwlive/issues/165)).
+
+Two rows above are aspirational rather than in force, both reproduced on
+2026-08-12:
+
+- Signing secrets end at **0644**, not 0600. `feed-keys.sh` normalizes the key
+  *after* the `chmod`, and its `> "${f}.tmp"` + `mv` carries the temp file's
+  umask-derived mode onto the destination
+  ([#165](https://github.com/lucas-albers-lz4/fwlive/issues/165)).
+- `feed_publish_ensure_usign` clones `openwrt/usign` at an unpinned `master`,
+  builds it, and puts it on `PATH` to **sign the feed** — no SHA, no checksum,
+  twenty lines from the commit-pinned `ipkg-make-index.sh`
+  ([#166](https://github.com/lucas-albers-lz4/fwlive/issues/166)).
 
 ## Running an audit
 

@@ -38,9 +38,12 @@ Breaking any of these fails CI or ships a security regression.
 | Task | Read first |
 |------|------------|
 | Any change | [contributing.md](docs/developer/contributing.md) |
-| Renderers, rpcd plugin, shell helpers, release pipeline | [security-model.md](docs/developer/security-model.md) |
+| Renderers, rpcd plugin, shell helpers, release pipeline | [security-model.md](docs/developer/security-model.md), then [security-review.md](docs/developer/security-review.md) for what is open against it |
 | Classification or parsing | [architecture.md](docs/developer/architecture.md) |
-| A security audit | `security-audit` skill in `.cursor/skills/` |
+| A security audit | [security-review.md](docs/developer/security-review.md) for state, then the `security-audit` skill in `.cursor/skills/` for procedure |
+
+A change to the rpcd plugin, the ACL, the shell helpers, or the release pipeline
+updates [security-review.md](docs/developer/security-review.md) in the same PR.
 
 ## Commands and testing
 
