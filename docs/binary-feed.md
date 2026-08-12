@@ -279,11 +279,11 @@ Verify locally:
 
 ### Refresh feed lock files
 
-When OpenWrt bumps a point release (e.g. 24.10.8 → 24.10.6):
+When OpenWrt bumps a point release (e.g. 24.10.7 → 24.10.8):
 
 ```sh
-docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.6 cat feeds.conf.default
-# Copy into scripts/feeds.lock/24.10.6/feeds.conf (add src-link fwlive line)
+docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.8 cat feeds.conf.default
+# Copy into scripts/feeds.lock/24.10.8/feeds.conf (add src-link fwlive line)
 # Update sdk_matrix_version_patch in sdk-matrix.sh
 ```
 
