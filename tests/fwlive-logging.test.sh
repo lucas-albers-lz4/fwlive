@@ -105,6 +105,30 @@ got=$(find_wan_zone_section)
 [ "$got" = "@zone[0]" ] || die "anonymous wan zone expected @zone[0], got '$got'"
 ok "find_wan_zone_section anonymous zone"
 
+# Non-zone name=wan before a real zone must not abort lookup.
+uci() {
+	case "$*" in
+		'-q show firewall')
+			cat <<'EOF'
+firewall.fwd=forwarding
+firewall.fwd.name='wan'
+firewall.@zone[0]=zone
+firewall.@zone[0].name='wan'
+EOF
+			;;
+		'-q get firewall.fwd')
+			printf 'forwarding\n'
+			;;
+		'-q get firewall.@zone[0]')
+			printf 'zone\n'
+			;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "@zone[0]" ] || die "skip non-zone name=wan expected @zone[0], got '$got'"
+ok "find_wan_zone_section skips non-zone name=wan"
+
 # firewall_changes_pending + enable refuse (issue #168)
 PENDING_STAGED=1
 UCI_COMMITTED=0

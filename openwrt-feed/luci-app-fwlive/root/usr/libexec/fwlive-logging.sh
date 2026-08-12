@@ -44,12 +44,17 @@ release_wan_log_lock() {
 
 find_wan_zone_section() {
 	# Match anonymous (@zone[N]) and named (e.g. wan) sections whose name option
-	# is 'wan'. Guard that the section type is zone (issue #168).
-	zone=$(uci -q show firewall 2>/dev/null \
-		| sed -n "s/^firewall\.\([^.]*\)\.name='wan'$/\1/p" | head -1)
-	[ -n "$zone" ] || return 0
-	[ "$(uci -q get "firewall.${zone}" 2>/dev/null)" = "zone" ] || return 0
-	printf '%s' "$zone"
+	# is 'wan'. Prefer the first section whose type is zone (issue #168); skip
+	# non-zone sections that happen to share name='wan'.
+	_zones=$(uci -q show firewall 2>/dev/null \
+		| sed -n "s/^firewall\.\([^.]*\)\.name='wan'$/\1/p")
+	for zone in $_zones; do
+		[ -n "$zone" ] || continue
+		[ "$(uci -q get "firewall.${zone}" 2>/dev/null)" = "zone" ] || continue
+		printf '%s' "$zone"
+		return 0
+	done
+	return 0
 }
 
 firewall_changes_pending() {
@@ -218,6 +223,9 @@ commit_wan_log_change() {
 	if uci commit firewall; then
 		return 0
 	fi
+	# Drop our staged log delta so a later toggle is not stuck on
+	# firewall_changes_pending from this package's own orphaned write.
+	uci -q revert firewall 2>/dev/null || true
 	printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
 	return 1
 }
@@ -252,8 +260,11 @@ reload_and_report_wan_log() {
 				# the pre-commit value. (If a concurrent toggle committed the
 				# same value, the toggle is idempotent: the state intent is
 				# identical, so restoring previous is the correct rollback.)
-				restore_wan_zone_log "$zone" "$previous"
-				logger -t fwlive "$fail_msg" 2>/dev/null || true
+				if restore_wan_zone_log "$zone" "$previous"; then
+					logger -t fwlive "$fail_msg" 2>/dev/null || true
+				else
+					logger -t fwlive "Firewall reload failed; WAN log rollback skipped (pending changes or restore failed)" 2>/dev/null || true
+				fi
 			else
 				# A concurrent toggle changed the value after our commit; do
 				# not clobber it. Log the divergence and leave the newer value.
