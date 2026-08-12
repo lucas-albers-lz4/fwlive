@@ -23,7 +23,12 @@ WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/var/lock/fwlive-logging.lock}"
 
 # Acquire the exclusive logging lock on fd 9. Blocks until free; fails closed
 # (return 1) only if the lock file cannot be opened or flock is unavailable.
+# Create/tighten the lock to 0600 so unprivileged UIDs cannot take LOCK_EX on
+# a world-readable fd (issue #167 / flock(2) allows exclusive locks on O_RDONLY).
 acquire_wan_log_lock() {
+	( umask 077; : >> "$WAN_LOG_LOCK_FILE" ) 2>/dev/null || return 1
+	chmod 0600 "$WAN_LOG_LOCK_FILE" 2>/dev/null || true
+	chown 0:0 "$WAN_LOG_LOCK_FILE" 2>/dev/null || true
 	exec 9>"$WAN_LOG_LOCK_FILE" 2>/dev/null || return 1
 	flock 9 2>/dev/null || {
 		exec 9>&-
