@@ -66,10 +66,10 @@ should carry a note saying what would raise it.
 | Actions SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` | `manual` | `.github/workflows/publish-packages.yml` |
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
 | Only public keys reach `feed-staging/` | `manual` | `feed_publish_copy_keys` |
-| Signing secrets are mode 0600 | **not in force** | [#165](https://github.com/lucas-albers-lz4/fwlive/issues/165) — reproduced at 0644 |
-| Fetched build helpers verified before execution | **partial** | [#166](https://github.com/lucas-albers-lz4/fwlive/issues/166) — `usign` is cloned unpinned and executed |
+| Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
+| Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |
 | WAN toggle changes only the zone `log` bit | `host` | `tests/fwlive-logging.test.sh` — pending-delta refuse; named + anonymous zone lookup |
-| The WAN logging lock cannot be held by an unprivileged user | **not in force** | [#167](https://github.com/lucas-albers-lz4/fwlive/issues/167) — lock file is 0644 |
+| The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600 |
 
 ## Open findings
 
