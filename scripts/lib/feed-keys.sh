@@ -30,9 +30,12 @@ feed_keys_normalize_usign_keyfile() {
 			umask "$old_umask"
 			return 1
 		}
+		# Always remove the temp — sed can leave a partial sibling on failure.
+		trap 'rm -f "$tmp"' RETURN
 		sed -E 's/^(untrusted comment: .+) (RW[A-Za-z0-9+/=]+)[[:space:]]*$/\1\
 \2/' "$f" > "$tmp"
 		mv "$tmp" "$f"
+		trap - RETURN
 		umask "$old_umask"
 	fi
 

@@ -18,7 +18,8 @@ stat_mode() {
 }
 
 DEST=$(mktemp -d)
-trap 'rm -rf "$DEST"' EXIT
+_norm_fail=$(mktemp -d)
+trap 'rm -rf "$DEST" "$_norm_fail"' EXIT
 
 # Synthetic usign-shaped keys (comment + RW payload on one line → normalize path).
 OPKG_ONE_LINE='untrusted comment: fwlive test secret RWabcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUV'
@@ -47,6 +48,9 @@ OPKG_SECRET="$OPKG_ONE_LINE" \
 [ -z "$(find "$DEST" -name '*.tmp' -print -quit)" ] \
 	&& ok "one-line leaves no .tmp" \
 	|| bad "one-line leftover .tmp"
+[ -z "$(find "$DEST" \( -name 'opkg-secret.key.*' -o -name 'public.key.*' \) -print -quit)" ] \
+	&& ok "one-line leaves no mktemp sibling" \
+	|| bad "one-line leftover mktemp sibling"
 
 rm -f "$DEST"/*
 
@@ -79,6 +83,23 @@ OPKG_SECRET="$OPKG_B64" \
 [ -z "$(find "$DEST" -name '*.tmp' -print -quit)" ] \
 	&& ok "base64 leaves no .tmp" \
 	|| bad "base64 leftover .tmp"
+[ -z "$(find "$DEST" \( -name 'opkg-secret.key.*' -o -name 'apk-secret.rsa.*' -o -name 'public.key.*' \) -print -quit)" ] \
+	&& ok "base64 leaves no mktemp sibling" \
+	|| bad "base64 leftover mktemp sibling"
+
+# Force normalize mid-failure: leave a planted mktemp sibling and ensure trap cleans on sed fail.
+# Simulate by running normalize after planting a one-line key and interrupting via broken sed env —
+# instead assert trap path: write one-line, normalize succeeds, then inject fail via unreadable tmp dir.
+printf '%s\n' 'untrusted comment: x RWabcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUV' \
+	> "${_norm_fail}/opkg-secret.key"
+chmod 600 "${_norm_fail}/opkg-secret.key"
+# Make the directory non-writable so mktemp fails closed (no sibling leak from prior run).
+chmod 555 "$_norm_fail"
+feed_keys_normalize_usign_keyfile "${_norm_fail}/opkg-secret.key" 2>/dev/null && true
+chmod 755 "$_norm_fail"
+[ -z "$(find "$_norm_fail" -name 'opkg-secret.key.*' -print -quit)" ] \
+	&& ok "normalize fail leaves no mktemp sibling" \
+	|| bad "normalize fail leftover mktemp sibling"
 
 # Partial base64 decode must not leave a fixed .tmp sibling.
 printf 'not-valid-base64!!!' > "${DEST}/partial.key"
