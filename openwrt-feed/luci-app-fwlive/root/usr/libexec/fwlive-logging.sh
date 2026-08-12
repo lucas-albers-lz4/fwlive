@@ -43,7 +43,18 @@ release_wan_log_lock() {
 }
 
 find_wan_zone_section() {
-	uci -q show firewall 2>/dev/null | sed -n "s/^firewall\.\(@zone\[[0-9]*\]\)\.name='wan'$/\1/p" | head -1
+	# Match anonymous (@zone[N]) and named (e.g. wan) sections whose name option
+	# is 'wan'. Guard that the section type is zone (issue #168).
+	zone=$(uci -q show firewall 2>/dev/null \
+		| sed -n "s/^firewall\.\([^.]*\)\.name='wan'$/\1/p" | head -1)
+	[ -n "$zone" ] || return 0
+	[ "$(uci -q get "firewall.${zone}" 2>/dev/null)" = "zone" ] || return 0
+	printf '%s' "$zone"
+}
+
+firewall_changes_pending() {
+	pending="$(uci -q changes firewall 2>/dev/null)"
+	[ -n "$pending" ]
 }
 
 wan_zone_log_value() {
@@ -184,6 +195,11 @@ restore_wan_zone_log() {
 	zone="$1"
 	previous="$2"
 	[ -n "$zone" ] || return 1
+	# Refuse to publish unrelated staged firewall deltas (issue #168).
+	if firewall_changes_pending; then
+		logger -t fwlive "WAN log rollback skipped: firewall changes pending" 2>/dev/null || true
+		return 1
+	fi
 	if [ -z "$previous" ]; then
 		uci -q delete "firewall.${zone}.log" 2>/dev/null || true
 	else
@@ -279,6 +295,12 @@ enable_wan_logging() {
 		return 0
 	fi
 
+	if firewall_changes_pending; then
+		release_wan_log_lock
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_changes_pending"}' "$zone_json"
+		return 0
+	fi
+
 	current=$(wan_zone_log_value "$zone")
 	if wan_filter_log_enabled "$current"; then
 		release_wan_log_lock
@@ -319,6 +341,12 @@ disable_wan_logging() {
 	# from the latest committed value; a concurrent toggle cannot interleave.
 	if ! acquire_wan_log_lock; then
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"lock_failed"}' "$zone_json"
+		return 0
+	fi
+
+	if firewall_changes_pending; then
+		release_wan_log_lock
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_changes_pending"}' "$zone_json"
 		return 0
 	fi
 

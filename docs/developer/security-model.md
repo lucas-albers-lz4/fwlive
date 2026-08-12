@@ -115,16 +115,15 @@ methods. `__rulesmap_iptables` reads a fixed path and rejects argv-supplied
 files.
 
 The `uci set` touches only bit 0 of the WAN zone `log` value, and UCI is rolled
-back if the firewall reload fails. The **commit** is wider than the set:
-`uci commit firewall` publishes any delta already staged in `/tmp/.uci/firewall`
-by another CLI actor ([#168](https://github.com/lucas-albers-lz4/fwlive/issues/168)).
-An unprivileged user cannot stage such a delta — `/tmp/.uci` is `0700` (libuci
-`UCI_DIRMODE`) — which is what keeps that finding Low.
+back if the firewall reload fails. Before `uci set` / commit, the toggle refuses
+when `uci changes firewall` is non-empty (`firewall_changes_pending`) so a
+package-wide commit cannot publish unrelated staged deltas
+([#168](https://github.com/lucas-albers-lz4/fwlive/issues/168)). Zone lookup
+accepts both anonymous `@zone[N]` and named sections.
 
-Serialization of the toggle depends on a lock file that is currently created
-world-readable, so any local UID can hold it and, with no BusyBox `flock -w`,
-block both toggles until reboot
-([#167](https://github.com/lucas-albers-lz4/fwlive/issues/167)).
+Serialization of the toggle uses a lock file created/tightened to `0600` so
+unprivileged UIDs cannot take `LOCK_EX` ([#167](https://github.com/lucas-albers-lz4/fwlive/issues/167)).
+BusyBox still has no `flock -w`; a stuck *root* holder can block callers indefinitely.
 
 ## Supply-chain surface
 

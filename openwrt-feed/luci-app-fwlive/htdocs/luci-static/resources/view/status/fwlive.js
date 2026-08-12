@@ -571,6 +571,8 @@ return view.extend({
 			if (!res || !res.ok) {
 				if (res && res.error === 'nf_log_missing')
 					this.loggingNotice = _('Cannot enable logging until kernel log modules are installed.');
+				else if (res && res.error === 'firewall_changes_pending')
+					this.loggingNotice = _('Another change is staged for the firewall; apply or revert it first.');
 				else
 					this.loggingNotice = _('Could not enable logging.');
 				await this.loadLoggingStatus();
@@ -605,7 +607,10 @@ return view.extend({
 		try {
 			const res = await callFwliveDisableLogging();
 			if (!res || !res.ok) {
-				this.loggingNotice = _('Could not disable logging.');
+				if (res && res.error === 'firewall_changes_pending')
+					this.loggingNotice = _('Another change is staged for the firewall; apply or revert it first.');
+				else
+					this.loggingNotice = _('Could not disable logging.');
 				await this.loadLoggingStatus();
 				return;
 			}
