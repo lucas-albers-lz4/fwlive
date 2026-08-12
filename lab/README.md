@@ -7,10 +7,10 @@
 
 ## Expected image files (prefer download over build)
 
-- **`lab/images/openwrt-armsr-armv8-<RELEASE>.img`** + **`u-boot-qemu_armv8-<RELEASE>.bin`** — official **`armsr/armv8`** artifacts (see [`docs/armvirt-armsr-testing.md`](../docs/armvirt-armsr-testing.md)). Default symlink `openwrt-armsr-armv8.img` → 24.10.5.
+- **`lab/images/openwrt-armsr-armv8-<RELEASE>.img`** + **`u-boot-qemu_armv8-<RELEASE>.bin`** — official **`armsr/armv8`** artifacts (see [`docs/armvirt-armsr-testing.md`](../docs/armvirt-armsr-testing.md)). Default symlink `openwrt-armsr-armv8.img` → 24.10.8.
 
   ```sh
-  RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
+  RELEASE=24.10.8 ./scripts/download-openwrt-armsr-armv8.sh
   RELEASE=23.05.5 ./scripts/download-openwrt-armsr-armv8.sh
   RELEASE=22.03.7 ./scripts/download-openwrt-x86-64.sh
   RELEASE=21.02.7 ./scripts/download-openwrt-x86-64.sh

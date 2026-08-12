@@ -7,8 +7,8 @@ Cross-build **`luci-app-fwlive`** for multiple OpenWrt releases and CPU targets 
 | OpenWrt version | Image tag suffix | Notes |
 |-----------------|------------------|--------|
 | **snapshot** (latest) | *(none)* | Same as `armsr-armv8` / `x86-64` without suffix |
-| **25.12** | `-25.12.0` | Current stable release |
-| **24.10** | `-24.10.5` | Pinned to current 24.10 point release |
+| **25.12** | `-25.12.5` | Current stable release |
+| **24.10** | `-24.10.8` | Pinned to current 24.10 point release |
 | **23.05** | `-23.05.5` | Pinned to current 23.05 point release |
 | **22.03** | `-22.03.7` | EOL — published **opkg** feed (`…/22.03`); SDK image **x86-64 only** on ghcr.io |
 | **21.02** | `-21.02.7` | Legacy fw3/iptables — published **opkg** feed (`…/21.02`) |
@@ -49,7 +49,7 @@ out/<package-arch>/<version>/fwlive/luci-app-fwlive-*.apk
 Examples:
 
 - `out/aarch64_generic/snapshot/fwlive/…`
-- `out/aarch64_generic/24.10.5/fwlive/…`
+- `out/aarch64_generic/24.10.8/fwlive/…`
 - `out/x86_64/22.03.7/fwlive/…`
 - `out/x86_64/23.05.5/fwlive/…`
 
@@ -68,7 +68,7 @@ Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; 
 
 Expect **long runtime** on first `build-all` (six SDK downloads + six feed setups). The **x86-64** cells (especially **snapshot**) may compile a large slice of the **`base`** feed on first `make` (kernel modules, nftables stack); subsequent builds are incremental.
 
-Pinned point releases: **25.12 → 25.12.0**, **24.10 → 24.10.5**, **23.05 → 23.05.5**, **22.03 → 22.03.7** (override with full patch in `--version` if needed).
+Pinned point releases: **25.12 → 25.12.5**, **24.10 → 24.10.8**, **23.05 → 23.05.5**, **22.03 → 22.03.7** (override with full patch in `--version` if needed).
 
 QEMU smoke per version: [`validation-matrix.md`](validation-matrix.md).
 

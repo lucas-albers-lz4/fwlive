@@ -69,7 +69,7 @@ if [[ "${1:-}" == "--stop" ]]; then
 	exit 0
 fi
 
-[[ -n "${OWRT_IMG}" && -f "${OWRT_IMG}" ]] || die "No disk image under ${IMG_DIR}/ — run: RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh"
+[[ -n "${OWRT_IMG}" && -f "${OWRT_IMG}" ]] || die "No disk image under ${IMG_DIR}/ — run: RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh"
 [[ -f "${OVMF_CODE}" ]] || die "Missing OVMF firmware (${OVMF_CODE}) — install qemu-system-x86 ovmf"
 if [[ ! -f "${OVMF_VARS}" ]]; then
 	cp /usr/share/OVMF/OVMF_VARS_4M.fd "${OVMF_VARS}"

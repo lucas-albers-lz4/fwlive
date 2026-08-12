@@ -32,8 +32,8 @@ Host unit tests: `npm test` (runs `./scripts/fwlive-test.sh`). Legacy macOS/docs
 | **21.02.x** | **21.02.7** | fw3 / iptables (legacy, EOL) | `.ipk` (`opkg`) |
 | **22.03.x** | **22.03.7** | firewall4 / nft (EOL) | `.ipk` (`opkg`) |
 | **23.05.x** | **23.05.5** | firewall4 / nft | `.ipk` (`opkg`) |
-| **24.10.x** | **24.10.5** | firewall4 / nft | `.ipk` (`opkg`) |
-| **25.12.x** | **25.12.0** | firewall4 / nft | `.apk` (`apk`) |
+| **24.10.x** | **24.10.8** | firewall4 / nft | `.ipk` (`opkg`) |
+| **25.12.x** | **25.12.5** | firewall4 / nft | `.apk` (`apk`) |
 | **snapshot** | latest | firewall4 / nft | `.apk` (best-effort) |
 
 **Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** is supported but EOL — prefer **23.05+** for new deployments.
@@ -138,7 +138,7 @@ Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](doc
 
 ## Status
 
-**Basic functionality complete** — validated on **21.02.7**, **22.03.7**, **23.05.5**, **24.10.5**, and **25.12.0** (x86 KVM lab). Details: [acceptance criteria](docs/fwlive-acceptance.md).
+**Basic functionality complete** — validated on **21.02.7**, **22.03.7**, **23.05.5**, **24.10.8**, and **25.12.5** (x86 KVM lab). Details: [acceptance criteria](docs/fwlive-acceptance.md).
 
 | Phase | State |
 |-------|-------|
@@ -166,9 +166,9 @@ Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](doc
 
 ```sh
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
-RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh
-sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.5.img ./scripts/qemu-lab-prepare-image.sh
-OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-x86-qemu.sh
+RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh
+sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.8.img ./scripts/qemu-lab-prepare-image.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-x86-qemu.sh
 ./scripts/qemu-install-fwlive.sh
 ```
 

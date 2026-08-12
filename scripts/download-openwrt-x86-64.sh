@@ -2,13 +2,13 @@
 # Download official OpenWrt x86/64 QEMU disk image (EFI ext4 combined).
 #
 # Usage:
-#   RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh
+#   RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh
 #   RELEASE=23.05.5 ./scripts/download-openwrt-x86-64.sh
 #
 # Output: lab/images/openwrt-x86-64-<RELEASE>.img
 set -euo pipefail
 
-RELEASE="${RELEASE:-24.10.5}"
+RELEASE="${RELEASE:-24.10.8}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${ROOT}/lab/images"
 mkdir -p "${OUT}"
@@ -117,7 +117,7 @@ if [[ $gz_rc -ne 0 && $gz_rc -ne 2 ]]; then
 	exit 1
 fi
 
-if [[ "${RELEASE}" == "24.10.5" ]]; then
+if [[ "${RELEASE}" == "24.10.8" ]]; then
 	ln -sf "${IMG_OUT}" "${OUT}/openwrt-x86-64.img"
 fi
 

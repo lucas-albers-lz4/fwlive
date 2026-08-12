@@ -24,9 +24,9 @@ sudo apt install build-essential libncurses-dev gawk docker.io docker-compose-v2
 
 ```sh
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
-RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh
-sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.5.img ./scripts/qemu-lab-prepare-image.sh
-OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-x86-qemu.sh
+RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh
+sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.8.img ./scripts/qemu-lab-prepare-image.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-x86-qemu.sh
 ./scripts/qemu-install-fwlive.sh
 ```
 
@@ -37,9 +37,9 @@ SSH: `ssh -p 2222 root@localhost`
 
 ```sh
 ./scripts/docker-sdk.sh build --target armsr-armv8 --version 24.10
-RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
-sudo OWRT_IMG=lab/images/openwrt-armsr-armv8-24.10.5.img ./scripts/qemu-lab-prepare-image.sh
-OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-armsr-armv8-qemu.sh
+RELEASE=24.10.8 ./scripts/download-openwrt-armsr-armv8.sh
+sudo OWRT_IMG=lab/images/openwrt-armsr-armv8-24.10.8.img ./scripts/qemu-lab-prepare-image.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 ./scripts/qemu-install-fwlive.sh
 ./scripts/qemu-smoke-fwlive.sh
 ```
@@ -51,8 +51,8 @@ OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 | 21.02 | 21.02.7 | opkg / `.ipk` (fw3 legacy, EOL) |
 | 22.03 | 22.03.7 | opkg / `.ipk` (fw4, EOL — SDK build x86-64 only) |
 | 23.05 | 23.05.5 | opkg / `.ipk` |
-| 24.10 | 24.10.5 | opkg / `.ipk` |
-| 25.12 | 25.12.0 | apk |
+| 24.10 | 24.10.8 | opkg / `.ipk` |
+| 25.12 | 25.12.5 | apk |
 | snapshot | snapshot | apk (minimal image — build-only for QEMU smoke) |
 
 See [`../sdk-build-matrix.md`](../sdk-build-matrix.md).

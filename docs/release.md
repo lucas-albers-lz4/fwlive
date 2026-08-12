@@ -65,8 +65,8 @@ Artifacts:
 out/x86_64/21.02.7/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/22.03.7/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/23.05.5/fwlive/luci-app-fwlive_*_all.ipk
-out/x86_64/24.10.5/fwlive/luci-app-fwlive_*_all.ipk
-out/x86_64/25.12.0/fwlive/luci-app-fwlive-*.apk
+out/x86_64/24.10.8/fwlive/luci-app-fwlive_*_all.ipk
+out/x86_64/25.12.5/fwlive/luci-app-fwlive-*.apk
 ```
 
 GitHub Release attachments are renamed with the OpenWrt line suffix (e.g. `_21.02_all.ipk`) so multiple `_all.ipk` builds do not collide on upload.

@@ -2,7 +2,7 @@
 # Install luci-app-fwlive on a running QEMU OpenWrt guest (hostfwd SSH).
 #
 #   ./scripts/qemu-install-fwlive.sh
-#   ./scripts/qemu-install-fwlive.sh out/x86_64/24.10.5/fwlive/luci-app-fwlive_*.ipk
+#   ./scripts/qemu-install-fwlive.sh out/x86_64/24.10.8/fwlive/luci-app-fwlive_*.ipk
 #
 # Prereqs: guest reachable at ssh -p 2222 root@127.0.0.1 (run-openwrt-*-qemu.sh).
 set -euo pipefail
@@ -36,7 +36,7 @@ if [[ -z "$IPK" ]]; then
 		shopt -u nullglob
 	else
 		shopt -s nullglob
-		for ver in 25.12.0 24.10.5 24.10 23.05.5 23.05 21.02.7 21.02 snapshot; do
+		for ver in 25.12.5 24.10.8 24.10 23.05.5 23.05 21.02.7 21.02 snapshot; do
 			for arch in x86_64 aarch64_generic; do
 				base="$ROOT/out/${arch}/${ver}/fwlive"
 				# shellcheck disable=SC2086

@@ -1,6 +1,6 @@
 # Screenshot assets
 
-Real captures from the QEMU x86 lab (OpenWrt 24.10.5 + `luci-app-fwlive`).
+Real captures from the QEMU x86 lab (OpenWrt 24.10.8 + `luci-app-fwlive`).
 
 | File | Content |
 |------|---------|

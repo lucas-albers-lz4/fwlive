@@ -18,13 +18,13 @@ Re-validate after changes — see [Build & test](developer/build-and-test.md) fo
 | ------- | --------- | ---------- | ------------------- |
 | **21.02.7** | ✓ x86-64 | **x86_64** (KVM, fw3/iptables) | ✓ `qemu-smoke-fwlive.sh` (2026-06-20) |
 | **22.03.7** | ✓ x86-64 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` (2026-06-27) |
-| **24.10.5** | ✓ armsr-armv8, x86-64 | **armsr/armv8** (production) | ✓ LuCI, ubus, nft log, rules |
-| **24.10.5** | ✓ | **x86_64** (fast KVM lab) | ✓ primary dev loop |
+| **24.10.8** | ✓ armsr-armv8, x86-64 | **armsr/armv8** (production) | ✓ LuCI, ubus, nft log, rules |
+| **24.10.8** | ✓ | **x86_64** (fast KVM lab) | ✓ primary dev loop |
 | **23.05.5** | ✓ armsr-armv8 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` |
 | **23.05.5** | ✓ (same `_all` ipk) | armsr/armv8 | Same package; TCG QEMU boot slow — not re-signed in lab |
 | **snapshot** | ✓ matrix | — | Best-effort; not formally signed off |
 
-**Production target:** armsr **24.10.5**. **23.05.5** and **22.03.7** supported — see [`openwrt-23.05-compat.md`](openwrt-23.05-compat.md) and [`openwrt-22.03-compat.md`](openwrt-22.03-compat.md).
+**Production target:** armsr **24.10.8**. **23.05.5** and **22.03.7** supported — see [`openwrt-23.05-compat.md`](openwrt-23.05-compat.md) and [`openwrt-22.03-compat.md`](openwrt-22.03-compat.md).
 
 **iptables LOG (issue #7):** On **21.02.x**, iptables LOG is the **primary** path (lab sign-off on 21.02.7 x86). On **22.03+**, **firewall4/nft** is the supported path; **iptables LOG** is best-effort when iptables is present without nft — fixture-tested. See [`openwrt-21.02-compat.md`](openwrt-21.02-compat.md).
 
@@ -71,12 +71,12 @@ Full loop on **Linux x86_64**: [Developer guide → Environment](developer/envir
 
 ```sh
 # 24.10 fast path (x86 KVM)
-RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh
-sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.5.img ./scripts/qemu-lab-prepare-image.sh
-OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-x86-qemu.sh
+RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh
+sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.8.img ./scripts/qemu-lab-prepare-image.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-x86-qemu.sh
 
 # Production-shaped (armsr, TCG — allow slow boot)
-RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
+RELEASE=24.10.8 ./scripts/download-openwrt-armsr-armv8.sh
 sudo OWRT_IMG=lab/images/openwrt-armsr-armv8.img ./scripts/qemu-lab-prepare-image.sh
 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 ```
@@ -114,9 +114,9 @@ ssh -p 2222 root@127.0.0.1 'ping 127.0.0.1'   # 1 pkt/s baseline
 | `ping -A 127.0.0.1`: flood banner appears, UI stays responsive | ✓ |
 | Uncheck auto-refresh: ingest count rises ~1/s | ✓ |
 | Headless smoke (`qemu-smoke-fwlive.sh`) on 23.05.5 x86 | ✓ |
-| armsr 24.10.5 LuCI page loads in browser | ✓ |
+| armsr 24.10.8 LuCI page loads in browser | ✓ |
 
-Validated on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 24.10.5** (TCG); **23.05.5** via x86 smoke + same `_all` ipk.
+Validated on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 24.10.8** (TCG); **23.05.5** via x86 smoke + same `_all` ipk.
 
 ---
 

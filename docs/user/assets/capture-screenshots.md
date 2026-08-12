@@ -12,9 +12,9 @@ Repeatable steps for updating images in this directory from the QEMU x86 lab.
 ```sh
 ./scripts/run-openwrt-x86-qemu.sh --stop
 cp /usr/share/OVMF/OVMF_VARS_4M.fd lab/images/OVMF_VARS_4M.fd
-OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-x86-qemu.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-x86-qemu.sh
 MAX_WAIT=300 ./scripts/qemu-wait-guest.sh
-OWRT_FWLIVE_VERSION=24.10.5 ./scripts/qemu-install-fwlive.sh
+OWRT_FWLIVE_VERSION=24.10.8 ./scripts/qemu-install-fwlive.sh
 ```
 
 **Do not** add the ping LOG helper yet — shot 1 needs logging off / empty table.
