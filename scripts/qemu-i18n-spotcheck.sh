@@ -10,7 +10,7 @@
 #   OPENWRT_SSH_PORT=2222 ./scripts/qemu-i18n-spotcheck.sh
 #   FWLIVE_I18N_DIR=out/<arch>/<ver>/fwlive ./scripts/qemu-i18n-spotcheck.sh
 #
-# Default OUT path is the 24.10.5 x86_64 lab layout; override FWLIVE_I18N_DIR for
+# Default OUT path is the 24.10.8 x86_64 lab layout; override FWLIVE_I18N_DIR for
 # other arches/versions. Runtime UCI lang is zh-cn; PO dir is zh_Hans (luci.mk
 # LUCI_LC_ALIAS.zh_Hans=zh-cn).
 #
@@ -23,7 +23,7 @@ PORT="${OPENWRT_SSH_PORT:-2222}"
 HTTP_PORT="${OWRT_HOSTFWD_HTTP:-8080}"
 FWLIVE_URL="${FWLIVE_URL:-http://${HOST}:${HTTP_PORT}}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
-OUT_I18N="${FWLIVE_I18N_DIR:-${ROOT}/out/x86_64/24.10.5/fwlive}"
+OUT_I18N="${FWLIVE_I18N_DIR:-${ROOT}/out/x86_64/24.10.8/fwlive}"
 NODE="${NODE:-}"
 PREV_LANG=""
 HAD_LANG=0

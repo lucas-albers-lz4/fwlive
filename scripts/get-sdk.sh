@@ -5,10 +5,10 @@
 #
 # Usage:
 #   ./scripts/get-sdk.sh
-#   RELEASE=24.10.5 ./scripts/get-sdk.sh
+#   RELEASE=24.10.8 ./scripts/get-sdk.sh
 set -euo pipefail
 
-RELEASE="${RELEASE:-24.10.5}"
+RELEASE="${RELEASE:-24.10.8}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAR="openwrt-sdk-${RELEASE}-armsr-armv8_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
 BASE="https://downloads.openwrt.org/releases/${RELEASE}/targets/armsr/armv8"

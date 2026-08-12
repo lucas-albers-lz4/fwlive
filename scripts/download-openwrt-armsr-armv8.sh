@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Download official OpenWrt armsr/armv8 QEMU disk image + U-Boot (no image build).
 # Usage:
-#   RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
+#   RELEASE=24.10.8 ./scripts/download-openwrt-armsr-armv8.sh
 #   RELEASE=23.05.5 ./scripts/download-openwrt-armsr-armv8.sh
 #
 # Outputs under lab/images/ (gitignored):
@@ -11,7 +11,7 @@
 # Legacy symlink (default RELEASE only): openwrt-armsr-armv8.img
 set -euo pipefail
 
-RELEASE="${RELEASE:-24.10.5}"
+RELEASE="${RELEASE:-24.10.8}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${ROOT}/lab/images"
 mkdir -p "${OUT}"
@@ -133,7 +133,7 @@ curl -fsSL -o "${OUT}/${UBOOT_OUT}" "${BASE}/u-boot-qemu_armv8/u-boot.bin"
 # (e.g. 22.03.7); verify when present, otherwise skip with a note.
 verify_downloaded_sha256 "${OUT}/${UBOOT_OUT}" "u-boot-qemu_armv8/u-boot.bin" "${SUM_MANIFEST}" 0
 
-if [[ "${RELEASE}" == "24.10.5" ]]; then
+if [[ "${RELEASE}" == "24.10.8" ]]; then
 	ln -sf "${IMG_OUT}" "${OUT}/openwrt-armsr-armv8.img"
 	ln -sf "${UBOOT_OUT}" "${OUT}/u-boot-qemu_armv8.bin"
 fi

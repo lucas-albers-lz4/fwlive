@@ -58,7 +58,7 @@ flowchart TB
 | Opt-in hostnames | `fwlive.resolve` via `getent`; checkbox default off; server validates IPv4/IPv6 shape before lookup |
 | `core/` + LuCI mirror | Parser tested without browser or router |
 | LuCI gate (not generator) | `gen-luci-wrapper.js` verifies full `CLASSIFY_SPEC` equality + preserve markers; shared classify in `log.js` stays hand-maintained (no text-transform codegen). Core has no `@fwlive-codegen:luci-begin/end` markers — only LuCI has a preserve region for presentation helpers. |
-| nft/fw4 primary | Validated on **21.02.7** (fw3 lab), **22.03.7**, **23.05.5**, **24.10.5**, **25.12.0** lab matrix |
+| nft/fw4 primary | Validated on **21.02.7** (fw3 lab), **22.03.7**, **23.05.5**, **24.10.8**, **25.12.5** lab matrix |
 | iptables LOG | Primary on **21.02.x** (fw3); best-effort on **22.03+** when nft absent — same logd pipe; rule map from `iptables-save` |
 | OPNsense as reference | Interaction and layout patterns, not PHP/Volt port |
 | Keep monorepo + `src-link` | See [Feed layout decision](#feed-layout-decision) |

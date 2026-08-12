@@ -7,11 +7,11 @@ Headless OpenWrt guests for install and smoke testing without hardware.
 Downloaded to `lab/images/`:
 
 ```sh
-RELEASE=24.10.5 ./scripts/download-openwrt-x86-64.sh
+RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh
 RELEASE=23.05.5 ./scripts/download-openwrt-x86-64.sh
 RELEASE=22.03.7 ./scripts/download-openwrt-x86-64.sh
 RELEASE=21.02.7 ./scripts/download-openwrt-x86-64.sh
-RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
+RELEASE=24.10.8 ./scripts/download-openwrt-armsr-armv8.sh
 ```
 
 ## Prepare image (required once per image)
@@ -19,7 +19,7 @@ RELEASE=24.10.5 ./scripts/download-openwrt-armsr-armv8.sh
 Sets LAN **dhcp** for slirp, relaxes lab firewall, empty root password, dropbear auth, uhttpd/LuCI fixes. **22.03.x** fresh x86 images may lack `/etc/config/network` — the script seeds DHCP `lan` before first boot (see [22.03 compat](../openwrt-22.03-compat.md)):
 
 ```sh
-sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.5.img ./scripts/qemu-lab-prepare-image.sh
+sudo OWRT_IMG=lab/images/openwrt-x86-64-24.10.8.img ./scripts/qemu-lab-prepare-image.sh
 ```
 
 Always pass **`OWRT_IMG`** to the versioned file — the script default is the armsr image.
@@ -29,14 +29,14 @@ Always pass **`OWRT_IMG`** to the versioned file — the script default is the a
 **x86 (KVM, fast):**
 
 ```sh
-OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-x86-qemu.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-x86-qemu.sh
 # stop: ./scripts/run-openwrt-x86-qemu.sh --stop
 ```
 
 **armsr (TCG, slow):**
 
 ```sh
-OWRT_RELEASE=24.10.5 ./scripts/run-openwrt-armsr-armv8-qemu.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 ```
 
 Ports (default): LuCI **8080**, SSH **2222**.
@@ -51,7 +51,7 @@ cp /usr/share/OVMF/OVMF_VARS_4M.fd lab/images/OVMF_VARS_4M.fd
 
 ```sh
 ./scripts/qemu-wait-guest.sh
-OWRT_FWLIVE_VERSION=24.10.5 ./scripts/qemu-install-fwlive.sh
+OWRT_FWLIVE_VERSION=24.10.8 ./scripts/qemu-install-fwlive.sh
 ```
 
 Uses `apk` or `opkg` based on package extension and guest userspace.

@@ -30,7 +30,7 @@ assert_eq "$(feed_publish_release_asset_basename \
 	"23.05 ipk suffix"
 
 assert_eq "$(feed_publish_release_asset_basename \
-	"${ROOT}/out/x86_64/25.12.0/fwlive/luci-app-fwlive-0.1.16-r1.apk")" \
+	"${ROOT}/out/x86_64/25.12.5/fwlive/luci-app-fwlive-0.1.16-r1.apk")" \
 	"luci-app-fwlive-0.1.16-r1.apk" \
 	"apk unchanged"
 

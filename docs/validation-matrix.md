@@ -15,8 +15,8 @@ End-to-end validation reuses the flow proven on **23.05.5 x86** — generalized 
 | OpenWrt | Release patch | SDK image tag | QEMU lab |
 |---------|---------------|---------------|----------|
 | **snapshot** | *(latest)* | `armsr-armv8` / `x86-64` | **build only** (minimal image, no LuCI) |
-| **25.12** | 25.12.0 | `*-25.12.0` | x86 + armsr |
-| **24.10** | 24.10.5 | `*-24.10.5` | x86 + armsr |
+| **25.12** | 25.12.5 | `*-25.12.5` | x86 + armsr |
+| **24.10** | 24.10.8 | `*-24.10.8` | x86 + armsr |
 | **23.05** | 23.05.5 | `*-23.05.5` | x86 + armsr |
 | **22.03** | 22.03.7 | `x86-64-22.03.7` | x86 (SDK build); same `_all` ipk on armsr |
 | **21.02** | 21.02.7 | `*-21.02.7` | x86 only (fw3 lab sign-off) |

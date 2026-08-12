@@ -33,8 +33,8 @@ feed_publish_feed_dir() {
 		21.02.7) printf '%s' '21.02' ;;
 		22.03.7) printf '%s' '22.03' ;;
 		23.05.5) printf '%s' '23.05' ;;
-		24.10.5) printf '%s' '24.10' ;;
-		25.12.0) printf '%s' '25.12' ;;
+		24.10.8) printf '%s' '24.10' ;;
+		25.12.5) printf '%s' '25.12' ;;
 		*) sdk_matrix_version_label "$1" ;;
 	esac
 }
@@ -57,8 +57,8 @@ feed_publish_release_key() {
 		21.02.7) printf '%s' '21.02' ;;
 		22.03.7) printf '%s' '22.03' ;;
 		23.05.5) printf '%s' '23.05' ;;
-		24.10.5) printf '%s' '24.10' ;;
-		25.12.0) printf '%s' '25.12' ;;
+		24.10.8) printf '%s' '24.10' ;;
+		25.12.5) printf '%s' '25.12' ;;
 		*) printf '%s' "$1" ;;
 	esac
 }
@@ -160,8 +160,9 @@ feed_publish_ipkg_index_script() {
 		21.02.7) sha='57a6d97ddf8f6541a52e0f8fad8c6f47685a1bc3'; expected_hash='35e587385a601580d79a1b5cdbb2f591d7b34be9c07e7be36cbb8765a8ef58e6' ;;
 		22.03.7) sha='4e1d1b7df0ce6fa96d7462dc883917682f428046'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
 		23.05.5) sha='33063b4ccf00d39393796499b23df55187b192dc'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
-		24.10.5) sha='4f7e6e554be2aef6a55be36f9f954d56705eb2ee'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
-		*)       sha='4f7e6e554be2aef6a55be36f9f954d56705eb2ee'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
+		24.10.8) sha='0b795ce79e23b553aa184080c390f9ce92a2b6d4'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
+		25.12.5) sha='f0a60eee2fe051741c643ea6118718aae1ef17fb'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
+		*)       sha='0b795ce79e23b553aa184080c390f9ce92a2b6d4'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
 	esac
 
 	# The returned path is ALWAYS a fresh private mktemp file that has been

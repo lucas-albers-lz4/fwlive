@@ -16,8 +16,8 @@ sdk_matrix_root() {
 sdk_matrix_version_patch() {
 	case "$1" in
 		snapshot | SNAPSHOT | latest | '') printf '%s' '' ;;
-		25.12 | 25.12.*) printf '%s' '25.12.0' ;;
-		24.10 | 24.10.*) printf '%s' '24.10.5' ;;
+		25.12 | 25.12.*) printf '%s' '25.12.5' ;;
+		24.10 | 24.10.*) printf '%s' '24.10.8' ;;
 		23.05 | 23.05.*) printf '%s' '23.05.5' ;;
 		22.03 | 22.03.*) printf '%s' '22.03.7' ;;
 		21.02 | 21.02.*) printf '%s' '21.02.7' ;;
