@@ -138,18 +138,14 @@ part of the security boundary.
 | OpenWrt feeds | Pinned in `scripts/feeds.lock/` |
 | SDK base images | Digests resolved per cell and recorded in the release manifest (no mutable-tag reliance) |
 | GitHub Actions | SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` |
-| Fetched build helpers and lab images | sha256-verified or commit-pinned before execution — **except `usign`**, see below; `/tmp` trust removed (fresh `mktemp` per invocation) |
+| Fetched build helpers and lab images | sha256-verified or commit-pinned before execution; `/tmp` trust removed (fresh `mktemp` per invocation). `usign` is commit-pinned via `USIGN_PIN_SHA` ([#166](https://github.com/lucas-albers-lz4/fwlive/issues/166)); `get-sdk.sh` verifies upstream `sha256sums` |
 
 Never stage a secret key into `feed-staging/` — `feed_publish_copy_keys` copies
 public keys only, and all four key filenames plus `*.tmp` are gitignored.
 
-One row above is aspirational rather than in force, reproduced on
-2026-08-12:
+Signing-secret mode (previously #165) and usign pinning (#166) are in force:
 
-- `feed_publish_ensure_usign` clones `openwrt/usign` at an unpinned `master`,
-  builds it, and puts it on `PATH` to **sign the feed** — no SHA, no checksum,
-  twenty lines from the commit-pinned `ipkg-make-index.sh`
-  ([#166](https://github.com/lucas-albers-lz4/fwlive/issues/166)).
+`feed_publish_ensure_usign` previously cloned unpinned `master` ([#166](https://github.com/lucas-albers-lz4/fwlive/issues/166)); it now fetches `USIGN_PIN_SHA`.
 
 Signing-secret mode (previously #165) is restored: normalize/decode use
 `mktemp` under `umask 077`, and `chmod 600` runs again after those rewrites.
