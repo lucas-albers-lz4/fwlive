@@ -26,6 +26,8 @@ validate_opkg_usign_key() {
 		|| die "OPKG_FEED_SECRET_KEY must be a usign secret (from: usign -G -s opkg-secret.key -p public.key). Paste both lines or base64-encode the file."
 	feed_keys_normalize_usign_keyfile "$public" \
 		|| die "OPKG_FEED_PUBLIC_KEY must be the matching usign public key (public.key from usign -G). Paste both lines or base64-encode the file."
+	# Decode/normalize rewrite via mv; re-assert secret mode (issue #165).
+	chmod 600 "$secret" || die "cannot chmod 600 OPKG_FEED_SECRET_KEY"
 
 	sdk_matrix_resolve x86-64 23.05
 
@@ -60,6 +62,7 @@ validate_apk_rsa_key() {
 
 	feed_keys_maybe_decode_base64 "$secret"
 	feed_keys_maybe_decode_base64 "$public"
+	chmod 600 "$secret" || die "cannot chmod 600 APK_FEED_SECRET_KEY"
 
 	head -1 "$secret" | grep -q 'BEGIN.*PRIVATE KEY' \
 		|| die "APK_FEED_SECRET_KEY must be an RSA private key (openssl genrsa). Do not use the usign opkg secret here."

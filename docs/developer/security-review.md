@@ -66,7 +66,7 @@ should carry a note saying what would raise it.
 | Actions SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` | `manual` | `.github/workflows/publish-packages.yml` |
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
 | Only public keys reach `feed-staging/` | `manual` | `feed_publish_copy_keys` |
-| Signing secrets are mode 0600 | **not in force** | [#165](https://github.com/lucas-albers-lz4/fwlive/issues/165) — reproduced at 0644 |
+| Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | **partial** | [#166](https://github.com/lucas-albers-lz4/fwlive/issues/166) — `usign` is cloned unpinned and executed |
 | WAN toggle changes only the zone `log` bit | **partial** | [#168](https://github.com/lucas-albers-lz4/fwlive/issues/168) — the `uci commit` is package-wide |
 | The WAN logging lock cannot be held by an unprivileged user | **not in force** | [#167](https://github.com/lucas-albers-lz4/fwlive/issues/167) — lock file is 0644 |
@@ -75,14 +75,11 @@ should carry a note saying what would raise it.
 
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
-| S1 | Medium | [#165](https://github.com/lucas-albers-lz4/fwlive/issues/165) | `feed-keys.sh` tmp+`mv` discards `chmod 600`; signing secrets land 0644 in both documented storage formats. Partial secret left in `${f}.tmp`, and `*.tmp` is not gitignored |
 | S2 | Medium | [#166](https://github.com/lucas-albers-lz4/fwlive/issues/166) | `feed_publish_ensure_usign` clones `openwrt/usign` at an unpinned `master`, builds it, and uses it to sign the feed. Class sibling: `get-sdk.sh` fetches an SDK tarball with no checksum |
 | S3 | Low-Medium | [#167](https://github.com/lucas-albers-lz4/fwlive/issues/167) | `/var/lock/fwlive-logging.lock` is created 0644; any local UID can take `LOCK_EX` on a read-only fd and, with no BusyBox `flock -w`, wedge both toggles until reboot |
 | S4 | Low | [#168](https://github.com/lucas-albers-lz4/fwlive/issues/168) | `uci commit firewall` publishes any delta staged in `/tmp/.uci/firewall`, not just our bit; and a named `config zone 'wan'` is invisible to `find_wan_zone_section` |
 
-Recommended order: S1 → S2 → S3 → S4. S1 and S2 are release-path and land
-before the next tag; S3 is a mode fix with a host test; S4 is the largest
-behavior change and benefits from going last.
+Recommended order (remaining): S2 → S3 → S4. S1 closed.
 
 ## Accepted residuals
 

@@ -43,6 +43,12 @@ sdk-*-openwrt-*/
 apk-secret.rsa
 fwlive-feed.rsa.pub
 public.key
+*.tmp
+# mktemp siblings from feed-keys normalize/decode (not covered by *.tmp)
+opkg-secret.key.*
+apk-secret.rsa.*
+public.key.*
+fwlive-feed.rsa.pub.*
 # Accidental OpenWrt dirs at repo root (SDK trees belong under openwrt-sdk-*/ or .sdk/ above)
 /staging_dir/
 /build_dir/
