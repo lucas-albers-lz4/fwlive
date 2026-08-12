@@ -133,7 +133,7 @@ part of the security boundary.
 
 | Surface | Control |
 |---------|---------|
-| Feed signing keys | CI secrets, written under `umask 077` then `chmod 600`; only public keys are staged for publish. **The mode does not currently survive** — see below |
+| Feed signing keys | CI secrets, written under `umask 077` then `chmod 600` **after** normalize/decode; only public keys are staged for publish. Host-asserted by `tests/feed-keys-mode.test.sh` |
 | Package contents | `verify-reproducible-build.sh` — determinism of our inputs within a run |
 | OpenWrt feeds | Pinned in `scripts/feeds.lock/` |
 | SDK base images | Digests resolved per cell and recorded in the release manifest (no mutable-tag reliance) |
@@ -141,22 +141,18 @@ part of the security boundary.
 | Fetched build helpers and lab images | sha256-verified or commit-pinned before execution — **except `usign`**, see below; `/tmp` trust removed (fresh `mktemp` per invocation) |
 
 Never stage a secret key into `feed-staging/` — `feed_publish_copy_keys` copies
-public keys only, and all four key filenames are gitignored. The `${f}.tmp`
-siblings that `feed-keys.sh` creates are **not** covered by that gitignore
-([#165](https://github.com/lucas-albers-lz4/fwlive/issues/165)).
+public keys only, and all four key filenames plus `*.tmp` are gitignored.
 
-Two rows above are aspirational rather than in force, both reproduced on
+One row above is aspirational rather than in force, reproduced on
 2026-08-12:
 
-- Signing secrets end at **0644**, not 0600. `feed-keys.sh` normalizes the key
-  *after* the `chmod`, and its `> "${f}.tmp"` + `mv` carries the temp file's
-  umask-derived mode onto the destination
-  ([#165](https://github.com/lucas-albers-lz4/fwlive/issues/165)).
 - `feed_publish_ensure_usign` clones `openwrt/usign` at an unpinned `master`,
   builds it, and puts it on `PATH` to **sign the feed** — no SHA, no checksum,
   twenty lines from the commit-pinned `ipkg-make-index.sh`
   ([#166](https://github.com/lucas-albers-lz4/fwlive/issues/166)).
 
+Signing-secret mode (previously #165) is restored: normalize/decode use
+`mktemp` under `umask 077`, and `chmod 600` runs again after those rewrites.
 ## Running an audit
 
 Repeatable procedure, verified upstream facts, and the rendering-harness recipe:

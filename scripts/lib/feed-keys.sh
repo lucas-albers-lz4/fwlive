@@ -21,9 +21,19 @@ feed_keys_normalize_usign_keyfile() {
 	fi
 
 	if grep -q 'untrusted comment:' "$f" && grep -qE ' RW[A-Za-z0-9+/=]+$' "$f"; then
+		local old_umask
+		old_umask="$(umask)"
+		umask 077
+		# mktemp is 0600; avoid fixed ${f}.tmp that can leak partial key material.
+		local tmp
+		tmp="$(mktemp "${f}.XXXXXX")" || {
+			umask "$old_umask"
+			return 1
+		}
 		sed -E 's/^(untrusted comment: .+) (RW[A-Za-z0-9+/=]+)[[:space:]]*$/\1\
-\2/' "$f" > "${f}.tmp"
-		mv "${f}.tmp" "$f"
+\2/' "$f" > "$tmp"
+		mv "$tmp" "$f"
+		umask "$old_umask"
 	fi
 
 	grep -qE '^RW[A-Za-z0-9+/=]+$' "$f" || return 1
@@ -42,9 +52,23 @@ feed_keys_maybe_decode_base64() {
 	if [[ "$first" == untrusted\ comment:* || "$first" == -----BEGIN* ]]; then
 		return 0
 	fi
-	if base64 -d <"$f" >"${f}.tmp" 2>/dev/null && [[ -s "${f}.tmp" ]]; then
-		mv "${f}.tmp" "$f"
+	local old_umask tmp
+	old_umask="$(umask)"
+	umask 077
+	tmp="$(mktemp "${f}.XXXXXX")" || {
+		umask "$old_umask"
+		return 1
+	}
+	# Always remove the temp — base64 -d can write a partial decode then fail.
+	trap 'rm -f "$tmp"' RETURN
+	if base64 -d <"$f" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+		mv "$tmp" "$f"
+		trap - RETURN
+	else
+		rm -f "$tmp"
+		trap - RETURN
 	fi
+	umask "$old_umask"
 }
 
 feed_keys_write_from_env() {
@@ -80,4 +104,7 @@ feed_keys_write_from_env() {
 			echo "feed-keys: OPKG_FEED_PUBLIC_KEY must be usign public key (from usign -G) or its base64" >&2
 			return 1
 		}
+
+	# Re-assert after normalize/decode (mv can discard a prior chmod).
+	chmod 600 "${dest}/opkg-secret.key" "${dest}/apk-secret.rsa"
 }
