@@ -98,8 +98,8 @@ msgid "Click a row for the full message"
 msgstr "Щёлкните строку для полного сообщения"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1592
-msgid "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
-msgstr "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
+msgid "Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude."
+msgstr "Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude."
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:925
 msgid "Connection lost — retrying…"
@@ -403,9 +403,6 @@ msgstr "ÐÐ°ÑÐ·Ð°"
 msgid "Proto"
 msgstr "ÐÑÐ¾ÑÐ¾ÐºÐ¾Ð»"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:1555
-msgid "Protocol (prefix ! to exclude)"
-msgstr "ÐÑÐ¾ÑÐ¾ÐºÐ¾Ð» (! Ð² Ð½Ð°ÑÐ°Ð»Ðµ Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1541
 msgid "Quick search"
@@ -564,16 +561,66 @@ msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ Ð½ÐµÐ�
 msgid "WAN logging unavailable: no WAN zone"
 msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ Ð½ÐµÐ´Ð¾ÑÑÑÐ¿Ð½Ð¾: Ð½ÐµÑ Ð·Ð¾Ð½Ñ WAN"
 
-#: htdocs/luci-static/resources/fwlive/logging.js:96
-msgid "WAN logging: off"
-msgstr "WAN logging: off"
 
-#: htdocs/luci-static/resources/fwlive/logging.js:84
-msgid "WAN logging: on · %s"
-msgstr "WAN logging: on · %s"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:975
 #: htdocs/luci-static/resources/view/status/fwlive.js:1448
+msgid "· %s"
+msgstr "· %s"
+
+msgid "View"
+msgstr "Вид"
+
 msgid "Watching"
 msgstr "ÐÐ°Ð±Ð»ÑÐ´ÐµÐ½Ð¸Ðµ"
 
+msgid "Any protocol"
+msgstr "Любой протокол"
+
+msgid "Common"
+msgstr "Частые"
+
+msgid "Also seen"
+msgstr "Также встречаются"
+
+msgid "Exclude"
+msgstr "Исключить"
+
+msgid "ICMPv6"
+msgstr "ICMPv6"
+
+msgid "not TCP"
+msgstr "не TCP"
+
+msgid "not UDP"
+msgstr "не UDP"
+
+msgid "not ICMP"
+msgstr "не ICMP"
+
+msgid "not ICMPv6"
+msgstr "не ICMPv6"
+
+msgid "not IGMP"
+msgstr "не IGMP"
+
+msgid "not GRE"
+msgstr "не GRE"
+
+msgid "not ESP"
+msgstr "не ESP"
+
+msgid "not AH"
+msgstr "не AH"
+
+msgid "not SCTP"
+msgstr "не SCTP"
+
+msgid "or type…"
+msgstr "или введите…"
+
+msgid "Protocol — common values"
+msgstr "Протокол — частые значения"
+
+msgid "Custom protocol (prefix ! to exclude). Overrides the menu when set."
+msgstr "Свой протокол (! для исключения). Переопределяет меню, если задан."

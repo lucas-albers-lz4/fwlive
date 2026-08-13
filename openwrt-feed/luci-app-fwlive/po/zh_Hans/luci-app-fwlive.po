@@ -98,8 +98,8 @@ msgid "Click a row for the full message"
 msgstr "点击行可查看完整消息"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1592
-msgid "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
-msgstr "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
+msgid "Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude."
+msgstr "Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude."
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:925
 msgid "Connection lost — retrying…"
@@ -403,9 +403,6 @@ msgstr "å·²æå"
 msgid "Proto"
 msgstr "åè®®"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:1555
-msgid "Protocol (prefix ! to exclude)"
-msgstr "åè®®ï¼! åç¼è¡¨ç¤ºæé¤ï¼"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1541
 msgid "Quick search"
@@ -564,16 +561,66 @@ msgstr "WAN æ¥å¿ä¸å¯ç¨ï¼ç¼ºå°å"
 msgid "WAN logging unavailable: no WAN zone"
 msgstr "WAN æ¥å¿ä¸å¯ç¨ï¼æ  WAN åºå"
 
-#: htdocs/luci-static/resources/fwlive/logging.js:96
-msgid "WAN logging: off"
-msgstr "WAN logging: off"
 
-#: htdocs/luci-static/resources/fwlive/logging.js:84
-msgid "WAN logging: on · %s"
-msgstr "WAN logging: on · %s"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:975
 #: htdocs/luci-static/resources/view/status/fwlive.js:1448
+msgid "· %s"
+msgstr "· %s"
+
+msgid "View"
+msgstr "视图"
+
 msgid "Watching"
 msgstr "çè§ä¸­"
 
+msgid "Any protocol"
+msgstr "任意协议"
+
+msgid "Common"
+msgstr "常用"
+
+msgid "Also seen"
+msgstr "其他常见"
+
+msgid "Exclude"
+msgstr "排除"
+
+msgid "ICMPv6"
+msgstr "ICMPv6"
+
+msgid "not TCP"
+msgstr "非 TCP"
+
+msgid "not UDP"
+msgstr "非 UDP"
+
+msgid "not ICMP"
+msgstr "非 ICMP"
+
+msgid "not ICMPv6"
+msgstr "非 ICMPv6"
+
+msgid "not IGMP"
+msgstr "非 IGMP"
+
+msgid "not GRE"
+msgstr "非 GRE"
+
+msgid "not ESP"
+msgstr "非 ESP"
+
+msgid "not AH"
+msgstr "非 AH"
+
+msgid "not SCTP"
+msgstr "非 SCTP"
+
+msgid "or type…"
+msgstr "或输入…"
+
+msgid "Protocol — common values"
+msgstr "协议 — 常用值"
+
+msgid "Custom protocol (prefix ! to exclude). Overrides the menu when set."
+msgstr "自定义协议（! 排除）。有内容时覆盖菜单。"

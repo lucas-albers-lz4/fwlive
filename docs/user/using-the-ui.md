@@ -23,7 +23,7 @@ Nothing changes until you click Enable.
 
 ![After Enable — WAN logging on](assets/fwlive-after-enable.png)
 
-1. Watch strip shows **WAN logging: on** and a quiet **WAN logging on** control (click to disable).
+1. Watch strip shows a single **WAN logging on · rate** control (click to disable).
 2. A green notice confirms WAN drop/reject logging — not normal LAN browsing.
 3. If the table is still empty, you are **waiting for firewall events** (quiet WAN). Blocked inbound traffic appears as it happens.
 
@@ -33,8 +33,8 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 
 ![Simple view — compact table](assets/fwlive-simple-view.png)
 
-1. **Watch strip** — Pause/Resume, logging status, **Show Detail**.
-2. **Filter row** — quick search, Action, Protocol; open **More filters** for the rest.
+1. **Watch strip** — Watching status, Pause/Resume, logging control, and a segmented **Show Detail / Message** group.
+2. **Filter row** — quick search, Action, and Protocol (grouped menu + optional custom type-in); open **More filters** for the rest.
 3. **Table** — click a cell to filter; click a row body (not a filter link) to expand Message.
 
 | Column | Meaning |
@@ -55,7 +55,7 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 
 ### Simple filters
 
-Quick search, **Action**, and **Protocol** are always visible. Open **More filters** for interface, source/destination, and ports.
+Quick search, **Action**, and **Protocol** are always visible. Protocol offers common values in a menu; type in the adjacent field for anything else (prefix `!` to exclude). Open **More filters** for interface, source/destination, and ports.
 
 ![Filters and chips](assets/fwlive-filters.png)
 
@@ -84,9 +84,9 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | Control | Behavior |
 |---------|----------|
 | **Pause / Resume** | Live updates run until you Pause. Resume continues the table; polling never stops. |
-| **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall) and reloads the firewall — no silent rule adds. When on, a quiet **WAN logging on** control disables it. Concurrent toggles from multiple admins are last-writer-wins. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
-| **WAN logging: off/on** | Readiness text next to the logging control — glanceable status for admins. |
-| **Show Detail / Hide Detail** | Toggles Simple ↔ Detailed; preference saved in `localStorage` after you use it. |
+| **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall) and reloads the firewall — no silent rule adds. Concurrent toggles from multiple admins are last-writer-wins. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
+| **WAN logging on · rate** | When logging is on, one merged control shows status and rate; click to disable. |
+| **Show Detail / Message** | Segmented pair on the watch strip: Simple ↔ Detailed, and Message wrap ↔ one line. Preferences saved in `localStorage` after you use them. |
 | **Display options** | Closed by default. Holds **Limit**, **Row tint** / palette, **Show hostnames**, and **Chip style**. |
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. |
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns; hover shows the IP. Click still filters by IP. |
@@ -106,7 +106,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | See only drops | Action → `drop` |
 | Hide passes | Click **pass** in the table, then **≠** on the `action: pass` chip |
 | One client | Click source in **Flow** or use **More filters → Source** |
-| ICMP test | Protocol `icmp` after [enabling ping logging](enabling-firewall-logs.md) |
+| ICMP test | Protocol → `ICMP` after [enabling ping logging](enabling-firewall-logs.md) |
 
 ## Rule column
 

@@ -10,13 +10,13 @@
 volumes:
   # armsr-armv8 × snapshot (legacy default; same as OWRT_SDK_* unset)
   openwrt_sdk_official:
-  openwrt_sdk_armsr_armv8_25_12_0:
-  openwrt_sdk_armsr_armv8_24_10_5:
+  openwrt_sdk_armsr_armv8_25_12_5:
+  openwrt_sdk_armsr_armv8_24_10_8:
   openwrt_sdk_armsr_armv8_23_05_5:
   openwrt_sdk_armsr_armv8_22_03_7:
   openwrt_sdk_x86_64_snapshot:
-  openwrt_sdk_x86_64_25_12_0:
-  openwrt_sdk_x86_64_24_10_5:
+  openwrt_sdk_x86_64_25_12_5:
+  openwrt_sdk_x86_64_24_10_8:
   openwrt_sdk_x86_64_23_05_5:
   openwrt_sdk_x86_64_22_03_7:
   openwrt_sdk_x86_64_21_02_7:

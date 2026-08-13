@@ -97,7 +97,7 @@ msgid "Click a row for the full message"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1592
-msgid "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
+msgid "Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude."
 msgstr ""
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:925
@@ -403,9 +403,6 @@ msgstr ""
 msgid "Proto"
 msgstr ""
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:1555
-msgid "Protocol (prefix ! to exclude)"
-msgstr ""
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1541
 msgid "Quick search"
@@ -548,11 +545,11 @@ msgstr ""
 msgid "WAN logging is already enabled."
 msgstr ""
 
-#: htdocs/luci-static/resources/fwlive/logging.js:91
+#: htdocs/luci-static/resources/fwlive/logging.js:89
 msgid "WAN logging on"
 msgstr ""
 
-#: htdocs/luci-static/resources/fwlive/logging.js:88
+#: htdocs/luci-static/resources/fwlive/logging.js:95
 msgid "WAN logging on (%s). Click to disable."
 msgstr ""
 
@@ -564,16 +561,66 @@ msgstr ""
 msgid "WAN logging unavailable: no WAN zone"
 msgstr ""
 
-#: htdocs/luci-static/resources/fwlive/logging.js:96
-msgid "WAN logging: off"
-msgstr ""
-
-#: htdocs/luci-static/resources/fwlive/logging.js:84
-msgid "WAN logging: on · %s"
-msgstr ""
-
 #: htdocs/luci-static/resources/view/status/fwlive.js:975
-#: htdocs/luci-static/resources/view/status/fwlive.js:1448
+#: htdocs/luci-static/resources/view/status/fwlive.js:1453
 msgid "Watching"
 msgstr ""
 
+#: htdocs/luci-static/resources/fwlive/logging.js:90
+msgid "· %s"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/status/fwlive.js:1475
+msgid "View"
+msgstr ""
+
+msgid "Any protocol"
+msgstr ""
+
+msgid "Common"
+msgstr ""
+
+msgid "Also seen"
+msgstr ""
+
+msgid "Exclude"
+msgstr ""
+
+msgid "ICMPv6"
+msgstr ""
+
+msgid "not TCP"
+msgstr ""
+
+msgid "not UDP"
+msgstr ""
+
+msgid "not ICMP"
+msgstr ""
+
+msgid "not ICMPv6"
+msgstr ""
+
+msgid "not IGMP"
+msgstr ""
+
+msgid "not GRE"
+msgstr ""
+
+msgid "not ESP"
+msgstr ""
+
+msgid "not AH"
+msgstr ""
+
+msgid "not SCTP"
+msgstr ""
+
+msgid "or type…"
+msgstr ""
+
+msgid "Protocol — common values"
+msgstr ""
+
+msgid "Custom protocol (prefix ! to exclude). Overrides the menu when set."
+msgstr ""

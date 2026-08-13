@@ -58,6 +58,7 @@ That regenerates `…/fwlive/css.js` (`styleText` string). Do not edit `css.js` 
 ./scripts/qemu-wait-guest.sh
 ./scripts/qemu-install-fwlive.sh
 ./scripts/qemu-smoke-fwlive.sh
+./scripts/qemu-proto-ui-smoke.sh   # protocol pair + Detail/Message segments (Playwright)
 ```
 
 Checks: ubus, rpcd rules, LuCI HTTP, firewall log pipeline.
