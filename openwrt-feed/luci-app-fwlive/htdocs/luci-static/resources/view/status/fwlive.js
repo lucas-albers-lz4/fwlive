@@ -1572,7 +1572,7 @@ return view.extend({
 			]),
 			E('div', { 'id': 'fwlive-chips', 'class': 'fwlive-chips' }, []),
 			E('p', { 'class': 'fwlive-hint-line' },
-				[ _('Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings') ]),
+				[ _('Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · click a row for the full message') ]),
 			E('div', {
 				'id': 'fwlive-empty',
 				'class': 'fwlive-empty',
@@ -1593,7 +1593,7 @@ return view.extend({
 						E('li', {}, [ _('Display options hides Limit, row tint, hostnames, and chip style.') ]),
 						E('li', {}, [ _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.') ]),
 						E('li', { 'id': 'fwlive-manual-test' }, []),
-						E('li', {}, [ _('Click a row to see the full log line (Simple view).') ]),
+						E('li', {}, [ _('Click a row (Time or other non-link cells) to see the full log line (Simple view).') ]),
 						E('li', {}, [ _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.') ]),
 						E('li', {}, [ _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.') ]),
 						E('li', {}, [ _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.') ]),

@@ -86,12 +86,16 @@ msgid "Clear all"
 msgstr "ÐÑÐ¸ÑÑÐ¸ÑÑ Ð²ÑÑ"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1570
-msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings"
-msgstr "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings"
+msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · click a row for the full message"
+msgstr "Щёлкните ячейку для фильтра · ≠ на чипе для исключения · Ctrl+щелчок по правилу для настроек МЭ · щелкните строку для полного сообщения"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1591
-msgid "Click a row to see the full log line (Simple view)."
-msgstr "ÐÐ°Ð¶Ð¼Ð¸ÑÐµ Ð½Ð° ÑÑÑÐ¾ÐºÑ, ÑÑÐ¾Ð±Ñ ÑÐ²Ð¸Ð´ÐµÑÑ Ð¿Ð¾Ð»Ð½ÑÑ ÑÑÑÐ¾ÐºÑ Ð¶ÑÑÐ½Ð°Ð»Ð° (ÐÑÐ¾ÑÑÐ¾Ð¹ Ð²Ð¸Ð´)."
+msgid "Click a row (Time or other non-link cells) to see the full log line (Simple view)."
+msgstr "Щёлкните строку (Время или другие ячейки без ссылки), чтобы увидеть полную строку журнала (Простой вид)."
+
+#: htdocs/luci-static/resources/fwlive/table.js:113
+msgid "Click a row for the full message"
+msgstr "Щёлкните строку для полного сообщения"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1592
 msgid "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
