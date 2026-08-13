@@ -9,7 +9,7 @@
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { loadFwliveModule, fakeE } = require('./lib/load-fwlive-module');
+const { loadFwliveModule, fakeE, luciE } = require('./lib/load-fwlive-module');
 
 const PKG = path.join(__dirname, '..', 'openwrt-feed', 'luci-app-fwlive');
 
@@ -97,16 +97,29 @@ assert.strictEqual(toneHost.className, 'fwlive-chips fwlive-chips-tone');
 console.log('fwlive-modules smoke: chips OK');
 
 /* --- logging --- */
-const logging = loadFwliveModule('logging', { links: links });
+const logging = loadFwliveModule('logging', {
+	links: links,
+	E: luciE.E,
+	document: luciE.document
+});
 assert.strictEqual(typeof logging.renderToolbar, 'function');
 assert.strictEqual(typeof logging.renderEmptyState, 'function');
 assert.strictEqual(typeof logging.renderManualTestNodes, 'function');
 
-const bar = {
-	style: { display: '' },
-	innerHTML: 'x',
-	appendChild: function() {}
-};
+function collectText(node) {
+	if (!node)
+		return '';
+	if (node.nodeType === 3)
+		return String(node.textContent || '');
+	const kids = node.childNodes || [];
+	let out = '';
+	for (let i = 0; i < kids.length; i++)
+		out += collectText(kids[i]);
+	return out;
+}
+
+const bar = luciE.E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []);
+bar.style = {};
 logging.renderToolbar(bar, {
 	loggingStatus: { wan_log: true, wan_log_limit: null, blockers: [] },
 	loggingBusy: false,
@@ -114,9 +127,14 @@ logging.renderToolbar(bar, {
 	loggingNotice: ''
 }, { onEnable: function() {}, onDisable: function() {} });
 assert.strictEqual(bar.style.display, 'contents');
-assert.strictEqual(bar.innerHTML, '');
+assert.strictEqual(bar.childNodes.length, 1, 'merged on-control is one button');
+assert.strictEqual(bar.childNodes[0].tagName, 'button');
+assert.ok(String(bar.childNodes[0]._attrs['class']).indexOf('fwlive-log-merged') >= 0);
+const onText = collectText(bar.childNodes[0]);
+assert.ok(onText.indexOf('WAN logging on') >= 0);
+assert.ok(onText.indexOf('default 10/minute') >= 0);
+assert.strictEqual(bar.childNodes[0]._innerHTMLWrites.length, 0, 'merged control uses text nodes');
 
-/* Off: strip still shows (Enable CTA), even with zero entries. */
 logging.renderToolbar(bar, {
 	loggingStatus: { wan_log: false, wan_log_limit: null, blockers: [] },
 	loggingBusy: false,
@@ -124,15 +142,17 @@ logging.renderToolbar(bar, {
 	loggingNotice: ''
 }, { onEnable: function() {}, onDisable: function() {} });
 assert.strictEqual(bar.style.display, 'contents');
+assert.strictEqual(bar.childNodes.length, 1, 'off state is Enable CTA only');
+assert.ok(collectText(bar.childNodes[0]).indexOf('Enable logging') >= 0);
 
-const emptyHost = { innerHTML: 'x', appendChild: function() {} };
+const emptyHost = luciE.E('div', {}, []);
 logging.renderEmptyState(emptyHost, {
 	loggingStatus: { wan_log: false, blockers: [] },
 	loggingBusy: false,
 	entriesLength: 0,
 	loggingNotice: ''
 }, { onEnable: function() {} });
-assert.strictEqual(emptyHost.innerHTML, '');
+assert.ok(emptyHost.childNodes.length > 0);
 console.log('fwlive-modules smoke: logging OK');
 
 /* --- table --- */

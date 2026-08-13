@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Watch strip — actions left of Watching</title>
+<link rel="stylesheet" href="watch-strip-left.css">
+</head>
+<body>
+<header class="luci-top">
+  <span class="brand">OpenWrt</span>
+  <nav>Status · System · Network</nav>
+  <span class="pill live">PROTO</span>
+</header>
+
+<main class="page">
+  <p class="back">
+    <strong>Watch-strip layout prototype</strong> ·
+    <a href="a2-chosen.html">A2 chosen</a> ·
+    <a href="README.md">README</a>
+  </p>
+
+  <p class="proto-note">
+    Proposal: move the action cluster
+    (<strong>Pause · WAN logging status · WAN logging on · Hide Detail · Message: wrap</strong>)
+    from the right edge so it sits <strong>left-aligned next to Watching</strong>
+    (and the matching count), as one continuous strip.
+  </p>
+
+  <div class="compare">
+
+    <!-- CURRENT -->
+    <section class="scene" aria-label="Current layout">
+      <div class="scene-label">
+        <span>Current</span>
+        <span class="tag">space-between · actions on the right</span>
+      </div>
+
+      <div class="preview-mini">
+        <h2>Firewall Live View <span class="backend">using fw4</span></h2>
+
+        <div class="watch-strip current">
+          <div class="watch-left">
+            <span class="dot on" aria-hidden="true"></span>
+            <span class="watch-label">Watching</span>
+            <span class="count">5 matching · 5/50 stored</span>
+          </div>
+          <div class="watch-actions">
+            <button type="button" class="btn ghost">Pause</button>
+            <span class="logging-status">WAN logging: on · default 10/minute</span>
+            <button type="button" class="btn quiet">WAN logging on</button>
+            <button type="button" class="btn ghost">Hide Detail</button>
+            <button type="button" class="btn ghost">Message: wrap</button>
+          </div>
+        </div>
+
+        <div class="hint-line tight">
+          Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · in Simple view, click a row for the full message
+        </div>
+      </div>
+    </section>
+
+    <!-- PROPOSED -->
+    <section class="scene" aria-label="Proposed layout">
+      <div class="scene-label">
+        <span>Proposed</span>
+        <span class="tag proposed">flex-start · actions beside Watching</span>
+      </div>
+
+      <div class="preview-mini">
+        <h2>Firewall Live View <span class="backend">using fw4</span></h2>
+
+        <div class="watch-strip proposed">
+          <div class="watch-left">
+            <span class="dot on" aria-hidden="true"></span>
+            <span class="watch-label">Watching</span>
+            <span class="count">5 matching · 5/50 stored</span>
+          </div>
+          <div class="watch-actions">
+            <button type="button" class="btn ghost">Pause</button>
+            <span class="logging-status">WAN logging: on · default 10/minute</span>
+            <button type="button" class="btn quiet">WAN logging on</button>
+            <button type="button" class="btn ghost">Hide Detail</button>
+            <button type="button" class="btn ghost">Message: wrap</button>
+          </div>
+        </div>
+
+        <div class="hint-line tight">
+          Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · in Simple view, click a row for the full message
+        </div>
+      </div>
+    </section>
+
+    <!-- PROPOSED: paused (wrap check) -->
+    <section class="scene" aria-label="Proposed paused wrap">
+      <div class="scene-label">
+        <span>Proposed · narrow wrap</span>
+        <span class="tag proposed">same left flow when the strip wraps</span>
+      </div>
+
+      <div class="preview-mini" style="max-width: 520px">
+        <h2>Firewall Live View <span class="backend">using fw4</span></h2>
+
+        <div class="watch-strip proposed" style="background: rgba(180,83,9,0.08); border-radius: 3px; padding: 8px; border-bottom-color: transparent;">
+          <div class="watch-left">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="watch-label" style="color: #b45309">Paused</span>
+            <span class="count">5 matching · 5/50 stored</span>
+          </div>
+          <div class="watch-actions">
+            <button type="button" class="btn ghost">Resume</button>
+            <span class="logging-status">WAN logging: on · default 10/minute</span>
+            <button type="button" class="btn quiet">WAN logging on</button>
+            <button type="button" class="btn ghost">Hide Detail</button>
+            <button type="button" class="btn ghost">Message: wrap</button>
+          </div>
+        </div>
+
+        <div class="hint-line tight">
+          Actions stay with Watching; they wrap as a group instead of jumping to a far-right column.
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,270 @@
+/* Protocol filter UX prototypes. Not production. */
+@import url("a2-chosen.css");
+
+.proto-lede {
+  margin: 0 0 14px;
+  color: var(--muted);
+  max-width: 48rem;
+  font-size: 0.95rem;
+}
+.proto-lede strong { color: var(--ink); }
+
+.variant-board { margin-bottom: 14px; }
+.variant-board .board-label { min-width: 5.5rem; }
+
+.preview-shell {
+  padding: 16px 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+.preview-shell h1 {
+  margin: 0 0 10px;
+  font: 600 1.25rem/1.25 "IBM Plex Sans", sans-serif;
+  letter-spacing: -0.015em;
+}
+
+.ws-mini {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 6px 0 10px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+.ws-mini .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #1a9f5c; box-shadow: 0 0 0 3px rgba(26, 159, 92, 0.2);
+}
+.ws-mini .label { font-weight: 600; }
+.ws-mini .count { color: var(--muted); }
+
+.find-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 1.1fr;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 8px;
+}
+@media (max-width: 720px) {
+  .find-row { grid-template-columns: 1fr; }
+}
+
+.find-row input,
+.find-row select {
+  font: inherit;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  width: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* --- B: action-parity select --- */
+/* (plain select — no extra chrome) */
+
+/* --- C: combobox / datalist --- */
+.combo-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* --- D: select + custom text --- */
+.other-row {
+  display: none;
+  gap: 6px;
+}
+.preview-shell.show-other .other-row { display: flex; }
+.other-row input { flex: 1; }
+
+/* --- E: suggestion chips + text --- */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+.pchip {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f7f8fa;
+  color: var(--ink);
+  cursor: pointer;
+  line-height: 1.3;
+}
+.pchip:hover { border-color: #b7c2ce; background: #eef2f6; }
+.pchip.on {
+  border-color: var(--accent);
+  background: rgba(26, 111, 156, 0.1);
+  color: var(--accent);
+  font-weight: 600;
+}
+.pchip.neg {
+  border-style: dashed;
+  color: var(--muted);
+}
+.pchip.neg.on {
+  border-color: var(--muted);
+  background: #f0f2f4;
+  color: var(--ink);
+}
+
+/* --- F: pick + negate toggle --- */
+.split {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: stretch;
+}
+.split .neg-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  min-width: 2.4rem;
+}
+.split .neg-btn.on {
+  border-color: var(--muted);
+  background: #f0f2f4;
+  color: var(--ink);
+}
+
+/* --- G: optgroups --- */
+optgroup { font-style: normal; font-weight: 600; color: var(--muted); }
+
+.chips-out {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.6rem;
+  margin: 0 0 10px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  background: rgba(26, 111, 156, 0.08);
+  font-size: 0.88rem;
+}
+.chip.negated {
+  border-style: dashed;
+  color: var(--muted);
+  background: #f0f2f4;
+  border-color: var(--muted);
+}
+.chip button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+}
+.hint-line {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.table-shell {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: auto;
+}
+table.live {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+table.live th {
+  text-align: left;
+  padding: 6px 10px;
+  background: #f4f6f8;
+  border-bottom: 2px solid var(--line);
+  font-size: 0.82rem;
+}
+table.live td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #e8ebef;
+}
+tr.dim td { opacity: 0.35; }
+.act-pass { color: var(--pass); font-weight: 700; text-transform: lowercase; }
+.flow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.88em;
+  white-space: nowrap;
+}
+.flow .arrow { font-weight: 700; color: #9aa3ad; }
+.iface {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.85em;
+  background: #f7f8fa;
+}
+
+.why {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  background: #f7f9fb;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  color: var(--muted);
+  max-width: 52rem;
+}
+.why strong { color: var(--ink); }
+.why code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.92em;
+  background: #eef2f6;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.matrix {
+  margin-top: 22px;
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 52rem;
+  font-size: 0.88rem;
+}
+.matrix th, .matrix td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.matrix th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  background: #f7f9fb;
+}
+
+.hidden { display: none !important; }

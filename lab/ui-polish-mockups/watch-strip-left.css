@@ -1,0 +1,102 @@
+/* Prototype: left-align watch-strip actions next to Watching. Not production. */
+@import url("a2-chosen.css");
+
+.proto-note {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  background: #f7f9fb;
+  font-size: 0.9rem;
+  color: var(--muted);
+  max-width: 52rem;
+}
+.proto-note strong { color: var(--ink); }
+
+.compare {
+  display: grid;
+  gap: 28px;
+}
+
+.scene {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 14px 16px 18px;
+}
+
+.scene-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.scene-label .tag {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #f4f6f8;
+  color: var(--ink);
+}
+.scene-label .tag.proposed {
+  border-color: #9ec5e0;
+  background: #eaf4fb;
+  color: #134e72;
+}
+
+.preview-mini h2 {
+  margin: 0 0 8px;
+  font: 600 1.15rem/1.25 "IBM Plex Sans", sans-serif;
+}
+.preview-mini .backend {
+  font-size: 0.65em;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+/* --- Current: status left, actions pushed right --- */
+.watch-strip.current {
+  justify-content: space-between;
+}
+
+/* --- Proposed: one left-flow cluster --- */
+.watch-strip.proposed {
+  justify-content: flex-start;
+  gap: 10px 14px;
+}
+.watch-strip.proposed .watch-left,
+.watch-strip.proposed .watch-actions {
+  gap: 8px;
+}
+.watch-strip.proposed .watch-actions {
+  /* sit immediately after Watching / count */
+  margin-inline-start: 2px;
+}
+
+.logging-status {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.btn.quiet {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--line);
+  font-weight: 500;
+}
+
+.hint-line.tight { margin-bottom: 0; }
+
+@media (max-width: 720px) {
+  .logging-status { white-space: normal; }
+}

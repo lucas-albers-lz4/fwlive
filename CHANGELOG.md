@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Simple view: hint line and Time tooltip mention row click to expand the full message (#118)
+- Watch strip G Hybrid: left-aligned clusters, merged WAN logging control, segmented Detail/Message toggles
+- Flow column arrow uses bold weight for clearer src → dst scanning
+- Protocol filter is a grouped select (Common / Also seen / Exclude) with an always-on custom field (typing wins)
 
 ## [v0.1.32] — 2026-08-11
 

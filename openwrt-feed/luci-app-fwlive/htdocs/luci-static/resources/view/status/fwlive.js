@@ -150,12 +150,24 @@ return view.extend({
 			q: val('fwlive-q').trim(),
 			action: val('fwlive-action'),
 			interface: val('fwlive-interface'),
-			proto: val('fwlive-proto'),
+			proto: this.readProtoFilter(),
 			src: val('fwlive-src').trim(),
 			dst: val('fwlive-dst').trim(),
 			sport: val('fwlive-sport').trim(),
 			dport: val('fwlive-dport').trim()
 		};
+	},
+
+	/* D Always custom: typed value wins when non-empty; else grouped select. */
+	readProtoFilter() {
+		const custom = document.getElementById('fwlive-proto-custom');
+		if (custom) {
+			const typed = (custom.value || '').trim();
+			if (typed)
+				return typed;
+		}
+		const sel = document.getElementById('fwlive-proto');
+		return sel ? (sel.value || '') : '';
 	},
 
 	updateHash(filters) {
@@ -196,6 +208,10 @@ return view.extend({
 				continue;
 			}
 			const el = document.getElementById('fwlive-' + key);
+			if (key === 'proto') {
+				this.setProtoFilterValue(val);
+				continue;
+			}
 			if (el)
 				el.value = val;
 		}
@@ -1068,6 +1084,37 @@ return view.extend({
 		return optionNodes(pairs);
 	},
 
+	/* G Grouped: Common / Also seen / Exclude — curated PROTO values from logs. */
+	protoSelectOptions() {
+		return [
+			E('option', { 'value': '' }, [ _('Any protocol') ]),
+			E('optgroup', { 'label': _('Common') }, [
+				E('option', { 'value': 'TCP' }, [ 'TCP' ]),
+				E('option', { 'value': 'UDP' }, [ 'UDP' ]),
+				E('option', { 'value': 'ICMP' }, [ 'ICMP' ]),
+				E('option', { 'value': 'ICMPV6' }, [ _('ICMPv6') ])
+			]),
+			E('optgroup', { 'label': _('Also seen') }, [
+				E('option', { 'value': 'IGMP' }, [ 'IGMP' ]),
+				E('option', { 'value': 'GRE' }, [ 'GRE' ]),
+				E('option', { 'value': 'ESP' }, [ 'ESP' ]),
+				E('option', { 'value': 'AH' }, [ 'AH' ]),
+				E('option', { 'value': 'SCTP' }, [ 'SCTP' ])
+			]),
+			E('optgroup', { 'label': _('Exclude') }, [
+				E('option', { 'value': '!TCP' }, [ _('not TCP') ]),
+				E('option', { 'value': '!UDP' }, [ _('not UDP') ]),
+				E('option', { 'value': '!ICMP' }, [ _('not ICMP') ]),
+				E('option', { 'value': '!ICMPV6' }, [ _('not ICMPv6') ]),
+				E('option', { 'value': '!IGMP' }, [ _('not IGMP') ]),
+				E('option', { 'value': '!GRE' }, [ _('not GRE') ]),
+				E('option', { 'value': '!ESP' }, [ _('not ESP') ]),
+				E('option', { 'value': '!AH' }, [ _('not AH') ]),
+				E('option', { 'value': '!SCTP' }, [ _('not SCTP') ])
+			])
+		];
+	},
+
 	filterClick(field, value, ev) {
 		if (ev && ev.preventDefault)
 			ev.preventDefault();
@@ -1152,13 +1199,59 @@ return view.extend({
 	},
 
 	setFilterFieldValue(field, value) {
+		if (field === 'proto')
+			return this.setProtoFilterValue(value);
+
 		const el = document.getElementById('fwlive-' + field);
 		if (!el)
 			return false;
 
+		/* SELECT: ensure uncommon click-to-filter / hash values remain selectable. */
+		if (el.tagName === 'SELECT' && value) {
+			let found = false;
+			for (let i = 0; i < el.options.length; i++) {
+				if (el.options[i].value === value) {
+					found = true;
+					break;
+				}
+			}
+			if (!found)
+				el.appendChild(E('option', { 'value': value }, [ value ]));
+		}
+
 		el.value = value;
 		if (el.tagName === 'SELECT')
 			el.dispatchEvent(new Event('change', { bubbles: true }));
+
+		return true;
+	},
+
+	setProtoFilterValue(value) {
+		const sel = document.getElementById('fwlive-proto');
+		const custom = document.getElementById('fwlive-proto-custom');
+		if (!sel)
+			return false;
+
+		value = value || '';
+		let inMenu = (value === '');
+		if (!inMenu) {
+			for (let i = 0; i < sel.options.length; i++) {
+				if (sel.options[i].value === value) {
+					inMenu = true;
+					break;
+				}
+			}
+		}
+
+		if (inMenu) {
+			sel.value = value;
+			if (custom)
+				custom.value = '';
+		} else {
+			sel.value = '';
+			if (custom)
+				custom.value = value;
+		}
 
 		return true;
 	},
@@ -1175,6 +1268,15 @@ return view.extend({
 		if (ev) {
 			ev.preventDefault();
 			ev.stopPropagation();
+		}
+
+		if (field === 'proto') {
+			const cur = this.readProtoFilter();
+			if (!cur)
+				return;
+			this.setProtoFilterValue(log.toggleFilterNegation(cur));
+			this.onFilterInput();
+			return;
 		}
 
 		const el = document.getElementById('fwlive-' + field);
@@ -1194,6 +1296,9 @@ return view.extend({
 			if (el)
 				el.value = '';
 		}
+		const protoCustom = document.getElementById('fwlive-proto-custom');
+		if (protoCustom)
+			protoCustom.value = '';
 
 		this.onFilterInput();
 	},
@@ -1236,9 +1341,11 @@ return view.extend({
 			}
 		}
 		if (btn) {
-			btn.textContent = this.messageLayout === 'oneline'
+			const oneline = this.messageLayout === 'oneline';
+			btn.textContent = oneline
 				? _('Message: one line')
 				: _('Message: wrap');
+			btn.setAttribute('aria-pressed', oneline ? 'true' : 'false');
 		}
 	},
 
@@ -1356,7 +1463,7 @@ return view.extend({
 		if (scroll)
 			scroll.addEventListener('scroll', this.onScrollArea.bind(this));
 
-		const ids = [ 'q', 'action', 'interface', 'proto', 'src', 'dst', 'sport', 'dport' ];
+		const ids = [ 'q', 'action', 'interface', 'src', 'dst', 'sport', 'dport' ];
 		for (let i = 0; i < ids.length; i++) {
 			const el = document.getElementById('fwlive-' + ids[i]);
 			if (!el)
@@ -1366,6 +1473,23 @@ return view.extend({
 				el.addEventListener('change', this.onFilterInput.bind(this));
 			else
 				el.addEventListener('input', this.onFilterInputDebounced.bind(this));
+		}
+
+		const protoSel = document.getElementById('fwlive-proto');
+		const protoCustom = document.getElementById('fwlive-proto-custom');
+		if (protoSel) {
+			protoSel.addEventListener('change', function() {
+				if (protoCustom)
+					protoCustom.value = '';
+				this.onFilterInput();
+			}.bind(this));
+		}
+		if (protoCustom) {
+			protoCustom.addEventListener('input', function() {
+				if (protoCustom.value.trim() && protoSel)
+					protoSel.value = '';
+				this.onFilterInputDebounced();
+			}.bind(this));
 		}
 
 		const pauseBtn = document.getElementById('fwlive-pause');
@@ -1448,7 +1572,7 @@ return view.extend({
 				E('span', { 'id': 'fwlive-backend', 'class': 'fwlive-backend' }, [ '' ])
 			]),
 			E('div', { 'id': 'fwlive-watch-strip', 'class': 'fwlive-watch-strip' }, [
-				E('div', { 'class': 'fwlive-watch-left' }, [
+				E('div', { 'class': 'fwlive-watch-cluster' }, [
 					E('span', { 'id': 'fwlive-watch-dot', 'class': 'fwlive-dot fwlive-dot-on', 'aria-hidden': 'true' }, [ '' ]),
 					E('span', { 'id': 'fwlive-watch-label', 'class': 'fwlive-watch-label' }, [ _('Watching') ]),
 					E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, [ '' ]),
@@ -1458,24 +1582,33 @@ return view.extend({
 						'title': _('Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds.')
 					}, [ _('Theme tint fallback') ])
 				]),
-				E('div', { 'class': 'fwlive-watch-actions' }, [
+				E('span', { 'class': 'fwlive-watch-sep', 'aria-hidden': 'true' }, [ '' ]),
+				E('div', { 'class': 'fwlive-watch-cluster' }, [
 					E('button', {
 						'id': 'fwlive-pause',
 						'class': 'cbi-button fwlive-btn-ghost',
 						'type': 'button'
 					}, [ _('Pause') ]),
-					E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []),
+					E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, [])
+				]),
+				E('span', { 'class': 'fwlive-watch-sep', 'aria-hidden': 'true' }, [ '' ]),
+				E('div', {
+					'class': 'fwlive-watch-seg',
+					'role': 'group',
+					'aria-label': _('View')
+				}, [
 					E('button', {
 						'id': 'fwlive-detail-toggle',
-						'class': 'cbi-button fwlive-btn-ghost',
+						'class': 'cbi-button fwlive-seg-btn',
 						'type': 'button',
 						'aria-pressed': 'false',
 						'click': this.toggleDetailView.bind(this)
 					}, [ _('Show Detail') ]),
 					E('button', {
 						'id': 'fwlive-msg-layout',
-						'class': 'cbi-button fwlive-btn-ghost',
+						'class': 'cbi-button fwlive-seg-btn',
 						'type': 'button',
+						'aria-pressed': 'false',
 						'click': this.toggleMessageLayout.bind(this)
 					}, [ _('Message: wrap') ])
 				])
@@ -1557,7 +1690,20 @@ return view.extend({
 						E('option', { 'value': '!reject' }, [ _('not reject') ]),
 						E('option', { 'value': '!unknown' }, [ _('not unknown') ])
 					]),
-					E('input', { 'id': 'fwlive-proto', 'class': 'cbi-input-text', 'placeholder': _('Protocol (prefix ! to exclude)') })
+					E('div', { 'class': 'fwlive-proto-pair' }, [
+						E('select', {
+							'id': 'fwlive-proto',
+							'class': 'cbi-input-select',
+							'title': _('Protocol — common values')
+						}, this.protoSelectOptions()),
+						E('input', {
+							'id': 'fwlive-proto-custom',
+							'class': 'cbi-input-text',
+							'placeholder': _('or type…'),
+							'title': _('Custom protocol (prefix ! to exclude). Overrides the menu when set.'),
+							'autocomplete': 'off'
+						})
+					])
 				]),
 				E('details', { 'id': 'fwlive-more-filters', 'class': 'fwlive-more-filters' }, [
 					E('summary', {}, [ _('More filters') ]),
@@ -1594,7 +1740,7 @@ return view.extend({
 						E('li', {}, [ _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.') ]),
 						E('li', { 'id': 'fwlive-manual-test' }, []),
 						E('li', {}, [ _('Click a row (Time or other non-link cells) to see the full log line (Simple view).') ]),
-						E('li', {}, [ _('Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead.') ]),
+						E('li', {}, [ _('Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude.') ]),
 						E('li', {}, [ _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.') ]),
 						E('li', {}, [ _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.') ]),
 						E('li', {}, [ _('Use Show Detail for all columns (flags, length, raw message).') ]),

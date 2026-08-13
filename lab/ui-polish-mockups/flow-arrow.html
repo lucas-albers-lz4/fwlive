@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Flow arrow — noticeability prototypes</title>
+<link rel="stylesheet" href="flow-arrow.css">
+</head>
+<body>
+<header class="luci-top">
+  <span class="brand">OpenWrt</span>
+  <nav>Status · System · Network</nav>
+  <span class="pill live">PROTO</span>
+</header>
+
+<main class="page">
+  <p class="back">
+    <strong>Flow arrow prototypes</strong> ·
+    <a href="watch-strip-compact.html">watch strip</a> ·
+    <a href="a2-chosen.html">A2 chosen</a>
+  </p>
+
+  <p class="proto-lede">
+    Same Simple-view <strong>Flow</strong> cell (<code>src:port → dst:port</code>).
+    Current arrow uses muted low contrast. Flip variants — prefer typography over chrome.
+  </p>
+
+  <section class="control-board variant-board" aria-label="Variant switcher">
+    <div class="board-block">
+      <span class="board-label">Variant</span>
+      <div class="seg-btns" id="variant-btns">
+        <button type="button" class="seg-btn on" data-v="a">A Current</button>
+        <button type="button" class="seg-btn" data-v="b">B Bold</button>
+        <button type="button" class="seg-btn" data-v="c">C Darker</button>
+        <button type="button" class="seg-btn" data-v="d">D Bold+dark</button>
+        <button type="button" class="seg-btn" data-v="e">E Larger</button>
+        <button type="button" class="seg-btn" data-v="f">F Accent</button>
+        <button type="button" class="seg-btn" data-v="g">G Spaced</button>
+        <button type="button" class="seg-btn" data-v="h">H Long arrow</button>
+        <button type="button" class="seg-btn" data-v="i">I Chevrons</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="preview-shell">
+    <h1>Firewall Live View <span class="backend">using fw4</span></h1>
+
+    <div class="table-shell">
+      <table class="flow-demo" id="demo">
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Time</th>
+            <th>Interface</th>
+            <th>Flow</th>
+            <th>Proto</th>
+            <th>Rule</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <p class="why" id="why"></p>
+  </div>
+
+  <table class="matrix">
+    <thead>
+      <tr><th>Variant</th><th>Idea</th><th>Tradeoff</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>A Current</strong></td><td>Muted low, weight 400</td><td>Easy to miss between monospace IPs</td></tr>
+      <tr><td><strong>B Bold</strong></td><td>Same color, weight 700</td><td>Minimal change; may still be pale</td></tr>
+      <tr><td><strong>C Darker</strong></td><td>Medium text color, not bold</td><td>Quieter than bold; clearer than A</td></tr>
+      <tr><td><strong>D Bold+dark</strong></td><td>Weight 700 + medium ink</td><td>Strongest “just CSS” fix</td></tr>
+      <tr><td><strong>E Larger</strong></td><td>Bold + ~5% size bump</td><td>Noticeable; watch vertical rhythm</td></tr>
+      <tr><td><strong>F Accent</strong></td><td>Soft primary tint</td><td>Classy if opacity kept; can feel link-like</td></tr>
+      <tr><td><strong>G Spaced</strong></td><td>Bold + letter-spacing / pad</td><td>Breathing room; slightly wider column</td></tr>
+      <tr><td><strong>H Long arrow</strong></td><td>Glyph <code>⟶</code></td><td>More directionality; font coverage varies</td></tr>
+      <tr><td><strong>I Chevrons</strong></td><td><code>››</code> pair</td><td>Distinct; less “arrow”, more decorative</td></tr>
+    </tbody>
+  </table>
+</main>
+
+<script>
+(function () {
+  const rowsEl = document.getElementById('rows');
+  const demo = document.getElementById('demo');
+  const why = document.getElementById('why');
+  const btns = document.querySelectorAll('#variant-btns .seg-btn');
+
+  const glyphs = {
+    a: ' → ', b: ' → ', c: ' → ', d: ' → ', e: ' → ',
+    f: ' → ', g: ' → ', h: ' ⟶ ', i: ' ›› '
+  };
+
+  const copy = {
+    a: '<strong>A Current</strong> — production: <code>color: text-color-low</code>, normal weight. Disappears against dotted IP links.',
+    b: '<strong>B Bold</strong> — keep the quiet color, bump to <code>font-weight: 700</code>. Smallest diff; often enough.',
+    c: '<strong>C Darker</strong> — step up to medium text color, weight 500. No bold “shout”.',
+    d: '<strong>D Bold+dark</strong> — weight 700 + medium ink. Usually the sweet spot for scanability.',
+    e: '<strong>E Larger</strong> — bold + slightly larger glyph. Extra pop without a new color.',
+    f: '<strong>F Accent</strong> — soft primary at ~85% opacity, weight 600. Ties to LuCI accent; avoid looking like a link.',
+    g: '<strong>G Spaced</strong> — bold + a little tracking/padding so the arrow owns its gap.',
+    h: '<strong>H Long arrow</strong> — <code>⟶</code> (U+27F6). Clearer stem; check monospace fallbacks.',
+    i: '<strong>I Chevrons</strong> — <code>››</code>. Distinct silhouette; less standard than →.'
+  };
+
+  const sample = [
+    { act: 'pass', cls: 'pass', time: '19:13:29', iface: 'lo',
+      src: '127.0.0.1', sport: '', dst: '127.0.0.1', dport: '', proto: 'ICMP', rule: 'fwlive ping' },
+    { act: 'pass', cls: 'pass alt', time: '19:13:28', iface: 'br-lan',
+      src: '192.168.1.42', sport: '54321', dst: '1.1.1.1', dport: '443', proto: 'TCP', rule: 'lan forward' },
+    { act: 'drop', cls: 'deny', time: '19:13:21', iface: 'wan',
+      src: '203.0.113.88', sport: '44122', dst: '198.51.100.10', dport: '22', proto: 'TCP', rule: 'wan input' },
+    { act: 'pass', cls: 'pass alt', time: '19:13:18', iface: 'br-lan',
+      src: 'laptop.lan', sport: '51234', dst: 'dns.lan', dport: '53', proto: 'UDP', rule: 'dns accept' }
+  ];
+
+  function flowHtml(row, glyph) {
+    function end(addr, port) {
+      let s = '<a href="#">' + addr + '</a>';
+      if (port) s += ':<a href="#">' + port + '</a>';
+      return s;
+    }
+    return end(row.src, row.sport)
+      + '<span class="arrow">' + glyph + '</span>'
+      + end(row.dst, row.dport);
+  }
+
+  function render(v) {
+    demo.className = 'flow-demo v-' + v;
+    const glyph = glyphs[v];
+    rowsEl.innerHTML = sample.map(function (r) {
+      const actCls = r.act === 'drop' ? 'act-deny' : 'act-pass';
+      return '<tr class="' + r.cls + '">'
+        + '<td class="' + actCls + '">' + r.act + '</td>'
+        + '<td>' + r.time + '</td>'
+        + '<td><span class="iface">' + r.iface + '</span></td>'
+        + '<td class="flow">' + flowHtml(r, glyph) + '</td>'
+        + '<td>' + r.proto + '</td>'
+        + '<td>' + r.rule + '</td>'
+        + '</tr>';
+    }).join('');
+    why.innerHTML = copy[v];
+    btns.forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-v') === v);
+    });
+  }
+
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      render(b.getAttribute('data-v'));
+    });
+  });
+
+  render('a');
+})();
+</script>
+</body>
+</html>

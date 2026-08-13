@@ -98,8 +98,8 @@ msgid "Click a row for the full message"
 msgstr "Zeile anklicken für die vollständige Meldung"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1592
-msgid "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
-msgstr "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
+msgid "Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude."
+msgstr "Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude."
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:925
 msgid "Connection lost — retrying…"
@@ -403,9 +403,6 @@ msgstr "Pausiert"
 msgid "Proto"
 msgstr "Protokoll"
 
-#: htdocs/luci-static/resources/view/status/fwlive.js:1555
-msgid "Protocol (prefix ! to exclude)"
-msgstr "Protokoll (! voranstellen zum AusschlieÃen)"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1541
 msgid "Quick search"
@@ -564,16 +561,66 @@ msgstr "WAN-Protokollierung nicht verfÃ¼gbar: fehlende Kernel-Log-Module"
 msgid "WAN logging unavailable: no WAN zone"
 msgstr "WAN-Protokollierung nicht verfÃ¼gbar: keine WAN-Zone"
 
-#: htdocs/luci-static/resources/fwlive/logging.js:96
-msgid "WAN logging: off"
-msgstr "WAN logging: off"
 
-#: htdocs/luci-static/resources/fwlive/logging.js:84
-msgid "WAN logging: on · %s"
-msgstr "WAN logging: on · %s"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:975
 #: htdocs/luci-static/resources/view/status/fwlive.js:1448
+msgid "· %s"
+msgstr "· %s"
+
+msgid "View"
+msgstr "Ansicht"
+
 msgid "Watching"
 msgstr "Beobachtet"
 
+msgid "Any protocol"
+msgstr "Beliebiges Protokoll"
+
+msgid "Common"
+msgstr "Häufig"
+
+msgid "Also seen"
+msgstr "Weitere"
+
+msgid "Exclude"
+msgstr "Ausschließen"
+
+msgid "ICMPv6"
+msgstr "ICMPv6"
+
+msgid "not TCP"
+msgstr "nicht TCP"
+
+msgid "not UDP"
+msgstr "nicht UDP"
+
+msgid "not ICMP"
+msgstr "nicht ICMP"
+
+msgid "not ICMPv6"
+msgstr "nicht ICMPv6"
+
+msgid "not IGMP"
+msgstr "nicht IGMP"
+
+msgid "not GRE"
+msgstr "nicht GRE"
+
+msgid "not ESP"
+msgstr "nicht ESP"
+
+msgid "not AH"
+msgstr "nicht AH"
+
+msgid "not SCTP"
+msgstr "nicht SCTP"
+
+msgid "or type…"
+msgstr "oder tippen…"
+
+msgid "Protocol — common values"
+msgstr "Protokoll — häufige Werte"
+
+msgid "Custom protocol (prefix ! to exclude). Overrides the menu when set."
+msgstr "Eigenes Protokoll (! zum Ausschließen). Überschreibt das Menü, wenn gesetzt."

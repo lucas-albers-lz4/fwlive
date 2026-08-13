@@ -10,8 +10,8 @@
  *   state     - { loggingStatus, loggingBusy, entriesLength, loggingNotice }
  *   callbacks - { onEnable(), onDisable() }
  *
- * A2 chrome: readiness status + strip CTA — filled Enable when off; quiet
- * "WAN logging on" when on (click disables).
+ * G Hybrid chrome: when WAN logging is on, one merged control carries status +
+ * rate (click disables). When off, filled Enable CTA. Blockers stay status text.
  *
  * renderManualTestNodes(host, state, callbacks) → void
  *   host      - <ul> element inside #fwlive-help (cleared and rebuilt)
@@ -80,20 +80,24 @@ function renderToolbar(host, state, callbacks) {
 
 	const limit = st.wan_log_limit || _('default 10/minute');
 	if (st.wan_log) {
-		host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-			[ _('WAN logging: on · %s').format(limit) ]));
+		const busy = !!state.loggingBusy;
+		const children = busy
+			? [ _('Disabling…') ]
+			: [
+				E('span', { 'class': 'fwlive-log-on-dot', 'aria-hidden': 'true' }, [ '' ]),
+				E('span', { 'class': 'fwlive-log-label' }, [ _('WAN logging on') ]),
+				E('span', { 'class': 'fwlive-log-rate' }, [ _('· %s').format(limit) ])
+			];
 		host.appendChild(E('button', {
-			'class': 'cbi-button fwlive-btn-quiet',
+			'class': 'cbi-button fwlive-log-merged',
 			'type': 'button',
 			'title': _('WAN logging on (%s). Click to disable.').format(limit),
-			'disabled': state.loggingBusy ? '' : null,
+			'disabled': busy ? '' : null,
 			'click': function() { callbacks.onDisable(); }
-		}, [ state.loggingBusy ? _('Disabling…') : _('WAN logging on') ]));
+		}, children));
 		return;
 	}
 
-	host.appendChild(E('span', { 'class': 'fwlive-logging-status' },
-		[ _('WAN logging: off') ]));
 	host.appendChild(E('button', {
 		'class': 'cbi-button cbi-button-action',
 		'type': 'button',
