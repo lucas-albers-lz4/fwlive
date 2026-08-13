@@ -1572,7 +1572,7 @@ return view.extend({
 			]),
 			E('div', { 'id': 'fwlive-chips', 'class': 'fwlive-chips' }, []),
 			E('p', { 'class': 'fwlive-hint-line' },
-				[ _('Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · click a row for the full message') ]),
+				[ _('Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · in Simple view, click a row for the full message') ]),
 			E('div', {
 				'id': 'fwlive-empty',
 				'class': 'fwlive-empty',

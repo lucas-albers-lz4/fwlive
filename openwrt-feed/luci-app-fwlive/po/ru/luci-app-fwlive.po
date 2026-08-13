@@ -86,8 +86,8 @@ msgid "Clear all"
 msgstr "ÐÑÐ¸ÑÑÐ¸ÑÑ Ð²ÑÑ"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1570
-msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · click a row for the full message"
-msgstr "Щёлкните ячейку для фильтра · ≠ на чипе для исключения · Ctrl+щелчок по правилу для настроек МЭ · щелкните строку для полного сообщения"
+msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · in Simple view, click a row for the full message"
+msgstr "Щёлкните ячейку для фильтра · ≠ на чипе для исключения · Ctrl+щелчок по правилу для настроек МЭ · в Простом виде щёлкните строку для полного сообщения"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1591
 msgid "Click a row (Time or other non-link cells) to see the full log line (Simple view)."

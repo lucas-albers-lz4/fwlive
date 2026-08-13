@@ -85,7 +85,7 @@ msgid "Clear all"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1570
-msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · click a row for the full message"
+msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · in Simple view, click a row for the full message"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1591
