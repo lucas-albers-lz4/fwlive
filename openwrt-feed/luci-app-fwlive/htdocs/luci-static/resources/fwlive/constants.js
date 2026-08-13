@@ -7,7 +7,7 @@
  */
 return baseclass.extend({
 	/* Keep in sync with openwrt-feed/luci-app-fwlive/Makefile PKG_VERSION. */
-	APP_VERSION: '0.1.32',
+	APP_VERSION: '0.1.33',
 	ROW_LIMIT_OPTIONS: [ 25, 50, 100, 250, 500, 1000, 2000 ],
 	DEFAULT_ROW_LIMIT: 100,
 	/* Filter chip polarity presentation (#18): labels = A+light B default */

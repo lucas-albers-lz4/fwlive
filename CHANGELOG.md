@@ -9,12 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.33] — 2026-08-12
+
+### Security
+- Feed signing keys stay mode 0600 through decode/normalize (S1 / #165, #170)
+- Pin `usign` fetch and verify SDK tarball sha256 before extract (S2 / #166, #171)
+- Create WAN-logging lock at mode 0600 (S3 / #167, #172)
+- WAN-logging enable/disable: named/anonymous WAN zone lookup; refuse when firewall UCI changes are pending (S4 / #168, #173)
+
 ### Changed
-- Simple view: hint line and Time tooltip mention row click to expand the full message (#118)
-- Watch strip G Hybrid: left-aligned clusters, merged WAN logging control, segmented Detail/Message toggles
-- Flow column arrow uses bold weight for clearer src → dst scanning
-- Protocol filter is a grouped select (Common / Also seen / Exclude) with an always-on custom field (typing wins)
-- Tests: Node coverage for proto menu/custom precedence; Playwright smoke for proto pair + segments (`scripts/qemu-proto-ui-smoke.sh`)
+- Simple view: hint line and Time tooltip mention row click to expand the full message (#118, #175)
+- Watch strip G Hybrid: left-aligned clusters, merged WAN logging control, segmented Detail/Message toggles (#176)
+- Flow column arrow uses bold weight for clearer src → dst scanning (#176)
+- Protocol filter is a grouped select (Common / Also seen / Exclude) with an always-on custom field (typing wins) (#176)
+- Lab/SDK pins: OpenWrt **24.10.8** and **25.12.5** (#130, #174)
+
+### Added
+- Security review ledger documenting control proof status (#169)
+- Tests: Node coverage for proto menu/custom precedence; Playwright smoke for proto pair + segments (`scripts/qemu-proto-ui-smoke.sh`) (#176)
 
 ## [v0.1.32] — 2026-08-11
 
@@ -350,6 +362,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.33]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.32...v0.1.33
 [v0.1.32]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.31...v0.1.32
 [v0.1.31]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.30...v0.1.31
 [v0.1.30]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.29...v0.1.30
