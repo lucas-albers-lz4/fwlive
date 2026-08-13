@@ -16,6 +16,7 @@
 'require fwlive.table as table';
 'require fwlive.buffer as buffer';
 'require fwlive.hostname as hostname';
+'require fwlive.proto as proto';
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -150,24 +151,12 @@ return view.extend({
 			q: val('fwlive-q').trim(),
 			action: val('fwlive-action'),
 			interface: val('fwlive-interface'),
-			proto: this.readProtoFilter(),
+			proto: proto.readProtoFilter(),
 			src: val('fwlive-src').trim(),
 			dst: val('fwlive-dst').trim(),
 			sport: val('fwlive-sport').trim(),
 			dport: val('fwlive-dport').trim()
 		};
-	},
-
-	/* D Always custom: typed value wins when non-empty; else grouped select. */
-	readProtoFilter() {
-		const custom = document.getElementById('fwlive-proto-custom');
-		if (custom) {
-			const typed = (custom.value || '').trim();
-			if (typed)
-				return typed;
-		}
-		const sel = document.getElementById('fwlive-proto');
-		return sel ? (sel.value || '') : '';
 	},
 
 	updateHash(filters) {
@@ -209,7 +198,7 @@ return view.extend({
 			}
 			const el = document.getElementById('fwlive-' + key);
 			if (key === 'proto') {
-				this.setProtoFilterValue(val);
+				proto.setProtoFilterValue(val);
 				continue;
 			}
 			if (el)
@@ -1200,7 +1189,7 @@ return view.extend({
 
 	setFilterFieldValue(field, value) {
 		if (field === 'proto')
-			return this.setProtoFilterValue(value);
+			return proto.setProtoFilterValue(value);
 
 		const el = document.getElementById('fwlive-' + field);
 		if (!el)
@@ -1226,36 +1215,6 @@ return view.extend({
 		return true;
 	},
 
-	setProtoFilterValue(value) {
-		const sel = document.getElementById('fwlive-proto');
-		const custom = document.getElementById('fwlive-proto-custom');
-		if (!sel)
-			return false;
-
-		value = value || '';
-		let inMenu = (value === '');
-		if (!inMenu) {
-			for (let i = 0; i < sel.options.length; i++) {
-				if (sel.options[i].value === value) {
-					inMenu = true;
-					break;
-				}
-			}
-		}
-
-		if (inMenu) {
-			sel.value = value;
-			if (custom)
-				custom.value = '';
-		} else {
-			sel.value = '';
-			if (custom)
-				custom.value = value;
-		}
-
-		return true;
-	},
-
 	clearFilter(field, ev) {
 		if (ev && ev.preventDefault)
 			ev.preventDefault();
@@ -1271,10 +1230,10 @@ return view.extend({
 		}
 
 		if (field === 'proto') {
-			const cur = this.readProtoFilter();
+			const cur = proto.readProtoFilter();
 			if (!cur)
 				return;
-			this.setProtoFilterValue(log.toggleFilterNegation(cur));
+			proto.setProtoFilterValue(log.toggleFilterNegation(cur));
 			this.onFilterInput();
 			return;
 		}

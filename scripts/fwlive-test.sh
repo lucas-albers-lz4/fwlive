@@ -74,6 +74,9 @@ echo "== fwlive pause/resume buffer ==" >&2
 echo "== fwlive filter negate toggle ==" >&2
 "$NODE" tests/fwlive-filter-negate.test.js
 
+echo "== fwlive proto filter (menu + custom) ==" >&2
+"$NODE" tests/fwlive-proto-filter.test.js
+
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh
 
