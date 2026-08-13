@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A2 — Chosen prototype</title>
+<link rel="stylesheet" href="a2-chosen.css">
+</head>
+<body>
+<header class="luci-top">
+  <span class="brand">OpenWrt</span>
+  <nav>Status · System · Network</nav>
+  <span class="pill live" id="top-pill">LIVE</span>
+</header>
+
+<main class="page">
+  <p class="back"><strong>A2 prototype</strong> · <a href="README.md">README</a> · <a href="https://github.com/lucas-albers-lz4/fwlive/issues/77">#77</a></p>
+
+  <p class="proto-banner">
+    Locked: A2 grouped · drawer <strong>closed</strong> · <strong>Pause/Resume</strong> only (no Auto-refresh checkbox) ·
+    Enable logging is the only filled button when off.
+  </p>
+
+  <section class="control-board" aria-label="Scene switcher">
+    <div class="board-block">
+      <span class="board-label">Scene</span>
+      <div class="seg-btns" id="scene-btns">
+        <button type="button" class="seg-btn on" data-scene="watching">Watching</button>
+        <button type="button" class="seg-btn" data-scene="paused">Paused</button>
+        <button type="button" class="seg-btn" data-scene="empty">Empty</button>
+        <button type="button" class="seg-btn" data-scene="logging">Logging on</button>
+        <button type="button" class="seg-btn" data-scene="filtered">Filters on</button>
+        <button type="button" class="seg-btn" data-scene="fallback">Tint fallback</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="preview-frame" id="preview">
+    <h1>Firewall Live View <span class="backend">using fw4</span></h1>
+
+    <div class="watch-strip" id="watch-strip">
+      <div class="watch-left">
+        <span class="dot on" id="watch-dot"></span>
+        <span class="watch-label" id="watch-label">Watching</span>
+        <span class="count" id="watch-count">3 matching · 3/50 stored</span>
+        <span class="tint-fallback-badge" id="fallback-badge" hidden>Theme tint fallback</span>
+      </div>
+      <div class="watch-actions">
+        <button type="button" class="btn ghost" id="btn-pause">Pause</button>
+        <button type="button" class="btn" id="btn-logging">Enable logging</button>
+        <button type="button" class="btn ghost" id="btn-detail">Show Detail</button>
+      </div>
+    </div>
+
+    <details class="display-drawer" id="drawer">
+      <summary><span class="sum-main">Display options</span></summary>
+      <div class="drawer-body drawer-grouped">
+        <div class="gcol">
+          <h3>Live</h3>
+          <label>Limit
+            <select>
+              <option>25</option>
+              <option selected>50</option>
+              <option>100</option>
+              <option>250</option>
+              <option>500</option>
+            </select>
+          </label>
+          <p class="drawer-hint tight">Live updates run until you Pause above.</p>
+        </div>
+        <div class="gcol">
+          <h3>Row look</h3>
+          <label><input type="checkbox" checked> Row tint</label>
+          <label>Palette
+            <select>
+              <option>Accessible (teal/orange)</option>
+              <option>Classic (green/red)</option>
+            </select>
+          </label>
+          <label><input type="checkbox"> Hostnames</label>
+        </div>
+        <div class="gcol">
+          <h3>Filters look</h3>
+          <label>Chip style
+            <select>
+              <option>Tone</option>
+              <option>Labels</option>
+              <option>Symbols</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <div class="find-row">
+      <input class="search" id="q" placeholder="Quick search">
+      <select id="action">
+        <option>Any action</option>
+        <option>pass</option>
+        <option>drop</option>
+      </select>
+      <input id="proto" placeholder="Protocol">
+      <button type="button" class="linkish">More filters</button>
+    </div>
+
+    <div class="chips-demo" id="chips" hidden>
+      <span class="chip">action pass <button type="button">≠</button> <button type="button">×</button></span>
+      <span class="chip">proto ICMP <button type="button">≠</button> <button type="button">×</button></span>
+      <button type="button" class="linkish">Clear all</button>
+    </div>
+
+    <div class="hint-line" id="hint">Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings</div>
+
+    <div class="empty-panel" id="empty" hidden>
+      <p class="empty-title">No firewall events yet</p>
+      <p>OpenWrt does not log firewall traffic until you turn it on. Enable logging to record blocked inbound traffic on WAN (rate-limited). Normal LAN browsing is not logged.</p>
+      <button type="button" class="btn" id="btn-empty-logging">Enable logging</button>
+    </div>
+
+    <div class="table-shell" id="table-wrap">
+      <table>
+        <thead>
+          <tr><th>action</th><th>Time</th><th>Interface</th><th>Flow</th><th>Proto</th><th>Rule</th></tr>
+        </thead>
+        <tbody>
+          <tr class="pass"><td class="act">pass</td><td>19:13:29</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+          <tr class="pass alt"><td class="act">pass</td><td>19:13:28</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+          <tr class="pass"><td class="act">pass</td><td>19:13:27</td><td><span class="iface">lo</span></td><td class="mono">127.0.0.1 → 127.0.0.1</td><td>ICMP</td><td>fwlive ping</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <details class="help"><summary>Help</summary>
+      <ul>
+        <li>The table updates automatically. Use Pause if it moves too fast.</li>
+        <li>Enable logging turns on WAN zone drop/reject logging.</li>
+        <li>Display options hides Limit, row tint, hostnames, and chip style.</li>
+        <li>Click a cell to filter; use ≠ on a chip to exclude.</li>
+      </ul>
+    </details>
+  </div>
+
+  <aside class="note">
+    <strong>Clueless-user path:</strong> empty → Enable logging → rows appear → optional Pause →
+    Display options only if they care about tint/hostnames/limit. Filters stay visible for “find this IP.”
+  </aside>
+</main>
+
+<script src="a2-chosen.js"></script>
+</body>
+</html>
