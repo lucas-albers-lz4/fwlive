@@ -85,11 +85,15 @@ msgid "Clear all"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1570
-msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings"
+msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · in Simple view, click a row for the full message"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1591
-msgid "Click a row to see the full log line (Simple view)."
+msgid "Click a row (Time or other non-link cells) to see the full log line (Simple view)."
+msgstr ""
+
+#: htdocs/luci-static/resources/fwlive/table.js:113
+msgid "Click a row for the full message"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1592

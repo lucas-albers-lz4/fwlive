@@ -107,11 +107,15 @@ function buildColumnCell(col, row, state, callbacks) {
 		: log.formatActionLabel(row.action);
 
 	switch (col) {
-	case 'time':
-		return E('td', { 'class': columnCellClass(col) },
+	case 'time': {
+		const timeAttrs = { 'class': columnCellClass(col) };
+		if (state.viewMode === 'simple')
+			timeAttrs.title = _('Click a row for the full message');
+		return E('td', timeAttrs,
 			[ state.viewMode === 'simple'
 				? log.formatTimestampCompact(row.timestamp)
 				: log.formatTimestampLocal(row.timestamp) ]);
+	}
 	case 'action':
 		return E('td', { 'class': log.actionRowClass(row.action) }, [ actionCell ]);
 	case 'rule':

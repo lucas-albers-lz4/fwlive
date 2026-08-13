@@ -193,6 +193,35 @@ table.renderRows(body, {
 });
 assert.strictEqual(body.innerHTML, '');
 assert.ok(body._n >= 1);
+
+const simpleBody = {
+	innerHTML: 'rows',
+	children: [],
+	appendChild: function(n) { this.children.push(n); this.innerHTML = ''; },
+};
+table.renderRows(simpleBody, {
+	rows: [row],
+	columns: ['time', 'action'],
+	viewMode: 'simple',
+	messageLayout: 'wrap',
+	expandedRowId: null,
+	rowTint: false,
+	showHostnames: false,
+	hostnameCache: null,
+	firewallBackend: 'nft'
+}, {
+	onRowClick: function() {},
+	onFilterClick: function() {},
+	actionRowTintClass: function() { return ''; }
+});
+assert.ok(simpleBody.children.length >= 1);
+const simpleTr = simpleBody.children[0];
+assert.strictEqual(simpleTr.tag, 'tr');
+const timeTd = simpleTr.children.find(function(c) {
+	return c.tag === 'td' && c.attrs && c.attrs.class === 'fwlive-time';
+});
+assert.ok(timeTd, 'simple view should render a time cell');
+assert.strictEqual(String(timeTd.attrs.title), 'Click a row for the full message');
 console.log('fwlive-modules smoke: table OK');
 
 /* --- buffer --- */

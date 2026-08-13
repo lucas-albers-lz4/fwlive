@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Simple view: hint line and Time tooltip mention row click to expand the full message (#118)
+
 ## [v0.1.32] — 2026-08-11
 
 ### Security

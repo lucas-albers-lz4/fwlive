@@ -86,12 +86,16 @@ msgid "Clear all"
 msgstr "Alle lÃ¶schen"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1570
-msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings"
-msgstr "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings"
+msgid "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · in Simple view, click a row for the full message"
+msgstr "Zelle anklicken zum Filtern · ≠ auf einem Chip zum Ausschließen · Strg+Klick auf eine Regel für Firewall-Einstellungen · in der Einfachen Ansicht Zeile anklicken für die vollständige Meldung"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1591
-msgid "Click a row to see the full log line (Simple view)."
-msgstr "Klicken Sie auf eine Zeile, um die vollstÃ¤ndige Log-Zeile zu sehen (Einfache Ansicht)."
+msgid "Click a row (Time or other non-link cells) to see the full log line (Simple view)."
+msgstr "Klicken Sie auf eine Zeile (Zeit oder andere Nicht-Link-Zellen), um die vollständige Log-Zeile zu sehen (Einfache Ansicht)."
+
+#: htdocs/luci-static/resources/fwlive/table.js:113
+msgid "Click a row for the full message"
+msgstr "Zeile anklicken für die vollständige Meldung"
 
 #: htdocs/luci-static/resources/view/status/fwlive.js:1592
 msgid "Click an IP, action, or protocol to filter; click ≠ on a filter chip to exclude that value instead."
