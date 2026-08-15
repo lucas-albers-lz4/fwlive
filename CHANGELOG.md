@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `AGENTS.md` compressed to a brownfield hazard list; rules stay in owner docs
+
 ## [v0.1.33] — 2026-08-12
 
 ### Security
