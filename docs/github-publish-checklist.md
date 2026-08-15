@@ -18,6 +18,9 @@ Use before making this repo public upstream.
 - [ ] `core/fwlive-log.js` tracked as a normal file (not a stale submodule gitlink)
 - [ ] `node_modules/` not committed; dev deps declared in root `package.json`
 - [ ] ACL scope understood: `luci-app-fwlive` grants read (`fwlive.rules|poll|resolve|logging_status`) and write (`enable_wan_logging`, `disable_wan_logging`) — **not** direct `ubus log.read` (poll reads logd as root inside rpcd). Grant only to trusted admin LuCI users
+- [ ] Re-check `peaceiris/actions-gh-pages` latest release and that
+      `.github/workflows/publish-packages.yml` still SHA-pins that tag
+      (the step holds `FEED_DEPLOY_KEY`; Dependabot version updates are off)
 
 ## Distribution (canonical)
 

@@ -22,6 +22,8 @@ Run from the repo root on **Linux x86_64**:
 Optional QEMU confidence: `./scripts/validate-openwrt.sh --version 24.10` — see [validation matrix](validation-matrix.md).
 
 Full publish checklist: [github-publish-checklist.md](github-publish-checklist.md).
+Before cutting a `v*` tag, re-verify the `peaceiris/actions-gh-pages` SHA in
+`publish-packages.yml` against the upstream tag (checklist pre-release item).
 
 ## Release steps (automated CI)
 

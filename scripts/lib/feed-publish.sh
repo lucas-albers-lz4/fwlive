@@ -248,28 +248,84 @@ feed_publish_stage_opkg_host() {
 	usign -S -m "${pkg_dir}/Packages" -s "$OPKG_FEED_SECRET_KEY" -x "${pkg_dir}/Packages.sig"
 }
 
-feed_publish_stage_opkg_sdk() {
-	local version_key="$1" pkg_dir="$2"
-	local root pkg_abs key_abs
-	root="$(feed_publish_root)"
-	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
-	key_abs="$(feed_publish_abspath "$OPKG_FEED_SECRET_KEY")"
+feed_publish_apply_sdk_pin() {
+	# Prefer build-time digest pin; otherwise pull-and-pin now (R7).
+	local version_key="$1" _pin
 	sdk_matrix_resolve x86-64 "$version_key"
-	sdk_matrix_feeds_ready \
-		|| { echo "run docker-sdk.sh build --version ${version_key} before staging opkg feed" >&2; return 1; }
+	if _pin="$(sdk_matrix_read_digest_cache x86-64 "$version_key")"; then
+		SDK_MATRIX_IMAGE="$_pin"
+		return 0
+	fi
+	sdk_matrix_pull_and_pin x86-64 "$version_key" >/dev/null
+}
+
+# Copy signing binaries out of the compose-managed SDK volume (no secrets).
+# Secret-touching docker run must not mount /builder: compose prefixes volume
+# names, so `docker run -v $SDK_MATRIX_VOLUME:/builder` is a different volume.
+feed_publish_export_opkg_tools() {
+	local tools_dir="$1" root
+	root="$(feed_publish_root)"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
-		docker compose run --rm --user root \
-			-v "${pkg_dir}:/feed/pkgdir" \
-			-v "${key_abs}:/feed/opkg-secret.key:ro" \
+		docker compose run --rm --user "$(id -u):$(id -g)" \
+			-v "${tools_dir}:/feed/tools" \
 			sdk sh -ec '
 				set -e
-				USIGN=/builder/staging_dir/host/bin/usign
-				INDEX=/builder/scripts/ipkg-make-index.sh
-				MKHASH=/builder/staging_dir/host/bin/mkhash
-				export PATH="/builder/staging_dir/host/bin:$PATH"
+				cp -a /builder/staging_dir/host/bin/usign /feed/tools/usign
+				cp -a /builder/staging_dir/host/bin/mkhash /feed/tools/mkhash
+				cp -a /builder/scripts/ipkg-make-index.sh /feed/tools/ipkg-make-index.sh
+				chmod a+x /feed/tools/usign /feed/tools/mkhash /feed/tools/ipkg-make-index.sh
+			'
+	)
+}
+
+feed_publish_export_apk_tools() {
+	local tools_dir="$1" root
+	root="$(feed_publish_root)"
+	(
+		cd "$root"
+		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
+		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
+		docker compose run --rm --user "$(id -u):$(id -g)" \
+			-v "${tools_dir}:/feed/tools" \
+			sdk sh -ec '
+				set -e
+				cp -a /builder/staging_dir/host/bin/apk /feed/tools/apk
+				chmod a+x /feed/tools/apk
+			'
+	)
+}
+
+feed_publish_stage_opkg_sdk() {
+	local version_key="$1" pkg_dir="$2"
+	local key_abs tools_dir rc
+	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
+	key_abs="$(feed_publish_abspath "$OPKG_FEED_SECRET_KEY")"
+	feed_publish_apply_sdk_pin "$version_key" \
+		|| { echo "failed to pin SDK image for opkg sign" >&2; return 1; }
+	sdk_matrix_feeds_ready \
+		|| { echo "run docker-sdk.sh build --version ${version_key} before staging opkg feed" >&2; return 1; }
+	tools_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-sign-tools.XXXXXX")"
+	feed_publish_export_opkg_tools "$tools_dir" || {
+		rm -rf "$tools_dir"
+		echo "failed to export opkg signing tools from SDK volume" >&2
+		return 1
+	}
+	# Compose v2 `run` has no --network. Secret mounts use docker run
+	# --network none with exported tools only (no /builder).
+	docker run --rm --network none --user root --platform linux/amd64 \
+		-v "${pkg_dir}:/feed/pkgdir" \
+		-v "${key_abs}:/feed/opkg-secret.key:ro" \
+		-v "${tools_dir}:/feed/tools:ro" \
+		"$SDK_MATRIX_IMAGE" \
+		sh -ec '
+				set -e
+				USIGN=/feed/tools/usign
+				INDEX=/feed/tools/ipkg-make-index.sh
+				MKHASH=/feed/tools/mkhash
+				export PATH="/feed/tools:$PATH"
 				export MKHASH
 				test -x "$USIGN"
 				test -x "$INDEX"
@@ -288,7 +344,9 @@ feed_publish_stage_opkg_sdk() {
 					exit 1
 				fi
 			'
-	)
+	rc=$?
+	rm -rf "$tools_dir"
+	return "$rc"
 }
 
 feed_publish_stage_opkg() {
@@ -334,28 +392,34 @@ feed_publish_stage_apk() {
 		echo "APK_FEED_SECRET_KEY must point to RSA private key for apk mkndx --sign" >&2
 		return 1
 	}
-	sdk_matrix_resolve x86-64 "$version_key"
+	feed_publish_apply_sdk_pin "$version_key" \
+		|| { echo "failed to pin SDK image for apk sign" >&2; return 1; }
 	sdk_matrix_feeds_ready \
 		|| { echo "run docker-sdk.sh build --version ${version_key} before staging apk feed" >&2; return 1; }
-	local root pkg_abs key_abs
-	root="$(feed_publish_root)"
+	local key_abs tools_dir rc
 	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
 	key_abs="$(feed_publish_abspath "$APK_FEED_SECRET_KEY")"
-	(
-		cd "$root"
-		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
-		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
-		docker compose run --rm --user root \
-			-v "${pkg_dir}:/feed/pkgdir" \
-			-v "${key_abs}:/feed/apk-secret.rsa:ro" \
-			sdk sh -ec '
+	tools_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-sign-tools.XXXXXX")"
+	feed_publish_export_apk_tools "$tools_dir" || {
+		rm -rf "$tools_dir"
+		echo "failed to export apk signing tools from SDK volume" >&2
+		return 1
+	}
+	docker run --rm --network none --user root --platform linux/amd64 \
+		-v "${pkg_dir}:/feed/pkgdir" \
+		-v "${key_abs}:/feed/apk-secret.rsa:ro" \
+		-v "${tools_dir}:/feed/tools:ro" \
+		"$SDK_MATRIX_IMAGE" \
+		sh -ec '
 				set -e
-				APK=/builder/staging_dir/host/bin/apk
+				APK=/feed/tools/apk
 				test -x "$APK"
 				cd /feed/pkgdir
 				"$APK" mkndx --allow-untrusted --sign /feed/apk-secret.rsa --output packages.adb *.apk
 			'
-	)
+	rc=$?
+	rm -rf "$tools_dir"
+	[[ "$rc" -eq 0 ]] || return "$rc"
 	printf '%s' "$artifact"
 }
 
@@ -367,7 +431,7 @@ feed_publish_copy_keys() {
 
 feed_publish_write_manifest() {
 	local staging="$1" git_tag="${2:-unknown}"
-	local manifest ver artifact ver_label sum sdk_digest
+	local manifest ver artifact ver_label sum sdk_digest sdk_image
 	manifest="${staging}/manifest.json"
 	: > "$manifest"
 	printf '{\n  "git_tag": "%s",\n  "packages": [\n' "${git_tag//\"/\\\"}" >> "$manifest"
@@ -386,10 +450,11 @@ feed_publish_write_manifest() {
 		# without `|| return 1` an unresolvable digest would silently
 		# record an empty sdk_digest and the release would proceed.
 		sdk_digest="$(sdk_matrix_image_digest)" || return 1
+		sdk_image="ghcr.io/openwrt/sdk:$(sdk_matrix_image_tag x86-64 "$ver")"
 		[[ $first -eq 1 ]] || printf ',\n' >> "$manifest"
 		first=0
 		printf '    {"openwrt": "%s", "file": "%s", "sha256": "%s", "sdk_image": "%s", "sdk_digest": "%s"}' \
-			"$ver" "$(basename "$artifact")" "$sum" "$SDK_MATRIX_IMAGE" "$sdk_digest" >> "$manifest"
+			"$ver" "$(basename "$artifact")" "$sum" "$sdk_image" "$sdk_digest" >> "$manifest"
 	done
 	printf '\n  ]\n}\n' >> "$manifest"
 }

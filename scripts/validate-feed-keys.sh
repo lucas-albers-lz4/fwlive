@@ -29,14 +29,18 @@ validate_opkg_usign_key() {
 	# Decode/normalize rewrite via mv; re-assert secret mode (issue #165).
 	chmod 600 "$secret" || die "cannot chmod 600 OPKG_FEED_SECRET_KEY"
 
-	sdk_matrix_resolve x86-64 23.05
+	# R7: pin the SDK digest at first pull *before* mounting the usign secret.
+	# sdk_matrix_resolve alone uses a mutable tag; a moved tag could exfiltrate
+	# OPKG_FEED_SECRET_KEY while a later build records a different digest.
+	sdk_matrix_pull_and_pin x86-64 23.05 >/dev/null \
+		|| die "failed to pull/pin OpenWrt SDK image for usign key check"
 
 	local secret_abs public_abs tmpdir
 	secret_abs="$(feed_publish_abspath "$secret")"
 	public_abs="$(feed_publish_abspath "$public")"
 	tmpdir="$(mktemp -d)"
 
-	docker run --rm --user root \
+	docker run --rm --network none --user root \
 		-v "${secret_abs}:/feed/opkg-secret.key:ro" \
 		-v "${public_abs}:/feed/public.key:ro" \
 		-v "${tmpdir}:/feed/out" \

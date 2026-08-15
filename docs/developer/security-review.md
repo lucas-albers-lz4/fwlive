@@ -39,15 +39,15 @@ should carry a note saying what would raise it.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
-| Frontend rendering sinks (`E()` string children) | 2026-08-12 | Sweep + harness | Re-swept; no bare-string sinks. Regression harness from [#138](https://github.com/lucas-albers-lz4/fwlive/issues/138) |
-| Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-12 | Read | No change since the inventory in security-model.md |
-| rpcd plugin + ACL scope | 2026-08-12 | Read + selftest | `__`-prefixed methods absent from `list`; read/write split intact |
-| Shell helpers — injection and quoting | 2026-08-12 | Read | No log data reaches a command string |
-| Shell helpers — **file modes and lock ownership** | 2026-08-12 | Reproduced | New: [#167](https://github.com/lucas-albers-lz4/fwlive/issues/167) |
-| Shell helpers — **UCI commit scope and zone grammar** | 2026-08-12 | Read + upstream check | New: [#168](https://github.com/lucas-albers-lz4/fwlive/issues/168) |
-| Release pipeline — secrets and key handling | 2026-08-12 | Reproduced | New: [#165](https://github.com/lucas-albers-lz4/fwlive/issues/165) |
-| Release pipeline — fetch pinning | 2026-08-12 | Read | New: [#166](https://github.com/lucas-albers-lz4/fwlive/issues/166) |
-| Workflow inputs into `run:` bodies | 2026-08-12 | Read | Clean — inputs pass through `env:`, actions SHA-pinned |
+| Frontend rendering sinks (`E()` string children) | 2026-08-13 | Sweep + harness | #177: #175/#176 UI delta on recording-`innerHTML` harness; no non-empty innerHTML writes |
+| Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
+| rpcd plugin + ACL scope | 2026-08-13 | Diff + selftest | #177: no diff since `ce9df02`; read/write split; no `ubus log.*` |
+| Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
+| Shell helpers — **file modes and lock ownership** | 2026-08-13 | Reproduced | #177: `fwlive-logging-lock.test.sh` 32-trial; lock 0600 |
+| Shell helpers — **UCI commit scope and zone grammar** | 2026-08-13 | Host test | #177: pending-delta refuse; named/anonymous/non-zone lookups |
+| Release pipeline — secrets and key handling | 2026-08-15 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)) |
+| Release pipeline — fetch pinning | 2026-08-15 | Read + host test | #177 fetch-pin gate; R7 digest pin-cache (`tests/sdk-matrix-digests.test.sh`) |
+| Workflow inputs into `run:` bodies | 2026-08-13 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY` |
 
 ## Controls in force
 
@@ -63,7 +63,9 @@ should carry a note saying what would raise it.
 | `resolve` bounded by a wall-clock budget | `manual` | `RESOLVE_BUDGET`; no test asserts the bound |
 | `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` |
 | Every `E()` string child is array-wrapped | `host` | rendering harness ([#138](https://github.com/lucas-albers-lz4/fwlive/issues/138)) |
-| Actions SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` | `manual` | `.github/workflows/publish-packages.yml` |
+| Actions SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` | `manual` | `.github/workflows/publish-packages.yml` — `peaceiris/actions-gh-pages@84c30a85c…` = `v4.1.0` (verified 2026-08-13); CodeQL alert 7 closed as **fixed**; re-check before each `v*` tag ([#178](https://github.com/lucas-albers-lz4/fwlive/issues/178)) |
+| SDK image digest-pinned at first **secret-touching** pull | `host` | `sdk_matrix_pull_and_pin` in `validate-feed-keys.sh`; `feed_publish_apply_sdk_pin` before opkg/apk sign; `tests/sdk-matrix-digests.test.sh` |
+| Signing-secret containers have no network | `host` | `docker run --network none` on validate usign check and opkg/apk sign steps (Compose v2 has no `--network` on `compose run`); same test |
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
 | Only public keys reach `feed-staging/` | `manual` | `feed_publish_copy_keys` |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
@@ -76,7 +78,7 @@ should carry a note saying what would raise it.
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
 
-(no open findings from the 2026-08-12 wave)
+(no open findings after the 2026-08-15 R7 closeout)
 
 
 ## Accepted residuals
@@ -201,3 +203,21 @@ the same PR as this file.
 ([usrmanage#111](https://github.com/lucas-albers-lz4/usrmanage/issues/111)),
 where the blast radius is larger because the same lock guards every user-management
 mutator.
+
+### 2026-08-13 — Frontend delta + S1–S4 verification (record of non-findings, with one miss)
+
+**Scope.** Delta since 2026-08-12 (`ce9df02..4931026`, v0.1.33): #175/#176 UI work, plus execution of S1–S4 remediations. Filed as [#177](https://github.com/lucas-albers-lz4/fwlive/issues/177).
+
+**Method.** Host tests (`./scripts/fwlive-test.sh`) plus the recording-`innerHTML` harness; `feed-keys-mode`, `fetch-pin-gate`, logging lock/UCI tests.
+
+**Result recorded as no findings.** That was wrong for one class: `scripts/validate-feed-keys.sh` still resolved a mutable SDK tag and bind-mounted `OPKG_FEED_SECRET_KEY` without `--network none`. The pass treated validate-keys SDK ordering as usrmanage-only; it is the same R7 pattern. Closed by the 2026-08-15 entry.
+
+**Non-findings that still hold:** frontend sinks (harness, hostile log/PTR/UCI/hash/chips); S1–S4 tests; rpcd/ACL (no diff); workflows SHA-pinned including `FEED_DEPLOY_KEY`; no `${{ }}` in `run:` bodies.
+
+### 2026-08-15 — R7 pin-at-secret-mount and #178 pin checklist
+
+**Scope.** Close [#177](https://github.com/lucas-albers-lz4/fwlive/issues/177) via ledger correction; remaining [#178](https://github.com/lucas-albers-lz4/fwlive/issues/178) process (peaceiris SHA re-check); R7 analog from [usrmanage#128](https://github.com/lucas-albers-lz4/usrmanage/pull/128). Playbook [#179](https://github.com/lucas-albers-lz4/fwlive/issues/179).
+
+**Method.** Port `sdk_matrix_pull_and_pin` + always-pull; `--network none` on secret mounts; host greps and mocked-docker digest tests. No QEMU.
+
+**Result.** Validate path pins `x86-64`/`23.05` before the usign secret mount. Opkg/apk **sign** steps export tools via compose (no secret), then `docker run --network none` with a digest-pinned image and no `/builder` mount (Compose v2 `run` has no `--network`; compose volume names are project-prefixed). Pre-release checklist requires re-checking `peaceiris/actions-gh-pages` tag↔SHA (alert 7 already **fixed**; Dependabot version PRs stay off). Open findings table empty. No L12 analog (no incomplete-marker path).
