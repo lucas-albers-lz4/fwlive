@@ -84,7 +84,7 @@ file, that second copy is drift — consolidate it.
 | Allowed | Shape |
 |---------|-------|
 | Imperative at the point of action | One sentence where the work happens (e.g. the `log.read` warning beside the ACL grant list). No rationale, no mechanics, no examples |
-| Router entry | A rule named in one line plus a link — [`../../AGENTS.md`](../../AGENTS.md) and index tables |
+| Router entry | A rule named in one line plus a link — [`../../AGENTS.md`](../../AGENTS.md) |
 | Verification command | *How* to confirm a fact may sit with the procedure that needs it, even when the fact is owned elsewhere |
 
 Everything else stays single-sourced: rationale, code samples, upstream
