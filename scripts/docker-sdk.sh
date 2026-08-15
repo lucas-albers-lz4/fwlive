@@ -77,7 +77,7 @@ run_one() {
 	local t="$1" v="$2"
 	sdk_matrix_validate_target "$t"
 	sdk_matrix_validate_version "$v"
-	sdk_matrix_resolve "$t" "$v"
+	sdk_matrix_pull_and_pin "$t" "$v" >/dev/null
 	echo "→ ${SDK_MATRIX_IMAGE} (volume: ${SDK_MATRIX_VOLUME})" >&2
 }
 
@@ -101,7 +101,6 @@ case "$CMD" in
 		;;
 	build)
 		run_one "$TARGET" "$VERSION"
-		sdk_matrix_pull
 		if ! sdk_matrix_feeds_ready; then
 			sdk_matrix_feeds_setup
 		fi
@@ -120,7 +119,6 @@ case "$CMD" in
 		for t in "${targets[@]}"; do
 			for v in "${versions[@]}"; do
 				run_one "$t" "$v"
-				sdk_matrix_pull
 				if ! sdk_matrix_feeds_ready; then
 					sdk_matrix_feeds_setup
 				fi

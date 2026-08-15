@@ -135,7 +135,7 @@ part of the security boundary.
 | Feed signing keys | CI secrets, written under `umask 077` then `chmod 600` **after** normalize/decode; only public keys are staged for publish. Host-asserted by `tests/feed-keys-mode.test.sh` |
 | Package contents | `verify-reproducible-build.sh` — determinism of our inputs within a run |
 | OpenWrt feeds | Pinned in `scripts/feeds.lock/` |
-| SDK base images | Digests resolved per cell and recorded in the release manifest (no mutable-tag reliance) |
+| SDK base images | Digest-pinned at first **secret-touching** pull (`sdk_matrix_pull_and_pin` before the usign container); later staging prefers the pin cache. Per-cell digests recorded in the release manifest |
 | GitHub Actions | SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` |
 | Fetched build helpers and lab images | sha256-verified or commit-pinned before execution; `/tmp` trust removed (fresh `mktemp` per invocation). `usign` is commit-pinned via `USIGN_PIN_SHA` ([#166](https://github.com/lucas-albers-lz4/fwlive/issues/166)); `get-sdk.sh` verifies upstream `sha256sums` |
 

@@ -57,6 +57,12 @@ cat > "$mock_bin/docker" <<'EOF'
 set -euo pipefail
 image="${!#}"
 case "${1:-}" in
+	pull)
+		# sdk_matrix_pull always re-resolves via `docker pull`.
+		[[ -n "${MOCK_PULL_LOG:-}" ]] && echo "pull $image" >> "$MOCK_PULL_LOG"
+		[[ "${MOCK_PULL_FAIL:-0}" != "1" ]] || exit 1
+		exit 0
+		;;
 	image)
 		case "${2:-}" in
 			pull)
@@ -109,16 +115,27 @@ EOF
 chmod +x "$mock_bin/docker"
 PATH="$mock_bin:$PATH"
 
+export SDK_MATRIX_DIGEST_CACHE_DIR="${fixture}/sdk-digests"
+mkdir -p "$SDK_MATRIX_DIGEST_CACHE_DIR"
+
 mkdir -p "${fixture}/manifest-staging" "${fixture}/fallback-staging" "${fixture}/abort-staging" "${fixture}/pull-staging" "${fixture}/pullfail-staging" "${fixture}/multi-staging"
-# Assert the pull path runs: image absent (bare inspect fails) → explicit
-# pull before the digest inspect (luna fold 2026-08-10).
+# Assert the pull path always runs (no skip when the tag exists locally).
 pull_log="$(mktemp)"
-export MOCK_PULL_LOG="$pull_log" MOCK_IMAGE_ABSENT=1
+export MOCK_PULL_LOG="$pull_log"
 feed_publish_write_manifest "${fixture}/pull-staging" test-tag
 grep -q '^pull ghcr.io/openwrt/sdk:' "$pull_log" || { echo "FAIL: sdk_matrix_pull not called"; exit 1; }
-unset MOCK_IMAGE_ABSENT
+# Cold pin-cache: sdk_image stays the mutable tag; digest is a separate field.
+grep -q '"sdk_image": "ghcr.io/openwrt/sdk:x86-64-21.02.7"' "${fixture}/pull-staging/manifest.json" \
+	|| { echo "FAIL: cold-cache sdk_image must be the tag, not the digest ref"; exit 1; }
+grep -q '"sdk_image": "ghcr.io/openwrt/sdk@sha256:' "${fixture}/pull-staging/manifest.json" \
+	&& { echo "FAIL: sdk_image must not be a digest ref"; exit 1; }
+# Pin cache: a second manifest write must not re-pull a possibly moved tag.
+: > "$pull_log"
 feed_publish_write_manifest "${fixture}/manifest-staging" test-tag
-grep -q '^pull ghcr.io/openwrt/sdk:' "$pull_log" || { echo "FAIL: sdk_matrix_pull not called"; exit 1; }
+if grep -q '^pull ' "$pull_log"; then
+	echo "FAIL: pin cache should avoid a second pull" >&2
+	exit 1
+fi
 test -f "${fixture}/manifest-staging/manifest.json"
 grep -q '"openwrt": "21.02"' "${fixture}/manifest-staging/manifest.json"
 grep -q '"sha256":' "${fixture}/manifest-staging/manifest.json"
@@ -136,6 +153,8 @@ command -v node >/dev/null 2>&1 && node -e '
 # Multi-registry RepoDigests: the production code must select the digest
 # matching ghcr.io/openwrt/sdk, NOT RepoDigests[0] (the ghcrXio decoy is
 # emitted FIRST, like docker sometimes orders multiple registries).
+rm -rf "${SDK_MATRIX_DIGEST_CACHE_DIR:?}"/*
+mkdir -p "$SDK_MATRIX_DIGEST_CACHE_DIR"
 mkdir -p "${fixture}/multi-staging"
 export MOCK_MULTI_REPO=1
 feed_publish_write_manifest "${fixture}/multi-staging" test-tag
@@ -149,6 +168,8 @@ echo "multi-registry digest selection OK"
 # Failed pull must abort (sdk_matrix_pull || return 1) — a failed pull
 # followed by a successful inspect would record a digest for an image that
 # was never pulled (luna fold 2026-08-10).
+rm -rf "${SDK_MATRIX_DIGEST_CACHE_DIR:?}"/*
+mkdir -p "$SDK_MATRIX_DIGEST_CACHE_DIR"
 pullfail_warn="$(mktemp)"
 export MOCK_IMAGE_ABSENT=1 MOCK_PULL_FAIL=1
 if feed_publish_write_manifest "${fixture}/pullfail-staging" test-tag 2>"$pullfail_warn"; then
@@ -159,6 +180,8 @@ unset MOCK_IMAGE_ABSENT MOCK_PULL_FAIL
 echo "pull-failure abort OK"
 
 # Empty RepoDigests → fallback to @sha256:<image ID> with a documented warning.
+rm -rf "${SDK_MATRIX_DIGEST_CACHE_DIR:?}"/*
+mkdir -p "$SDK_MATRIX_DIGEST_CACHE_DIR"
 fallback_warn="$(mktemp)"
 export MOCK_REPO_DIGESTS=0
 feed_publish_write_manifest "${fixture}/fallback-staging" test-tag 2>"$fallback_warn"
@@ -175,6 +198,8 @@ export MOCK_REPO_DIGESTS=1
 
 # Neither RepoDigests nor .Id resolvable → manifest generation must FAIL
 # (no empty digest recorded silently; luna fold 2026-08-10).
+rm -rf "${SDK_MATRIX_DIGEST_CACHE_DIR:?}"/*
+mkdir -p "$SDK_MATRIX_DIGEST_CACHE_DIR"
 abort_warn="$(mktemp)"
 export MOCK_REPO_DIGESTS=0 MOCK_NO_ID=1
 if feed_publish_write_manifest "${fixture}/abort-staging" test-tag 2>"$abort_warn"; then

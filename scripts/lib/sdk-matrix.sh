@@ -80,54 +80,98 @@ sdk_matrix_resolve() {
 	SDK_MATRIX_OUT_DIR="$(sdk_matrix_root)/out/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}"
 }
 
-# Ensure the resolved cell's SDK image is present locally. Idempotent: docker
-# pull is a no-op for an already-present tag, so on a machine that already
-# built against the image this never re-fetches (and cannot drift to a tag that
-# moved upstream between build and release). Pull must happen before digest
-# resolution — the recorded digest is the image actually used for the build.
-sdk_matrix_pull() {
-	local image="${SDK_MATRIX_IMAGE:?sdk_matrix_resolve first}"
-	if ! docker image inspect "$image" >/dev/null 2>&1; then
-		echo "→ pulling ${image}..." >&2
-		docker image pull "$image"
-	fi
+sdk_matrix_digest_cache_path() {
+	local target="$1" version="$2" patch base
+	patch="$(sdk_matrix_version_patch "$version")"
+	base="${SDK_MATRIX_DIGEST_CACHE_DIR:-$(sdk_matrix_root)/out/.sdk-digests}"
+	printf '%s' "${base}/${target}_${patch}"
 }
 
-# Resolve the immutable digest of the SDK image actually used for this cell.
-# The tag (SDK_MATRIX_IMAGE) is mutable; the digest makes a release
-# attributable to the exact image it was built from.
-#
-# Source: `docker image inspect --format '{{index .RepoDigests 0}}'` after the
-# image is pulled (registry images carry repo@sha256:… RepoDigests).
-# Fallback: a locally built / registry-less image has empty RepoDigests — record
-# `@sha256:<image ID>` and warn. An empty digest is never recorded silently: if
-# neither source yields a digest this returns non-zero (release manifest aborts).
-sdk_matrix_image_digest() {
-	local image="${SDK_MATRIX_IMAGE:?sdk_matrix_resolve first}" repo digest id
-	# The repo prefix to match: ghcr.io/openwrt/sdk (strip any tag).
-	repo="${image%%:*}"
-	# Explicit pull propagation (luna fold 2026-08-10): a failed pull must
-	# abort — `sdk_digest="$(...)"` disables errexit inside the function,
-	# so a failed pull could otherwise fall through to a misleading inspect.
-	sdk_matrix_pull || return 1
-	# Select the RepoDigest matching THIS repository (luna fold 2026-08-10):
-	# an image can have multiple RepoDigests (same image pushed to several
-	# registries) with unspecified ordering — RepoDigests[0] is NOT
-	# guaranteed to be the ghcr.io/openwrt/sdk one. Match the requested
-	# repo prefix EXACTLY, literal (no regex — dots in ghcr.io are not
-	# wildcards): awk index() == 1 means the line starts with the repo.
-	digest="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" 2>/dev/null \
-		| awk -v r="$repo" 'index($0, r "@sha256:") == 1 {print; exit}' || true)"
-	if [[ -z "$digest" ]]; then
-		id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
-		if [[ -z "$id" ]]; then
-			echo "ERROR: cannot resolve SDK image digest for ${image} (no ${repo} RepoDigest, no image ID)" >&2
-			return 1
-		fi
-		digest="@${id}"
-		echo "WARNING: SDK image ${image} has no ${repo} RepoDigest (locally built?); recording image ID fallback ${digest}" >&2
+sdk_matrix_inspect_repo_digest() {
+	# Inspect already-local image ref; print matching RepoDigest or fail.
+	# RepoDigests[0] is not trusted: match THIS repo prefix literally
+	# (index()==1; dots in ghcr.io are not wildcards).
+	local image="$1" repo digests digest id
+	if [[ "$image" == *@sha256:* ]]; then
+		repo="${image%%@*}"
+	else
+		repo="${image%%:*}"
 	fi
+	digests="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" 2>/dev/null || true)"
+	digest="$(printf '%s\n' "$digests" | awk -v r="$repo" 'index($0, r "@sha256:") == 1 {print; exit}')"
+	if [[ -n "$digest" ]]; then
+		printf '%s' "$digest"
+		return 0
+	fi
+	id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
+	if [[ -n "$id" ]]; then
+		digest="@sha256:${id#sha256:}"
+		echo "WARNING: SDK image ${image} has no ${repo} RepoDigest (locally built?); recording image ID fallback ${digest}" >&2
+		printf '%s' "$digest"
+		return 0
+	fi
+	echo "ERROR: cannot resolve SDK image digest for ${image} (no ${repo} RepoDigest, no image ID)" >&2
+	return 1
+}
+
+# Always re-resolve the registry tag. Skipping pull when the tag exists locally
+# would record a stale digest if the tag moved upstream (luna fold).
+# With target/version: resolve that cell then pull. With no args: pull the
+# already-resolved SDK_MATRIX_IMAGE (do not default to another cell).
+sdk_matrix_pull() {
+	local target="${1:-}" version="${2:-}"
+	if [[ -n "$target" ]]; then
+		sdk_matrix_resolve "$target" "${version:?sdk_matrix_pull: version required with target}"
+	else
+		: "${SDK_MATRIX_IMAGE:?sdk_matrix_resolve first}"
+	fi
+	echo "→ pulling ${SDK_MATRIX_IMAGE}..." >&2
+	docker pull "$SDK_MATRIX_IMAGE"
+}
+
+sdk_matrix_pull_and_pin() {
+	# Pull the mutable tag once, pin SDK_MATRIX_IMAGE to repo@sha256, cache digest.
+	local target="${1:-${SDK_MATRIX_TARGET:-}}" version="${2:-${SDK_MATRIX_VERSION:-}}" digest cache
+	[[ -n "$target" && -n "$version" ]] || {
+		echo "sdk-matrix: pull_and_pin needs target/version (or sdk_matrix_resolve first)" >&2
+		return 1
+	}
+	sdk_matrix_pull "$target" "$version" || {
+		echo "sdk-matrix: failed to pull ${SDK_MATRIX_IMAGE}" >&2
+		return 1
+	}
+	digest="$(sdk_matrix_inspect_repo_digest "$SDK_MATRIX_IMAGE")" || return 1
+	cache="$(sdk_matrix_digest_cache_path "$target" "$version")"
+	mkdir -p "$(dirname "$cache")"
+	printf '%s\n' "$digest" > "$cache"
+	chmod 0644 "$cache" 2>/dev/null || true
+	SDK_MATRIX_IMAGE="$digest"
 	printf '%s' "$digest"
+}
+
+sdk_matrix_read_digest_cache() {
+	# Print non-empty cached digest or return 1 (never print empty).
+	local target="$1" version="$2" cache digest
+	cache="$(sdk_matrix_digest_cache_path "$target" "$version")"
+	[[ -f "$cache" ]] || return 1
+	digest="$(tr -d ' \n\r\t' < "$cache")"
+	[[ -n "$digest" ]] || return 1
+	printf '%s' "$digest"
+}
+
+# Prefer a pin file from sdk_matrix_pull_and_pin so write_manifest does not
+# re-pull a possibly moved tag. No-arg form uses the already-resolved cell.
+sdk_matrix_image_digest() {
+	local target="${1:-${SDK_MATRIX_TARGET:-}}" version="${2:-${SDK_MATRIX_VERSION:-}}" digest
+	[[ -n "$target" && -n "$version" ]] || {
+		echo "ERROR: cannot resolve SDK image digest (sdk_matrix_resolve first)" >&2
+		return 1
+	}
+	if digest="$(sdk_matrix_read_digest_cache "$target" "$version")"; then
+		printf '%s' "$digest"
+		return 0
+	fi
+	sdk_matrix_pull_and_pin "$target" "$version"
 }
 
 sdk_matrix_validate_target() {
