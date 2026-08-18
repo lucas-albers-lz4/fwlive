@@ -262,6 +262,11 @@ feed_publish_apply_sdk_pin() {
 # Copy signing binaries out of the compose-managed SDK volume (no secrets).
 # Secret-touching docker run must not mount /builder: compose prefixes volume
 # names, so `docker run -v $SDK_MATRIX_VOLUME:/builder` is a different volume.
+#
+# The SDK's usign/mkhash/apk are runas wrapper scripts: `bin/<tool>` execs
+# `../lib/ld-linux-x86-64.so.2` with LD_PRELOAD=runas.so against the hidden
+# real binary `bin/.<tool>.bin`. Export the wrapper AND the .bin + lib tree so
+# the relative ../lib resolution survives outside /builder.
 feed_publish_export_opkg_tools() {
 	local tools_dir="$1" root
 	root="$(feed_publish_root)"
@@ -270,13 +275,17 @@ feed_publish_export_opkg_tools() {
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
 		docker compose run --rm --user "$(id -u):$(id -g)" \
-			-v "${tools_dir}:/feed/tools" \
+			-v "${tools_dir}:/feed" \
 			sdk sh -ec '
 				set -e
-				cp -a /builder/staging_dir/host/bin/usign /feed/tools/usign
-				cp -a /builder/staging_dir/host/bin/mkhash /feed/tools/mkhash
-				cp -a /builder/scripts/ipkg-make-index.sh /feed/tools/ipkg-make-index.sh
-				chmod a+x /feed/tools/usign /feed/tools/mkhash /feed/tools/ipkg-make-index.sh
+				mkdir -p /feed/bin /feed/lib
+				cp -a /builder/staging_dir/host/bin/usign /feed/bin/usign
+				cp -a /builder/staging_dir/host/bin/.usign.bin /feed/bin/.usign.bin
+				cp -a /builder/staging_dir/host/bin/mkhash /feed/bin/mkhash
+				cp -a /builder/staging_dir/host/bin/.mkhash.bin /feed/bin/.mkhash.bin
+				cp -a /builder/scripts/ipkg-make-index.sh /feed/bin/ipkg-make-index.sh
+				cp -a /builder/staging_dir/host/lib/. /feed/lib/
+				chmod a+x /feed/bin/usign /feed/bin/.usign.bin /feed/bin/mkhash /feed/bin/.mkhash.bin /feed/bin/ipkg-make-index.sh
 			'
 	)
 }
@@ -289,11 +298,14 @@ feed_publish_export_apk_tools() {
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
 		docker compose run --rm --user "$(id -u):$(id -g)" \
-			-v "${tools_dir}:/feed/tools" \
+			-v "${tools_dir}:/feed" \
 			sdk sh -ec '
 				set -e
-				cp -a /builder/staging_dir/host/bin/apk /feed/tools/apk
-				chmod a+x /feed/tools/apk
+				mkdir -p /feed/bin /feed/lib
+				cp -a /builder/staging_dir/host/bin/apk /feed/bin/apk
+				cp -a /builder/staging_dir/host/bin/.apk.bin /feed/bin/.apk.bin
+				cp -a /builder/staging_dir/host/lib/. /feed/lib/
+				chmod a+x /feed/bin/apk /feed/bin/.apk.bin
 			'
 	)
 }
@@ -318,31 +330,31 @@ feed_publish_stage_opkg_sdk() {
 	docker run --rm --network none --user root --platform linux/amd64 \
 		-v "${pkg_dir}:/feed/pkgdir" \
 		-v "${key_abs}:/feed/opkg-secret.key:ro" \
-		-v "${tools_dir}:/feed/tools:ro" \
+		-v "${tools_dir}:/feed:ro" \
 		"$SDK_MATRIX_IMAGE" \
 		sh -ec '
-				set -e
-				USIGN=/feed/tools/usign
-				INDEX=/feed/tools/ipkg-make-index.sh
-				MKHASH=/feed/tools/mkhash
-				export PATH="/feed/tools:$PATH"
-				export MKHASH
-				test -x "$USIGN"
-				test -x "$INDEX"
-				test -x "$MKHASH"
-				cd /feed/pkgdir
-				RAW="$(mktemp)"
-				"$INDEX" . >"$RAW"
-				grep -vE "^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)" "$RAW" > Packages || true
-				rm -f "$RAW"
-				test -s Packages
-				gzip -9cn Packages > Packages.gz
-				if ! "$USIGN" -S -m Packages -s /feed/opkg-secret.key -x Packages.sig; then
-					echo "usign failed: OPKG_FEED_SECRET_KEY must be the full usign secret from:" >&2
-					echo "  usign -G -s opkg-secret.key -p public.key -c \"fwlive opkg feed\"" >&2
-					echo "(not the apk RSA key; include both comment and base64 lines)" >&2
-					exit 1
-				fi
+			set -e
+			USIGN=/feed/bin/usign
+			INDEX=/feed/bin/ipkg-make-index.sh
+			MKHASH=/feed/bin/mkhash
+			export PATH="/feed/bin:$PATH"
+			export MKHASH
+			test -x "$USIGN"
+			test -x "$INDEX"
+			test -x "$MKHASH"
+			cd /feed/pkgdir
+			RAW="$(mktemp)"
+			"$INDEX" . >"$RAW"
+			grep -vE "^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)" "$RAW" > Packages || true
+			rm -f "$RAW"
+			test -s Packages
+			gzip -9cn Packages > Packages.gz
+			if ! "$USIGN" -S -m Packages -s /feed/opkg-secret.key -x Packages.sig; then
+				echo "usign failed: OPKG_FEED_SECRET_KEY must be the full usign secret from:" >&2
+				echo "  usign -G -s opkg-secret.key -p public.key -c \"fwlive opkg feed\"" >&2
+				echo "(not the apk RSA key; include both comment and base64 lines)" >&2
+				exit 1
+			fi
 			'
 	rc=$?
 	rm -rf "$tools_dir"
@@ -408,14 +420,14 @@ feed_publish_stage_apk() {
 	docker run --rm --network none --user root --platform linux/amd64 \
 		-v "${pkg_dir}:/feed/pkgdir" \
 		-v "${key_abs}:/feed/apk-secret.rsa:ro" \
-		-v "${tools_dir}:/feed/tools:ro" \
+		-v "${tools_dir}:/feed:ro" \
 		"$SDK_MATRIX_IMAGE" \
 		sh -ec '
-				set -e
-				APK=/feed/tools/apk
-				test -x "$APK"
-				cd /feed/pkgdir
-				"$APK" mkndx --allow-untrusted --sign /feed/apk-secret.rsa --output packages.adb *.apk
+			set -e
+			APK=/feed/bin/apk
+			test -x "$APK"
+			cd /feed/pkgdir
+			"$APK" mkndx --allow-untrusted --sign /feed/apk-secret.rsa --output packages.adb *.apk
 			'
 	rc=$?
 	rm -rf "$tools_dir"
