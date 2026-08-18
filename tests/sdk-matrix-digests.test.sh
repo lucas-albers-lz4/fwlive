@@ -25,10 +25,14 @@ if grep -qE '^[[:space:]]*docker run --rm --network none --user root' "$ROOT/scr
 else
 	bad "R7: validate-feed-keys.sh docker run missing --network none"
 fi
-_secret_runs="$(grep -cE '^[[:space:]]*docker run --rm --network none --user root' "$ROOT/scripts/lib/feed-publish.sh" || true)"
+# The sign runs are guarded with `if docker run ...` (so failed signs still
+# clean up temp dirs under `set -e`); match the optional `if ` prefix.
+_secret_runs="$(grep -cE '^[[:space:]]*(if )?docker run --rm --network none --user root' "$ROOT/scripts/lib/feed-publish.sh" || true)"
 if [[ "$_secret_runs" -eq 2 ]] \
 	&& grep -A8 -- '--network none --user root' "$ROOT/scripts/lib/feed-publish.sh" | grep -q 'opkg-secret.key' \
 	&& grep -A8 -- '--network none --user root' "$ROOT/scripts/lib/feed-publish.sh" | grep -q 'apk-secret.rsa' \
+	&& grep -A8 -- '--network none --user root' "$ROOT/scripts/lib/feed-publish.sh" | grep -q '/feed/tools' \
+	&& grep -A8 -- '--network none --user root' "$ROOT/scripts/lib/feed-publish.sh" | grep -q '/feed/lib' \
 	&& ! grep -A12 -- '--network none --user root' "$ROOT/scripts/lib/feed-publish.sh" | grep -q 'SDK_MATRIX_VOLUME'; then
 	ok "R7: opkg/apk secret runs are docker run --network none (no /builder volume)"
 else
