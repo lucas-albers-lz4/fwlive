@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.34] — 2026-08-18
+
+### Security
+- Pin SDK digest before signing-secret mounts (R7 / #179, #181)
+
 ### Changed
-- `AGENTS.md` compressed to a brownfield hazard list; rules stay in owner docs
+- `AGENTS.md` compressed to a brownfield hazard list; rules stay in owner docs (#180)
 
 ## [v0.1.33] — 2026-08-12
 
@@ -365,6 +370,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.34]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.33...v0.1.34
 [v0.1.33]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.32...v0.1.33
 [v0.1.32]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.31...v0.1.32
 [v0.1.31]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.30...v0.1.31
