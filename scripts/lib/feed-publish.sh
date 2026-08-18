@@ -265,54 +265,57 @@ feed_publish_apply_sdk_pin() {
 #
 # The SDK's usign/mkhash/apk are runas wrapper scripts: `bin/<tool>` execs
 # `../lib/ld-linux-x86-64.so.2` with LD_PRELOAD=runas.so against the hidden
-# real binary `bin/.<tool>.bin`. Export the wrapper AND the .bin + lib tree so
-# the relative ../lib resolution survives outside /builder.
+# real binary `bin/.<tool>.bin`. Export the wrapper into /feed/tools AND the
+# lib tree into /feed/lib (a sibling mount) so the wrapper's ../lib resolution
+# survives outside /builder. Export runs as root: the lib tree contains
+# 0600 buildbot-owned meson templates (verified 24.10.8 SDK) that a
+# non-root uid cannot read; no secrets are mounted during export.
 feed_publish_export_opkg_tools() {
-	local tools_dir="$1" root
+	local tools_dir="$1" lib_dir="$2" root
 	root="$(feed_publish_root)"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
-		docker compose run --rm --user "$(id -u):$(id -g)" \
-			-v "${tools_dir}:/feed" \
+		docker compose run --rm --user root \
+			-v "${tools_dir}:/feed/tools" \
+			-v "${lib_dir}:/feed/lib" \
 			sdk sh -ec '
 				set -e
-				mkdir -p /feed/bin /feed/lib
-				cp -a /builder/staging_dir/host/bin/usign /feed/bin/usign
-				cp -a /builder/staging_dir/host/bin/.usign.bin /feed/bin/.usign.bin
-				cp -a /builder/staging_dir/host/bin/mkhash /feed/bin/mkhash
-				cp -a /builder/staging_dir/host/bin/.mkhash.bin /feed/bin/.mkhash.bin
-				cp -a /builder/scripts/ipkg-make-index.sh /feed/bin/ipkg-make-index.sh
+				cp -a /builder/staging_dir/host/bin/usign /feed/tools/usign
+				cp -a /builder/staging_dir/host/bin/.usign.bin /feed/tools/.usign.bin
+				cp -a /builder/staging_dir/host/bin/mkhash /feed/tools/mkhash
+				cp -a /builder/staging_dir/host/bin/.mkhash.bin /feed/tools/.mkhash.bin
+				cp -a /builder/scripts/ipkg-make-index.sh /feed/tools/ipkg-make-index.sh
 				cp -a /builder/staging_dir/host/lib/. /feed/lib/
-				chmod a+x /feed/bin/usign /feed/bin/.usign.bin /feed/bin/mkhash /feed/bin/.mkhash.bin /feed/bin/ipkg-make-index.sh
+				chmod a+x /feed/tools/usign /feed/tools/.usign.bin /feed/tools/mkhash /feed/tools/.mkhash.bin /feed/tools/ipkg-make-index.sh
 			'
 	)
 }
 
 feed_publish_export_apk_tools() {
-	local tools_dir="$1" root
+	local tools_dir="$1" lib_dir="$2" root
 	root="$(feed_publish_root)"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
-		docker compose run --rm --user "$(id -u):$(id -g)" \
-			-v "${tools_dir}:/feed" \
+		docker compose run --rm --user root \
+			-v "${tools_dir}:/feed/tools" \
+			-v "${lib_dir}:/feed/lib" \
 			sdk sh -ec '
 				set -e
-				mkdir -p /feed/bin /feed/lib
-				cp -a /builder/staging_dir/host/bin/apk /feed/bin/apk
-				cp -a /builder/staging_dir/host/bin/.apk.bin /feed/bin/.apk.bin
+				cp -a /builder/staging_dir/host/bin/apk /feed/tools/apk
+				cp -a /builder/staging_dir/host/bin/.apk.bin /feed/tools/.apk.bin
 				cp -a /builder/staging_dir/host/lib/. /feed/lib/
-				chmod a+x /feed/bin/apk /feed/bin/.apk.bin
+				chmod a+x /feed/tools/apk /feed/tools/.apk.bin
 			'
 	)
 }
 
 feed_publish_stage_opkg_sdk() {
 	local version_key="$1" pkg_dir="$2"
-	local key_abs tools_dir rc
+	local key_abs tools_dir lib_dir rc
 	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
 	key_abs="$(feed_publish_abspath "$OPKG_FEED_SECRET_KEY")"
 	feed_publish_apply_sdk_pin "$version_key" \
@@ -320,24 +323,28 @@ feed_publish_stage_opkg_sdk() {
 	sdk_matrix_feeds_ready \
 		|| { echo "run docker-sdk.sh build --version ${version_key} before staging opkg feed" >&2; return 1; }
 	tools_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-sign-tools.XXXXXX")"
-	feed_publish_export_opkg_tools "$tools_dir" || {
-		rm -rf "$tools_dir"
+	lib_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-sign-lib.XXXXXX")"
+	if ! feed_publish_export_opkg_tools "$tools_dir" "$lib_dir"; then
+		rm -rf "$tools_dir" "$lib_dir"
 		echo "failed to export opkg signing tools from SDK volume" >&2
 		return 1
-	}
+	fi
 	# Compose v2 `run` has no --network. Secret mounts use docker run
 	# --network none with exported tools only (no /builder).
+	# Tools mount at /feed/tools and libs at /feed/lib (siblings) so the
+	# runas wrapper's ../lib resolution works; pkgdir stays a plain mount.
 	docker run --rm --network none --user root --platform linux/amd64 \
 		-v "${pkg_dir}:/feed/pkgdir" \
 		-v "${key_abs}:/feed/opkg-secret.key:ro" \
-		-v "${tools_dir}:/feed:ro" \
+		-v "${tools_dir}:/feed/tools:ro" \
+		-v "${lib_dir}:/feed/lib:ro" \
 		"$SDK_MATRIX_IMAGE" \
 		sh -ec '
 			set -e
-			USIGN=/feed/bin/usign
-			INDEX=/feed/bin/ipkg-make-index.sh
-			MKHASH=/feed/bin/mkhash
-			export PATH="/feed/bin:$PATH"
+			USIGN=/feed/tools/usign
+			INDEX=/feed/tools/ipkg-make-index.sh
+			MKHASH=/feed/tools/mkhash
+			export PATH="/feed/tools:$PATH"
 			export MKHASH
 			test -x "$USIGN"
 			test -x "$INDEX"
@@ -357,7 +364,7 @@ feed_publish_stage_opkg_sdk() {
 			fi
 			'
 	rc=$?
-	rm -rf "$tools_dir"
+	rm -rf "$tools_dir" "$lib_dir"
 	return "$rc"
 }
 
@@ -408,29 +415,31 @@ feed_publish_stage_apk() {
 		|| { echo "failed to pin SDK image for apk sign" >&2; return 1; }
 	sdk_matrix_feeds_ready \
 		|| { echo "run docker-sdk.sh build --version ${version_key} before staging apk feed" >&2; return 1; }
-	local key_abs tools_dir rc
+	local key_abs tools_dir lib_dir rc
 	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
 	key_abs="$(feed_publish_abspath "$APK_FEED_SECRET_KEY")"
 	tools_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-sign-tools.XXXXXX")"
-	feed_publish_export_apk_tools "$tools_dir" || {
-		rm -rf "$tools_dir"
+	lib_dir="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-sign-lib.XXXXXX")"
+	if ! feed_publish_export_apk_tools "$tools_dir" "$lib_dir"; then
+		rm -rf "$tools_dir" "$lib_dir"
 		echo "failed to export apk signing tools from SDK volume" >&2
 		return 1
-	}
+	fi
 	docker run --rm --network none --user root --platform linux/amd64 \
 		-v "${pkg_dir}:/feed/pkgdir" \
 		-v "${key_abs}:/feed/apk-secret.rsa:ro" \
-		-v "${tools_dir}:/feed:ro" \
+		-v "${tools_dir}:/feed/tools:ro" \
+		-v "${lib_dir}:/feed/lib:ro" \
 		"$SDK_MATRIX_IMAGE" \
 		sh -ec '
 			set -e
-			APK=/feed/bin/apk
+			APK=/feed/tools/apk
 			test -x "$APK"
 			cd /feed/pkgdir
 			"$APK" mkndx --allow-untrusted --sign /feed/apk-secret.rsa --output packages.adb *.apk
 			'
 	rc=$?
-	rm -rf "$tools_dir"
+	rm -rf "$tools_dir" "$lib_dir"
 	[[ "$rc" -eq 0 ]] || return "$rc"
 	printf '%s' "$artifact"
 }
