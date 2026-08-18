@@ -45,9 +45,9 @@ should carry a note saying what would raise it.
 | Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
 | Shell helpers — **file modes and lock ownership** | 2026-08-13 | Reproduced | #177: `fwlive-logging-lock.test.sh` 32-trial; lock 0600 |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-08-13 | Host test | #177: pending-delta refuse; named/anonymous/non-zone lookups |
-| Release pipeline — secrets and key handling | 2026-08-15 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)) |
-| Release pipeline — fetch pinning | 2026-08-15 | Read + host test | #177 fetch-pin gate; R7 digest pin-cache (`tests/sdk-matrix-digests.test.sh`) |
-| Workflow inputs into `run:` bodies | 2026-08-13 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY` |
+| Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
+| Release pipeline — fetch pinning | 2026-08-18 | Read + host test | #177 fetch-pin gate; R7 digest pin-cache (`tests/sdk-matrix-digests.test.sh`); 2026-08-18 wrapper-export + exact-cache-key |
+| Workflow inputs into `run:` bodies | 2026-08-18 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY`; 2026-08-18: dispatch tag validated (control chars, shape, real-tag + HEAD identity) before repo scripts |
 
 ## Controls in force
 
