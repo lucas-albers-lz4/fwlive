@@ -54,12 +54,24 @@ jobs:
           fi
           # Reject control chars before GITHUB_ENV write (R5): CR/LF would break
           # the env file, other control chars (tab, ESC, …) would corrupt logs.
-          if [[ "$tag" == *$'\t'* || "$tag" == *$'\n'* || "$tag" == *$'\r'* || "$tag" == *$'\e'* ]]; then
+          if [[ "$tag" == *[[:cntrl:]]* ]]; then
             echo "invalid tag: contains control characters" >&2
             exit 1
           fi
           if [[ ! "$tag" =~ ^v[0-9] ]]; then
             echo "invalid tag '$tag' (expected vN…, e.g. v0.1.34)" >&2
+            exit 1
+          fi
+          # The checkout above used the raw dispatch input as ref: a v…-shaped
+          # BRANCH name would have been checked out. Verify the input is a real
+          # tag and that HEAD is that tag before any repository script runs.
+          if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "not a tag in this repository: '${tag}'" >&2
+            exit 1
+          fi
+          tag_commit="$(git rev-parse "refs/tags/${tag}^{commit}" 2>/dev/null || true)"
+          if [[ -n "$tag_commit" && "$(git rev-parse HEAD)" != "$tag_commit" ]]; then
+            echo "checked out ref is not the tag '${tag}' (HEAD $(git rev-parse --short HEAD))" >&2
             exit 1
           fi
           echo "FWLIVE_RELEASE_TAG=$tag" >> "$GITHUB_ENV"
