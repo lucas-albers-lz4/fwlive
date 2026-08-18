@@ -30,6 +30,8 @@ permissions:
 jobs:
   build-publish:
     runs-on: ubuntu-latest
+    # Required reviewers / secret gate — configure Environment "feed-publish" in repo settings.
+    environment: feed-publish
     permissions:
       contents: write
     steps:
@@ -37,6 +39,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+          # R1: do not write GITHUB_TOKEN into .git/config (workspace is bind-mounted into SDK).
+          persist-credentials: false
 
       - name: Resolve release tag
         env:
@@ -47,6 +51,15 @@ jobs:
             tag="$TAG"
           else
             tag="${GITHUB_REF#refs/tags/}"
+          fi
+          # Reject newlines / control chars before GITHUB_ENV write (R5).
+          if [[ "$tag" != "${tag//[$'\n\r']/}" ]]; then
+            echo "invalid tag: contains newline" >&2
+            exit 1
+          fi
+          if [[ ! "$tag" =~ ^v[0-9] ]]; then
+            echo "invalid tag '$tag' (expected vN…, e.g. v0.1.34)" >&2
+            exit 1
           fi
           echo "FWLIVE_RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           echo "Release tag: $tag"
@@ -64,6 +77,7 @@ jobs:
           OPKG_PUB: ${{ secrets.OPKG_FEED_PUBLIC_KEY }}
           APK_PUB: ${{ secrets.APK_FEED_PUBLIC_KEY }}
         run: |
+          # shellcheck disable=SC2153 # env vars mapped from secrets above
           test -n "$OPKG_SECRET" && test -n "$APK_SECRET"
           # shellcheck source=scripts/lib/feed-keys.sh
           source ./scripts/lib/feed-keys.sh
@@ -82,9 +96,8 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
           path: .cache/sdk-feeds
+          # Exact lock hash only — no restore-keys prefix (avoids stale pins).
           key: sdk-feeds-${{ runner.os }}-${{ hashFiles('scripts/feeds.lock/**') }}
-          restore-keys: |
-            sdk-feeds-${{ runner.os }}-
 
       - name: Restore SDK feeds into docker volumes
         run: ./scripts/ci-cache-sdk-feeds.sh restore .cache/sdk-feeds
