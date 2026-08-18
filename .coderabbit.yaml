@@ -1,0 +1,57 @@
+# fwlive — .coderabbit.yaml
+# Grounded in the actual repo invariants (NOT AI-failure stereotypes):
+#   - OpenWrt LuCI feed package + shipped busybox-sh rpcd shell
+#   - LuCI/JS view that must mirror the core/ parser
+# Profile "chill": comments only, never blocks the merge. CI is the gate;
+# this bot is a cheap second opinion that flags real regressions.
+language: "en"
+early_access: false
+reviews:
+  profile: "chill"            # classic notes, no hard request-changes
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: true              # review draft PRs too (this repo's workflow is PR-based)
+    base: auto
+  tools:
+    ast_grep: true            # the tool name is ast_grep (NOT "ast_grex" — see discussion)
+    bullseye: true            # security add-on: good for the rpcd/frontend boundary
+  path_instructions:
+    - path: "**/*.sh"
+      instructions: |
+        These scripts run under busybox ash on OpenWrt targets, NOT bash.
+        Flag any bashism: `[[ ]]`, `${var,,}`/case-modifiers, arrays,
+        `declare`/`local`, `source`, process substitution `<(...)`.
+        Every variable expansion on a shared/runtime path must be quoted
+        (CI enforces SC2086 — keep it that way).
+        Flag hardcoded absolute paths: lookup paths must come from the
+        runtime $FILTER_DIR / $LOGGING_SH-style resolution.
+    - path: "openwrt-feed/luci-app-fwlive/root/usr/libexec/**"
+      instructions: |
+        This is the shipped rpcd/libexec shell. It is exposed over LuCI RPC.
+        Flag any path where a value originating from the LuCI frontend is
+        interpolated into `nft`/`iptables`/`awk`/`grep` without escaping
+        (command/argument injection). Also enforce POSIX sh + quoted vars
+        (see **/*.sh).
+    - path: "**/Makefile"
+      instructions: |
+        OpenWrt feed package Makefiles. On release, PKG_VERSION must track
+        the release tag/package.json version. Flag a PKG_VERSION/PKG_RELEASE
+        that was bumped without the matching frontend/version change, or a
+        source pin/hash that is stale relative to the declared version.
+    - path: "openwrt-feed/luci-app-fwlive/htdocs/**/*.js"
+      instructions: |
+        This LuCI view must stay semantically in sync with the core/ parser
+        (there is an explicit core-vs-LuCI sync gate). Flag new/renamed
+        filter tokens, log fields, or nft table/chain names added on one
+        side but not the other.
+  system_instructions: |
+    This is fwlive, a LuCI app for live firewall log viewing over
+    nftables/fw4 and iptables. The shipped shell in root/usr/libexec runs
+    in a minimal OpenWrt (busybox ash) environment, so POSIX-only shell
+    and quoted variables are hard invariants. Prefer a precise, grounded
+    comment over a generic nitpick — if you cannot tie a concern to one of
+    the path invariants above, skip it.
