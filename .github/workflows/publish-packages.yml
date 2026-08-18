@@ -52,9 +52,10 @@ jobs:
           else
             tag="${GITHUB_REF#refs/tags/}"
           fi
-          # Reject newlines / control chars before GITHUB_ENV write (R5).
-          if [[ "$tag" != "${tag//[$'\n\r']/}" ]]; then
-            echo "invalid tag: contains newline" >&2
+          # Reject control chars before GITHUB_ENV write (R5): CR/LF would break
+          # the env file, other control chars (tab, ESC, …) would corrupt logs.
+          if [[ "$tag" == *$'\t'* || "$tag" == *$'\n'* || "$tag" == *$'\r'* || "$tag" == *$'\e'* ]]; then
+            echo "invalid tag: contains control characters" >&2
             exit 1
           fi
           if [[ ! "$tag" =~ ^v[0-9] ]]; then
@@ -204,6 +205,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+          # R1: do not write GITHUB_TOKEN into .git/config (workspace is bind-mounted into SDK).
+          persist-credentials: false
 
       - name: Install lab dependencies
         run: |
