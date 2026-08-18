@@ -225,6 +225,39 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 ovmf openssh-client curl
 
+      - name: Resolve release tag
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            tag="$TAG"
+          else
+            tag="${GITHUB_REF#refs/tags/}"
+          fi
+          # R5 parity with build-publish: the checkout above used the raw input
+          # as ref, so verify it is a real tag (not a v…-shaped branch) before
+          # any repository script runs.
+          if [[ "$tag" == *[[:cntrl:]]* ]]; then
+            echo "invalid tag: contains control characters" >&2
+            exit 1
+          fi
+          if [[ ! "$tag" =~ ^v[0-9] ]]; then
+            echo "invalid tag '$tag' (expected vN…, e.g. v0.1.34)" >&2
+            exit 1
+          fi
+          if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "not a tag in this repository: '${tag}'" >&2
+            exit 1
+          fi
+          tag_commit="$(git rev-parse "refs/tags/${tag}^{commit}" 2>/dev/null || true)"
+          if [[ -n "$tag_commit" && "$(git rev-parse HEAD)" != "$tag_commit" ]]; then
+            echo "checked out ref is not the tag '${tag}' (HEAD $(git rev-parse --short HEAD))" >&2
+            exit 1
+          fi
+          echo "FWLIVE_RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          echo "Release tag: $tag"
+
       - name: Wait for GitHub Pages propagation
         run: ./scripts/wait-feed-pages.sh "$FWLIVE_FEED_BASE_URL"
 
