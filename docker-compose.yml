@@ -51,6 +51,19 @@ services:
     stdin_open: true
     tty: true
 
+  # Feed-signing tool export: SDK volume only, NO workspace mount.
+  # The workspace holds the signing keys; the export container must never
+  # see them (it runs as the invoking uid, not root — only world-readable
+  # *.so* libs are copied, so root is not needed).
+  sdk-export:
+    image: ${OWRT_SDK_IMAGE:-ghcr.io/openwrt/sdk:armsr-armv8}
+    platform: linux/amd64
+    working_dir: /builder
+    volumes:
+      - ${OWRT_SDK_VOLUME:-openwrt_sdk_official}:/builder
+    environment:
+      - TERM=dumb
+
   # Backward-compatible alias (armsr-armv8 snapshot)
   sdk-official:
     image: ghcr.io/openwrt/sdk:armsr-armv8

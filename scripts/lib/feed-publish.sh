@@ -266,10 +266,14 @@ feed_publish_apply_sdk_pin() {
 # The SDK's usign/mkhash/apk are runas wrapper scripts: `bin/<tool>` execs
 # `../lib/ld-linux-x86-64.so.2` with LD_PRELOAD=runas.so against the hidden
 # real binary `bin/.<tool>.bin`. Export the wrapper into /feed/tools AND the
-# lib tree into /feed/lib (a sibling mount) so the wrapper's ../lib resolution
-# survives outside /builder. Export runs as root: the lib tree contains
-# 0600 buildbot-owned meson templates (verified 24.10.8 SDK) that a
-# non-root uid cannot read; no secrets are mounted during export.
+# shared-lib tree into /feed/lib (a sibling mount) so the wrapper's ../lib
+# resolution survives outside /builder.
+#
+# Export uses the dedicated `sdk-export` compose service (SDK volume only,
+# NO workspace mount) as the invoking uid — the workspace holds the signing
+# keys, so the export container must never see it. Only world-readable
+# *.so* libs are copied (the 0600 buildbot-owned meson/ templates are not
+# needed by the runas wrappers), so root is not required.
 feed_publish_export_opkg_tools() {
 	local tools_dir="$1" lib_dir="$2" root
 	root="$(feed_publish_root)"
@@ -277,17 +281,17 @@ feed_publish_export_opkg_tools() {
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
-		docker compose run --rm --user root \
+		docker compose run --rm --user "$(id -u):$(id -g)" \
 			-v "${tools_dir}:/feed/tools" \
 			-v "${lib_dir}:/feed/lib" \
-			sdk sh -ec '
+			sdk-export sh -ec '
 				set -e
 				cp -a /builder/staging_dir/host/bin/usign /feed/tools/usign
 				cp -a /builder/staging_dir/host/bin/.usign.bin /feed/tools/.usign.bin
 				cp -a /builder/staging_dir/host/bin/mkhash /feed/tools/mkhash
 				cp -a /builder/staging_dir/host/bin/.mkhash.bin /feed/tools/.mkhash.bin
 				cp -a /builder/scripts/ipkg-make-index.sh /feed/tools/ipkg-make-index.sh
-				cp -a /builder/staging_dir/host/lib/. /feed/lib/
+				cp -a /builder/staging_dir/host/lib/*.so* /feed/lib/
 				chmod a+x /feed/tools/usign /feed/tools/.usign.bin /feed/tools/mkhash /feed/tools/.mkhash.bin /feed/tools/ipkg-make-index.sh
 			'
 	)
@@ -300,14 +304,14 @@ feed_publish_export_apk_tools() {
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
-		docker compose run --rm --user root \
+		docker compose run --rm --user "$(id -u):$(id -g)" \
 			-v "${tools_dir}:/feed/tools" \
 			-v "${lib_dir}:/feed/lib" \
-			sdk sh -ec '
+			sdk-export sh -ec '
 				set -e
 				cp -a /builder/staging_dir/host/bin/apk /feed/tools/apk
 				cp -a /builder/staging_dir/host/bin/.apk.bin /feed/tools/.apk.bin
-				cp -a /builder/staging_dir/host/lib/. /feed/lib/
+				cp -a /builder/staging_dir/host/lib/*.so* /feed/lib/
 				chmod a+x /feed/tools/apk /feed/tools/.apk.bin
 			'
 	)
@@ -333,7 +337,9 @@ feed_publish_stage_opkg_sdk() {
 	# --network none with exported tools only (no /builder).
 	# Tools mount at /feed/tools and libs at /feed/lib (siblings) so the
 	# runas wrapper's ../lib resolution works; pkgdir stays a plain mount.
-	docker run --rm --network none --user root --platform linux/amd64 \
+	# Guard with `if` so a failed sign still cleans up the temp dirs
+	# (the script runs under `set -e`).
+	if docker run --rm --network none --user root --platform linux/amd64 \
 		-v "${pkg_dir}:/feed/pkgdir" \
 		-v "${key_abs}:/feed/opkg-secret.key:ro" \
 		-v "${tools_dir}:/feed/tools:ro" \
@@ -363,7 +369,11 @@ feed_publish_stage_opkg_sdk() {
 				exit 1
 			fi
 			'
-	rc=$?
+	then
+		rc=0
+	else
+		rc=$?
+	fi
 	rm -rf "$tools_dir" "$lib_dir"
 	return "$rc"
 }
@@ -425,7 +435,7 @@ feed_publish_stage_apk() {
 		echo "failed to export apk signing tools from SDK volume" >&2
 		return 1
 	fi
-	docker run --rm --network none --user root --platform linux/amd64 \
+	if docker run --rm --network none --user root --platform linux/amd64 \
 		-v "${pkg_dir}:/feed/pkgdir" \
 		-v "${key_abs}:/feed/apk-secret.rsa:ro" \
 		-v "${tools_dir}:/feed/tools:ro" \
@@ -438,7 +448,11 @@ feed_publish_stage_apk() {
 			cd /feed/pkgdir
 			"$APK" mkndx --allow-untrusted --sign /feed/apk-secret.rsa --output packages.adb *.apk
 			'
-	rc=$?
+	then
+		rc=0
+	else
+		rc=$?
+	fi
 	rm -rf "$tools_dir" "$lib_dir"
 	[[ "$rc" -eq 0 ]] || return "$rc"
 	printf '%s' "$artifact"
