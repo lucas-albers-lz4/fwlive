@@ -70,7 +70,7 @@ should carry a note saying what would raise it.
 | Only public keys reach `feed-staging/` | `manual` | `feed_publish_copy_keys` |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |
-| Publish job runs under Environment `feed-publish` | `manual` | `.github/workflows/publish-packages.yml` `environment:` — repo-setting gate (required reviewers optional; secret scoping) |
+| Publish job runs under Environment `feed-publish` | `manual` | `.github/workflows/publish-packages.yml` `environment:` — organizational gate (protection rules optional; none configured, matching usrmanage). Does NOT scope repo-level secrets — keys stay repository-scoped by design |
 | Checkout never writes GITHUB_TOKEN into `.git/config` | `manual` | same workflow — `persist-credentials: false` (workspace is bind-mounted into SDK) |
 | workflow_dispatch tag validated before `GITHUB_ENV` write | `manual` | same workflow — newline/control-char rejection + `^v[0-9]` shape |
 | SDK feed cache key is exact (no `restore-keys` prefix fallback) | `manual` | same workflow — stale feed pins cannot be restored on cache miss |
@@ -232,4 +232,4 @@ mutator.
 
 **Method.** Read-diff of `usrmanage`'s `.github/workflows/publish-packages.yml` (the hardened template from #117/#120) against fwlive's; ported the four deltas verbatim, adapted env var names (`FWLIVE_RELEASE_TAG`, `FWLIVE_GIT_TAG`).
 
-**Result.** Controls added to the table above. No new findings; the existing S1–S4/R7 controls are unaffected. Environment is auto-created on first tag push (no protection rules configured — matches usrmanage; adding required reviewers later would gate tag-push publishes on human approval).
+**Result.** Controls added to the table above. No new findings; the existing S1–S4/R7 controls are unaffected. Environment `feed-publish` created 2026-08-18 with **no protection rules** (matches usrmanage; adding required reviewers later would gate tag-push publishes on human approval). The environment is an organizational/approval-capable gate, NOT a secret-scoping mechanism — the five feed secrets remain repository-scoped (identical to usrmanage's setup).
