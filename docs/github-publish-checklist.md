@@ -99,7 +99,7 @@ Then, to open the upstream PR:
 
 ## After publish
 
-1. Follow [release.md](release.md): publish GitHub Release → CI builds feed + attaches assets
+1. Follow [release.md](release.md): push the `v*` tag → CI builds the feed, deploys to Pages, and creates the GitHub Release with assets attached
 2. Confirm [binary feed](binary-feed.md) URLs respond
 3. Confirm README install section points at feed + Releases + `src-link`
 4. Optional: submit to third-party OpenWrt feed index (outside this checklist)

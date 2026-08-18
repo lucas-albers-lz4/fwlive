@@ -29,7 +29,7 @@ Before cutting a `v*` tag, re-verify the `peaceiris/actions-gh-pages` SHA in
 
 1. **Bump the third octet** of `PKG_VERSION` (keep `PKG_RELEASE:=1`) in
    [`openwrt-feed/luci-app-fwlive/Makefile`](../openwrt-feed/luci-app-fwlive/Makefile):
-   `0.1.33` → `0.1.34`.
+   `0.1.(N-1)` → `0.1.N` (e.g. `0.1.33` → `0.1.34`).
 2. **Mirror `APP_VERSION`** in
    [`openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/constants.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/constants.js)
    — it MUST equal `PKG_VERSION` (AGENTS.md lock).
