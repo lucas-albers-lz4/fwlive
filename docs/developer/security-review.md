@@ -233,3 +233,13 @@ mutator.
 **Method.** Read-diff of `usrmanage`'s `.github/workflows/publish-packages.yml` (the hardened template from #117/#120) against fwlive's; ported the four deltas verbatim, adapted env var names (`FWLIVE_RELEASE_TAG`, `FWLIVE_GIT_TAG`).
 
 **Result.** Controls added to the table above. No new findings; the existing S1–S4/R7 controls are unaffected. Environment `feed-publish` created 2026-08-18 with **no protection rules** (matches usrmanage; adding required reviewers later would gate tag-push publishes on human approval). The environment is an organizational/approval-capable gate, NOT a secret-scoping mechanism — the five feed secrets remain repository-scoped (identical to usrmanage's setup).
+
+### 2026-08-18 — R7 sign-step wrapper regression fix (first publish after R7)
+
+**Scope.** The v0.1.34 publish (first after the 2026-08-15 R7 rework) failed at `index+sign via SDK` with exit 127: `/feed/tools/mkhash: line 5: /feed/tools/../lib/ld-linux-x86-64.so.2: No such file or directory`.
+
+**Root cause.** OpenWrt SDK `staging_dir/host/bin/{usign,mkhash,apk}` are **runas wrapper scripts**, not plain binaries: `bin/<tool>` execs `../lib/ld-linux-x86-64.so.2` with `LD_PRELOAD=../lib/runas.so` against the hidden real binary `bin/.<tool>.bin`. The R7 export (`feed_publish_export_*_tools`) copied only the bare wrapper into `/feed/tools`, so the relative `../lib` and `.bin` siblings were missing. Verified across 21.02.7 / 24.10.8 / 25.12.5 SDK tarballs — the pattern holds in every supported release.
+
+**Fix.** Export the wrapper **and** the hidden `.bin` **and** the whole `staging_dir/host/lib` tree into `tools_dir/bin` + `tools_dir/lib`, and mount `tools_dir` at `/feed` (instead of `/feed/tools`) so the wrapper's `../lib` resolution works. No security-property change: `docker run --network none`, no `/builder` mount, digest-pinned image, keys `:ro` — all preserved.
+
+**Result.** `bash -n` clean; actionlint clean; fix verified by re-running the publish workflow (v0.1.34).
