@@ -10,11 +10,12 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 	exit 1
 fi
 
-# Do not use -x: sourced paths are runtime-resolved ($FILTER_DIR / $LOGGING_SH).
-shellcheck -s sh \
-	"$LIBEXEC/fwlive-log-filter.sh" \
-	"$LIBEXEC/fwlive-logging.sh" \
-	"$LIBEXEC/fwlive-is-firewall-event.sh" \
-	"$LIBEXEC/rpcd/fwlive"
+# Enumerate by discovery, not a fixed list, so a newly added script cannot
+# silently escape this gate (it previously named 4 files explicitly). The
+# shipped rpcd entrypoint `rpcd/fwlive` has no extension, so match *.sh OR
+# that exact name. Do not use -x: sourced paths are runtime-resolved
+# ($FILTER_DIR / $LOGGING_SH).
+find "$LIBEXEC" -type f \( -name '*.sh' -o -name 'fwlive' \) -print0 \
+	| xargs -0 -r shellcheck -s sh
 
 echo "fwlive shellcheck OK" >&2
