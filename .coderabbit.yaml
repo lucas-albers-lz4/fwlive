@@ -14,7 +14,7 @@ reviews:
   collapse_walkthrough: true
   auto_review:
     enabled: true
-    drafts: true              # review draft PRs too (this repo's workflow is PR-based)
+    drafts: false              # review only when the PR is marked ready (draft = moving target)
     base: auto
   tools:
     ast_grep: true            # the tool name is ast_grep (NOT "ast_grex" — see discussion)
