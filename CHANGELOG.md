@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.35] — 2026-08-21
+
+### Security
+- Strict IPv4/IPv6 validation in `is_resolvable_address` — hostname-shaped tokens (dotted-hex) no longer reach getent; multi-line input rejected wholesale (#192)
+- WAN log toggle: staging+commit moved behind a last-moment foreign-staging gate with post-commit verification — no sweeping unrelated staged deltas, no reverting foreign data (#193)
+
 ## [v0.1.34] — 2026-08-18
 
 ### Security
@@ -370,6 +376,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.35]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.34...v0.1.35
 [v0.1.34]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.33...v0.1.34
 [v0.1.33]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.32...v0.1.33
 [v0.1.32]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.31...v0.1.32
