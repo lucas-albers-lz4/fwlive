@@ -10,5 +10,5 @@ Shipped surface: `openwrt-feed/luci-app-fwlive/`. Rules live in the linked owner
 - rpcd / ACL / shell helpers / release pipeline: update [security-review.md](docs/developer/security-review.md) in the same PR; audit via `.cursor/skills/security-audit`.
 - Releases: bump `PKG_VERSION`/`APP_VERSION`, fold CHANGELOG, tag `v0.1.N` — CI builds the signed feed + release assets. [release.md](docs/release.md)
 - Vulnerabilities go to a private advisory ([SECURITY.md](SECURITY.md)), not a public issue.
-- CodeRabbit reviews only Ready PRs (`auto_review.drafts: false`): wait for a round to complete before pushing fixes, batch fixes into one push, don't declare the gate green mid-round. [coderabbit.md](docs/developer/coderabbit.md)
+- CodeRabbit automatically reviews only Ready PRs (`auto_review.drafts: false`); manual `@coderabbitai review` still works on drafts. Wait for a round to complete before pushing fixes, batch fixes into one push, don't declare the gate green mid-round. [coderabbit.md](docs/developer/coderabbit.md)
 - Tabs in shell and shipped JS. Workflow: [contributing.md](docs/developer/contributing.md). Commands: [build-and-test.md](docs/developer/build-and-test.md).
