@@ -14,7 +14,7 @@ reviews:
   collapse_walkthrough: true
   auto_review:
     enabled: true
-    drafts: true              # review draft PRs too (this repo's workflow is PR-based)
+    drafts: false              # automatic reviews skip drafts; manual @coderabbitai review still works
     base: auto
   tools:
     ast_grep: true            # the tool name is ast_grep (NOT "ast_grex" — see discussion)
