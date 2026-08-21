@@ -313,7 +313,15 @@ resolve_hostname() {
 is_resolvable_address() {
 	addr="$1"
 	[ -n "$addr" ] || return 1
-	printf '%s' "$addr" | awk '
+	# Reject anything outside the address alphabet BEFORE awk, so embedded
+	# newlines/whitespace (which awk would treat as record separators) can
+	# never let a valid first record mask trailing garbage that still reaches
+	# getent (#190, CodeRabbit/luna fold): getent only ever sees a single
+	# token. Note the check intentionally allows only hex/colon/dot.
+	case "$addr" in
+		*[!0-9a-fA-F:.]*) return 1 ;;
+	esac
+	printf '%s\n' "$addr" | awk '
 		function is_ipv4(s, n, o, i) {
 			if (s !~ /^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$/)
 				return 0
@@ -372,11 +380,11 @@ is_resolvable_address() {
 				return (nh + nt + extra <= 7)
 			return (nh + nt + extra == 8)
 		}
-		{
-			if (($0 ~ /:/) ? is_ipv6($0) : is_ipv4($0))
-				exit 0
-			exit 1
+		NR == 1 {
+			valid = (($0 ~ /:/) ? is_ipv6($0) : is_ipv4($0))
+			next
 		}
+		END { exit (NR == 1 && valid) ? 0 : 1 }
 	'
 }
 
@@ -504,6 +512,17 @@ run_selftest() {
 	# Embedded-IPv4 tail must validate, not fail closed.
 	if ! is_resolvable_address '::ffff:192.0.2.1'; then
 		echo 'is_resolvable_address: expected accept IPv6-mapped ::ffff:192.0.2.1' >&2
+		return 1
+	fi
+	# Multi-line input must be rejected wholesale (CodeRabbit/luna fold): awk
+	# reads newline-separated records, so a valid first record must not mask
+	# trailing garbage that would still reach getent.
+	if is_resolvable_address "$(printf '192.0.2.1\nnot-an-address')"; then
+		echo 'is_resolvable_address: expected reject for multi-line IPv4 token' >&2
+		return 1
+	fi
+	if is_resolvable_address "$(printf '2001:db8::1\nextra')"; then
+		echo 'is_resolvable_address: expected reject for multi-line IPv6 token' >&2
 		return 1
 	fi
 
