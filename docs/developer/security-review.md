@@ -81,8 +81,7 @@ should carry a note saying what would raise it.
 
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
-
-(no open findings after the 2026-08-15 R7 closeout)
+| — | Low | [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | `is_resolvable_address` admitted hostname-shaped tokens (dotted-hex) → read-ACL `resolve` sessions could trigger arbitrary upstream DNS via `getent`; strict IPv4/IPv6 validation + selftest cases landed in the fix PR — open until merge |
 
 
 ## Accepted residuals

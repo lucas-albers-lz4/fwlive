@@ -303,16 +303,89 @@ resolve_hostname() {
 	printf '%s' "$2"
 }
 
-# Accept only IPv4/IPv6-shaped tokens before getent (reject shell metachar / hostnames).
+# Strict IPv4/IPv6 validation before getent (issue #190): the old char-class
+# check admitted hostname-shaped tokens of hex chars + dots/colons
+# (e.g. "dead.beef.cafe.baad"), letting getent fall back to upstream DNS
+# queries chosen by an authenticated session. Validate the real address
+# families here so getent only ever sees genuine numeric addresses.
+# Embedded-IPv4 tails ("::ffff:192.0.2.1") are fully validated, not failed
+# closed. awk is already a dependency of this script (json_escape).
 is_resolvable_address() {
 	addr="$1"
 	[ -n "$addr" ] || return 1
+	# Reject anything outside the address alphabet BEFORE awk, so embedded
+	# newlines/whitespace (which awk would treat as record separators) can
+	# never let a valid first record mask trailing garbage that still reaches
+	# getent (#190, CodeRabbit/luna fold): getent only ever sees a single
+	# token. Note the check intentionally allows only hex/colon/dot.
 	case "$addr" in
 		*[!0-9a-fA-F:.]*) return 1 ;;
-		*.*.*.*|*:* ) ;;
-		*) return 1 ;;
 	esac
-	return 0
+	printf '%s\n' "$addr" | awk '
+		function is_ipv4(s, n, o, i) {
+			if (s !~ /^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$/)
+				return 0
+			n = split(s, o, ".")
+			if (n != 4)
+				return 0
+			for (i = 1; i <= 4; i++)
+				if (o[i] + 0 > 255)
+					return 0
+			return 1
+		}
+		function is_hexgroup(g) {
+			return (g ~ /^[0-9a-fA-F][0-9a-fA-F]?[0-9a-fA-F]?[0-9a-fA-F]?$/)
+		}
+		function is_ipv6(s, k, head, tail, lc, v4, extra, nh, nt, h, t, i) {
+			if (s !~ /^[0-9a-fA-F:.]+$/)
+				return 0
+			if (s ~ /:::/)
+				return 0
+			k = index(s, "::")
+			if (k > 0) {
+				if (index(substr(s, k + 2), "::") > 0)
+					return 0
+				head = substr(s, 1, k - 1)
+				tail = substr(s, k + 2)
+			} else {
+				head = ""
+				tail = s
+			}
+			extra = 0
+			if (tail ~ /\./) {
+				lc = length(tail)
+				while (lc > 0 && substr(tail, lc, 1) != ":")
+					lc--
+				if (lc == 0) {
+					if (!is_ipv4(tail))
+						return 0
+					tail = ""
+				} else {
+					v4 = substr(tail, lc + 1)
+					if (!is_ipv4(v4))
+						return 0
+					tail = substr(tail, 1, lc - 1)
+				}
+				extra = 2
+			}
+			nh = (head == "" ? 0 : split(head, h, ":"))
+			nt = (tail == "" ? 0 : split(tail, t, ":"))
+			for (i = 1; i <= nh; i++)
+				if (!is_hexgroup(h[i]))
+					return 0
+			for (i = 1; i <= nt; i++)
+				if (!is_hexgroup(t[i]))
+					return 0
+			if (k > 0)
+				return (nh + nt + extra <= 7)
+			return (nh + nt + extra == 8)
+		}
+		NR == 1 {
+			valid = (($0 ~ /:/) ? is_ipv6($0) : is_ipv4($0))
+			next
+		}
+		END { exit (NR == 1 && valid) ? 0 : 1 }
+	'
 }
 
 resolve_addresses() {
@@ -406,6 +479,50 @@ run_selftest() {
 	fi
 	if ! is_resolvable_address '2001:db8::1'; then
 		echo 'is_resolvable_address: expected accept IPv6' >&2
+		return 1
+	fi
+	if ! is_resolvable_address '::1'; then
+		echo 'is_resolvable_address: expected accept IPv6 loopback ::1' >&2
+		return 1
+	fi
+
+	# Issue #190: hostname-shaped tokens of hex chars + dots/colons passed the
+	# old char-class check and made getent fall back to upstream DNS. Each case
+	# below must REJECT (and would be ACCEPTED by the reverted char-class code).
+	if is_resolvable_address 'ab.cd.ef.01'; then
+		echo 'is_resolvable_address: expected reject for dotted-hex ab.cd.ef.01' >&2
+		return 1
+	fi
+	if is_resolvable_address 'dead.beef.cafe.baad'; then
+		echo 'is_resolvable_address: expected reject for dotted-hex dead.beef.cafe.baad' >&2
+		return 1
+	fi
+	if is_resolvable_address 'a.b.c.d.e.f'; then
+		echo 'is_resolvable_address: expected reject for 6-group dotted token a.b.c.d.e.f' >&2
+		return 1
+	fi
+	if is_resolvable_address 'aa:bb:cc:dd'; then
+		echo 'is_resolvable_address: expected reject for under-populated IPv6 aa:bb:cc:dd (no ::)' >&2
+		return 1
+	fi
+	if is_resolvable_address '123.456.1.1'; then
+		echo 'is_resolvable_address: expected reject for octet > 255 in 123.456.1.1' >&2
+		return 1
+	fi
+	# Embedded-IPv4 tail must validate, not fail closed.
+	if ! is_resolvable_address '::ffff:192.0.2.1'; then
+		echo 'is_resolvable_address: expected accept IPv6-mapped ::ffff:192.0.2.1' >&2
+		return 1
+	fi
+	# Multi-line input must be rejected wholesale (CodeRabbit/luna fold): awk
+	# reads newline-separated records, so a valid first record must not mask
+	# trailing garbage that would still reach getent.
+	if is_resolvable_address "$(printf '192.0.2.1\nnot-an-address')"; then
+		echo 'is_resolvable_address: expected reject for multi-line IPv4 token' >&2
+		return 1
+	fi
+	if is_resolvable_address "$(printf '2001:db8::1\nextra')"; then
+		echo 'is_resolvable_address: expected reject for multi-line IPv6 token' >&2
 		return 1
 	fi
 
