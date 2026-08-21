@@ -271,8 +271,19 @@ commit_wan_log_change() {
 
 	if ! uci commit firewall; then
 		# Drop our staged log delta so a later toggle is not stuck on
-		# firewall_changes_pending from this package's own orphaned write.
-		uci -q revert firewall 2>/dev/null || true
+		# firewall_changes_pending from this package's own orphaned write —
+		# but ONLY when nothing foreign is staged: `uci revert firewall` is
+		# config-wide (uci has no option-level revert), and reverting would
+		# clobber a concurrent writer's uncommitted delta (CodeRabbit/luna
+		# fold, #191). With foreign staging present, leave it and warn.
+		_staged=$(uci -q changes firewall 2>/dev/null || true)
+		_total=$(printf '%s\n' "$_staged" | grep -c . 2>/dev/null || true)
+		_ours=$(printf '%s\n' "$_staged" | grep -Fc "firewall.${zone}.log" 2>/dev/null || true)
+		if [ "${_total:-0}" -gt 0 ] && [ "${_total:-0}" -eq "${_ours:-0}" ]; then
+			uci -q revert firewall 2>/dev/null || true
+		else
+			logger -t fwlive "WAN log commit failed with foreign changes staged — not reverting (uci_commit_failed)" 2>/dev/null || true
+		fi
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
 		return 1
 	fi

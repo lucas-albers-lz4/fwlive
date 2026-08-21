@@ -227,6 +227,7 @@ drive_toggle() {
 	STAGED_LOG='__unset__'
 	LOGGER_MSGS=''
 	CHANGES_CALLS=0
+	REVERTED=0
 	printf '0\n' > "$CHANGES_FILE"
 	printf '0\n' > "$READ_FILE"
 	CURRENT_LOG="$FWLIVE_CURRENT_LOG"
@@ -239,8 +240,18 @@ drive_toggle() {
 				[ -f "$CHANGES_FILE" ] && _n=$(cat "$CHANGES_FILE" 2>/dev/null || printf '0')
 				_n=$((_n + 1))
 				printf '%s\n' "$_n" > "$CHANGES_FILE"
-				if [ "$mode" = late_foreign ] && [ "$_n" -ge 2 ]; then
-					printf "firewall.@rule[9].name='foreign'\n"
+				case "$mode" in
+					late_foreign)
+						# foreign delta visible from the second changes call on
+						[ "$_n" -ge 2 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
+					commit_fail_foreign)
+						# clean through the commit gate (calls 1-2); the foreign
+						# delta appears only when the failure path re-queries
+						[ "$_n" -ge 3 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
+				esac
+				# Real `uci -q changes` also lists OUR staged delta once staged.
+				if [ "$STAGED_LOG" != '__unset__' ]; then
+					printf "firewall.@zone[0].log='%s'\n" "$STAGED_LOG"
 				fi
 				;;
 			'-q show firewall')
@@ -274,14 +285,21 @@ drive_toggle() {
 				STAGED_LOG=''
 				;;
 			'commit firewall')
-				if [ "$mode" = late_foreign ]; then
-					die "#191: uci commit issued while a foreign delta was staged"
-				fi
+				case "$mode" in
+					late_foreign)
+						die "#191: uci commit issued while a foreign delta was staged" ;;
+					commit_fail_foreign|commit_fail_ours)
+						# commit fails; the caller decides whether to revert
+						return 1 ;;
+				esac
 				UCI_COMMITS=$((UCI_COMMITS + 1))
 				CURRENT_LOG="$STAGED_LOG"
 				;;
 			*'revert firewall'*)
-				die "#191: unexpected revert — abort/mismatch paths must not touch staging or committed data ($*)"
+				case "$mode" in
+					commit_fail_ours) REVERTED=1 ;;
+					*) die "#191: unexpected revert — abort/mismatch paths must not touch staging or committed data ($*)" ;;
+				esac
 				;;
 			*) return 0 ;;
 		esac
@@ -310,7 +328,7 @@ assert_no_commit_no_stage() {
 		*'set firewall.'*|*'delete firewall.'*) die "#191 $label: log bit staged before abort: $UCI_CALLS" ;;
 	esac
 	case "$LOGGER_MSGS" in
-		*'fwlive'*) ;;
+		*'aborted at commit gate'*) ;;
 		*) die "#191 $label: abort not reported via logger: $LOGGER_MSGS" ;;
 	esac
 }
@@ -388,6 +406,36 @@ case "$LOGGER_MSGS" in
 	*'verify FAILED'*) die "#191 happy disable: spurious verify warning: $LOGGER_MSGS" ;;
 esac
 ok "#191 happy-path disable still deletes + commits (verify passes)"
+
+# --- commit-failure paths (#191, CodeRabbit/luna fold) ---
+# Commit fails with a FOREIGN delta now visible: must NOT revert (config-wide
+# revert would clobber the other writer's staging); warn instead.
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable commit_fail_foreign
+case "$OUT" in
+	*'"error":"uci_commit_failed"'*) ;;
+	*) die "#191 enable/commit-fail-foreign: expected error uci_commit_failed, got: $OUT" ;;
+esac
+[ "${REVERTED:-0}" = "0" ] || die "#191 enable/commit-fail-foreign: foreign staging was reverted"
+case "$LOGGER_MSGS" in
+	*'not reverting'*) ;;
+	*) die "#191 enable/commit-fail-foreign: missing not-reverting warning: $LOGGER_MSGS" ;;
+esac
+ok "#191 commit failure with foreign staging: no revert, warning logged"
+
+# Commit fails with ONLY our own delta staged: revert it so a later toggle is
+# not stuck on firewall_changes_pending from our orphaned write.
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable commit_fail_ours
+case "$OUT" in
+	*'"error":"uci_commit_failed"'*) ;;
+	*) die "#191 enable/commit-fail-ours: expected error uci_commit_failed, got: $OUT" ;;
+esac
+[ "${REVERTED:-0}" = "1" ] || die "#191 enable/commit-fail-ours: our own orphaned delta was not reverted"
+case "$LOGGER_MSGS" in
+	*'not reverting'*) die "#191 enable/commit-fail-ours: spurious not-reverting warning: $LOGGER_MSGS" ;;
+esac
+ok "#191 commit failure with only our delta: revert cleans our orphaned staging"
 
 sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
 ok "rpcd __selftest"
