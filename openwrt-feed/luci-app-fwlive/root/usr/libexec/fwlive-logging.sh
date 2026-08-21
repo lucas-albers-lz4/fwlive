@@ -213,21 +213,79 @@ restore_wan_zone_log() {
 	uci commit firewall 2>/dev/null || true
 }
 
-# Commit the staged log bit. Caller MUST hold the logging lock; this closes
-# the read->compute->set->commit window so a concurrent toggle cannot commit
-# between our read and our write (no lost update / no stale overwrite).
-# Prints the failure JSON and returns 1 on commit failure.
+# Stage + commit the WAN log bit. Caller MUST hold the logging lock; this
+# closes the read->compute->set->commit window so a concurrent toggle cannot
+# commit between our read and our write (no lost update / no stale overwrite).
+#
+# TOCTOU hardening (#191): UCI staging is global per config file, so a
+# non-cooperating writer (another admin's `uci set`, the LuCI firewall page)
+# can stage a delta AFTER the toggle's early firewall_changes_pending check.
+# Staging and committing therefore live INSIDE this function — the only path
+# to `uci commit firewall` in the toggle flow, so callers cannot bypass it —
+# gated by a last-moment pending re-check taken BEFORE our own delta exists
+# in staging: if anything is staged at that point it can only be foreign, so
+# we abort without committing (the unrelated half-finished delta is never
+# published together with our log bit) and without touching the staging area
+# (no revert that could clobber the other writer's data). The caller-reported
+# error is firewall_changes_pending: the LuCI view already maps it to the
+# accurate "another change is staged" notice.
+#
+# target: value to stage; EMPTY means delete the option (bit fully cleared).
+# Prints the failure JSON and returns 1 on abort or failure.
+verify_wan_log_commit() {
+	zone="$1"
+	expected="$2"
+	readback="$(uci -q get "firewall.${zone}.log" 2>/dev/null || true)"
+	if [ -n "$expected" ]; then
+		[ "$readback" = "$expected" ] && return 0
+		return 1
+	fi
+	[ -z "$readback" ] && return 0
+	return 1
+}
+
 commit_wan_log_change() {
 	zone="$1"
 	zone_json="$2"
-	if uci commit firewall; then
-		return 0
+	target="$3"
+
+	# Last-moment guard (#191): runs before OUR delta is staged, so a
+	# non-empty changes list here can only be a foreign writer's race.
+	if firewall_changes_pending; then
+		logger -t fwlive "WAN log toggle aborted at commit gate: firewall changes staged by another writer" 2>/dev/null || true
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_changes_pending"}' "$zone_json"
+		return 1
 	fi
-	# Drop our staged log delta so a later toggle is not stuck on
-	# firewall_changes_pending from this package's own orphaned write.
-	uci -q revert firewall 2>/dev/null || true
-	printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
-	return 1
+
+	if [ -n "$target" ]; then
+		if ! uci set "firewall.${zone}.log=${target}"; then
+			printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_set_failed"}' "$zone_json"
+			return 1
+		fi
+	else
+		if ! uci delete "firewall.${zone}.log"; then
+			printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_delete_failed"}' "$zone_json"
+			return 1
+		fi
+	fi
+
+	if ! uci commit firewall; then
+		# Drop our staged log delta so a later toggle is not stuck on
+		# firewall_changes_pending from this package's own orphaned write.
+		uci -q revert firewall 2>/dev/null || true
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_commit_failed"}' "$zone_json"
+		return 1
+	fi
+
+	# Post-commit verification (#191): confirm the committed config really
+	# carries what we wrote (empty target = option must now be gone/empty).
+	# A mismatch means another writer overtook the commit: warn loudly but do
+	# NOT blind-revert (that would destroy unrelated committed data); the
+	# reload-failure rollback path still guards the ordinary failure case.
+	if ! verify_wan_log_commit "$zone" "$target"; then
+		logger -t fwlive "WAN log post-commit verify FAILED: wrote '${target:-<deleted>}', read back differs" 2>/dev/null || true
+	fi
+	return 0
 }
 
 # Firewall reload + best-effort UCI rollback on reload failure. The reload
@@ -298,9 +356,13 @@ enable_wan_logging() {
 		return 0
 	fi
 
-	# Locked critical section: read->compute->set->commit for firewall.<zone>.log.
+	# Locked critical section: read->compute->stage->commit for firewall.<zone>.log.
 	# The log bit is re-read AFTER acquiring the lock so the target is computed
 	# from the latest committed value; a concurrent toggle cannot interleave.
+	# Staging + commit live inside commit_wan_log_change behind its last-moment
+	# firewall_changes_pending re-check (#191): a foreign writer racing between
+	# the early check above and the commit aborts the toggle instead of having
+	# its half-finished delta published with our log bit.
 	if ! acquire_wan_log_lock; then
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"lock_failed"}' "$zone_json"
 		return 0
@@ -320,12 +382,7 @@ enable_wan_logging() {
 	fi
 
 	target=$(wan_filter_log_target_value "$current")
-	if ! uci set "firewall.${zone}.log=${target}"; then
-		release_wan_log_lock
-		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_set_failed"}' "$zone_json"
-		return 0
-	fi
-	if ! commit_wan_log_change "$zone" "$zone_json"; then
+	if ! commit_wan_log_change "$zone" "$zone_json" "$target"; then
 		release_wan_log_lock
 		return 0
 	fi
@@ -347,9 +404,13 @@ disable_wan_logging() {
 
 	zone_json=$(json_null_or_string "$zone")
 
-	# Locked critical section: read->compute->set->commit for firewall.<zone>.log.
+	# Locked critical section: read->compute->stage->commit for firewall.<zone>.log.
 	# The log bit is re-read AFTER acquiring the lock so the target is computed
 	# from the latest committed value; a concurrent toggle cannot interleave.
+	# Staging + commit live inside commit_wan_log_change behind its last-moment
+	# firewall_changes_pending re-check (#191): a foreign writer racing between
+	# the early check above and the commit aborts the toggle instead of having
+	# its half-finished delta published with our log bit.
 	if ! acquire_wan_log_lock; then
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"lock_failed"}' "$zone_json"
 		return 0
@@ -369,20 +430,7 @@ disable_wan_logging() {
 	fi
 
 	target=$(wan_filter_log_clear_value "$current")
-	if [ -z "$target" ]; then
-		if ! uci delete "firewall.${zone}.log"; then
-			release_wan_log_lock
-			printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_delete_failed"}' "$zone_json"
-			return 0
-		fi
-	else
-		if ! uci set "firewall.${zone}.log=${target}"; then
-			release_wan_log_lock
-			printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_set_failed"}' "$zone_json"
-			return 0
-		fi
-	fi
-	if ! commit_wan_log_change "$zone" "$zone_json"; then
+	if ! commit_wan_log_change "$zone" "$zone_json" "$target"; then
 		release_wan_log_lock
 		return 0
 	fi

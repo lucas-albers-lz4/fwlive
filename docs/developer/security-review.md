@@ -82,6 +82,7 @@ should carry a note saying what would raise it.
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
 | — | Low | [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | `is_resolvable_address` admitted hostname-shaped tokens (dotted-hex) → read-ACL `resolve` sessions could trigger arbitrary upstream DNS via `getent`; strict IPv4/IPv6 validation + selftest cases landed in the fix PR — open until merge |
+| — | Low | [#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) | Global `uci commit firewall` could sweep unrelated staged deltas from non-lock-cooperating writers; commit moved behind a last-moment pending re-check + post-commit verification in the fix PR — open until merge |
 
 
 ## Accepted residuals
@@ -103,7 +104,7 @@ Honest gaps, so the next pass starts here rather than rediscovering them.
 |----------|--------|---------------------|
 | `resolve` really returns within its budget on a loaded router | cannot-prove on host | Lab: flood `fwlive.resolve` with unresolvable addresses, measure wall time |
 | The rpcd script timeout actually bounds a blocked `flock` waiter | cannot-prove on host | Lab: hold the lock from an unprivileged shell, call the toggle, observe rpcd |
-| `uci commit firewall` scope on a live device | prove-next | Lab: stage an unrelated `firewall` delta over SSH, toggle logging, check whether it committed |
+| `uci commit firewall` scope on a live device | prove-next | Lab: stage an unrelated `firewall` delta over SSH, toggle logging, check whether it committed — **host-level fix landed 2026-08-21 (#191)**: staging+commit moved inside `commit_wan_log_change` behind a last-moment `firewall_changes_pending` re-check (abort on foreign staging, never commit it, never revert foreign data) plus post-commit read-back verification; lab confirmation still pending |
 | Signing keys stay 0600 through a full publish | prove-next | The host test in [#165](https://github.com/lucas-albers-lz4/fwlive/issues/165) covers the library; a real run also passes through `validate-feed-keys.sh` |
 
 ## Review procedure
