@@ -23,3 +23,24 @@ jobs:
         run: SH='busybox sh' node tests/fwlive-shell-filter.test.js
       - name: Link check (internal markdown links + external URLs)
         run: ./scripts/fwlive-linkcheck.sh
+
+  zizmor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+
+      # Static-analysis for Actions (pinned image via docker run, not a
+      # job-level container — same EACCES pattern as usrmanage actionlint).
+      # Digest pins ghcr.io/zizmorcore/zizmor:1.29.0 (multi-arch index).
+      - name: Verify zizmor version (pinned image)
+        run: docker run --rm ghcr.io/zizmorcore/zizmor@sha256:863026d54f91271b10b60b67ad8054cb37120167e162482597db102b3026a284 --version
+
+      - name: Run zizmor on workflows
+        run: >
+          docker run --rm
+          -v "$GITHUB_WORKSPACE:/repo:ro"
+          -w /repo
+          ghcr.io/zizmorcore/zizmor@sha256:863026d54f91271b10b60b67ad8054cb37120167e162482597db102b3026a284
+          --offline --persona=regular --min-severity=high .
