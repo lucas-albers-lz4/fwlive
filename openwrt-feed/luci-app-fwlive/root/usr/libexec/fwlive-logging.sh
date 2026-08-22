@@ -20,6 +20,7 @@ NF_LOG_IPV6='/proc/sys/net/netfilter/nf_log/10'
 # outside the lock.
 # Overridable for tests/containers (default is the production path).
 WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/var/lock/fwlive-logging.lock}"
+WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-baseline}"
 
 # Acquire the exclusive logging lock on fd 9. Blocks until free; fails closed
 # (return 1) only if the lock file cannot be opened or flock is unavailable.
@@ -66,6 +67,61 @@ wan_zone_log_value() {
 	zone="$1"
 	[ -n "$zone" ] || return 1
 	uci -q get "firewall.${zone}.log" 2>/dev/null
+}
+
+wan_log_baseline_path() {
+	printf '%s' "$WAN_LOG_BASELINE_FILE"
+}
+
+# Snapshot firewall.<wan>.log once before the first enable changes UCI.
+# Empty file means the option was unset. Skipped when baseline already exists.
+maybe_snapshot_wan_log_baseline() {
+	zone="$1"
+	path="$(wan_log_baseline_path)"
+	[ -n "$zone" ] || return 1
+	[ -f "$path" ] && return 0
+	mkdir -p "$(dirname "$path")" 2>/dev/null || return 1
+	current=$(wan_zone_log_value "$zone")
+	printf '%s' "$current" >"$path" 2>/dev/null || return 1
+	return 0
+}
+
+# Restore WAN zone log from the install-time baseline (package prerm).
+# No-op when baseline is missing. Returns 1 on failure; baseline file is
+# kept until restore commits successfully.
+restore_wan_log_baseline() {
+	path="$(wan_log_baseline_path)"
+	[ -f "$path" ] || return 0
+	baseline=$(cat "$path" 2>/dev/null)
+	zone=$(find_wan_zone_section)
+	if [ -z "$zone" ]; then
+		logger -t fwlive "WAN log baseline restore skipped: no WAN zone" 2>/dev/null || true
+		return 1
+	fi
+	current=$(wan_zone_log_value "$zone")
+	if [ "${current:-}" = "${baseline:-}" ]; then
+		rm -f "$path"
+		return 0
+	fi
+	if ! acquire_wan_log_lock; then
+		logger -t fwlive "WAN log baseline restore skipped: lock unavailable" 2>/dev/null || true
+		return 1
+	fi
+	zone_json=$(json_null_or_string "$zone")
+	if firewall_changes_pending; then
+		release_wan_log_lock
+		logger -t fwlive "WAN log baseline restore skipped: firewall changes pending" 2>/dev/null || true
+		return 1
+	fi
+	if ! commit_wan_log_change "$zone" "$zone_json" "$baseline"; then
+		release_wan_log_lock
+		logger -t fwlive "WAN log baseline restore: commit gate failed" 2>/dev/null || true
+		return 1
+	fi
+	release_wan_log_lock
+	rm -f "$path"
+	reload_firewall || logger -t fwlive "WAN log baseline restored; firewall reload failed" 2>/dev/null || true
+	return 0
 }
 
 wan_filter_log_enabled() {
@@ -389,6 +445,12 @@ enable_wan_logging() {
 	if wan_filter_log_enabled "$current"; then
 		release_wan_log_lock
 		printf '{"ok":true,"changed":false,"wan_zone":%s}' "$zone_json"
+		return 0
+	fi
+
+	if ! maybe_snapshot_wan_log_baseline "$zone"; then
+		release_wan_log_lock
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"baseline_snapshot_failed"}' "$zone_json"
 		return 0
 	fi
 

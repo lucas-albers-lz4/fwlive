@@ -87,7 +87,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall) and reloads the firewall — no silent rule adds. Concurrent toggles from multiple admins are last-writer-wins. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
 | **WAN logging on · rate** | When logging is on, one merged control shows status and rate; click to disable. |
 | **Show Detail / Message** | Segmented pair on the watch strip: Simple ↔ Detailed, and Message wrap ↔ one line. Preferences saved in `localStorage` after you use them. |
-| **Display options** | Closed by default. Holds **Limit**, **Row tint** / palette, **Show hostnames**, and **Chip style**. |
+| **Display options** | Closed by default. Holds **Limit**, **Row tint** / palette, and **Show hostnames**. |
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. |
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns; hover shows the IP. Click still filters by IP. |
 | **Quick search** | Matches across all normalized fields. |

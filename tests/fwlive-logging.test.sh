@@ -26,6 +26,10 @@ json_escape() {
 
 . "$LOGGING_SH"
 
+WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-$(mktemp)}"
+export WAN_LOG_BASELINE_FILE
+rm -f "$WAN_LOG_BASELINE_FILE"
+
 run_logging_selftest || die "run_logging_selftest"
 ok "filter log bit logic"
 
@@ -183,6 +187,7 @@ case "$joined" in
 esac
 ok "restore_wan_zone_log skips commit when pending"
 unset -f uci check_nf_log_ipv4 check_nf_log_ipv6 acquire_wan_log_lock release_wan_log_lock
+
 
 # --- issue #191: TOCTOU between the pending check and `uci commit firewall` --
 # UCI staging is global per config file: a non-cooperating writer can stage a
@@ -436,6 +441,96 @@ case "$LOGGER_MSGS" in
 	*'not reverting'*) die "#191 enable/commit-fail-ours: spurious not-reverting warning: $LOGGER_MSGS" ;;
 esac
 ok "#191 commit failure with only our delta: revert cleans our orphaned staging"
+
+# WAN log baseline snapshot + restore (uninstall prerm)
+BASELINE_WORK=$(mktemp -d)
+WAN_LOG_BASELINE_FILE="$BASELINE_WORK/wan-log-baseline"
+export WAN_LOG_BASELINE_FILE
+WAN_ZONE_LOG=''
+uci() {
+	case "$1" in
+		set)
+			_wan_log_key='firewall.@zone[0].log='
+			if [ "${2#"$_wan_log_key"}" != "$2" ]; then
+				WAN_ZONE_LOG="${2#"$_wan_log_key"}"
+			fi
+			unset _wan_log_key
+			return 0
+			;;
+		delete)
+			[ "$2" = 'firewall.@zone[0].log' ] && WAN_ZONE_LOG=''
+			return 0
+			;;
+		commit) return 0 ;;
+	esac
+	case "$1 $2" in
+		'-q show')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+			;;
+		'-q get')
+			if [ "$3" = 'firewall.@zone[0]' ]; then
+				printf 'zone\n'
+			elif [ "$3" = 'firewall.@zone[0].log' ]; then
+				printf '%s' "$WAN_ZONE_LOG"
+			fi
+			;;
+		'-q changes') return 1 ;;
+		'-q delete')
+			[ "$3" = 'firewall.@zone[0].log' ] && WAN_ZONE_LOG=''
+			;;
+		'-q set')
+			_wan_log_key='firewall.@zone[0].log='
+			if [ "${3#"$_wan_log_key"}" != "$3" ]; then
+				WAN_ZONE_LOG="${3#"$_wan_log_key"}"
+			fi
+			unset _wan_log_key
+			;;
+		'commit firewall') return 0 ;;
+		*) return 0 ;;
+	esac
+}
+reload_firewall() { return 0; }
+mkdir() { command mkdir "$@"; }
+acquire_wan_log_lock() { return 0; }
+release_wan_log_lock() { return 0; }
+
+WAN_ZONE_LOG=''
+maybe_snapshot_wan_log_baseline '@zone[0]' || die "snapshot failed"
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file missing after snapshot"
+baseline=$(cat "$WAN_LOG_BASELINE_FILE")
+[ -z "$baseline" ] || die "empty baseline expected, got '$baseline'"
+
+WAN_ZONE_LOG='2'
+maybe_snapshot_wan_log_baseline '@zone[0]' || die "second snapshot call failed"
+baseline=$(cat "$WAN_LOG_BASELINE_FILE")
+[ -z "$baseline" ] || die "baseline must not be overwritten (want empty, got '$baseline')"
+
+WAN_ZONE_LOG='1'
+restore_wan_log_baseline || die "restore failed"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file must be removed after restore"
+[ -z "$WAN_ZONE_LOG" ] || die "restore empty baseline expected delete, got '$WAN_ZONE_LOG'"
+ok "restore_wan_log_baseline clears unset baseline"
+
+WAN_ZONE_LOG='3'
+printf '2' >"$WAN_LOG_BASELINE_FILE"
+restore_wan_log_baseline || die "restore numeric baseline failed"
+[ "$WAN_ZONE_LOG" = "2" ] || die "restore expected log=2, got '$WAN_ZONE_LOG'"
+ok "restore_wan_log_baseline sets saved value"
+
+WAN_ZONE_LOG='1'
+restore_wan_log_baseline || die "restore no-op failed"
+[ "$WAN_ZONE_LOG" = "1" ] || die "missing baseline must not change UCI, got '$WAN_ZONE_LOG'"
+ok "restore_wan_log_baseline no-op when baseline absent"
+
+WAN_ZONE_LOG=''
+printf '' >"$WAN_LOG_BASELINE_FILE"
+restore_wan_log_baseline || die "restore already-at-baseline failed"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file should be removed when already at target"
+ok "restore_wan_log_baseline no-op when UCI already matches baseline"
+
+rm -rf "$BASELINE_WORK"
+unset WAN_LOG_BASELINE_FILE WAN_ZONE_LOG BASELINE_WORK
+unset -f uci reload_firewall mkdir acquire_wan_log_lock release_wan_log_lock
 
 sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
 ok "rpcd __selftest"

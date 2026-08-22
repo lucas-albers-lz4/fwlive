@@ -86,8 +86,7 @@ const host = luciE.E('div', { 'class': 'fwlive-chips' }, []);
 host.style = { display: '' };
 chips.renderFilterChips(host, {
 	filters: { proto: payload },
-	chipFields: [ { key: 'proto', label: 'proto' } ],
-	chipStyle: 'labels'
+	chipFields: [ { key: 'proto', label: 'proto' } ]
 }, { onInvert: function() {}, onClear: function() {}, onClearAll: function() {} });
 assert.ok(host._innerHTMLWrites.length >= 1, 'chip rebuild clears via innerHTML');
 assert.ok(host._innerHTMLWrites.every(function(w) {

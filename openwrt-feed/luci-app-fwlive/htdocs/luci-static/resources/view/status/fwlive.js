@@ -105,7 +105,6 @@ return view.extend({
 	pendingForceRender: false,
 	lastPollNewEvents: 0,
 	showHostnames: false,
-	chipStyle: constants.DEFAULT_CHIP_STYLE,
 	rowTint: constants.DEFAULT_ROW_TINT,
 	/* Last non-off palette so toggling tint back on restores Classic/Accessible. */
 	rowTintPalette: 'classic',
@@ -316,33 +315,6 @@ return view.extend({
 			const pal = on ? this.rowTint : this.rowTintPalette;
 			tintSel.value = (pal === 'accessible') ? 'accessible' : 'classic';
 		}
-	},
-
-	readChipStyle() {
-		const v = storedValue('fwlive-chip-style', null);
-		if (constants.CHIP_STYLE_OPTIONS.indexOf(v) >= 0)
-			return v;
-		return constants.DEFAULT_CHIP_STYLE;
-	},
-
-	saveChipStyle() {
-		storeValue('fwlive-chip-style', this.chipStyle);
-	},
-
-	chipStyleSelectOptions() {
-		return optionNodes([
-			[ 'labels', _('Labels') ],
-			[ 'symbols', _('Symbols') ],
-			[ 'tone', _('Tone') ]
-		]);
-	},
-
-	onChipStyleChange(ev) {
-		const v = ev && ev.target ? ev.target.value : constants.DEFAULT_CHIP_STYLE;
-		this.chipStyle = constants.CHIP_STYLE_OPTIONS.indexOf(v) >= 0
-			? v : constants.DEFAULT_CHIP_STYLE;
-		this.saveChipStyle();
-		this.renderFilterChips();
 	},
 
 	actionRowTintClass(action) {
@@ -967,7 +939,6 @@ return view.extend({
 		const pauseBtn = document.getElementById('fwlive-pause');
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
-		const chipSel = document.getElementById('fwlive-chip-style');
 
 		if (strip) {
 			if (this.paused)
@@ -987,8 +958,6 @@ return view.extend({
 			pauseBtn.textContent = this.paused ? _('Resume') : _('Pause');
 		if (sel)
 			sel.value = String(this.rowLimit);
-		if (chipSel)
-			chipSel.value = this.chipStyle;
 		if (hostCb)
 			hostCb.checked = !!this.showHostnames;
 		this.updateRowTintUi();
@@ -1269,8 +1238,7 @@ return view.extend({
 
 		chips.renderFilterChips(bar, {
 			filters: Object.assign({}, this.readFilters()),
-			chipFields: this.FILTER_CHIP_FIELDS,
-			chipStyle: this.chipStyle
+			chipFields: this.FILTER_CHIP_FIELDS
 		}, {
 			onInvert: (field, ev) => this.invertFilter(field, ev),
 			onClear: (field, ev) => this.clearFilter(field, ev),
@@ -1466,10 +1434,6 @@ return view.extend({
 		const tintSel = document.getElementById('fwlive-row-tint');
 		if (tintSel)
 			tintSel.addEventListener('change', this.onRowTintPaletteChange.bind(this));
-
-		const chipSel = document.getElementById('fwlive-chip-style');
-		if (chipSel)
-			chipSel.addEventListener('change', this.onChipStyleChange.bind(this));
 	},
 
 	async pollData() {
@@ -1619,17 +1583,6 @@ return view.extend({
 							}),
 							_('Show hostnames')
 						])
-					]),
-					E('div', { 'class': 'fwlive-gcol' }, [
-						E('h3', {}, [ _('Filters look') ]),
-						E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-chip-style' }, [
-							_('Chip style'),
-							E('select', {
-								'id': 'fwlive-chip-style',
-								'class': 'cbi-input-select',
-								'title': _('How include vs exclude filters are shown on chips')
-							}, this.chipStyleSelectOptions())
-						])
 					])
 				])
 			]),
@@ -1695,12 +1648,11 @@ return view.extend({
 					E('ul', {}, [
 						E('li', {}, [ _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.') ]),
 						E('li', {}, [ _('Enable logging turns on WAN zone drop/reject logging only (same as Network → Firewall). It does not add rules or log normal LAN browsing.') ]),
-						E('li', {}, [ _('Display options hides Limit, row tint, hostnames, and chip style.') ]),
+						E('li', {}, [ _('Display options hides Limit, row tint, and hostnames.') ]),
 						E('li', {}, [ _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.') ]),
 						E('li', { 'id': 'fwlive-manual-test' }, []),
 						E('li', {}, [ _('Click a row (Time or other non-link cells) to see the full log line (Simple view).') ]),
 						E('li', {}, [ _('Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude.') ]),
-						E('li', {}, [ _('Chip style chooses how include vs exclude chips look (Labels, Symbols, or Tone). Default is Labels.') ]),
 						E('li', {}, [ _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.') ]),
 						E('li', {}, [ _('Use Show Detail for all columns (flags, length, raw message).') ]),
 						E('li', {}, [ _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).') ])
@@ -1721,7 +1673,6 @@ return view.extend({
 		this.showHostnames = this.readShowHostnames();
 		this.rowTint = this.readRowTint();
 		this.rowTintPalette = this.rowTintEnabled() ? this.rowTint : 'classic';
-		this.chipStyle = this.readChipStyle();
 		this.hostnameCache = new Map();
 		this.hostnameFailed = new Map();
 		this.resolveGeneration = 0;

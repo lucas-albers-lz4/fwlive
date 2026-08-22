@@ -59,9 +59,10 @@ That regenerates `…/fwlive/css.js` (`styleText` string). Do not edit `css.js` 
 ./scripts/qemu-install-fwlive.sh
 ./scripts/qemu-smoke-fwlive.sh
 ./scripts/qemu-proto-ui-smoke.sh   # protocol pair + Detail/Message segments (Playwright)
+./scripts/qemu-logging-uninstall-smoke.sh   # uninstall restores WAN log baseline (guest required)
 ```
 
-Checks: ubus, rpcd rules, LuCI HTTP, firewall log pipeline.
+Checks: ubus, rpcd rules, LuCI HTTP, firewall log pipeline, uninstall baseline restore.
 
 ## Version validation (full cell)
 

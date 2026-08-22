@@ -7,36 +7,28 @@
  *
  * renderFilterChips(host, state, callbacks) → void
  *   host      - container element (cleared and rebuilt; element itself is kept)
- *   state     - shallow copy: { filters, chipFields, chipStyle }
- *               chipStyle: 'labels' (default) | 'symbols' | 'tone'
+ *   state     - shallow copy: { filters, chipFields }
  *   callbacks - { onInvert(field, ev), onClear(field, ev), onClearAll(ev) }
  *
+ * Chips use the labels presentation (include: "is", exclude: "not" + light ≠).
  * Modules must not mutate state. host is cleared then rebuilt (idempotent replace).
  */
 
-function normalizeChipStyle(style) {
-	if (style === 'symbols' || style === 'tone')
-		return style;
-	return 'labels';
-}
-
-function chipValueNodes(field, val, style) {
+function chipValueNodes(field, val) {
 	const p = log.parseFilterValue(val);
 	if (!p.value)
 		return [ '' ];
 
-	const valueNode = (style === 'labels' && p.negate)
+	const valueNode = p.negate
 		? E('span', { 'class': 'fwlive-chip-strike' }, [ p.value ])
 		: p.value;
 
 	if (!p.negate) {
-		if (style === 'labels')
-			return [
-				E('span', { 'class': 'fwlive-chip-polarity' }, [ _('is') ]),
-				' ',
-				log.formatFilterChipLabel(field, val)
-			];
-		return [ log.formatFilterChipLabel(field, val) ];
+		return [
+			E('span', { 'class': 'fwlive-chip-polarity' }, [ _('is') ]),
+			' ',
+			log.formatFilterChipLabel(field, val)
+		];
 	}
 
 	if (field === 'q' || field === 'src' || field === 'dst')
@@ -55,27 +47,18 @@ function chipValueNodes(field, val, style) {
 	];
 }
 
-function chipLeadingSym(style, negated) {
-	/* symbols: always show = / ≠. labels: light touch of B — ≠ only on exclude. */
-	if (style === 'symbols')
-		return E('span', {
-			'class': 'fwlive-chip-sym',
-			'aria-hidden': 'true'
-		}, [ negated ? '≠' : '=' ]);
-
-	if (style === 'labels' && negated)
-		return E('span', {
-			'class': 'fwlive-chip-sym fwlive-chip-sym-light',
-			'aria-hidden': 'true'
-		}, [ '≠' ]);
-
-	return null;
+function chipLeadingSym(negated) {
+	if (!negated)
+		return null;
+	return E('span', {
+		'class': 'fwlive-chip-sym fwlive-chip-sym-light',
+		'aria-hidden': 'true'
+	}, [ '≠' ]);
 }
 
 function renderFilterChips(host, state, callbacks) {
 	const filters = state.filters || {};
 	const chipFields = state.chipFields || [];
-	const style = normalizeChipStyle(state.chipStyle);
 	const chips = [];
 
 	for (let i = 0; i < chipFields.length; i++) {
@@ -87,11 +70,11 @@ function renderFilterChips(host, state, callbacks) {
 		const parsed = log.parseFilterValue(val);
 		const negated = parsed.negate;
 		const kids = [];
-		const lead = chipLeadingSym(style, negated);
+		const lead = chipLeadingSym(negated);
 		if (lead)
 			kids.push(lead);
 
-		kids.push(E('span', { 'class': 'fwlive-chip-label' }, chipValueNodes(spec.label, val, style)));
+		kids.push(E('span', { 'class': 'fwlive-chip-label' }, chipValueNodes(spec.label, val)));
 		kids.push(E('span', {
 			'class': 'fwlive-chip-invert-wrap',
 			'data-tip': negated ? _('Include instead') : _('Exclude instead')
@@ -115,7 +98,7 @@ function renderFilterChips(host, state, callbacks) {
 		}, kids));
 	}
 
-	host.className = 'fwlive-chips fwlive-chips-' + style;
+	host.className = 'fwlive-chips fwlive-chips-labels';
 	host.innerHTML = '';
 	if (!chips.length) {
 		host.style.display = 'none';
@@ -134,6 +117,5 @@ function renderFilterChips(host, state, callbacks) {
 }
 
 return baseclass.extend({
-	normalizeChipStyle: normalizeChipStyle,
 	renderFilterChips: renderFilterChips
 });

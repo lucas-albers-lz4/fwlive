@@ -265,16 +265,8 @@ if (!text.includes("storedValue('fwlive-row-tint'") && !text.includes("localStor
 	console.error('missing fwlive-row-tint localStorage persistence');
 	process.exit(1);
 }
-if (!text.includes("storedValue('fwlive-chip-style'") && !text.includes("localStorage.getItem('fwlive-chip-style')")) {
-	console.error('missing fwlive-chip-style localStorage persistence');
-	process.exit(1);
-}
-if (!text.includes("'id': 'fwlive-chip-style'")) {
-	console.error('missing Chip style select in toolbar');
-	process.exit(1);
-}
-if (!css.includes('fwlive-chips-labels') || !css.includes('fwlive-chips-symbols') || !css.includes('fwlive-chips-tone')) {
-	console.error('missing chip style CSS variants');
+if (!css.includes('fwlive-chips-labels')) {
+	console.error('missing labels chip style CSS');
 	process.exit(1);
 }
 if (!text.includes("'id': 'fwlive-row-tint-toggle'") || !text.includes('toggleRowTint')) {

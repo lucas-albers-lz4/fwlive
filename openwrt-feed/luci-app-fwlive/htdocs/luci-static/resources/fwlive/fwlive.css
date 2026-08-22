@@ -554,37 +554,12 @@
 	color: var(--text-color-medium);
 	font-size: 0.95em;
 }
-#fwlive-chip-style { width: auto; min-width: 6.5em; }
 #fwlive-row-tint { width: auto; min-width: 9.5em; }
-/* labels (default): A + light B */
+/* labels (default) */
 .fwlive-chips-labels .fwlive-chip-include {
 	border-left: 3px solid var(--primary-color-medium, var(--primary-color-high, var(--border-color-high)));
 }
 .fwlive-chips-labels .fwlive-chip-negated .fwlive-chip-not {
-	color: var(--text-color-high);
-}
-/* symbols */
-.fwlive-chips-symbols .fwlive-chip-include {
-	border-left: 3px solid var(--primary-color-high);
-	background: color-mix(in srgb, var(--primary-color-high) 12%, var(--background-color-low));
-}
-.fwlive-chips-symbols .fwlive-chip-include .fwlive-chip-sym {
-	color: var(--primary-color-high);
-}
-.fwlive-chips-symbols .fwlive-chip-negated .fwlive-chip-sym {
-	color: var(--text-color-high);
-}
-/* tone */
-.fwlive-chips-tone .fwlive-chip-include {
-	border: 1.5px solid var(--primary-color-high);
-	background: color-mix(in srgb, var(--primary-color-high) 12%, var(--background-color-low));
-}
-.fwlive-chips-tone .fwlive-chip-negated {
-	border: 1.5px dashed var(--text-color-medium);
-	color: var(--text-color-medium);
-	background: var(--background-color-medium);
-}
-.fwlive-chips-tone .fwlive-chip-negated .fwlive-chip-not {
 	color: var(--text-color-high);
 }
 .fwlive-chip-invert-wrap {

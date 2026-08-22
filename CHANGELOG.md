@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Uninstall restores WAN zone `log` to the value before the first **Enable logging** via Live View (`prerm` + `/etc/fwlive/wan-log-baseline`).
+
+### Changed
+- Removed **Chip style** from Display options; filter chips always use the labels presentation.
+
+### Added
+- `scripts/qemu-reset-wan-logging.sh` and `scripts/qemu-logging-uninstall-smoke.sh` for lab verification.
+
 ## [v0.1.35] — 2026-08-21
 
 ### Security
