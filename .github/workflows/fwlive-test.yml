@@ -26,6 +26,10 @@ jobs:
 
   zizmor:
     runs-on: ubuntu-latest
+    env:
+      # Digest pins ghcr.io/zizmorcore/zizmor:1.29.0 (multi-arch index).
+      ZIZMOR_IMAGE: ghcr.io/zizmorcore/zizmor@sha256:863026d54f91271b10b60b67ad8054cb37120167e162482597db102b3026a284
+      ZIZMOR_VERSION: "1.29.0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
@@ -33,14 +37,20 @@ jobs:
 
       # Static-analysis for Actions (pinned image via docker run, not a
       # job-level container — same EACCES pattern as usrmanage actionlint).
-      # Digest pins ghcr.io/zizmorcore/zizmor:1.29.0 (multi-arch index).
       - name: Verify zizmor version (pinned image)
-        run: docker run --rm ghcr.io/zizmorcore/zizmor@sha256:863026d54f91271b10b60b67ad8054cb37120167e162482597db102b3026a284 --version
+        run: |
+          out="$(docker run --rm "$ZIZMOR_IMAGE" --version)"
+          printf '%s\n' "$out"
+          expected="zizmor ${ZIZMOR_VERSION}"
+          if [[ "$out" != "$expected" ]]; then
+            echo "expected '${expected}', got '${out}'" >&2
+            exit 1
+          fi
 
       - name: Run zizmor on workflows
-        run: >
-          docker run --rm
-          -v "$GITHUB_WORKSPACE:/repo:ro"
-          -w /repo
-          ghcr.io/zizmorcore/zizmor@sha256:863026d54f91271b10b60b67ad8054cb37120167e162482597db102b3026a284
-          --offline --persona=regular --min-severity=high .
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/repo:ro" \
+            -w /repo \
+            "$ZIZMOR_IMAGE" \
+            --offline --persona=regular --min-severity=high .
