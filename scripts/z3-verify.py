@@ -278,6 +278,11 @@ def matches_glue(s, max_len: int = WORD_SCAN_MAX):
 
 def _lit(s, pred, literal: str):
 	"""Bind s to a concrete literal and assert pred(s)."""
+	# Unsat must come from the predicate, not from the scan bound.
+	assert len(literal) <= WORD_SCAN_MAX, (
+		f"literal {literal!r} exceeds WORD_SCAN_MAX={WORD_SCAN_MAX}; "
+		"unsat would be vacuous"
+	)
 	return And(s == StringVal(literal), pred(s))
 
 
@@ -545,7 +550,7 @@ def run_f2_full() -> int:
 
 def run_fast() -> int:
 	"""Pre-commit subset (#121); return failure count."""
-	# F3–F4 stubs land in later PRs.
+	# F3-F4 stubs land in later PRs.
 	return run_f1_fast() + run_f2_fast()
 
 
