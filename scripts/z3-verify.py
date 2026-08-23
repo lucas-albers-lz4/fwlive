@@ -18,7 +18,18 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
 import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+IS_FW = ROOT / (
+	"openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh"
+)
+GEN_SHELL = ROOT / "scripts/gen-shell-classifier.js"
+RPCD = ROOT / "openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive"
+ROBUSTNESS_JS = ROOT / "scripts/z3-robustness.js"
 
 try:
 	from z3 import And, If, Not, Or, Solver, String, StringVal, sat, unsat
@@ -80,6 +91,19 @@ GLUE_KEYS = (
 ALNUM_US = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"
 # Declared domain for unrolled whole-word / glue scans (not all-length).
 WORD_SCAN_MAX = 24
+# Printable corpus alphabet for Z3 sat-models (argv/env safe; reproducible).
+SAMPLE_ALPHABET = (
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	"_-.:=[] \t"
+)
+# Fixed `/i` mixed-case lines — outside Z3 finite-token model; F3 differential parity.
+MIXED_CASE_PARITY_CORPUS = (
+	"aCcEpT IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP",
+	"DrOp IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DPT=22",
+	"sYn ACK",
+	"dnsMasq[1]: query noise",
+	"fw4: aCcEpT without key values",
+)
 
 
 def _alphabet_of(words) -> str:
@@ -551,15 +575,238 @@ def run_f2_full() -> int:
 	return fail
 
 
+def _run_node(args: list[str], label: str) -> bool:
+	"""Run node with args; print ok/FAIL."""
+	try:
+		out = subprocess.run(["node", *args], cwd=ROOT, capture_output=True, text=True)
+	except FileNotFoundError:
+		print(f"FAIL: {label} — node not found in PATH", file=sys.stderr)
+		return False
+	if out.returncode == 0:
+		print(f"ok: {label}")
+		return True
+	print(f"FAIL: {label} — {out.stderr or out.stdout}", file=sys.stderr)
+	return False
+
+
+def _js_is_firewall(msg: str) -> bool:
+	"""Node core.isFirewallEvent for a raw message string."""
+	code = (
+		"const c=require('./core/fwlive-log.js');"
+		"const m=process.argv[1];"
+		"process.stdout.write(c.isFirewallEvent({msg:m})?'yes':'no');"
+	)
+	out = subprocess.run(
+		["node", "-e", code, msg],
+		cwd=ROOT,
+		capture_output=True,
+		text=True,
+	)
+	if out.returncode != 0:
+		raise RuntimeError(out.stderr or out.stdout)
+	return out.stdout.strip() == "yes"
+
+
+def _shell_is_firewall(msg: str, sh: str = "sh") -> bool:
+	"""Generated shell classifier parity for msg."""
+	parts = sh.split()
+	cmd = parts[0]
+	prefix = parts[1:]
+	script = (
+		'. "$IS_FW" || exit 3; '
+		'command -v is_firewall_event_msg >/dev/null 2>&1 || exit 4; '
+		'if is_firewall_event_msg "$FW_MSG"; then echo yes; else echo no; fi'
+	)
+	out = subprocess.run(
+		[cmd, *prefix, "-c", script],
+		cwd=ROOT,
+		capture_output=True,
+		text=True,
+		env={**os.environ, "FW_MSG": msg, "IS_FW": str(IS_FW)},
+	)
+	if out.returncode != 0:
+		raise RuntimeError(out.stderr or out.stdout)
+	return out.stdout.strip() == "yes"
+
+
+def _z3_model_string(sol, var) -> str:
+	"""Extract a concrete string from a Z3 String model variable."""
+	val = sol.model().eval(var, model_completion=True)
+	raw = val.as_string()
+	if len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
+		return raw[1:-1]
+	return raw
+
+
+def _z3_sat_samples(pred, max_len: int = WORD_SCAN_MAX, n: int = 3) -> list[str]:
+	"""Collect up to n distinct sat models for pred(String s)."""
+	s = String("s")
+	samples: list[str] = []
+	for _ in range(n):
+		sol = Solver()
+		sol.add(pred(s))
+		sol.add(Length(s) >= 1, Length(s) <= max_len)
+		# Keep models printable: argv/env cannot carry NUL; unconstrained flanks
+		# admit arbitrary control characters and make the corpus nondeterministic.
+		for i in range(max_len):
+			sol.add(If(Length(s) > i, _char_in(s, i, SAMPLE_ALPHABET), True))
+		for prev in samples:
+			sol.add(s != StringVal(prev))
+		r = sol.check()
+		if r != sat:
+			break
+		samples.append(_z3_model_string(sol, s))
+	return samples
+
+
+def _z3_adversarial_corpus() -> list[str]:
+	"""Z3-generated strings around F2 predicates for parity fuzz (#199)."""
+	corpus: list[str] = []
+
+	# Predicate-shaped samples from sat models.
+	corpus.extend(_z3_sat_samples(matches_deny, n=4))
+	corpus.extend(_z3_sat_samples(matches_action_re, n=4))
+	corpus.extend(_z3_sat_samples(matches_nf_prefix, n=3))
+	corpus.extend(_z3_sat_samples(matches_glue, n=3))
+	corpus.extend(_z3_sat_samples(matches_flag_tail, n=3))
+
+	# Fixed boundary / glue / metachar lines (parity stress).
+	corpus.extend(
+		[
+			" DROP ",
+			"XDROPY DROP",
+			"fwlive-pingIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP",
+			"dnsmasq[123]: query",
+			"dnsmasqfoo: IN=wan OUT= SRC=1.2.3.4",
+			"$(reboot); IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP",
+			"IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP",
+			"fw4rejectIN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP",
+			"x DST= DROP",
+			"SYN ACK",
+			"not-a-firewall-line at all",
+		]
+	)
+	corpus.extend(MIXED_CASE_PARITY_CORPUS)
+
+	# Dedupe preserving order.
+	seen: set[str] = set()
+	out: list[str] = []
+	for item in corpus:
+		if item not in seen:
+			seen.add(item)
+			out.append(item)
+	return out
+
+
+def run_f3_fast() -> int:
+	"""F3 --fast: codegen drift guard (byte identity vs gen-shell-classifier)."""
+	fail = 0
+	if not GEN_SHELL.is_file() or not IS_FW.is_file():
+		print("FAIL: F3 missing codegen paths", file=sys.stderr)
+		return 1
+	out = None
+	try:
+		out = subprocess.run(
+			["node", str(GEN_SHELL)],
+			cwd=ROOT,
+			capture_output=True,
+			text=True,
+		)
+	except FileNotFoundError:
+		print("FAIL: F3 codegen generator — node not found in PATH", file=sys.stderr)
+		return 1
+	if out.returncode != 0:
+		print(f"FAIL: F3 codegen generator — {out.stderr or out.stdout}", file=sys.stderr)
+		fail += 1
+	elif out.stdout != IS_FW.read_text(encoding="utf-8"):
+		print(
+			"FAIL: F3 codegen drift — fwlive-is-firewall-event.sh stale (run ./scripts/gen-all.sh)",
+			file=sys.stderr,
+		)
+		fail += 1
+	else:
+		print("ok: F3 codegen drift guard")
+	return fail
+
+
+def run_f3_full() -> int:
+	"""F3 --full: Z3 corpus through JS↔shell parity (sh + busybox sh)."""
+	fail = run_f3_fast()
+	try:
+		corpus = _z3_adversarial_corpus()
+		print(f"ok: F3 mixed-case parity block queued ({len(MIXED_CASE_PARITY_CORPUS)} lines)")
+	except Exception as exc:  # pragma: no cover
+		print(f"FAIL: F3 corpus generation — {exc}", file=sys.stderr)
+		return fail + 1
+
+	shells = ["sh"]
+	if subprocess.run(["sh", "-c", "command -v busybox"], capture_output=True).returncode == 0:
+		shells.append("busybox sh")
+	else:
+		print("F3: busybox not found — sh-only parity (install busybox for full ash)", file=sys.stderr)
+
+	for msg in corpus:
+		try:
+			js = _js_is_firewall(msg)
+		except Exception as exc:
+			print(f"FAIL: F3 JS classify — {exc!r} for {msg!r}", file=sys.stderr)
+			fail += 1
+			continue
+		for sh in shells:
+			try:
+				shell = _shell_is_firewall(msg, sh)
+			except Exception as exc:
+				print(f"FAIL: F3 shell classify ({sh}) — {exc!r} for {msg!r}", file=sys.stderr)
+				fail += 1
+				continue
+			if js != shell:
+				print(
+					f"FAIL: F3 parity mismatch ({sh}) js={js} shell={shell} msg={msg!r}",
+					file=sys.stderr,
+				)
+				fail += 1
+			else:
+				print(f"ok: F3 parity ({sh}) {msg[:48]!r}{'…' if len(msg) > 48 else ''}")
+
+	if fail == 0:
+		print(f"ok: F3 parity corpus ({len(corpus)} msgs, shells={shells})")
+	return fail
+
+
+def run_f4_fast() -> int:
+	"""F4 --fast: malformed-input no-crash (normalize/classify corpus)."""
+	fail = 0
+	if not _run_node([str(ROBUSTNESS_JS), "--fast"], "F4 robustness --fast"):
+		fail += 1
+	return fail
+
+
+def run_f4_full() -> int:
+	"""F4 --full: expanded corpus + rpcd __selftest (sed extractions)."""
+	fail = run_f4_fast()
+	if not _run_node([str(ROBUSTNESS_JS), "--full"], "F4 robustness --full"):
+		fail += 1
+	if RPCD.is_file():
+		out = subprocess.run(["sh", str(RPCD), "__selftest"], cwd=ROOT, capture_output=True, text=True)
+		if out.returncode != 0:
+			print(f"FAIL: F4 rpcd __selftest — {out.stderr or out.stdout}", file=sys.stderr)
+			fail += 1
+		else:
+			print("ok: F4 rpcd __selftest")
+	else:
+		print("FAIL: F4 missing rpcd path", file=sys.stderr)
+		fail += 1
+	return fail
+
+
 def run_fast() -> int:
 	"""Pre-commit subset (#121); return failure count."""
-	# F3-F4 stubs land in later PRs.
-	return run_f1_fast() + run_f2_fast()
+	return run_f1_fast() + run_f2_fast() + run_f3_fast() + run_f4_fast()
 
 
 def run_full() -> int:
 	"""CI / full suite (#121); return failure count."""
-	return run_f1_full() + run_f2_full()
+	return run_f1_full() + run_f2_full() + run_f3_full() + run_f4_full()
 
 
 def main() -> int:

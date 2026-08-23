@@ -13,8 +13,8 @@ rpcd behavior (file separate issues for behavior fixes).
 | ----- | ----- | ----------------- |
 | F1 `is_resolvable_address` alphabet | [#197](https://github.com/lucas-albers-lz4/fwlive/issues/197) | `scripts/z3-verify.py` |
 | F2 CLASSIFY_SPEC | [#198](https://github.com/lucas-albers-lz4/fwlive/issues/198) | `scripts/z3-verify.py` |
-| F3 adversarial parity | [#199](https://github.com/lucas-albers-lz4/fwlive/issues/199) | planned |
-| F4 parser robustness | [#200](https://github.com/lucas-albers-lz4/fwlive/issues/200) | planned |
+| F3 adversarial parity | [#199](https://github.com/lucas-albers-lz4/fwlive/issues/199) | `scripts/z3-verify.py` |
+| F4 parser robustness | [#200](https://github.com/lucas-albers-lz4/fwlive/issues/200) | `scripts/z3-verify.py`, `scripts/z3-robustness.js` |
 
 ## Commands
 
@@ -45,7 +45,7 @@ python3 scripts/z3-verify.py --full
 
 **Not claimed:** length-independent symbolic word-boundary proofs for arbitrary-length
 inputs. Those require ECMA-direct backends in [regexproof](https://github.com/lucas-albers-lz4/regexproof)
-(`re.from_ecma2020` / Noodler — see upstream issue filed from this epic).
+(`re.from_ecma2020` / Noodler — [regexproof#571](https://github.com/lucas-albers-lz4/regexproof/issues/571)).
 
 ## `/i` and mixed-case (F2)
 
@@ -57,7 +57,7 @@ Z3 predicates enumerate **original + lowercase + uppercase** per token via
 | ----- | ------------------- |
 | F2 Z3 predicates | Upper + lower + spec spelling only |
 | F3 differential parity | Fixed mixed-case corpus (PR #203) — JS vs shell under `sh` and `busybox sh` |
-| Formal ECMA `/i` proof | regexproof upstream (`re.from_ecma2020`; link added when issue is filed) |
+| Formal ECMA `/i` proof | [regexproof#571](https://github.com/lucas-albers-lz4/regexproof/issues/571) (`re.from_ecma2020`) |
 
 ## F1 scope note
 
@@ -86,3 +86,22 @@ facts, not the classify predicates. Tuples in `scripts/z3-verify.py` are pinned 
 `core/fwlive-log.js` CLASSIFY_SPEC (update both if the spec changes).
 Word-boundary uses `Complement([A-Za-z0-9_])` at **length 1 only** (not
 `Star(Complement)`).
+
+## F3 scope note
+
+`--fast`: codegen drift guard (`gen-shell-classifier.js` output must match
+committed `fwlive-is-firewall-event.sh`). `--full`: Z3 sat-models from F2
+predicates plus fixed boundary lines and `MIXED_CASE_PARITY_CORPUS` are checked
+for JS (`core.isFirewallEvent`) vs generated shell
+(`fwlive-is-firewall-event.sh`) parity under `sh` and `busybox sh` (CI installs
+busybox). Z3 sat-models remain upper/lower/original only; arbitrary `/i`
+mixed-case is covered by the fixed corpus, not predicate enumeration. Formal
+ECMA `/i` proofs: [regexproof#571](https://github.com/lucas-albers-lz4/regexproof/issues/571).
+
+## F4 scope note
+
+`scripts/z3-robustness.js` exercises `normalizeNetfilterMessage`,
+`parseKeyValueLog`, `detectAction`, and `isFirewallEvent` on a malformed
+**string** corpus (no throw). Non-string `entry.msg` values are out of scope —
+rpcd/JSON paths always pass strings. `--full` also runs `rpcd/fwlive __selftest` (sed prefix/comment
+captures and address selftests).
