@@ -597,7 +597,7 @@ def _shell_is_firewall(msg: str, sh: str = "sh") -> bool:
 	prefix = parts[1:]
 	script = f'. "{IS_FW}" && is_firewall_event_msg "$FW_MSG" && echo yes || echo no'
 	out = subprocess.run(
-		prefix + ["-c", script],
+		[cmd, *prefix, "-c", script],
 		cwd=ROOT,
 		capture_output=True,
 		text=True,

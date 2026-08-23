@@ -55,7 +55,7 @@ jobs:
             "$ZIZMOR_IMAGE" \
             --offline --persona=regular --min-severity=high .
 
-  # #121: authoritative Z3 suite (F1+F2; F3–F4 land in later PRs).
+  # #121: authoritative Z3 suite (F1-F4).
   z3-verify:
     runs-on: ubuntu-latest
     steps:

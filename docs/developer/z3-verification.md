@@ -98,6 +98,7 @@ vs generated shell (`fwlive-is-firewall-event.sh`) parity under `sh` and
 ## F4 scope note
 
 `scripts/z3-robustness.js` exercises `normalizeNetfilterMessage`,
-`parseKeyValueLog`, `detectAction`, and `isFirewallEvent` on a malformed corpus
-(no throw). `--full` also runs `rpcd/fwlive __selftest` (sed prefix/comment
+`parseKeyValueLog`, `detectAction`, and `isFirewallEvent` on a malformed
+**string** corpus (no throw). Non-string `entry.msg` values are out of scope —
+rpcd/JSON paths always pass strings. `--full` also runs `rpcd/fwlive __selftest` (sed prefix/comment
 captures and address selftests).
