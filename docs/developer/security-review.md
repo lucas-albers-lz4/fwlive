@@ -12,6 +12,14 @@ open. This document is the **record**; it owns no rules.
 Start here before a pass. Do not re-derive the trust boundaries, and do not
 reopen an accepted residual without new evidence.
 
+## Review goals
+
+| Goal | Examples in this repo |
+|------|------------------------|
+| Exploit | Injection, ACL bypass, XSS from log data, privilege escalation |
+| Data corruption / availability | Log pipeline failure, lock issues, UCI sweep |
+| Supply chain | Unpinned tooling, signing keys, feed trust |
+
 ## Why a ledger and not just a model
 
 `security-model.md` states what must be true. It cannot tell you whether anyone
@@ -43,12 +51,16 @@ should carry a note saying what would raise it.
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
 | rpcd plugin + ACL scope | 2026-08-13 | Diff + selftest | #177: no diff since `ce9df02`; read/write split; no `ubus log.*` |
 | Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
-| Shell helpers — **file modes and lock ownership** | 2026-08-13 | Reproduced | #177: `fwlive-logging-lock.test.sh` 32-trial; lock 0600 |
+| Shell helpers — **file modes and lock ownership** | 2026-08-23 | Reproduced | #204 fix: symlink at lock path rejected; Part E in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-08-22 | Read + host test | `/etc/fwlive/wan-log-baseline`; restore only on `remove` |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-08-13 | Host test | #177: pending-delta refuse; named/anonymous/non-zone lookups |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
 | Release pipeline — fetch pinning | 2026-08-18 | Read + host test | #177 fetch-pin gate; R7 digest pin-cache (`tests/sdk-matrix-digests.test.sh`); 2026-08-18 wrapper-export + exact-cache-key |
-| Workflow inputs into `run:` bodies | 2026-08-18 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY`; 2026-08-18: dispatch tag validated (control chars, shape, real-tag + HEAD identity) before repo scripts |
+| Workflow inputs into `run:` bodies | 2026-08-23 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY`; 2026-08-18: dispatch tag validated (control chars, shape, real-tag + HEAD identity) before repo scripts |
+| LuCI view (templates / shipped JS) | 2026-08-23 | Read | No new sinks; untrusted values remain text nodes |
+| Package/install surface (Makefiles, prerm, feed layout) | 2026-08-23 | Read | No ACL or path regressions |
+| Build inputs (`feeds.lock`, `package-lock.json`) | 2026-08-23 | Read | Pins intact |
+| Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 
 ## Controls in force
 
@@ -78,13 +90,21 @@ should carry a note saying what would raise it.
 | WAN toggle changes only the zone `log` bit | `host` | `tests/fwlive-logging.test.sh` — pending-delta refuse; named + anonymous zone lookup |
 | Uninstall restores WAN `log` from pre-first-enable baseline | `host` | `tests/fwlive-logging.test.sh` — baseline snapshot/restore; `scripts/qemu-logging-uninstall-smoke.sh` (`lab`) |
 | The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600 |
+| Lock path rejects symlinks before truncate/chmod/chown | `host` | `tests/fwlive-logging-lock.test.sh` Part E — #204 |
 
 ## Open findings
 
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
-| — | Low | [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | `is_resolvable_address` admitted hostname-shaped tokens (dotted-hex) → read-ACL `resolve` sessions could trigger arbitrary upstream DNS via `getent`; strict IPv4/IPv6 validation + selftest cases landed in the fix PR — open until merge |
-| — | Low | [#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) | Global `uci commit firewall` could sweep unrelated staged deltas from non-lock-cooperating writers; mitigated with pre-stage + post-stage foreign gates and post-commit verification — residual window (stage between post-stage check and commit, or same-option races) documented; lab confirmation still pending |
+
+## Verified findings (closed in this ledger)
+
+| ID | Severity | Issue | Summary | Verified |
+|----|----------|-------|---------|----------|
+| Low | [#204](https://github.com/lucas-albers-lz4/fwlive/issues/204) | Predictable lock path opened O_TRUNC without symlink check | `acquire_wan_log_lock` rejects `-L` before create/tighten/open; Part E asserts decoy not truncated | 2026-08-23 — security-audit PR |
+| Low | [#205](https://github.com/lucas-albers-lz4/fwlive/issues/205) | Unpinned `@playwright/mcp@latest` in `.cursor/mcp.json` | MCP entry removed; tests use pinned `playwright@1.60.0` | 2026-08-23 — security-audit PR |
+| Low | [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | `is_resolvable_address` hostname-shaped tokens | Strict IPv4/IPv6 validation + selftest cases | merged 2026-08-21 |
+| Low | [#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) | `uci commit firewall` foreign-delta sweep | Pre/post-stage gates + post-commit verification; residual window documented | merged 2026-08-23 |
 
 
 ## Accepted residuals
@@ -245,3 +265,33 @@ mutator.
 **Fix.** Export the wrapper **and** the hidden `.bin` into `tools_dir` and the shared-lib tree (`*.so*` only) into a separate `lib_dir`, mounted as siblings at `/feed/tools` + `/feed/lib` so the wrapper's `../lib` resolution works while `/feed/pkgdir` stays a plain mount. Export runs in the dedicated `sdk-export` compose service (SDK volume only, **no workspace mount**) as the invoking uid — the workspace holds the signing keys, so the export container must never see them; only world-readable `.so*` libs are copied (the 0600 buildbot-owned `meson/` templates are not needed), so root is not required. Sign runs remain `docker run --network none`, no `/builder` mount, digest-pinned image, keys `:ro` — all preserved.
 
 **Result.** `bash -n` clean; actionlint clean; fix verified by re-running the publish workflow (v0.1.34).
+
+### 2026-08-23 — Read-only audit + remediations (#204, #205, #206)
+
+**Scope.** Full-surface read-only pass (log parsing/logging script, rpcd plugin + ACL,
+LuCI view, package/install surface, CI workflows, release + signing, build inputs,
+dev tooling). Filed [#204](https://github.com/lucas-albers-lz4/fwlive/issues/204),
+[#205](https://github.com/lucas-albers-lz4/fwlive/issues/205), [#206](https://github.com/lucas-albers-lz4/fwlive/issues/206).
+
+**Method.** Read-only inspection against `master`; upstream source checks where
+relevant. Two findings remediated in the same PR: symlink guard on the WAN logging
+lock (#204), removal of unpinned `@playwright/mcp@latest` (#205). Ledger refresh
+(#206) records verified state.
+
+**Findings fixed in PR.**
+
+- **#204** — `acquire_wan_log_lock` failed closed on `-L` before create, chmod/chown,
+  and `exec 9>`; Part E in `fwlive-logging-lock.test.sh`.
+- **#205** — `.cursor/mcp.json` playwright MCP removed; UI smoke tests use pinned
+  `playwright@1.60.0` from `package.json`.
+
+**Non-findings** (surfaces examined, clean):
+
+- rpcd plugin + ACL: read/write split; no `ubus log.*`; selftests intact.
+- LuCI view: no new HTML sinks; untrusted values remain text nodes.
+- CI workflows: no `${{ }}` in `run:` bodies; actions SHA-pinned.
+- Release + signing: R7 controls unchanged; no new unpinned fetches.
+- Build inputs: `feeds.lock` / `package-lock.json` pins intact.
+
+**Result.** Open findings table empty. #204/#205 in Verified findings. `SECURITY.md`
+links to this ledger for review state.

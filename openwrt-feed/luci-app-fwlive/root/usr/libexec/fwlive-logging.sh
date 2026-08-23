@@ -27,9 +27,14 @@ WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-basel
 # Create/tighten the lock to 0600 so unprivileged UIDs cannot take LOCK_EX on
 # a world-readable fd (issue #167 / flock(2) allows exclusive locks on O_RDONLY).
 acquire_wan_log_lock() {
+	# Fail closed on a pre-planted symlink: chmod/chown/exec O_TRUNC follow the
+	# target and run as root (#204). Re-check after create/tighten (TOCTOU).
+	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
 	( umask 077; : >> "$WAN_LOG_LOCK_FILE" ) 2>/dev/null || return 1
+	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
 	chmod 0600 "$WAN_LOG_LOCK_FILE" 2>/dev/null || true
 	chown 0:0 "$WAN_LOG_LOCK_FILE" 2>/dev/null || true
+	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
 	exec 9>"$WAN_LOG_LOCK_FILE" 2>/dev/null || return 1
 	flock 9 2>/dev/null || {
 		exec 9>&-
