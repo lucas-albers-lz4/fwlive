@@ -195,13 +195,25 @@ sdk_matrix_validate_version() {
 	return 1
 }
 
+sdk_matrix_cache_dirs() {
+	local root="$1" version_label="$2"
+	SDK_MATRIX_DL_CACHE="${OWRT_SDK_DL_CACHE:-${root}/.ci-sdk-cache/dl}"
+	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
+	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"
+	# buildbot (uid 1000) must write bind mounts; Actions runner is often 1001.
+	chmod -R a+rwX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null || true
+}
+
 sdk_matrix_compose_run() {
 	local root
 	root="$(sdk_matrix_root)"
+	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
+		OWRT_SDK_DL_CACHE="$SDK_MATRIX_DL_CACHE" \
+		OWRT_SDK_FEEDS_CACHE="$SDK_MATRIX_FEEDS_CACHE" \
 		docker compose run --rm sdk "$@"
 	)
 }
@@ -213,9 +225,18 @@ sdk_matrix_feeds_lock_path() {
 }
 
 sdk_matrix_feeds_ready() {
-	sdk_matrix_compose_run sh -c \
-		'test -f /builder/.config && find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q .' \
-		2>/dev/null
+	# Require .config, package feeds present, and lock stamp matching the pinned
+	# feeds.conf so a restored cache cannot skip refresh after pin changes.
+	sdk_matrix_compose_run sh -c "
+		test -f /builder/.config || exit 1
+		lock=/work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf
+		stamp=/builder/feeds/.fwlive-feeds.lock.sha
+		test -f \"\$lock\" && test -f \"\$stamp\" || exit 1
+		cur=\$(sha256sum \"\$lock\" | awk '{print \$1}')
+		old=\$(cat \"\$stamp\")
+		[ -n \"\$cur\" ] && [ \"\$cur\" = \"\$old\" ] || exit 1
+		find -L /builder/feeds -maxdepth 8 -path '*/luci-app-fwlive/Makefile' 2>/dev/null | grep -q .
+	" 2>/dev/null
 }
 
 sdk_matrix_feeds_base_packages() {
@@ -241,6 +262,7 @@ sdk_matrix_feeds_setup() {
 	}
 	# Retry feeds update: git.openwrt.org (and mirrors) drop TLS under CI load.
 	# HTTP/1.1 reduces curl-35 / gnutls_handshake failures (openwrt/openwrt#21854).
+	# Wipe partial clones on failure; require .git dirs so soft exit-0 without clone fails.
 	sdk_matrix_compose_run sh -ec "
 		cd /builder
 		export TERM=dumb
@@ -253,15 +275,24 @@ sdk_matrix_feeds_setup() {
 		git config --global http.version HTTP/1.1 || true
 
 		ok=0
-		for i in 1 2 3; do
-			if ./scripts/feeds update base luci packages; then
+		i=1
+		while [ \"\$i\" -le 3 ]; do
+			if ./scripts/feeds update base luci packages \\
+				&& { [ -d feeds/base/.git ] || [ -d feeds/base_root/.git ]; } \\
+				&& [ -d feeds/packages/.git ] \\
+				&& [ -d feeds/luci/.git ]; then
 				ok=1
 				break
 			fi
-			echo \"feeds update attempt \$i failed; retrying in \$((i * 5))s...\" >&2
+			echo \"feeds update failed (attempt \$i/3); wiping partial clones\" >&2
+			rm -rf feeds/base feeds/base_root feeds/packages feeds/luci
+			if [ \"\$i\" -eq 3 ]; then
+				break
+			fi
 			sleep \$((i * 5))
+			i=\$((i + 1))
 		done
-		test \"\$ok\" -eq 1
+		[ \"\$ok\" -eq 1 ] || { echo 'feeds update failed after 3 attempts' >&2; exit 1; }
 
 		./scripts/feeds install -p base ${base_pkgs}
 		./scripts/feeds install luci-base
@@ -269,6 +300,8 @@ sdk_matrix_feeds_setup() {
 		./scripts/feeds install luci-app-fwlive
 		rm -rf tmp
 		make defconfig
+		sha256sum /work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf \
+			| awk '{print \$1}' > feeds/.fwlive-feeds.lock.sha
 	"
 }
 
@@ -344,10 +377,14 @@ sdk_matrix_copy_out() {
 	dest_host="${out_mount}/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}"
 	mkdir -p "$dest_host"
 	# SDK image runs as buildbot (uid 1000); GHA workspace is often uid 1001 — copy as root.
+	# Pass the same dl/feeds bind mounts as compose_run so defaults do not clobber /builder.
+	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
+		OWRT_SDK_DL_CACHE="$SDK_MATRIX_DL_CACHE" \
+		OWRT_SDK_FEEDS_CACHE="$SDK_MATRIX_FEEDS_CACHE" \
 		docker compose run --rm --user root -v "${out_mount}:/out" sdk sh -ec "
 			dest=/out/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}
 			mkdir -p \"\$dest\"

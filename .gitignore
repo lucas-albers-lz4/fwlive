@@ -55,6 +55,9 @@ fwlive-feed.rsa.pub.*
 /tmp/
 /dl/
 
+# Host-side SDK dl/feeds bind mounts (CI + local docker-sdk rebuilds)
+.ci-sdk-cache/
+
 # Editor / OS
 .DS_Store
 *.swp

@@ -267,9 +267,11 @@ Pinned inputs (regenerate when bumping OpenWrt point releases):
 determinism; the recorded `sdk_digest` makes each release attributable to the
 exact SDK image it was built from.
 
-Publish CI (`publish-packages`) retries `feeds update` (3× + HTTP/1.1) and caches
-`/builder/feeds` + `/builder/dl` across runs (`scripts/ci-cache-sdk-feeds.sh`,
-keyed on the feeds.lock tree) so a transient TLS drop does not fail a release.
+Publish CI (`publish-packages`) retries `feeds update` (3× + wipe partial clones +
+HTTP/1.1), bind-mounts host `.ci-sdk-cache/{dl,feeds/<version>}` into `/builder`,
+and caches those dirs across runs (exact `feeds.lock` hash key, no `restore-keys`)
+so a transient TLS drop does not fail a release. A lock stamp under feeds forces
+refresh when pins change.
 
 Verify locally:
 

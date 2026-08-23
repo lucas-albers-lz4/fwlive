@@ -119,20 +119,26 @@ jobs:
           APK_FEED_PUBLIC_KEY: ${{ github.workspace }}/fwlive-feed.rsa.pub
         run: ./scripts/validate-feed-keys.sh
 
-      # #122: reuse feed clones + dl/ across publishes (lock hash = cache key).
+      # #128: bind-mount .ci-sdk-cache into /builder/dl + /builder/feeds (no volume tar/copy).
       # Split restore/save (not actions/cache) so a publish workflow cannot
       # write cache entries that later poison a release build (zizmor
-      # cache-poisoning).
-      - name: Restore SDK feeds and dl cache
+      # cache-poisoning). Exact lock hash only — no restore-keys (#183 / #128 item 4).
+      - name: Restore SDK dl/feeds cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         id: sdk-feeds-cache
         with:
-          path: .cache/sdk-feeds
-          # Exact lock hash only — no restore-keys prefix (avoids stale pins).
-          key: sdk-feeds-${{ runner.os }}-${{ hashFiles('scripts/feeds.lock/**') }}
+          path: |
+            .ci-sdk-cache/dl
+            .ci-sdk-cache/feeds
+          key: sdk-dl-feeds-${{ hashFiles('scripts/feeds.lock/**') }}
 
-      - name: Restore SDK feeds into docker volumes
-        run: ./scripts/ci-cache-sdk-feeds.sh restore .cache/sdk-feeds
+      - name: Prepare SDK cache dirs
+        run: |
+          mkdir -p .ci-sdk-cache/dl
+          for v in 21.02.7 22.03.7 23.05.5 24.10.8 25.12.5; do
+            mkdir -p ".ci-sdk-cache/feeds/$v"
+          done
+          chmod -R a+rwX .ci-sdk-cache
 
       - name: Build packages (21.02, 22.03, 23.05, 24.10, 25.12)
         run: |
@@ -142,15 +148,17 @@ jobs:
             ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
           done
 
-      - name: Save SDK feeds from docker volumes
+      - name: Fix SDK cache permissions
         if: always()
-        run: ./scripts/ci-cache-sdk-feeds.sh save .cache/sdk-feeds
+        run: sudo chmod -R a+rwX .ci-sdk-cache || chmod -R a+rwX .ci-sdk-cache
 
-      - name: Save SDK feeds and dl cache
+      - name: Save SDK dl/feeds cache
         if: success() && steps.sdk-feeds-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
-          path: .cache/sdk-feeds
+          path: |
+            .ci-sdk-cache/dl
+            .ci-sdk-cache/feeds
           key: ${{ steps.sdk-feeds-cache.outputs.cache-primary-key }}
 
       - name: Verify reproducible builds
