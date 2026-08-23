@@ -29,6 +29,10 @@ define Package/luci-app-fwlive/prerm
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
 [ "$$1" = "remove" ] || exit 0
 . /usr/libexec/fwlive-logging.sh
+# Best-effort restore: always exit 0 so a transient lock/pending-staging
+# failure cannot strand the package half-removed. Baseline is kept on
+# failure (restore_wan_log_baseline) for admin recovery; helpers are still
+# present while this prerm runs.
 restore_wan_log_baseline || logger -t fwlive "WAN log baseline restore failed during uninstall"
 exit 0
 endef

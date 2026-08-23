@@ -143,6 +143,7 @@ if [[ -f "$RPCD_BIN" ]]; then
 [ "$1" = "remove" ] || exit 0
 . /usr/libexec/fwlive-logging.sh
 restore_wan_log_baseline || logger -t fwlive "WAN log baseline restore failed during uninstall"
+# Always exit 0 — see Package/luci-app-fwlive/prerm (do not strand uninstall).
 exit 0
 EOF
 	fi

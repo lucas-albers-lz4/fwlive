@@ -20,7 +20,9 @@ ssh_guest 'echo connected' >/dev/null 2>&1 \
 	|| die "SSH unreachable — start QEMU first"
 
 if ssh_guest 'test -x /usr/libexec/rpcd/fwlive'; then
-	ssh_guest 'ubus call fwlive disable_wan_logging' >/dev/null 2>&1 || true
+	if ! ssh_guest 'ubus call fwlive disable_wan_logging' >/dev/null 2>&1; then
+		die "disable_wan_logging failed — baseline preserved at /etc/fwlive/wan-log-baseline"
+	fi
 	ok "disable_wan_logging (when fwlive installed)"
 else
 	ok "fwlive not installed — skip ubus disable"

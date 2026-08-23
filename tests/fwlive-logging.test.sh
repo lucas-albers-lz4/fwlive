@@ -249,10 +249,18 @@ drive_toggle() {
 					late_foreign)
 						# foreign delta visible from the second changes call on
 						[ "$_n" -ge 2 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
+					post_stage_foreign)
+						# clean through pre-stage gates; foreign appears only
+						# once OUR log delta is staged (post-stage check)
+						if [ "$STAGED_LOG" != '__unset__' ]; then
+							printf "firewall.@rule[9].name='foreign'\n"
+						fi
+						;;
 					commit_fail_foreign)
-						# clean through the commit gate (calls 1-2); the foreign
-						# delta appears only when the failure path re-queries
-						[ "$_n" -ge 3 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
+						# clean through pre-stage + post-stage gates (calls 1-3
+						# on enable: early + pre-stage + post-stage); foreign
+						# appears only when the failure path re-queries
+						[ "$_n" -ge 4 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
 				esac
 				# Real `uci -q changes` also lists OUR staged delta once staged.
 				if [ "$STAGED_LOG" != '__unset__' ]; then
@@ -285,13 +293,21 @@ drive_toggle() {
 				;;
 			'set firewall.@zone[0].log='*)
 				STAGED_LOG="${2#*=}"
+				# Matching committed value clears staging (real uci behaviour).
+				if [ "$STAGED_LOG" = "$CURRENT_LOG" ]; then
+					STAGED_LOG='__unset__'
+				fi
 				;;
 			'delete firewall.@zone[0].log')
-				STAGED_LOG=''
+				if [ -z "$CURRENT_LOG" ]; then
+					STAGED_LOG='__unset__'
+				else
+					STAGED_LOG=''
+				fi
 				;;
 			'commit firewall')
 				case "$mode" in
-					late_foreign)
+					late_foreign|post_stage_foreign)
 						die "#191: uci commit issued while a foreign delta was staged" ;;
 					commit_fail_foreign|commit_fail_ours)
 						# commit fails; the caller decides whether to revert
@@ -355,6 +371,32 @@ case "$OUT" in
 esac
 assert_no_commit_no_stage "disable/late-foreign"
 ok "#191 disable aborts on foreign delta staged at commit time (no commit, no delete)"
+
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable post_stage_foreign
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#191 enable/post-stage-foreign: expected error firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#191 enable/post-stage-foreign: foreign delta got committed"
+case "$UCI_CALLS" in
+	*'set firewall.'*) ;;
+	*) die "#191 enable/post-stage-foreign: expected our log bit to stage before abort: $UCI_CALLS" ;;
+esac
+case "$LOGGER_MSGS" in
+	*'aborted after stage'*) ;;
+	*) die "#191 enable/post-stage-foreign: missing after-stage abort log: $LOGGER_MSGS" ;;
+esac
+ok "#191 enable aborts on foreign delta staged after our set (undo ours, no commit)"
+
+FWLIVE_CURRENT_LOG='1'
+drive_toggle disable post_stage_foreign
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#191 disable/post-stage-foreign: expected error firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#191 disable/post-stage-foreign: foreign delta got committed"
+ok "#191 disable aborts on foreign delta staged after our delete (undo ours, no commit)"
 
 FWLIVE_CURRENT_LOG=''
 drive_toggle enable verify_mismatch
