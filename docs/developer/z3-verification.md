@@ -40,8 +40,8 @@ python3 scripts/z3-verify.py --full
 
 | Tier | F2 coverage | Length bound |
 | ---- | ----------- | -------------- |
-| `--fast` | Alphabet lemmas (length-independent where noted) plus **concrete** whole-word sat/unsat pairs for each predicate | Unrolled scans bounded by `WORD_SCAN_MAX ≤ 24` |
-| `--full` | Everything in `--fast`, plus mutation guards (weaken a flank → unsat), symbolic no-over-match lemmas, and deny-class ⊆ action-class implication | Same `WORD_SCAN_MAX ≤ 24` scan bound |
+| `--fast` | Alphabet lemmas (length-independent where noted) plus **concrete** whole-word sat/unsat pairs for each predicate | Unrolled whole-word and glue scans bounded by `WORD_SCAN_MAX ≤ 24`; prefix and flag-tail predicates are not length-bounded in the harness |
+| `--full` | Everything in `--fast`, plus mutation guards (weaken a flank → unsat), symbolic no-over-match lemmas, and deny-class ⊆ action-class implication | Same bounds as `--fast` per predicate |
 
 **Not claimed:** length-independent symbolic word-boundary proofs for arbitrary-length
 inputs. Those require ECMA-direct backends in [regexproof](https://github.com/lucas-albers-lz4/regexproof)
