@@ -201,7 +201,12 @@ sdk_matrix_cache_dirs() {
 	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
 	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"
 	# buildbot (uid 1000) must write bind mounts; Actions runner is often 1001.
-	chmod -R a+rwX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null || true
+	# Prefer chown to buildbot when permitted; fall back to a+rwX only then.
+	if chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
+		chmod -R u+rwX,g+rX,o+rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null || true
+	else
+		chmod -R a+rwX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null || true
+	fi
 }
 
 sdk_matrix_compose_run() {
@@ -225,8 +230,9 @@ sdk_matrix_feeds_lock_path() {
 }
 
 sdk_matrix_feeds_ready() {
-	# Require .config, package feeds present, and lock stamp matching the pinned
-	# feeds.conf so a restored cache cannot skip refresh after pin changes.
+	# Require .config, upstream feed .git dirs, package present, and lock stamp
+	# matching the pinned feeds.conf so a restored cache cannot skip refresh
+	# after pin changes or partial-cache failure.
 	sdk_matrix_compose_run sh -c "
 		test -f /builder/.config || exit 1
 		lock=/work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf
@@ -235,6 +241,9 @@ sdk_matrix_feeds_ready() {
 		cur=\$(sha256sum \"\$lock\" | awk '{print \$1}')
 		old=\$(cat \"\$stamp\")
 		[ -n \"\$cur\" ] && [ \"\$cur\" = \"\$old\" ] || exit 1
+		{ [ -d /builder/feeds/base/.git ] || [ -d /builder/feeds/base_root/.git ]; } || exit 1
+		[ -d /builder/feeds/packages/.git ] || exit 1
+		[ -d /builder/feeds/luci/.git ] || exit 1
 		find -L /builder/feeds -maxdepth 8 -path '*/luci-app-fwlive/Makefile' 2>/dev/null | grep -q .
 	" 2>/dev/null
 }
@@ -253,9 +262,12 @@ sdk_matrix_feeds_base_packages() {
 }
 
 sdk_matrix_feeds_setup() {
-	local lock_path base_pkgs
+	local lock_path base_pkgs base_pkgs_q
 	lock_path="$(sdk_matrix_feeds_lock_path "$SDK_MATRIX_VERSION")"
 	base_pkgs="$(sdk_matrix_feeds_base_packages)"
+	# Escape each package so they remain separate argv tokens inside sh -ec "…".
+	# shellcheck disable=SC2086 # intentional word-split of space-separated package list
+	base_pkgs_q="$(printf '%q ' ${base_pkgs})"
 	[[ -f "$lock_path" ]] || {
 		echo "missing pinned feeds lock: $lock_path" >&2
 		return 1
@@ -294,7 +306,7 @@ sdk_matrix_feeds_setup() {
 		done
 		[ \"\$ok\" -eq 1 ] || { echo 'feeds update failed after 3 attempts' >&2; exit 1; }
 
-		./scripts/feeds install -p base ${base_pkgs}
+		./scripts/feeds install -p base ${base_pkgs_q}
 		./scripts/feeds install luci-base
 		./scripts/feeds update fwlive
 		./scripts/feeds install luci-app-fwlive

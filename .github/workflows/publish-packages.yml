@@ -138,7 +138,12 @@ jobs:
           for v in 21.02.7 22.03.7 23.05.5 24.10.8 25.12.5; do
             mkdir -p ".ci-sdk-cache/feeds/$v"
           done
-          chmod -R a+rwX .ci-sdk-cache
+          # Prefer buildbot ownership (uid 1000) over world-writable when sudo works.
+          if sudo chown -R 1000:1000 .ci-sdk-cache 2>/dev/null; then
+            sudo chmod -R u+rwX,g+rX,o+rX .ci-sdk-cache
+          else
+            chmod -R a+rwX .ci-sdk-cache
+          fi
 
       - name: Build packages (21.02, 22.03, 23.05, 24.10, 25.12)
         run: |
@@ -150,7 +155,13 @@ jobs:
 
       - name: Fix SDK cache permissions
         if: always()
-        run: sudo chmod -R a+rwX .ci-sdk-cache || chmod -R a+rwX .ci-sdk-cache
+        run: |
+          # Re-assert ownership after buildbot writes; fall back only if needed.
+          if sudo chown -R 1000:1000 .ci-sdk-cache 2>/dev/null; then
+            sudo chmod -R u+rwX,g+rX,o+rX .ci-sdk-cache
+          else
+            sudo chmod -R a+rwX .ci-sdk-cache || chmod -R a+rwX .ci-sdk-cache
+          fi
 
       - name: Save SDK dl/feeds cache
         if: success() && steps.sdk-feeds-cache.outputs.cache-hit != 'true'

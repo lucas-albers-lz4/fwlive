@@ -268,10 +268,11 @@ determinism; the recorded `sdk_digest` makes each release attributable to the
 exact SDK image it was built from.
 
 Publish CI (`publish-packages`) retries `feeds update` (3× + wipe partial clones +
-HTTP/1.1), bind-mounts host `.ci-sdk-cache/{dl,feeds/<version>}` into `/builder`,
-and caches those dirs across runs (exact `feeds.lock` hash key, no `restore-keys`)
-so a transient TLS drop does not fail a release. A lock stamp under feeds forces
-refresh when pins change.
+HTTP/1.1) and bind-mounts host `.ci-sdk-cache/{dl,feeds/<version>}` into `/builder`.
+Actions caches those dirs with an exact `feeds.lock` hash key (no `restore-keys`) so
+a lock change never restores a stale tree. Note: GHA caches are **ref-scoped** — tag
+publishes do not warm-hit across tags; the bind mounts still speed local rebuilds and
+same-ref re-runs. A lock stamp under feeds forces refresh when pins change.
 
 Verify locally:
 
