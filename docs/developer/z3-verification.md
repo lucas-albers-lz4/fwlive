@@ -57,7 +57,8 @@ seq backend). It does **not** feed the ECMA regexes to a solver.
 | `TCP_FLAG_TAIL` | The **tail fragment** is a sequence of flag tokens separated by space/tab (`token (ws+ token)* ws*`). `SYN ACK` sat; `SYNACK` / `SYN=` unsat. | Whole string is the tail — not a suffix search in a longer line. Not JS `\b` or full `\s`. Upper+lower tokens. |
 | `NETFILTER_KV_GLUE` | A non-space/tab char immediately before some `glueKeys+'='` (unrolled string-ops). `fwlive-pingIN=lo` sat; space/tab before `IN=` / `OUT=` unsat. | Scan length ≤ 24. `[^\s]` modeled as not space and not tab. Lookahead `(?=KEY=)` is **not** encoded. Glue keys are exact-case (JS is not `/i`). |
 
-Alphabet lemmas (`=` / digit disjoint from flag and action letters; glue
+Alphabet lemmas (`=` / digit disjoint from flag and action letters in the
+case-expanded token domain; glue
 keys are A–Z) are length-independent supporting facts, not the classify
 predicates. Tuples in `scripts/z3-verify.py` are pinned to
 `core/fwlive-log.js` CLASSIFY_SPEC (update both if the spec changes).

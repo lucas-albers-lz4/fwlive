@@ -99,13 +99,13 @@ def _both_cases(words):
 	return tuple(out)
 
 
-TCP_FLAG_ALPHABET = _alphabet_of(TCP_FLAG_TOKENS)
-ACTION_ALPHABET = _alphabet_of(ACTION_WORDS)
 GLUE_ALPHABET = _alphabet_of(GLUE_KEYS)
 ACTION_WORDS_CASED = _both_cases(ACTION_WORDS)
 DENY_WORDS_CASED = _both_cases(DENY_WORDS)
 PREFIXES_CASED = _both_cases(NON_FIREWALL_PREFIXES)
 FLAG_TOKENS_CASED = _both_cases(TCP_FLAG_TOKENS)
+TCP_FLAG_ALPHABET_CASED = _alphabet_of(FLAG_TOKENS_CASED)
+ACTION_ALPHABET_CASED = _alphabet_of(ACTION_WORDS_CASED)
 NON_FIREWALL_START_ALPHABET = "".join(
 	sorted({p[0] for p in PREFIXES_CASED})
 )
@@ -379,7 +379,7 @@ def run_f2_fast() -> int:
 		"F2 TCP_FLAG_TAIL alphabet disjoint from =/digit",
 		And(
 			Length(c) == 1,
-			_char_in(c, 0, TCP_FLAG_ALPHABET),
+			_char_in(c, 0, TCP_FLAG_ALPHABET_CASED),
 			Or(c == StringVal("="), _char_in(c, 0, "0123456789")),
 		),
 	):
@@ -388,7 +388,7 @@ def run_f2_fast() -> int:
 		"F2 ACTION_RE alphabet disjoint from =/digit",
 		And(
 			Length(c) == 1,
-			_char_in(c, 0, ACTION_ALPHABET),
+			_char_in(c, 0, ACTION_ALPHABET_CASED),
 			Or(c == StringVal("="), _char_in(c, 0, "0123456789")),
 		),
 	):
@@ -404,7 +404,10 @@ def run_f2_fast() -> int:
 		fail += 1
 	if not check_unsat(
 		"F2 DENY pin subset of ACTION_RE pin",
-		And(_in_finite_set(t, DENY_WORDS), Not(_in_finite_set(t, ACTION_WORDS))),
+		And(
+			_in_finite_set(t, DENY_WORDS_CASED),
+			Not(_in_finite_set(t, ACTION_WORDS_CASED)),
+		),
 	):
 		fail += 1
 
