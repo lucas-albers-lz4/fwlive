@@ -74,6 +74,13 @@ sdk_matrix_resolve() {
 	SDK_MATRIX_TARGET="$target"
 	SDK_MATRIX_VERSION="$version"
 	SDK_MATRIX_VERSION_LABEL="$(sdk_matrix_version_label "$version")"
+	# Labels are path/shell data in compose scripts — reject metacharacters / traversal.
+	case "$SDK_MATRIX_VERSION_LABEL" in
+		'' | *[!a-zA-Z0-9._-]* | *..*)
+			echo "sdk-matrix: invalid version label '$SDK_MATRIX_VERSION_LABEL'" >&2
+			return 1
+			;;
+	esac
 	SDK_MATRIX_IMAGE="ghcr.io/openwrt/sdk:$(sdk_matrix_image_tag "$target" "$version")"
 	SDK_MATRIX_VOLUME="$(sdk_matrix_volume_name "$target" "$version")"
 	SDK_MATRIX_PACKAGE_ARCH="$(sdk_matrix_package_arch "$target")"
@@ -238,19 +245,20 @@ sdk_matrix_feeds_ready() {
 	# Require .config, upstream feed .git dirs, package present, and lock stamp
 	# matching the pinned feeds.conf so a restored cache cannot skip refresh
 	# after pin changes or partial-cache failure.
-	sdk_matrix_compose_run sh -c "
+	# Pass version label as \$1 (data), never interpolate into shell source.
+	sdk_matrix_compose_run sh -c '
 		test -f /builder/.config || exit 1
-		lock=/work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf
+		lock=/work/fwlive/scripts/feeds.lock/$1/feeds.conf
 		stamp=/builder/feeds/.fwlive-feeds.lock.sha
-		test -f \"\$lock\" && test -f \"\$stamp\" || exit 1
-		cur=\$(sha256sum \"\$lock\" | awk '{print \$1}')
-		old=\$(cat \"\$stamp\")
-		[ -n \"\$cur\" ] && [ \"\$cur\" = \"\$old\" ] || exit 1
+		test -f "$lock" && test -f "$stamp" || exit 1
+		cur=$(sha256sum "$lock" | awk "{print \$1}")
+		old=$(cat "$stamp")
+		[ -n "$cur" ] && [ "$cur" = "$old" ] || exit 1
 		{ [ -d /builder/feeds/base/.git ] || [ -d /builder/feeds/base_root/.git ]; } || exit 1
 		[ -d /builder/feeds/packages/.git ] || exit 1
 		[ -d /builder/feeds/luci/.git ] || exit 1
-		find -L /builder/feeds -maxdepth 8 -path '*/luci-app-fwlive/Makefile' 2>/dev/null | grep -q .
-	" 2>/dev/null
+		find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q .
+	' sh "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null
 }
 
 sdk_matrix_feeds_base_packages() {
@@ -280,13 +288,15 @@ sdk_matrix_feeds_setup() {
 	# Retry feeds update: git.openwrt.org (and mirrors) drop TLS under CI load.
 	# HTTP/1.1 reduces curl-35 / gnutls_handshake failures (openwrt/openwrt#21854).
 	# Wipe partial clones on failure; require .git dirs so soft exit-0 without clone fails.
+	# \$1 = version label (data); base package list is host-escaped into the script body.
 	sdk_matrix_compose_run sh -ec "
+		label=\$1
 		cd /builder
 		export TERM=dumb
 		if [ ! -f Makefile ]; then echo 'Running ./setup.sh ...'; ./setup.sh; fi
 		test -f Makefile
 
-		cp /work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf feeds.conf
+		cp /work/fwlive/scripts/feeds.lock/\$label/feeds.conf feeds.conf
 		grep -q '^src-link fwlive' feeds.conf || echo 'src-link fwlive /work/fwlive/openwrt-feed' >> feeds.conf
 
 		git config --global http.version HTTP/1.1 || true
@@ -317,9 +327,9 @@ sdk_matrix_feeds_setup() {
 		./scripts/feeds install luci-app-fwlive
 		rm -rf tmp
 		make defconfig
-		sha256sum /work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf \
+		sha256sum /work/fwlive/scripts/feeds.lock/\$label/feeds.conf \
 			| awk '{print \$1}' > feeds/.fwlive-feeds.lock.sha
-	"
+	" sh "$SDK_MATRIX_VERSION_LABEL"
 }
 
 # Epoch for reproducible package timestamps (override via SOURCE_DATE_EPOCH env).
