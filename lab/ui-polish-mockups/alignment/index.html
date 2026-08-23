@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fwlive — Chrome alignment options</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<header class="luci-top">
+  <span class="brand">OpenWrt</span>
+  <nav>Status · System · Network</nav>
+  <span class="top-pill">LIVE VIEW</span>
+</header>
+
+<main class="page">
+  <p class="eyebrow">fwlive / presentation prototype</p>
+  <h1>Chrome alignment options</h1>
+  <p class="lede">Three static treatments for the watch strip and open Display options drawer. Controls show a realistic active state; this page has no application behavior.</p>
+
+  <section class="variant variant-a" aria-labelledby="variant-a-title">
+    <div class="variant-head">
+      <div><span class="variant-kicker">Option A</span><h2 id="variant-a-title">Toolbar rail</h2></div>
+      <p>One continuous control line</p>
+    </div>
+    <div class="mockup">
+      <div class="screen-title"><strong>Firewall Live View</strong><span>using fw4</span></div>
+      <div class="watch-strip">
+        <div class="status-cluster"><span class="dot"></span><strong>Watching</strong><span class="muted">3 matching · 3/50 stored</span></div>
+        <div class="toolbar-group actions"><button class="btn ghost">Pause</button><button class="btn logging">Logging on</button></div>
+        <div class="toolbar-group labeled"><span class="micro-label">View</span><div class="segments"><button>Simple</button><button class="selected">Detail</button></div></div>
+        <div class="toolbar-group labeled"><span class="micro-label">Rows</span><div class="segments"><button>Wrap</button><button class="selected">One line</button></div></div>
+      </div>
+      <details class="drawer" open>
+        <summary>Display options</summary>
+        <div class="drawer-grid">
+          <div class="drawer-section"><h3>Live</h3><div class="field"><label for="a-limit">Limit</label><select id="a-limit"><option>25</option><option selected>50</option><option>100</option></select></div><p class="hint">Live updates run until you Pause above.</p></div>
+          <div class="drawer-section"><h3>Row look</h3><label class="check"><input type="checkbox" checked> Row tint</label><div class="field"><label for="a-palette">Palette</label><select id="a-palette"><option selected>Accessible (teal/orange)</option><option>Classic (green/red)</option></select></div><label class="check"><input type="checkbox"> Show hostnames</label></div>
+        </div>
+      </details>
+      <div class="table-placeholder"><span>action</span><span>Time</span><span>Interface</span><span>Flow</span><span>Proto</span><span>Rule</span></div>
+    </div>
+  </section>
+
+  <section class="variant variant-b" aria-labelledby="variant-b-title">
+    <div class="variant-head">
+      <div><span class="variant-kicker">Option B</span><h2 id="variant-b-title">Form grid</h2></div>
+      <p>Explicit columns and grouping</p>
+    </div>
+    <div class="mockup">
+      <div class="screen-title"><strong>Firewall Live View</strong><span>using fw4</span></div>
+      <div class="watch-strip">
+        <div class="status-cluster"><span class="dot"></span><strong>Watching</strong><span class="muted">3 matching · 3/50 stored</span></div>
+        <div class="watch-group"><button class="btn ghost">Pause</button><button class="btn logging">Logging on</button></div>
+        <div class="watch-group"><span class="group-label">View</span><div class="segments"><button>Simple</button><button class="selected">Detail</button></div></div>
+        <div class="watch-group"><span class="group-label">Rows</span><div class="segments"><button>Wrap</button><button class="selected">One line</button></div></div>
+      </div>
+      <details class="drawer" open>
+        <summary>Display options</summary>
+        <div class="drawer-grid">
+          <div class="drawer-section"><h3>Live</h3><div class="field"><label for="b-limit">Limit</label><select id="b-limit"><option>25</option><option selected>50</option><option>100</option></select></div><p class="hint">Live updates run until you Pause above.</p></div>
+          <div class="drawer-section"><h3>Row look</h3><label class="check"><input type="checkbox" checked> Row tint</label><div class="field"><label for="b-palette">Palette</label><select id="b-palette"><option selected>Accessible (teal/orange)</option><option>Classic (green/red)</option></select></div><label class="check"><input type="checkbox"> Show hostnames</label></div>
+        </div>
+      </details>
+      <div class="table-placeholder"><span>action</span><span>Time</span><span>Interface</span><span>Flow</span><span>Proto</span><span>Rule</span></div>
+    </div>
+  </section>
+
+  <section class="variant variant-c" aria-labelledby="variant-c-title">
+    <div class="variant-head">
+      <div><span class="variant-kicker">Option C</span><h2 id="variant-c-title">Soft cards</h2></div>
+      <p>Quiet surfaces, generous touch targets</p>
+    </div>
+    <div class="mockup">
+      <div class="screen-title"><strong>Firewall Live View</strong><span>using fw4</span></div>
+      <div class="watch-strip">
+        <div class="status-cluster"><span class="dot"></span><strong>Watching</strong><span class="muted">3 matching · 3/50 stored</span></div>
+        <div class="pill-group"><button class="btn ghost">Pause</button><button class="btn logging">Logging on</button></div>
+        <div class="pill-group"><button>Simple</button><button class="selected">Detail</button></div>
+        <div class="pill-group"><button>Wrap</button><button class="selected">One line</button></div>
+      </div>
+      <details class="drawer" open>
+        <summary>Display options</summary>
+        <div class="drawer-grid">
+          <div class="drawer-section"><h3>Live</h3><div class="field"><label for="c-limit">Limit</label><select id="c-limit"><option>25</option><option selected>50</option><option>100</option></select></div><p class="hint">Live updates run until you Pause above.</p></div>
+          <div class="drawer-section"><h3>Row look</h3><label class="check"><input type="checkbox" checked> Row tint</label><div class="field"><label for="c-palette">Palette</label><select id="c-palette"><option selected>Accessible (teal/orange)</option><option>Classic (green/red)</option></select></div><label class="check"><input type="checkbox"> Show hostnames</label></div>
+        </div>
+      </details>
+      <div class="table-placeholder"><span>action</span><span>Time</span><span>Interface</span><span>Flow</span><span>Proto</span><span>Rule</span></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

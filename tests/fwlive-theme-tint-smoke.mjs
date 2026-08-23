@@ -5,7 +5,7 @@
  *
  *   FWLIVE_URL=http://127.0.0.1:8080 node tests/fwlive-theme-tint-smoke.mjs
  *
- * Row tint: toggle button (#fwlive-row-tint-toggle) + palette select when on
+ * Row tint: checkbox (#fwlive-row-tint-toggle) + palette select when on
  * (classic | accessible). Default classic is green/red.
  */
 import { chromium } from 'playwright';
@@ -34,40 +34,35 @@ async function login(page) {
 }
 
 async function openDisplayDrawer(page) {
-	const drawer = page.locator('#fwlive-display-drawer');
-	await drawer.waitFor({ timeout: 15000 });
-	const open = await drawer.evaluate((el) => el.open);
-	if (!open)
-		await drawer.locator('summary').click();
+	await page.waitForSelector('#fwlive-display-drawer', { timeout: 15000 });
 }
 
 async function tintIsOn(page) {
-	const btn = page.locator('#fwlive-row-tint-toggle');
-	const pressed = await btn.getAttribute('aria-pressed');
-	return pressed === 'true';
+	const cb = page.locator('#fwlive-row-tint-toggle');
+	return cb.isChecked();
 }
 
 async function setTintMode(page, mode) {
 	await openDisplayDrawer(page);
-	const btn = page.locator('#fwlive-row-tint-toggle');
-	await btn.waitFor({ state: 'visible', timeout: 15000 });
+	const cb = page.locator('#fwlive-row-tint-toggle');
+	await cb.waitFor({ state: 'visible', timeout: 15000 });
 
 	if (mode === 'off') {
 		if (await tintIsOn(page))
-			await btn.click();
+			await cb.uncheck();
 		await page.waitForFunction(() => {
 			const map = document.querySelector('.fwlive-map');
 			const toggle = document.getElementById('fwlive-row-tint-toggle');
 			return map
 				&& map.getAttribute('data-row-tint') === 'off'
 				&& toggle
-				&& toggle.getAttribute('aria-pressed') === 'false';
+				&& !toggle.checked;
 		}, { timeout: 5000 });
 		return;
 	}
 
 	if (!(await tintIsOn(page)))
-		await btn.click();
+		await cb.check();
 
 	const tint = page.locator('#fwlive-row-tint');
 	await tint.waitFor({ state: 'visible', timeout: 5000 });

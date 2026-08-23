@@ -269,8 +269,8 @@ if (!css.includes('fwlive-chips-labels')) {
 	console.error('missing labels chip style CSS');
 	process.exit(1);
 }
-if (!text.includes("'id': 'fwlive-row-tint-toggle'") || !text.includes('toggleRowTint')) {
-	console.error('missing Row tint toggle button in toolbar');
+if (!text.includes("'id': 'fwlive-row-tint-toggle'") || !text.includes('onRowTintEnabledChange')) {
+	console.error('missing Row tint checkbox in display drawer');
 	process.exit(1);
 }
 if (!text.includes("'id': 'fwlive-row-tint'") || !text.includes('rowTintPaletteOptions')) {
@@ -291,6 +291,26 @@ if (!text.includes('DEFAULT_ROW_TINT') || !text.includes('applyRowTintMode') || 
 }
 if (!text.includes("'id': 'fwlive-tint-warn'")) {
 	console.error('missing theme tint warning element');
+	process.exit(1);
+}
+if (!text.includes("'id': 'fwlive-view-simple'") || !text.includes("'id': 'fwlive-view-detail'")) {
+	console.error('missing Simple/Detail segmented view controls');
+	process.exit(1);
+}
+if (!text.includes("'id': 'fwlive-msg-wrap'") || !text.includes("'id': 'fwlive-msg-oneline'")) {
+	console.error('missing Wrap/One line segmented message controls');
+	process.exit(1);
+}
+if (!text.includes("'id': 'fwlive-title-row'") || !text.includes('fwlive-title-status')) {
+	console.error('missing compact title row with inline watch status');
+	process.exit(1);
+}
+if (!text.includes('fwlive-display-bar') || !text.includes('fwlive-display-controls')) {
+	console.error('missing inline display options bar');
+	process.exit(1);
+}
+if (!css.includes('.fwlive-map.fwlive-watch-paused .fwlive-title-row')) {
+	console.error('missing paused styling on compact title row');
 	process.exit(1);
 }
 

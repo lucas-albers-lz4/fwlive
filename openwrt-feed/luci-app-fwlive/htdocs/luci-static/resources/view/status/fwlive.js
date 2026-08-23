@@ -265,17 +265,16 @@ return view.extend({
 			this.clearTintFallback(map);
 	},
 
-	toggleRowTint(ev) {
-		if (ev && ev.preventDefault)
-			ev.preventDefault();
-
-		if (this.rowTintEnabled()) {
-			this.rowTintPalette = this.rowTint;
-			this.rowTint = 'off';
-		} else {
+	onRowTintEnabledChange(ev) {
+		const on = !!(ev && ev.target && ev.target.checked);
+		if (on) {
 			const pal = (this.rowTintPalette === 'accessible') ? 'accessible' : 'classic';
 			this.rowTintPalette = pal;
 			this.rowTint = pal;
+		} else {
+			if (this.rowTintEnabled())
+				this.rowTintPalette = this.rowTint;
+			this.rowTint = 'off';
 		}
 		this.commitRowTintChange();
 	},
@@ -300,15 +299,17 @@ return view.extend({
 
 	updateRowTintUi() {
 		const on = this.rowTintEnabled();
-		const btn = document.getElementById('fwlive-row-tint-toggle');
-		if (btn) {
-			btn.textContent = on ? _('Hide row tint') : _('Row tint');
-			btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-		}
+		const cb = document.getElementById('fwlive-row-tint-toggle');
+		if (cb)
+			cb.checked = on;
 
 		const wrap = document.getElementById('fwlive-row-tint-palette-wrap');
-		if (wrap)
-			wrap.style.display = on ? 'inline-flex' : 'none';
+		if (wrap) {
+			if (on)
+				wrap.classList.remove('fwlive-hidden');
+			else
+				wrap.classList.add('fwlive-hidden');
+		}
 
 		const tintSel = document.getElementById('fwlive-row-tint');
 		if (tintSel) {
@@ -433,20 +434,14 @@ return view.extend({
 		this.renderRows(true);
 	},
 
-	toggleDetailView(ev) {
-		if (ev && ev.preventDefault)
-			ev.preventDefault();
-
-		this.setViewMode(this.viewMode === 'simple' ? 'detailed' : 'simple');
-	},
-
 	updateDetailToggleUi() {
-		const btn = document.getElementById('fwlive-detail-toggle');
-		if (btn) {
-			const detailed = this.viewMode === 'detailed';
-			btn.textContent = detailed ? _('Hide Detail') : _('Show Detail');
-			btn.setAttribute('aria-pressed', detailed ? 'true' : 'false');
-		}
+		const simpleBtn = document.getElementById('fwlive-view-simple');
+		const detailBtn = document.getElementById('fwlive-view-detail');
+		const detailed = this.viewMode === 'detailed';
+		if (simpleBtn)
+			simpleBtn.setAttribute('aria-pressed', detailed ? 'false' : 'true');
+		if (detailBtn)
+			detailBtn.setAttribute('aria-pressed', detailed ? 'true' : 'false');
 
 		const map = document.querySelector('.fwlive-map');
 		if (map)
@@ -933,18 +928,18 @@ return view.extend({
 	},
 
 	updateStreamControlsUi() {
-		const strip = document.getElementById('fwlive-watch-strip');
+		const map = document.querySelector('.fwlive-map');
 		const dot = document.getElementById('fwlive-watch-dot');
 		const label = document.getElementById('fwlive-watch-label');
 		const pauseBtn = document.getElementById('fwlive-pause');
 		const sel = document.getElementById('fwlive-limit');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 
-		if (strip) {
+		if (map) {
 			if (this.paused)
-				strip.classList.add('fwlive-watch-paused');
+				map.classList.add('fwlive-watch-paused');
 			else
-				strip.classList.remove('fwlive-watch-paused');
+				map.classList.remove('fwlive-watch-paused');
 		}
 		if (dot) {
 			if (this.paused)
@@ -1256,7 +1251,8 @@ return view.extend({
 
 	updateMessageLayoutUi() {
 		const scroll = document.getElementById('fwlive-scroll');
-		const btn = document.getElementById('fwlive-msg-layout');
+		const wrapBtn = document.getElementById('fwlive-msg-wrap');
+		const onelineBtn = document.getElementById('fwlive-msg-oneline');
 		if (scroll) {
 			/* add/remove — classList.toggle(name, force) is unsupported on some 21.02-era browsers */
 			if (this.messageLayout === 'oneline') {
@@ -1267,17 +1263,19 @@ return view.extend({
 				scroll.classList.remove('fwlive-msg-oneline');
 			}
 		}
-		if (btn) {
-			const oneline = this.messageLayout === 'oneline';
-			btn.textContent = oneline
-				? _('Message: one line')
-				: _('Message: wrap');
-			btn.setAttribute('aria-pressed', oneline ? 'true' : 'false');
-		}
+		const oneline = this.messageLayout === 'oneline';
+		if (wrapBtn)
+			wrapBtn.setAttribute('aria-pressed', oneline ? 'false' : 'true');
+		if (onelineBtn)
+			onelineBtn.setAttribute('aria-pressed', oneline ? 'true' : 'false');
 	},
 
-	toggleMessageLayout() {
-		this.messageLayout = this.messageLayout === 'oneline' ? 'wrap' : 'oneline';
+	setMessageLayout(layout) {
+		const next = layout === 'oneline' ? 'oneline' : 'wrap';
+		if (next === this.messageLayout)
+			return;
+
+		this.messageLayout = next;
 		this.saveMessageLayout();
 		this.updateMessageLayoutUi();
 		if (this.paused)
@@ -1431,6 +1429,10 @@ return view.extend({
 		if (hostCb)
 			hostCb.addEventListener('change', this.onShowHostnamesChange.bind(this));
 
+		const tintCb = document.getElementById('fwlive-row-tint-toggle');
+		if (tintCb)
+			tintCb.addEventListener('change', this.onRowTintEnabledChange.bind(this));
+
 		const tintSel = document.getElementById('fwlive-row-tint');
 		if (tintSel)
 			tintSel.addEventListener('change', this.onRowTintPaletteChange.bind(this));
@@ -1490,12 +1492,12 @@ return view.extend({
 	render() {
 		return E('div', { 'class': 'cbi-map fwlive-map', 'data-view': 'simple', 'data-row-tint': 'classic' }, [
 			E('style', {}, [css.styleText]),
-			E('h2', {}, [
-				_('Firewall Live View'),
-				E('span', { 'id': 'fwlive-backend', 'class': 'fwlive-backend' }, [ '' ])
-			]),
-			E('div', { 'id': 'fwlive-watch-strip', 'class': 'fwlive-watch-strip' }, [
-				E('div', { 'class': 'fwlive-watch-cluster' }, [
+			E('div', { 'id': 'fwlive-title-row', 'class': 'fwlive-title-row' }, [
+				E('h2', {}, [
+					_('Firewall Live View'),
+					E('span', { 'id': 'fwlive-backend', 'class': 'fwlive-backend' }, [ '' ])
+				]),
+				E('div', { 'class': 'fwlive-title-status' }, [
 					E('span', { 'id': 'fwlive-watch-dot', 'class': 'fwlive-dot fwlive-dot-on', 'aria-hidden': 'true' }, [ '' ]),
 					E('span', { 'id': 'fwlive-watch-label', 'class': 'fwlive-watch-label' }, [ _('Watching') ]),
 					E('span', { 'id': 'fwlive-status', 'class': 'fwlive-status' }, [ '' ]),
@@ -1504,9 +1506,10 @@ return view.extend({
 						'class': 'fwlive-tint-warn',
 						'title': _('Row tint used a local color fallback because the active LuCI theme did not apply pass/deny backgrounds.')
 					}, [ _('Theme tint fallback') ])
-				]),
-				E('span', { 'class': 'fwlive-watch-sep', 'aria-hidden': 'true' }, [ '' ]),
-				E('div', { 'class': 'fwlive-watch-cluster' }, [
+				])
+			]),
+			E('div', { 'id': 'fwlive-watch-strip', 'class': 'fwlive-watch-strip' }, [
+				E('div', { 'class': 'fwlive-watch-group' }, [
 					E('button', {
 						'id': 'fwlive-pause',
 						'class': 'cbi-button fwlive-btn-ghost',
@@ -1514,75 +1517,94 @@ return view.extend({
 					}, [ _('Pause') ]),
 					E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, [])
 				]),
-				E('span', { 'class': 'fwlive-watch-sep', 'aria-hidden': 'true' }, [ '' ]),
+				E('div', { 'class': 'fwlive-watch-group' }, [
+					E('span', { 'class': 'fwlive-watch-group-label' }, [ _('View') ]),
+					E('div', {
+						'class': 'fwlive-watch-seg',
+						'role': 'group',
+						'aria-label': _('View')
+					}, [
+						E('button', {
+							'id': 'fwlive-view-simple',
+							'class': 'cbi-button fwlive-seg-btn',
+							'type': 'button',
+							'aria-pressed': 'true',
+							'click': () => this.setViewMode('simple')
+						}, [ _('Simple') ]),
+						E('button', {
+							'id': 'fwlive-view-detail',
+							'class': 'cbi-button fwlive-seg-btn',
+							'type': 'button',
+							'aria-pressed': 'false',
+							'click': () => this.setViewMode('detailed')
+						}, [ _('Detail') ])
+					])
+				]),
 				E('div', {
-					'class': 'fwlive-watch-seg',
-					'role': 'group',
-					'aria-label': _('View')
+					'id': 'fwlive-msg-group',
+					'class': 'fwlive-watch-group'
 				}, [
-					E('button', {
-						'id': 'fwlive-detail-toggle',
-						'class': 'cbi-button fwlive-seg-btn',
-						'type': 'button',
-						'aria-pressed': 'false',
-						'click': this.toggleDetailView.bind(this)
-					}, [ _('Show Detail') ]),
-					E('button', {
-						'id': 'fwlive-msg-layout',
-						'class': 'cbi-button fwlive-seg-btn',
-						'type': 'button',
-						'aria-pressed': 'false',
-						'click': this.toggleMessageLayout.bind(this)
-					}, [ _('Message: wrap') ])
+					E('span', { 'class': 'fwlive-watch-group-label' }, [ _('Message') ]),
+					E('div', {
+						'id': 'fwlive-msg-seg',
+						'class': 'fwlive-watch-seg',
+						'role': 'group',
+						'aria-label': _('Message')
+					}, [
+						E('button', {
+							'id': 'fwlive-msg-wrap',
+							'class': 'cbi-button fwlive-seg-btn',
+							'type': 'button',
+							'aria-pressed': 'true',
+							'click': () => this.setMessageLayout('wrap')
+						}, [ _('Wrap') ]),
+						E('button', {
+							'id': 'fwlive-msg-oneline',
+							'class': 'cbi-button fwlive-seg-btn',
+							'type': 'button',
+							'aria-pressed': 'false',
+							'click': () => this.setMessageLayout('oneline')
+						}, [ _('One line') ])
+					])
 				])
 			]),
 			E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, [ '' ]),
-			E('details', { 'id': 'fwlive-display-drawer', 'class': 'fwlive-display-drawer' }, [
-				E('summary', {}, [
-					E('span', { 'class': 'fwlive-drawer-sum' }, [ _('Display options') ])
-				]),
-				E('div', { 'class': 'fwlive-drawer-body fwlive-drawer-grouped' }, [
-					E('div', { 'class': 'fwlive-gcol' }, [
-						E('h3', {}, [ _('Live') ]),
-						E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-limit' }, [
-							_('Limit'),
-							E('select', {
-								'id': 'fwlive-limit',
-								'class': 'cbi-input-select'
-							}, this.limitSelectOptions())
-						]),
-						E('p', { 'class': 'fwlive-drawer-hint' },
-							[ _('Live updates run until you Pause above.') ])
+			E('div', { 'id': 'fwlive-display-drawer', 'class': 'fwlive-display-bar' }, [
+				E('span', { 'class': 'fwlive-display-bar-label' }, [ _('Display options') ]),
+				E('div', { 'class': 'fwlive-display-controls' }, [
+					E('label', { 'class': 'fwlive-display-ctl', 'for': 'fwlive-limit' }, [
+						_('Limit'),
+						E('select', {
+							'id': 'fwlive-limit',
+							'class': 'cbi-input-select'
+						}, this.limitSelectOptions())
 					]),
-					E('div', { 'class': 'fwlive-gcol' }, [
-						E('h3', {}, [ _('Row look') ]),
-						E('button', {
+					E('label', { 'class': 'fwlive-display-ctl' }, [
+						E('input', {
 							'id': 'fwlive-row-tint-toggle',
-							'class': 'cbi-button',
-							'type': 'button',
-							'aria-pressed': 'true',
-							'title': _('Toggle pass/deny row background colors'),
-							'click': this.toggleRowTint.bind(this)
-						}, [ _('Hide row tint') ]),
-						E('span', {
-							'id': 'fwlive-row-tint-palette-wrap',
-							'class': 'fwlive-ctl',
-							'style': 'display: inline-flex'
-						}, [
-							E('label', { 'class': 'fwlive-ctl', 'for': 'fwlive-row-tint' }, [ _('Palette') ]),
-							E('select', {
-								'id': 'fwlive-row-tint',
-								'class': 'cbi-input-select',
-								'title': _('Classic uses green/red; Accessible uses teal/orange')
-							}, this.rowTintPaletteOptions())
-						]),
-						E('label', { 'class': 'fwlive-ctl' }, [
-							E('input', {
-								'id': 'fwlive-show-hostnames',
-								'type': 'checkbox'
-							}),
-							_('Show hostnames')
-						])
+							'type': 'checkbox',
+							'title': _('Show pass/deny row background colors')
+						}),
+						_('Row tint')
+					]),
+					E('label', {
+						'id': 'fwlive-row-tint-palette-wrap',
+						'class': 'fwlive-display-ctl',
+						'for': 'fwlive-row-tint'
+					}, [
+						_('Palette'),
+						E('select', {
+							'id': 'fwlive-row-tint',
+							'class': 'cbi-input-select',
+							'title': _('Classic uses green/red; Accessible uses teal/orange')
+						}, this.rowTintPaletteOptions())
+					]),
+					E('label', { 'class': 'fwlive-display-ctl' }, [
+						E('input', {
+							'id': 'fwlive-show-hostnames',
+							'type': 'checkbox'
+						}),
+						_('Show hostnames')
 					])
 				])
 			]),
@@ -1648,13 +1670,13 @@ return view.extend({
 					E('ul', {}, [
 						E('li', {}, [ _('The table updates automatically when your firewall logs traffic. Use Pause if it moves too fast.') ]),
 						E('li', {}, [ _('Enable logging turns on WAN zone drop/reject logging only (same as Network → Firewall). It does not add rules or log normal LAN browsing.') ]),
-						E('li', {}, [ _('Display options hides Limit, row tint, and hostnames.') ]),
+						E('li', {}, [ _('Display options on the bar set Limit, row tint, palette, and hostnames.') ]),
 						E('li', {}, [ _('The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.') ]),
 						E('li', { 'id': 'fwlive-manual-test' }, []),
 						E('li', {}, [ _('Click a row (Time or other non-link cells) to see the full log line (Simple view).') ]),
 						E('li', {}, [ _('Click an IP, action, or protocol to filter; use the Protocol menu (or ≠ on a chip) to exclude.') ]),
-						E('li', {}, [ _('Row tint toggles pass/deny row backgrounds. When on, choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.') ]),
-						E('li', {}, [ _('Use Show Detail for all columns (flags, length, raw message).') ]),
+						E('li', {}, [ _('Row tint shows pass/deny row backgrounds when checked. Choose Classic (green/red, default) or Accessible (teal/orange). Action text stays colored either way.') ]),
+						E('li', {}, [ _('Use Detail for all columns (flags, length, raw message).') ]),
 						E('li', {}, [ _('If Row tint looks missing, the active LuCI theme may omit success/error or info/warn CSS variables; fwlive falls back to local colors (air-gapped, no data leaves the device).') ])
 					])
 				]),

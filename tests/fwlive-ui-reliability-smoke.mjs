@@ -51,12 +51,7 @@ function ubusRouteMatch(url) {
 }
 
 async function openDisplayDrawer(page) {
-	const drawer = page.locator('#fwlive-display-drawer');
-	if (!(await drawer.count()))
-		return;
-	const open = await drawer.evaluate((el) => el.open);
-	if (!open)
-		await drawer.locator('summary').click();
+	await page.waitForSelector('#fwlive-display-drawer', { timeout: 15000 });
 }
 
 async function waitForRows(page) {
@@ -65,9 +60,9 @@ async function waitForRows(page) {
 
 async function isPausedUi(page) {
 	return page.evaluate(() => {
-		const strip = document.getElementById('fwlive-watch-strip');
-		if (strip)
-			return strip.classList.contains('fwlive-watch-paused');
+		const map = document.querySelector('.fwlive-map');
+		if (map)
+			return map.classList.contains('fwlive-watch-paused');
 		const status = document.getElementById('fwlive-status');
 		return !!(status && /^Paused/i.test(status.textContent || ''));
 	});
@@ -80,8 +75,8 @@ async function setPaused(page, wantPaused) {
 		if (now !== wantPaused)
 			await pauseBtn.click();
 		await page.waitForFunction((want) => {
-			const strip = document.getElementById('fwlive-watch-strip');
-			return !!strip && strip.classList.contains('fwlive-watch-paused') === want;
+			const map = document.querySelector('.fwlive-map');
+			return !!map && map.classList.contains('fwlive-watch-paused') === want;
 		}, wantPaused, { timeout: 10000 });
 		return;
 	}

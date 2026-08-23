@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fwlive — Compact chrome prototype</title>
+<link rel="stylesheet" href="alignment/shared.css">
+<style>
+.page { max-width: 1080px; }
+.mockup { padding: 16px; }
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 4px;
+}
+.title-row h2 { margin: 0; font-size: 1.45rem; }
+.title-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 0.92rem;
+}
+.watch-strip { gap: 0; align-items: stretch; }
+.watch-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-left: 1px solid var(--line);
+}
+.group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.display-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 10px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.display-bar strong { white-space: nowrap; }
+.display-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.display-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<header class="luci-top">
+  <span class="brand">OpenWrt</span>
+  <nav>Status · System · Network</nav>
+  <span class="top-pill">COMPACT</span>
+</header>
+<main class="page">
+  <p class="eyebrow">fwlive / space-efficient chrome</p>
+  <h1>Compact layout prototype</h1>
+  <p class="lede">Watching status shares the title row; Display options controls sit inline on one bar.</p>
+  <div class="mockup">
+    <div class="title-row">
+      <h2>Firewall Live View <span class="muted" style="font-size:0.65em">using fw4</span></h2>
+      <div class="title-status">
+        <span class="dot"></span>
+        <strong>Watching</strong>
+        <span class="muted">3 matching · 3/50 stored</span>
+      </div>
+    </div>
+    <div class="watch-strip">
+      <div class="watch-group"><button class="btn ghost">Pause</button><button class="btn logging">Logging on</button></div>
+      <div class="watch-group"><span class="group-label">View</span><div class="segments"><button>Simple</button><button class="selected">Detail</button></div></div>
+      <div class="watch-group"><span class="group-label">Message</span><div class="segments"><button>Wrap</button><button class="selected">One line</button></div></div>
+    </div>
+    <div class="display-bar">
+      <strong>Display options</strong>
+      <div class="display-controls">
+        <label>Limit <select><option selected>50</option></select></label>
+        <label><input type="checkbox" checked> Row tint</label>
+        <label>Palette <select><option>Classic (green/red)</option><option selected>Accessible (teal/orange)</option></select></label>
+        <label><input type="checkbox"> Show hostnames</label>
+      </div>
+    </div>
+    <div class="table-placeholder"><span>action</span><span>Time</span><span>Interface</span><span>Flow</span><span>Proto</span><span>Rule</span></div>
+  </div>
+</main>
+</body>
+</html>

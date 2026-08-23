@@ -198,7 +198,7 @@ async function main() {
 		console.warn('no expandable row found; kept previous fwlive-expanded-message.png');
 	}
 
-	await page.locator('#fwlive-detail-toggle').click();
+	await page.locator('#fwlive-view-detail').click();
 	await page.waitForTimeout(1500);
 	await page.screenshot({ path: path.join(OUT, 'fwlive-main-view.png'), fullPage: true });
 
