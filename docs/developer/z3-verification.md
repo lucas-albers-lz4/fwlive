@@ -36,6 +36,29 @@ python3 scripts/z3-verify.py --full
 | Convenience | `--fast` | `.pre-commit-config.yaml` local hook (skip if no z3) |
 | Enforcement | `--full` | `fwlive-test` workflow job `z3-verify` |
 
+## `--fast` vs `--full` (F2)
+
+| Tier | F2 coverage | Length bound |
+| ---- | ----------- | -------------- |
+| `--fast` | Alphabet lemmas (length-independent where noted) plus **concrete** whole-word sat/unsat pairs for each predicate | Unrolled scans bounded by `WORD_SCAN_MAX ≤ 24` |
+| `--full` | Everything in `--fast`, plus mutation guards (weaken a flank → unsat), symbolic no-over-match lemmas, and deny-class ⊆ action-class implication | Same `WORD_SCAN_MAX ≤ 24` scan bound |
+
+**Not claimed:** length-independent symbolic word-boundary proofs for arbitrary-length
+inputs. Those require ECMA-direct backends in [regexproof](https://github.com/lucas-albers-lz4/regexproof)
+(`re.from_ecma2020` / Noodler — see upstream issue filed from this epic).
+
+## `/i` and mixed-case (F2)
+
+Z3 predicates enumerate **original + lowercase + uppercase** per token via
+`_both_cases` in `scripts/z3-verify.py`. **Arbitrary mixed spellings** (e.g.
+`aCcEpT`, `DrOp`, `sYn`) are **outside the finite-token model**.
+
+| Layer | Mixed-case coverage |
+| ----- | ------------------- |
+| F2 Z3 predicates | Upper + lower + spec spelling only |
+| F3 differential parity | Fixed mixed-case corpus (PR #203) — JS vs shell under `sh` and `busybox sh` |
+| Formal ECMA `/i` proof | regexproof upstream (`re.from_ecma2020`; link added when issue is filed) |
+
 ## F1 scope note
 
 `is_resolvable_address` first rejects anything outside `[0-9a-fA-F:.]`, then
@@ -58,9 +81,8 @@ seq backend). It does **not** feed the ECMA regexes to a solver.
 | `NETFILTER_KV_GLUE` | A non-space/tab char immediately before some `glueKeys+'='` (unrolled string-ops). `fwlive-pingIN=lo` sat; space/tab before `IN=` / `OUT=` unsat. | Scan length ≤ 24. `[^\s]` modeled as not space and not tab. Lookahead `(?=KEY=)` is **not** encoded. Glue keys are exact-case (JS is not `/i`). |
 
 Alphabet lemmas (`=` / digit disjoint from flag and action letters in the
-case-expanded token domain; glue
-keys are A–Z) are length-independent supporting facts, not the classify
-predicates. Tuples in `scripts/z3-verify.py` are pinned to
+case-expanded token domain; glue keys are A-Z) are length-independent supporting
+facts, not the classify predicates. Tuples in `scripts/z3-verify.py` are pinned to
 `core/fwlive-log.js` CLASSIFY_SPEC (update both if the spec changes).
 Word-boundary uses `Complement([A-Za-z0-9_])` at **length 1 only** (not
 `Star(Complement)`).
