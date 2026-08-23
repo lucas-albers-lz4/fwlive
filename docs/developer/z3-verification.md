@@ -19,10 +19,12 @@ rpcd behavior (file separate issues for behavior fixes).
 ## Commands
 
 ```sh
-# Pre-commit subset (skip if z3 not installed — CI is authoritative)
+# Pre-commit subset (hook skips if z3 not installed — CI is authoritative)
+pre-commit run z3-verify-fast
+# Or, with z3 installed:
 python3 scripts/z3-verify.py --fast
 
-# Full suite (CI)
+# Full suite (CI; requires z3)
 pip install 'z3-solver==5.0.0'
 python3 scripts/z3-verify.py --full
 ```
