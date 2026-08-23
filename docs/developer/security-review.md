@@ -101,10 +101,10 @@ should carry a note saying what would raise it.
 
 | ID | Severity | Issue | Summary | Verified |
 |----|----------|-------|---------|----------|
-| Low | [#204](https://github.com/lucas-albers-lz4/fwlive/issues/204) | Predictable lock path opened O_TRUNC without symlink check | `acquire_wan_log_lock` rejects `-L` before create/tighten/open; Part E asserts decoy not truncated | 2026-08-23 — security-audit PR |
-| Low | [#205](https://github.com/lucas-albers-lz4/fwlive/issues/205) | Unpinned `@playwright/mcp@latest` in `.cursor/mcp.json` | MCP entry removed; tests use pinned `playwright@1.60.0` | 2026-08-23 — security-audit PR |
-| Low | [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | `is_resolvable_address` hostname-shaped tokens | Strict IPv4/IPv6 validation + selftest cases | merged 2026-08-21 |
-| Low | [#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) | `uci commit firewall` foreign-delta sweep | Pre/post-stage gates + post-commit verification; residual window documented | merged 2026-08-23 |
+| [#204](https://github.com/lucas-albers-lz4/fwlive/issues/204) | Low | Predictable lock path opened O_TRUNC without symlink check | Lock under `/etc/fwlive/`; `acquire_wan_log_lock` rejects `-L` before create/tighten/open; Part E | 2026-08-23 — security-audit PR |
+| [#205](https://github.com/lucas-albers-lz4/fwlive/issues/205) | Low | Unpinned `@playwright/mcp@latest` in `.cursor/mcp.json` | MCP entry removed; tests use pinned `playwright@1.60.0` | 2026-08-23 — security-audit PR |
+| [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | Low | `is_resolvable_address` hostname-shaped tokens | Strict IPv4/IPv6 validation + selftest cases | merged 2026-08-21 |
+| [#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) | Low | `uci commit firewall` foreign-delta sweep | Pre/post-stage gates + post-commit verification; residual window documented | merged 2026-08-23 |
 
 
 ## Accepted residuals
@@ -280,8 +280,9 @@ lock (#204), removal of unpinned `@playwright/mcp@latest` (#205). Ledger refresh
 
 **Findings fixed in PR.**
 
-- **#204** — `acquire_wan_log_lock` failed closed on `-L` before create, chmod/chown,
-  and `exec 9>`; Part E in `fwlive-logging-lock.test.sh`.
+- **#204** — WAN logging lock moved to `/etc/fwlive/logging.lock` (root-only dir);
+  `acquire_wan_log_lock` fails closed on `-L` before create, chmod/chown, and
+  `exec 9>`; Part E in `fwlive-logging-lock.test.sh`.
 - **#205** — `.cursor/mcp.json` playwright MCP removed; UI smoke tests use pinned
   `playwright@1.60.0` from `package.json`.
 

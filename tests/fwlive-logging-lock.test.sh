@@ -15,7 +15,7 @@
 # BusyBox note: the production flock helper has no -w timeout, so the
 # critical section stays short (read->compute->set->commit); the firewall
 # reload runs outside the lock. Tests run hermetically by pointing
-# FWLIVE_WAN_LOG_LOCK_FILE at a temp path (default is /var/lock/...).
+# FWLIVE_WAN_LOG_LOCK_FILE at a temp path (default is /etc/fwlive/logging.lock).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

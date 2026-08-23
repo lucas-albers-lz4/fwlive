@@ -18,8 +18,8 @@ NF_LOG_IPV6='/proc/sys/net/netfilter/nf_log/10'
 # the /etc/init.d/firewall reload (can take seconds); the lock is released
 # before reload, and reload-failure rollback is a best-effort UCI write
 # outside the lock.
-# Overridable for tests/containers (default is the production path).
-WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/var/lock/fwlive-logging.lock}"
+# Overridable for tests/containers (default is root-only /etc/fwlive).
+WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/etc/fwlive/logging.lock}"
 WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-baseline}"
 
 # Acquire the exclusive logging lock on fd 9. Blocks until free; fails closed
@@ -27,9 +27,14 @@ WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-basel
 # Create/tighten the lock to 0600 so unprivileged UIDs cannot take LOCK_EX on
 # a world-readable fd (issue #167 / flock(2) allows exclusive locks on O_RDONLY).
 acquire_wan_log_lock() {
-	# Fail closed on a pre-planted symlink: chmod/chown/exec O_TRUNC follow the
-	# target and run as root (#204). Re-check after create/tighten (TOCTOU).
+	# Fail closed on symlinks: chmod/chown/exec O_TRUNC follow the target as root
+	# (#204). Default lock lives under /etc/fwlive (root-only), not world-writable
+	# /var/lock. Re-check after create/tighten (TOCTOU).
+	lock_dir="$(dirname "$WAN_LOG_LOCK_FILE")"
+	[ -L "$lock_dir" ] && return 1
 	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
+	( umask 077; mkdir -p "$lock_dir" ) 2>/dev/null || return 1
+	[ -L "$lock_dir" ] && return 1
 	( umask 077; : >> "$WAN_LOG_LOCK_FILE" ) 2>/dev/null || return 1
 	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
 	chmod 0600 "$WAN_LOG_LOCK_FILE" 2>/dev/null || true
