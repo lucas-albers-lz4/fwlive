@@ -47,15 +47,19 @@ the full suite documents that split so we do not over-claim the alphabet layer.
 
 ## F2 scope note
 
-CLASSIFY_SPEC predicates (`ACTION_RE` / `DENY_ACTION`, `NON_FIREWALL_PREFIX`,
-`TCP_FLAG_TAIL`, `glueKeys`) are modeled as **alphabet gates**, **finite
-alternations**, and **word-boundary splits** — not as the ECMA regexes
-fed to a solver. Tuples in `scripts/z3-verify.py` are pinned to
-`core/fwlive-log.js` CLASSIFY_SPEC (update both if the spec changes).
-JS patterns are `/i`; F2 uses the spelled case in the spec.
+F2 encodes CLASSIFY_SPEC *predicates* in stock `z3-solver==5.0.0` (default
+seq backend). It does **not** feed the ECMA regexes to a solver.
 
-`NETFILTER_KV_GLUE`'s lookahead `(?=KEY=)` is **not** expressible in stock
-`z3-solver==5.0.0`. `--full` checks a string-ops glue site (`IndexOf` /
-`Contains` of `IN=`) instead of the lookahead as written. Word-boundary
-proofs use `Complement([A-Za-z0-9_])` at **length 1 only** (not
-`Star(Complement)`, a known timeout trap).
+| Predicate | What is proven | Declared domain |
+| --------- | -------------- | --------------- |
+| `ACTION_RE` / `DENY_ACTION` | Whole-word match: finite Or of action/deny tokens with `Complement([A-Za-z0-9_])` flanks (length 1) or start/end. `--fast` sat/unsat pairs include ` DROP ` vs `XDROPY`. `--full` adds mutation guards (weaken a flank → unsat), `XDROPY DROP` still matches, and a symbolic lemma: no 6-char alnum string containing `DROP` except `DROP` itself is deny. | Scan length ≤ 24. Upper+lower tokens (JS is `/i`; mixed-case not enumerated). |
+| `NON_FIREWALL_PREFIX` | Start-anchored daemon name + non-word boundary or end. `dnsmasq[` sat; `dnsmasqfoo` / `xdnsmasq[` unsat. | Upper+lower names. |
+| `TCP_FLAG_TAIL` | The **tail fragment** is a sequence of flag tokens separated by space/tab (`token (ws+ token)* ws*`). `SYN ACK` sat; `SYNACK` / `SYN=` unsat. | Whole string is the tail — not a suffix search in a longer line. Not JS `\b` or full `\s`. Upper+lower tokens. |
+| `NETFILTER_KV_GLUE` | A non-space/tab char immediately before some `glueKeys+'='` (unrolled string-ops). `fwlive-pingIN=lo` sat; space/tab before `IN=` / `OUT=` unsat. | Scan length ≤ 24. `[^\s]` modeled as not space and not tab. Lookahead `(?=KEY=)` is **not** encoded. Glue keys are exact-case (JS is not `/i`). |
+
+Alphabet lemmas (`=` / digit disjoint from flag and action letters; glue
+keys are A–Z) are length-independent supporting facts, not the classify
+predicates. Tuples in `scripts/z3-verify.py` are pinned to
+`core/fwlive-log.js` CLASSIFY_SPEC (update both if the spec changes).
+Word-boundary uses `Complement([A-Za-z0-9_])` at **length 1 only** (not
+`Star(Complement)`).

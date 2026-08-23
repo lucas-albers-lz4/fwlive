@@ -6,11 +6,10 @@ Host-side Z3 checks for fwlive regex / address sanitation (#120 / #121).
 F1: alphabet gate for `is_resolvable_address` in rpcd/fwlive (pre-awk
 `case *[ !0-9a-fA-F:.]*`). Not a full re-encoding of the awk IPv6 grammar.
 
-F2: CLASSIFY_SPEC core predicates from core/fwlive-log.js (action / deny /
-non-firewall prefix / TCP_FLAG_TAIL / glue keys). Alphabet, finite
-alternation, and word-boundary split — not ECMA-direct. NETFILTER_KV_GLUE
-lookahead is string-ops (IndexOf / Contains), not the lookahead regex.
-Pinned for stock z3-solver==5.0.0 (default seq backend; no z3str3).
+F2: CLASSIFY_SPEC predicates encoded as Z3 string-ops (wordPattern
+boundaries, prefix+boundary, flag-token/ws language, glue site). Not
+ECMA-direct. NETFILTER_KV_GLUE lookahead is string-ops, not the lookahead
+regex. Pinned for stock z3-solver==5.0.0 (default seq backend; no z3str3).
 
 Usage:
   ./scripts/z3-verify.py --fast
@@ -23,8 +22,8 @@ import sys
 
 try:
 	from z3 import And, If, Not, Or, Solver, String, StringVal, sat, unsat
-	from z3 import Length, SubString, Contains, IndexOf, PrefixOf
-	from z3 import Complement, InRe, Range, Re, Union
+	from z3 import Length, SubString, Contains, PrefixOf
+	from z3 import Complement, Concat, InRe, Plus, Range, Re, Star, Union
 except ImportError:  # pragma: no cover
 	print(
 		"error: z3 python module missing (pip install 'z3-solver==5.0.0')",
@@ -42,7 +41,8 @@ ADDR_MAX_LEN = 64
 # F2 pins from core/fwlive-log.js CLASSIFY_SPEC / derived regexes (#198).
 # If the JS spec changes, update these tuples. z3-solver==5.0.0.
 # JS ACTION_RE / DENY_ACTION / NON_FIREWALL_PREFIX / TCP_FLAG_TAIL are /i;
-# F2 models the spelled case in the spec (pilot: exact-case tokens).
+# F2 enumerates upper+lower tokens (mixed-case is outside this model).
+# Glue keys are exact-case in NETFILTER_KV_GLUE (not /i).
 # ---------------------------------------------------------------------------
 TCP_FLAG_TOKENS = ("SYN", "ACK", "FIN", "RST", "PSH", "URG")
 ACTION_WORDS = ("ACCEPT", "ALLOW", "PASS", "DROP", "REJECT", "DENY", "BLOCK")
@@ -78,7 +78,8 @@ GLUE_KEYS = (
 )
 # wordPattern / NON_FIREWALL_PREFIX boundary class: [^A-Za-z0-9_]
 ALNUM_US = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"
-ACTION_TOKEN_MAX = max(len(w) for w in ACTION_WORDS)
+# Declared domain for unrolled whole-word / glue scans (not all-length).
+WORD_SCAN_MAX = 24
 
 
 def _alphabet_of(words) -> str:
@@ -86,12 +87,27 @@ def _alphabet_of(words) -> str:
 	return "".join(sorted(set("".join(words))))
 
 
+def _both_cases(words):
+	"""Spec spelling plus lower/upper (JS /i; mixed-case not enumerated)."""
+	out = []
+	seen = set()
+	for w in words:
+		for v in (w, w.lower(), w.upper()):
+			if v not in seen:
+				seen.add(v)
+				out.append(v)
+	return tuple(out)
+
+
 TCP_FLAG_ALPHABET = _alphabet_of(TCP_FLAG_TOKENS)
 ACTION_ALPHABET = _alphabet_of(ACTION_WORDS)
 GLUE_ALPHABET = _alphabet_of(GLUE_KEYS)
-# NON_FIREWALL_PREFIX is /i — first-char gate uses both cases.
+ACTION_WORDS_CASED = _both_cases(ACTION_WORDS)
+DENY_WORDS_CASED = _both_cases(DENY_WORDS)
+PREFIXES_CASED = _both_cases(NON_FIREWALL_PREFIXES)
+FLAG_TOKENS_CASED = _both_cases(TCP_FLAG_TOKENS)
 NON_FIREWALL_START_ALPHABET = "".join(
-	sorted({p[0] for p in NON_FIREWALL_PREFIXES} | {p[0].upper() for p in NON_FIREWALL_PREFIXES})
+	sorted({p[0] for p in PREFIXES_CASED})
 )
 
 
@@ -156,20 +172,113 @@ def _is_boundary_char(c):
 	return And(Length(c) == 1, InRe(c, Complement(_alnum_us_re())))
 
 
-def _whole_word_at(s, token: str):
-	"""token is a whole word: start/end or Complement([A-Za-z0-9_]) flanks."""
-	idx = IndexOf(s, StringVal(token), 0)
-	n = Length(s)
+def _non_word_char_at(s, i: int):
+	"""Length-1 Complement([A-Za-z0-9_]) at position i."""
+	return InRe(SubString(s, i, 1), Complement(_alnum_us_re()))
+
+
+def _whole_word_unrolled(s, token: str, max_len: int = WORD_SCAN_MAX):
+	"""token occurs as wordPattern whole word at some index in [0, max_len).
+
+	Domain: Length(s) ≤ max_len. Start/end of string count as boundaries;
+	interior flanks are Complement([A-Za-z0-9_]) at length 1.
+	"""
 	tlen = len(token)
-	before_ok = Or(
-		idx == 0,
-		And(idx > 0, InRe(SubString(s, idx - 1, 1), Complement(_alnum_us_re()))),
+	hits = []
+	for start in range(0, max_len - tlen + 1):
+		end = start + tlen
+		after = Or(
+			Length(s) == end,
+			And(Length(s) > end, _non_word_char_at(s, end)),
+		)
+		conds = [
+			Length(s) >= end,
+			Length(s) <= max_len,
+			SubString(s, start, tlen) == StringVal(token),
+			after,
+		]
+		if start > 0:
+			conds.append(_non_word_char_at(s, start - 1))
+		hits.append(And(*conds))
+	return Or(*hits)
+
+
+def matches_action_re(s):
+	"""ACTION_RE: some action word is a whole word (upper+lower; scan ≤ WORD_SCAN_MAX)."""
+	return Or(*[_whole_word_unrolled(s, w) for w in ACTION_WORDS_CASED])
+
+
+def matches_deny(s):
+	"""DENY_ACTION: some deny-class word is a whole word (upper+lower; scan ≤ WORD_SCAN_MAX)."""
+	return Or(*[_whole_word_unrolled(s, w) for w in DENY_WORDS_CASED])
+
+
+def matches_nf_prefix(s):
+	"""NON_FIREWALL_PREFIX: start-anchored daemon name + boundary or end (upper+lower)."""
+	alts = []
+	for p in PREFIXES_CASED:
+		plen = len(p)
+		alts.append(
+			And(
+				PrefixOf(StringVal(p), s),
+				Or(
+					Length(s) == plen,
+					And(Length(s) > plen, _non_word_char_at(s, plen)),
+				),
+			)
+		)
+	return Or(*alts)
+
+
+def _flag_tail_re():
+	"""token (ws+ token)* ws* — whole string; ws is space/tab, not full JS \\s."""
+	tok = Union(*[Re(t) for t in FLAG_TOKENS_CASED])
+	ws = Union(Re(" "), Re("\t"))
+	return Concat(tok, Star(Concat(Plus(ws), tok)), Star(ws))
+
+
+def matches_flag_tail(s):
+	"""TCP_FLAG_TAIL fragment: whole string is flag tokens separated by space/tab.
+
+	Domain: the tail *string* (not a suffix search inside a longer log line).
+	Tokens upper+lower. Separators space/tab only (not JS \\s / \\b).
+	"""
+	return InRe(s, _flag_tail_re())
+
+
+def _is_ws_at(s, i: int):
+	"""Position i is space or tab (F2 model of JS \\s)."""
+	return Or(
+		SubString(s, i, 1) == StringVal(" "),
+		SubString(s, i, 1) == StringVal("\t"),
 	)
-	after_ok = Or(
-		idx + tlen == n,
-		And(idx + tlen < n, InRe(SubString(s, idx + tlen, 1), Complement(_alnum_us_re()))),
-	)
-	return And(idx >= 0, before_ok, after_ok)
+
+
+def matches_glue(s, max_len: int = WORD_SCAN_MAX):
+	"""Glue site: non-space/tab char immediately before some glueKeys+'='.
+
+	Domain: Length(s) ≤ max_len. String-ops unrolling — not ECMA lookahead.
+	JS non-whitespace class is modeled as not space and not tab.
+	"""
+	hits = []
+	for key in GLUE_KEYS:
+		needle = key + "="
+		nlen = len(needle)
+		for i in range(0, max_len - nlen):
+			hits.append(
+				And(
+					Length(s) >= i + 1 + nlen,
+					Length(s) <= max_len,
+					Not(_is_ws_at(s, i)),
+					SubString(s, i + 1, nlen) == StringVal(needle),
+				)
+			)
+	return Or(*hits)
+
+
+def _lit(s, pred, literal: str):
+	"""Bind s to a concrete literal and assert pred(s)."""
+	return And(s == StringVal(literal), pred(s))
 
 
 def run_f1_fast() -> int:
@@ -254,18 +363,13 @@ def run_f1_full() -> int:
 
 
 def run_f2_fast() -> int:
-	"""F2 --fast: alphabet / finite-set CLASSIFY_SPEC props; return failure count.
-
-	Domain: length-independent alphabet disjointness, or concrete / tiny-bound
-	tokens (action words ≤ ACTION_TOKEN_MAX). Not a full ECMA re-encoding.
-	"""
+	"""F2 --fast: encoded CLASSIFY_SPEC predicates on concrete / tiny domain."""
 	fail = 0
 	c = String("c")
 	t = String("t")
 	s = String("s")
 
-	# --- TCP_FLAG_TAIL token alphabet (case as in pattern) ---
-	# Single-char: flag letters ∩ {=, 0-9} is empty (complement-style).
+	# Alphabet lemmas (length-independent disjointness — not membership tautologies).
 	if not check_unsat(
 		"F2 TCP_FLAG_TAIL alphabet disjoint from =/digit",
 		And(
@@ -275,21 +379,6 @@ def run_f2_fast() -> int:
 		),
 	):
 		fail += 1
-
-	for tok in TCP_FLAG_TOKENS:
-		if not check_sat(
-			f"F2 TCP_FLAG_TAIL token {tok}",
-			And(t == StringVal(tok), _in_finite_set(t, TCP_FLAG_TOKENS)),
-		):
-			fail += 1
-
-	if not check_unsat(
-		"F2 TCP_FLAG_TAIL reject SYNACK as single token",
-		And(t == StringVal("SYNACK"), _in_finite_set(t, TCP_FLAG_TOKENS)),
-	):
-		fail += 1
-
-	# --- ACTION_RE / DENY: finite sets from CLASSIFY_SPEC.actionWords ---
 	if not check_unsat(
 		"F2 ACTION_RE alphabet disjoint from =/digit",
 		And(
@@ -299,88 +388,6 @@ def run_f2_fast() -> int:
 		),
 	):
 		fail += 1
-
-	for w in ACTION_WORDS:
-		if not check_sat(
-			f"F2 ACTION_RE member {w}",
-			And(
-				t == StringVal(w),
-				Length(t) <= ACTION_TOKEN_MAX,
-				_in_finite_set(t, ACTION_WORDS),
-			),
-		):
-			fail += 1
-
-	if not check_unsat(
-		"F2 ACTION_RE reject FOOBAR (bounded token)",
-		And(
-			t == StringVal("FOOBAR"),
-			Length(t) <= ACTION_TOKEN_MAX,
-			_in_finite_set(t, ACTION_WORDS),
-		),
-	):
-		fail += 1
-
-	if not check_unsat(
-		"F2 DENY subset of ACTION_RE",
-		And(_in_finite_set(t, DENY_WORDS), Not(_in_finite_set(t, ACTION_WORDS))),
-	):
-		fail += 1
-
-	if not check_unsat(
-		"F2 DENY excludes ACCEPT",
-		And(t == StringVal("ACCEPT"), _in_finite_set(t, DENY_WORDS)),
-	):
-		fail += 1
-
-	for w in DENY_WORDS:
-		if not check_sat(
-			f"F2 DENY member {w}",
-			And(t == StringVal(w), _in_finite_set(t, DENY_WORDS)),
-		):
-			fail += 1
-
-	# --- NON_FIREWALL_PREFIX: finite daemon names ---
-	for p in NON_FIREWALL_PREFIXES:
-		if not check_sat(
-			f"F2 NON_FIREWALL_PREFIX member {p}",
-			And(t == StringVal(p), _in_finite_set(t, NON_FIREWALL_PREFIXES)),
-		):
-			fail += 1
-
-	if not check_unsat(
-		"F2 NON_FIREWALL_PREFIX reject sshd",
-		And(t == StringVal("sshd"), _in_finite_set(t, NON_FIREWALL_PREFIXES)),
-	):
-		fail += 1
-
-	# dnsmasq + non-alnum boundary is prefix-admissible (sat).
-	if not check_sat(
-		"F2 NON_FIREWALL_PREFIX dnsmasq+boundary admissible",
-		And(
-			s == StringVal("dnsmasq["),
-			PrefixOf(StringVal("dnsmasq"), s),
-			Length(s) == len("dnsmasq") + 1,
-			Not(_char_in(s, len("dnsmasq"), ALNUM_US)),
-		),
-	):
-		fail += 1
-
-	# Shell metachar-only strings fail the first-char prefix alphabet.
-	for label, bad in (
-		("dollar-paren", "$(reboot)"),
-		("backtick", "`id`"),
-		("semicolon", ";rm"),
-		("pipe", "|nc"),
-		("ampersand", "&bg"),
-	):
-		if not check_unsat(
-			f"F2 NON_FIREWALL_PREFIX reject {label} via start alphabet",
-			And(s == StringVal(bad), _char_in(s, 0, NON_FIREWALL_START_ALPHABET)),
-		):
-			fail += 1
-
-	# --- Glue keys: finite set equals CLASSIFY_SPEC.glueKeys ---
 	if not check_unsat(
 		"F2 glue alphabet disjoint from lowercase/digit",
 		And(
@@ -390,31 +397,81 @@ def run_f2_fast() -> int:
 		),
 	):
 		fail += 1
+	if not check_unsat(
+		"F2 DENY pin subset of ACTION_RE pin",
+		And(_in_finite_set(t, DENY_WORDS), Not(_in_finite_set(t, ACTION_WORDS))),
+	):
+		fail += 1
 
-	for k in GLUE_KEYS:
-		if not check_sat(
-			f"F2 glue key {k}",
-			And(t == StringVal(k), _in_finite_set(t, GLUE_KEYS)),
-		):
+	# ACTION_RE / DENY_ACTION: whole-word Or of finite alternatives.
+	for name, pred, lit, expect in (
+		("F2 deny whole-word DROP", matches_deny, " DROP ", True),
+		("F2 deny whole-word DROP at ends", matches_deny, "DROP", True),
+		("F2 deny whole-word drop (lower)", matches_deny, " drop ", True),
+		("F2 deny no-over-match XDROPY", matches_deny, "XDROPY", False),
+		("F2 deny excludes ACCEPT", matches_deny, "ACCEPT", False),
+		("F2 ACTION_RE whole-word ACCEPT", matches_action_re, " ACCEPT ", True),
+		("F2 ACTION_RE whole-word accept (lower)", matches_action_re, " accept ", True),
+		("F2 ACTION_RE no-over-match XACCEPTY", matches_action_re, "XACCEPTY", False),
+	):
+		formula = _lit(s, pred, lit)
+		ok = check_sat(name, formula) if expect else check_unsat(name, formula)
+		if not ok:
 			fail += 1
 
-	for label, bad in (("FOO", "FOO"), ("INX", "INX"), ("TCP", "TCP")):
-		if not check_unsat(
-			f"F2 glue key reject {label}",
-			And(t == StringVal(bad), _in_finite_set(t, GLUE_KEYS)),
-		):
+	# NON_FIREWALL_PREFIX: start-anchored + boundary.
+	for name, lit, expect in (
+		("F2 prefix dnsmasq+boundary", "dnsmasq[", True),
+		("F2 prefix dnsmasq at end", "dnsmasq", True),
+		("F2 prefix DNSMASQ (upper)", "DNSMASQ ", True),
+		("F2 prefix no-over-match dnsmasqfoo", "dnsmasqfoo", False),
+		("F2 prefix reject dollar-paren", "$(reboot)", False),
+	):
+		formula = _lit(s, matches_nf_prefix, lit)
+		ok = check_sat(name, formula) if expect else check_unsat(name, formula)
+		if not ok:
+			fail += 1
+	if not check_unsat(
+		"F2 prefix reject dollar-paren via start alphabet",
+		And(s == StringVal("$(reboot)"), _char_in(s, 0, NON_FIREWALL_START_ALPHABET)),
+	):
+		fail += 1
+
+	# TCP_FLAG_TAIL: sequence of allowed tokens with whitespace.
+	for name, lit, expect in (
+		("F2 flag tail SYN", "SYN", True),
+		("F2 flag tail SYN ACK", "SYN ACK", True),
+		("F2 flag tail syn ack (lower)", "syn ack", True),
+		("F2 flag tail reject SYNACK", "SYNACK", False),
+		("F2 flag tail reject SYN=", "SYN=", False),
+	):
+		formula = _lit(s, matches_flag_tail, lit)
+		ok = check_sat(name, formula) if expect else check_unsat(name, formula)
+		if not ok:
+			fail += 1
+
+	# Glue: non-ws char immediately before glueKeys+'='; space/tab is not a site.
+	for name, lit, expect in (
+		("F2 glue site pingIN=", "fwlive-pingIN=lo", True),
+		("F2 glue site xOUT=", "xOUT=eth0", True),
+		("F2 glue space-before IN= is not a site", "foo IN=lo", False),
+		("F2 glue tab-before OUT= is not a site", "foo\tOUT=x", False),
+	):
+		formula = _lit(s, matches_glue, lit)
+		ok = check_sat(name, formula) if expect else check_unsat(name, formula)
+		if not ok:
 			fail += 1
 
 	return fail
 
 
 def run_f2_full() -> int:
-	"""F2 --full: fast suite + word-boundary Complement + glue string-ops."""
+	"""F2 --full: fast + boundary class + mutation guards + symbolic lemmas."""
 	fail = run_f2_fast()
 	c = String("c")
 	s = String("s")
 
-	# Word-boundary: Length==1 Complement([A-Za-z0-9_]) — not Star(Complement).
+	# Length==1 Complement([A-Za-z0-9_]) — not Star(Complement).
 	if not check_unsat(
 		"F2 word-boundary Complement rejects A",
 		And(c == StringVal("A"), _is_boundary_char(c)),
@@ -436,43 +493,50 @@ def run_f2_full() -> int:
 	):
 		fail += 1
 
-	# Concrete whole-word sat/unsat: ` DROP ` is deny-class; `XDROPY` is not.
-	if not check_sat(
-		"F2 word-boundary DROP flanked is deny-class",
-		And(
-			s == StringVal(" DROP "),
-			_whole_word_at(s, "DROP"),
-			_in_finite_set(StringVal("DROP"), DENY_WORDS),
-		),
+	# Mutation guards: weaken a boundary → sat flips to unsat.
+	for name, pred, good, bad in (
+		("deny trailing alnum", matches_deny, " DROP ", " DROPx"),
+		("deny leading alnum", matches_deny, " DROP ", "xDROP "),
+		("deny trailing underscore", matches_deny, " DROP ", " DROP_"),
+		("deny lower embed", matches_deny, " drop ", "xdropy"),
+		("action trailing alnum", matches_action_re, " ACCEPT ", "XACCEPTY"),
+		("prefix continue alnum", matches_nf_prefix, "dnsmasq[", "dnsmasqfoo"),
+		("prefix not start-anchored", matches_nf_prefix, "dnsmasq[", "xdnsmasq["),
+		("flag missing ws", matches_flag_tail, "SYN ACK", "SYNACK"),
+		("flag trailing alnum", matches_flag_tail, "SYN ACK", "SYN ACKX"),
+		("glue insert space", matches_glue, "fwlive-pingIN=lo", "fwlive-ping IN=lo"),
+		("glue DST space-before", matches_glue, "xDST=1", " DST=1"),
+		("glue PROTO space-before", matches_glue, "aPROTO=tcp", " PROTO=tcp"),
 	):
-		fail += 1
-	if not check_unsat(
-		"F2 word-boundary XDROPY is not whole-word DROP",
-		And(s == StringVal("XDROPY"), _whole_word_at(s, "DROP")),
+		if not check_sat(f"F2 mutate {name} (base sat)", _lit(s, pred, good)):
+			fail += 1
+		if not check_unsat(f"F2 mutate {name} (weakened unsat)", _lit(s, pred, bad)):
+			fail += 1
+
+	# Later whole-word still matches (unroll is not first-hit-only).
+	if not check_sat(
+		"F2 deny XDROPY DROP still whole-word",
+		_lit(s, matches_deny, "XDROPY DROP"),
 	):
 		fail += 1
 
-	# NETFILTER_KV_GLUE = /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=)/g
-	# Lookahead (?=...) has no stock-Z3 regex constructor (z3-solver==5.0.0).
-	# Glue site = char immediately before KEY= via IndexOf / Contains, not ECMA lookahead.
-	idx = IndexOf(s, StringVal("IN="), 0)
-	if not check_sat(
-		"F2 glue site char immediately before IN= (string-ops, not lookahead)",
+	# Symbolic no-over-match: 6-char alnum containing DROP but not equal DROP.
+	if not check_unsat(
+		"F2 deny no-over-match embedded DROP in alnum len 6",
 		And(
-			s == StringVal("fwlive-pingIN=lo"),
-			Contains(s, StringVal("IN=")),
-			idx == 11,
-			SubString(s, idx - 1, 1) != StringVal(" "),
+			Length(s) == 6,
+			Contains(s, StringVal("DROP")),
+			s != StringVal("DROP"),
+			*[_char_in(s, i, ALNUM_US) for i in range(6)],
+			matches_deny(s),
 		),
 	):
 		fail += 1
+
+	# deny-class match implies ACTION_RE match (cased pins; scan ≤ 12).
 	if not check_unsat(
-		"F2 already-split IN= is not a glue site",
-		And(
-			s == StringVal("foo IN=lo"),
-			Contains(s, StringVal("IN=")),
-			SubString(s, idx - 1, 1) != StringVal(" "),
-		),
+		"F2 deny implies ACTION_RE (len ≤ 12)",
+		And(Length(s) >= 1, Length(s) <= 12, matches_deny(s), Not(matches_action_re(s))),
 	):
 		fail += 1
 
