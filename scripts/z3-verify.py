@@ -27,7 +27,8 @@ except ImportError:  # pragma: no cover
 
 # Matches the pre-awk case alphabet in is_resolvable_address (#190/#192).
 ADDR_ALPHABET = "0123456789abcdefABCDEF:."
-# Bound for quantifier-free char-at encoding (addresses are short in practice).
+# Bound for quantifier-free char-at encoding. Proofs are valid up to this
+# length (not length-independent). Real addresses are far shorter.
 ADDR_MAX_LEN = 64
 
 
@@ -37,7 +38,12 @@ def _char_in(s, i, alphabet: str):
 
 
 def alphabet_ok(s):
-	"""Z3 predicate: non-empty, length ≤ ADDR_MAX_LEN, only ADDR_ALPHABET chars."""
+	"""Z3 predicate: non-empty, length ≤ ADDR_MAX_LEN, only ADDR_ALPHABET chars.
+
+	Domain: proven for Length(s) in [1, ADDR_MAX_LEN]. Strings longer than
+	ADDR_MAX_LEN are outside this model (shell has no length cap on the case
+	alphabet alone).
+	"""
 	n = Length(s)
 	conds = [n >= 1, n <= ADDR_MAX_LEN]
 	for i in range(ADDR_MAX_LEN):

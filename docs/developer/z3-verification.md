@@ -37,8 +37,8 @@ python3 scripts/z3-verify.py --full
 ## F1 scope note
 
 `is_resolvable_address` first rejects anything outside `[0-9a-fA-F:.]`, then
-validates IPv4/IPv6 shape in awk. F1 proves the **alphabet gate** with Z3
-(length-independent char-class reasoning). Dotted-hex hostnames that use only
-hex letters (e.g. `ab.cd.ef.01`) are alphabet-admissible and are rejected by
-awk — the full suite documents that split so we do not over-claim the alphabet
-layer.
+validates IPv4/IPv6 shape in awk. F1 models the **alphabet gate** in Z3 with a
+quantifier-free char-at encoding **bounded to length ≤ 64** (declared domain —
+not a claim of all-length coverage). Dotted-hex hostnames that use only hex
+letters (e.g. `ab.cd.ef.01`) are alphabet-admissible and are rejected by awk —
+the full suite documents that split so we do not over-claim the alphabet layer.
