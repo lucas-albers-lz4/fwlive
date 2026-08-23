@@ -91,6 +91,11 @@ GLUE_KEYS = (
 ALNUM_US = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"
 # Declared domain for unrolled whole-word / glue scans (not all-length).
 WORD_SCAN_MAX = 24
+# Printable corpus alphabet for Z3 sat-models (argv/env safe; reproducible).
+SAMPLE_ALPHABET = (
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	"_-.:=[] \t"
+)
 
 
 def _alphabet_of(words) -> str:
@@ -564,7 +569,11 @@ def run_f2_full() -> int:
 
 def _run_node(args: list[str], label: str) -> bool:
 	"""Run node with args; print ok/FAIL."""
-	out = subprocess.run(["node", *args], cwd=ROOT, capture_output=True, text=True)
+	try:
+		out = subprocess.run(["node", *args], cwd=ROOT, capture_output=True, text=True)
+	except FileNotFoundError:
+		print(f"FAIL: {label} — node not found in PATH", file=sys.stderr)
+		return False
 	if out.returncode == 0:
 		print(f"ok: {label}")
 		return True
@@ -595,7 +604,11 @@ def _shell_is_firewall(msg: str, sh: str = "sh") -> bool:
 	parts = sh.split()
 	cmd = parts[0]
 	prefix = parts[1:]
-	script = f'. "{IS_FW}" && is_firewall_event_msg "$FW_MSG" && echo yes || echo no'
+	script = (
+		'. "$IS_FW" || exit 3; '
+		'command -v is_firewall_event_msg >/dev/null 2>&1 || exit 4; '
+		'if is_firewall_event_msg "$FW_MSG"; then echo yes; else echo no; fi'
+	)
 	out = subprocess.run(
 		[cmd, *prefix, "-c", script],
 		cwd=ROOT,
@@ -625,6 +638,10 @@ def _z3_sat_samples(pred, max_len: int = WORD_SCAN_MAX, n: int = 3) -> list[str]
 		sol = Solver()
 		sol.add(pred(s))
 		sol.add(Length(s) >= 1, Length(s) <= max_len)
+		# Keep models printable: argv/env cannot carry NUL; unconstrained flanks
+		# admit arbitrary control characters and make the corpus nondeterministic.
+		for i in range(max_len):
+			sol.add(If(Length(s) > i, _char_in(s, i, SAMPLE_ALPHABET), True))
 		for prev in samples:
 			sol.add(s != StringVal(prev))
 		r = sol.check()
@@ -678,12 +695,17 @@ def run_f3_fast() -> int:
 	if not GEN_SHELL.is_file() or not IS_FW.is_file():
 		print("FAIL: F3 missing codegen paths", file=sys.stderr)
 		return 1
-	out = subprocess.run(
-		["node", str(GEN_SHELL)],
-		cwd=ROOT,
-		capture_output=True,
-		text=True,
-	)
+	out = None
+	try:
+		out = subprocess.run(
+			["node", str(GEN_SHELL)],
+			cwd=ROOT,
+			capture_output=True,
+			text=True,
+		)
+	except FileNotFoundError:
+		print("FAIL: F3 codegen generator — node not found in PATH", file=sys.stderr)
+		return 1
 	if out.returncode != 0:
 		print(f"FAIL: F3 codegen generator — {out.stderr or out.stdout}", file=sys.stderr)
 		fail += 1
