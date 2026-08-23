@@ -13,8 +13,8 @@ rpcd behavior (file separate issues for behavior fixes).
 | ----- | ----- | ----------------- |
 | F1 `is_resolvable_address` alphabet | [#197](https://github.com/lucas-albers-lz4/fwlive/issues/197) | `scripts/z3-verify.py` |
 | F2 CLASSIFY_SPEC | [#198](https://github.com/lucas-albers-lz4/fwlive/issues/198) | `scripts/z3-verify.py` |
-| F3 adversarial parity | [#199](https://github.com/lucas-albers-lz4/fwlive/issues/199) | planned |
-| F4 parser robustness | [#200](https://github.com/lucas-albers-lz4/fwlive/issues/200) | planned |
+| F3 adversarial parity | [#199](https://github.com/lucas-albers-lz4/fwlive/issues/199) | `scripts/z3-verify.py` |
+| F4 parser robustness | [#200](https://github.com/lucas-albers-lz4/fwlive/issues/200) | `scripts/z3-verify.py`, `scripts/z3-robustness.js` |
 
 ## Commands
 
@@ -86,3 +86,18 @@ facts, not the classify predicates. Tuples in `scripts/z3-verify.py` are pinned 
 `core/fwlive-log.js` CLASSIFY_SPEC (update both if the spec changes).
 Word-boundary uses `Complement([A-Za-z0-9_])` at **length 1 only** (not
 `Star(Complement)`).
+
+## F3 scope note
+
+`--fast`: codegen drift guard (`gen-shell-classifier.js` output must match
+committed `fwlive-is-firewall-event.sh`). `--full`: Z3 sat-models from F2
+predicates plus fixed boundary lines are checked for JS (`core.isFirewallEvent`)
+vs generated shell (`fwlive-is-firewall-event.sh`) parity under `sh` and
+`busybox sh` (CI installs busybox).
+
+## F4 scope note
+
+`scripts/z3-robustness.js` exercises `normalizeNetfilterMessage`,
+`parseKeyValueLog`, `detectAction`, and `isFirewallEvent` on a malformed corpus
+(no throw). `--full` also runs `rpcd/fwlive __selftest` (sed prefix/comment
+captures and address selftests).
