@@ -5,3 +5,12 @@ repos:
     rev: v8.30.1
     hooks:
       - id: gitleaks
+
+  # #121: Z3 fast subset — skip when z3-solver is not installed (CI is authoritative).
+  - repo: local
+    hooks:
+      - id: z3-verify-fast
+        name: Z3 regex verification (fast subset)
+        entry: bash -c 'python3 -c "import z3" 2>/dev/null || { echo "z3-solver not installed — skipping (CI is authoritative)"; exit 0; }; python3 scripts/z3-verify.py --fast'
+        language: system
+        pass_filenames: false
