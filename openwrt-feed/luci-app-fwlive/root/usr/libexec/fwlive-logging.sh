@@ -69,6 +69,35 @@ wan_zone_log_value() {
 	uci -q get "firewall.${zone}.log" 2>/dev/null
 }
 
+# Match only firewall.<zone>.log deltas in `uci changes` — not log_limit.
+wan_log_foreign_staged_lines() {
+	_zone="$1"
+	_staged="$2"
+	_ours_prefix="firewall.${_zone}.log="
+	_del="-firewall.${_zone}.log"
+	_del_sp="- firewall.${_zone}.log"
+	printf '%s\n' "$_staged" | awk -v p="$_ours_prefix" -v d="$_del" -v ds="$_del_sp" '
+		NF == 0 { next }
+		index($0, p) == 1 { next }
+		$0 == d || $0 == ds { next }
+		{ print }
+	'
+}
+
+wan_log_count_our_staged_lines() {
+	_zone="$1"
+	_staged="$2"
+	_ours_prefix="firewall.${_zone}.log="
+	_del="-firewall.${_zone}.log"
+	_del_sp="- firewall.${_zone}.log"
+	printf '%s\n' "$_staged" | awk -v p="$_ours_prefix" -v d="$_del" -v ds="$_del_sp" '
+		NF == 0 { next }
+		index($0, p) == 1 { c++; next }
+		$0 == d || $0 == ds { c++; next }
+		END { print c+0 }
+	'
+}
+
 wan_log_baseline_path() {
 	printf '%s' "$WAN_LOG_BASELINE_FILE"
 }
@@ -342,8 +371,7 @@ commit_wan_log_change() {
 	# Undo our staging only (set previous / delete to match committed); leave
 	# foreign deltas untouched and abort without commit.
 	_staged=$(uci -q changes firewall 2>/dev/null || true)
-	_ours_pat="firewall.${zone}.log"
-	_foreign=$(printf '%s\n' "$_staged" | grep -v '^$' | grep -vF "$_ours_pat" || true)
+	_foreign=$(wan_log_foreign_staged_lines "$zone" "$_staged")
 	if [ -n "$_foreign" ]; then
 		if [ -z "$previous" ]; then
 			uci delete "firewall.${zone}.log" 2>/dev/null || true
@@ -364,7 +392,7 @@ commit_wan_log_change() {
 		# fold, #191). With foreign staging present, leave it and warn.
 		_staged=$(uci -q changes firewall 2>/dev/null || true)
 		_total=$(printf '%s\n' "$_staged" | grep -c . 2>/dev/null || true)
-		_ours=$(printf '%s\n' "$_staged" | grep -Fc "firewall.${zone}.log" 2>/dev/null || true)
+		_ours=$(wan_log_count_our_staged_lines "$zone" "$_staged")
 		if [ "${_total:-0}" -gt 0 ] && [ "${_total:-0}" -eq "${_ours:-0}" ]; then
 			uci -q revert firewall 2>/dev/null || true
 		else

@@ -256,6 +256,13 @@ drive_toggle() {
 							printf "firewall.@rule[9].name='foreign'\n"
 						fi
 						;;
+					post_stage_log_limit_foreign)
+						# Same window, but foreign touches log_limit — must not
+						# be mistaken for our log= delta (substring trap).
+						if [ "$STAGED_LOG" != '__unset__' ]; then
+							printf "firewall.@zone[0].log_limit='10/minute'\n"
+						fi
+						;;
 					commit_fail_foreign)
 						# clean through pre-stage + post-stage gates (calls 1-3
 						# on enable: early + pre-stage + post-stage); foreign
@@ -307,7 +314,7 @@ drive_toggle() {
 				;;
 			'commit firewall')
 				case "$mode" in
-					late_foreign|post_stage_foreign)
+					late_foreign|post_stage_foreign|post_stage_log_limit_foreign)
 						die "#191: uci commit issued while a foreign delta was staged" ;;
 					commit_fail_foreign|commit_fail_ours)
 						# commit fails; the caller decides whether to revert
@@ -387,6 +394,7 @@ case "$LOGGER_MSGS" in
 	*'aborted after stage'*) ;;
 	*) die "#191 enable/post-stage-foreign: missing after-stage abort log: $LOGGER_MSGS" ;;
 esac
+[ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/post-stage-foreign: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
 ok "#191 enable aborts on foreign delta staged after our set (undo ours, no commit)"
 
 FWLIVE_CURRENT_LOG='1'
@@ -396,7 +404,18 @@ case "$OUT" in
 	*) die "#191 disable/post-stage-foreign: expected error firewall_changes_pending, got: $OUT" ;;
 esac
 [ "$UCI_COMMITS" -eq 0 ] || die "#191 disable/post-stage-foreign: foreign delta got committed"
+[ "$STAGED_LOG" = '__unset__' ] || die "#191 disable/post-stage-foreign: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
 ok "#191 disable aborts on foreign delta staged after our delete (undo ours, no commit)"
+
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable post_stage_log_limit_foreign
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#191 enable/post-stage-log_limit: expected error firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#191 enable/post-stage-log_limit: foreign log_limit delta got committed"
+[ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/post-stage-log_limit: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
+ok "#191 enable aborts on foreign log_limit staged after our set (exact log= match)"
 
 FWLIVE_CURRENT_LOG=''
 drive_toggle enable verify_mismatch
