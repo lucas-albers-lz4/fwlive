@@ -161,7 +161,7 @@ def run_f1_full() -> int:
 
 def run_fast() -> int:
 	"""Pre-commit subset (#121); return failure count."""
-	# F2–F4 stubs land in later PRs; F1 only for now.
+	# F2-F4 stubs land in later PRs; F1 only for now.
 	return run_f1_fast()
 
 
