@@ -47,6 +47,9 @@ services:
     working_dir: /builder
     volumes:
       - ${OWRT_SDK_VOLUME:-openwrt_sdk_official}:/builder
+      # Host-side dl/feeds so Actions can cache them across publish runs (and local rebuilds skip re-fetch).
+      - ${OWRT_SDK_DL_CACHE:-.ci-sdk-cache/dl}:/builder/dl
+      - ${OWRT_SDK_FEEDS_CACHE:-.ci-sdk-cache/feeds/snapshot}:/builder/feeds
       - ${FWLIVE_MOUNT:-.}:/work/fwlive:ro
     stdin_open: true
     tty: true
@@ -71,6 +74,8 @@ services:
     working_dir: /builder
     volumes:
       - openwrt_sdk_official:/builder
+      - ${OWRT_SDK_DL_CACHE:-.ci-sdk-cache/dl}:/builder/dl
+      - ${OWRT_SDK_FEEDS_CACHE:-.ci-sdk-cache/feeds/snapshot}:/builder/feeds
       - ${FWLIVE_MOUNT:-.}:/work/fwlive:ro
     stdin_open: true
     tty: true

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # OpenWrt SDK build matrix helpers (official ghcr.io/openwrt/sdk images).
 # Source from other scripts; do not execute directly.
+#
+# Host/CI only (Linux builder) — Bash required (arrays, [[ ]], local, BASH_SOURCE,
+# printf %q). This file never ships to the device.
+# OpenWrt runtime shell (rpcd/libexec under openwrt-feed/) runs under BusyBox ash
+# and must stay POSIX; do not copy Bash-isms from here into those scripts.
 set -euo pipefail
 
 SDK_MATRIX_TARGETS=(armsr-armv8 x86-64)
@@ -74,6 +79,13 @@ sdk_matrix_resolve() {
 	SDK_MATRIX_TARGET="$target"
 	SDK_MATRIX_VERSION="$version"
 	SDK_MATRIX_VERSION_LABEL="$(sdk_matrix_version_label "$version")"
+	# Labels are path/shell data in compose scripts — reject metacharacters / traversal.
+	case "$SDK_MATRIX_VERSION_LABEL" in
+		'' | *[!a-zA-Z0-9._-]* | *..*)
+			echo "sdk-matrix: invalid version label '$SDK_MATRIX_VERSION_LABEL'" >&2
+			return 1
+			;;
+	esac
 	SDK_MATRIX_IMAGE="ghcr.io/openwrt/sdk:$(sdk_matrix_image_tag "$target" "$version")"
 	SDK_MATRIX_VOLUME="$(sdk_matrix_volume_name "$target" "$version")"
 	SDK_MATRIX_PACKAGE_ARCH="$(sdk_matrix_package_arch "$target")"
@@ -195,13 +207,35 @@ sdk_matrix_validate_version() {
 	return 1
 }
 
+sdk_matrix_cache_dirs() {
+	local root="$1" version_label="$2"
+	SDK_MATRIX_DL_CACHE="${OWRT_SDK_DL_CACHE:-${root}/.ci-sdk-cache/dl}"
+	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
+	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"
+	# buildbot (uid 1000) must write bind mounts; Actions runner is often 1001.
+	# Least privilege: own as buildbot; owner rwx only for write; group/other read+traverse.
+	# Fail closed (no world-writable, no ACL mask footguns). CI uses sudo chown first.
+	if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
+		echo "sdk-matrix: cannot chown .ci-sdk-cache to buildbot (uid 1000)" >&2
+		echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
+		return 1
+	fi
+	if ! chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"; then
+		echo "sdk-matrix: chmod failed on .ci-sdk-cache" >&2
+		return 1
+	fi
+}
+
 sdk_matrix_compose_run() {
 	local root
 	root="$(sdk_matrix_root)"
+	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
+		OWRT_SDK_DL_CACHE="$SDK_MATRIX_DL_CACHE" \
+		OWRT_SDK_FEEDS_CACHE="$SDK_MATRIX_FEEDS_CACHE" \
 		docker compose run --rm sdk "$@"
 	)
 }
@@ -213,9 +247,23 @@ sdk_matrix_feeds_lock_path() {
 }
 
 sdk_matrix_feeds_ready() {
-	sdk_matrix_compose_run sh -c \
-		'test -f /builder/.config && find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q .' \
-		2>/dev/null
+	# Require .config, upstream feed .git dirs, package present, and lock stamp
+	# matching the pinned feeds.conf so a restored cache cannot skip refresh
+	# after pin changes or partial-cache failure.
+	# Pass version label as \$1 (data), never interpolate into shell source.
+	sdk_matrix_compose_run sh -c '
+		test -f /builder/.config || exit 1
+		lock=/work/fwlive/scripts/feeds.lock/$1/feeds.conf
+		stamp=/builder/feeds/.fwlive-feeds.lock.sha
+		test -f "$lock" && test -f "$stamp" || exit 1
+		cur=$(sha256sum "$lock" | awk "{print \$1}")
+		old=$(cat "$stamp")
+		[ -n "$cur" ] && [ "$cur" = "$old" ] || exit 1
+		{ [ -d /builder/feeds/base/.git ] || [ -d /builder/feeds/base_root/.git ]; } || exit 1
+		[ -d /builder/feeds/packages/.git ] || exit 1
+		[ -d /builder/feeds/luci/.git ] || exit 1
+		find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q .
+	' sh "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null
 }
 
 sdk_matrix_feeds_base_packages() {
@@ -232,44 +280,61 @@ sdk_matrix_feeds_base_packages() {
 }
 
 sdk_matrix_feeds_setup() {
-	local lock_path base_pkgs
+	local lock_path base_pkgs base_pkgs_q
 	lock_path="$(sdk_matrix_feeds_lock_path "$SDK_MATRIX_VERSION")"
 	base_pkgs="$(sdk_matrix_feeds_base_packages)"
+	# Escape each package so they remain separate argv tokens inside sh -ec "…".
+	# shellcheck disable=SC2086 # intentional word-split of space-separated package list
+	base_pkgs_q="$(printf '%q ' ${base_pkgs})"
 	[[ -f "$lock_path" ]] || {
 		echo "missing pinned feeds lock: $lock_path" >&2
 		return 1
 	}
 	# Retry feeds update: git.openwrt.org (and mirrors) drop TLS under CI load.
 	# HTTP/1.1 reduces curl-35 / gnutls_handshake failures (openwrt/openwrt#21854).
+	# Wipe partial clones on failure; require .git dirs so soft exit-0 without clone fails.
+	# \$1 = version label (data); base package list is host-escaped into the script body.
 	sdk_matrix_compose_run sh -ec "
+		label=\$1
 		cd /builder
 		export TERM=dumb
 		if [ ! -f Makefile ]; then echo 'Running ./setup.sh ...'; ./setup.sh; fi
 		test -f Makefile
 
-		cp /work/fwlive/scripts/feeds.lock/${SDK_MATRIX_VERSION_LABEL}/feeds.conf feeds.conf
+		cp /work/fwlive/scripts/feeds.lock/\$label/feeds.conf feeds.conf
 		grep -q '^src-link fwlive' feeds.conf || echo 'src-link fwlive /work/fwlive/openwrt-feed' >> feeds.conf
 
 		git config --global http.version HTTP/1.1 || true
 
 		ok=0
-		for i in 1 2 3; do
-			if ./scripts/feeds update base luci packages; then
+		i=1
+		while [ \"\$i\" -le 3 ]; do
+			if ./scripts/feeds update base luci packages \\
+				&& { [ -d feeds/base/.git ] || [ -d feeds/base_root/.git ]; } \\
+				&& [ -d feeds/packages/.git ] \\
+				&& [ -d feeds/luci/.git ]; then
 				ok=1
 				break
 			fi
-			echo \"feeds update attempt \$i failed; retrying in \$((i * 5))s...\" >&2
+			echo \"feeds update failed (attempt \$i/3); wiping partial clones\" >&2
+			rm -rf feeds/base feeds/base_root feeds/packages feeds/luci
+			if [ \"\$i\" -eq 3 ]; then
+				break
+			fi
 			sleep \$((i * 5))
+			i=\$((i + 1))
 		done
-		test \"\$ok\" -eq 1
+		[ \"\$ok\" -eq 1 ] || { echo 'feeds update failed after 3 attempts' >&2; exit 1; }
 
-		./scripts/feeds install -p base ${base_pkgs}
+		./scripts/feeds install -p base ${base_pkgs_q}
 		./scripts/feeds install luci-base
 		./scripts/feeds update fwlive
 		./scripts/feeds install luci-app-fwlive
 		rm -rf tmp
 		make defconfig
-	"
+		sha256sum /work/fwlive/scripts/feeds.lock/\$label/feeds.conf \
+			| awk '{print \$1}' > feeds/.fwlive-feeds.lock.sha
+	" sh "$SDK_MATRIX_VERSION_LABEL"
 }
 
 # Epoch for reproducible package timestamps (override via SOURCE_DATE_EPOCH env).
@@ -344,10 +409,14 @@ sdk_matrix_copy_out() {
 	dest_host="${out_mount}/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}"
 	mkdir -p "$dest_host"
 	# SDK image runs as buildbot (uid 1000); GHA workspace is often uid 1001 — copy as root.
+	# Pass the same dl/feeds bind mounts as compose_run so defaults do not clobber /builder.
+	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
+		OWRT_SDK_DL_CACHE="$SDK_MATRIX_DL_CACHE" \
+		OWRT_SDK_FEEDS_CACHE="$SDK_MATRIX_FEEDS_CACHE" \
 		docker compose run --rm --user root -v "${out_mount}:/out" sdk sh -ec "
 			dest=/out/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}
 			mkdir -p \"\$dest\"

@@ -20,22 +20,28 @@ reviews:
     ast_grep: true            # the tool name is ast_grep (NOT "ast_grex" — see discussion)
     bullseye: true            # security add-on: good for the rpcd/frontend boundary
   path_instructions:
-    - path: "**/*.sh"
-      instructions: |
-        These scripts run under busybox ash on OpenWrt targets, NOT bash.
-        Flag any bashism: `[[ ]]`, `${var,,}`/case-modifiers, arrays,
-        `declare`/`local`, `source`, process substitution `<(...)`.
-        Every variable expansion on a shared/runtime path must be quoted
-        (CI enforces SC2086 — keep it that way).
-        Flag hardcoded absolute paths: lookup paths must come from the
-        runtime $FILTER_DIR / $LOGGING_SH-style resolution.
+    # Device-shipped shell only — BusyBox ash on OpenWrt (not host CI scripts).
     - path: "openwrt-feed/luci-app-fwlive/root/usr/libexec/**"
       instructions: |
-        This is the shipped rpcd/libexec shell. It is exposed over LuCI RPC.
+        Shipped rpcd/libexec shell on OpenWrt: BusyBox ash (POSIX), NOT bash.
+        Flag bashisms: `[[ ]]`, `${var,,}`/case-modifiers, arrays,
+        `declare`/`local`, `source`, process substitution `<(...)`.
         Flag any path where a value originating from the LuCI frontend is
         interpolated into `nft`/`iptables`/`awk`/`grep` without escaping
-        (command/argument injection). Also enforce POSIX sh + quoted vars
-        (see **/*.sh).
+        (command/argument injection). Quote every variable expansion.
+        Flag hardcoded absolute paths: lookup paths must come from the
+        runtime $FILTER_DIR / $LOGGING_SH-style resolution.
+    - path: "scripts/**/*.sh"
+      instructions: |
+        Host/CI Linux builder scripts (Bash shebang). Bash is required and OK
+        here (arrays, [[ ]], local, BASH_SOURCE, printf %q). These never ship
+        to the device — do NOT demand BusyBox ash / POSIX-only rewrites.
+        Still flag unquoted expansions that break under `set -u` and secrets
+        in logs. Do not copy Bash-isms from here into openwrt-feed libexec.
+    - path: "tests/**/*.sh"
+      instructions: |
+        Host test harnesses run under Bash on CI. Bash is OK; do not require
+        BusyBox ash. Prefer quoting and `set -euo pipefail` discipline.
     - path: "**/Makefile"
       instructions: |
         OpenWrt feed package Makefiles. On release, PKG_VERSION must track
@@ -50,8 +56,9 @@ reviews:
         side but not the other.
   system_instructions: |
     This is fwlive, a LuCI app for live firewall log viewing over
-    nftables/fw4 and iptables. The shipped shell in root/usr/libexec runs
-    in a minimal OpenWrt (busybox ash) environment, so POSIX-only shell
-    and quoted variables are hard invariants. Prefer a precise, grounded
-    comment over a generic nitpick — if you cannot tie a concern to one of
-    the path invariants above, skip it.
+    nftables/fw4 and iptables. Device-shipped shell under
+    openwrt-feed/.../libexec runs on BusyBox ash (POSIX-only). Host/CI
+    scripts under scripts/ and tests/ are Bash on the Linux builder — do
+    not ask to convert those to ash. Prefer a precise, grounded comment
+    over a generic nitpick — if you cannot tie a concern to one of the
+    path invariants above, skip it.
