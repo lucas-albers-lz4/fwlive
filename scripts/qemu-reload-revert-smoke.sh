@@ -12,6 +12,7 @@
 # See docs/developer/environment.md (Device edge cases).
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${OPENWRT_HOST:-127.0.0.1}"
 PORT="${OPENWRT_SSH_PORT:-2222}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
@@ -118,9 +119,9 @@ AFTER_EN="$(uci_zone_log "$ZONE")"
 ok "enable + reload fail → UCI unchanged ('${AFTER_EN}') + firewall_reload_failed"
 restore_firewall
 
-# Leave guest with logging ON (lab-friendly default)
-ssh_guest 'ubus call fwlive enable_wan_logging' >/dev/null
-ok "restored WAN logging on"
+# Leave guest with logging OFF and no baseline (lab-friendly default).
+"${ROOT}/scripts/qemu-reset-wan-logging.sh" >/dev/null
+ok "reset WAN logging for lab"
 
 # UI error path (handleEnableLogging → "Could not enable logging.") is not
 # exercised here — covered by the JS handler; this smoke is ubus/UCI only.

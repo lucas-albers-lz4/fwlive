@@ -26,6 +26,10 @@ json_escape() {
 
 . "$LOGGING_SH"
 
+WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-$(mktemp)}"
+export WAN_LOG_BASELINE_FILE
+rm -f "$WAN_LOG_BASELINE_FILE"
+
 run_logging_selftest || die "run_logging_selftest"
 ok "filter log bit logic"
 
@@ -184,6 +188,7 @@ esac
 ok "restore_wan_zone_log skips commit when pending"
 unset -f uci check_nf_log_ipv4 check_nf_log_ipv6 acquire_wan_log_lock release_wan_log_lock
 
+
 # --- issue #191: TOCTOU between the pending check and `uci commit firewall` --
 # UCI staging is global per config file: a non-cooperating writer can stage a
 # delta AFTER the toggle's early firewall_changes_pending check but BEFORE the
@@ -244,10 +249,25 @@ drive_toggle() {
 					late_foreign)
 						# foreign delta visible from the second changes call on
 						[ "$_n" -ge 2 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
+					post_stage_foreign)
+						# clean through pre-stage gates; foreign appears only
+						# once OUR log delta is staged (post-stage check)
+						if [ "$STAGED_LOG" != '__unset__' ]; then
+							printf "firewall.@rule[9].name='foreign'\n"
+						fi
+						;;
+					post_stage_log_limit_foreign)
+						# Same window, but foreign touches log_limit — must not
+						# be mistaken for our log= delta (substring trap).
+						if [ "$STAGED_LOG" != '__unset__' ]; then
+							printf "firewall.@zone[0].log_limit='10/minute'\n"
+						fi
+						;;
 					commit_fail_foreign)
-						# clean through the commit gate (calls 1-2); the foreign
-						# delta appears only when the failure path re-queries
-						[ "$_n" -ge 3 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
+						# clean through pre-stage + post-stage gates (calls 1-3
+						# on enable: early + pre-stage + post-stage); foreign
+						# appears only when the failure path re-queries
+						[ "$_n" -ge 4 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
 				esac
 				# Real `uci -q changes` also lists OUR staged delta once staged.
 				if [ "$STAGED_LOG" != '__unset__' ]; then
@@ -280,13 +300,21 @@ drive_toggle() {
 				;;
 			'set firewall.@zone[0].log='*)
 				STAGED_LOG="${2#*=}"
+				# Matching committed value clears staging (real uci behaviour).
+				if [ "$STAGED_LOG" = "$CURRENT_LOG" ]; then
+					STAGED_LOG='__unset__'
+				fi
 				;;
 			'delete firewall.@zone[0].log')
-				STAGED_LOG=''
+				if [ -z "$CURRENT_LOG" ]; then
+					STAGED_LOG='__unset__'
+				else
+					STAGED_LOG=''
+				fi
 				;;
 			'commit firewall')
 				case "$mode" in
-					late_foreign)
+					late_foreign|post_stage_foreign|post_stage_log_limit_foreign)
 						die "#191: uci commit issued while a foreign delta was staged" ;;
 					commit_fail_foreign|commit_fail_ours)
 						# commit fails; the caller decides whether to revert
@@ -350,6 +378,44 @@ case "$OUT" in
 esac
 assert_no_commit_no_stage "disable/late-foreign"
 ok "#191 disable aborts on foreign delta staged at commit time (no commit, no delete)"
+
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable post_stage_foreign
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#191 enable/post-stage-foreign: expected error firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#191 enable/post-stage-foreign: foreign delta got committed"
+case "$UCI_CALLS" in
+	*'set firewall.'*) ;;
+	*) die "#191 enable/post-stage-foreign: expected our log bit to stage before abort: $UCI_CALLS" ;;
+esac
+case "$LOGGER_MSGS" in
+	*'aborted after stage'*) ;;
+	*) die "#191 enable/post-stage-foreign: missing after-stage abort log: $LOGGER_MSGS" ;;
+esac
+[ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/post-stage-foreign: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
+ok "#191 enable aborts on foreign delta staged after our set (undo ours, no commit)"
+
+FWLIVE_CURRENT_LOG='1'
+drive_toggle disable post_stage_foreign
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#191 disable/post-stage-foreign: expected error firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#191 disable/post-stage-foreign: foreign delta got committed"
+[ "$STAGED_LOG" = '__unset__' ] || die "#191 disable/post-stage-foreign: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
+ok "#191 disable aborts on foreign delta staged after our delete (undo ours, no commit)"
+
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable post_stage_log_limit_foreign
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#191 enable/post-stage-log_limit: expected error firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#191 enable/post-stage-log_limit: foreign log_limit delta got committed"
+[ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/post-stage-log_limit: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
+ok "#191 enable aborts on foreign log_limit staged after our set (exact log= match)"
 
 FWLIVE_CURRENT_LOG=''
 drive_toggle enable verify_mismatch
@@ -436,6 +502,96 @@ case "$LOGGER_MSGS" in
 	*'not reverting'*) die "#191 enable/commit-fail-ours: spurious not-reverting warning: $LOGGER_MSGS" ;;
 esac
 ok "#191 commit failure with only our delta: revert cleans our orphaned staging"
+
+# WAN log baseline snapshot + restore (uninstall prerm)
+BASELINE_WORK=$(mktemp -d)
+WAN_LOG_BASELINE_FILE="$BASELINE_WORK/wan-log-baseline"
+export WAN_LOG_BASELINE_FILE
+WAN_ZONE_LOG=''
+uci() {
+	case "$1" in
+		set)
+			_wan_log_key='firewall.@zone[0].log='
+			if [ "${2#"$_wan_log_key"}" != "$2" ]; then
+				WAN_ZONE_LOG="${2#"$_wan_log_key"}"
+			fi
+			unset _wan_log_key
+			return 0
+			;;
+		delete)
+			[ "$2" = 'firewall.@zone[0].log' ] && WAN_ZONE_LOG=''
+			return 0
+			;;
+		commit) return 0 ;;
+	esac
+	case "$1 $2" in
+		'-q show')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+			;;
+		'-q get')
+			if [ "$3" = 'firewall.@zone[0]' ]; then
+				printf 'zone\n'
+			elif [ "$3" = 'firewall.@zone[0].log' ]; then
+				printf '%s' "$WAN_ZONE_LOG"
+			fi
+			;;
+		'-q changes') return 1 ;;
+		'-q delete')
+			[ "$3" = 'firewall.@zone[0].log' ] && WAN_ZONE_LOG=''
+			;;
+		'-q set')
+			_wan_log_key='firewall.@zone[0].log='
+			if [ "${3#"$_wan_log_key"}" != "$3" ]; then
+				WAN_ZONE_LOG="${3#"$_wan_log_key"}"
+			fi
+			unset _wan_log_key
+			;;
+		'commit firewall') return 0 ;;
+		*) return 0 ;;
+	esac
+}
+reload_firewall() { return 0; }
+mkdir() { command mkdir "$@"; }
+acquire_wan_log_lock() { return 0; }
+release_wan_log_lock() { return 0; }
+
+WAN_ZONE_LOG=''
+maybe_snapshot_wan_log_baseline '@zone[0]' || die "snapshot failed"
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file missing after snapshot"
+baseline=$(cat "$WAN_LOG_BASELINE_FILE")
+[ -z "$baseline" ] || die "empty baseline expected, got '$baseline'"
+
+WAN_ZONE_LOG='2'
+maybe_snapshot_wan_log_baseline '@zone[0]' || die "second snapshot call failed"
+baseline=$(cat "$WAN_LOG_BASELINE_FILE")
+[ -z "$baseline" ] || die "baseline must not be overwritten (want empty, got '$baseline')"
+
+WAN_ZONE_LOG='1'
+restore_wan_log_baseline || die "restore failed"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file must be removed after restore"
+[ -z "$WAN_ZONE_LOG" ] || die "restore empty baseline expected delete, got '$WAN_ZONE_LOG'"
+ok "restore_wan_log_baseline clears unset baseline"
+
+WAN_ZONE_LOG='3'
+printf '2' >"$WAN_LOG_BASELINE_FILE"
+restore_wan_log_baseline || die "restore numeric baseline failed"
+[ "$WAN_ZONE_LOG" = "2" ] || die "restore expected log=2, got '$WAN_ZONE_LOG'"
+ok "restore_wan_log_baseline sets saved value"
+
+WAN_ZONE_LOG='1'
+restore_wan_log_baseline || die "restore no-op failed"
+[ "$WAN_ZONE_LOG" = "1" ] || die "missing baseline must not change UCI, got '$WAN_ZONE_LOG'"
+ok "restore_wan_log_baseline no-op when baseline absent"
+
+WAN_ZONE_LOG=''
+printf '' >"$WAN_LOG_BASELINE_FILE"
+restore_wan_log_baseline || die "restore already-at-baseline failed"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file should be removed when already at target"
+ok "restore_wan_log_baseline no-op when UCI already matches baseline"
+
+rm -rf "$BASELINE_WORK"
+unset WAN_LOG_BASELINE_FILE WAN_ZONE_LOG BASELINE_WORK
+unset -f uci reload_firewall mkdir acquire_wan_log_lock release_wan_log_lock
 
 sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
 ok "rpcd __selftest"

@@ -135,6 +135,17 @@ if [[ -f "$RPCD_BIN" ]]; then
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 			"cat > /usr/libexec/fwlive-logging.sh && chmod +x /usr/libexec/fwlive-logging.sh" \
 			< "$LIBEXEC_LOGGING"
+		echo "Syncing opkg prerm (WAN log baseline restore on uninstall)..."
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"mkdir -p /usr/lib/opkg/info && cat > /usr/lib/opkg/info/luci-app-fwlive.prerm && chmod 755 /usr/lib/opkg/info/luci-app-fwlive.prerm" <<'EOF'
+#!/bin/sh
+[ -n "${IPKG_INSTROOT}" ] && exit 0
+[ "$1" = "remove" ] || exit 0
+. /usr/libexec/fwlive-logging.sh
+restore_wan_log_baseline || logger -t fwlive "WAN log baseline restore failed during uninstall"
+# Always exit 0 — see Package/luci-app-fwlive/prerm (do not strand uninstall).
+exit 0
+EOF
 	fi
 	if [[ -f "$LIBEXEC_FILTER" ]]; then
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \

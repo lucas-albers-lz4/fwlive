@@ -20,6 +20,7 @@ NF_LOG_IPV6='/proc/sys/net/netfilter/nf_log/10'
 # outside the lock.
 # Overridable for tests/containers (default is the production path).
 WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/var/lock/fwlive-logging.lock}"
+WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-baseline}"
 
 # Acquire the exclusive logging lock on fd 9. Blocks until free; fails closed
 # (return 1) only if the lock file cannot be opened or flock is unavailable.
@@ -66,6 +67,95 @@ wan_zone_log_value() {
 	zone="$1"
 	[ -n "$zone" ] || return 1
 	uci -q get "firewall.${zone}.log" 2>/dev/null
+}
+
+# Match only firewall.<zone>.log deltas in `uci changes` — not log_limit.
+wan_log_foreign_staged_lines() {
+	_zone="$1"
+	_staged="$2"
+	_ours_prefix="firewall.${_zone}.log="
+	_del="-firewall.${_zone}.log"
+	_del_sp="- firewall.${_zone}.log"
+	printf '%s\n' "$_staged" | awk -v p="$_ours_prefix" -v d="$_del" -v ds="$_del_sp" '
+		NF == 0 { next }
+		index($0, p) == 1 { next }
+		$0 == d || $0 == ds { next }
+		{ print }
+	'
+}
+
+wan_log_count_our_staged_lines() {
+	_zone="$1"
+	_staged="$2"
+	_ours_prefix="firewall.${_zone}.log="
+	_del="-firewall.${_zone}.log"
+	_del_sp="- firewall.${_zone}.log"
+	printf '%s\n' "$_staged" | awk -v p="$_ours_prefix" -v d="$_del" -v ds="$_del_sp" '
+		NF == 0 { next }
+		index($0, p) == 1 { c++; next }
+		$0 == d || $0 == ds { c++; next }
+		END { print c+0 }
+	'
+}
+
+wan_log_baseline_path() {
+	printf '%s' "$WAN_LOG_BASELINE_FILE"
+}
+
+# Snapshot firewall.<wan>.log once before the first enable changes UCI.
+# Empty file means the option was unset. Skipped when baseline already exists.
+maybe_snapshot_wan_log_baseline() {
+	zone="$1"
+	path="$(wan_log_baseline_path)"
+	[ -n "$zone" ] || return 1
+	[ -f "$path" ] && return 0
+	mkdir -p "$(dirname "$path")" 2>/dev/null || return 1
+	current=$(wan_zone_log_value "$zone")
+	printf '%s' "$current" >"$path" 2>/dev/null || return 1
+	return 0
+}
+
+# Restore WAN zone log from the install-time baseline (package prerm).
+# No-op when baseline is missing. Returns 1 on failure; baseline file is
+# kept until restore commits successfully.
+#
+# Hold the logging lock across the current-value read, equality cleanup,
+# commit, and baseline unlink — otherwise a concurrent enable can snapshot
+# the old baseline (or race the unlink) and lose the only restore value.
+restore_wan_log_baseline() {
+	path="$(wan_log_baseline_path)"
+	[ -f "$path" ] || return 0
+	baseline=$(cat "$path" 2>/dev/null)
+	zone=$(find_wan_zone_section)
+	if [ -z "$zone" ]; then
+		logger -t fwlive "WAN log baseline restore skipped: no WAN zone" 2>/dev/null || true
+		return 1
+	fi
+	if ! acquire_wan_log_lock; then
+		logger -t fwlive "WAN log baseline restore skipped: lock unavailable" 2>/dev/null || true
+		return 1
+	fi
+	current=$(wan_zone_log_value "$zone")
+	if [ "${current:-}" = "${baseline:-}" ]; then
+		rm -f "$path"
+		release_wan_log_lock
+		return 0
+	fi
+	zone_json=$(json_null_or_string "$zone")
+	if firewall_changes_pending; then
+		release_wan_log_lock
+		logger -t fwlive "WAN log baseline restore skipped: firewall changes pending" 2>/dev/null || true
+		return 1
+	fi
+	if ! commit_wan_log_change "$zone" "$zone_json" "$baseline"; then
+		release_wan_log_lock
+		logger -t fwlive "WAN log baseline restore: commit gate failed" 2>/dev/null || true
+		return 1
+	fi
+	rm -f "$path"
+	release_wan_log_lock
+	reload_firewall || logger -t fwlive "WAN log baseline restored; firewall reload failed" 2>/dev/null || true
+	return 0
 }
 
 wan_filter_log_enabled() {
@@ -222,13 +312,17 @@ restore_wan_zone_log() {
 # can stage a delta AFTER the toggle's early firewall_changes_pending check.
 # Staging and committing therefore live INSIDE this function — the only path
 # to `uci commit firewall` in the toggle flow, so callers cannot bypass it —
-# gated by a last-moment pending re-check taken BEFORE our own delta exists
-# in staging: if anything is staged at that point it can only be foreign, so
-# we abort without committing (the unrelated half-finished delta is never
-# published together with our log bit) and without touching the staging area
-# (no revert that could clobber the other writer's data). The caller-reported
-# error is firewall_changes_pending: the LuCI view already maps it to the
-# accurate "another change is staged" notice.
+# gated by:
+#   1. a pending re-check BEFORE our own delta exists in staging (foreign-only);
+#   2. a post-stage re-check AFTER our set/delete: if anything besides our
+#      log option is staged, undo our staging (restore the pre-stage committed
+#      value) and abort without commit — foreign staging stays intact.
+# Residual window: a writer that stages between the post-stage check and
+# `uci commit` can still ride along; post-commit verification detects a
+# mismatched log bit. Same-option races (another writer also staging
+# firewall.<wan>.log) are not distinguishable in the changes list.
+# The caller-reported error is firewall_changes_pending: the LuCI view already
+# maps it to the accurate "another change is staged" notice.
 #
 # target: value to stage; EMPTY means delete the option (bit fully cleared).
 # Prints the failure JSON and returns 1 on abort or failure.
@@ -257,6 +351,10 @@ commit_wan_log_change() {
 		return 1
 	fi
 
+	# Staging is empty here — capture the committed value so a post-stage
+	# foreign race can undo our delta without `uci revert firewall`.
+	previous=$(wan_zone_log_value "$zone")
+
 	if [ -n "$target" ]; then
 		if ! uci set "firewall.${zone}.log=${target}"; then
 			printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"uci_set_failed"}' "$zone_json"
@@ -269,6 +367,22 @@ commit_wan_log_change() {
 		fi
 	fi
 
+	# Post-stage guard (#191): anything besides our log option is foreign.
+	# Undo our staging only (set previous / delete to match committed); leave
+	# foreign deltas untouched and abort without commit.
+	_staged=$(uci -q changes firewall 2>/dev/null || true)
+	_foreign=$(wan_log_foreign_staged_lines "$zone" "$_staged")
+	if [ -n "$_foreign" ]; then
+		if [ -z "$previous" ]; then
+			uci delete "firewall.${zone}.log" 2>/dev/null || true
+		else
+			uci set "firewall.${zone}.log=${previous}" 2>/dev/null || true
+		fi
+		logger -t fwlive "WAN log toggle aborted after stage: firewall changes staged by another writer" 2>/dev/null || true
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_changes_pending"}' "$zone_json"
+		return 1
+	fi
+
 	if ! uci commit firewall; then
 		# Drop our staged log delta so a later toggle is not stuck on
 		# firewall_changes_pending from this package's own orphaned write —
@@ -278,7 +392,7 @@ commit_wan_log_change() {
 		# fold, #191). With foreign staging present, leave it and warn.
 		_staged=$(uci -q changes firewall 2>/dev/null || true)
 		_total=$(printf '%s\n' "$_staged" | grep -c . 2>/dev/null || true)
-		_ours=$(printf '%s\n' "$_staged" | grep -Fc "firewall.${zone}.log" 2>/dev/null || true)
+		_ours=$(wan_log_count_our_staged_lines "$zone" "$_staged")
 		if [ "${_total:-0}" -gt 0 ] && [ "${_total:-0}" -eq "${_ours:-0}" ]; then
 			uci -q revert firewall 2>/dev/null || true
 		else
@@ -389,6 +503,12 @@ enable_wan_logging() {
 	if wan_filter_log_enabled "$current"; then
 		release_wan_log_lock
 		printf '{"ok":true,"changed":false,"wan_zone":%s}' "$zone_json"
+		return 0
+	fi
+
+	if ! maybe_snapshot_wan_log_baseline "$zone"; then
+		release_wan_log_lock
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"baseline_snapshot_failed"}' "$zone_json"
 		return 0
 	fi
 

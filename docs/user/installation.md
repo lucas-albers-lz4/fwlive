@@ -114,7 +114,9 @@ For a full QEMU lab loop (build → boot → install), see [Developer: QEMU lab]
 
 ## Upgrading
 
-Re-install the new version over the existing one. No configuration migration is needed — the package makes no persistent firewall changes.
+Re-install the new version over the existing one. No LuCI configuration migration is needed.
+
+If you used **Enable logging**, WAN zone `log` stays on across upgrades until you turn it off or uninstall the package (see below).
 
 **opkg (21.02 – 24.10):**
 ```sh
@@ -135,4 +137,4 @@ opkg remove luci-app-fwlive    # 21.02 / 22.03 / 23.05 / 24.10
 apk del luci-app-fwlive        # 25.12+
 ```
 
-No persistent firewall changes are made by the package itself.
+**Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package restores the zone `log` value from before the first time you enabled logging via Live View. If you never used **Enable logging**, uninstall does not change firewall UCI.

@@ -64,6 +64,13 @@ ssh -p 2222 root@127.0.0.1 'ping -c 5 127.0.0.1'
 ./scripts/fwlive-ubus-read.sh --lines 20
 ```
 
+Reset WAN logging state before toggle/uninstall tests (QEMU disk persists UCI):
+
+```sh
+./scripts/qemu-reset-wan-logging.sh
+./scripts/qemu-logging-uninstall-smoke.sh
+```
+
 ## Further reading
 
 - [`../armvirt-armsr-testing.md`](../armvirt-armsr-testing.md)

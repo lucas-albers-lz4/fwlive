@@ -75,10 +75,13 @@ async function assertProtoCustomWins(page) {
 }
 
 async function assertSegments(page) {
-	const detail = page.locator('#fwlive-detail-toggle');
-	const msg = page.locator('#fwlive-msg-layout');
-	if (!(await detail.count()) || !(await msg.count()))
-		throw new Error('missing Detail/Message segment buttons');
+	const simple = page.locator('#fwlive-view-simple');
+	const detail = page.locator('#fwlive-view-detail');
+	const wrap = page.locator('#fwlive-msg-wrap');
+	const oneline = page.locator('#fwlive-msg-oneline');
+	if (!(await simple.count()) || !(await detail.count())
+		|| !(await wrap.count()) || !(await oneline.count()))
+		throw new Error('missing View/Message segment buttons');
 
 	const beforeDetail = await detail.getAttribute('aria-pressed');
 	await detail.click();
@@ -87,23 +90,28 @@ async function assertSegments(page) {
 	const mapView = await page.locator('.fwlive-map').getAttribute('data-view');
 	if (beforeDetail === afterDetail)
 		throw new Error(`Detail aria-pressed did not toggle (${beforeDetail})`);
-	if (afterDetail === 'true' && mapView !== 'detailed')
-		throw new Error(`expected data-view=detailed, got ${mapView}`);
-	if (afterDetail === 'false' && mapView !== 'simple')
-		throw new Error(`expected data-view=simple, got ${mapView}`);
+	if (afterDetail !== 'true' || mapView !== 'detailed')
+		throw new Error(`expected data-view=detailed with Detail pressed, got view=${mapView} pressed=${afterDetail}`);
+
+	await simple.click();
+	await page.waitForTimeout(300);
+	const simplePressed = await simple.getAttribute('aria-pressed');
+	const simpleView = await page.locator('.fwlive-map').getAttribute('data-view');
+	if (simplePressed !== 'true' || simpleView !== 'simple')
+		throw new Error(`expected data-view=simple with Simple pressed, got view=${simpleView} pressed=${simplePressed}`);
 
 	/* Message control is hidden in Simple view — exercise it after Detail. */
-	if (mapView !== 'detailed') {
-		await detail.click();
-		await page.waitForTimeout(300);
-	}
-	await expectVisible(page, '#fwlive-msg-layout');
-	const beforeMsg = await msg.getAttribute('aria-pressed');
-	await msg.click();
+	await detail.click();
+	await page.waitForTimeout(300);
+	await expectVisible(page, '#fwlive-msg-seg');
+	const beforeMsg = await oneline.getAttribute('aria-pressed');
+	await oneline.click();
 	await page.waitForTimeout(200);
-	const afterMsg = await msg.getAttribute('aria-pressed');
+	const afterMsg = await oneline.getAttribute('aria-pressed');
 	if (beforeMsg === afterMsg)
-		throw new Error(`Message aria-pressed did not toggle (${beforeMsg})`);
+		throw new Error(`One line aria-pressed did not toggle (${beforeMsg})`);
+	if (afterMsg !== 'true')
+		throw new Error(`expected One line pressed after click, got ${afterMsg}`);
 }
 
 async function expectVisible(page, selector) {

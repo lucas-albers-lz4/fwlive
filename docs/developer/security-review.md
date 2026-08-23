@@ -44,6 +44,7 @@ should carry a note saying what would raise it.
 | rpcd plugin + ACL scope | 2026-08-13 | Diff + selftest | #177: no diff since `ce9df02`; read/write split; no `ubus log.*` |
 | Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
 | Shell helpers — **file modes and lock ownership** | 2026-08-13 | Reproduced | #177: `fwlive-logging-lock.test.sh` 32-trial; lock 0600 |
+| Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-08-22 | Read + host test | `/etc/fwlive/wan-log-baseline`; restore only on `remove` |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-08-13 | Host test | #177: pending-delta refuse; named/anonymous/non-zone lookups |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
 | Release pipeline — fetch pinning | 2026-08-18 | Read + host test | #177 fetch-pin gate; R7 digest pin-cache (`tests/sdk-matrix-digests.test.sh`); 2026-08-18 wrapper-export + exact-cache-key |
@@ -75,6 +76,7 @@ should carry a note saying what would raise it.
 | workflow_dispatch tag validated before `GITHUB_ENV` write | `manual` | same workflow — newline/control-char rejection + `^v[0-9]` shape |
 | SDK feed cache key is exact (no `restore-keys` prefix fallback) | `manual` | same workflow — stale feed pins cannot be restored on cache miss |
 | WAN toggle changes only the zone `log` bit | `host` | `tests/fwlive-logging.test.sh` — pending-delta refuse; named + anonymous zone lookup |
+| Uninstall restores WAN `log` from pre-first-enable baseline | `host` | `tests/fwlive-logging.test.sh` — baseline snapshot/restore; `scripts/qemu-logging-uninstall-smoke.sh` (`lab`) |
 | The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600 |
 
 ## Open findings
@@ -82,7 +84,7 @@ should carry a note saying what would raise it.
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
 | — | Low | [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | `is_resolvable_address` admitted hostname-shaped tokens (dotted-hex) → read-ACL `resolve` sessions could trigger arbitrary upstream DNS via `getent`; strict IPv4/IPv6 validation + selftest cases landed in the fix PR — open until merge |
-| — | Low | [#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) | Global `uci commit firewall` could sweep unrelated staged deltas from non-lock-cooperating writers; commit moved behind a last-moment pending re-check + post-commit verification in the fix PR — open until merge |
+| — | Low | [#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) | Global `uci commit firewall` could sweep unrelated staged deltas from non-lock-cooperating writers; mitigated with pre-stage + post-stage foreign gates and post-commit verification — residual window (stage between post-stage check and commit, or same-option races) documented; lab confirmation still pending |
 
 
 ## Accepted residuals
@@ -104,7 +106,7 @@ Honest gaps, so the next pass starts here rather than rediscovering them.
 |----------|--------|---------------------|
 | `resolve` really returns within its budget on a loaded router | cannot-prove on host | Lab: flood `fwlive.resolve` with unresolvable addresses, measure wall time |
 | The rpcd script timeout actually bounds a blocked `flock` waiter | cannot-prove on host | Lab: hold the lock from an unprivileged shell, call the toggle, observe rpcd |
-| `uci commit firewall` scope on a live device | prove-next | Lab: stage an unrelated `firewall` delta over SSH, toggle logging, check whether it committed — **host-level fix landed 2026-08-21 (#191)**: staging+commit moved inside `commit_wan_log_change` behind a last-moment `firewall_changes_pending` re-check (abort on foreign staging, never commit it, never revert foreign data — the commit-failure path also reverts ONLY when our option is the sole staged delta, otherwise warns and leaves foreign staging intact); post-commit read-back verification; the residual race window (a writer staging between the gate and `uci commit`) is narrowed to the minimum uci allows and detected by post-commit verification; lab confirmation still pending |
+| `uci commit firewall` scope on a live device | prove-next | Lab: stage an unrelated `firewall` delta over SSH, toggle logging, check whether it committed — **host-level fix landed 2026-08-21 (#191), tightened 2026-08-23**: staging+commit moved inside `commit_wan_log_change` behind (1) a pre-stage `firewall_changes_pending` re-check and (2) a post-stage check that aborts and undoes only our log delta when foreign staging appears after `uci set`/`delete` (never `uci revert firewall` on foreign data); commit-failure path reverts ONLY when our option is the sole staged delta; post-commit read-back verification; residual window is a writer staging between the post-stage check and `uci commit` (or same-option races on `firewall.<wan>.log`) — narrowed to the minimum UCI allows; lab confirmation still pending |
 | Signing keys stay 0600 through a full publish | prove-next | The host test in [#165](https://github.com/lucas-albers-lz4/fwlive/issues/165) covers the library; a real run also passes through `validate-feed-keys.sh` |
 
 ## Review procedure
