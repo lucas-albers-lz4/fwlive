@@ -22,6 +22,20 @@ NF_LOG_IPV6='/proc/sys/net/netfilter/nf_log/10'
 WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/etc/fwlive/logging.lock}"
 WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-baseline}"
 
+# Production lock dir must be root-owned with no group/other write (#204).
+wan_log_lock_dir_safe() {
+	dir="$1"
+	[ -n "$dir" ] || return 1
+	[ -L "$dir" ] && return 1
+	[ -d "$dir" ] || return 1
+	u=$(stat -c '%u' "$dir" 2>/dev/null) || return 1
+	[ "$u" = "0" ] || return 1
+	m=$(stat -c '%a' "$dir" 2>/dev/null) || return 1
+	o=$((m % 10))
+	g=$(( (m / 10) % 10 ))
+	[ $((o & 2)) -eq 0 ] && [ $((g & 2)) -eq 0 ]
+}
+
 # Acquire the exclusive logging lock on fd 9. Blocks until free; fails closed
 # (return 1) only if the lock file cannot be opened or flock is unavailable.
 # Create/tighten the lock to 0600 so unprivileged UIDs cannot take LOCK_EX on
@@ -35,6 +49,9 @@ acquire_wan_log_lock() {
 	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
 	( umask 077; mkdir -p "$lock_dir" ) 2>/dev/null || return 1
 	[ -L "$lock_dir" ] && return 1
+	if [ -z "${FWLIVE_WAN_LOG_LOCK_FILE:-}" ]; then
+		wan_log_lock_dir_safe "$lock_dir" || return 1
+	fi
 	( umask 077; : >> "$WAN_LOG_LOCK_FILE" ) 2>/dev/null || return 1
 	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
 	chmod 0600 "$WAN_LOG_LOCK_FILE" 2>/dev/null || true
