@@ -12,7 +12,7 @@ rpcd behavior (file separate issues for behavior fixes).
 | Child | Issue | Status in harness |
 | ----- | ----- | ----------------- |
 | F1 `is_resolvable_address` alphabet | [#197](https://github.com/lucas-albers-lz4/fwlive/issues/197) | `scripts/z3-verify.py` |
-| F2 CLASSIFY_SPEC | [#198](https://github.com/lucas-albers-lz4/fwlive/issues/198) | planned |
+| F2 CLASSIFY_SPEC | [#198](https://github.com/lucas-albers-lz4/fwlive/issues/198) | `scripts/z3-verify.py` |
 | F3 adversarial parity | [#199](https://github.com/lucas-albers-lz4/fwlive/issues/199) | planned |
 | F4 parser robustness | [#200](https://github.com/lucas-albers-lz4/fwlive/issues/200) | planned |
 
@@ -44,3 +44,18 @@ quantifier-free char-at encoding **bounded to length ≤ 64** (declared domain �
 not a claim of all-length coverage). Dotted-hex hostnames that use only hex
 letters (e.g. `ab.cd.ef.01`) are alphabet-admissible and are rejected by awk —
 the full suite documents that split so we do not over-claim the alphabet layer.
+
+## F2 scope note
+
+CLASSIFY_SPEC predicates (`ACTION_RE` / `DENY_ACTION`, `NON_FIREWALL_PREFIX`,
+`TCP_FLAG_TAIL`, `glueKeys`) are modeled as **alphabet gates**, **finite
+alternations**, and **word-boundary splits** — not as the ECMA regexes
+fed to a solver. Tuples in `scripts/z3-verify.py` are pinned to
+`core/fwlive-log.js` CLASSIFY_SPEC (update both if the spec changes).
+JS patterns are `/i`; F2 uses the spelled case in the spec.
+
+`NETFILTER_KV_GLUE`'s lookahead `(?=KEY=)` is **not** expressible in stock
+`z3-solver==5.0.0`. `--full` checks a string-ops glue site (`IndexOf` /
+`Contains` of `IN=`) instead of the lookahead as written. Word-boundary
+proofs use `Complement([A-Za-z0-9_])` at **length 1 only** (not
+`Star(Complement)`, a known timeout trap).
