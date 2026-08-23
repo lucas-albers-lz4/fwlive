@@ -2,8 +2,10 @@
 # OpenWrt SDK build matrix helpers (official ghcr.io/openwrt/sdk images).
 # Source from other scripts; do not execute directly.
 #
-# Runtime: Bash is required (arrays, [[ ]], local, BASH_SOURCE, printf %q).
-# Callers must invoke via bash (shebang or `bash script.sh`); BusyBox ash is not supported.
+# Host/CI only (Linux builder) — Bash required (arrays, [[ ]], local, BASH_SOURCE,
+# printf %q). This file never ships to the device.
+# OpenWrt runtime shell (rpcd/libexec under openwrt-feed/) runs under BusyBox ash
+# and must stay POSIX; do not copy Bash-isms from here into those scripts.
 set -euo pipefail
 
 SDK_MATRIX_TARGETS=(armsr-armv8 x86-64)
