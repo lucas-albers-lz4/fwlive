@@ -15,7 +15,7 @@
 # BusyBox note: the production flock helper has no -w timeout, so the
 # critical section stays short (read->compute->set->commit); the firewall
 # reload runs outside the lock. Tests run hermetically by pointing
-# FWLIVE_WAN_LOG_LOCK_FILE at a temp path (default is /var/lock/...).
+# FWLIVE_WAN_LOG_LOCK_FILE at a temp path (default is /etc/fwlive/logging.lock).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -291,5 +291,17 @@ release_wan_log_lock
 [ "$(stat_mode "$FWLIVE_WAN_LOG_LOCK_FILE")" = "600" ] \
 	|| die "pre-existing 0644 lock not tightened (got $(stat_mode "$FWLIVE_WAN_LOG_LOCK_FILE"))"
 ok "pre-existing 0644 lock tightened to 0600"
+
+# --- Part E: symlink at lock path rejected (#204) ----------------------------
+rm -f "$FWLIVE_WAN_LOG_LOCK_FILE"
+decoy="$WORK/decoy-lock-target"
+printf 'precious-content' > "$decoy"
+ln -s "$decoy" "$FWLIVE_WAN_LOG_LOCK_FILE"
+if acquire_wan_log_lock; then
+	die "acquire_wan_log_lock succeeded on symlink lock path"
+fi
+[ "$(cat "$decoy")" = "precious-content" ] \
+	|| die "symlink target truncated (got '$(cat "$decoy")')"
+ok "symlink at lock path rejected; decoy content preserved"
 
 echo "fwlive-logging-lock tests passed"

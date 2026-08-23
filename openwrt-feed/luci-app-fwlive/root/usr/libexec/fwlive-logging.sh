@@ -18,18 +18,45 @@ NF_LOG_IPV6='/proc/sys/net/netfilter/nf_log/10'
 # the /etc/init.d/firewall reload (can take seconds); the lock is released
 # before reload, and reload-failure rollback is a best-effort UCI write
 # outside the lock.
-# Overridable for tests/containers (default is the production path).
-WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/var/lock/fwlive-logging.lock}"
+# Overridable for tests/containers (default is root-only /etc/fwlive).
+WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/etc/fwlive/logging.lock}"
 WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-baseline}"
+
+# Production lock dir must be root-owned with no group/other write (#204).
+wan_log_lock_dir_safe() {
+	dir="$1"
+	[ -n "$dir" ] || return 1
+	[ -L "$dir" ] && return 1
+	[ -d "$dir" ] || return 1
+	u=$(stat -c '%u' "$dir" 2>/dev/null) || return 1
+	[ "$u" = "0" ] || return 1
+	m=$(stat -c '%a' "$dir" 2>/dev/null) || return 1
+	o=$((m % 10))
+	g=$(( (m / 10) % 10 ))
+	[ $((o & 2)) -eq 0 ] && [ $((g & 2)) -eq 0 ]
+}
 
 # Acquire the exclusive logging lock on fd 9. Blocks until free; fails closed
 # (return 1) only if the lock file cannot be opened or flock is unavailable.
 # Create/tighten the lock to 0600 so unprivileged UIDs cannot take LOCK_EX on
 # a world-readable fd (issue #167 / flock(2) allows exclusive locks on O_RDONLY).
 acquire_wan_log_lock() {
+	# Fail closed on symlinks: chmod/chown/exec O_TRUNC follow the target as root
+	# (#204). Default lock lives under /etc/fwlive (root-only), not world-writable
+	# /var/lock. Re-check after create/tighten (TOCTOU).
+	lock_dir="$(dirname "$WAN_LOG_LOCK_FILE")"
+	[ -L "$lock_dir" ] && return 1
+	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
+	( umask 077; mkdir -p "$lock_dir" ) 2>/dev/null || return 1
+	[ -L "$lock_dir" ] && return 1
+	if [ -z "${FWLIVE_WAN_LOG_LOCK_FILE:-}" ]; then
+		wan_log_lock_dir_safe "$lock_dir" || return 1
+	fi
 	( umask 077; : >> "$WAN_LOG_LOCK_FILE" ) 2>/dev/null || return 1
+	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
 	chmod 0600 "$WAN_LOG_LOCK_FILE" 2>/dev/null || true
 	chown 0:0 "$WAN_LOG_LOCK_FILE" 2>/dev/null || true
+	[ -L "$WAN_LOG_LOCK_FILE" ] && return 1
 	exec 9>"$WAN_LOG_LOCK_FILE" 2>/dev/null || return 1
 	flock 9 2>/dev/null || {
 		exec 9>&-
