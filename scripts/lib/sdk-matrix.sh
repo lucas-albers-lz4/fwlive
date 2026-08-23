@@ -201,16 +201,15 @@ sdk_matrix_cache_dirs() {
 	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
 	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"
 	# buildbot (uid 1000) must write bind mounts; Actions runner is often 1001.
-	# Least privilege: own as buildbot, owner rwx only for write; group/other read+traverse.
-	# Never world-writable. Fail closed if we cannot grant uid 1000 write.
-	if chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
-		chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null || true
-	elif command -v setfacl >/dev/null 2>&1 \
-		&& setfacl -R -m u:1000:rwx -m d:u:1000:rwx "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
-		chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null || true
-	else
-		echo "sdk-matrix: cannot grant buildbot (uid 1000) write to .ci-sdk-cache without world-writable bits" >&2
+	# Least privilege: own as buildbot; owner rwx only for write; group/other read+traverse.
+	# Fail closed (no world-writable, no ACL mask footguns). CI uses sudo chown first.
+	if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
+		echo "sdk-matrix: cannot chown .ci-sdk-cache to buildbot (uid 1000)" >&2
 		echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
+		return 1
+	fi
+	if ! chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"; then
+		echo "sdk-matrix: chmod failed on .ci-sdk-cache" >&2
 		return 1
 	fi
 }
