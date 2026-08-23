@@ -38,6 +38,7 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 | Publish checklist | [`../github-publish-checklist.md`](../github-publish-checklist.md) |
 | Feed layout (no submodule split) | [architecture.md § Feed layout decision](architecture.md#feed-layout-decision) |
 | Trust boundaries & security invariants | [security-model.md](security-model.md) |
+| Z3 verification (host/CI; #120/#121) | [z3-verification.md](z3-verification.md) |
 | Security review state (coverage, proofs, open findings) | [security-review.md](security-review.md) |
 | Agent orientation (invariants, commands) | [`../../AGENTS.md`](../../AGENTS.md) |
 
