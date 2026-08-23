@@ -45,7 +45,7 @@ python3 scripts/z3-verify.py --full
 
 **Not claimed:** length-independent symbolic word-boundary proofs for arbitrary-length
 inputs. Those require ECMA-direct backends in [regexproof](https://github.com/lucas-albers-lz4/regexproof)
-(`re.from_ecma2020` / Noodler — see upstream issue filed from this epic).
+(`re.from_ecma2020` / Noodler — [regexproof#571](https://github.com/lucas-albers-lz4/regexproof/issues/571)).
 
 ## `/i` and mixed-case (F2)
 
@@ -57,7 +57,7 @@ Z3 predicates enumerate **original + lowercase + uppercase** per token via
 | ----- | ------------------- |
 | F2 Z3 predicates | Upper + lower + spec spelling only |
 | F3 differential parity | Fixed mixed-case corpus (PR #203) — JS vs shell under `sh` and `busybox sh` |
-| Formal ECMA `/i` proof | regexproof upstream (`re.from_ecma2020`; link added when issue is filed) |
+| Formal ECMA `/i` proof | [regexproof#571](https://github.com/lucas-albers-lz4/regexproof/issues/571) (`re.from_ecma2020`) |
 
 ## F1 scope note
 
@@ -91,9 +91,12 @@ Word-boundary uses `Complement([A-Za-z0-9_])` at **length 1 only** (not
 
 `--fast`: codegen drift guard (`gen-shell-classifier.js` output must match
 committed `fwlive-is-firewall-event.sh`). `--full`: Z3 sat-models from F2
-predicates plus fixed boundary lines are checked for JS (`core.isFirewallEvent`)
-vs generated shell (`fwlive-is-firewall-event.sh`) parity under `sh` and
-`busybox sh` (CI installs busybox).
+predicates plus fixed boundary lines and `MIXED_CASE_PARITY_CORPUS` are checked
+for JS (`core.isFirewallEvent`) vs generated shell
+(`fwlive-is-firewall-event.sh`) parity under `sh` and `busybox sh` (CI installs
+busybox). Z3 sat-models remain upper/lower/original only; arbitrary `/i`
+mixed-case is covered by the fixed corpus, not predicate enumeration. Formal
+ECMA `/i` proofs: [regexproof#571](https://github.com/lucas-albers-lz4/regexproof/issues/571).
 
 ## F4 scope note
 

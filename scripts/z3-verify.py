@@ -96,6 +96,14 @@ SAMPLE_ALPHABET = (
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	"_-.:=[] \t"
 )
+# Fixed `/i` mixed-case lines — outside Z3 finite-token model; F3 differential parity.
+MIXED_CASE_PARITY_CORPUS = (
+	"aCcEpT IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP",
+	"DrOp IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DPT=22",
+	"sYn ACK",
+	"dnsMasq[1]: query noise",
+	"fw4: aCcEpT without key values",
+)
 
 
 def _alphabet_of(words) -> str:
@@ -678,6 +686,7 @@ def _z3_adversarial_corpus() -> list[str]:
 			"not-a-firewall-line at all",
 		]
 	)
+	corpus.extend(MIXED_CASE_PARITY_CORPUS)
 
 	# Dedupe preserving order.
 	seen: set[str] = set()
@@ -725,6 +734,7 @@ def run_f3_full() -> int:
 	fail = run_f3_fast()
 	try:
 		corpus = _z3_adversarial_corpus()
+		print(f"ok: F3 mixed-case parity block queued ({len(MIXED_CASE_PARITY_CORPUS)} lines)")
 	except Exception as exc:  # pragma: no cover
 		print(f"FAIL: F3 corpus generation — {exc}", file=sys.stderr)
 		return fail + 1

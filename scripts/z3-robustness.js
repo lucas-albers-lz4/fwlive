@@ -40,6 +40,8 @@ const FULL_EXTRA = [
 	'SYN ACK FIN RST PSH URG SYN ACK',
 	'dead.beef.cafe.baad',
 	'192.0.2.1\nextra',
+	'aCcEpT IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP',
+	'DrOp IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DPT=22',
 ];
 
 function exercise(msg) {
