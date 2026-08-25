@@ -100,6 +100,15 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "unreadable subtree fails closed for a non-root runner"
 	fi
+	# Case 7: fail-closed — correct ownership but unwritable modes (owner
+	# 1000, 0555): buildbot cannot write the cache, must not pass.
+	prep_workflow
+	$SUDO chmod -R 555 "$DL"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "unwritable modes must fail closed for a non-root runner"
+	else
+		ok "unwritable modes fail closed for a non-root runner"
+	fi
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
 	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
