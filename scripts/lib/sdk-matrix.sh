@@ -432,19 +432,23 @@ sdk_matrix_feeds_ready() {
 	# matching the pinned feeds.conf so a restored cache cannot skip refresh
 	# after pin changes or partial-cache failure.
 	# Pass version label as \$1 (data), never interpolate into shell source.
+	# Every check names itself so a failed readiness probe explains WHY
+	# "Run: ./scripts/docker-sdk.sh setup" was printed (2026-08-25 publish
+	# regression: the probe failed silently and the setup hint was useless).
 	sdk_matrix_compose_run sh -c '
-		test -f /builder/.config || exit 1
-		lock=/work/fwlive/scripts/feeds.lock/$1/feeds.conf
 		stamp=/builder/feeds/.fwlive-feeds.lock.sha
-		test -f "$lock" && test -f "$stamp" || exit 1
+		lock=/work/fwlive/scripts/feeds.lock/$1/feeds.conf
+		test -f /builder/.config || { echo "probe: missing /builder/.config" >&2; exit 1; }
+		test -f "$lock" && test -f "$stamp" || { echo "probe: missing lock or stamp" >&2; exit 1; }
 		cur=$(sha256sum "$lock" | awk "{print \$1}")
 		old=$(cat "$stamp")
-		[ -n "$cur" ] && [ "$cur" = "$old" ] || exit 1
-		{ [ -d /builder/feeds/base/.git ] || [ -d /builder/feeds/base_root/.git ]; } || exit 1
-		[ -d /builder/feeds/packages/.git ] || exit 1
-		[ -d /builder/feeds/luci/.git ] || exit 1
-		find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q .
-	' sh "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null
+		[ -n "$cur" ] && [ "$cur" = "$old" ] || { echo "probe: lock stamp mismatch" >&2; exit 1; }
+		{ [ -d /builder/feeds/base/.git ] || [ -d /builder/feeds/base_root/.git ]; } || { echo "probe: missing base .git" >&2; exit 1; }
+		[ -d /builder/feeds/packages/.git ] || { echo "probe: missing packages .git" >&2; exit 1; }
+		[ -d /builder/feeds/luci/.git ] || { echo "probe: missing luci .git" >&2; exit 1; }
+		find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q . \
+			|| { echo "probe: luci-app-fwlive Makefile not found" >&2; exit 1; }
+	' sh "$SDK_MATRIX_VERSION_LABEL"
 }
 
 sdk_matrix_feeds_base_packages() {
