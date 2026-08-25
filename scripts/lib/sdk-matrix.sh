@@ -276,7 +276,8 @@ sdk_matrix_cache_scan() {
 	done
 	out="$(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
 			\( ! -user 1000 -o ! -group 1000 \) -o \
-			\( ! -type l \( ! -perm -u+r -o ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
+			\( ! -type l \( ! -perm -u+r -o \
+				\( ! -path "*/\.git/*" ! -perm -u+w \) -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
 			\( ! -type l \( -perm -g+w -o -perm -o+w \) \) -o \
 			\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
 		\) -print -quit 2>&1)" || return 1

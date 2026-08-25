@@ -340,6 +340,30 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "owner-unreadable file fails closed for a non-root runner"
 	fi
+	# Case 41: git PACK files are legitimately 0444 (read-only by design) —
+	# owner-write is not required under .git, but owner-read still is
+	# (2026-08-25 publish: pack files flagged after feeds update).
+	prep_workflow
+	$SUDO mkdir -p "$FEEDS/base/.git/objects/pack"
+	$SUDO touch "$FEEDS/base/.git/objects/pack/x.pack" "$FEEDS/base/.git/objects/pack/x.idx"
+	$SUDO chown -R 1000:1000 "$FEEDS/base"
+	$SUDO chmod 444 "$FEEDS/base/.git/objects/pack/x.pack" "$FEEDS/base/.git/objects/pack/x.idx"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		ok "git pack 0444 under .git passes"
+	else
+		bad "git pack 0444 under .git must pass for a non-root runner"
+	fi
+	# Case 43: fail-closed — a 0444 file OUTSIDE .git must still fail.
+	prep_workflow
+	$SUDO rm -rf "$FEEDS/base/.git"
+	$SUDO touch "$FEEDS/base/Makefile"
+	$SUDO chown 1000:1000 "$FEEDS/base/Makefile"
+	$SUDO chmod 444 "$FEEDS/base/Makefile"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "0444 file outside .git must fail closed for a non-root runner"
+	else
+		ok "0444 file outside .git fails closed for a non-root runner"
+	fi
 	# Case 27: fail-closed — the index allowlist constrains the TARGET: an
 	# absolute-target link (evil.index -> /etc/passwd) must not pass (luna r12).
 	prep_workflow
@@ -557,6 +581,17 @@ else
 		fi
 	else
 		bad "root caller must succeed by repairing the owner-unreadable file"
+	fi
+	# Case 42 (root): git pack 0444 under .git passes for root too.
+	prep_workflow
+	mkdir -p "$FEEDS/base/.git/objects/pack"
+	touch "$FEEDS/base/.git/objects/pack/x.pack"
+	chown -R 1000:1000 "$FEEDS/base"
+	chmod 444 "$FEEDS/base/.git/objects/pack/x.pack"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		ok "git pack 0444 under .git passes for root"
+	else
+		bad "git pack 0444 under .git must pass for root"
 	fi
 fi
 
