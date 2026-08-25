@@ -9,9 +9,10 @@
 # chown) and the fail-closed path aborts the whole publish.
 #
 # Correct behavior: skip chown only when BOTH cache trees are fully
-# buildbot-owned (the CI state) and only chmod as root/owner; keep fail-closed
-# for wrong owners (tree roots OR nested entries). Requires passwordless sudo
-# to set up buildbot-owned dirs; SKIPs otherwise (GH runners have it).
+# buildbot-owned (roots AND nested entries, verified by a scan that fails
+# closed on errors) and only chmod as root/owner; wrong ownership is repaired
+# by root or fails closed for non-root. Requires passwordless sudo to set up
+# buildbot-owned dirs; SKIPs otherwise (GH runners have it).
 # shellcheck disable=SC2317
 set -euo pipefail
 
@@ -71,8 +72,42 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "feeds-only wrong ownership fails closed for a non-root runner"
 	fi
+	# Case 4: fail-closed — nested stray wrong-owned file inside an otherwise
+	# buildbot-owned tree (roots look fine).
+	prep_workflow
+	touch "$DL/stray"
+	sudo chown 0:0 "$DL/stray"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "nested wrong-owned file must fail closed for a non-root runner"
+	else
+		ok "nested wrong-owned file fails closed for a non-root runner"
+	fi
+	# Case 5: fail-closed — unreadable subtree: the ownership scan must not
+	# read as a clean tree when it cannot traverse everything.
+	prep_workflow
+	mkdir -p "$DL/nested"
+	sudo chmod 700 "$DL/nested"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "unreadable subtree must fail closed for a non-root runner"
+	else
+		ok "unreadable subtree fails closed for a non-root runner"
+	fi
 else
-	echo "skip: running as root — fail-closed cases not applicable"
+	echo "skip: running as root — non-root fail-closed cases not applicable"
+	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
+	# chown), not chmodded into a state uid 1000 cannot write.
+	mkdir -p "$DL/nested"
+	touch "$DL/nested/stray"
+	chown 0:0 "$DL/nested/stray"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		if [[ "$(stat -c %u "$DL/nested/stray")" == "1000" ]]; then
+			ok "root caller repairs nested wrong-owned file (uid 1000 after)"
+		else
+			bad "root caller must repair nested wrong-owned file (got uid $(stat -c %u "$DL/nested/stray"))"
+		fi
+	else
+		bad "root caller must succeed by repairing nested wrong ownership"
+	fi
 fi
 
 [ "$fail" = "0" ] || exit 1
