@@ -228,17 +228,27 @@ sdk_matrix_reject_symlink_path() {
 # are meaningless (links are always 0777) so mode checks skip them; instead
 # the ALLOWED links are exactly the ones OpenWrt feed setup legitimately
 # creates in the cached feeds tree: the absolute src-link package feed
-# (`/work/fwlive/openwrt-feed`, from feeds.lock src-link fwlive) and the
-# relative `*.index` / `*.targetindex` links `scripts/feeds update` writes
-# (luna r11). Any other symlink is flagged. Print the first violation
-# (-quit); a nonzero status means the scan itself failed (fail closed).
+# (`/work/fwlive/openwrt-feed`, from feeds.lock src-link fwlive, link name
+# `fwlive`) and the relative `*.index` / `*.targetindex` links `scripts/feeds
+# update` writes (luna r11). The index allowlist constrains the TARGET too:
+# relative only (not `/*`) and no `..` components — an absolute or escaping
+# target is a bypass (luna r12). Any other symlink is flagged. Print the
+# first violation (-quit); a nonzero status means the scan failed (fail
+# closed).
 sdk_matrix_cache_scan() {
+	local feeds_root="${SDK_MATRIX_FEEDS_CACHE}"
+	while [[ "$feeds_root" == */ && "$feeds_root" != "/" ]]; do
+		feeds_root="${feeds_root%/}"
+	done
 	find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
 			\( ! -user 1000 -o ! -group 1000 \) -o \
 			\( ! -type l \( ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
 			\( ! -type l \( -perm -g+w -o -perm -o+w \) \) -o \
-			\( -type l ! \( -lname "/work/fwlive/openwrt-feed" -o \
-				\( -path "${SDK_MATRIX_FEEDS_CACHE}/*" \( -name "*.index" -o -name "*.targetindex" \) \) \) \) -o \
+			\( -type l ! \( \
+				\( -lname "/work/fwlive/openwrt-feed" -name "fwlive" \) -o \
+				\( -path "${feeds_root}/*" \( -name "*.index" -o -name "*.targetindex" \) \
+					! -lname "/*" ! -lname "*..*" \) \
+			\) \) -o \
 			\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
 		\) -print -quit 2>&1
 }
@@ -247,6 +257,14 @@ sdk_matrix_cache_dirs() {
 	local root="$1" version_label="$2" dl_uid dl_gid feeds_uid feeds_gid scan_out scan_rc
 	SDK_MATRIX_DL_CACHE="${OWRT_SDK_DL_CACHE:-${root}/.ci-sdk-cache/dl}"
 	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
+	# Normalize trailing slashes on env overrides so -path patterns and
+	# symlink walks see consistent paths (luna r12 Minor).
+	while [[ "$SDK_MATRIX_DL_CACHE" == */ && "$SDK_MATRIX_DL_CACHE" != "/" ]]; do
+		SDK_MATRIX_DL_CACHE="${SDK_MATRIX_DL_CACHE%/}"
+	done
+	while [[ "$SDK_MATRIX_FEEDS_CACHE" == */ && "$SDK_MATRIX_FEEDS_CACHE" != "/" ]]; do
+		SDK_MATRIX_FEEDS_CACHE="${SDK_MATRIX_FEEDS_CACHE%/}"
+	done
 	# Cache roots must be real directories. Validate the path BEFORE any
 	# mutation: mkdir -p through a symlink would create dirs outside the
 	# intended cache tree (luna r9), a regular file in place of a root fails

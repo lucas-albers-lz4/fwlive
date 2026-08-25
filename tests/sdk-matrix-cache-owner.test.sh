@@ -246,8 +246,10 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	fi
 	# Case 25: OpenWrt `scripts/feeds update` creates relative *.index /
 	# *.targetindex symlinks in the cached feeds tree — they are legit and
-	# must PASS alongside the src-link (luna r11).
+	# must PASS alongside the src-link (luna r11). The fwlive link from case
+	# 20 must be reset first (set -e kills the branch at a duplicate ln).
 	prep_workflow
+	$SUDO rm -f "$FEEDS/fwlive" "$FEEDS/packages.index" "$FEEDS/packages.targetindex"
 	$SUDO ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
 	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"
 	$SUDO ln -s base.index "$FEEDS/packages.index"
@@ -257,6 +259,27 @@ if [[ "$(id -u)" -ne 0 ]]; then
 		ok "OpenWrt index symlinks in feeds cache pass"
 	else
 		bad "legit OpenWrt index symlinks must pass for a non-root runner"
+	fi
+	# Case 27: fail-closed — the index allowlist constrains the TARGET: an
+	# absolute-target link (evil.index -> /etc/passwd) must not pass (luna r12).
+	prep_workflow
+	$SUDO rm -f "$FEEDS/fwlive" "$FEEDS/packages.index" "$FEEDS/packages.targetindex"
+	$SUDO ln -s /etc/passwd "$FEEDS/evil.index"
+	$SUDO chown -h 1000:1000 "$FEEDS/evil.index"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "absolute-target index symlink must fail closed for a non-root runner"
+	else
+		ok "absolute-target index symlink fails closed for a non-root runner"
+	fi
+	# ... and an escaping relative target (.. components) must not pass either.
+	prep_workflow
+	$SUDO rm -f "$FEEDS/evil.index"
+	$SUDO ln -s ../../etc/passwd "$FEEDS/evil.targetindex"
+	$SUDO chown -h 1000:1000 "$FEEDS/evil.targetindex"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "escaping index symlink must fail closed for a non-root runner"
+	else
+		ok "escaping index symlink fails closed for a non-root runner"
 	fi
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
@@ -369,6 +392,17 @@ else
 		ok "legit symlinks pass for root too"
 	else
 		bad "legit src-link + index symlinks must pass for root"
+	fi
+	# Case 28 (root): absolute-target index symlink fails closed for root too —
+	# chmod cannot repair link targets, the rescan still flags it (luna r12).
+	prep_workflow
+	rm -f "$FEEDS/fwlive" "$FEEDS/packages.index"
+	ln -s /etc/passwd "$FEEDS/evil.index"
+	chown -h 1000:1000 "$FEEDS/evil.index"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "absolute-target index symlink must fail closed for root as well"
+	else
+		ok "absolute-target index symlink fails closed for root"
 	fi
 fi
 
