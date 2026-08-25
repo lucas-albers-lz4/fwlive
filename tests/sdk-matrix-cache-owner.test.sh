@@ -109,6 +109,17 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "unwritable modes fail closed for a non-root runner"
 	fi
+	# Case 8: fail-closed — symlinked cache root: stat follows the link while
+	# find/chown do not; the mount would expose the target (luna r5).
+	prep_workflow
+	$SUDO rm -rf "$DL"
+	$SUDO ln -s "$WORK/dl-target" "$DL"
+	$SUDO mkdir -p "$WORK/dl-target"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "symlinked cache root must fail closed for a non-root runner"
+	else
+		ok "symlinked cache root fails closed for a non-root runner"
+	fi
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
 	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
@@ -124,6 +135,17 @@ else
 		fi
 	else
 		bad "root caller must succeed by repairing nested wrong ownership"
+	fi
+	# Case 9 (root): symlinked cache root must fail closed too — no repair is
+	# possible (chown -R would fix the target, not the link).
+	prep_workflow
+	rm -rf "$DL"
+	ln -s "$WORK/dl-target" "$DL"
+	mkdir -p "$WORK/dl-target"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "symlinked cache root must fail closed for root as well"
+	else
+		ok "symlinked cache root fails closed for root"
 	fi
 fi
 

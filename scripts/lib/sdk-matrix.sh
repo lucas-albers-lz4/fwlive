@@ -224,6 +224,13 @@ sdk_matrix_cache_dirs() {
 	dl_gid="$(stat -c %g "$SDK_MATRIX_DL_CACHE" 2>/dev/null)" || return 1
 	feeds_uid="$(stat -c %u "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
 	feeds_gid="$(stat -c %g "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
+	# Cache roots must be real directories — a symlinked root changes what the
+	# bind mount exposes (stat follows the link, find does not; chown -R
+	# repairs the target, not the link) and cannot be repaired safely (luna r5).
+	if [[ -L "$SDK_MATRIX_DL_CACHE" || -L "$SDK_MATRIX_FEEDS_CACHE" ]]; then
+		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
+		return 1
+	fi
 	if [[ "$dl_uid" != "1000" || "$dl_gid" != "1000" || "$feeds_uid" != "1000" || "$feeds_gid" != "1000" ]]; then
 		if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
 			echo "sdk-matrix: cannot chown .ci-sdk-cache to buildbot (uid 1000)" >&2
