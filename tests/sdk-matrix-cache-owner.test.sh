@@ -232,8 +232,10 @@ if [[ "$(id -u)" -ne 0 ]]; then
 		ok "disallowed nested symlink fails closed for a non-root runner"
 	fi
 	# Case 23: fail-closed — world-writable regular FILE inside DL (file-level
-	# coverage for the g+w/o+w rejection; luna r10 Minor).
+	# coverage for the g+w/o+w rejection; luna r10 Minor). The evil link from
+	# case 21 must not mask this.
 	prep_workflow
+	$SUDO rm -f "$DL/evil"
 	$SUDO touch "$DL/ww"
 	$SUDO chown 1000:1000 "$DL/ww"
 	$SUDO chmod 666 "$DL/ww"
@@ -241,6 +243,20 @@ if [[ "$(id -u)" -ne 0 ]]; then
 		bad "world-writable file must fail closed for a non-root runner"
 	else
 		ok "world-writable file fails closed for a non-root runner"
+	fi
+	# Case 25: OpenWrt `scripts/feeds update` creates relative *.index /
+	# *.targetindex symlinks in the cached feeds tree — they are legit and
+	# must PASS alongside the src-link (luna r11).
+	prep_workflow
+	$SUDO ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
+	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"
+	$SUDO ln -s base.index "$FEEDS/packages.index"
+	$SUDO ln -s base.targetindex "$FEEDS/packages.targetindex"
+	$SUDO chown -h 1000:1000 "$FEEDS/packages.index" "$FEEDS/packages.targetindex"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		ok "OpenWrt index symlinks in feeds cache pass"
+	else
+		bad "legit OpenWrt index symlinks must pass for a non-root runner"
 	fi
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
@@ -340,6 +356,19 @@ else
 		fi
 	else
 		bad "root caller must succeed by repairing the world-writable file"
+	fi
+	# Case 26 (root): the legit src-link + OpenWrt index symlinks pass for root
+	# too — the clean-tree chmod path must tolerate the links (luna r11 Nit).
+	prep_workflow
+	rm -f "$DL/ww"
+	ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
+	chown -h 1000:1000 "$FEEDS/fwlive"
+	ln -s base.index "$FEEDS/packages.index"
+	chown -h 1000:1000 "$FEEDS/packages.index"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		ok "legit symlinks pass for root too"
+	else
+		bad "legit src-link + index symlinks must pass for root"
 	fi
 fi
 
