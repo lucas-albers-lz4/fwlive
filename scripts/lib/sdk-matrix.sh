@@ -207,11 +207,44 @@ sdk_matrix_validate_version() {
 	return 1
 }
 
+# Reject a cache-root path containing any symlink component or '..' (luna r8:
+# a final-component -L test is bypassed by 'dl/sub/..' / 'dl/./sub' spellings
+# that resolve through the link to a real final component). Cache roots are
+# never legitimately behind a symlink or a '..' component.
+sdk_matrix_reject_symlink_path() {
+	local p="$1" head="" comp
+	[[ "$p" == /* ]] && head="/"
+	IFS=/ read -ra comps <<< "$p"
+	for comp in "${comps[@]}"; do
+		[[ -z "$comp" || "$comp" == "." ]] && continue
+		[[ "$comp" == ".." ]] && return 1
+		head="${head%/}/$comp"
+		[[ -L "$head" ]] && return 1
+	done
+	return 0
+}
+
 sdk_matrix_cache_dirs() {
 	local root="$1" version_label="$2" dl_uid dl_gid feeds_uid feeds_gid scan_out scan_rc
 	SDK_MATRIX_DL_CACHE="${OWRT_SDK_DL_CACHE:-${root}/.ci-sdk-cache/dl}"
 	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
-	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"
+	# Cache roots must be real directories. Fail closed BEFORE any mutation:
+	# mkdir failure, a regular file in place of a root, or a symlink ANYWHERE
+	# in the root path (component-wise lstat — a final-component -L test is
+	# bypassed by 'dl/sub/..' / 'dl/./sub' spellings; luna r8).
+	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" || return 1
+	if [[ ! -d "$SDK_MATRIX_DL_CACHE" || ! -d "$SDK_MATRIX_FEEDS_CACHE" ]]; then
+		echo "sdk-matrix: .ci-sdk-cache roots must be directories" >&2
+		return 1
+	fi
+	sdk_matrix_reject_symlink_path "$SDK_MATRIX_DL_CACHE" || {
+		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
+		return 1
+	}
+	sdk_matrix_reject_symlink_path "$SDK_MATRIX_FEEDS_CACHE" || {
+		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
+		return 1
+	}
 	# buildbot (uid 1000) must write bind mounts; Actions runner is often 1001.
 	# Least privilege: own as buildbot; owner rwx only for write; group/other read+traverse.
 	# Fail closed (no world-writable, no ACL mask footguns). CI pre-chowns via
@@ -224,28 +257,6 @@ sdk_matrix_cache_dirs() {
 	dl_gid="$(stat -c %g "$SDK_MATRIX_DL_CACHE" 2>/dev/null)" || return 1
 	feeds_uid="$(stat -c %u "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
 	feeds_gid="$(stat -c %g "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
-	# Cache roots must be real directories — a symlinked root changes what the
-	# bind mount exposes (lstat sees the link; the mount and recursive chown
-	# operate on the resolved target) and cannot be repaired safely (luna r5).
-	# Normalize trailing '/' and '/.' first: the shell resolves 'link/' to the
-	# target, which would bypass a bare -L test (luna r6).
-	local dl_root feeds_root
-	dl_root="${SDK_MATRIX_DL_CACHE}"
-	feeds_root="${SDK_MATRIX_FEEDS_CACHE}"
-	while [[ "$dl_root" == */ || "$dl_root" == */. ]]; do
-		dl_root="${dl_root%/}"
-		dl_root="${dl_root%/.}"
-	done
-	while [[ "$feeds_root" == */ || "$feeds_root" == */. ]]; do
-		feeds_root="${feeds_root%/}"
-		feeds_root="${feeds_root%/.}"
-	done
-	[[ -z "$dl_root" ]] && dl_root="/"
-	[[ -z "$feeds_root" ]] && feeds_root="/"
-	if [[ -L "$dl_root" || -L "$feeds_root" ]]; then
-		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
-		return 1
-	fi
 	if [[ "$dl_uid" != "1000" || "$dl_gid" != "1000" || "$feeds_uid" != "1000" || "$feeds_gid" != "1000" ]]; then
 		if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
 			echo "sdk-matrix: cannot chown .ci-sdk-cache to buildbot (uid 1000)" >&2

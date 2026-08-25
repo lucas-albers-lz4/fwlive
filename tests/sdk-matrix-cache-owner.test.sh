@@ -159,6 +159,31 @@ if [[ "$(id -u)" -ne 0 ]]; then
 		fi
 	done
 	export OWRT_SDK_DL_CACHE="$DL"
+	# Case 14: fail-closed — symlinked root via 'dl/sub/..' spelling (final
+	# component is real; the component-wise walk must catch the link; luna r8).
+	prep_workflow
+	restore_root "$FEEDS"
+	symlink_root "$DL" "$WORK/dl-target"
+	$SUDO mkdir -p "$WORK/dl-target/sub"
+	export OWRT_SDK_DL_CACHE="$DL/sub/.."
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "'dl/sub/..' spelling of a symlinked root must fail closed for a non-root runner"
+	else
+		ok "'dl/sub/..' spelling of a symlinked root fails closed for a non-root runner"
+	fi
+	export OWRT_SDK_DL_CACHE="$DL"
+	# Case 15: fail-closed — regular file in place of the DL root (luna r8).
+	prep_workflow
+	restore_root "$FEEDS"
+	$SUDO rm -rf "$DL"
+	$SUDO touch "$DL"
+	$SUDO chown 1000:1000 "$DL"
+	$SUDO chmod 644 "$DL"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "regular file as cache root must fail closed for a non-root runner"
+	else
+		ok "regular file as cache root fails closed for a non-root runner"
+	fi
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
 	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
@@ -204,6 +229,18 @@ else
 		bad "symlinked feeds root must fail closed for root as well"
 	else
 		ok "symlinked feeds root fails closed for root"
+	fi
+	# Case 16 (root): regular file in place of the DL root fails closed.
+	prep_workflow
+	restore_root "$FEEDS"
+	rm -rf "$DL"
+	touch "$DL"
+	chown 1000:1000 "$DL"
+	chmod 644 "$DL"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "regular file as cache root must fail closed for root as well"
+	else
+		ok "regular file as cache root fails closed for root"
 	fi
 fi
 
