@@ -134,6 +134,13 @@ jobs:
 
       - name: Prepare SDK cache dirs
         run: |
+          set -euo pipefail
+          # #208: refuse to mkdir/chown through a symlinked cache path — sudo
+          # chmod -R on a symlinked root would modify the target (luna r10).
+          source ./scripts/lib/sdk-matrix.sh
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           mkdir -p .ci-sdk-cache/dl
           for v in 21.02.7 22.03.7 23.05.5 24.10.8 25.12.5; do
             mkdir -p ".ci-sdk-cache/feeds/$v"
@@ -153,6 +160,12 @@ jobs:
       - name: Fix SDK cache permissions
         if: always()
         run: |
+          set -euo pipefail
+          # #208: never chmod/chown through a symlinked cache path (luna r10).
+          source ./scripts/lib/sdk-matrix.sh
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           # Re-assert ownership after buildbot writes (same least-privilege policy).
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache

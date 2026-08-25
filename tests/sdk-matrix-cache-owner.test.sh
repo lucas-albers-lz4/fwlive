@@ -210,6 +210,38 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "world-writable cache fails closed for a non-root runner"
 	fi
+	# Case 20: the legit feeds src-link symlink (fwlive -> /work/fwlive/
+	# openwrt-feed) must PASS — link modes are meaningless (skipped by mode
+	# checks) and the src-link target is the only allowed link (luna r10).
+	prep_workflow
+	$SUDO ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
+	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		ok "legit src-link symlink in feeds cache passes"
+	else
+		bad "legit src-link symlink must pass for a non-root runner"
+	fi
+	# Case 21: fail-closed — disallowed nested symlink (target outside the
+	# workspace) cannot be repaired by chmod; non-root fails closed (luna r10).
+	prep_workflow
+	$SUDO ln -s /etc/passwd "$DL/evil"
+	$SUDO chown -h 1000:1000 "$DL/evil"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "disallowed nested symlink must fail closed for a non-root runner"
+	else
+		ok "disallowed nested symlink fails closed for a non-root runner"
+	fi
+	# Case 23: fail-closed — world-writable regular FILE inside DL (file-level
+	# coverage for the g+w/o+w rejection; luna r10 Minor).
+	prep_workflow
+	$SUDO touch "$DL/ww"
+	$SUDO chown 1000:1000 "$DL/ww"
+	$SUDO chmod 666 "$DL/ww"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "world-writable file must fail closed for a non-root runner"
+	else
+		ok "world-writable file fails closed for a non-root runner"
+	fi
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
 	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
@@ -283,6 +315,31 @@ else
 		fi
 	else
 		bad "root caller must succeed by repairing world-writable modes"
+	fi
+	# Case 22 (root): disallowed nested symlink fails closed for root too —
+	# chmod cannot repair link modes, so the rescan still flags it (luna r10).
+	prep_workflow
+	ln -s /etc/passwd "$DL/evil"
+	chown -h 1000:1000 "$DL/evil"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "disallowed nested symlink must fail closed for root as well"
+	else
+		ok "disallowed nested symlink fails closed for root"
+	fi
+	# Case 24 (root): world-writable regular file is REPAIRED to 0644.
+	prep_workflow
+	rm -f "$DL/evil"
+	touch "$DL/ww"
+	chown 1000:1000 "$DL/ww"
+	chmod 666 "$DL/ww"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		if [[ "$(stat -c %a "$DL/ww")" == "644" ]]; then
+			ok "root caller repairs world-writable file (0644 after)"
+		else
+			bad "root caller must repair world-writable file (got $(stat -c %a "$DL/ww"))"
+		fi
+	else
+		bad "root caller must succeed by repairing the world-writable file"
 	fi
 fi
 

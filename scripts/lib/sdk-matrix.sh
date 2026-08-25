@@ -271,13 +271,18 @@ sdk_matrix_cache_dirs() {
 	# 1000 cannot write). The scan also validates MODES — buildbot (owner)
 	# must be able to write and the runner (group/other) to read/traverse
 	# (cache save + probe); a correct-owner-but-unwritable cache must not
-	# pass. Scan errors (unreadable subtree) fail closed — a hidden error
-	# must never read as a clean tree.
+	# pass, and group/other WRITE bits are rejected (least privilege). Symlink
+	# modes are meaningless (links are always 0777) so mode checks skip them;
+	# instead the ONLY symlink allowed anywhere in the trees is the feeds
+	# src-link (`/work/fwlive/openwrt-feed`), which is how the local package
+	# feed materializes. Scan errors (unreadable subtree) fail closed — a
+	# hidden error must never read as a clean tree.
 	scan_rc=0
 	scan_out="$(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
 			\( ! -user 1000 -o ! -group 1000 \) -o \
-			\( ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) -o \
-			\( -perm -g+w -o -perm -o+w \) -o \
+			\( ! -type l \( ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
+			\( ! -type l \( -perm -g+w -o -perm -o+w \) \) -o \
+			\( -type l ! -lname "/work/fwlive/openwrt-feed" \) -o \
 			\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
 		\) -print -quit 2>&1)" || scan_rc=$?
 	if [[ "$scan_rc" -ne 0 ]]; then
@@ -286,12 +291,28 @@ sdk_matrix_cache_dirs() {
 		return 1
 	fi
 	if [[ -n "$scan_out" ]]; then
-		# Wrong ownership or modes found: root repairs recursively (tree
-		# becomes uniform); a non-root caller cannot fix them — fail closed.
+		# Wrong ownership, modes, or disallowed symlinks found: root repairs
+		# recursively (tree becomes uniform); a non-root caller cannot fix
+		# them — fail closed. Root RESCANS after repair: chmod cannot change
+		# symlink modes, so a still-flagged tree (e.g. a disallowed symlink)
+		# fails closed (luna r10).
 		if [[ "$(id -u)" -eq 0 ]]; then
 			if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null \
 				|| ! chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"; then
 				echo "sdk-matrix: cannot fix .ci-sdk-cache ownership/modes (uid 1000 buildbot)" >&2
+				echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
+				return 1
+			fi
+			scan_rc=0
+			scan_out="$(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
+					\( ! -user 1000 -o ! -group 1000 \) -o \
+					\( ! -type l \( ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
+					\( ! -type l \( -perm -g+w -o -perm -o+w \) \) -o \
+					\( -type l ! -lname "/work/fwlive/openwrt-feed" \) -o \
+					\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
+				\) -print -quit 2>&1)" || scan_rc=$?
+			if [[ "$scan_rc" -ne 0 || -n "$scan_out" ]]; then
+				echo "sdk-matrix: cannot repair .ci-sdk-cache (unresolvable ownership/mode/symlink state)" >&2
 				echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
 				return 1
 			fi
