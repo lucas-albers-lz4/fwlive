@@ -388,11 +388,13 @@ sdk_matrix_cache_dirs() {
 			scan_out="$(sdk_matrix_cache_scan)" || scan_rc=$?
 			if [[ "$scan_rc" -ne 0 || -n "$scan_out" ]]; then
 				echo "sdk-matrix: cannot repair .ci-sdk-cache (unresolvable ownership/mode/symlink state)" >&2
+				echo "sdk-matrix: first violation: $scan_out" >&2
 				echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
 				return 1
 			fi
 		else
 			echo "sdk-matrix: cannot fix .ci-sdk-cache ownership/modes (uid 1000 buildbot)" >&2
+			echo "sdk-matrix: first violation: $scan_out" >&2
 			echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
 			return 1
 		fi
