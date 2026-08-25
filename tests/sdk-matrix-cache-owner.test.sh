@@ -87,10 +87,9 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "nested wrong-owned file fails closed for a non-root runner"
 	fi
-	# Case 5: fail-closed — unreadable subtree (buildbot-owned but no traverse
-	# for other): the ownership scan must not read as a clean tree. The nested
-	# dir must be buildbot-owned so the failure is the scan error, not a
-	# wrong-owner mismatch.
+	# Case 5: fail-closed — buildbot-owned subtree with no group/other read or
+	# traverse (mode check; the scan-error branch is defense-in-depth, since
+	# any mode that denies find traversal also fails the mode checks below).
 	prep_workflow
 	$SUDO mkdir -p "$DL/nested"
 	$SUDO chown 1000:1000 "$DL/nested"
@@ -120,6 +119,29 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "symlinked cache root fails closed for a non-root runner"
 	fi
+	# Case 10: fail-closed — symlinked FEEDS root (each root is checked).
+	prep_workflow
+	$SUDO rm -rf "$FEEDS"
+	$SUDO ln -s "$WORK/feeds-target" "$FEEDS"
+	$SUDO mkdir -p "$WORK/feeds-target"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "symlinked feeds root must fail closed for a non-root runner"
+	else
+		ok "symlinked feeds root fails closed for a non-root runner"
+	fi
+	# Case 11: fail-closed — trailing-slash form of a symlinked root ('dl/'
+	# resolves to the target) must not bypass the symlink rejection (luna r6).
+	prep_workflow
+	$SUDO rm -rf "$DL"
+	$SUDO ln -s "$WORK/dl-target" "$DL"
+	$SUDO mkdir -p "$WORK/dl-target"
+	export OWRT_SDK_DL_CACHE="$DL/"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "trailing-slash symlinked root must fail closed for a non-root runner"
+	else
+		ok "trailing-slash symlinked root fails closed for a non-root runner"
+	fi
+	export OWRT_SDK_DL_CACHE="$DL"
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
 	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
@@ -147,6 +169,18 @@ else
 	else
 		ok "symlinked cache root fails closed for root"
 	fi
+	# Case 12 (root): trailing-slash form must not bypass the symlink rejection.
+	prep_workflow
+	rm -rf "$DL"
+	ln -s "$WORK/dl-target" "$DL"
+	mkdir -p "$WORK/dl-target"
+	export OWRT_SDK_DL_CACHE="$DL/"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "trailing-slash symlinked root must fail closed for root as well"
+	else
+		ok "trailing-slash symlinked root fails closed for root"
+	fi
+	export OWRT_SDK_DL_CACHE="$DL"
 fi
 
 [ "$fail" = "0" ] || exit 1

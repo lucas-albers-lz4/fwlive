@@ -225,9 +225,24 @@ sdk_matrix_cache_dirs() {
 	feeds_uid="$(stat -c %u "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
 	feeds_gid="$(stat -c %g "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
 	# Cache roots must be real directories — a symlinked root changes what the
-	# bind mount exposes (stat follows the link, find does not; chown -R
-	# repairs the target, not the link) and cannot be repaired safely (luna r5).
-	if [[ -L "$SDK_MATRIX_DL_CACHE" || -L "$SDK_MATRIX_FEEDS_CACHE" ]]; then
+	# bind mount exposes (lstat sees the link; the mount and recursive chown
+	# operate on the resolved target) and cannot be repaired safely (luna r5).
+	# Normalize trailing '/' and '/.' first: the shell resolves 'link/' to the
+	# target, which would bypass a bare -L test (luna r6).
+	local dl_root feeds_root
+	dl_root="${SDK_MATRIX_DL_CACHE}"
+	feeds_root="${SDK_MATRIX_FEEDS_CACHE}"
+	while [[ "$dl_root" == */ || "$dl_root" == */. ]]; do
+		dl_root="${dl_root%/}"
+		dl_root="${dl_root%/.}"
+	done
+	while [[ "$feeds_root" == */ || "$feeds_root" == */. ]]; do
+		feeds_root="${feeds_root%/}"
+		feeds_root="${feeds_root%/.}"
+	done
+	[[ -z "$dl_root" ]] && dl_root="/"
+	[[ -z "$feeds_root" ]] && feeds_root="/"
+	if [[ -L "$dl_root" || -L "$feeds_root" ]]; then
 		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
 		return 1
 	fi
