@@ -11,8 +11,8 @@
 # Correct behavior: skip chown only when BOTH cache trees are fully
 # buildbot-owned (roots AND nested entries, verified by a scan that fails
 # closed on errors) and only chmod as root/owner; wrong ownership is repaired
-# by root or fails closed for non-root. Requires passwordless sudo to set up
-# buildbot-owned dirs; SKIPs otherwise (GH runners have it).
+# by root or fails closed for non-root. Non-root needs passwordless sudo to
+# set up buildbot-owned dirs (SKIPs otherwise); root runs without sudo.
 # shellcheck disable=SC2317
 set -euo pipefail
 
@@ -24,13 +24,17 @@ fail=0
 ok() { echo "ok: $*"; }
 bad() { echo "FAIL: $*" >&2; fail=1; }
 
-if ! sudo -n true 2>/dev/null; then
-	echo "SKIP: passwordless sudo unavailable (cannot simulate buildbot-owned cache)"
-	exit 0
+SUDO=""
+if [[ "$(id -u)" -ne 0 ]]; then
+	if ! sudo -n true 2>/dev/null; then
+		echo "SKIP: passwordless sudo unavailable (cannot simulate buildbot-owned cache)"
+		exit 0
+	fi
+	SUDO="sudo"
 fi
 
 WORK="$(mktemp -d /tmp/sdk-cache-owner.XXXXXX)"
-trap 'sudo rm -rf "$WORK"' EXIT
+trap "$SUDO rm -rf '$WORK'" EXIT
 
 DL="$WORK/dl"
 FEEDS="$WORK/feeds/24.10.8"
@@ -42,8 +46,8 @@ export OWRT_SDK_DL_CACHE="$DL" OWRT_SDK_FEEDS_CACHE="$FEEDS"
 # as the "Prepare SDK cache dirs" step (u=rwX,g=rX,o=rX keeps the uid-1001
 # runner able to traverse the tree).
 prep_workflow() {
-	sudo chown -R 1000:1000 "$WORK"
-	sudo chmod -R u=rwX,g=rX,o=rX "$WORK"
+	$SUDO chown -R 1000:1000 "$WORK"
+	$SUDO chmod -R u=rwX,g=rX,o=rX "$WORK"
 }
 
 # Case 1 (the regression): CI state — both trees buildbot-owned. Must pass
@@ -57,7 +61,7 @@ fi
 
 if [[ "$(id -u)" -ne 0 ]]; then
 	# Case 2: fail-closed — wrong owner at a tree root with no way to fix.
-	sudo chown -R 0:0 "$WORK"
+	$SUDO chown -R 0:0 "$WORK"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
 		bad "root-owned cache trees must fail closed for a non-root runner"
 	else
@@ -66,27 +70,31 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	# Case 3: fail-closed — wrong owner on the FEEDS tree only (download tree
 	# looks fine): the skip decision must cover both cache trees.
 	prep_workflow
-	sudo chown -R 0:0 "$FEEDS"
+	$SUDO chown -R 0:0 "$FEEDS"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
 		bad "feeds-only wrong ownership must fail closed for a non-root runner"
 	else
 		ok "feeds-only wrong ownership fails closed for a non-root runner"
 	fi
 	# Case 4: fail-closed — nested stray wrong-owned file inside an otherwise
-	# buildbot-owned tree (roots look fine).
+	# buildbot-owned tree (roots look fine). Entries inside the 1000:1000 tree
+	# must be created with sudo (the runner has no write access there).
 	prep_workflow
-	touch "$DL/stray"
-	sudo chown 0:0 "$DL/stray"
+	$SUDO touch "$DL/stray"
+	$SUDO chown 0:0 "$DL/stray"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
 		bad "nested wrong-owned file must fail closed for a non-root runner"
 	else
 		ok "nested wrong-owned file fails closed for a non-root runner"
 	fi
-	# Case 5: fail-closed — unreadable subtree: the ownership scan must not
-	# read as a clean tree when it cannot traverse everything.
+	# Case 5: fail-closed — unreadable subtree (buildbot-owned but no traverse
+	# for other): the ownership scan must not read as a clean tree. The nested
+	# dir must be buildbot-owned so the failure is the scan error, not a
+	# wrong-owner mismatch.
 	prep_workflow
-	mkdir -p "$DL/nested"
-	sudo chmod 700 "$DL/nested"
+	$SUDO mkdir -p "$DL/nested"
+	$SUDO chown 1000:1000 "$DL/nested"
+	$SUDO chmod 700 "$DL/nested"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
 		bad "unreadable subtree must fail closed for a non-root runner"
 	else
