@@ -213,10 +213,11 @@ sdk_matrix_validate_version() {
 # never legitimately behind a symlink or a '..' component.
 sdk_matrix_reject_symlink_path() {
 	local p="$1" head="" comp
-	# read splits on IFS=/ but stops at a newline — reject control characters
-	# so a newline-bearing component cannot truncate the walk (luna r13).
+	# read splits on IFS=/ but stops at a newline — reject all control
+	# characters so a control-bearing component cannot truncate the walk
+	# (luna r13/r14).
 	case "$p" in
-		*$'\n'* | *$'	'* | *$'\r'*) return 1 ;;
+		*[[:cntrl:]]*) return 1 ;;
 	esac
 	[[ "$p" == /* ]] && head="/" || head="."
 	IFS=/ read -ra comps <<< "$p"
@@ -229,34 +230,50 @@ sdk_matrix_reject_symlink_path() {
 	return 0
 }
 
+# A cached-feed symlink is acceptable iff it is the exact src-link exception
+# (fwlive -> /work/fwlive/openwrt-feed — a container path, unresolvable on
+# the host) or its fully-resolved target stays INSIDE the feeds cache tree.
+# The resolution rule covers every legitimate link class at once: the
+# top-level OpenWrt-generated links (base -> base_root/package, *.index /
+# *.targetindex) AND tracked symlinks inside the pinned OpenWrt/LuCI
+# checkouts (base-files os-release, netifd ifdown, LuCI Bootstrap links) —
+# while rejecting absolute-target, escaping (..), and CHAINED links (e.g.
+# evil.index -> fwlive) that resolve outside the cache (luna r14).
+sdk_matrix_link_ok() {
+	local link="$1" feeds_root="$2" resolved
+	[[ "$(readlink "$link")" == "/work/fwlive/openwrt-feed" ]] && return 0
+	resolved="$(readlink -f "$link" 2>/dev/null)" || return 1
+	case "$resolved" in
+		"${feeds_root}"/*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
 # Scan both cache trees for ownership/mode/symlink violations. Symlink modes
-# are meaningless (links are always 0777) so mode checks skip them; instead
-# the ALLOWED links are exactly the ones OpenWrt feed setup legitimately
-# creates in the cached feeds tree: the absolute src-link package feed
-# (`/work/fwlive/openwrt-feed`, from feeds.lock src-link fwlive, link name
-# `fwlive`) and the relative `*.index` / `*.targetindex` links `scripts/feeds
-# update` writes (luna r11). The index allowlist constrains the TARGET too:
-# relative only (not `/*`) and no `..` components — an absolute or escaping
-# target is a bypass (luna r12). Any other symlink is flagged. Print the
-# first violation (-quit); a nonzero status means the scan failed (fail
+# are meaningless (links are always 0777) so mode checks skip them; symlinks
+# are validated by sdk_matrix_link_ok (resolution-based, luna r14). Print the
+# first violation; a nonzero status means the scan itself failed (fail
 # closed).
 sdk_matrix_cache_scan() {
-	local feeds_root="${SDK_MATRIX_FEEDS_CACHE}"
+	local feeds_root="$SDK_MATRIX_FEEDS_CACHE" out l
 	while [[ "$feeds_root" == */ && "$feeds_root" != "/" ]]; do
 		feeds_root="${feeds_root%/}"
 	done
-	find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
+	out="$(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
 			\( ! -user 1000 -o ! -group 1000 \) -o \
 			\( ! -type l \( ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
 			\( ! -type l \( -perm -g+w -o -perm -o+w \) \) -o \
-			\( -type l ! \( \
-				\( -lname "/work/fwlive/openwrt-feed" -name "fwlive" \) -o \
-				\( -path "${feeds_root}/base" -lname "base_root/package" \) -o \
-				\( -path "${feeds_root}/*" \( -name "*.index" -o -name "*.targetindex" \) \
-					! -lname "/*" ! -lname "*..*" \) \
-			\) \) -o \
 			\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
-		\) -print -quit 2>&1
+		\) -print -quit 2>&1)" || return 1
+	[[ -n "$out" ]] && { printf '%s\n' "$out"; return 0; }
+	while IFS= read -r l; do
+		[[ -n "$l" ]] || continue
+		if ! sdk_matrix_link_ok "$l" "$feeds_root"; then
+			printf '%s\n' "$l"
+			return 0
+		fi
+	done < <(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" -type l -print 2>/dev/null)
+	return 0
 }
 
 sdk_matrix_cache_dirs() {

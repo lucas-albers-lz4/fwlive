@@ -246,10 +246,13 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	fi
 	# Case 25: OpenWrt `scripts/feeds update` creates relative *.index /
 	# *.targetindex symlinks in the cached feeds tree — they are legit and
-	# must PASS alongside the src-link (luna r11). The fwlive link from case
-	# 20 must be reset first (set -e kills the branch at a duplicate ln).
+	# must PASS alongside the src-link (luna r11). Resolution-based validation
+	# requires the index TARGETS to exist; the fwlive link from case 20 must
+	# be reset first (set -e kills the branch at a duplicate ln).
 	prep_workflow
 	$SUDO rm -f "$FEEDS/fwlive" "$FEEDS/packages.index" "$FEEDS/packages.targetindex"
+	$SUDO touch "$FEEDS/base.index" "$FEEDS/base.targetindex"
+	$SUDO chown 1000:1000 "$FEEDS/base.index" "$FEEDS/base.targetindex"
 	$SUDO ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
 	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"
 	$SUDO ln -s base.index "$FEEDS/packages.index"
@@ -259,6 +262,33 @@ if [[ "$(id -u)" -ne 0 ]]; then
 		ok "OpenWrt index symlinks in feeds cache pass"
 	else
 		bad "legit OpenWrt index symlinks must pass for a non-root runner"
+	fi
+	# Case 32: tracked symlinks INSIDE the pinned feed checkouts (base-files
+	# os-release, netifd ifdown, LuCI Bootstrap links) resolve inside the
+	# feeds tree and must pass (luna r14).
+	prep_workflow
+	$SUDO rm -f "$FEEDS/fwlive" "$FEEDS/packages.index" "$FEEDS/packages.targetindex" "$FEEDS/base.index" "$FEEDS/base.targetindex"
+	$SUDO mkdir -p "$FEEDS/base/package/base-files/files/etc" "$FEEDS/base/package/netifd"
+	$SUDO touch "$FEEDS/base/package/base-files/files/etc/os-release"
+	$SUDO ln -s ../base-files/files/etc/os-release "$FEEDS/base/package/netifd/os-release"
+	$SUDO chown -R 1000:1000 "$FEEDS/base"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		ok "tracked repo symlinks resolving inside the feeds tree pass"
+	else
+		bad "inside-resolving repo symlinks must pass for a non-root runner"
+	fi
+	# Case 33: fail-closed — a CHAINED link (evil.index -> fwlive) resolves
+	# through the src-link to the workspace, outside the cache (luna r14).
+	prep_workflow
+	$SUDO rm -rf "$FEEDS/base"
+	$SUDO ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
+	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"
+	$SUDO ln -s fwlive "$FEEDS/evil.index"
+	$SUDO chown -h 1000:1000 "$FEEDS/evil.index"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "chained index symlink must fail closed for a non-root runner"
+	else
+		ok "chained index symlink fails closed for a non-root runner"
 	fi
 	# Case 27: fail-closed — the index allowlist constrains the TARGET: an
 	# absolute-target link (evil.index -> /etc/passwd) must not pass (luna r12).
@@ -282,9 +312,12 @@ if [[ "$(id -u)" -ne 0 ]]; then
 		ok "escaping index symlink fails closed for a non-root runner"
 	fi
 	# Case 29: OpenWrt `src-git --root=package base` (25.12/snapshot cells)
-	# materializes feeds/base -> base_root/package — legit, must pass (luna r13).
+	# materializes feeds/base -> base_root/package — legit, must pass (luna r13;
+	# base_root/package must exist for resolution-based validation).
 	prep_workflow
 	$SUDO rm -f "$FEEDS/evil.targetindex"
+	$SUDO mkdir -p "$FEEDS/base_root/package"
+	$SUDO chown -R 1000:1000 "$FEEDS/base_root"
 	$SUDO ln -s base_root/package "$FEEDS/base"
 	$SUDO chown -h 1000:1000 "$FEEDS/base"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
@@ -405,6 +438,7 @@ else
 	# too — the clean-tree chmod path must tolerate the links (luna r11 Nit).
 	prep_workflow
 	rm -f "$DL/ww"
+	touch "$FEEDS/base.index"
 	ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
 	chown -h 1000:1000 "$FEEDS/fwlive"
 	ln -s base.index "$FEEDS/packages.index"
@@ -428,6 +462,7 @@ else
 	# Case 30 (root): feeds/base -> base_root/package passes for root too.
 	prep_workflow
 	rm -f "$FEEDS/evil.index"
+	mkdir -p "$FEEDS/base_root/package"
 	ln -s base_root/package "$FEEDS/base"
 	chown -h 1000:1000 "$FEEDS/base"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
