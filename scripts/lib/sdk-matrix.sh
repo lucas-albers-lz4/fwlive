@@ -213,6 +213,11 @@ sdk_matrix_validate_version() {
 # never legitimately behind a symlink or a '..' component.
 sdk_matrix_reject_symlink_path() {
 	local p="$1" head="" comp
+	# read splits on IFS=/ but stops at a newline — reject control characters
+	# so a newline-bearing component cannot truncate the walk (luna r13).
+	case "$p" in
+		*$'\n'* | *$'	'* | *$'\r'*) return 1 ;;
+	esac
 	[[ "$p" == /* ]] && head="/" || head="."
 	IFS=/ read -ra comps <<< "$p"
 	for comp in "${comps[@]}"; do
@@ -246,6 +251,7 @@ sdk_matrix_cache_scan() {
 			\( ! -type l \( -perm -g+w -o -perm -o+w \) \) -o \
 			\( -type l ! \( \
 				\( -lname "/work/fwlive/openwrt-feed" -name "fwlive" \) -o \
+				\( -path "${feeds_root}/base" -lname "base_root/package" \) -o \
 				\( -path "${feeds_root}/*" \( -name "*.index" -o -name "*.targetindex" \) \
 					! -lname "/*" ! -lname "*..*" \) \
 			\) \) -o \

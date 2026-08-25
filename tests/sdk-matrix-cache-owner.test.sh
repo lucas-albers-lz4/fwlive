@@ -281,6 +281,27 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "escaping index symlink fails closed for a non-root runner"
 	fi
+	# Case 29: OpenWrt `src-git --root=package base` (25.12/snapshot cells)
+	# materializes feeds/base -> base_root/package — legit, must pass (luna r13).
+	prep_workflow
+	$SUDO rm -f "$FEEDS/evil.targetindex"
+	$SUDO ln -s base_root/package "$FEEDS/base"
+	$SUDO chown -h 1000:1000 "$FEEDS/base"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		ok "base_root/package link passes"
+	else
+		bad "legit base link must pass for a non-root runner"
+	fi
+	# Case 31: fail-closed — a newline-bearing override must not truncate the
+	# component walk (luna r13 Minor).
+	prep_workflow
+	export OWRT_SDK_DL_CACHE=$'rel\n/evil'
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "newline-bearing override must fail closed for a non-root runner"
+	else
+		ok "newline-bearing override fails closed for a non-root runner"
+	fi
+	export OWRT_SDK_DL_CACHE="$DL"
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
 	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
@@ -403,6 +424,16 @@ else
 		bad "absolute-target index symlink must fail closed for root as well"
 	else
 		ok "absolute-target index symlink fails closed for root"
+	fi
+	# Case 30 (root): feeds/base -> base_root/package passes for root too.
+	prep_workflow
+	rm -f "$FEEDS/evil.index"
+	ln -s base_root/package "$FEEDS/base"
+	chown -h 1000:1000 "$FEEDS/base"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		ok "base_root/package link passes for root"
+	else
+		bad "legit base link must pass for root"
 	fi
 fi
 
