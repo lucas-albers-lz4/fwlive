@@ -290,6 +290,31 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "chained index symlink fails closed for a non-root runner"
 	fi
+	# Case 34: fail-closed — a link NAME with a trailing newline must not split
+	# the NUL-less enumeration and slip past as the valid fwlive link (luna r15).
+	prep_workflow
+	$SUDO rm -rf "$FEEDS/base" "$FEEDS/evil.index"
+	$SUDO rm -f "$FEEDS/fwlive"
+	$SUDO ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
+	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"
+	$SUDO ln -s /builder "$FEEDS/fwlive"$'\n'
+	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"$'\n'
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "newline-suffixed link name must fail closed for a non-root runner"
+	else
+		ok "newline-suffixed link name fails closed for a non-root runner"
+	fi
+	# Case 35: fail-closed — the src-link exception is location-blind no more:
+	# a link in dl/ targeting /work/fwlive/openwrt-feed must fail (luna r15).
+	prep_workflow
+	$SUDO rm -f "$FEEDS/fwlive"$'\n'
+	$SUDO ln -s /work/fwlive/openwrt-feed "$DL/fwlive"
+	$SUDO chown -h 1000:1000 "$DL/fwlive"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "dl/ link claiming the src-link target must fail closed"
+	else
+		ok "dl/ link claiming the src-link target fails closed"
+	fi
 	# Case 27: fail-closed — the index allowlist constrains the TARGET: an
 	# absolute-target link (evil.index -> /etc/passwd) must not pass (luna r12).
 	prep_workflow
@@ -469,6 +494,19 @@ else
 		ok "base_root/package link passes for root"
 	else
 		bad "legit base link must pass for root"
+	fi
+	# Case 36 (root): newline-suffixed link name fails closed for root too.
+	prep_workflow
+	rm -rf "$FEEDS/base" "$FEEDS/base_root"
+	rm -f "$FEEDS/fwlive"
+	ln -s /work/fwlive/openwrt-feed "$FEEDS/fwlive"
+	chown -h 1000:1000 "$FEEDS/fwlive"
+	ln -s /builder "$FEEDS/fwlive"$'\n'
+	chown -h 1000:1000 "$FEEDS/fwlive"$'\n'
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "newline-suffixed link name must fail closed for root as well"
+	else
+		ok "newline-suffixed link name fails closed for root"
 	fi
 fi
 

@@ -230,18 +230,27 @@ sdk_matrix_reject_symlink_path() {
 	return 0
 }
 
-# A cached-feed symlink is acceptable iff it is the exact src-link exception
-# (fwlive -> /work/fwlive/openwrt-feed — a container path, unresolvable on
-# the host) or its fully-resolved target stays INSIDE the feeds cache tree.
-# The resolution rule covers every legitimate link class at once: the
-# top-level OpenWrt-generated links (base -> base_root/package, *.index /
-# *.targetindex) AND tracked symlinks inside the pinned OpenWrt/LuCI
-# checkouts (base-files os-release, netifd ifdown, LuCI Bootstrap links) —
-# while rejecting absolute-target, escaping (..), and CHAINED links (e.g.
-# evil.index -> fwlive) that resolve outside the cache (luna r14).
+# A cached-feed symlink is acceptable iff it originates INSIDE the feeds
+# cache tree and either is the exact src-link exception (feeds/<ver>/fwlive ->
+# /work/fwlive/openwrt-feed — a container path, unresolvable on the host) or
+# its fully-resolved target stays INSIDE the feeds cache tree. The origin
+# rule blocks location-blind exceptions (a link in dl/ cannot claim the
+# src-link target; luna r15); the resolution rule covers every legitimate
+# link class at once — top-level OpenWrt-generated links (base ->
+# base_root/package, *.index / *.targetindex) AND tracked symlinks inside the
+# pinned OpenWrt/LuCI checkouts (base-files os-release, netifd ifdown, LuCI
+# Bootstrap links) — while rejecting absolute-target, escaping (..), and
+# CHAINED links (e.g. evil.index -> fwlive) that resolve outside the cache
+# (luna r14).
 sdk_matrix_link_ok() {
-	local link="$1" feeds_root="$2" resolved
-	[[ "$(readlink "$link")" == "/work/fwlive/openwrt-feed" ]] && return 0
+	local link="$1" feeds_root="$2" ldir resolved
+	ldir="${link%/*}"
+	case "$ldir/" in
+		"${feeds_root}"/*) ;;
+		*) return 1 ;;
+	esac
+	[[ "$link" == "${feeds_root}/fwlive" \
+		&& "$(readlink "$link")" == "/work/fwlive/openwrt-feed" ]] && return 0
 	resolved="$(readlink -f "$link" 2>/dev/null)" || return 1
 	case "$resolved" in
 		"${feeds_root}"/*) return 0 ;;
@@ -255,7 +264,7 @@ sdk_matrix_link_ok() {
 # first violation; a nonzero status means the scan itself failed (fail
 # closed).
 sdk_matrix_cache_scan() {
-	local feeds_root="$SDK_MATRIX_FEEDS_CACHE" out l
+	local feeds_root="$SDK_MATRIX_FEEDS_CACHE" out l tmp links_rc=0
 	while [[ "$feeds_root" == */ && "$feeds_root" != "/" ]]; do
 		feeds_root="${feeds_root%/}"
 	done
@@ -266,13 +275,25 @@ sdk_matrix_cache_scan() {
 			\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
 		\) -print -quit 2>&1)" || return 1
 	[[ -n "$out" ]] && { printf '%s\n' "$out"; return 0; }
-	while IFS= read -r l; do
+	# NUL-delimited enumeration via a temp file (command substitution would
+	# strip NULs and concatenate paths): a newline-bearing link NAME must not
+	# split the list (luna r15), and find's own status fails closed (luna r15
+	# Minor).
+	tmp="$(mktemp)" || return 1
+	find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" -type l -print0 > "$tmp" 2>/dev/null || links_rc=$?
+	if [[ "$links_rc" -ne 0 ]]; then
+		rm -f "$tmp"
+		return 1
+	fi
+	while IFS= read -r -d '' l; do
 		[[ -n "$l" ]] || continue
 		if ! sdk_matrix_link_ok "$l" "$feeds_root"; then
 			printf '%s\n' "$l"
+			rm -f "$tmp"
 			return 0
 		fi
-	done < <(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" -type l -print 2>/dev/null)
+	done < "$tmp"
+	rm -f "$tmp"
 	return 0
 }
 
