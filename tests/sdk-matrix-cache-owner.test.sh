@@ -387,9 +387,12 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	fi
 	# Case 29: OpenWrt `src-git --root=package base` (25.12/snapshot cells)
 	# materializes feeds/base -> base_root/package — legit, must pass (luna r13;
-	# base_root/package must exist for resolution-based validation).
+	# base_root/package must exist for resolution-based validation). The base
+	# dir left by case 43 must be removed first (set -e kills the branch at a
+	# duplicate ln; otherwise the leftover dir is scanned).
 	prep_workflow
 	$SUDO rm -f "$FEEDS/evil.targetindex"
+	$SUDO rm -rf "$FEEDS/base"
 	$SUDO mkdir -p "$FEEDS/base_root/package"
 	$SUDO chown -R 1000:1000 "$FEEDS/base_root"
 	$SUDO ln -s base_root/package "$FEEDS/base"
@@ -536,6 +539,7 @@ else
 	# Case 30 (root): feeds/base -> base_root/package passes for root too.
 	prep_workflow
 	rm -f "$FEEDS/evil.index"
+	rm -rf "$FEEDS/base"
 	mkdir -p "$FEEDS/base_root/package"
 	ln -s base_root/package "$FEEDS/base"
 	chown -h 1000:1000 "$FEEDS/base"
