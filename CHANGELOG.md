@@ -9,14 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.36] — 2026-08-25
+
+### Security
+- WAN logging lock moved to root-only `/etc/fwlive/logging.lock` (created with umask 077); production path rejects non-root-owned or group/other-writable lock dirs (#204)
+- Symlink guard on the WAN logging lock path before truncate/chmod (#204)
+- Removed unpinned `@playwright/mcp` from repo MCP config (#205)
+- Security-review ledger refreshed with the 2026-08-23 pass (#206)
+
 ### Fixed
-- Uninstall restores WAN zone `log` to the value before the first **Enable logging** via Live View (`prerm` + `/etc/fwlive/wan-log-baseline`).
+- Uninstall restores WAN zone `log` to the value before the first **Enable logging** via Live View (`prerm` + `/etc/fwlive/wan-log-baseline`) (#195)
 
 ### Changed
-- Removed **Chip style** from Display options; filter chips always use the labels presentation.
+- Removed **Chip style** from Display options; filter chips always use the labels presentation (#195)
 
 ### Added
-- `scripts/qemu-reset-wan-logging.sh` and `scripts/qemu-logging-uninstall-smoke.sh` for lab verification.
+- `scripts/qemu-reset-wan-logging.sh` and `scripts/qemu-logging-uninstall-smoke.sh` for lab verification (#195)
 
 ## [v0.1.35] — 2026-08-21
 
@@ -385,6 +393,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.36]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.35...v0.1.36
 [v0.1.35]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.34...v0.1.35
 [v0.1.34]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.33...v0.1.34
 [v0.1.33]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.32...v0.1.33
