@@ -208,7 +208,7 @@ sdk_matrix_validate_version() {
 }
 
 sdk_matrix_cache_dirs() {
-	local root="$1" version_label="$2" dl_uid dl_gid
+	local root="$1" version_label="$2" dl_uid dl_gid feeds_uid feeds_gid
 	SDK_MATRIX_DL_CACHE="${OWRT_SDK_DL_CACHE:-${root}/.ci-sdk-cache/dl}"
 	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
 	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"
@@ -216,21 +216,32 @@ sdk_matrix_cache_dirs() {
 	# Least privilege: own as buildbot; owner rwx only for write; group/other read+traverse.
 	# Fail closed (no world-writable, no ACL mask footguns). CI pre-chowns via
 	# sudo in the workflow "Prepare SDK cache dirs" step, so by the time we run
-	# the dirs are already buildbot-owned — and a non-root runner CANNOT chown
-	# uid-1000-owned files (EPERM, v0.1.36 publish regression). Skip the
-	# mutation when ownership is already correct; enforce only when we can.
-	dl_uid="$(stat -c %u "$SDK_MATRIX_DL_CACHE")"
-	dl_gid="$(stat -c %g "$SDK_MATRIX_DL_CACHE")"
-	if [[ "$dl_uid" != "1000" || "$dl_gid" != "1000" ]]; then
+	# the dirs are usually already buildbot-owned — and a non-root runner CANNOT
+	# chown uid-1000-owned files (EPERM, v0.1.36 publish regression). Skip the
+	# mutation only when BOTH cache trees are fully buildbot-owned; enforce when
+	# we can (root); otherwise fail closed.
+	dl_uid="$(stat -c %u "$SDK_MATRIX_DL_CACHE" 2>/dev/null)" || return 1
+	dl_gid="$(stat -c %g "$SDK_MATRIX_DL_CACHE" 2>/dev/null)" || return 1
+	feeds_uid="$(stat -c %u "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
+	feeds_gid="$(stat -c %g "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
+	if [[ "$dl_uid" != "1000" || "$dl_gid" != "1000" || "$feeds_uid" != "1000" || "$feeds_gid" != "1000" ]]; then
 		if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
 			echo "sdk-matrix: cannot chown .ci-sdk-cache to buildbot (uid 1000)" >&2
 			echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
 			return 1
 		fi
 	fi
+	# Nested entries must match too — a non-root runner cannot fix a stray
+	# wrong-owned file inside an otherwise buildbot-owned tree (fail closed).
+	if [[ "$(id -u)" -ne 0 ]] && find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \
+		! -user 1000 -o ! -group 1000 2>/dev/null | grep -q .; then
+		echo "sdk-matrix: cannot chown .ci-sdk-cache to buildbot (uid 1000)" >&2
+		echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
+		return 1
+	fi
 	# chmod only as root or the owner — the workflow's sudo chown already set
 	# modes in CI, and a non-owner runner cannot chmod either.
-	if [[ "$(id -u)" -eq 0 || "$dl_uid" == "$(id -u)" ]]; then
+	if [[ "$(id -u)" -eq 0 || "$(stat -c %u "$SDK_MATRIX_DL_CACHE" 2>/dev/null)" == "$(id -u)" ]]; then
 		if ! chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"; then
 			echo "sdk-matrix: chmod failed on .ci-sdk-cache" >&2
 			return 1
