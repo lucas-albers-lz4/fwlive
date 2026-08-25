@@ -10,9 +10,12 @@
 #
 # Correct behavior: skip chown only when BOTH cache trees are fully
 # buildbot-owned (roots AND nested entries, verified by a scan that fails
-# closed on errors) and only chmod as root/owner; wrong ownership is repaired
-# by root or fails closed for non-root. Non-root needs passwordless sudo to
-# set up buildbot-owned dirs (SKIPs otherwise); root runs without sudo.
+# closed on errors) with buildbot-writable modes; roots must be real
+# directories (no symlinks, no trailing-slash bypass); wrong ownership/modes
+# are repaired by root or fail closed for non-root. Non-root needs
+# passwordless sudo to set up buildbot-owned dirs (SKIPs otherwise); root
+# runs without sudo. Each case isolates ONE root as the fault so the other
+# cannot mask a regression (luna r7).
 # shellcheck disable=SC2317
 set -euo pipefail
 
@@ -48,6 +51,21 @@ export OWRT_SDK_DL_CACHE="$DL" OWRT_SDK_FEEDS_CACHE="$FEEDS"
 prep_workflow() {
 	$SUDO chown -R 1000:1000 "$WORK"
 	$SUDO chmod -R u=rwX,g=rX,o=rX "$WORK"
+}
+
+# Replace a root with a real, valid buildbot-owned directory (isolates the
+# other root as the single fault in each case).
+restore_root() {
+	$SUDO rm -rf "$1"
+	$SUDO mkdir -p "$1"
+	$SUDO chown 1000:1000 "$1"
+	$SUDO chmod u=rwX,g=rX,o=rX "$1"
+}
+
+symlink_root() {
+	$SUDO rm -rf "$1"
+	$SUDO ln -s "$2" "$1"
+	$SUDO mkdir -p "$2"
 }
 
 # Case 1 (the regression): CI state — both trees buildbot-owned. Must pass
@@ -108,39 +126,38 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "unwritable modes fail closed for a non-root runner"
 	fi
-	# Case 8: fail-closed — symlinked cache root: stat follows the link while
-	# find/chown do not; the mount would expose the target (luna r5).
+	# Case 8: fail-closed — symlinked DL root (FEEDS stays a real dir; luna r5).
 	prep_workflow
-	$SUDO rm -rf "$DL"
-	$SUDO ln -s "$WORK/dl-target" "$DL"
-	$SUDO mkdir -p "$WORK/dl-target"
+	symlink_root "$DL" "$WORK/dl-target"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
 		bad "symlinked cache root must fail closed for a non-root runner"
 	else
 		ok "symlinked cache root fails closed for a non-root runner"
 	fi
-	# Case 10: fail-closed — symlinked FEEDS root (each root is checked).
+	# Case 10: fail-closed — symlinked FEEDS root (DL restored to a real dir,
+	# so the FEEDS symlink is the single fault; luna r7).
 	prep_workflow
-	$SUDO rm -rf "$FEEDS"
-	$SUDO ln -s "$WORK/feeds-target" "$FEEDS"
-	$SUDO mkdir -p "$WORK/feeds-target"
+	restore_root "$DL"
+	symlink_root "$FEEDS" "$WORK/feeds-target"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
 		bad "symlinked feeds root must fail closed for a non-root runner"
 	else
 		ok "symlinked feeds root fails closed for a non-root runner"
 	fi
-	# Case 11: fail-closed — trailing-slash form of a symlinked root ('dl/'
-	# resolves to the target) must not bypass the symlink rejection (luna r6).
+	# Case 11: fail-closed — trailing forms of a symlinked DL root (FEEDS
+	# restored): 'dl/', 'dl//', 'dl/.' must not bypass the -L rejection
+	# (luna r6/r7).
 	prep_workflow
-	$SUDO rm -rf "$DL"
-	$SUDO ln -s "$WORK/dl-target" "$DL"
-	$SUDO mkdir -p "$WORK/dl-target"
-	export OWRT_SDK_DL_CACHE="$DL/"
-	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
-		bad "trailing-slash symlinked root must fail closed for a non-root runner"
-	else
-		ok "trailing-slash symlinked root fails closed for a non-root runner"
-	fi
+	restore_root "$FEEDS"
+	symlink_root "$DL" "$WORK/dl-target"
+	for _form in "$DL/" "$DL//" "$DL/."; do
+		export OWRT_SDK_DL_CACHE="$_form"
+		if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+			bad "trailing form '$_form' of symlinked root must fail closed for a non-root runner"
+		else
+			ok "trailing form '$_form' of symlinked root fails closed for a non-root runner"
+		fi
+	done
 	export OWRT_SDK_DL_CACHE="$DL"
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
@@ -158,22 +175,20 @@ else
 	else
 		bad "root caller must succeed by repairing nested wrong ownership"
 	fi
-	# Case 9 (root): symlinked cache root must fail closed too — no repair is
-	# possible (chown -R would fix the target, not the link).
+	# Case 9 (root): symlinked DL root fails closed — no repair is possible
+	# (chown -R would fix the target, not the link).
 	prep_workflow
-	rm -rf "$DL"
-	ln -s "$WORK/dl-target" "$DL"
-	mkdir -p "$WORK/dl-target"
+	symlink_root "$DL" "$WORK/dl-target"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
 		bad "symlinked cache root must fail closed for root as well"
 	else
 		ok "symlinked cache root fails closed for root"
 	fi
-	# Case 12 (root): trailing-slash form must not bypass the symlink rejection.
+	# Case 12 (root): trailing-slash form must not bypass the symlink rejection
+	# (FEEDS restored to isolate DL).
 	prep_workflow
-	rm -rf "$DL"
-	ln -s "$WORK/dl-target" "$DL"
-	mkdir -p "$WORK/dl-target"
+	restore_root "$FEEDS"
+	symlink_root "$DL" "$WORK/dl-target"
 	export OWRT_SDK_DL_CACHE="$DL/"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
 		bad "trailing-slash symlinked root must fail closed for root as well"
@@ -181,6 +196,15 @@ else
 		ok "trailing-slash symlinked root fails closed for root"
 	fi
 	export OWRT_SDK_DL_CACHE="$DL"
+	# Case 13 (root): symlinked FEEDS root fails closed (DL restored).
+	prep_workflow
+	restore_root "$DL"
+	symlink_root "$FEEDS" "$WORK/feeds-target"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "symlinked feeds root must fail closed for root as well"
+	else
+		ok "symlinked feeds root fails closed for root"
+	fi
 fi
 
 [ "$fail" = "0" ] || exit 1
