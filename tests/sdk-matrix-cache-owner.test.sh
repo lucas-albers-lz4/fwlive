@@ -316,9 +316,11 @@ if [[ "$(id -u)" -ne 0 ]]; then
 		ok "dl/ link claiming the src-link target fails closed"
 	fi
 	# Case 37: fail-closed — a target with a TRAILING NEWLINE must not
-	# masquerade as the exact src-link exception (luna r16).
+	# masquerade as the exact src-link exception (luna r16). The fwlive link
+	# from case 34 must be reset first (set -e kills the branch at a
+	# duplicate ln).
 	prep_workflow
-	$SUDO rm -f "$DL/fwlive"
+	$SUDO rm -f "$DL/fwlive" "$FEEDS/fwlive"
 	$SUDO ln -s "/work/fwlive/openwrt-feed"$'\n' "$FEEDS/fwlive"
 	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"
 	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
