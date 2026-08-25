@@ -207,29 +207,210 @@ sdk_matrix_validate_version() {
 	return 1
 }
 
+# Reject a cache-root path containing any symlink component or '..' (luna r8:
+# a final-component -L test is bypassed by 'dl/sub/..' / 'dl/./sub' spellings
+# that resolve through the link to a real final component). Cache roots are
+# never legitimately behind a symlink or a '..' component.
+sdk_matrix_reject_symlink_path() {
+	local p="$1" head="" comp
+	# read splits on IFS=/ but stops at a newline — reject all control
+	# characters so a control-bearing component cannot truncate the walk
+	# (luna r13/r14).
+	case "$p" in
+		*[[:cntrl:]]*) return 1 ;;
+	esac
+	[[ "$p" == /* ]] && head="/" || head="."
+	IFS=/ read -r -a comps <<< "$p"
+	for comp in "${comps[@]}"; do
+		[[ -z "$comp" || "$comp" == "." ]] && continue
+		[[ "$comp" == ".." ]] && return 1
+		head="${head%/}/$comp"
+		[[ -L "$head" ]] && return 1
+	done
+	return 0
+}
+
+# A cached-feed symlink is acceptable iff it originates INSIDE the feeds
+# cache tree and either is the exact src-link exception (feeds/<ver>/fwlive ->
+# /work/fwlive/openwrt-feed — a container path, unresolvable on the host) or
+# its fully-resolved target stays INSIDE the feeds cache tree. The origin
+# rule blocks location-blind exceptions (a link in dl/ cannot claim the
+# src-link target; luna r15); the resolution rule covers every legitimate
+# link class at once — top-level OpenWrt-generated links (base ->
+# base_root/package, *.index / *.targetindex) AND tracked symlinks inside the
+# pinned OpenWrt/LuCI checkouts (base-files os-release, netifd ifdown, LuCI
+# Bootstrap links) — while rejecting absolute-target, escaping (..), and
+# CHAINED links (e.g. evil.index -> fwlive) that resolve outside the cache
+# (luna r14).
+sdk_matrix_link_ok() {
+	local link="$1" feeds_root="$2" ldir resolved
+	ldir="${link%/*}"
+	case "$ldir/" in
+		"${feeds_root}"/*) ;;
+		*) return 1 ;;
+	esac
+	# Exact src-link exception. Raw-byte comparison via readlink -n + cmp:
+	# command substitution strips trailing newlines, which would let a target
+	# '/work/fwlive/openwrt-feed\n' masquerade as the allowed one (luna r16).
+	if [[ "$link" == "${feeds_root}/fwlive" ]] \
+		&& readlink -n "$link" 2>/dev/null \
+			| cmp -s - <(printf '%s' "/work/fwlive/openwrt-feed"); then
+		return 0
+	fi
+	resolved="$(readlink -f "$link" 2>/dev/null)" || return 1
+	case "$resolved" in
+		"${feeds_root}"/*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+# Scan both cache trees for ownership/mode/symlink violations. Symlink modes
+# are meaningless (links are always 0777) so mode checks skip them; symlinks
+# are validated by sdk_matrix_link_ok (resolution-based, luna r14). Print the
+# first violation; a nonzero status means the scan itself failed (fail
+# closed).
+sdk_matrix_cache_scan() {
+	local feeds_root="$SDK_MATRIX_FEEDS_CACHE" out l tmp links_rc=0
+	while [[ "$feeds_root" == */ && "$feeds_root" != "/" ]]; do
+		feeds_root="${feeds_root%/}"
+	done
+	out="$(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
+			\( ! -user 1000 -o ! -group 1000 \) -o \
+			\( ! -type l \( ! -perm -u+r -o ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
+			\( ! -type l \( -perm -g+w -o -perm -o+w \) \) -o \
+			\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
+		\) -print -quit 2>&1)" || return 1
+	[[ -n "$out" ]] && { printf '%s\n' "$out"; return 0; }
+	# NUL-delimited enumeration via a temp file (command substitution would
+	# strip NULs and concatenate paths): a newline-bearing link NAME must not
+	# split the list (luna r15), and find's own status fails closed (luna r15
+	# Minor).
+	tmp="$(mktemp)" || return 1
+	find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" -type l -print0 > "$tmp" 2>/dev/null || links_rc=$?
+	if [[ "$links_rc" -ne 0 ]]; then
+		rm -f "$tmp"
+		return 1
+	fi
+	while IFS= read -r -d '' l; do
+		[[ -n "$l" ]] || continue
+		if ! sdk_matrix_link_ok "$l" "$feeds_root"; then
+			printf '%s\n' "$l"
+			rm -f "$tmp"
+			return 0
+		fi
+	done < "$tmp"
+	rm -f "$tmp"
+	return 0
+}
+
 sdk_matrix_cache_dirs() {
-	local root="$1" version_label="$2"
+	local root="$1" version_label="$2" dl_uid dl_gid feeds_uid feeds_gid scan_out scan_rc
 	SDK_MATRIX_DL_CACHE="${OWRT_SDK_DL_CACHE:-${root}/.ci-sdk-cache/dl}"
 	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
-	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"
+	# Normalize trailing slashes on env overrides so -path patterns and
+	# symlink walks see consistent paths (luna r12 Minor).
+	while [[ "$SDK_MATRIX_DL_CACHE" == */ && "$SDK_MATRIX_DL_CACHE" != "/" ]]; do
+		SDK_MATRIX_DL_CACHE="${SDK_MATRIX_DL_CACHE%/}"
+	done
+	while [[ "$SDK_MATRIX_FEEDS_CACHE" == */ && "$SDK_MATRIX_FEEDS_CACHE" != "/" ]]; do
+		SDK_MATRIX_FEEDS_CACHE="${SDK_MATRIX_FEEDS_CACHE%/}"
+	done
+	# Cache roots must be real directories. Validate the path BEFORE any
+	# mutation: mkdir -p through a symlink would create dirs outside the
+	# intended cache tree (luna r9), a regular file in place of a root fails
+	# closed, and a symlink ANYWHERE in the root path fails closed
+	# (component-wise lstat — a final-component -L test is bypassed by
+	# 'dl/sub/..' / 'dl/./sub' spellings; luna r8).
+	sdk_matrix_reject_symlink_path "$SDK_MATRIX_DL_CACHE" || {
+		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
+		return 1
+	}
+	sdk_matrix_reject_symlink_path "$SDK_MATRIX_FEEDS_CACHE" || {
+		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
+		return 1
+	}
+	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" || return 1
+	if [[ ! -d "$SDK_MATRIX_DL_CACHE" || ! -d "$SDK_MATRIX_FEEDS_CACHE" ]]; then
+		echo "sdk-matrix: .ci-sdk-cache roots must be directories" >&2
+		return 1
+	fi
 	# buildbot (uid 1000) must write bind mounts; Actions runner is often 1001.
 	# Least privilege: own as buildbot; owner rwx only for write; group/other read+traverse.
-	# Fail closed (no world-writable, no ACL mask footguns). CI uses sudo chown first.
-	if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
-		echo "sdk-matrix: cannot chown .ci-sdk-cache to buildbot (uid 1000)" >&2
+	# Fail closed (no world-writable, no ACL mask footguns). CI pre-chowns via
+	# sudo in the workflow "Prepare SDK cache dirs" step, so by the time we run
+	# the dirs are usually already buildbot-owned — and a non-root runner CANNOT
+	# chown uid-1000-owned files (EPERM, v0.1.36 publish regression). Skip the
+	# mutation only when BOTH cache trees are fully buildbot-owned; enforce when
+	# we can (root); otherwise fail closed.
+	dl_uid="$(stat -c %u "$SDK_MATRIX_DL_CACHE" 2>/dev/null)" || return 1
+	dl_gid="$(stat -c %g "$SDK_MATRIX_DL_CACHE" 2>/dev/null)" || return 1
+	feeds_uid="$(stat -c %u "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
+	feeds_gid="$(stat -c %g "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null)" || return 1
+	if [[ "$dl_uid" != "1000" || "$dl_gid" != "1000" || "$feeds_uid" != "1000" || "$feeds_gid" != "1000" ]]; then
+		if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null; then
+			echo "sdk-matrix: cannot chown .ci-sdk-cache to buildbot (uid 1000)" >&2
+			echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
+			return 1
+		fi
+	fi
+	# Nested entries must match too, for root AND non-root callers (a root
+	# caller would otherwise chmod a stray wrong-owned file into a state uid
+	# 1000 cannot write). The scan also validates MODES — buildbot (owner)
+	# must be able to write and the runner (group/other) to read/traverse
+	# (cache save + probe); a correct-owner-but-unwritable cache must not
+	# pass, and group/other WRITE bits are rejected (least privilege). Symlink
+	# modes are meaningless (links are always 0777) so mode checks skip them;
+	# instead the ONLY symlink allowed anywhere in the trees is the feeds
+	# src-link (`/work/fwlive/openwrt-feed`), which is how the local package
+	# feed materializes. Scan errors (unreadable subtree) fail closed — a
+	# hidden error must never read as a clean tree.
+	scan_rc=0
+	scan_out="$(sdk_matrix_cache_scan)" || scan_rc=$?
+	if [[ "$scan_rc" -ne 0 ]]; then
+		echo "sdk-matrix: cannot verify .ci-sdk-cache ownership/modes (scan failed)" >&2
 		echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
 		return 1
 	fi
-	if ! chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"; then
-		echo "sdk-matrix: chmod failed on .ci-sdk-cache" >&2
-		return 1
+	if [[ -n "$scan_out" ]]; then
+		# Wrong ownership, modes, or disallowed symlinks found: root repairs
+		# recursively (tree becomes uniform); a non-root caller cannot fix
+		# them — fail closed. Root RESCANS after repair: chmod cannot change
+		# symlink modes, so a still-flagged tree (e.g. a disallowed symlink)
+		# fails closed (luna r10).
+		if [[ "$(id -u)" -eq 0 ]]; then
+			if ! chown -R 1000:1000 "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" 2>/dev/null \
+				|| ! chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"; then
+				echo "sdk-matrix: cannot fix .ci-sdk-cache ownership/modes (uid 1000 buildbot)" >&2
+				echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
+				return 1
+			fi
+			scan_rc=0
+			scan_out="$(sdk_matrix_cache_scan)" || scan_rc=$?
+			if [[ "$scan_rc" -ne 0 || -n "$scan_out" ]]; then
+				echo "sdk-matrix: cannot repair .ci-sdk-cache (unresolvable ownership/mode/symlink state)" >&2
+				echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
+				return 1
+			fi
+		else
+			echo "sdk-matrix: cannot fix .ci-sdk-cache ownership/modes (uid 1000 buildbot)" >&2
+			echo "sdk-matrix: run once: sudo chown -R 1000:1000 .ci-sdk-cache && sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache" >&2
+			return 1
+		fi
+	fi
+	# chmod only as root or the owner — the workflow's sudo chown already set
+	# modes in CI, and a non-owner runner cannot chmod either.
+	if [[ "$(id -u)" -eq 0 || "$(stat -c %u "$SDK_MATRIX_DL_CACHE" 2>/dev/null)" == "$(id -u)" ]]; then
+		if ! chmod -R u=rwX,g=rX,o=rX "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE"; then
+			echo "sdk-matrix: chmod failed on .ci-sdk-cache" >&2
+			return 1
+		fi
 	fi
 }
 
 sdk_matrix_compose_run() {
 	local root
 	root="$(sdk_matrix_root)"
-	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL"
+	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL" || return 1
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
@@ -410,7 +591,7 @@ sdk_matrix_copy_out() {
 	mkdir -p "$dest_host"
 	# SDK image runs as buildbot (uid 1000); GHA workspace is often uid 1001 — copy as root.
 	# Pass the same dl/feeds bind mounts as compose_run so defaults do not clobber /builder.
-	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL"
+	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL" || return 1
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \

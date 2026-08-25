@@ -83,6 +83,9 @@ bash tests/feed-publish-release-assets.test.sh
 echo "== fwlive SDK digest pin-cache (R7) ==" >&2
 bash tests/sdk-matrix-digests.test.sh
 
+echo "== fwlive SDK cache ownership (runner chown regression) ==" >&2
+bash tests/sdk-matrix-cache-owner.test.sh
+
 echo "== fwlive feed-keys mode (0600) ==" >&2
 bash tests/feed-keys-mode.test.sh
 
