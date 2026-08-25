@@ -249,8 +249,14 @@ sdk_matrix_link_ok() {
 		"${feeds_root}"/*) ;;
 		*) return 1 ;;
 	esac
-	[[ "$link" == "${feeds_root}/fwlive" \
-		&& "$(readlink "$link")" == "/work/fwlive/openwrt-feed" ]] && return 0
+	# Exact src-link exception. Raw-byte comparison via readlink -n + cmp:
+	# command substitution strips trailing newlines, which would let a target
+	# '/work/fwlive/openwrt-feed\n' masquerade as the allowed one (luna r16).
+	if [[ "$link" == "${feeds_root}/fwlive" ]] \
+		&& readlink -n "$link" 2>/dev/null \
+			| cmp -s - <(printf '%s' "/work/fwlive/openwrt-feed"); then
+		return 0
+	fi
 	resolved="$(readlink -f "$link" 2>/dev/null)" || return 1
 	case "$resolved" in
 		"${feeds_root}"/*) return 0 ;;
@@ -270,7 +276,7 @@ sdk_matrix_cache_scan() {
 	done
 	out="$(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
 			\( ! -user 1000 -o ! -group 1000 \) -o \
-			\( ! -type l \( ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
+			\( ! -type l \( ! -perm -u+r -o ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) \) -o \
 			\( ! -type l \( -perm -g+w -o -perm -o+w \) \) -o \
 			\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
 		\) -print -quit 2>&1)" || return 1

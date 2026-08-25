@@ -315,6 +315,29 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "dl/ link claiming the src-link target fails closed"
 	fi
+	# Case 37: fail-closed — a target with a TRAILING NEWLINE must not
+	# masquerade as the exact src-link exception (luna r16).
+	prep_workflow
+	$SUDO rm -f "$DL/fwlive"
+	$SUDO ln -s "/work/fwlive/openwrt-feed"$'\n' "$FEEDS/fwlive"
+	$SUDO chown -h 1000:1000 "$FEEDS/fwlive"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "trailing-newline src-link target must fail closed"
+	else
+		ok "trailing-newline src-link target fails closed"
+	fi
+	# Case 38: fail-closed — owner-write without owner-READ (mode 0244) must
+	# not pass: buildbot needs to read the cache (luna r16 Minor).
+	prep_workflow
+	$SUDO rm -f "$FEEDS/fwlive"
+	$SUDO touch "$DL/noread"
+	$SUDO chown 1000:1000 "$DL/noread"
+	$SUDO chmod 0244 "$DL/noread"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "owner-unreadable file must fail closed for a non-root runner"
+	else
+		ok "owner-unreadable file fails closed for a non-root runner"
+	fi
 	# Case 27: fail-closed — the index allowlist constrains the TARGET: an
 	# absolute-target link (evil.index -> /etc/passwd) must not pass (luna r12).
 	prep_workflow
@@ -507,6 +530,31 @@ else
 		bad "newline-suffixed link name must fail closed for root as well"
 	else
 		ok "newline-suffixed link name fails closed for root"
+	fi
+	# Case 39 (root): trailing-newline src-link target fails closed for root.
+	prep_workflow
+	rm -f "$FEEDS/fwlive"$'\n' "$FEEDS/fwlive"
+	ln -s "/work/fwlive/openwrt-feed"$'\n' "$FEEDS/fwlive"
+	chown -h 1000:1000 "$FEEDS/fwlive"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "trailing-newline src-link target must fail closed for root as well"
+	else
+		ok "trailing-newline src-link target fails closed for root"
+	fi
+	# Case 40 (root): owner-unreadable file is REPAIRED to 0644.
+	prep_workflow
+	rm -f "$FEEDS/fwlive"
+	touch "$DL/noread"
+	chown 1000:1000 "$DL/noread"
+	chmod 0244 "$DL/noread"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		if [[ "$(stat -c %a "$DL/noread")" == "644" ]]; then
+			ok "root caller repairs owner-unreadable file (0644 after)"
+		else
+			bad "root caller must repair owner-unreadable file (got $(stat -c %a "$DL/noread"))"
+		fi
+	else
+		bad "root caller must succeed by repairing the owner-unreadable file"
 	fi
 fi
 
