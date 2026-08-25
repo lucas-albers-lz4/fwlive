@@ -184,6 +184,32 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	else
 		ok "regular file as cache root fails closed for a non-root runner"
 	fi
+	# Case 17: fail-closed — RELATIVE symlinked root ('rel/dl'): the walker
+	# must probe relative components from '.', not '/', so a relative symlink
+	# override is caught (luna r9).
+	prep_workflow
+	restore_root "$FEEDS"
+	$SUDO mkdir -p "$WORK/rel"
+	$SUDO ln -s "$WORK/dl-target" "$WORK/rel/dl"
+	$SUDO mkdir -p "$WORK/dl-target"
+	if ( cd "$WORK" \
+		&& export OWRT_SDK_DL_CACHE="rel/dl" \
+		&& sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null ); then
+		bad "relative symlinked root must fail closed for a non-root runner"
+	else
+		ok "relative symlinked root fails closed for a non-root runner"
+	fi
+	# Case 18: fail-closed — world-writable modes (g+w/o+w) violate the
+	# least-privilege policy even when owned by buildbot (luna r9).
+	prep_workflow
+	restore_root "$FEEDS"
+	restore_root "$DL"
+	$SUDO chmod -R 777 "$DL"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL" 2>/dev/null; then
+		bad "world-writable cache must fail closed for a non-root runner"
+	else
+		ok "world-writable cache fails closed for a non-root runner"
+	fi
 else
 	echo "skip: running as root — non-root fail-closed cases not applicable"
 	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
@@ -241,6 +267,22 @@ else
 		bad "regular file as cache root must fail closed for root as well"
 	else
 		ok "regular file as cache root fails closed for root"
+	fi
+	# Case 19 (root): world-writable tree is REPAIRED (chmod strips g+w/o+w),
+	# not accepted as-is (luna r9).
+	prep_workflow
+	rm -rf "$DL"
+	mkdir -p "$DL"
+	chown 1000:1000 "$DL"
+	chmod -R 777 "$DL"
+	if sdk_matrix_cache_dirs "$ROOT" "$SDK_MATRIX_VERSION_LABEL"; then
+		if [[ "$(stat -c %a "$DL")" == "755" ]]; then
+			ok "root caller repairs world-writable cache (0755 after)"
+		else
+			bad "root caller must repair world-writable cache (got $(stat -c %a "$DL"))"
+		fi
+	else
+		bad "root caller must succeed by repairing world-writable modes"
 	fi
 fi
 

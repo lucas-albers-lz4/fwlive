@@ -213,7 +213,7 @@ sdk_matrix_validate_version() {
 # never legitimately behind a symlink or a '..' component.
 sdk_matrix_reject_symlink_path() {
 	local p="$1" head="" comp
-	[[ "$p" == /* ]] && head="/"
+	[[ "$p" == /* ]] && head="/" || head="."
 	IFS=/ read -ra comps <<< "$p"
 	for comp in "${comps[@]}"; do
 		[[ -z "$comp" || "$comp" == "." ]] && continue
@@ -228,15 +228,12 @@ sdk_matrix_cache_dirs() {
 	local root="$1" version_label="$2" dl_uid dl_gid feeds_uid feeds_gid scan_out scan_rc
 	SDK_MATRIX_DL_CACHE="${OWRT_SDK_DL_CACHE:-${root}/.ci-sdk-cache/dl}"
 	SDK_MATRIX_FEEDS_CACHE="${OWRT_SDK_FEEDS_CACHE:-${root}/.ci-sdk-cache/feeds/${version_label}}"
-	# Cache roots must be real directories. Fail closed BEFORE any mutation:
-	# mkdir failure, a regular file in place of a root, or a symlink ANYWHERE
-	# in the root path (component-wise lstat — a final-component -L test is
-	# bypassed by 'dl/sub/..' / 'dl/./sub' spellings; luna r8).
-	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" || return 1
-	if [[ ! -d "$SDK_MATRIX_DL_CACHE" || ! -d "$SDK_MATRIX_FEEDS_CACHE" ]]; then
-		echo "sdk-matrix: .ci-sdk-cache roots must be directories" >&2
-		return 1
-	fi
+	# Cache roots must be real directories. Validate the path BEFORE any
+	# mutation: mkdir -p through a symlink would create dirs outside the
+	# intended cache tree (luna r9), a regular file in place of a root fails
+	# closed, and a symlink ANYWHERE in the root path fails closed
+	# (component-wise lstat — a final-component -L test is bypassed by
+	# 'dl/sub/..' / 'dl/./sub' spellings; luna r8).
 	sdk_matrix_reject_symlink_path "$SDK_MATRIX_DL_CACHE" || {
 		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
 		return 1
@@ -245,6 +242,11 @@ sdk_matrix_cache_dirs() {
 		echo "sdk-matrix: .ci-sdk-cache roots must be real directories, not symlinks" >&2
 		return 1
 	}
+	mkdir -p "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" || return 1
+	if [[ ! -d "$SDK_MATRIX_DL_CACHE" || ! -d "$SDK_MATRIX_FEEDS_CACHE" ]]; then
+		echo "sdk-matrix: .ci-sdk-cache roots must be directories" >&2
+		return 1
+	fi
 	# buildbot (uid 1000) must write bind mounts; Actions runner is often 1001.
 	# Least privilege: own as buildbot; owner rwx only for write; group/other read+traverse.
 	# Fail closed (no world-writable, no ACL mask footguns). CI pre-chowns via
@@ -275,6 +277,7 @@ sdk_matrix_cache_dirs() {
 	scan_out="$(find "$SDK_MATRIX_DL_CACHE" "$SDK_MATRIX_FEEDS_CACHE" \( \
 			\( ! -user 1000 -o ! -group 1000 \) -o \
 			\( ! -perm -u+w -o ! -perm -g+r -o ! -perm -o+r \) -o \
+			\( -perm -g+w -o -perm -o+w \) -o \
 			\( -type d \( ! -perm -u+x -o ! -perm -g+x -o ! -perm -o+x \) \) \
 		\) -print -quit 2>&1)" || scan_rc=$?
 	if [[ "$scan_rc" -ne 0 ]]; then
@@ -311,7 +314,7 @@ sdk_matrix_cache_dirs() {
 sdk_matrix_compose_run() {
 	local root
 	root="$(sdk_matrix_root)"
-	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL"
+	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL" || return 1
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
@@ -492,7 +495,7 @@ sdk_matrix_copy_out() {
 	mkdir -p "$dest_host"
 	# SDK image runs as buildbot (uid 1000); GHA workspace is often uid 1001 — copy as root.
 	# Pass the same dl/feeds bind mounts as compose_run so defaults do not clobber /builder.
-	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL"
+	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL" || return 1
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
