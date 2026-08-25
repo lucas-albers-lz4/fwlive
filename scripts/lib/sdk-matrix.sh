@@ -220,7 +220,7 @@ sdk_matrix_reject_symlink_path() {
 		*[[:cntrl:]]*) return 1 ;;
 	esac
 	[[ "$p" == /* ]] && head="/" || head="."
-	IFS=/ read -ra comps <<< "$p"
+	IFS=/ read -r -a comps <<< "$p"
 	for comp in "${comps[@]}"; do
 		[[ -z "$comp" || "$comp" == "." ]] && continue
 		[[ "$comp" == ".." ]] && return 1
