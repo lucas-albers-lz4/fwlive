@@ -65,10 +65,12 @@ The rpcd `list` phantom `backend` key is **not** a PR-body excuse — fix it in 
 1. Fork `openwrt/luci`; **feature branch** (not `master`/`main`).
 2. Run `./scripts/upstream-cut.sh`; copy `out/upstream/luci-app-fwlive/` → `applications/luci-app-fwlive/`.
 3. Regen POT (section above).
-4. Single commit that passes FormalityCheck ([`formalities.json`](https://github.com/openwrt/luci/blob/master/.github/formalities.json)):
+4. Single commit that passes FormalityCheck ([`formalities.json`](https://github.com/openwrt/luci/blob/master/.github/formalities.json); engine: [openwrt-bot-worker](https://github.com/openwrt/openwrt-bot-worker)):
    - Subject: `luci-app-fwlive: add firewall live view` (lowercase after colon, no trailing period, hard max 80).
-   - Non-empty body, wrap to **100** characters.
+   - Non-empty body, wrap to **100** characters (not trailers-only).
    - Git author must equal `Signed-off-by: Lucas Albers <lucas.b.albers@gmail.com>` (same as `PKG_MAINTAINER`; no GitHub noreply).
+   - That author email must be a **verified** address on the GitHub account that opens the PR (`require_linked_github_account`).
+   - GPG/SSH commit signing is **not** required. `check_signature` only validates a signature **if one is present** — if you sign, it must be valid.
 5. PR **base** = `openwrt/luci` `master`. Optional forum / devel-list note.
 
 ## After merge (ongoing)
