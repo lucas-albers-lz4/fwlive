@@ -36,6 +36,7 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 | QEMU lab (x86 + armsr) | [qemu-lab.md](qemu-lab.md) |
 | Roadmap | [`../ROADMAP.md`](../ROADMAP.md) |
 | Publish checklist | [`../github-publish-checklist.md`](../github-publish-checklist.md) |
+| Upstream to `openwrt/luci` | [upstream-openwrt.md](upstream-openwrt.md) |
 | Feed layout (no submodule split) | [architecture.md § Feed layout decision](architecture.md#feed-layout-decision) |
 | Trust boundaries & security invariants | [security-model.md](security-model.md) |
 | Z3 verification (host/CI; #120/#121) | [z3-verification.md](z3-verification.md) |

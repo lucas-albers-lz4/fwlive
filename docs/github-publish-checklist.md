@@ -73,6 +73,8 @@ Alternatives (not primary):
 
 ### Upstream cut into `openwrt/luci`
 
+Full planning checklist (prep, FormalityCheck, PR-body answers, after-merge): [`developer/upstream-openwrt.md`](developer/upstream-openwrt.md).
+
 Run [`scripts/upstream-cut.sh`](../scripts/upstream-cut.sh) to produce the PR-ready tree. It splits `openwrt-feed/luci-app-fwlive/` via `git subtree split` (real files, package-only history, no gitlinks), rewrites the Makefile include and package README links, and verifies the result. Output: `out/upstream/luci-app-fwlive/`.
 
 Then, to open the upstream PR:
