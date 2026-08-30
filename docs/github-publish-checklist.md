@@ -9,7 +9,8 @@ Use before making this repo public upstream.
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
-- [ ] Confirm nothing in the removed `archive/` tree (deleted in #98) is required for new users — `rg -n "archive" .` should return no dead references
+- [ ] Make sure that nothing in the removed `archive/` tree (deleted in #98) is required for new users
+- [ ] `rg -n "archive" .` must return no dead references
 
 ### Security (pre-release)
 
@@ -85,7 +86,7 @@ Checklist:
 - [ ] FormalityCheck commit (Signed-off-by, body ≤100 cols, linked GitHub email)
 - [ ] State Apache-2.0 in the PR body; do not paste CodeRabbit threads upstream
 
-## Package conventions (verified)
+## Package conventions (checked)
 
 - `LUCI_PKGARCH:=all` — pure JS + shell rpcd, no target binaries
 - `htdocs/` + `root/` layout per LuCI.mk
@@ -102,8 +103,8 @@ Checklist:
 ## After publish
 
 1. Follow [release.md](release.md): push the `v*` tag → CI builds the feed, deploys to Pages, and creates the GitHub Release with assets attached
-2. Confirm [binary feed](binary-feed.md) URLs respond
-3. Confirm README install section points at feed + Releases + `src-link`
+2. Make sure that the [binary feed](binary-feed.md) URLs respond
+3. Make sure that the README install section points at feed + Releases + `src-link`
 4. Optional: submit to third-party OpenWrt feed index (outside this checklist)
 
 ## CI

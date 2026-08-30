@@ -1,6 +1,6 @@
 # OpenWrt Firewall Live Event Schema (fw4 / nftables)
 
-Applies to **22.03+** images using firewall4/nft (primary path). Legacy **21.02.x** uses iptables `KEY=value` log lines — see [iptables logging reference](fwlive-iptables-logging.md). Examples below were validated on **24.10.8**; field availability may vary by release and image profile.
+Applies to **22.03+** images using firewall4/nft (primary path). Legacy **21.02.x** uses iptables `KEY=value` log lines — see [iptables logging reference](fwlive-iptables-logging.md). Examples below were tested on **24.10.8**; field availability may vary by release and image profile.
 
 **See also:** [OPNsense UI/API parity matrix](opnsense-liveview-parity.md)
 

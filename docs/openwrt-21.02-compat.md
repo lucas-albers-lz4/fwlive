@@ -36,7 +36,7 @@ OpenWrt **21.02 is EOL** — support is for operators stuck on fw3, not a recomm
 ./scripts/validate-openwrt.sh --version 21.02 --sdk-target x86-64
 ```
 
-Ensure no other QEMU instance holds the disk image before prepare (script stops QEMU between runs).
+Make sure that no other QEMU instance holds the disk image before prepare (script stops QEMU between runs).
 
 ### Manual steps
 
@@ -60,7 +60,7 @@ LuCI: `http://localhost:8080/cgi-bin/luci/admin/status/fwlive` (login required o
 
 3. **Log format** — fw3 LOG lines appear as **`kern.warn kernel:`** with netfilter KV fields (not always `iptables:` tag). Parser handles both; see `tests/fixtures/logread-iptables.json`.
 
-4. **Rule admin link** — iptables backend links to `admin/status/iptables` (verified reachable on 21.02.7).
+4. **Rule admin link** — iptables backend links to `admin/status/iptables` (tested reachable on 21.02.7).
 
 5. **Background QEMU** — Use `OWRT_QEMU_SERIAL_SOCKET=1` when starting QEMU in the background (validate matrix sets this automatically).
 

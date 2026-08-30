@@ -38,14 +38,14 @@ flowchart LR
 
 `fwlive poll` wraps filtered `log.read` — only firewall-shaped lines are sent to the browser.
 
-Live View shows **whatever OpenWrt is logging**. Stock configs log almost nothing — use **Enable logging** once for WAN drops/rejects (same as **Network → Firewall**). See [Enabling firewall logs](enabling-firewall-logs.md) and [Using the UI → First visit](using-the-ui.md#first-visit).
+Live View shows **whatever OpenWrt is logging**. Stock configurations log almost nothing — use **Enable logging** once for WAN drops/rejects (same as **Network → Firewall**). See [Enabling firewall logs](enabling-firewall-logs.md) and [Using the UI → First visit](using-the-ui.md#first-visit).
 
 ## When to use it
 
 | Scenario | Useful? |
 |----------|---------|
 | Debug a new port-forward or WAN rule | Yes — watch pass/drop in real time |
-| Confirm guest/Wi‑Fi isolation | Yes — filter by interface and source |
+| Guest/Wi‑Fi isolation | Yes — filter by interface and source |
 | Audit intermittent drops | Yes — pause the table, adjust filters, resume |
 | Long-term archival / compliance | No — use remote syslog or dedicated logging |
 

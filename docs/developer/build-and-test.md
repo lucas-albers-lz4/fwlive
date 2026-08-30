@@ -27,7 +27,7 @@ Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline,
 shell codegen + LuCI wrapper gate (`./scripts/gen-all.sh`), and shellcheck on shipped
 `root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`). Optional: `SH='busybox sh' node tests/fwlive-shell-filter.test.js`.
 
-Docs changes must pass the link checker — it validates relative paths **and**
+Docs changes must pass the link checker — it checks relative paths **and**
 heading anchors against a GitHub-style slugger.
 
 ### Renderer tests do not render
@@ -37,7 +37,7 @@ constructor (`fakeE`) that never builds DOM. Renderer tests therefore assert on
 descriptive objects, which is fine for structure but means **a value reaching an
 HTML sink instead of a text node is invisible to them**.
 
-When changing a renderer, verify through an `E()` that reproduces upstream
+When changing a renderer, make sure that an `E()` reproduces upstream
 `dom.append` semantics. Recipe: `.cursor/skills/security-audit/SKILL.md`.
 
 ## Live View CSS (`fwlive.css` → `css.js`)

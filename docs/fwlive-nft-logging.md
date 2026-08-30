@@ -40,7 +40,7 @@ ping -c 5 "$GUEST_IP"
 ./scripts/fwlive-ubus-read.sh --lines 30
 ```
 
-On the guest, confirm kernel/firewall lines:
+On the guest, make sure that the kernel/firewall lines appear:
 
 ```sh
 logread | grep -E 'fwlive-ping|SRC='
@@ -128,7 +128,7 @@ Log messages should include netfilter-style tokens such as **`IN=`**, **`OUT=`**
 
 Split **rule matching** from **kernel logging**:
 
-### 1. Confirm traffic hits the rule (counter)
+### 1. Make sure that traffic hits the rule (counter)
 
 Add **`counter`** to the same rule (or use the top rule from `fwlive-nft-ping-log.sh add`):
 
@@ -177,14 +177,14 @@ logread | tail -3
 ./scripts/fwlive-ubus-read.sh --lines 5   # from build host
 ```
 
-That validates **Live View + parser**; it does not prove **`nft log`** works in that environment.
+That tests **Live View + parser**; it does not prove that **`nft log`** works in that environment.
 
 ### 4. Other checks
 
 - **fw4 exists** but rules may not **`log`** — empty UI is normal until they do.
 - Rule at **end** of `input` never sees LAN pings — use **`nft insert`** at the top (before `jump input_lan`).
-- Confirm **`kmod-nf-log`** / **`kmod-nf-log6`** on minimal images; **`cat /proc/sys/net/netfilter/nf_log/2`** should be **`nf_log_ipv4`**.
-- Confirm **`/usr/sbin/nft`** exists (menu is hidden without it).
-- Confirm **`luci-app-fwlive`** and **`luci-base`** are installed.
+- Make sure that **`kmod-nf-log`** / **`kmod-nf-log6`** are present on minimal images; **`cat /proc/sys/net/netfilter/nf_log/2`** should be **`nf_log_ipv4`**.
+- Make sure that **`/usr/sbin/nft`** exists (menu is hidden without it).
+- Make sure that **`luci-app-fwlive`** and **`luci-base`** are installed.
 - Run **`logread | grep SRC=`** — if nothing there, the UI stays empty too.
 - Stage 1 filter hides dnsmasq/procd noise; only firewall-shaped lines count.

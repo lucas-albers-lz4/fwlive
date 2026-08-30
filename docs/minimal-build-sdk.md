@@ -133,7 +133,7 @@ export QEMU_MAC_LAN=52:54:00:44:55:66
 ./scripts/agent-build-and-deploy.sh --ipk bin/packages/*/luci/luci-app-fwlive_*.ipk
 ```
 
-## 6. Post-deploy: validate
+## 6. Post-deploy: run the checks
 
 Open **Status → Firewall Live View**. If empty, add **`log`** to fw4/nft rules — see [enabling firewall logs](user/enabling-firewall-logs.md).
 

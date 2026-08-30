@@ -1,4 +1,4 @@
-# Working gracefully with CodeRabbit
+# Working with CodeRabbit
 
 This repo runs CodeRabbit as an automated PR reviewer. The protocol below keeps
 review cycles efficient — one coherent review round over a stable diff, no
@@ -24,7 +24,7 @@ CodeRabbit, that is separate — do not paste this repo’s review threads.
   starts a new incremental round covering the commits since the last review
   (skipped while auto-review is paused or when the plan/rate limit is hit).
 - Manual commands can be used as manual triggers, even on drafts and
-  regardless of auto-review config, but they consume the same plan/rate-limit
+  regardless of auto-review configuration, but they consume the same plan/rate-limit
   allowance as automatic reviews and are subject to availability:
   - `@coderabbitai review` — incremental review on demand
   - `@coderabbitai full review` — full re-review from scratch

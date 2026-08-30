@@ -9,7 +9,7 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 ## Development approach (agreed)
 
 - **Small steps** — ship one behavior at a time; accept in QEMU LuCI + one CLI check.
-- **Light testing** — `./scripts/fwlive-test.sh` + manual browser smoke; no comprehensive suite required.
+- **Light testing** — `./scripts/fwlive-test.sh` + manual browser smoke; no full test suite required.
 - **Backport awareness** — edge cases will surface on 23.05 / armsr; fix as we hit them.
 
 **Test loop per step:**
