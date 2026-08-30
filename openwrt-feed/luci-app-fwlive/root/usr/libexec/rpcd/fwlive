@@ -579,7 +579,9 @@ case "$1" in
 		exit $?
 		;;
 	list)
-		echo '{"rules":{},"backend":"unknown","poll":{"addresses":[]},"resolve":{"addresses":[]},"logging_status":{},"enable_wan_logging":{},"disable_wan_logging":{}}'
+		# Method names only — args objects describe call parameters.
+		# "backend" is a rules reply field, not a method.
+		echo '{"rules":{},"poll":{"addresses":[]},"resolve":{"addresses":[]},"logging_status":{},"enable_wan_logging":{},"disable_wan_logging":{}}'
 		;;
 	call)
 		case "$2" in
