@@ -45,7 +45,7 @@ Then build **`luci-app-fwlive`** with the SDK ([`minimal-build-sdk.md`](minimal-
    sudo ./scripts/qemu-lab-prepare-image.sh
    sudo OWRT_IMG=lab/images/openwrt-x86-64.img ./scripts/qemu-lab-prepare-image.sh
    ```
-3. **Networking (verified, same as x86 lab):** single **`-nic user,hostfwd=...`** + guest LAN **DHCP**. Prepare the image before first boot:
+3. **Networking (tested, same as x86 lab):** single **`-nic user,hostfwd=...`** + guest LAN **DHCP**. Prepare the image before first boot:
    ```sh
    sudo OWRT_IMG=lab/images/openwrt-armsr-armv8.img ./scripts/qemu-lab-prepare-image.sh
    ```

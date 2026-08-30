@@ -2,7 +2,7 @@
 
 Open **Status → Firewall Live View** in LuCI.
 
-Live View shows **whatever OpenWrt is already logging**. Stock configs log almost nothing — that is normal, not a broken install. Use **Enable logging** once for WAN drops/rejects (same as **Network → Firewall**). The app does not add allow/deny rules on its own.
+Live View shows **whatever OpenWrt is already logging**. Stock configurations log almost nothing — that is normal, not a broken install. Use **Enable logging** once for WAN drops/rejects (same as **Network → Firewall**). The app does not add allow/deny rules on its own.
 
 On-page **Help** (collapsed at the bottom) covers the basics without leaving the router.
 
@@ -24,10 +24,10 @@ Nothing changes until you click Enable.
 ![After Enable — WAN logging on](assets/fwlive-after-enable.png)
 
 1. Watch strip shows a single **WAN logging on · rate** control (click to disable).
-2. A green notice confirms WAN drop/reject logging — not normal LAN browsing.
+2. A green notice shows that WAN drop/reject logging is on — not normal LAN browsing.
 3. If the table is still empty, you are **waiting for firewall events** (quiet WAN). Blocked inbound traffic appears as it happens.
 
-Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping-synthetic-pass-events).
+Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewall-logs.md#2-optional--ping-test-synthetic-pass-events).
 
 ## Simple view (default)
 
@@ -113,13 +113,13 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 
 ## Rule column
 
-When fw4 logs a **prefix** (e.g. `fwlive-ping `), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open firewall settings; plain click filters on that hint.
+When fw4 logs a **prefix** (e.g. `fwlive-ping `), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint.
 
 ## Empty table
 
 If no events appear after install, that is expected until logging is on — see [First visit](#first-visit). **Enable logging** sets WAN zone `log=1` (same as **Network → Firewall**). The empty state explains what will and will not appear (WAN drops/rejects, not normal LAN browsing).
 
-If logging is already on but the table is still empty, wait for inbound WAN traffic or see **[Quick start — optional ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping-synthetic-pass-events)**. Advanced setup: **[Enabling firewall logs](enabling-firewall-logs.md)**.
+If logging is already on but the table is still empty, wait for inbound WAN traffic or see **[Quick start — optional ping test](enabling-firewall-logs.md#2-optional--ping-test-synthetic-pass-events)**. Advanced setup: **[Enabling firewall logs](enabling-firewall-logs.md)**.
 
 ## High traffic rate
 

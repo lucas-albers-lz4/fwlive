@@ -22,8 +22,8 @@ Run from the repo root on **Linux x86_64**:
 Optional QEMU confidence: `./scripts/validate-openwrt.sh --version 24.10` — see [validation matrix](validation-matrix.md).
 
 Full publish checklist: [github-publish-checklist.md](github-publish-checklist.md).
-Before cutting a `v*` tag, re-verify the `peaceiris/actions-gh-pages` SHA in
-`publish-packages.yml` against the upstream tag (checklist pre-release item).
+Before cutting a `v*` tag, make sure that the `peaceiris/actions-gh-pages` SHA in
+`publish-packages.yml` still matches the upstream tag (checklist pre-release item).
 
 ## Release steps (automated CI)
 
@@ -49,14 +49,14 @@ Before cutting a `v*` tag, re-verify the `peaceiris/actions-gh-pages` SHA in
 
    Pushing the tag triggers [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml), which:
    - Builds packages for **21.02**, **22.03**, **23.05**, **24.10**, **25.12**
-   - Verifies reproducible builds ([`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh))
+   - Checks reproducible builds ([`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh))
    - Signs and deploys the feed to **`lucas-albers-lz4/fwlive-packages`** (GitHub Pages)
    - Uploads release assets (one `.ipk` per opkg line, `.apk` for 25.12 — filenames include the OpenWrt line, e.g. `luci-app-fwlive_0.1.34_21.02_all.ipk`)
    - Runs a QEMU feed smoke (`smoke-from-feed` job) installing from the live feed URL — always on tag pushes (default cell **24.10**; `workflow_dispatch` can override via `feed_smoke` / `smoke_version` inputs)
 
    GitHub **immutable releases** cannot receive assets after publish. If you already published an empty release, delete it on GitHub (keep the tag) and re-run the workflow from Actions → **Run workflow**, entering the tag name.
 
-Ensure GitHub Actions secrets are configured — see [binary-feed.md](binary-feed.md).
+Make sure that the GitHub Actions secrets are configured — see [binary-feed.md](binary-feed.md).
 
 ## Manual build (local / fallback)
 
@@ -84,7 +84,7 @@ out/x86_64/25.12.5/fwlive/luci-app-fwlive-*.apk
 
 GitHub Release attachments are renamed with the OpenWrt line suffix (e.g. `_21.02_all.ipk`) so multiple `_all.ipk` builds do not collide on upload.
 
-Verify filenames match `PKG_VERSION` in the Makefile.
+Make sure that the filenames match `PKG_VERSION` in the Makefile.
 
 ## Release notes template
 
@@ -98,6 +98,6 @@ Include in each release:
 
 ## After publish
 
-- Confirm README [Install](../README.md#install) links work.
-- Confirm feed URLs respond: `./scripts/wait-feed-pages.sh https://lucas-albers-lz4.github.io/fwlive-packages`
+- Make sure that the README [Install](../README.md#install) links work.
+- Make sure that the feed URLs respond: `./scripts/wait-feed-pages.sh https://lucas-albers-lz4.github.io/fwlive-packages`
 - Optional: announce on OpenWrt forums / third-party feed indexes.

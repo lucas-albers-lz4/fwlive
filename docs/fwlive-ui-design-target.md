@@ -83,7 +83,7 @@ Suggestions to replicate OPNsense’s clean tabular Live View, adapted for LuCI.
 | ---------- | ------- | ------------ |
 | Rule column with human label | **Adopt** | Stage 3: `rule_label` from nft/fw4 metadata. |
 | nft `comment`, handle, or log prefix | **Adapt** | Prefer **fw4 rule name** / UCI `@name` when resolvable; fallback: nft handle or log `prefix "…"`. |
-| Deep link to firewall config | **Adopt (lightweight)** | Link to `admin/status/nftables` or `admin/network/firewall` with hash/query when we have a stable rule key — **best-effort**, not 1:1 with OPNsense RID. |
+| Deep link to firewall configuration | **Adopt (lightweight)** | Link to `admin/status/nftables` or `admin/network/firewall` with hash/query when we have a stable rule key — **best-effort**, not 1:1 with OPNsense RID. |
 | `meta nftrace` / tracking id | **Investigate** | Only if log lines expose stable ids on OpenWrt 24.10; document findings in stage 3 notes. |
 
 OpenWrt will **not** mirror OPNsense PF rule IDs. Parity is **“jump toward the rule that likely generated this log”**, not identical RID badges.
@@ -113,7 +113,7 @@ Intentional fork from OPNsense’s single wide table — OpenWrt LuCI benefits f
 
 - Toolbar: single **Show Detail** / **Hide Detail** button; persisted in `localStorage` (`fwlive-view-mode`) after user toggles.
 - URL hash: `view=detailed` when sharing Detailed layout (`view=advanced` accepted for back-compat).
-- Zero-config: first visit polls immediately; empty state and collapsed **Help** on-page (no external docs).
+- Zero-configuration: first visit polls immediately; empty state and collapsed **Help** on-page (no external docs).
 - Simple filters: quick search + action + proto; **More filters** for the rest.
 - Screenshots: [`user/assets/`](user/assets/) · capture: [`user/assets/capture-screenshots.md`](user/assets/capture-screenshots.md)
 

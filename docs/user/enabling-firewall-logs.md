@@ -48,7 +48,7 @@ uci commit firewall
 /etc/init.d/firewall reload
 ```
 
-#### 2. Optional — confirm the UI with a ping (synthetic pass events)
+#### 2. Optional — ping test (synthetic pass events)
 
 Useful when WAN is quiet or you want a guaranteed **pass** row:
 
@@ -99,7 +99,7 @@ opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6 2>/dev/null \
 | Hits on a **specific** firewall rule | No — until that rule logs | `option log '1'` on the `@rule` |
 | Invalid / malformed packets | No — unless **`drop_invalid`** + logging | See [Defaults and invalid packets](#defaults-and-invalid-packets) |
 
-The Live View empty-state hint about "default WAN drops" means traffic **after you enable zone logging**, not on an untouched factory config.
+The Live View empty-state hint about "default WAN drops" means traffic **after you enable zone logging**, not on an untouched factory configuration.
 
 ---
 
@@ -225,7 +225,7 @@ Invalid drops are only visible if the **zone** or **rule** that drops them also 
 
 ---
 
-## Verify before blaming the UI
+## Make sure that logging works before blaming the UI
 
 ```sh
 logread | grep -E 'SRC=|DST=|PROTO=' | tail
@@ -274,7 +274,7 @@ iptables -I INPUT -p icmp --icmp-type echo-request \
 iptables -I INPUT -p icmp --icmp-type echo-request -j ACCEPT
 ```
 
-Verify with `logread | grep fwlive-ping`. LuCI shows a short **`iptables`** backend label when detected.
+Make sure that `logread | grep fwlive-ping` shows lines. LuCI shows a short **`iptables`** backend label when detected.
 
 Details: **[`../fwlive-iptables-logging.md`](../fwlive-iptables-logging.md)**
 

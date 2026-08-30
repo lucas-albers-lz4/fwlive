@@ -196,7 +196,7 @@ Store **private** keys only in GitHub Actions secrets. Never commit them to eith
 - `OPKG_FEED_SECRET_KEY` must be the **usign** secret from `usign -G` (two lines: `untrusted comment:` + `RWâ€¦` base64). The **openssl RSA** key is only for `APK_FEED_SECRET_KEY`.
 - Pasting the secret into GitHub as **one line** (no newline between comment and key) makes usign fail with **`Premature end of file`**. Either paste the file verbatim with its line break, or store **`base64 -w0 opkg-secret.key`** in the secret (CI auto-decodes).
 
-Verify locally before updating GitHub secrets:
+Make sure that the feed works locally before you update the GitHub secrets:
 
 ```sh
 OPKG_FEED_SECRET_KEY=./opkg-secret.key OPKG_FEED_PUBLIC_KEY=./public.key \
@@ -219,7 +219,7 @@ Expected apk secret shape: PEM `-----BEGIN PRIVATE KEY-----` (openssl genrsa out
 
 On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml):
 
-1. Validates signing keys via [`validate-feed-keys.sh`](../scripts/validate-feed-keys.sh) (before build).
+1. Checks the signing keys via [`validate-feed-keys.sh`](../scripts/validate-feed-keys.sh) (before build).
 2. Builds `luci-app-fwlive` for **21.02**, **22.03**, **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
 3. Runs [`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh) (double-build sha256 gate).
 4. Stages signed feed via [`publish-packages.sh`](../scripts/publish-packages.sh).
@@ -274,7 +274,7 @@ a lock change never restores a stale tree. Note: GHA caches are **ref-scoped** â
 publishes do not warm-hit across tags; the bind mounts still speed local rebuilds and
 same-ref re-runs. A lock stamp under feeds forces refresh when pins change.
 
-Verify locally:
+Make sure that the build is reproducible:
 
 ```sh
 ./scripts/verify-reproducible-build.sh

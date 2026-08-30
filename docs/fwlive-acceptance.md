@@ -6,13 +6,13 @@
 
 **MVP and pre-backport feature work are complete** (stages 1–5 core, 4b, 3.4b, 5.6). Stage 6 (hostnames) and Stage 7 (server-side filter) are **done** — see [Stage 6](#stage-6--inspect--enrichment-done) and [Stage 7](#stage-7--transport-done) below. Remaining backlog: rule overlay, digest/SSE.
 
-Re-validate after changes — see [Build & test](developer/build-and-test.md) for the full command reference.
+Run the checks again after changes — see [Build & test](developer/build-and-test.md) for the full command reference.
 
 ---
 
 ## Supported versions and targets
 
-`luci-app-fwlive` builds as **`_all`** (no per-SoC binaries). The app is **not hardware-specific** — LuCI JS, `ubus log.read`, and the ash `rpcd` plugin are portable. **Validating on one ARM target (e.g. armsr/armv8) is sufficient for other ARM boards** on the same OpenWrt version; differences show up by **release** (23.05 vs 24.10), not by CPU model.
+`luci-app-fwlive` builds as **`_all`** (no per-SoC binaries). The app is **not hardware-specific** — LuCI JS, `ubus log.read`, and the ash `rpcd` plugin are portable. **Testing on one ARM target (e.g. armsr/armv8) is sufficient for other ARM boards** on the same OpenWrt version; differences show up by **release** (23.05 vs 24.10), not by CPU model.
 
 | OpenWrt | SDK build | Lab target | End-to-end sign-off |
 | ------- | --------- | ---------- | ------------------- |
@@ -49,7 +49,7 @@ Build: see [SDK build matrix](sdk-build-matrix.md) for the full command referenc
 - **Simple view** (default): Action, Time (compact), Interface, Flow, Proto, Rule; no horizontal scroll on typical laptop widths.
 - **Detailed view**: 14-column table including Message, Flags, Len, Dir (via **Show Detail** toggle).
 - **Detail toggle** persists in `localStorage` after user toggles; `view=detailed` in URL hash restores Detailed mode.
-- **Zero-config**: first visit shows live table with auto-refresh; empty state and **Help** are on-router (no build-host doc paths).
+- **Zero-configuration**: first visit shows live table with auto-refresh; empty state and **Help** are on-router (no build-host doc paths).
 - **Simple row expand**: click row shows full netfilter message; second click collapses; filter links do not toggle expand.
 
 ---
@@ -116,7 +116,7 @@ ssh -p 2222 root@127.0.0.1 'ping 127.0.0.1'   # 1 pkt/s baseline
 | Headless smoke (`qemu-smoke-fwlive.sh`) on 23.05.5 x86 | ✓ |
 | armsr 24.10.8 LuCI page loads in browser | ✓ |
 
-Validated on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 24.10.8** (TCG); **23.05.5** via x86 smoke + same `_all` ipk.
+Tested on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 24.10.8** (TCG); **23.05.5** via x86 smoke + same `_all` ipk.
 
 ---
 

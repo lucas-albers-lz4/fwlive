@@ -2,7 +2,7 @@
 
 ## Installation & Setup
 
-### The table is empty after install — what's wrong?
+### The table is empty after install — what is wrong?
 
 **Nothing.** Live View shows whatever OpenWrt is logging. Stock images log almost no firewall traffic until you turn logging on.
 
@@ -24,9 +24,9 @@ Yes. The package is **`_all`** (architecture-independent LuCI JS + shell) — on
 
 ## Usage
 
-### Why don't I see my LAN browsing traffic?
+### Why do I not see my LAN browsing traffic?
 
-Zone logging only logs **rejected and dropped** traffic on that zone. Normal LAN→WAN accepted traffic doesn't appear unless you add explicit **`log`** rules. See [Rule-level logging](user/enabling-firewall-logs.md#rule-level-logging-specific-policies).
+Zone logging only logs **rejected and dropped** traffic on that zone. Normal LAN→WAN accepted traffic does not appear unless you add explicit **`log`** rules. See [Rule-level logging](user/enabling-firewall-logs.md#rule-level-logging-specific-policies).
 
 ### How do I see only dropped packets?
 
@@ -38,7 +38,7 @@ The URL hash stores all active filters, limit, and view mode. Just copy the URL 
 
 ### Why do some rows have no Rule column data?
 
-Live View shows a **Rule** label only when the nft log line includes a **prefix** (e.g. `log prefix "my-rule "`) and fw4 can resolve it to a UCI rule name. Rules without `log prefix` don't carry enough metadata.
+Live View shows a **Rule** label only when the nft log line includes a **prefix** (e.g. `log prefix "my-rule "`) and fw4 can resolve it to a UCI rule name. Rules without `log prefix` do not carry enough metadata.
 
 ### What does "Enable logging" on the page actually do?
 
@@ -52,7 +52,7 @@ It sets `option log '1'` on your WAN firewall zone via ubus and reloads the fire
 
 Check that:
 1. `luci-app-fwlive` and `luci-base` are installed
-2. You're logged into LuCI (the page shows live data only after authentication)
+2. You are logged into LuCI (the page shows live data only after authentication)
 3. The menu appears at **Status → Firewall Live View**
 4. `logread | grep SRC=` shows lines — if not, fix firewall logging first
 
@@ -72,9 +72,9 @@ cat /proc/sys/net/netfilter/nf_log/2    # should be nf_log_ipv4, not "none"
 
 If missing, install `kmod-nf-log-ipv4` / `kmod-nf-log-ipv6`. See [Kernel module check](user/enabling-firewall-logs.md#3-check-kernel-logging-modules-only-if-logs-are-missing).
 
-### Docker rootfs experiment: `nft log` doesn't work
+### Docker rootfs experiment: `nft log` does not work
 
-Docker containers use the **host kernel**, not the OpenWrt kernel. `nft` counters and accept/drop work, but **`nft log` often never reaches `logread`** because kernel modules don't match.
+Docker containers use the **host kernel**, not the OpenWrt kernel. `nft` counters and accept/drop work, but **`nft log` often never reaches `logread`** because kernel modules do not match.
 
 Workaround: inject a fake firewall line manually:
 ```sh

@@ -2,7 +2,7 @@
 
 Documentation for **installing and using** `luci-app-fwlive` on an OpenWrt router.
 
-| Guide | What you'll learn |
+| Guide | What you will learn |
 |-------|-------------------|
 | [Overview](overview.md) | What the package does and when to use it |
 | [Requirements](requirements.md) | Supported OpenWrt versions and dependencies |
@@ -13,7 +13,7 @@ Documentation for **installing and using** `luci-app-fwlive` on an OpenWrt route
 **Menu path after install:** **Status → Firewall Live View**  
 (`http://<router>/cgi-bin/luci/admin/status/fwlive`)
 
-Live View shows **whatever OpenWrt is logging**. Stock configs log almost nothing — use **Enable logging** once for WAN drops/rejects.
+Live View shows **whatever OpenWrt is logging**. Stock configurations log almost nothing — use **Enable logging** once for WAN drops/rejects.
 
 ---
 

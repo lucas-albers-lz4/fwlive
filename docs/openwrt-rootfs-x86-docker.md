@@ -72,6 +72,6 @@ The official `rootfs` image is **[experimental CI runtime](https://github.com/op
 
 Containers use the **host Linux kernel** (`uname -r` ≠ `/lib/modules/<openwrt-kernel>/`). **`nft`** counters and **`accept`/`drop`** work, but **`nft log`** often **does not appear in `logread`**, so **Firewall Live View** stays empty even when a ping log rule is installed and matching.
 
-- Verify matching: `nft -a list chain inet fw4 input | grep counter` — packet count should rise when you ping the guest LAN IP.
-- Validate the UI/parser anyway: `logger -t kernel -p kern.info "fwlive-test IN=br-lan SRC=172.17.0.1 DST=172.17.0.2 PROTO=ICMP ACCEPT"` then open Live View.
+- Make sure that the rule matches: `nft -a list chain inet fw4 input | grep counter` — packet count should rise when you ping the guest LAN IP.
+- Test the UI/parser anyway: `logger -t kernel -p kern.info "fwlive-test IN=br-lan SRC=172.17.0.1 DST=172.17.0.2 PROTO=ICMP ACCEPT"` then open Live View.
 - For end-to-end **`nft log`** testing, use **QEMU armsr** or hardware — see [`fwlive-nft-logging.md`](fwlive-nft-logging.md).
