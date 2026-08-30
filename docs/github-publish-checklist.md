@@ -74,13 +74,9 @@ Alternatives (not primary):
 
 ### Upstream cut into `openwrt/luci`
 
-<<<<<<< HEAD
 **Owner:** [developer/upstream-openwrt.md](developer/upstream-openwrt.md)
 (target tree, cut script, FormalityCheck, Weblate, PR-body answers).
 Review order before filing: [developer/pr-cycle.md](developer/pr-cycle.md).
-=======
-Run [`scripts/upstream-cut.sh`](../scripts/upstream-cut.sh) to produce the PR-ready tree. It splits `openwrt-feed/luci-app-fwlive/` via `git subtree split` (real files, package-only history, no gitlinks), rewrites the Makefile include and package README / GENERATED comments, drops `po/{de,ru,zh_Hans}` and `fwlive.css` (first luci PR is `.pot` only; view loads `css.js`), and checks the result. Output: `out/upstream/luci-app-fwlive/`. Keep feed `.po` files in this monorepo for the binary feed.
->>>>>>> 77a9b38 (docs(ste): unify vocabulary — make sure that / configuration (Rules 1.11, 9.4))
 
 Checklist:
 
