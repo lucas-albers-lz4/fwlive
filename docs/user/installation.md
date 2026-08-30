@@ -6,14 +6,14 @@ Most users install from the **[binary feed](#1-binary-feed-recommended)**. It ne
 
 Install directly from the signed GitHub Pages feed — no manual download.
 
-| OpenWrt | Package manager | Feed doc |
-|---------|-----------------|----------|
-| **21.02.x** (legacy fw3) | `opkg` | [Binary feed — 21.02](../binary-feed.md#openwrt-2102x-opkg-legacy-fw3) |
-| **22.03.x** (EOL) | `opkg` | [Binary feed — 22.03](../binary-feed.md#openwrt-2203x-opkg-eol) |
-| **23.05** / **24.10** | `opkg` | [Binary feed — opkg](../binary-feed.md#openwrt-2305--2410-opkg) |
-| **25.12+** | `apk` | [Binary feed — apk](../binary-feed.md#openwrt-2512-apk) |
+| OpenWrt | Package manager | Feed path |
+|---------|-----------------|-----------|
+| **21.02.x** (legacy fw3) | `opkg` | `…/21.02` |
+| **22.03.x** (EOL) | `opkg` | `…/22.03` |
+| **23.05** / **24.10** | `opkg` | `…/23.05` or `…/24.10` |
+| **25.12.x** | `apk` | `…/25.12/all` |
 
-**OpenWrt 24.10** example:
+**opkg (21.02 – 24.10)** — set the path for your release:
 
 ```sh
 wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
@@ -22,7 +22,20 @@ echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >>
 opkg update && opkg install luci-app-fwlive
 ```
 
-Use `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x**, `…/21.02` for legacy **21.02.x (fw3)**. For 25.12+, see the apk section in [binary-feed.md](../binary-feed.md).
+Use `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x**, `…/21.02` for legacy **21.02.x (fw3)**.
+
+**apk (25.12.x):**
+
+```sh
+wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
+mkdir -p /etc/apk/keys
+cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
+echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb' \
+  >> /etc/apk/repositories.d/fwlive.list
+apk update && apk add luci-app-fwlive
+```
+
+Feed layout and signing keys: [Binary feed](../binary-feed.md).
 
 <details>
 <summary>Other install methods</summary>
@@ -36,7 +49,7 @@ Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-
 | OpenWrt | Artifact | Package manager |
 |---------|----------|-----------------|
 | **21.02.x** / **22.03.x** / **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg` |
-| **25.12+** | `luci-app-fwlive-*.apk` | `apk` |
+| **25.12.x** | `luci-app-fwlive-*.apk` | `apk` |
 
 The package is **`_all`** — architecture-independent. One `.ipk` or `.apk` per OpenWrt release works on any router (ARM, x86, etc.).
 
@@ -49,7 +62,7 @@ scp luci-app-fwlive_*.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1 opkg install /tmp/luci-app-fwlive_*.ipk
 ```
 
-**OpenWrt 25.12+** (`apk`):
+**OpenWrt 25.12.x** (`apk`):
 
 ```sh
 scp luci-app-fwlive-*.apk root@192.168.1.1:/tmp/
@@ -123,7 +136,7 @@ If you used **Enable logging**, WAN zone `log` stays on across upgrades until yo
 opkg update && opkg install luci-app-fwlive
 ```
 
-**apk (25.12+):**
+**apk (25.12.x):**
 ```sh
 apk update && apk add luci-app-fwlive
 ```
@@ -134,7 +147,7 @@ After upgrade, refresh the LuCI page in your browser (may need a cache-busting h
 
 ```sh
 opkg remove luci-app-fwlive    # 21.02 / 22.03 / 23.05 / 24.10
-apk del luci-app-fwlive        # 25.12+
+apk del luci-app-fwlive        # 25.12.x
 ```
 
 **Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package restores the zone `log` value from before the first time you enabled logging via Live View. If you never used **Enable logging**, uninstall does not change firewall UCI.

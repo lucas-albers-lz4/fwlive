@@ -27,7 +27,7 @@ Nothing changes until you click Enable.
 2. A green notice shows that WAN drop/reject logging is on — not normal LAN browsing.
 3. If the table is still empty, you are **waiting for firewall events** (quiet WAN). Blocked inbound traffic appears as it happens.
 
-Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewall-logs.md#2-optional--ping-test-synthetic-pass-events).
+Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping-synthetic-pass-events).
 
 ## Simple view (default)
 
@@ -85,14 +85,14 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 
 | Control | Behavior |
 |---------|----------|
-| **Pause / Resume** | Live updates run until you Pause. Resume continues the table; polling never stops. |
-| **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall) and reloads the firewall — no silent rule adds. Concurrent toggles from multiple admins are last-writer-wins. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
-| **WAN logging on · rate** | When logging is on, one merged control shows status and rate; click to disable. |
+| **Pause / Resume** | Live updates run until you Pause. Resume continues the table. Polling never stops. |
+| **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall). No allow/deny rules are added. Concurrent toggles from multiple admins are last-writer-wins. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
+| **WAN logging on · rate** | When logging is on, one merged control shows status and rate. Click it to disable. |
 | **Simple / Detail** | Segmented pair on the watch strip. The active segment is highlighted. Preferences saved in `localStorage`. |
-| **Wrap / One line** | Segmented pair next to Simple / Detail; visible in Detailed view only. |
+| **Wrap / One line** | Segmented pair next to Simple / Detail. Visible in Detailed view only. |
 | **Display options** | Inline bar below the watch strip: **Limit**, **Row tint** (checkbox + palette), and **Show hostnames**. |
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. |
-| **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns; hover shows the IP. Click still filters by IP. |
+| **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns. Hover shows the IP. Click still filters by IP. |
 | **Quick search** | Matches across all normalized fields. |
 
 ## Filtering
@@ -119,7 +119,7 @@ When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the
 
 If no events appear after install, that is expected until logging is on — see [First visit](#first-visit). **Enable logging** sets WAN zone `log=1` (same as **Network → Firewall**). The empty state explains what will and will not appear (WAN drops/rejects, not normal LAN browsing).
 
-If logging is already on but the table is still empty, wait for inbound WAN traffic or see **[Quick start — optional ping test](enabling-firewall-logs.md#2-optional--ping-test-synthetic-pass-events)**. Advanced setup: **[Enabling firewall logs](enabling-firewall-logs.md)**.
+If logging is already on but the table is still empty, wait for inbound WAN traffic or see **[Quick start — optional ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping-synthetic-pass-events)**. Advanced setup: **[Enabling firewall logs](enabling-firewall-logs.md)**.
 
 ## High traffic rate
 

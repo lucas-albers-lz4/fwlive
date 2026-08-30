@@ -82,5 +82,4 @@ Via `qemu-smoke-fwlive.sh`:
 
 - [`sdk-build-matrix.md`](sdk-build-matrix.md) — Docker SDK builds
 - [`fwlive-acceptance.md`](fwlive-acceptance.md) — acceptance criteria
-- [`openwrt-22.03-compat.md`](openwrt-22.03-compat.md) — 22.03 notes
-- [`openwrt-23.05-compat.md`](openwrt-23.05-compat.md) — 23.05 notes
+- [`supported-releases.md`](supported-releases.md) — per-release lab notes (21.02 / 22.03 / 23.05)

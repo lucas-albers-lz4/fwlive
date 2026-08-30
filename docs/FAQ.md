@@ -4,9 +4,7 @@
 
 ### The table is empty after install — what is wrong?
 
-**Nothing.** Live View shows whatever OpenWrt is logging. Stock images log almost no firewall traffic until you turn logging on.
-
-Fastest path: open **Status → Firewall Live View** and click **Enable WAN drop/reject logging** (or the short **Enable logging** on the watch strip). That sets WAN zone drop/reject logging only — same as **Network → Firewall** — and does not add allow/deny rules. See [Using the UI → First visit](user/using-the-ui.md#first-visit) and [Enabling firewall logs](user/enabling-firewall-logs.md).
+**Nothing.** Stock images log almost nothing until you turn logging on. See [Using the UI → First visit](user/using-the-ui.md#first-visit) and [Enabling firewall logs → Quick start](user/enabling-firewall-logs.md#quick-start-after-install).
 
 ### Can I install without the binary feed?
 
@@ -14,7 +12,7 @@ Yes. Download the `.ipk` / `.apk` from [GitHub Releases](https://github.com/luca
 
 ### Which OpenWrt version should I use?
 
-**23.05+** for firewall4/nft (recommended). 22.03 works but is EOL. 21.02 works for fw3/iptables but is also EOL. See [Requirements](user/requirements.md).
+**23.05+** for firewall4/nft on older images; prefer **24.10+** for new deployments (23.05 is EOL). 22.03 works but is EOL. 21.02 works for fw3/iptables but is also EOL. See [Requirements](user/requirements.md).
 
 ### Does this work on any router?
 
@@ -26,7 +24,7 @@ Yes. The package is **`_all`** (architecture-independent LuCI JS + shell) — on
 
 ### Why do I not see my LAN browsing traffic?
 
-Zone logging only logs **rejected and dropped** traffic on that zone. Normal LAN→WAN accepted traffic does not appear unless you add explicit **`log`** rules. See [Rule-level logging](user/enabling-firewall-logs.md#rule-level-logging-specific-policies).
+Zone logging only logs **rejected and dropped** traffic on that zone. Normal LAN→WAN accepted traffic does not appear unless you add explicit **`log`** rules. See [Beyond WAN drops](user/enabling-firewall-logs.md#beyond-wan-drops).
 
 ### How do I see only dropped packets?
 
@@ -70,7 +68,7 @@ Most common cause on Docker or minimal images: kernel logging modules are missin
 cat /proc/sys/net/netfilter/nf_log/2    # should be nf_log_ipv4, not "none"
 ```
 
-If missing, install `kmod-nf-log-ipv4` / `kmod-nf-log-ipv6`. See [Kernel module check](user/enabling-firewall-logs.md#3-check-kernel-logging-modules-only-if-logs-are-missing).
+If missing, install `kmod-nf-log-ipv4` / `kmod-nf-log-ipv6`. See [Rule matches but `logread` stays empty](fwlive-nft-logging.md#rule-matches-but-logread-stays-empty).
 
 ### Docker rootfs experiment: `nft log` does not work
 

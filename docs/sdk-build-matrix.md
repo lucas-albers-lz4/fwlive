@@ -18,7 +18,7 @@ Cross-build **`luci-app-fwlive`** for multiple OpenWrt releases and CPU targets 
 | **armsr-armv8** | `ghcr.io/openwrt/sdk:armsr-armv8` | `aarch64_generic` |
 | **x86-64** | `ghcr.io/openwrt/sdk:x86-64` | `x86_64` |
 
-**Twelve listed cells** (6 versions × 2 targets); **11 buildable** — `armsr-armv8` + **22.03** has no published SDK image on ghcr.io. Build the `_all` ipk with **`x86-64-22.03.7`** only — see [22.03 compat](openwrt-22.03-compat.md).
+**Twelve listed cells** (6 versions × 2 targets); **11 buildable** — `armsr-armv8` + **22.03** has no published SDK image on ghcr.io. Build the `_all` ipk with **`x86-64-22.03.7`** only — see [22.03 notes](supported-releases.md#2203x-eol).
 
 Each cell uses its **own Docker volume** (separate SDK tree + `.config`). First use runs `./setup.sh` inside the container to download the matching SDK archive.
 

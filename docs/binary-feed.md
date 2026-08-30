@@ -92,59 +92,7 @@ docker-compose-experimental only and is never pulled by the release workflow.
 
 ## User install
 
-### OpenWrt 21.02.x (opkg, legacy fw3)
-
-OpenWrt **21.02 is EOL** — use only if you are stuck on fw3/iptables. Install the **21.02-built** package from this feed (not 23.05+).
-
-```sh
-wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
-opkg-key add /tmp/fwlive.key
-echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/21.02' >> /etc/opkg/customfeeds.conf
-opkg update
-opkg install luci-app-fwlive
-```
-
-See [21.02 compat](openwrt-21.02-compat.md).
-
-### OpenWrt 22.03.x (opkg, EOL)
-
-OpenWrt **22.03 is EOL** — use only if you cannot upgrade to 23.05+ yet.
-
-```sh
-wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
-opkg-key add /tmp/fwlive.key
-echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/22.03' >> /etc/opkg/customfeeds.conf
-opkg update
-opkg install luci-app-fwlive
-```
-
-See [22.03 compat](openwrt-22.03-compat.md).
-
-### OpenWrt 23.05 / 24.10 (opkg)
-
-```sh
-wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
-opkg-key add /tmp/fwlive.key
-echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >> /etc/opkg/customfeeds.conf
-opkg update
-opkg install luci-app-fwlive
-```
-
-Use `…/23.05` for OpenWrt 23.05.
-
-### OpenWrt 25.12+ (apk)
-
-```sh
-wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
-mkdir -p /etc/apk/keys
-cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
-echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb' \
-  >> /etc/apk/repositories.d/fwlive.list
-apk update
-apk add luci-app-fwlive
-```
-
-Menu: **Status → Firewall Live View**.
+For install commands, see the [Installation guide](user/installation.md). This file is the feed and CI reference.
 
 ---
 

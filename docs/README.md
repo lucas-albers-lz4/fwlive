@@ -31,9 +31,7 @@ Build, test, and extend the package from this repository.
 | Document | Topic |
 |----------|-------|
 | [binary-feed.md](binary-feed.md) | Signed opkg/apk feed install |
-| [openwrt-21.02-compat.md](openwrt-21.02-compat.md) | Legacy fw3 / 21.02.x |
-| [openwrt-22.03-compat.md](openwrt-22.03-compat.md) | EOL fw4 / 22.03.x |
-| [openwrt-23.05-compat.md](openwrt-23.05-compat.md) | 23.05.x lab notes |
+| [supported-releases.md](supported-releases.md) | Supported releases, per-release lab notes |
 | [FAQ.md](FAQ.md) | Common questions |
 
 ### Build & validate

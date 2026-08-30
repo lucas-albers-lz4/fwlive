@@ -36,11 +36,11 @@ Host unit tests: `npm test` (runs `./scripts/fwlive-test.sh`). Legacy macOS/docs
 | **25.12.x** | **25.12.5** | firewall4 / nft | `.apk` (`apk`) |
 | **snapshot** | latest | firewall4 / nft | `.apk` (best-effort) |
 
-**Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** is supported but EOL — prefer **23.05+** for new deployments.
+**Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** and **23.05.x** are supported but EOL — prefer **24.10+** for new deployments.
 
 The package is **`_all`** (LuCI JS + shell) — one artifact per OpenWrt release line works on any router architecture.
 
-Details: [Requirements](docs/user/requirements.md) · [21.02 compat](docs/openwrt-21.02-compat.md) · [22.03 compat](docs/openwrt-22.03-compat.md) · [23.05 compat](docs/openwrt-23.05-compat.md)
+Details: [Supported releases](docs/supported-releases.md) · [Requirements](docs/user/requirements.md)
 
 ---
 
@@ -65,6 +65,8 @@ echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
 opkg update && opkg install luci-app-fwlive
 ```
 
+**Full commands:** [Installation guide](docs/user/installation.md).
+
 **After install:** [enable logging](docs/user/enabling-firewall-logs.md#quick-start-after-install) — the table stays empty until you enable logging.
 
 <details>
@@ -81,7 +83,7 @@ echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb'
 apk update && apk add luci-app-fwlive
 ```
 
-More detail: [binary feed](docs/binary-feed.md) · per-release notes in [21.02](docs/openwrt-21.02-compat.md) / [22.03](docs/openwrt-22.03-compat.md) compat docs.
+More detail: [binary feed](docs/binary-feed.md) · [supported releases](docs/supported-releases.md).
 
 **GitHub Releases** — download the package for your OpenWrt version and install manually:
 
