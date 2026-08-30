@@ -113,6 +113,11 @@ Or in `/etc/config/firewall`:
 ```text
 config rule
         option name 'my-forward'
+        option src 'lan'
+        option dest 'wan'
+        option proto 'tcp'
+        option dest_port '443'
+        option target 'ACCEPT'
         option log '1'
 ```
 

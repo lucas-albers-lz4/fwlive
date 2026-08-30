@@ -11,7 +11,7 @@ Install directly from the signed GitHub Pages feed — no manual download.
 | **21.02.x** (legacy fw3) | `opkg` | `…/21.02` |
 | **22.03.x** (EOL) | `opkg` | `…/22.03` |
 | **23.05** / **24.10** | `opkg` | `…/23.05` or `…/24.10` |
-| **25.12+** | `apk` | `…/25.12/all` |
+| **25.12.x** | `apk` | `…/25.12/all` |
 
 **opkg (21.02 – 24.10)** — set the path for your release:
 
@@ -24,7 +24,7 @@ opkg update && opkg install luci-app-fwlive
 
 Use `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x**, `…/21.02` for legacy **21.02.x (fw3)**.
 
-**apk (25.12+):**
+**apk (25.12.x):**
 
 ```sh
 wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
@@ -49,7 +49,7 @@ Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-
 | OpenWrt | Artifact | Package manager |
 |---------|----------|-----------------|
 | **21.02.x** / **22.03.x** / **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg` |
-| **25.12+** | `luci-app-fwlive-*.apk` | `apk` |
+| **25.12.x** | `luci-app-fwlive-*.apk` | `apk` |
 
 The package is **`_all`** — architecture-independent. One `.ipk` or `.apk` per OpenWrt release works on any router (ARM, x86, etc.).
 
@@ -62,7 +62,7 @@ scp luci-app-fwlive_*.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1 opkg install /tmp/luci-app-fwlive_*.ipk
 ```
 
-**OpenWrt 25.12+** (`apk`):
+**OpenWrt 25.12.x** (`apk`):
 
 ```sh
 scp luci-app-fwlive-*.apk root@192.168.1.1:/tmp/
@@ -136,7 +136,7 @@ If you used **Enable logging**, WAN zone `log` stays on across upgrades until yo
 opkg update && opkg install luci-app-fwlive
 ```
 
-**apk (25.12+):**
+**apk (25.12.x):**
 ```sh
 apk update && apk add luci-app-fwlive
 ```
@@ -147,7 +147,7 @@ After upgrade, refresh the LuCI page in your browser (may need a cache-busting h
 
 ```sh
 opkg remove luci-app-fwlive    # 21.02 / 22.03 / 23.05 / 24.10
-apk del luci-app-fwlive        # 25.12+
+apk del luci-app-fwlive        # 25.12.x
 ```
 
 **Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package restores the zone `log` value from before the first time you enabled logging via Live View. If you never used **Enable logging**, uninstall does not change firewall UCI.
