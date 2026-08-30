@@ -70,7 +70,7 @@ to be built against (#137).
 |-------|---------------|
 | [security-model.md](security-model.md) | Trust boundaries, output encoding, untrusted inputs, ACL scope, supply-chain surface |
 | [security-review.md](security-review.md) | Review state — surface coverage, proof class per control, open findings, accepted residuals |
-| [contributing.md](contributing.md) | Workflow, parser sync / codegen, package and version rules, documentation conventions |
+| [contributing.md](contributing.md) | Contributor workflow, parser sync / codegen, package and version rules, documentation conventions (not the agent PR gate — see pr-cycle.md) |
 | [build-and-test.md](build-and-test.md) | Commands, what each gate covers, test caveats |
 | [architecture.md](architecture.md) | Module split, data path, design rationale |
 | [pr-cycle.md](pr-cycle.md) | Agent PR sequence: luna/Bugbot → human → file → CodeRabbit → triage → merge |

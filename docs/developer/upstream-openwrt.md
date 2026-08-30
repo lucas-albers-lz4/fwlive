@@ -86,10 +86,21 @@ Feature branch (not `master`). Subject example:
 - GPG/SSH signing is **not** required; `check_signature` only validates a
   signature if present
 
-Follow [pr-cycle.md](pr-cycle.md) before filing against `openwrt/luci`: run
-luna + Bugbot + human review on the **luci feature branch** (same sequence as
-a fwlive prep PR). CodeRabbit stays on fwlive prep PRs — do not paste bot
-threads into the luci PR; fold code only.
+## Filing sequence (prep → luci)
+
+1. **fwlive prep branch** — full [pr-cycle.md](pr-cycle.md) gate (luna → Bugbot →
+   human → file vs master → CodeRabbit → triage → merge).
+2. **Re-cut** with `./scripts/upstream-cut.sh` from merged master (or from the
+   final prep tip if filing luci before the prep merge).
+3. **Copy + i18n-scan** into the luci feature branch (commands below).
+4. **FormalityCheck commit** on that luci branch.
+5. **Same pr-cycle gate on the luci branch** (luna → Bugbot → human). Skip
+   CodeRabbit unless `openwrt/luci` (or your fork) is configured for it.
+6. File against `openwrt/luci` `master` with product/FormalityCheck prose only —
+   no bot quotes.
+
+CodeRabbit comments stay on the **fwlive** PR. Fold code into the cut; do not
+paste review threads upstream.
 
 ## PR-body answers (do not pre-fix)
 
