@@ -45,7 +45,7 @@ Live View shows **whatever OpenWrt is logging**. Stock configurations log almost
 | Scenario | Useful? |
 |----------|---------|
 | Debug a new port-forward or WAN rule | Yes — watch pass/drop in real time |
-| Make sure that guest/Wi‑Fi isolation works | Yes — filter by interface and source |
+| Guest/Wi‑Fi isolation | Yes — filter by interface and source |
 | Audit intermittent drops | Yes — pause the table, adjust filters, resume |
 | Long-term archival / compliance | No — use remote syslog or dedicated logging |
 
