@@ -99,7 +99,7 @@ fi
 css_js="$OUT/htdocs/luci-static/resources/fwlive/css.js"
 if [ -f "$css_js" ]; then
 	sed -i \
-		's|^\* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$|* Snapshot from the fwlive monorepo. Style source is regenerated upstream of this tree.|' \
+		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Snapshot from the fwlive monorepo. Style source is regenerated upstream of this tree.|' \
 		"$css_js"
 fi
 
