@@ -6,14 +6,14 @@ Most users install from the **[binary feed](#1-binary-feed-recommended)**. It ne
 
 Install directly from the signed GitHub Pages feed — no manual download.
 
-| OpenWrt | Package manager | Feed doc |
-|---------|-----------------|----------|
-| **21.02.x** (legacy fw3) | `opkg` | [Binary feed — 21.02](../binary-feed.md#openwrt-2102x-opkg-legacy-fw3) |
-| **22.03.x** (EOL) | `opkg` | [Binary feed — 22.03](../binary-feed.md#openwrt-2203x-opkg-eol) |
-| **23.05** / **24.10** | `opkg` | [Binary feed — opkg](../binary-feed.md#openwrt-2305--2410-opkg) |
-| **25.12+** | `apk` | [Binary feed — apk](../binary-feed.md#openwrt-2512-apk) |
+| OpenWrt | Package manager | Feed path |
+|---------|-----------------|-----------|
+| **21.02.x** (legacy fw3) | `opkg` | `…/21.02` |
+| **22.03.x** (EOL) | `opkg` | `…/22.03` |
+| **23.05** / **24.10** | `opkg` | `…/23.05` or `…/24.10` |
+| **25.12+** | `apk` | `…/25.12/all` |
 
-**OpenWrt 24.10** example:
+**opkg (21.02 – 24.10)** — set the path for your release:
 
 ```sh
 wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
@@ -22,7 +22,20 @@ echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >>
 opkg update && opkg install luci-app-fwlive
 ```
 
-Use `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x**, `…/21.02` for legacy **21.02.x (fw3)**. For 25.12+, see the apk section in [binary-feed.md](../binary-feed.md).
+Use `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x**, `…/21.02` for legacy **21.02.x (fw3)**.
+
+**apk (25.12+):**
+
+```sh
+wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
+mkdir -p /etc/apk/keys
+cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
+echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb' \
+  >> /etc/apk/repositories.d/fwlive.list
+apk update && apk add luci-app-fwlive
+```
+
+Feed layout and signing keys: [Binary feed](../binary-feed.md).
 
 <details>
 <summary>Other install methods</summary>

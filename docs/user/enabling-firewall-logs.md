@@ -1,8 +1,8 @@
 # Enabling firewall logs
 
-Firewall Live View shows traffic only when **nftables / fw4** writes firewall-shaped lines to **logd**. The UI reads those lines — it does not tap the firewall directly.
+Firewall Live View shows traffic only when **nftables / fw4** writes firewall-shaped lines to **logd**. The UI reads those lines. It does not tap the firewall directly.
 
-**After a fresh install the table is usually empty.** Stock OpenWrt rarely logs traffic until you turn logging on. This guide covers everything from a one-button enable to deep custom configuration.
+**After a fresh install the table is usually empty.** Stock OpenWrt rarely logs traffic until you turn logging on.
 
 ---
 
@@ -13,10 +13,10 @@ Pick one path. Both produce visible traffic within seconds.
 ### Option A — LuCI button (recommended)
 
 1. Open **Status → Firewall Live View**.
-2. If logging is off, read the empty-state / **Before you enable logging** panel, then click **Enable WAN drop/reject logging** (or **Enable logging** on the watch strip).
+2. If logging is off, read the empty-state panel, then click **Enable WAN drop/reject logging** (or **Enable logging** on the watch strip).
 3. Wait for blocked inbound WAN traffic (background scans, rejected probes).
 
-This only sets WAN zone drop/reject logging (same as **Network → Firewall**) — it does not add allow/deny rules. Click **WAN logging on** on the watch strip to turn it off again. Rate limiting uses the OpenWrt default (`10/minute`) unless you already set `log_limit` on the WAN zone.
+This sets WAN zone drop/reject logging only (same as **Network → Firewall**). It does not add allow/deny rules. Click **WAN logging on** on the watch strip to turn it off again. Rate limiting uses the OpenWrt default (`10/minute`) unless you set `log_limit` on the WAN zone.
 
 Screenshot walkthrough: [Using the UI → First visit](using-the-ui.md#first-visit).
 
@@ -27,7 +27,7 @@ Screenshot walkthrough: [Using the UI → First visit](using-the-ui.md#first-vis
 This is the fastest way to see **real** traffic without a synthetic ping test. fw4 adds log rules for **rejected and dropped** packets on that zone:
 
 ```sh
-WAN=$(uci -q show firewall | sed -n "s/^firewall\.\(@zone\[[0-9]*\]\)\.name='wan'$/\1/p" | head -1)
+WAN=$(uci -q show firewall | sed -n "s/^firewall\\.\\(@zone\\[[0-9]*\\]\\)\\.name='wan'$/\\1/p" | head -1)
 if [ -z "$WAN" ]; then
   echo "WAN zone not found in /etc/config/firewall" >&2
   exit 1
@@ -48,7 +48,7 @@ uci commit firewall
 /etc/init.d/firewall reload
 ```
 
-#### 2. Optional — ping test (synthetic pass events)
+#### 2. Optional — confirm the UI with a ping (synthetic pass events)
 
 Useful when WAN is quiet or you want a guaranteed **pass** row:
 
@@ -66,231 +66,23 @@ nft -a list chain inet fw4 input | grep fwlive-ping
 nft delete rule inet fw4 input handle <handle>
 ```
 
-> **Note:** avoid `:` in `log prefix` on the shell — see [Prefix pitfalls](#prefix-pitfalls).
+> **Note:** avoid `:` in `log prefix` on the shell — see [Prefix pitfalls](../fwlive-nft-logging.md).
 
-#### 3. Check kernel logging modules (only if logs are missing)
-
-`nft log` needs netfilter log modules. On minimal images they may be missing — logging fails silently without them.
-
-```sh
-# Should print nf_log_ipv4 (IPv4) and nf_log_ipv6 (IPv6), not "none"
-cat /proc/sys/net/netfilter/nf_log/2
-cat /proc/sys/net/netfilter/nf_log/10
-```
-
-If either shows **`none`** or the path is missing:
-
-```sh
-opkg update
-opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6 2>/dev/null \
-  || opkg install kmod-nf-log kmod-nf-log6
-/etc/init.d/firewall reload
-```
-
----
-
-## What shows up without extra configuration?
-
-| Traffic | Visible on stock image? | How to enable |
-|---------|-------------------------|---------------|
-| WAN inbound **drop / reject** (scans, blocked ports) | No — until zone **`log`** | [Quick start §1](#1-enable-wan-zone-logging-rejected--dropped-inbound) |
-| LAN → WAN **accepted** browsing | No | Rule **`log`** or temporary forward **`log`** rule |
-| Forwarded guest / VLAN **reject** | No — until that zone **`log`** | `option log '1'` on the guest zone |
-| Hits on a **specific** firewall rule | No — until that rule logs | `option log '1'` on the `@rule` |
-| Invalid / malformed packets | No — unless **`drop_invalid`** + logging | See [Defaults and invalid packets](#defaults-and-invalid-packets) |
-
-The Live View empty-state hint about "default WAN drops" means traffic **after you enable zone logging**, not on an untouched factory configuration.
-
----
-
-## Three layers of logging
-
-```mermaid
-flowchart TB
-  A[nft/fw4 rule or zone policy] -->|log target| B[Kernel nf_log]
-  B --> C[logd / logread]
-  C --> D[fwlive poll]
-  D --> E[Firewall Live View]
-```
-
-1. **Kernel (`nf_log`)** — modules must be loaded (`kmod-nf-log-*`). Without them, rules can match but **`logread` stays empty**.
-2. **Zone policy (`option log`)** — fw4 logs **rejected and dropped** traffic for that zone, rate-limited by **`log_limit`**.
-3. **Rule policy (`option log '1'`)** — logs hits on **that** UCI rule (port forward, guest block, etc.).
-
-You combine layers: zone logging for background WAN noise; rule logging when debugging one policy.
-
----
-
-## Zone logging (drops and rejects)
-
-Per-zone options in **`/etc/config/firewall`**:
-
-| Option | Purpose |
-|--------|---------|
-| **`log`** | `1` = log rejected/dropped filter traffic for this zone |
-| **`log_limit`** | Rate cap (default **`10/minute`** on OpenWrt) — always set this on busy zones |
-
-Example — log drops on a **guest** zone too:
-
-```sh
-# Replace @zone[N] with your guest zone section from: uci show firewall | grep name
-uci set firewall.@zone[2].log='1'
-uci set firewall.@zone[2].log_limit='20/minute'
-uci commit firewall
-/etc/init.d/firewall reload
-```
-
-LuCI: **Network → Firewall → Zones → Edit zone → Logging**.
-
-Log lines often use prefixes like **`reject wan in:`** — filter on those in Live View or use **Action → drop**.
-
----
-
-## Rule-level logging (specific policies)
-
-Add logging to the **one rule** you are debugging via UCI or LuCI.
-
-```sh
-# Example: log a named port-forward rule (adjust @rule[N] — uci show firewall | grep name)
-uci set firewall.@rule[10].log='1'
-uci commit firewall
-/etc/init.d/firewall reload
-```
-
-In **`/etc/config/firewall`**:
-
-```text
-config rule
-        option name 'Allow-SSH-WAN'
-        option src 'wan'
-        option dest_port '22'
-        option target 'ACCEPT'
-        option log '1'
-```
-
-**Production tips:**
-
-- Log **accept** on the rule you care about (did the packet match?).
-- Log **drop/reject** on deny rules (why was it blocked?).
-- Use **`option limit`** on hot rules if fw4 supports it on your release.
-- Prefer **`log prefix "my-rule "`** via **`/etc/nftables.d/`** snippets when you need a clear **Rule** column label.
-
----
-
-## Log more traffic (forwarding, accepts, custom chains)
-
-Zone logging does **not** show every **accepted** LAN→WAN session. For that you need explicit **`log`** on nft rules.
-
-### Temporary — observe forwarded traffic (rate-limited)
-
-**Non-terminating** `log` in nftables: the packet keeps traversing the chain. Always use a **limit** on busy chains.
-
-```sh
-nft insert rule inet fw4 forward limit rate 30/minute log prefix "fwlive-fwd "
-```
-
-Generate traffic from LAN (browse, ping 8.8.8.8). Filter quick search: `fwlive-fwd`.
-
-Remove:
-
-```sh
-nft -a list chain inet fw4 forward | grep fwlive-fwd
-nft delete rule inet fw4 forward handle <handle>
-```
-
-### Temporary — log everything on **input** (lab only)
-
-```sh
-nft insert rule inet fw4 input limit rate 30/minute log prefix "fwlive-in "
-```
-
-**Caution:** verbose logging fills **logd** quickly on production routers. Use **`log_limit`** on zones and **`limit rate`** on nft rules. Pause Live View or narrow filters if the table floods.
-
-### Custom chains
-
-Rules in **`/etc/nftables.d/`** or **`/etc/firewall.user`** must include **`log`** (and usually a **`prefix`**) themselves — fwlive only displays what those rules emit. See the [full reference](../fwlive-nft-logging.md) for **`include`** / **`chain-pre`** examples.
-
----
-
-## Defaults and invalid packets
-
-In **`config defaults`**:
-
-| Option | Effect |
-|--------|--------|
-| **`drop_invalid`** | Drop packets not matching conntrack / invalid state |
-| **`log`** (zone-level, not defaults) | — |
-
-Invalid drops are only visible if the **zone** or **rule** that drops them also **logs**. There is no separate global "log all invalid" sysctl.
-
----
-
-## Make sure that logging works before blaming the UI
+## Verify before blaming the UI
 
 ```sh
 logread | grep -E 'SRC=|DST=|PROTO=' | tail
 ubus call fwlive poll '{"addresses":["20"]}' | head -c 500
 ```
 
-If **`logread`** has firewall lines but Live View does not, check LuCI login and that **`luci-app-fwlive`** is installed. If **`logread`** is empty, fix logging on the router first — the UI cannot invent events.
-
-Common pitfalls:
-
-- **`nft add`** at the **end** of **`input`** — LAN traffic jumps to **`input_lan`** first. Use **`nft insert`** at the top for tests.
-- **Loopback ping** (`127.0.0.1`) may bypass your rule — ping the router's LAN IP from another host.
-- Avoid **`:`** inside **`log prefix`** on the shell; use a trailing space (`"fwlive-ping "`) or an **`nft -f`** heredoc.
+If **`logread`** has firewall lines but Live View does not, check LuCI login and that **`luci-app-fwlive`** is installed. If **`logread`** is empty, fix logging on the router first. The UI cannot invent events.
 
 ---
 
-## Prefix pitfalls
+## See also
 
-Avoid **`:`** in the prefix on the shell — OpenWrt ash/nft often strips quotes and then treats the colon as nft syntax. Use a trailing space instead:
+Deep configuration lives in the reference files:
 
-```sh
-# ✅ Works
-nft add rule inet fw4 input tcp dport 9999 log prefix "fwlive-test " drop
-
-# ❌ Likely fails
-nft add rule inet fw4 input tcp dport 9999 log prefix "fwlive-test: " drop
-```
-
-If you need awkward characters, use an nft snippet file:
-
-```sh
-nft -f - <<'EOF'
-add rule inet fw4 input tcp dport 9999 log prefix "fwlive-test: " drop
-EOF
-```
-
----
-
-## iptables / fw3 (21.02.x primary; best-effort on 22.03+)
-
-On **21.02.x** (fw3), iptables LOG is the normal path. On **22.03+**, iptables is unusual (most images use nft).
-
-```sh
-iptables -I INPUT -p icmp --icmp-type echo-request \
-  -j LOG --log-prefix "fwlive-ping: "
-iptables -I INPUT -p icmp --icmp-type echo-request -j ACCEPT
-```
-
-Make sure that `logread | grep fwlive-ping` shows lines. LuCI shows a short **`iptables`** backend label when detected.
-
-Details: **[`../fwlive-iptables-logging.md`](../fwlive-iptables-logging.md)**
-
----
-
-## Lab helper (QEMU / SSH from a PC)
-
-From a machine that can SSH to the router:
-
-```sh
-./scripts/fwlive-nft-ping-log.sh add --ssh
-ssh root@192.168.1.1 'ping -c 5 127.0.0.1'
-```
-
----
-
-## Full reference
-
-Advanced scenarios, Docker lab caveats, IPv6, and parser details: **[`../fwlive-nft-logging.md`](../fwlive-nft-logging.md)**
+- **[fwlive-nft-logging.md](../fwlive-nft-logging.md)** — kernel `nf_log` modules, Docker caveats, custom chains, rule-level logging, prefix pitfalls.
+- **[fwlive-iptables-logging.md](../fwlive-iptables-logging.md)** — iptables / fw3 (21.02.x) LOG reference.
+- **[Using the UI](using-the-ui.md)** — the empty state and watch-strip controls.

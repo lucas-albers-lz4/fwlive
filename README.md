@@ -40,7 +40,7 @@ Host unit tests: `npm test` (runs `./scripts/fwlive-test.sh`). Legacy macOS/docs
 
 The package is **`_all`** (LuCI JS + shell) — one artifact per OpenWrt release line works on any router architecture.
 
-Details: [Requirements](docs/user/requirements.md) · [21.02 compat](docs/openwrt-21.02-compat.md) · [22.03 compat](docs/openwrt-22.03-compat.md) · [23.05 compat](docs/openwrt-23.05-compat.md)
+Details: [Supported releases](docs/supported-releases.md) · [Requirements](docs/user/requirements.md)
 
 ---
 
@@ -52,18 +52,12 @@ Details: [Requirements](docs/user/requirements.md) · [21.02 compat](docs/openwr
 BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
 . /etc/openwrt_release
 feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
-case "$feed" in
-  21.02|22.03|23.05|24.10) ;;
-  *)
-    echo "Release $DISTRIB_RELEASE uses apk — use the OpenWrt 25.12+ commands below" >&2
-    exit 1
-    ;;
-esac
 wget -O /tmp/fwlive.key "$BASE/public.key"
 opkg-key add /tmp/fwlive.key
-echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
-opkg update && opkg install luci-app-fwlive
+# ... then `opkg update && opkg install luci-app-fwlive`
 ```
+
+**Full commands:** [Installation guide](docs/user/installation.md).
 
 **After install:** [enable logging](docs/user/enabling-firewall-logs.md#quick-start-after-install) — the table stays empty until you enable logging.
 
@@ -76,12 +70,10 @@ opkg update && opkg install luci-app-fwlive
 wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
 mkdir -p /etc/apk/keys
 cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
-echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb' \
-  >> /etc/apk/repositories.d/fwlive.list
-apk update && apk add luci-app-fwlive
+# ... then `apk update && apk add luci-app-fwlive`
 ```
 
-More detail: [binary feed](docs/binary-feed.md) · per-release notes in [21.02](docs/openwrt-21.02-compat.md) / [22.03](docs/openwrt-22.03-compat.md) compat docs.
+More detail: [binary feed](docs/binary-feed.md) · [supported releases](docs/supported-releases.md).
 
 **GitHub Releases** — download the package for your OpenWrt version and install manually:
 

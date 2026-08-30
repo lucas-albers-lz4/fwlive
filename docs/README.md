@@ -31,6 +31,7 @@ Build, test, and extend the package from this repository.
 | Document | Topic |
 |----------|-------|
 | [binary-feed.md](binary-feed.md) | Signed opkg/apk feed install |
+<<<<<<< HEAD
 | [openwrt-21.02-compat.md](openwrt-21.02-compat.md) | Legacy fw3 / 21.02.x |
 | [openwrt-22.03-compat.md](openwrt-22.03-compat.md) | EOL fw4 / 22.03.x |
 | [openwrt-23.05-compat.md](openwrt-23.05-compat.md) | 23.05.x lab notes |
@@ -40,6 +41,9 @@ Build, test, and extend the package from this repository.
 
 | Document | Topic |
 |----------|-------|
+=======
+| [supported-releases.md](supported-releases.md) | Supported releases, per-release lab notes |
+>>>>>>> 09176e0 (docs(concise): DRY install, compat fold, trim enabling-firewall-logs, split shared controls)
 | [fwlive-acceptance.md](fwlive-acceptance.md) | Sign-off criteria |
 | [fwlive-ui-design-target.md](fwlive-ui-design-target.md) | UI module map |
 | [ROADMAP.md](ROADMAP.md) | Roadmap, milestones & backlog |
