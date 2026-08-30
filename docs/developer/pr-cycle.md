@@ -92,8 +92,8 @@ the luci tree or the FormalityCheck commit.
 - Before filing against `openwrt/luci`, run **this same sequence** on the luci
   feature branch (luna + Bugbot + human). Skip CodeRabbit there unless that
   repo is configured for it.
-- File the luci PR with product/FormalityCheck prose only — no bot quotes, no
-  “per CodeRabbit” trailers.
+- File the luci PR with product/FormalityCheck prose only — no fwlive bot
+  quotes, no “per CodeRabbit” trailers.
 
 See [upstream-openwrt.md](upstream-openwrt.md).
 
