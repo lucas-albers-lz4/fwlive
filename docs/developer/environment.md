@@ -2,8 +2,6 @@
 
 Canonical setup: **Linux x86_64** build host, cross-compile for OpenWrt, test in **QEMU** (x86 KVM fast path or armsr production path).
 
-See: [`../dev-environment.md`](../dev-environment.md) (stub note redirecting to this guide).
-
 ## Roles
 
 | Role | Architecture | Notes |

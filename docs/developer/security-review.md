@@ -1,5 +1,11 @@
 # Security review state
 
+> **Status:** 26 controls in force; 0 open findings.
+> **Last review:** 2026-08-23.
+> **Open:** none.
+> **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
+> **How to verify:** `./scripts/fwlive-test.sh`, then `.cursor/skills/security-audit/SKILL.md`. Values current as of this PR.
+
 What has been reviewed, when, with what strength of proof, and what is still
 open. This document is the **record**; it owns no rules.
 

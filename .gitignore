@@ -6,6 +6,9 @@
 /firewall4/
 core.legacy/
 
+# Wave working checkouts (sibling pattern; not tracked)
+wave/
+
 # --- Disk / VM images (large binaries) ---
 /lab/images/
 *.img

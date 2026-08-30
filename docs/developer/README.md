@@ -25,25 +25,52 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 
 ## Deep-dive references
 
+### Plan
+
 | Topic | Document |
 |-------|----------|
 | UI design target & OPNsense parity | [`../fwlive-ui-design-target.md`](../fwlive-ui-design-target.md) |
 | Roadmap & development plan | [`../ROADMAP.md`](../ROADMAP.md) |
 | Acceptance criteria | [`../fwlive-acceptance.md`](../fwlive-acceptance.md) |
+| Agent orientation (invariants, commands) | [`../../AGENTS.md`](../../AGENTS.md) |
+
+### Build
+
+| Topic | Document |
+|-------|----------|
 | Event schema | [`../openwrt-fwlive-schema.md`](../openwrt-fwlive-schema.md) |
 | SDK version matrix | [`../sdk-build-matrix.md`](../sdk-build-matrix.md) |
+| Feed layout (no submodule split) | [architecture.md § Feed layout decision](architecture.md#feed-layout-decision) |
+
+### Validate
+
+| Topic | Document |
+|-------|----------|
 | Validation matrix | [`../validation-matrix.md`](../validation-matrix.md) |
 | QEMU lab (x86 + armsr) | [qemu-lab.md](qemu-lab.md) |
+<<<<<<< HEAD
 | Roadmap | [`../ROADMAP.md`](../ROADMAP.md) |
 | Publish checklist | [`../github-publish-checklist.md`](../github-publish-checklist.md) |
 | Agent PR cycle (luna → Bugbot → human → file → CodeRabbit) | [pr-cycle.md](pr-cycle.md) |
 | Upstream to `openwrt/luci` | [upstream-openwrt.md](upstream-openwrt.md) |
 | CodeRabbit protocol | [coderabbit.md](coderabbit.md) |
 | Feed layout (no submodule split) | [architecture.md § Feed layout decision](architecture.md#feed-layout-decision) |
+=======
+
+### Secure
+
+| Topic | Document |
+|-------|----------|
+>>>>>>> 8397bc8 (docs(hygiene): wave ignore, remove stub, group indexes, add security-review header)
 | Trust boundaries & security invariants | [security-model.md](security-model.md) |
 | Z3 verification (host/CI; #120/#121) | [z3-verification.md](z3-verification.md) |
 | Security review state (coverage, proofs, open findings) | [security-review.md](security-review.md) |
-| Agent orientation (invariants, commands) | [`../../AGENTS.md`](../../AGENTS.md) |
+
+### Publish
+
+| Topic | Document |
+|-------|----------|
+| Publish checklist | [`../github-publish-checklist.md`](../github-publish-checklist.md) |
 
 ## User documentation
 

@@ -26,13 +26,20 @@ Build, test, and extend the package from this repository.
 
 ## Reference (deep dives)
 
+### User
+
 | Document | Topic |
 |----------|-------|
-| [developer/security-model.md](developer/security-model.md) | Trust boundaries, security invariants, audit procedure |
 | [binary-feed.md](binary-feed.md) | Signed opkg/apk feed install |
 | [openwrt-21.02-compat.md](openwrt-21.02-compat.md) | Legacy fw3 / 21.02.x |
 | [openwrt-22.03-compat.md](openwrt-22.03-compat.md) | EOL fw4 / 22.03.x |
 | [openwrt-23.05-compat.md](openwrt-23.05-compat.md) | 23.05.x lab notes |
+| [FAQ.md](FAQ.md) | Common questions |
+
+### Build & validate
+
+| Document | Topic |
+|----------|-------|
 | [fwlive-acceptance.md](fwlive-acceptance.md) | Sign-off criteria |
 | [fwlive-ui-design-target.md](fwlive-ui-design-target.md) | UI module map |
 | [ROADMAP.md](ROADMAP.md) | Roadmap, milestones & backlog |
@@ -41,8 +48,13 @@ Build, test, and extend the package from this repository.
 | [sdk-build-matrix.md](sdk-build-matrix.md) | SDK versions & targets |
 | [validation-matrix.md](validation-matrix.md) | QEMU validation scripts |
 | [opnsense-liveview-parity.md](opnsense-liveview-parity.md) | Parity matrix |
+
+### Security & release
+
+| Document | Topic |
+|----------|-------|
+| [developer/security-model.md](developer/security-model.md) | Trust boundaries, security invariants, audit procedure |
 | [github-publish-checklist.md](github-publish-checklist.md) | Pre-publish checks |
 | [CHANGELOG.md](../CHANGELOG.md) | Release history |
-| [FAQ.md](FAQ.md) | Common questions |
 
-`docs/dev-environment.md` is a stub note — see the [Developer guide → Environment](developer/environment.md) instead.
+`docs/dev-environment.md` was consolidated into [Developer guide — Environment](developer/environment.md).
