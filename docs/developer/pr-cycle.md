@@ -13,17 +13,18 @@ a half-ready branch. Do not merge on CI-green alone.
 
 ## Non-trivial vs trivial
 
-**Trivial** (CI green + light self-review is enough):
+**Trivial** (CI green + light self-review is enough) — **single-file** only:
 
 - Docs-only typos, badge/link/metadata, single-line comment, pure formatting
   with no logic change
 - Housekeeping (license badge, topics, changelog date bumps)
 
-**Non-trivial** (full sequence below):
+**Non-trivial** (full sequence below) — multi-file **overrides** trivial:
 
 - Any new/changed logic, scripts, tests, CI workflows, schemas, OpenWrt
   feed/package files, or config
-- Multi-file features or refactors
+- Multi-file changes (including multi-file documentation)
+- New owner docs / process docs
 
 If unsure, treat as non-trivial.
 
@@ -75,6 +76,8 @@ Rules:
   against the code / real API — a suggested fix can be wrong.
 - Human `REQUEST_CHANGES` / substantive inline comments **outrank** bot
   comments.
+- Unresolved human `REQUEST_CHANGES` or substantive human review comments
+  **block merge**, same as unresolved `CONFIRMED` bot findings.
 - A bare bot comment does not block merge by itself; unresolved `CONFIRMED`
   bot findings do not merge clean.
 
@@ -100,4 +103,5 @@ See [upstream-openwrt.md](upstream-openwrt.md).
 - Ping CodeRabbit during steps 1–5
 - Merge non-trivial work on CI-green alone
 - Treat plan mode as a substitute for the gates above
-- Leave unresolved `CONFIRMED` findings or an un-triaged review thread
+- Merge with unresolved human `REQUEST_CHANGES` / substantive human comments,
+  unresolved `CONFIRMED` findings, or an un-triaged review thread

@@ -15,10 +15,12 @@ and do **not** treat plan-mode execution as a substitute for the gates below.
 ## Non-trivial (full gate)
 
 Any new/changed logic, scripts, tests, CI, schemas, feed/package files, or
-multi-file work. If unsure, treat as non-trivial.
+config; multi-file changes (including multi-file docs); new owner docs. If
+unsure, treat as non-trivial. Multi-file **overrides** the trivial list.
 
-**Trivial** (CI + light self-review): docs typos, badges/links/metadata,
-single-line comments, pure formatting, changelog date bumps.
+**Trivial** (CI + light self-review) — **single-file** only: docs typos,
+badges/links/metadata, single-line comments, pure formatting, changelog date
+bumps.
 
 ## Sequence (non-trivial)
 
@@ -37,6 +39,7 @@ single-line comments, pure formatting, changelog date bumps.
 
 - File against master before luna + Bugbot + human review
 - Ping CodeRabbit before step 6
-- Merge with unresolved `CONFIRMED` findings or an un-triaged thread
-- Paste CodeRabbit threads into an `openwrt/luci` PR — fold code only
+- Merge with unresolved human `REQUEST_CHANGES` / substantive human comments,
+  unresolved `CONFIRMED` bot findings, or an un-triaged thread
+- Paste **fwlive** CodeRabbit threads into an `openwrt/luci` PR — fold code only
   ([upstream-openwrt.md](../../docs/developer/upstream-openwrt.md))

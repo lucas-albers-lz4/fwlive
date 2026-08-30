@@ -6,9 +6,10 @@ fragmented re-reviews, no findings landing after the gate was declared green.
 
 **Ordering:** CodeRabbit runs **after** luna/Bugbot and human review, and
 **after** the GitHub PR is filed — see [pr-cycle.md](pr-cycle.md). Do not
-`@coderabbitai review` on a branch that has not passed that gate. Bot comments
-never go into an `openwrt/luci` PR; fold code only
-([upstream-openwrt.md](upstream-openwrt.md)).
+`@coderabbitai review` on a branch that has not passed that gate. **fwlive**
+CodeRabbit comments never go into an `openwrt/luci` PR; fold code only
+([upstream-openwrt.md](upstream-openwrt.md)). (If luci itself is configured
+for CodeRabbit, that is separate — do not paste this repo’s review threads.)
 
 ## How the repo is configured
 
