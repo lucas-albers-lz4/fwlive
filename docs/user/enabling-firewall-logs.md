@@ -80,10 +80,64 @@ If **`logread`** has firewall lines but Live View does not, check LuCI login and
 
 ---
 
+## Beyond WAN drops
+
+WAN zone logging shows **rejected and dropped** traffic only. Other traffic needs more UCI or temporary nft rules.
+
+| Traffic | Visible with WAN zone log alone? | What to add |
+|---------|----------------------------------|-------------|
+| LAN → WAN **accepted** browsing | No | Rule **`log`** or temporary forward **`log`** |
+| Guest / VLAN **reject** | No until that zone logs | `option log '1'` on the guest zone |
+| Hits on a **specific** rule | No until that rule logs | `option log '1'` on the `@rule` |
+
+### Guest zone drops
+
+```sh
+# Replace @zone[N] — uci show firewall | grep name=
+uci set firewall.@zone[N].log='1'
+uci commit firewall
+/etc/init.d/firewall reload
+```
+
+### Rule-level logging (specific policies)
+
+```sh
+# Adjust @rule[N] — uci show firewall | grep name=
+uci set firewall.@rule[N].log='1'
+uci commit firewall
+/etc/init.d/firewall reload
+```
+
+Or in `/etc/config/firewall`:
+
+```
+config rule
+        option name 'my-forward'
+        option log '1'
+```
+
+### Temporary — observe forwarded traffic
+
+```sh
+nft insert rule inet fw4 forward limit rate 30/minute log prefix "fwlive-fwd "
+```
+
+Remove when finished:
+
+```sh
+nft -a list chain inet fw4 forward | grep fwlive-fwd
+nft delete rule inet fw4 forward handle <handle>
+```
+
+Kernel modules, Docker caveats, and custom chains:
+[fwlive-nft-logging.md](../fwlive-nft-logging.md).
+
+---
+
 ## See also
 
 Deep configuration lives in the reference files:
 
-- **[fwlive-nft-logging.md](../fwlive-nft-logging.md)** — kernel `nf_log` modules, Docker caveats, custom chains, rule-level logging, prefix pitfalls.
+- **[fwlive-nft-logging.md](../fwlive-nft-logging.md)** — kernel `nf_log` modules, Docker caveats, custom chains, prefix pitfalls.
 - **[fwlive-iptables-logging.md](../fwlive-iptables-logging.md)** — iptables / fw3 (21.02.x) LOG reference.
 - **[Using the UI](using-the-ui.md)** — the empty state and watch-strip controls.

@@ -24,7 +24,7 @@ Yes. The package is **`_all`** (architecture-independent LuCI JS + shell) — on
 
 ### Why do I not see my LAN browsing traffic?
 
-Zone logging only logs **rejected and dropped** traffic on that zone. Normal LAN→WAN accepted traffic does not appear unless you add explicit **`log`** rules. See [Rule-level logging](fwlive-nft-logging.md#fw4--uci-persistent).
+Zone logging only logs **rejected and dropped** traffic on that zone. Normal LAN→WAN accepted traffic does not appear unless you add explicit **`log`** rules. See [Beyond WAN drops](user/enabling-firewall-logs.md#beyond-wan-drops).
 
 ### How do I see only dropped packets?
 

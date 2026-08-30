@@ -52,6 +52,13 @@ Details: [Supported releases](docs/supported-releases.md) · [Requirements](docs
 BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
 . /etc/openwrt_release
 feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
+case "$feed" in
+  21.02|22.03|23.05|24.10) ;;
+  *)
+    echo "Release $DISTRIB_RELEASE uses apk — use the OpenWrt 25.12+ commands below" >&2
+    exit 1
+    ;;
+esac
 wget -O /tmp/fwlive.key "$BASE/public.key"
 opkg-key add /tmp/fwlive.key
 echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf

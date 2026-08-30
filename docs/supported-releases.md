@@ -71,7 +71,9 @@ Build and validate:
 
 ```sh
 ./scripts/docker-sdk.sh build --target armsr-armv8 --version 23.05
-./scripts/validate-openwrt.sh --version 23.05 --qemu-target armsr
+./scripts/validate-openwrt.sh --version 23.05
+# default: x86_64 + KVM (fast). Production-shaped target:
+# ./scripts/validate-openwrt.sh --version 23.05 --qemu-target armsr
 ```
 
 ## 24.10.x, 25.12.x, snapshot

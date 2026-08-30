@@ -5,13 +5,8 @@
 | Item | Detail |
 |------|--------|
 | **OpenWrt (primary)** | **23.05+** — firewall4/nft default |
-<<<<<<< HEAD
-| **OpenWrt (22.03.x)** | **22.03.x** — firewall4/nft; **EOL** — lab-tested on 22.03.7 x86 — see [22.03 compat](../openwrt-22.03-compat.md) |
-| **OpenWrt (legacy fw3)** | **21.02.x** — fw3/iptables primary; EOL release, lab-tested on 21.02.7 x86 — see [21.02 compat](../openwrt-21.02-compat.md) |
-=======
-| **OpenWrt (22.03.x)** | **22.03.x** — firewall4/nft; **EOL** — lab-validated on 22.03.7 x86 — see [supported releases](../supported-releases.md) |
-| **OpenWrt (legacy fw3)** | **21.02.x** — fw3/iptables primary; EOL release, lab-validated on 21.02.7 x86 — see [supported releases](../supported-releases.md) |
->>>>>>> 3894f1f (docs(concise): fold Grok/Luna review findings)
+| **OpenWrt (22.03.x)** | **22.03.x** — firewall4/nft; **EOL** — lab-tested on 22.03.7 x86 — see [supported releases](../supported-releases.md) |
+| **OpenWrt (legacy fw3)** | **21.02.x** — fw3/iptables primary; EOL release, lab-tested on 21.02.7 x86 — see [supported releases](../supported-releases.md) |
 | **Not supported** | Releases before 21.02 |
 | **Firewall (22.03+)** | **firewall4** / nftables — default on supported modern images (22.03 is EOL) |
 | **Firewall (21.02.x)** | **fw3 / iptables** — `-j LOG` or UCI `option log '1'` on rules you want visible |
