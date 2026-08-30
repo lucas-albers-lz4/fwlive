@@ -1,54 +1,48 @@
 ---
-description: Before merging a PR in an agent-driven Cursor cycle, default to a luna-or-grok review + Bugbot, and triage external review comments
+description: Before merging a PR in an agent-driven Cursor cycle, default to luna-or-grok + Bugbot, human review before filing, CodeRabbit last
 alwaysApply: true
 ---
 
-# PR cycle: reviewer (luna/grok) + Bugbot before merge (Cursor, plan-mode aware)
+# PR cycle: luna/Bugbot → human → file → CodeRabbit → merge
 
-In agent-driven PR cycles run from **Cursor**, do **not** merge on CI-green alone.
-Even though cursor work normally runs under **plan mode**, plan-mode execution does
-**not** satisfy the merge gate — the reviewer + Bugbot pass still applies before merging.
-Default to **two independent gates** before merge:
+**Owner:** [docs/developer/pr-cycle.md](../../docs/developer/pr-cycle.md).
+Upstream luci filing: [docs/developer/upstream-openwrt.md](../../docs/developer/upstream-openwrt.md).
+CodeRabbit mechanics: [docs/developer/coderabbit.md](../../docs/developer/coderabbit.md).
 
-1. A **review** by **luna** (preferred) — or **grok** as the alternative reviewer.
-2. **Bugbot** on branch changes.
+In agent-driven PR cycles from **Cursor**, do **not** merge on CI-green alone
+and do **not** treat plan-mode execution as a substitute for the gates below.
 
-## When this applies
+## Non-trivial (full gate)
 
-- You are creating or merging a PR in an agent-driven cycle (create → CI → gate → merge) from Cursor.
-- Applies whether or not the cycle ran under plan mode.
-- The change is **non-trivial** (below).
+Any new/changed logic, scripts, tests, CI, schemas, feed/package files, or
+configuration; multi-file changes (including multi-file docs); new owner docs.
+If unsure, treat as non-trivial. Multi-file **overrides** the trivial list.
 
-## Non-trivial vs trivial
+**Trivial** (CI + light self-review) — **single-file** only: docs typos,
+badges/links/metadata, single-line comments, pure formatting, license badge,
+topics, changelog date bumps. Full list: [pr-cycle.md](../../docs/developer/pr-cycle.md).
 
-**Trivial** (may merge after CI green + a light self-review):
+## Sequence (non-trivial)
 
-- Docs-only typos, badge/link/metadata, single-line comment, pure formatting with no logic change
-- Housekeeping like license badge, topics, changelog date bumps
-
-**Non-trivial** (reviewer + Bugbot **required** before merge):
-
-- Any new/changed logic, scripts, tests, CI workflows, schemas, OpenWrt feed/package files, or config
-- Multi-file features or refactors
-
-If unsure, treat as non-trivial.
-
-## Required sequence (non-trivial)
-
-1. Open or update the PR; wait for **CI** to go green (required checks present AND passing — a rollup missing expected jobs is not green).
-2. Ensure the PR head branch is checked out locally.
-3. Run a **review** with **luna** (preferred) or **grok** (alternative) on **branch changes** (merge-base vs the default base).
-4. Run **Bugbot** via the `review-bugbot` skill / `bugbot` subagent on **branch changes**.
-5. If the reviewer or Bugbot reports findings: **fix them** (or explicitly document why each is a false positive), push, re-run once after substantive fixes.
-6. Triage external review comments on the PR before merge:
-   - Pull the thread (`gh api repos/{owner}/{repo}/pulls/<n>/comments --paginate`, `<n>/reviews`, issue comments) and classify each: `CONFIRMED` (fix it), `DISMISS` (document why it's a false positive), or `FOLD` (already addressed / duplicate).
-   - Do **not** auto-apply a CodeRabbit-suggested fix without ground-truthing it against the code / real API — a suggested fix can be wrong.
-   - Human `REQUEST_CHANGES` / substantive inline comments **outrank** bot comments. A bare bot comment doesn't block merge by itself, but unresolved `CONFIRMED` bot findings do not merge clean.
-7. Only then merge (`gh pr merge` with the repo's usual strategy).
+1. Implement on a feature branch — **no** `gh pr create` yet.
+2. **Luna** (preferred) or **grok** on branch changes (merge-base vs default base).
+3. **Bugbot** on branch changes (`review-bugbot` / `bugbot` subagent).
+4. Fix `CONFIRMED` findings; re-run once after substantive fixes.
+5. **Stop for human review** of the branch.
+6. **File** the PR vs `master` (`gh pr create`). Keep it draft until final
+   (see coderabbit.md).
+7. **Then** CodeRabbit (Ready or `@coderabbitai review`). Wait for the round;
+   batch fixes; do not declare green mid-round.
+8. Triage thread (`CONFIRMED` / `DISMISS` / `FOLD`); ground-truth bot suggestions.
+9. Wait until required checks are present and passing.
+10. Merge (`gh pr merge`).
 
 ## Do not
 
-- Merge a non-trivial PR on CI-green alone — default to the luna-or-grok review + Bugbot regardless of plan mode.
-- Treat plan-mode execution as a substitute for the reviewer + Bugbot gates.
-- Merge with unresolved `CONFIRMED` bot/CodeRabbit findings or an un-triaged review-comment thread.
-- Rely on AGENTS.md alone for this gate — this Cursor rule is the merge-cycle source of truth.
+- File against master before luna + Bugbot + human review
+- Ping CodeRabbit before step 6
+- Merge when required checks are missing or failing
+- Merge with unresolved human `REQUEST_CHANGES` / substantive human comments,
+  unresolved `CONFIRMED` bot findings, or an un-triaged thread
+- Paste **fwlive** CodeRabbit threads into an `openwrt/luci` PR — apply code
+  only ([upstream-openwrt.md](../../docs/developer/upstream-openwrt.md))

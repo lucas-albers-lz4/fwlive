@@ -73,15 +73,17 @@ Alternatives (not primary):
 
 ### Upstream cut into `openwrt/luci`
 
-Run [`scripts/upstream-cut.sh`](../scripts/upstream-cut.sh) to produce the PR-ready tree. It splits `openwrt-feed/luci-app-fwlive/` via `git subtree split` (real files, package-only history, no gitlinks), rewrites the Makefile include and package README / GENERATED comments, drops `po/{de,ru,zh_Hans}` and `fwlive.css` (first luci PR is `.pot` only; view loads `css.js`), and verifies the result. Output: `out/upstream/luci-app-fwlive/`. Keep feed `.po` files in this monorepo for the binary feed.
+**Owner:** [developer/upstream-openwrt.md](developer/upstream-openwrt.md)
+(target tree, cut script, FormalityCheck, Weblate, PR-body answers).
+Review order before filing: [developer/pr-cycle.md](developer/pr-cycle.md).
 
-Then, to open the upstream PR:
+Checklist:
 
-- [ ] Copy `out/upstream/luci-app-fwlive/` into `luci/applications/luci-app-fwlive/` in a `openwrt/luci` fork
-- [ ] Makefile include is already `include ../../luci.mk` (script rewrites it; feed path stays as-is in this monorepo)
-- [ ] Package `README.md` links point at GitHub (script rewrites monorepo `docs/` paths; they die after the copy)
-- [ ] Refresh `po/templates/luci-app-fwlive.pot` with luci `./build/i18n-scan.pl applications/luci-app-fwlive` (same commit); copy `.pot` back here and `msgmerge` feed `.po` files
-- [ ] State Apache-2.0 in the PR body (`PKG_LICENSE` is already set; no `PKG_LICENSE_FILES` needed to match peer LuCI apps)
+- [ ] `./scripts/upstream-cut.sh` → `out/upstream/luci-app-fwlive/`
+- [ ] Copy into `luci/applications/luci-app-fwlive/` on a feature branch
+- [ ] `./build/i18n-scan.pl` refresh of `.pot` (same luci commit); copy back + `msgmerge` feed `.po`
+- [ ] FormalityCheck commit (Signed-off-by, body ≤100 cols, linked GitHub email)
+- [ ] State Apache-2.0 in the PR body; do not paste CodeRabbit threads upstream
 
 ## Package conventions (verified)
 

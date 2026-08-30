@@ -4,6 +4,15 @@ This repo runs CodeRabbit as an automated PR reviewer. The protocol below keeps
 review cycles efficient — one coherent review round over a stable diff, no
 fragmented re-reviews, no findings landing after the gate was declared green.
 
+**Ordering:** CodeRabbit runs **after** luna/Bugbot and human review, and
+**after** the GitHub PR is filed — see [pr-cycle.md](pr-cycle.md). Do not
+`@coderabbitai review` on a branch that has not passed that gate.
+
+**Upstream scope:** **fwlive** CodeRabbit comments never go into an
+`openwrt/luci` PR; apply code only
+([upstream-openwrt.md](upstream-openwrt.md)). If luci itself is configured for
+CodeRabbit, that is separate — do not paste this repo’s review threads.
+
 ## How the repo is configured
 
 `.coderabbit.yaml` sets `auto_review.drafts: false`. Consequences:
