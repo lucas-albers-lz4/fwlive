@@ -41,9 +41,20 @@ move. The signed binary / `src-link` feed stays for non-snapshot users.
 
 ## Luci-shaped copy + POT
 
+Paths below assume the fwlive monorepo and an `openwrt/luci` checkout as
+siblings (adjust if yours differ):
+
 ```sh
-# In an openwrt/luci checkout:
-cp -a out/upstream/luci-app-fwlive/. applications/luci-app-fwlive/
+FWLIVE=/path/to/fwlive
+LUCI=/path/to/luci
+
+"$FWLIVE/scripts/upstream-cut.sh"
+rm -rf "$LUCI/applications/luci-app-fwlive"
+mkdir -p "$LUCI/applications/luci-app-fwlive"
+cp -a "$FWLIVE/out/upstream/luci-app-fwlive/." \
+  "$LUCI/applications/luci-app-fwlive/"
+
+cd "$LUCI"
 ./build/i18n-scan.pl applications/luci-app-fwlive \
   > applications/luci-app-fwlive/po/templates/luci-app-fwlive.pot
 ```
@@ -75,9 +86,10 @@ Feature branch (not `master`). Subject example:
 - GPG/SSH signing is **not** required; `check_signature` only validates a
   signature if present
 
-Follow [pr-cycle.md](pr-cycle.md) before filing against `openwrt/luci`
-(luna + Bugbot + human on the luci branch; CodeRabbit on fwlive prep only —
-do not paste bot threads into the luci PR).
+Follow [pr-cycle.md](pr-cycle.md) before filing against `openwrt/luci`: run
+luna + Bugbot + human review on the **luci feature branch** (same sequence as
+a fwlive prep PR). CodeRabbit stays on fwlive prep PRs — do not paste bot
+threads into the luci PR; fold code only.
 
 ## PR-body answers (do not pre-fix)
 
