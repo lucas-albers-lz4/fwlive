@@ -13,7 +13,8 @@ Pick one path. Both produce visible traffic within seconds.
 ### Option A — LuCI button (recommended)
 
 1. Open **Status → Firewall Live View**.
-2. If logging is off, read the empty-state panel, then click **Enable WAN drop/reject logging** (or **Enable logging** on the watch strip).
+2. If logging is off, read the empty-state panel.
+   Then click **Enable WAN drop/reject logging** (or **Enable logging** on the watch strip).
 3. Wait for blocked inbound WAN traffic (background scans, rejected probes).
 
 This sets WAN zone drop/reject logging only (same as **Network → Firewall**). It does not add allow/deny rules. Click **WAN logging on** on the watch strip to turn it off again. Rate limiting uses the OpenWrt default (`10/minute`) unless you set `log_limit` on the WAN zone.
