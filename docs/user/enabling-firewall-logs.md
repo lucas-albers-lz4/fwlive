@@ -1,6 +1,6 @@
 # Enabling firewall logs
 
-Firewall Live View shows traffic only when **nftables / fw4** writes firewall-shaped lines to **logd**. The UI reads those lines. It does not tap the firewall directly.
+Firewall Live View shows traffic only when the firewall writes firewall-shaped lines to **logd** — via **nftables / fw4** on 22.03+, or via **iptables LOG / fw3** on 21.02.x. The UI reads those lines. It does not tap the firewall directly.
 
 **After a fresh install the table is usually empty.** Stock OpenWrt rarely logs traffic until you turn logging on.
 
@@ -110,7 +110,7 @@ uci commit firewall
 
 Or in `/etc/config/firewall`:
 
-```
+```text
 config rule
         option name 'my-forward'
         option log '1'

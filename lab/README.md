@@ -16,7 +16,7 @@
   RELEASE=21.02.7 ./scripts/download-openwrt-x86-64.sh
   ```
 
-  **Version validation:** [22.03 compat](../docs/openwrt-22.03-compat.md) · `./scripts/validate-openwrt-22.03.sh` · [23.05 compat](../docs/openwrt-23.05-compat.md) · `./scripts/validate-openwrt-23.05.sh` · [21.02 compat](../docs/openwrt-21.02-compat.md)
+  **Version validation:** [supported releases](../docs/supported-releases.md) · `./scripts/validate-openwrt-22.03.sh` · `./scripts/validate-openwrt-23.05.sh` · `./scripts/validate-openwrt.sh --version 21.02`
 
 - `lab/images/openwrt-x64.img` — x86_64 (future; download from `targets/x86/64/` when needed)
 - `lab/images/opnsense-amd64.img` — optional reference VM

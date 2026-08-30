@@ -24,9 +24,9 @@ Run the checks again after changes — see [Build & test](developer/build-and-te
 | **23.05.5** | ✓ (same `_all` ipk) | armsr/armv8 | Same package; TCG QEMU boot slow — not re-signed in lab |
 | **snapshot** | ✓ matrix | — | Best-effort; not formally signed off |
 
-**Production target:** armsr **24.10.8**. **23.05.5** and **22.03.7** supported — see [`openwrt-23.05-compat.md`](openwrt-23.05-compat.md) and [`openwrt-22.03-compat.md`](openwrt-22.03-compat.md).
+**Production target:** armsr **24.10.8**. **23.05.5** and **22.03.7** supported (EOL) — see [supported releases](supported-releases.md#2305x) and [22.03 notes](supported-releases.md#2203x-eol).
 
-**iptables LOG (issue #7):** On **21.02.x**, iptables LOG is the **primary** path (lab sign-off on 21.02.7 x86). On **22.03+**, **firewall4/nft** is the supported path; **iptables LOG** is best-effort when iptables is present without nft — fixture-tested. See [`openwrt-21.02-compat.md`](openwrt-21.02-compat.md).
+**iptables LOG (issue #7):** On **21.02.x**, iptables LOG is the **primary** path (lab sign-off on 21.02.7 x86). On **22.03+**, **firewall4/nft** is the supported path; **iptables LOG** is best-effort when iptables is present without nft — fixture-tested. See [21.02 notes](supported-releases.md#2102x-legacy-fw3).
 
 Build: see [SDK build matrix](sdk-build-matrix.md) for the full command reference.
 

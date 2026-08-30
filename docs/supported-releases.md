@@ -6,12 +6,12 @@ One table of record for which OpenWrt releases `luci-app-fwlive` runs on. Per-re
 |---------|-----------------|----------------|----------------|
 | **21.02.x** | **21.02.7** | fw3 / iptables (legacy, EOL) | `.ipk` (`opkg`) |
 | **22.03.x** | **22.03.7** | firewall4 / nft (EOL) | `.ipk` (`opkg`) |
-| **23.05.x** | **23.05.5** | firewall4 / nft | `.ipk` (`opkg`) |
+| **23.05.x** | **23.05.5** | firewall4 / nft (EOL) | `.ipk` (`opkg`) |
 | **24.10.x** | **24.10.8** | firewall4 / nft | `.ipk` (`opkg`) |
 | **25.12.x** | **25.12.5** | firewall4 / nft | `.apk` (`apk`) |
 | **snapshot** | latest | firewall4 / nft | `.apk` (best-effort) |
 
-**Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** is supported but EOL — prefer **23.05+** for new deployments.
+**Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** and **23.05.x** are supported but EOL — prefer **24.10+** for new deployments.
 
 Install commands: [Installation guide](user/installation.md). Requirements: [Requirements](user/requirements.md).
 
@@ -45,7 +45,7 @@ UCI: `option log '1'` on `@rule` entries where supported.
 
 ## 22.03.x (EOL)
 
-**Status:** Supported on **22.03.7**. OpenWrt 22.03 is EOL — upgrade to **23.05+** for new deployments.
+**Status:** Supported on **22.03.7**. OpenWrt 22.03 is EOL — upgrade to **24.10+** for new deployments.
 
 - Same firewall4/nft era as 23.05 — one feed, one JS view, one parser.
 - SDK note: `ghcr.io/openwrt/sdk:armsr-armv8-22.03.7` is not published. Build the `_all` ipk with **`x86-64-22.03.7`** (or extract the SDK tarball manually).
@@ -61,7 +61,7 @@ Build and validate:
 
 ## 23.05.x
 
-**Status:** Supported on **23.05.5**.
+**Status:** Supported (EOL) on **23.05.5**. OpenWrt 23.05 is EOL — prefer **24.10+** for new deployments.
 
 - firewall4/nft. No separate code branch — one feed, one JS view, one parser.
 - Build the `_all` ipk from the **armsr-armv8** SDK.

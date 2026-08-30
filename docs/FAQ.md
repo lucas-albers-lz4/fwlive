@@ -12,7 +12,7 @@ Yes. Download the `.ipk` / `.apk` from [GitHub Releases](https://github.com/luca
 
 ### Which OpenWrt version should I use?
 
-**23.05+** for firewall4/nft (recommended). 22.03 works but is EOL. 21.02 works for fw3/iptables but is also EOL. See [Requirements](user/requirements.md).
+**23.05+** for firewall4/nft on older images; prefer **24.10+** for new deployments (23.05 is EOL). 22.03 works but is EOL. 21.02 works for fw3/iptables but is also EOL. See [Requirements](user/requirements.md).
 
 ### Does this work on any router?
 

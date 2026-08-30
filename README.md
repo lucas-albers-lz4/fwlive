@@ -36,7 +36,7 @@ Host unit tests: `npm test` (runs `./scripts/fwlive-test.sh`). Legacy macOS/docs
 | **25.12.x** | **25.12.5** | firewall4 / nft | `.apk` (`apk`) |
 | **snapshot** | latest | firewall4 / nft | `.apk` (best-effort) |
 
-**Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** is supported but EOL — prefer **23.05+** for new deployments.
+**Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** and **23.05.x** are supported but EOL — prefer **24.10+** for new deployments.
 
 The package is **`_all`** (LuCI JS + shell) — one artifact per OpenWrt release line works on any router architecture.
 
