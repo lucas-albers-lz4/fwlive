@@ -92,7 +92,7 @@ Feature branch (not `master`). Subject example:
    human → file vs master → CodeRabbit → triage → merge).
 2. **Re-cut** with `./scripts/upstream-cut.sh` from merged master (or from the
    final prep tip if filing luci before the prep merge).
-3. **Copy + i18n-scan** into the luci feature branch (commands below).
+3. **Copy + i18n-scan** into the luci feature branch (commands above).
 4. **FormalityCheck commit** on that luci branch.
 5. **Same pr-cycle gate on the luci branch** (luna → Bugbot → human). Skip
    CodeRabbit unless `openwrt/luci` (or your fork) is configured for it.
