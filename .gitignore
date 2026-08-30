@@ -7,7 +7,7 @@
 core.legacy/
 
 # Wave working checkouts (sibling pattern; not tracked)
-wave/
+/wave/
 
 # --- Disk / VM images (large binaries) ---
 /lab/images/
