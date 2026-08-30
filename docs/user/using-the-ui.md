@@ -113,7 +113,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 
 ## Rule column
 
-When fw4 logs a **prefix** (e.g. `fwlive-ping `), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint.
+When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint.
 
 ## Empty table
 
