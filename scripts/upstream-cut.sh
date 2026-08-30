@@ -27,6 +27,10 @@ PKG=openwrt-feed/luci-app-fwlive
 OUT="${1:-out/upstream/luci-app-fwlive}"
 SPLIT_BRANCH="upstream/luci-app-fwlive"
 GITHUB_BLOB="https://github.com/lucas-albers-lz4/fwlive/blob/master"
+# Locale dirs kept in the feed for the binary release; first luci PR ships .pot only.
+DROP_PO_LANGS=(de ru zh_Hans)
+# Source for embed-fwlive-css.js; view loads css.js (styleText), not this asset.
+DROP_CSS=1
 
 # The split branch is regenerable by definition — force-recreate each run.
 git branch -D "$SPLIT_BRANCH" >/dev/null 2>&1 || true
@@ -37,8 +41,8 @@ git subtree split --prefix="$PKG" --branch="$SPLIT_BRANCH" >/dev/null
 # A PR-able package must be plain files. Any gitlink means a submodule leaked
 # into the tree and upstream cannot build it.
 if git ls-tree -r "$SPLIT_BRANCH" | grep -q " commit "; then
-    echo "ERROR: split tree contains gitlinks (submodules) — not PR-able upstream" >&2
-    exit 1
+	echo "ERROR: split tree contains gitlinks (submodules) — not PR-able upstream" >&2
+	exit 1
 fi
 
 echo "== 2/5 export tree to $OUT =="
@@ -51,59 +55,149 @@ echo "== 3/5 rewrite monorepo-relative references =="
 # the shared luci.mk two levels up.
 # shellcheck disable=SC2016  # $TOPDIR must stay literal for sed
 sed -i 's|include $(TOPDIR)/feeds/luci/luci.mk|include ../../luci.mk|' \
-    "$OUT/Makefile"
+	"$OUT/Makefile"
 
 # Drop the monorepo feed-wiring header comment — it references files that do
 # not exist in the luci tree (openwrt-feed/README.md, feeds.conf.example).
 # Keep the SPDX line; real luci apps start clean from there.
 sed -i '/^# Wire feed first/,/^$/d' "$OUT/Makefile"
 
-# Package README links into monorepo docs/ die after the copy; point them at
-# the canonical GitHub copies so they survive the cut.
+# First luci PR: .pot only. Empty locale dirs still make luci.mk emit empty
+# luci-i18n-* packages — remove the directories entirely.
+for lang in "${DROP_PO_LANGS[@]}"; do
+	rm -rf "$OUT/po/$lang"
+done
+
+if [ "$DROP_CSS" -eq 1 ]; then
+	rm -f "$OUT/htdocs/luci-static/resources/fwlive/fwlive.css"
+fi
+
+# Package README: GitHub docs links; no core/ citation; list proto.js.
 # shellcheck disable=SC2016  # '"$GITHUB_BLOB"' splice is deliberate
 sed -i \
-    -e 's|\[`\.\./\.\./docs/user/installation\.md`\](\.\./\.\./docs/user/installation\.md)|[installation guide]('"$GITHUB_BLOB"'/docs/user/installation.md)|' \
-    -e 's|\[`\.\./\.\./docs/developer/README\.md`\](\.\./\.\./docs/developer/README\.md)|[developer documentation]('"$GITHUB_BLOB"'/docs/developer/README.md)|' \
-    "$OUT/README.md"
+	-e 's|\[`\.\./\.\./docs/user/installation\.md`\](\.\./\.\./docs/user/installation\.md)|[installation guide]('"$GITHUB_BLOB"'/docs/user/installation.md)|' \
+	-e 's|\[`\.\./\.\./docs/developer/README\.md`\](\.\./\.\./docs/developer/README.md)|[developer documentation]('"$GITHUB_BLOB"'/docs/developer/README.md)|' \
+	-e 's|Parser/filter module (mirror of repo `core/fwlive-log.js`)|Parser/filter module (`CLASSIFY_SPEC` + LuCI helpers)|' \
+	"$OUT/README.md"
+
+if ! grep -q 'proto\.js' "$OUT/README.md"; then
+	sed -i \
+		'/resources\/fwlive\/hostname\.js/a\
+| `htdocs/luci-static/resources/fwlive/proto.js` | Protocol name/number helpers |' \
+		"$OUT/README.md"
+fi
+
+# GENERATED / sync comments must not point at monorepo paths absent from luci.
+shell_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.sh"
+if [ -f "$shell_gen" ]; then
+	sed -i \
+		-e 's|^# GENERATED FILE — do not edit. Run: \./scripts/gen-all\.sh$|# Snapshot from the fwlive monorepo (lucas-albers-lz4/fwlive). Do not edit by hand.|' \
+		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js — regenerate upstream of this tree.|' \
+		"$shell_gen"
+fi
+
+css_js="$OUT/htdocs/luci-static/resources/fwlive/css.js"
+if [ -f "$css_js" ]; then
+	sed -i \
+		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Snapshot from the fwlive monorepo. Style source is regenerated upstream of this tree.|' \
+		"$css_js"
+fi
+
+log_js="$OUT/htdocs/luci-static/resources/fwlive/log.js"
+if [ -f "$log_js" ]; then
+	sed -i \
+		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC — keep in sync with the fwlive monorepo|' \
+		-e 's|(gen-luci-wrapper\.js gates full-spec drift; \./scripts/gen-all\.sh verifies)\.| (regenerate upstream of this tree).|' \
+		"$log_js"
+fi
+
+constants_js="$OUT/htdocs/luci-static/resources/fwlive/constants.js"
+if [ -f "$constants_js" ]; then
+	sed -i \
+		's|Keep in sync with openwrt-feed/luci-app-fwlive/Makefile PKG_VERSION\.|Keep in sync with Makefile PKG_VERSION.|' \
+		"$constants_js"
+fi
 
 echo "== 4/5 verify =="
 fail=0
 
-src_count=$(git ls-tree -r --name-only "master:$PKG" | wc -l)
+src_count=$(git ls-tree -r --name-only "HEAD:$PKG" | wc -l)
+drop_count=${#DROP_PO_LANGS[@]}
+if [ "$DROP_CSS" -eq 1 ]; then
+	drop_count=$((drop_count + 1))
+fi
+expected=$((src_count - drop_count))
 out_count=$(find "$OUT" -type f | wc -l)
-if [ "$src_count" -ne "$out_count" ]; then
-    echo "  FAIL: file count mismatch (source $src_count, out $out_count)" >&2
-    fail=1
+if [ "$out_count" -ne "$expected" ]; then
+	echo "  FAIL: file count mismatch (source $src_count - $drop_count drops = $expected, out $out_count)" >&2
+	fail=1
+fi
+
+for lang in "${DROP_PO_LANGS[@]}"; do
+	if [ -e "$OUT/po/$lang" ]; then
+		echo "  FAIL: po/$lang still present (first luci PR is .pot only)" >&2
+		fail=1
+	fi
+done
+
+if [ "$DROP_CSS" -eq 1 ] && [ -f "$OUT/htdocs/luci-static/resources/fwlive/fwlive.css" ]; then
+	echo "  FAIL: fwlive.css still present (view loads css.js)" >&2
+	fail=1
 fi
 
 if ! grep -q '^include ../../luci.mk' "$OUT/Makefile"; then
-    echo "  FAIL: Makefile include not rewritten to ../../luci.mk" >&2
-    fail=1
+	echo "  FAIL: Makefile include not rewritten to ../../luci.mk" >&2
+	fail=1
 fi
 
 if grep -rn '\.\./\.\./docs' "$OUT/README.md" >/dev/null 2>&1; then
-    echo "  FAIL: monorepo-relative docs links remain in README.md" >&2
-    fail=1
+	echo "  FAIL: monorepo-relative docs links remain in README.md" >&2
+	fail=1
+fi
+
+if grep -q 'core/fwlive-log' "$OUT/README.md" >/dev/null 2>&1; then
+	echo "  FAIL: README still cites core/fwlive-log.js" >&2
+	fail=1
+fi
+
+if ! grep -q 'proto\.js' "$OUT/README.md"; then
+	echo "  FAIL: README missing proto.js row" >&2
+	fail=1
 fi
 
 if [ ! -f "$OUT/po/templates/luci-app-fwlive.pot" ]; then
-    echo "  FAIL: po/templates/luci-app-fwlive.pot missing" >&2
-    fail=1
+	echo "  FAIL: po/templates/luci-app-fwlive.pot missing" >&2
+	fail=1
 fi
 
 if grep -rn 'TOPDIR)/feeds/luci' "$OUT/Makefile" >/dev/null 2>&1; then
-    echo "  FAIL: feed-path luci.mk include remains in Makefile" >&2
-    fail=1
+	echo "  FAIL: feed-path luci.mk include remains in Makefile" >&2
+	fail=1
+fi
+
+if grep -qE 'openwrt-feed/|\./scripts/gen-all|core/fwlive-log|embed-fwlive-css' \
+	"$OUT/htdocs/luci-static/resources/fwlive/constants.js" \
+	"$OUT/htdocs/luci-static/resources/fwlive/css.js" \
+	"$OUT/htdocs/luci-static/resources/fwlive/log.js" \
+	"$OUT/root/usr/libexec/fwlive-is-firewall-event.sh" 2>/dev/null; then
+	echo "  FAIL: monorepo-only paths remain in cut comments" >&2
+	fail=1
+fi
+
+if ! grep -q 'PKG_VERSION:=' "$OUT/Makefile"; then
+	echo "  FAIL: PKG_VERSION missing (keep lockstep with APP_VERSION)" >&2
+	fail=1
 fi
 
 if [ "$fail" -ne 0 ]; then
-    echo "Upstream cut FAILED — fix the checks above." >&2
-    exit 1
+	echo "Upstream cut FAILED — fix the checks above." >&2
+	exit 1
 fi
 
-echo "  OK: $out_count files match source; Makefile include rewritten;"
-echo "  OK: no monorepo-relative docs links; po template present"
+echo "  OK: $out_count files (source $src_count minus $drop_count); Makefile include rewritten;"
+echo "  OK: no monorepo-relative docs links; po template present; locale dirs dropped"
 
 echo "== 5/5 next steps =="
 echo "  Copy $OUT into a luci fork at luci/applications/luci-app-fwlive/"
-echo "  and open the upstream PR. Apache-2.0 in PR body (PKG_LICENSE already set)."
+echo "  Run luci ./build/i18n-scan.pl on that tree for a fresh .pot, then open the PR."
+echo "  Apache-2.0 in PR body (PKG_LICENSE already set)."
