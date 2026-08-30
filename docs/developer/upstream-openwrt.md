@@ -84,7 +84,7 @@ Feature branch (not `master`). Subject example:
 - Non-empty body, wrap to 100 characters (not trailers-only)
 - Author == `Signed-off-by: Lucas Albers <lucas.b.albers@gmail.com>`
   (no GitHub noreply)
-- Verify that email on the GitHub account that opens the PR
+- Verify that the commit author’s email is linked to a verified GitHub account
   (`require_linked_github_account`)
 - GPG/SSH signing is **not** required; `check_signature` only validates a
   signature if present
