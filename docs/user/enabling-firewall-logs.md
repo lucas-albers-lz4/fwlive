@@ -27,7 +27,7 @@ Screenshot walkthrough: [Using the UI → First visit](using-the-ui.md#first-vis
 This is the fastest way to see **real** traffic without a synthetic ping test. fw4 adds log rules for **rejected and dropped** packets on that zone:
 
 ```sh
-WAN=$(uci -q show firewall | sed -n "s/^firewall\\.\\(@zone\\[[0-9]*\\]\\)\\.name='wan'$/\\1/p" | head -1)
+WAN=$(uci -q show firewall | sed -n "s/^firewall\.\(@zone\[[0-9]*\]\)\.name='wan'$/\1/p" | head -1)
 if [ -z "$WAN" ]; then
   echo "WAN zone not found in /etc/config/firewall" >&2
   exit 1
@@ -66,7 +66,7 @@ nft -a list chain inet fw4 input | grep fwlive-ping
 nft delete rule inet fw4 input handle <handle>
 ```
 
-> **Note:** avoid `:` in `log prefix` on the shell — see [Prefix pitfalls](../fwlive-nft-logging.md).
+> **Note:** avoid `:` in `log prefix` on the shell — see [Prefix pitfalls](../fwlive-nft-logging.md#quick-test-on-a-running-guest-tcp).
 
 ## Verify before blaming the UI
 

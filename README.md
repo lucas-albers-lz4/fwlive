@@ -54,7 +54,8 @@ BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
 feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
 wget -O /tmp/fwlive.key "$BASE/public.key"
 opkg-key add /tmp/fwlive.key
-# ... then `opkg update && opkg install luci-app-fwlive`
+echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
+opkg update && opkg install luci-app-fwlive
 ```
 
 **Full commands:** [Installation guide](docs/user/installation.md).
@@ -70,7 +71,9 @@ opkg-key add /tmp/fwlive.key
 wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
 mkdir -p /etc/apk/keys
 cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
-# ... then `apk update && apk add luci-app-fwlive`
+echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb' \
+  >> /etc/apk/repositories.d/fwlive.list
+apk update && apk add luci-app-fwlive
 ```
 
 More detail: [binary feed](docs/binary-feed.md) · [supported releases](docs/supported-releases.md).

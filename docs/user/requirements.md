@@ -5,8 +5,13 @@
 | Item | Detail |
 |------|--------|
 | **OpenWrt (primary)** | **23.05+** — firewall4/nft default |
+<<<<<<< HEAD
 | **OpenWrt (22.03.x)** | **22.03.x** — firewall4/nft; **EOL** — lab-tested on 22.03.7 x86 — see [22.03 compat](../openwrt-22.03-compat.md) |
 | **OpenWrt (legacy fw3)** | **21.02.x** — fw3/iptables primary; EOL release, lab-tested on 21.02.7 x86 — see [21.02 compat](../openwrt-21.02-compat.md) |
+=======
+| **OpenWrt (22.03.x)** | **22.03.x** — firewall4/nft; **EOL** — lab-validated on 22.03.7 x86 — see [supported releases](../supported-releases.md) |
+| **OpenWrt (legacy fw3)** | **21.02.x** — fw3/iptables primary; EOL release, lab-validated on 21.02.7 x86 — see [supported releases](../supported-releases.md) |
+>>>>>>> 3894f1f (docs(concise): fold Grok/Luna review findings)
 | **Not supported** | Releases before 21.02 |
 | **Firewall (22.03+)** | **firewall4** / nftables — default on supported modern images (22.03 is EOL) |
 | **Firewall (21.02.x)** | **fw3 / iptables** — `-j LOG` or UCI `option log '1'` on rules you want visible |
@@ -23,9 +28,9 @@ Tested in this project’s lab for **firewall4**:
 
 | Release | Package format | Notes |
 |---------|----------------|-------|
-| **21.02.x** | `.ipk` (`opkg`) | **Legacy fw3/iptables** — install 21.02-built ipk only; see [21.02 compat](../openwrt-21.02-compat.md) |
-| **22.03.x** | `.ipk` (`opkg`) | firewall4/nft; **EOL** — see [22.03 compat](../openwrt-22.03-compat.md) |
-| **23.05.x** | `.ipk` (`opkg`) | LuCI ucode dispatcher; see [23.05 compat](../openwrt-23.05-compat.md) |
+| **21.02.x** | `.ipk` (`opkg`) | **Legacy fw3/iptables** — install 21.02-built ipk only; see [supported releases](../supported-releases.md) |
+| **22.03.x** | `.ipk` (`opkg`) | firewall4/nft; **EOL** — see [supported releases](../supported-releases.md) |
+| **23.05.x** | `.ipk` (`opkg`) | LuCI ucode dispatcher; see [supported releases](../supported-releases.md) |
 | **24.10.x** | `.ipk` (`opkg`) | Primary production target |
 | **25.12.x** | `.apk` (`apk`) | Same app; package manager differs |
 | **snapshot** | `.apk` | Best-effort; minimal images may omit LuCI |
