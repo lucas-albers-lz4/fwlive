@@ -41,7 +41,7 @@ echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb'
 apk update && apk add luci-app-fwlive
 ```
 
-More detail: [binary feed](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/binary-feed.md) · per-release notes in [supported releases](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/supported-releases.md).
+More detail: [binary feed](../docs/binary-feed.md) · per-release notes in [supported releases](../docs/supported-releases.md).
 
 </details>
 
