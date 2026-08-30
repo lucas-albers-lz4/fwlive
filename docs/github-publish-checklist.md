@@ -9,7 +9,8 @@ Use before making this repo public upstream.
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
-- [ ] Make sure that nothing in the removed `archive/` tree (deleted in #98) is required for new users — `rg -n "archive" .` should return no dead references
+- [ ] Make sure that nothing in the removed `archive/` tree (deleted in #98) is required for new users
+- [ ] `rg -n "archive" .` must return no dead references
 
 ### Security (pre-release)
 

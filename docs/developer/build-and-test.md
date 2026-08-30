@@ -37,7 +37,7 @@ constructor (`fakeE`) that never builds DOM. Renderer tests therefore assert on
 descriptive objects, which is fine for structure but means **a value reaching an
 HTML sink instead of a text node is invisible to them**.
 
-When changing a renderer, make sure that it works through an `E()` that reproduces upstream
+When changing a renderer, make sure that an `E()` reproduces upstream
 `dom.append` semantics. Recipe: `.cursor/skills/security-audit/SKILL.md`.
 
 ## Live View CSS (`fwlive.css` → `css.js`)

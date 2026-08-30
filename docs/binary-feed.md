@@ -196,7 +196,7 @@ Store **private** keys only in GitHub Actions secrets. Never commit them to eith
 - `OPKG_FEED_SECRET_KEY` must be the **usign** secret from `usign -G` (two lines: `untrusted comment:` + `RW…` base64). The **openssl RSA** key is only for `APK_FEED_SECRET_KEY`.
 - Pasting the secret into GitHub as **one line** (no newline between comment and key) makes usign fail with **`Premature end of file`**. Either paste the file verbatim with its line break, or store **`base64 -w0 opkg-secret.key`** in the secret (CI auto-decodes).
 
-Make sure that the feed works locally before you update the GitHub secrets:
+Make sure that the signing keys work locally before you update the GitHub secrets:
 
 ```sh
 OPKG_FEED_SECRET_KEY=./opkg-secret.key OPKG_FEED_PUBLIC_KEY=./public.key \

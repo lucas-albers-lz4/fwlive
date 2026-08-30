@@ -60,7 +60,7 @@ LuCI: `http://localhost:8080/cgi-bin/luci/admin/status/fwlive` (login required o
 
 3. **Log format** — fw3 LOG lines appear as **`kern.warn kernel:`** with netfilter KV fields (not always `iptables:` tag). Parser handles both; see `tests/fixtures/logread-iptables.json`.
 
-4. **Rule admin link** — iptables backend links to `admin/status/iptables` (tested on 21.02.7).
+4. **Rule admin link** — iptables backend links to `admin/status/iptables` (tested reachable on 21.02.7).
 
 5. **Background QEMU** — Use `OWRT_QEMU_SERIAL_SOCKET=1` when starting QEMU in the background (validate matrix sets this automatically).
 

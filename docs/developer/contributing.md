@@ -2,7 +2,7 @@
 
 ## Principles
 
-- **Small steps** — one behavior per change; make sure that it works in CLI and QEMU LuCI when the change is UI-related
+- **Small steps** — one behavior per change. For UI changes, make sure that it works in CLI and QEMU LuCI.
 - **Parser sync** — edit `CLASSIFY_SPEC` in `core/fwlive-log.js`, mirror the same object in `htdocs/.../fwlive/log.js`, run `./scripts/gen-all.sh` (regenerates shell; gates LuCI full-spec drift), keep preserve-region presentation in parity
 - **Output encoding** — untrusted values must reach the DOM as text nodes, never through an HTML sink; applies to every renderer, including values that look constrained — see [Security model § Invariants](security-model.md#invariants)
 - **No scope creep** — MVP is done; backlog items are in [`../ROADMAP.md`](../ROADMAP.md)
@@ -88,7 +88,7 @@ file, that second copy is drift — consolidate it.
 |---------|-------|
 | Imperative at the point of action | One sentence where the work happens (e.g. the `log.read` warning beside the ACL grant list). No rationale, no mechanics, no examples |
 | Router entry | A rule named in one line plus a link — [`../../AGENTS.md`](../../AGENTS.md) |
-| Check command | *How* to make sure that a fact is true may sit with the procedure that needs it, even when the fact is owned elsewhere |
+| Check command | The procedure that needs a fact may own *how* to make sure that fact holds |
 
 Everything else stays single-sourced: rationale, code samples, upstream
 behaviour, threat descriptions, and multi-step procedures. If a restatement
