@@ -22,7 +22,7 @@ a half-ready branch. Do not merge on CI-green alone.
 **Non-trivial** (full sequence below) — multi-file **overrides** trivial:
 
 - Any new/changed logic, scripts, tests, CI workflows, schemas, OpenWrt
-  feed/package files, or config
+  feed/package files, or configuration
 - Multi-file changes (including multi-file documentation)
 - New owner docs / process docs
 
@@ -48,13 +48,15 @@ implement on feature branch
 3. **Bugbot** on the same diff (`review-bugbot` skill / `bugbot` subagent).
 4. Fix `CONFIRMED` findings (or document `DISMISS` with evidence). One more
    luna/Bugbot pass if the diff changed substantively.
-5. **Stop for human review.** No `gh pr create` until the human says so.
-6. File the PR against `master`. Prefer **draft** until the work is final
-   ([coderabbit.md](coderabbit.md)).
+5. **Stop for human review.** Do not file the PR until the human says so.
+6. **File** the PR against `master` (`gh pr create`). Keep the PR as a draft
+   until the work is final ([coderabbit.md](coderabbit.md)). Then mark Ready,
+   or run `@coderabbitai review` on that draft.
 7. **Then** CodeRabbit. Wait for the round to complete; batch fixes into one
    push; do not declare the gate green mid-round.
 8. Triage the PR thread before merge (below).
-9. Merge with the repo’s usual strategy (`gh pr merge`, typically squash).
+9. Wait until required checks are present and passing.
+10. Merge with the repo’s usual strategy (`gh pr merge`, typically squash).
 
 Plan-mode execution does **not** substitute for luna, Bugbot, or the human
 pass.
@@ -79,14 +81,14 @@ Rules:
 - Unresolved human `REQUEST_CHANGES` or substantive human review comments
   **block merge**, same as unresolved `CONFIRMED` bot findings.
 - A bare bot comment does not block merge by itself; unresolved `CONFIRMED`
-  bot findings do not merge clean.
+  bot findings block merge.
 
 ## CodeRabbit vs upstream (openwrt/luci)
 
 CodeRabbit comments live only on the **fwlive** GitHub PR. They never ship in
 the luci tree or the FormalityCheck commit.
 
-- Fold `CONFIRMED` fixes into this repo (and re-run `./scripts/upstream-cut.sh`
+- Apply `CONFIRMED` fixes in this repo (and re-run `./scripts/upstream-cut.sh`
   if shipped package files changed).
 - Refresh the luci fork branch from the cut.
 - Before filing against `openwrt/luci`, run **this same sequence** on the luci
@@ -99,8 +101,9 @@ See [upstream-openwrt.md](upstream-openwrt.md).
 
 ## Do not
 
-- Open a master-targeted PR before luna + Bugbot + human review
+- File a master-targeted PR before luna + Bugbot + human review
 - Ping CodeRabbit during steps 1–5
+- Merge when required checks are missing or failing
 - Merge non-trivial work on CI-green alone
 - Treat plan mode as a substitute for the gates above
 - Merge with unresolved human `REQUEST_CHANGES` / substantive human comments,

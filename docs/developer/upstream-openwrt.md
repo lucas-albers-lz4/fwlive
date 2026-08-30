@@ -36,8 +36,10 @@ move. The signed binary / `src-link` feed stays for non-snapshot users.
      monorepo-only paths (`core/`, `openwrt-feed/`, `./scripts/gen-all.sh`)
    - Keeps `PKG_VERSION` / `PKG_RELEASE` (lockstep with `APP_VERSION`)
    - Verifies file counts and absence of monorepo-only comment paths
-3. `./scripts/fwlive-test.sh` and `./scripts/validate-baseline.sh`
-   (optional QEMU 24.10).
+3. Run `./scripts/fwlive-test.sh`.
+4. Run `./scripts/validate-baseline.sh`.
+5. If you need guest proof, run the QEMU 24.10 lab
+   ([qemu-lab.md](qemu-lab.md)).
 
 ## Luci-shaped copy + POT
 
@@ -63,11 +65,12 @@ The POT must include JS `_()` strings **and** the menu title
 `Firewall Live View` **and** the ACL description
 `Grant access to firewall live log view`.
 
-Copy the `.pot` back into this monorepo and `msgmerge` the feed `.po` files.
+Copy the `.pot` back into this monorepo.
+Then `msgmerge` the feed `.po` files.
 The header shape
 `msgstr "Content-Type: text/plain; charset=UTF-8"` (no embedded `\n`) is what
 luci’s scanner emits for every app — do not “fix” it to a multi-line header;
-the next scan would wipe that.
+the next scan will wipe that.
 
 Same commit in luci: package tree + refreshed `.pot`.
 
@@ -81,7 +84,7 @@ Feature branch (not `master`). Subject example:
 - Non-empty body, wrap to 100 characters (not trailers-only)
 - Author == `Signed-off-by: Lucas Albers <lucas.b.albers@gmail.com>`
   (no GitHub noreply)
-- That email must be **verified** on the GitHub account that opens the PR
+- Verify that email on the GitHub account that opens the PR
   (`require_linked_github_account`)
 - GPG/SSH signing is **not** required; `check_signature` only validates a
   signature if present
@@ -99,7 +102,7 @@ Feature branch (not `master`). Subject example:
 6. File against `openwrt/luci` `master` with product/FormalityCheck prose only —
    no bot quotes.
 
-CodeRabbit comments stay on the **fwlive** PR. Fold code into the cut; do not
+CodeRabbit comments stay on the **fwlive** PR. Apply code into the cut; do not
 paste review threads upstream.
 
 ## PR-body answers (do not pre-fix)
@@ -112,6 +115,7 @@ paste review threads upstream.
 | `prerm` | Undo WAN `log=1`; fail-open |
 | Translations | `.pot` only first PR; Weblate after merge |
 | `PKG_VERSION` | Keep in the cut (lockstep with `APP_VERSION`) |
+| License | State Apache-2.0 in the PR body. `PKG_LICENSE` is already set; do not add `PKG_LICENSE_FILES` (peer LuCI apps) |
 | Out-of-tree | New in-tree app, not an LLM redirect heuristic; feed stays |
 | Generated files | Snapshots from this repo |
 

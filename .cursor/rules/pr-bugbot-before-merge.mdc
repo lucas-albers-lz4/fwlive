@@ -15,12 +15,12 @@ and do **not** treat plan-mode execution as a substitute for the gates below.
 ## Non-trivial (full gate)
 
 Any new/changed logic, scripts, tests, CI, schemas, feed/package files, or
-config; multi-file changes (including multi-file docs); new owner docs. If
-unsure, treat as non-trivial. Multi-file **overrides** the trivial list.
+configuration; multi-file changes (including multi-file docs); new owner docs.
+If unsure, treat as non-trivial. Multi-file **overrides** the trivial list.
 
 **Trivial** (CI + light self-review) — **single-file** only: docs typos,
-badges/links/metadata, single-line comments, pure formatting, changelog date
-bumps.
+badges/links/metadata, single-line comments, pure formatting, license badge,
+topics, changelog date bumps. Full list: [pr-cycle.md](../../docs/developer/pr-cycle.md).
 
 ## Sequence (non-trivial)
 
@@ -29,17 +29,20 @@ bumps.
 3. **Bugbot** on branch changes (`review-bugbot` / `bugbot` subagent).
 4. Fix `CONFIRMED` findings; re-run once after substantive fixes.
 5. **Stop for human review** of the branch.
-6. Only then open the PR vs `master` (draft until final; see coderabbit.md).
+6. **File** the PR vs `master` (`gh pr create`). Keep it draft until final
+   (see coderabbit.md).
 7. **Then** CodeRabbit (Ready or `@coderabbitai review`). Wait for the round;
    batch fixes; do not declare green mid-round.
 8. Triage thread (`CONFIRMED` / `DISMISS` / `FOLD`); ground-truth bot suggestions.
-9. Merge (`gh pr merge`).
+9. Wait until required checks are present and passing.
+10. Merge (`gh pr merge`).
 
 ## Do not
 
 - File against master before luna + Bugbot + human review
 - Ping CodeRabbit before step 6
+- Merge when required checks are missing or failing
 - Merge with unresolved human `REQUEST_CHANGES` / substantive human comments,
   unresolved `CONFIRMED` bot findings, or an un-triaged thread
-- Paste **fwlive** CodeRabbit threads into an `openwrt/luci` PR — fold code only
-  ([upstream-openwrt.md](../../docs/developer/upstream-openwrt.md))
+- Paste **fwlive** CodeRabbit threads into an `openwrt/luci` PR — apply code
+  only ([upstream-openwrt.md](../../docs/developer/upstream-openwrt.md))
