@@ -79,6 +79,27 @@ function runWithShell(shell, env) {
 	});
 }
 
+let _posixShells;
+function posixShells() {
+	if (_posixShells) return _posixShells;
+	const found = [];
+	for (const name of ['dash', 'busybox']) {
+		try {
+			if (name === 'busybox') {
+				execFileSync('busybox', ['sh', '-c', 'exit 0']);
+			} else {
+				execFileSync(name, ['-c', 'exit 0']);
+			}
+			found.push(name);
+		} catch (e) {
+			if (e.code !== 'ENOENT') throw e;
+		}
+	}
+	assert.ok(found.length > 0, 'need dash or busybox on PATH for POSIX coverage');
+	_posixShells = found;
+	return found;
+}
+
 function testProductionNft() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-nft-'));
 	try {
@@ -104,7 +125,7 @@ fi
 exit 0
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		const shells = ['dash', 'busybox'];
+		const shells = posixShells();
 		for (const shell of shells) {
 			let raw;
 			try {
@@ -155,7 +176,7 @@ fi
 exit 0
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		const shells = ['dash', 'busybox'];
+		const shells = posixShells();
 		for (const shell of shells) {
 			let raw;
 			try {
@@ -205,7 +226,7 @@ exit 0
 exit 1
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		const shells = ['dash', 'busybox'];
+		const shells = posixShells();
 		for (const shell of shells) {
 			let raw;
 			try {
@@ -248,7 +269,7 @@ fi
 exit 0
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		const shells = ['dash', 'busybox'];
+		const shells = posixShells();
 		for (const shell of shells) {
 			let raw;
 			try {
@@ -282,7 +303,7 @@ exit 1
 exit 0
 `);
 		const env = { ...process.env, PATH: `${stubDir2}:${process.env.PATH}` };
-		const shells = ['dash', 'busybox'];
+		const shells = posixShells();
 		for (const shell of shells) {
 			let raw;
 			try {
@@ -330,7 +351,7 @@ fi
 exit 0
 `);
 			const env = { ...process.env, PATH: `${stubNft}:${process.env.PATH}` };
-			for (const shell of ['dash', 'busybox']) {
+			for (const shell of posixShells()) {
 				let raw;
 				try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 				const res = JSON.parse(raw);
@@ -356,7 +377,7 @@ exit 1
 exit 0
 `);
 			const env = { ...process.env, PATH: `${stubIpt}:${process.env.PATH}` };
-			for (const shell of ['dash', 'busybox']) {
+			for (const shell of posixShells()) {
 				let raw;
 				try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 				const res = JSON.parse(raw);
@@ -393,7 +414,7 @@ exit 1
 		makeStub(iptDir, 'uci', `#!/bin/sh
 exit 0
 `);
-		for (const shell of ['dash', 'busybox']) {
+		for (const shell of posixShells()) {
 			let rawNft, rawIpt;
 			try { rawNft = runWithShell(shell, { ...process.env, PATH: `${nftDir}:${process.env.PATH}` }); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			try { rawIpt = runWithShell(shell, { ...process.env, PATH: `${iptDir}:${process.env.PATH}` }); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
@@ -435,7 +456,7 @@ fi
 exit 0
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		for (const shell of ['dash', 'busybox']) {
+		for (const shell of posixShells()) {
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
@@ -480,7 +501,7 @@ else
 fi
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		for (const shell of ['dash', 'busybox']) {
+		for (const shell of posixShells()) {
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
@@ -519,7 +540,7 @@ else
 fi
 `);
 		const env = { ...process.env, PATH: `${stubDir2}:${process.env.PATH}` };
-		for (const shell of ['dash', 'busybox']) {
+		for (const shell of posixShells()) {
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const cnt = (raw.match(/"foo-bar":/g) || []).length;
@@ -550,7 +571,7 @@ fi
 exit 0
 `);
 		const env = { ...process.env, PATH: `${stubDir3}:${process.env.PATH}` };
-		for (const shell of ['dash', 'busybox']) {
+		for (const shell of posixShells()) {
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
@@ -587,7 +608,7 @@ exit 1
 exit 0
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		for (const shell of ['dash', 'busybox']) {
+		for (const shell of posixShells()) {
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
@@ -607,7 +628,7 @@ exit 0
 
 function testPollClampLinesContract() {
 	// Verify poll_clamp_lines validates non-digit input (was trust-caller before)
-	const shells = ['dash', 'busybox'];
+	const shells = posixShells();
 	for (const shell of shells) {
 		function runClamp(val) {
 			if (shell === 'busybox') {
@@ -650,8 +671,31 @@ function testNoMktempGracefulDegradation() {
 	//     (the symlink arbitrary-write primitive).
 	//  3. nft-derived key absent => catch fallback that still wrote the
 	//     ruleset dump to a fixed path instead of skipping enrichment.
-	const shells = ['dash', 'busybox'];
-	for (const shell of shells) {
+	const shells = posixShells();
+	// Ubuntu BusyBox ash can be built with standalone applets, so `mktemp`
+	// inside `busybox sh` ignores PATH. Skip that shell when the stub
+	// cannot actually hide mktemp (dash still covers the helper).
+	let busyboxHonorsPath = true;
+	try {
+		const probe = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-mkprobe-'));
+		try {
+			makeStub(probe, 'mktemp', '#!/bin/sh\nexit 127\n');
+			execFileSync('busybox', ['sh', '-c', 'mktemp /tmp/fwlive-probe.XXXXXX'], {
+				env: { ...process.env, PATH: `${probe}:${process.env.PATH}` },
+				stdio: 'ignore',
+			});
+			busyboxHonorsPath = false;
+		} catch (e) {
+			if (e.code === 'ENOENT') busyboxHonorsPath = false;
+		} finally {
+			fs.rmSync(probe, { recursive: true, force: true });
+			try { execFileSync('sh', ['-c', 'rm -f /tmp/fwlive-probe.* 2>/dev/null; true']); } catch {}
+		}
+	} catch { /* probe setup failed; try busybox anyway */ }
+	const runnable = shells.filter((s) => s !== 'busybox' || busyboxHonorsPath);
+	assert.ok(runnable.length > 0, 'need a PATH-honouring POSIX shell for mktemp degradation');
+	let ran = 0;
+	for (const shell of runnable) {
 		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-nomktemp-'));
 		try {
 			// nft would emit a prefix that would appear if temp file were used
@@ -698,6 +742,7 @@ exit 127
 				if (e.code === 'ENOENT') continue;
 				throw e;
 			}
+			ran++;
 			// well-formed JSON and backend + UCI names must still be present
 			let res;
 			try { res = JSON.parse(raw); } catch (e) { throw new Error(`[${shell}] JSON malformed when mktemp absent: ${raw}: ${e.message}`); }
@@ -718,6 +763,7 @@ exit 127
 			try { execFileSync('sh', ['-c', 'rm -f /tmp/fwlive-nft.* /tmp/fwlive-ipt.* /tmp/fwlive-ip6t.* 2>/dev/null; true']); } catch {}
 		}
 	}
+	assert.ok(ran > 0, 'mktemp degradation must run under at least one POSIX shell');
 }
 
 function testGlobMetacharDedup() {
@@ -748,7 +794,7 @@ fi
 exit 0
 `);
 			const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-			for (const shell of ['dash', 'busybox']) {
+			for (const shell of posixShells()) {
 				let raw;
 				try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 				const res = JSON.parse(raw);
@@ -782,7 +828,7 @@ fi
 exit 0
 `);
 		const env = { ...process.env, PATH: `${stubDir2}:${process.env.PATH}` };
-		for (const shell of ['dash', 'busybox']) {
+		for (const shell of posixShells()) {
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
