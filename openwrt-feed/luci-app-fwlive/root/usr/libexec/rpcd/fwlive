@@ -80,10 +80,9 @@ map_add() {
 	# Global first-wins deduplication: skip if escaped key already present.
 	# Uses anchored pattern "\"<key>\":" to avoid substring false positives
 	# ("foo" vs "foobar") and value false positives ("see foo").
-	# Glob metachars in the key are escaped so the match is literal.
-	pat=$(printf '%s' "$esc_key" | sed 's/\\/\\\\/g; s/\*/\\*/g; s/\?/\\?/g; s/\[/\\[/g')
+	# Quoting "$esc_key" makes the match literal (no glob escaping needed).
 	case "$OUT" in
-		*"\"$pat\":"*) return 0 ;;
+		*"\"$esc_key\":"*) return 0 ;;
 	esac
 	esc_val=$(printf '%s' "$val" | json_escape)
 	if [ -n "$OUT" ]; then
@@ -229,11 +228,12 @@ detect_firewall_backend() {
 _fwlive_mktemp() {
 	# Secure temp file for ruleset dumps. Uses mktemp only -- no
 	# predictable fallback (symlink arbitrary-write primitive when
-	# running as root under rpcd). Respects TMPDIR, hardcodes /tmp
-	# only as default. Never rm+reuse, never touch/chmod into
-	# existence, template stays inside TMPDIR.
+	# running as root under rpcd). Uses /tmp explicitly and does not
+	# honour TMPDIR (fixed sticky directory is safer when running as
+	# root under rpcd where environment is not user-controlled). Never
+	# rm+reuse, never touch/chmod into existence, template stays inside /tmp.
 	prefix="$1"
-	_mk_file=$(mktemp "${TMPDIR:-/tmp}/${prefix}.XXXXXX" 2>/dev/null || mktemp 2>/dev/null) || return 1
+	_mk_file=$(mktemp "/tmp/${prefix}.XXXXXX" 2>/dev/null || mktemp 2>/dev/null) || return 1
 	[ -n "$_mk_file" ] || return 1
 	printf '%s' "$_mk_file"
 }
@@ -248,9 +248,12 @@ build_rules_map() {
 		nft)
 			_tmp=$(_fwlive_mktemp fwlive-nft) || _tmp=''
 			if [ -n "$_tmp" ]; then
-				# nft ruleset write to TMPDIR (tmpfs on OpenWrt) is bounded
-				# by NFT_TIMEOUT (5s) and typical dumps are <100KB; removed
-				# immediately after parsing so RAM impact is negligible.
+				# nft ruleset write to /tmp (tmpfs on OpenWrt, RAM) is
+				# duration-bounded by NFT_TIMEOUT (5s) for nft only;
+				# iptables-save/ip6tables-save below run with no timeout.
+				# Size is not bounded by code; typical firewall ruleset
+				# dumps are <100KB and the file is removed immediately
+				# after parsing so RAM impact is negligible in practice.
 				# No pipeline subshell: accumulation stays in main shell via
 				# redirect for global first-wins dedup.
 				if nft_list_ruleset >"$_tmp" 2>/dev/null; then

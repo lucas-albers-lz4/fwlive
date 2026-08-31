@@ -720,6 +720,81 @@ exit 127
 	}
 }
 
+function testGlobMetacharDedup() {
+	// BLOCKER r5: quoted+escaped dedup missed glob keys (foo*, a*b[?c). Must be single key in raw JSON.
+	// Also verifies literal match: a*b[?c must not wildcard-match aXYZbYc.
+	const cases = [
+		{ raw: 'foo*', label: 'FooStar' },
+		{ raw: 'a*b[?c', label: 'GlobKey' },
+	];
+	for (const c of cases) {
+		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-glob-'));
+		try {
+			makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "${c.raw}" comment "!fw4: ${c.label}"
+		log prefix "${c.raw}"
+	}
+}
+EOF
+else
+	exit 1
+fi
+`);
+			makeStub(stubDir, 'uci', `#!/bin/sh
+exit 0
+`);
+			const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+			for (const shell of ['dash', 'busybox']) {
+				let raw;
+				try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+				const res = JSON.parse(raw);
+				// dedup: glob key must appear once in raw JSON (catches quoted+escaped miss)
+				const esc = c.raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+				const cnt = (raw.match(new RegExp('"' + esc + '":', 'g')) || []).length;
+				assert.equal(cnt, 1, `[${shell}] glob dedup ${c.raw} must appear once, got ${cnt} in ${raw}`);
+				assert.equal(res.rules[c.raw], c.label, `[${shell}] glob key ${c.raw} present`);
+			}
+		} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+	}
+
+	// Literal wildcard safety: a*b[?c must coexist with aXYZbYc (not wildcard-matched)
+	const stubDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-glob2-'));
+	try {
+		makeStub(stubDir2, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "a*b[?c"
+		log prefix "aXYZbYc"
+	}
+}
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir2, 'uci', `#!/bin/sh
+exit 0
+`);
+		const env = { ...process.env, PATH: `${stubDir2}:${process.env.PATH}` };
+		for (const shell of ['dash', 'busybox']) {
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(res.rules['a*b[?c'], 'a*b[?c'.split('-').join(' '), `[${shell}] literal glob key a*b[?c present`);
+			// note: cosmetic normalizes '-' -> ' ', but * [ ? stay; check value is cosmetic
+			assert.equal(res.rules['aXYZbYc'], 'aXYZbYc', `[${shell}] aXYZbYc must coexist with a*b[?c (literal, not wildcard)`);
+			assert.equal((raw.match(/"a\*b\[\?c":/g) || []).length, 1, `[${shell}] raw a*b[?c count 1`);
+			assert.equal((raw.match(/"aXYZbYc":/g) || []).length, 1, `[${shell}] raw aXYZbYc count 1`);
+		}
+	} finally { fs.rmSync(stubDir2, { recursive: true, force: true }); }
+}
+
 function run() {
 	runRedirectPath();
 	testProductionNft();
@@ -732,6 +807,7 @@ function run() {
 	testIpv4Ipv6BothContributing();
 	testPollClampLinesContract();
 	testNoMktempGracefulDegradation();
+	testGlobMetacharDedup();
 	console.log('fwlive rules map tests passed');
 }
 
