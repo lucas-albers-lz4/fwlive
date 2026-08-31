@@ -8,6 +8,57 @@ Agent review order before filing: [pr-cycle.md](pr-cycle.md).
 This monorepo stays the development home. The luci PR is a **copy**, not a
 move. The signed binary / `src-link` feed stays for non-snapshot users.
 
+## Maintenance model
+
+Short answers for LuCI maintainers and anyone browsing the in-tree copy.
+Package README links here.
+
+### Which tree wins
+
+| Tree | Role |
+|------|------|
+| **[lucas-albers-lz4/fwlive](https://github.com/lucas-albers-lz4/fwlive)** | Canonical source — develop, test, release, and cut from here |
+| **`openwrt/luci` `applications/luci-app-fwlive/`** | Periodic **snapshot** for snapshot images / the luci feed |
+| **Signed binary feed** | Parallel install path for non-snapshot users — not a second source of truth |
+
+On conflict, **this monorepo wins**. The next `./scripts/upstream-cut.sh` into
+luci replaces the previous luci copy (code + `.pot`). Do not treat the luci
+tree as a second development home.
+
+### Generated / snapshot files
+
+Several shipped files are **snapshots**, not hand-edited LuCI sources. Headers
+say so after the cut (e.g. `fwlive-is-firewall-event.sh`, `css.js`).
+`APP_VERSION` in `constants.js` stays lockstep with `PKG_VERSION`. Fix
+classifier / shared classify in the monorepo (`CLASSIFY_SPEC` +
+`./scripts/gen-all.sh`), then re-cut. An in-tree edit of those artifacts will
+be overwritten on the next snapshot.
+
+### Keeping luci current
+
+Commitment: re-cut **deltas** into `openwrt/luci` when shipping fixes or
+releases (same FormalityCheck path as the first PR). After Weblate owns
+`po/<lang>/`, re-cuts must **never** clobber those locales — code + `.pot`
+only ([After merge](#after-merge-upstream)).
+
+This is intentional dual maintenance with a single winner, not the
+ambiguous two-homes pattern that bit packages like `luci-app-https-dns-proxy`.
+Drive-by fixes belong in fwlive (or as a note forwarded upstream), not as
+long-lived patches only in luci.
+
+### Why not `PKG_SOURCE`
+
+A tarball / `PKG_SOURCE` package was considered and **declined**:
+
+- LuCI applications normally live **in-tree** under `applications/`
+- After merge, **Weblate** owns `po/<lang>/` in luci; a fetch-from-GitHub
+  flow still needs periodic bumps and does not remove “two places”
+- Snapshot / image builders expect a plain tree, not a network fetch at
+  package build time
+
+In-tree snapshot + explicit “fwlive wins” policy matches LuCI conventions
+better than an out-of-tree tarball for a first-party app.
+
 ## Where it lands
 
 | Place | Role | First PR? |
@@ -117,7 +168,8 @@ paste review threads upstream.
 | `PKG_VERSION` | Keep in the cut (lockstep with `APP_VERSION`) |
 | License | State Apache-2.0 in the PR body. `PKG_LICENSE` is already set; do not add `PKG_LICENSE_FILES` (peer LuCI apps) |
 | Out-of-tree | New in-tree app, not an LLM redirect heuristic; feed stays |
-| Generated files | Snapshots from this repo |
+| Generated files | Snapshots from this repo — see [Maintenance model](#maintenance-model) |
+| Dual tree / `PKG_SOURCE` | fwlive wins; in-tree snapshot kept; `PKG_SOURCE` declined — [Maintenance model](#maintenance-model) |
 
 ## After merge (upstream)
 

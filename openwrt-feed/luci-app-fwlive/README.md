@@ -40,14 +40,9 @@ No `luasrc/` — modern JS-only app.
 ## Maintenance
 
 Development home is [lucas-albers-lz4/fwlive](https://github.com/lucas-albers-lz4/fwlive).
-The copy in `openwrt/luci` is a snapshot. On conflict, the next snapshot from
-that repository replaces the luci copy — land fixes upstream of this tree
-first.
-
-A `PKG_SOURCE` tarball package was considered and declined: LuCI applications
-are in-tree under `applications/`, Weblate owns `po/<lang>/` after merge, and a
-tarball would still leave a copy to update on every release. The signed binary
-feed stays for non-snapshot users.
+The copy in `openwrt/luci` is a snapshot. Which tree wins, re-cut cadence,
+generated files, and why not `PKG_SOURCE`:
+[Maintenance model](../../docs/developer/upstream-openwrt.md#maintenance-model).
 
 ## Documentation
 

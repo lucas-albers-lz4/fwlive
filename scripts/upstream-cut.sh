@@ -81,6 +81,7 @@ fi
 sed -i \
 	-e 's|\[`\.\./\.\./docs/user/installation\.md`\](\.\./\.\./docs/user/installation\.md)|[installation guide]('"$GITHUB_BLOB"'/docs/user/installation.md)|' \
 	-e 's|\[`\.\./\.\./docs/developer/README\.md`\](\.\./\.\./docs/developer/README.md)|[developer documentation]('"$GITHUB_BLOB"'/docs/developer/README.md)|' \
+	-e 's|\[Maintenance model\](\.\./\.\./docs/developer/upstream-openwrt\.md#maintenance-model)|[Maintenance model]('"$GITHUB_BLOB"'/docs/developer/upstream-openwrt.md#maintenance-model)|' \
 	-e 's|Parser/filter module (mirror of repo `core/fwlive-log.js`)|Parser/filter module (`CLASSIFY_SPEC` + LuCI helpers)|' \
 	"$OUT/README.md"
 

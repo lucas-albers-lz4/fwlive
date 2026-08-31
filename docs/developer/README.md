@@ -63,7 +63,7 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 |-------|----------|
 | Publish checklist | [`../github-publish-checklist.md`](../github-publish-checklist.md) |
 | Agent PR cycle (luna → Bugbot → human → file → CodeRabbit) | [pr-cycle.md](pr-cycle.md) |
-| Upstream to `openwrt/luci` | [upstream-openwrt.md](upstream-openwrt.md) |
+| Upstream to `openwrt/luci` (incl. [maintenance model](upstream-openwrt.md#maintenance-model)) | [upstream-openwrt.md](upstream-openwrt.md) |
 | CodeRabbit protocol | [coderabbit.md](coderabbit.md) |
 
 ## User documentation
