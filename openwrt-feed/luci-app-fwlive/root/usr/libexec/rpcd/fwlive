@@ -111,14 +111,20 @@ read_rpc_input() {
 map_prefix_with_label() {
 	prefix="$1"
 	label="$2"
+	prefix=$(normalize_log_prefix "$prefix")
 	[ -n "$prefix" ] || return 0
+	slug=$(slug_key "$prefix")
 	if [ -n "$label" ]; then
 		map_add "$prefix" "$label"
-		map_add "$(slug_key "$prefix")" "$label"
+		if [ "$slug" != "$prefix" ]; then
+			map_add "$slug" "$label"
+		fi
 	else
 		cosmetic=$(echo "$prefix" | tr '-' ' ')
 		map_add "$prefix" "$cosmetic"
-		map_add "$(slug_key "$prefix")" "$cosmetic"
+		if [ "$slug" != "$prefix" ]; then
+			map_add "$slug" "$cosmetic"
+		fi
 	fi
 }
 
@@ -150,7 +156,10 @@ map_log_prefix_entry() {
 map_uci_rule_names() {
 	for name in $(uci_rule_names); do
 		map_add "$name" "$name"
-		map_add "$(slug_key "$name")" "$name"
+		slug=$(slug_key "$name")
+		if [ "$slug" != "$name" ]; then
+			map_add "$slug" "$name"
+		fi
 	done
 }
 
@@ -216,12 +225,45 @@ build_rules_map() {
 
 	case "$backend" in
 		nft)
-			nft_list_ruleset | map_from_nft_stream
+			# shellcheck disable=SC2030,SC2031 # OUT in pipeline subshell is intentional — captured via printf and merged
+			_frag=$(nft_list_ruleset | { OUT=''; map_from_nft_stream; printf '%s' "$OUT"; })
+			if [ -n "$_frag" ]; then
+				# shellcheck disable=SC2031 # outer OUT was not modified in subshell; subshell OUT captured via _frag
+				if [ -n "$OUT" ]; then
+					# shellcheck disable=SC2031
+					OUT="${OUT},${_frag}"
+				else
+					OUT="$_frag"
+				fi
+			fi
+			unset _frag
 			;;
 		iptables)
-			iptables-save 2>/dev/null | map_from_iptables_save_stream
+			# shellcheck disable=SC2030,SC2031 # see above — subshell OUT captured via printf
+			_frag=$(iptables-save 2>/dev/null | { OUT=''; map_from_iptables_save_stream; printf '%s' "$OUT"; })
+			if [ -n "$_frag" ]; then
+				# shellcheck disable=SC2031
+				if [ -n "$OUT" ]; then
+					# shellcheck disable=SC2031
+					OUT="${OUT},${_frag}"
+				else
+					OUT="$_frag"
+				fi
+			fi
+			unset _frag
 			if command -v ip6tables-save >/dev/null 2>&1; then
-				ip6tables-save 2>/dev/null | map_from_iptables_save_stream
+				# shellcheck disable=SC2030,SC2031 # see above
+				_frag=$(ip6tables-save 2>/dev/null | { OUT=''; map_from_iptables_save_stream; printf '%s' "$OUT"; })
+				if [ -n "$_frag" ]; then
+					# shellcheck disable=SC2031
+					if [ -n "$OUT" ]; then
+						# shellcheck disable=SC2031
+						OUT="${OUT},${_frag}"
+					else
+						OUT="$_frag"
+					fi
+				fi
+				unset _frag
 			fi
 			;;
 	esac
@@ -236,6 +278,24 @@ rulesmap_from_iptables_file() {
 	[ -f "$file" ] || return 1
 	map_from_iptables_save_stream < "$file"
 	printf '{"backend":"iptables","rules":{%s}}' "$OUT"
+}
+
+poll_clamp_lines() {
+	_val="$1"
+	_tmp=$(printf '%s' "$_val" | sed 's/^0*//')
+	if [ -z "$_tmp" ]; then
+		printf '%s' "50"
+		return 0
+	fi
+	if [ "${#_tmp}" -gt "${#POLL_LINES_MAX}" ]; then
+		printf '%s' "$POLL_LINES_MAX"
+		return 0
+	fi
+	if [ "$_tmp" -gt "$POLL_LINES_MAX" ] 2>/dev/null; then
+		printf '%s' "$POLL_LINES_MAX"
+	else
+		printf '%s' "$_tmp"
+	fi
 }
 
 poll_lines_from_input() {
@@ -266,9 +326,7 @@ poll_lines_from_input() {
 		esac
 	fi
 
-	if [ "$lines" -gt "$POLL_LINES_MAX" ] 2>/dev/null; then
-		lines="$POLL_LINES_MAX"
-	fi
+	lines=$(poll_clamp_lines "$lines")
 
 	printf '%s' "$lines"
 }
@@ -546,8 +604,29 @@ run_selftest() {
 		return 1
 	fi
 
+	got=$(poll_clamp_lines "99999999999999999999")
+	if [ "$got" != "$POLL_LINES_MAX" ]; then
+		echo "poll_clamp_lines: over-long expected $POLL_LINES_MAX got $got" >&2
+		return 1
+	fi
+	got=$(poll_clamp_lines "0")
+	if [ "$got" != "50" ]; then
+		echo "poll_clamp_lines: zero expected 50 got $got" >&2
+		return 1
+	fi
+	got=$(poll_clamp_lines "2001")
+	if [ "$got" != "$POLL_LINES_MAX" ]; then
+		echo "poll_clamp_lines: 2001 expected $POLL_LINES_MAX got $got" >&2
+		return 1
+	fi
+	got=$(poll_clamp_lines "500")
+	if [ "$got" != "500" ]; then
+		echo "poll_clamp_lines: expected 500 got $got" >&2
+		return 1
+	fi
+
 	if ! command -v jshn >/dev/null 2>&1; then
-		echo "skip: jshn not available (poll cap not tested)" >&2
+		echo "skip: jshn not available (poll cap via jshn not tested)" >&2
 		return 0
 	fi
 
@@ -557,6 +636,31 @@ run_selftest() {
 		return 1
 	fi
 
+	got=$(poll_lines_from_input '{"addresses":["99999999999999999999"]}')
+	if [ "$got" != "$POLL_LINES_MAX" ]; then
+		echo "poll_lines_from_input: over-long expected $POLL_LINES_MAX got $got" >&2
+		return 1
+	fi
+	got=$(poll_lines_from_input '{"addresses":["18446744073709551616"]}')
+	if [ "$got" != "$POLL_LINES_MAX" ]; then
+		echo "poll_lines_from_input: 18446744073709551616 expected $POLL_LINES_MAX got $got" >&2
+		return 1
+	fi
+	got=$(poll_lines_from_input '{"addresses":["0"]}')
+	if [ "$got" != "50" ]; then
+		echo "poll_lines_from_input: zero expected 50 got $got" >&2
+		return 1
+	fi
+	got=$(poll_lines_from_input '{"addresses":["2001"]}')
+	if [ "$got" != "$POLL_LINES_MAX" ]; then
+		echo "poll_lines_from_input: 2001 expected $POLL_LINES_MAX got $got" >&2
+		return 1
+	fi
+	got=$(poll_lines_from_input '{"addresses":["500"]}')
+	if [ "$got" != "500" ]; then
+		echo "poll_lines_from_input: expected 500 got $got" >&2
+		return 1
+	fi
 	got=$(poll_lines_from_input '{"addresses":["100"]}')
 	if [ "$got" != "100" ]; then
 		echo "poll_lines_from_input: expected 100 got $got" >&2

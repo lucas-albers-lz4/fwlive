@@ -1,7 +1,7 @@
 # Security review state
 
-> **Status:** 26 controls in force; 0 open findings.
-> **Last review:** 2026-08-23.
+> **Status:** 29 controls in force; 0 open findings.
+> **Last review:** 2026-08-31.
 > **Open:** none.
 > **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. For coverage beyond that script, follow [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md). Values current as of this PR.
@@ -55,7 +55,7 @@ should carry a note saying what would raise it.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-08-13 | Sweep + harness | #177: #175/#176 UI delta on recording-`innerHTML` harness; no non-empty innerHTML writes |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
-| rpcd plugin + ACL scope | 2026-08-13 | Diff + selftest | #177: no diff since `ce9df02`; read/write split; no `ubus log.*` |
+| rpcd plugin + ACL scope | 2026-08-31 | Diff + selftest | B1 fixes: pipeline subshell (no temp file, command substitution), duplicate-key skip, poll clamp length check; read/write split; no `ubus log.*` |
 | Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
 | Shell helpers — **file modes and lock ownership** | 2026-08-23 | Reproduced | #204 fix: symlink at lock path rejected; Part E in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-08-22 | Read + host test | `/etc/fwlive/wan-log-baseline`; restore only on `remove` |
@@ -75,12 +75,15 @@ should carry a note saying what would raise it.
 | Sessions never receive `ubus log.*` | `host` | `tests/fwlive-rpcd-security.test.js` |
 | Read and write ACL scopes stay separate | `host` | same |
 | Caller line count validated and clamped | `host` | rpcd `__selftest` |
+| Poll line-count clamp rejects over-long digit strings before numeric compare (no silenced `test` overflow) and maps `0`→50 | `host` | rpcd `poll_clamp_lines` helper + `__selftest` (over-long, zero, 2001, 500) — defence-in-depth for read-ACL reachable `poll` |
 | Addresses shape-validated before `getent` | `host` | rpcd `__selftest`, incl. a literal `$(reboot)` token |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
 | Reload failure rolls back the UCI write | `host` | same |
 | `resolve` bounded by a wall-clock budget | `manual` | `RESOLVE_BUDGET`; no test asserts the bound |
-| `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` |
+| `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` (clamp helper tested without jshn) |
+| Rules map pipeline uses command substitution (no temp file, no symlink) | `host` | `tests/fwlive-rules-map.test.js` production-path stubs under `dash` + `busybox sh` |
+| Rules map emits each key at most once (slug==raw skip) | `host` | same test — raw JSON duplicate-key assertion |
 | Every `E()` string child is array-wrapped | `host` | rendering harness ([#138](https://github.com/lucas-albers-lz4/fwlive/issues/138)) |
 | Actions SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` | `manual` | `.github/workflows/publish-packages.yml` — `peaceiris/actions-gh-pages@84c30a85c…` = `v4.1.0` (verified 2026-08-13); CodeQL alert 7 closed as **fixed**; re-check before each `v*` tag ([#178](https://github.com/lucas-albers-lz4/fwlive/issues/178)) |
 | SDK image digest-pinned at first **secret-touching** pull | `host` | `sdk_matrix_pull_and_pin` in `validate-feed-keys.sh`; `feed_publish_apply_sdk_pin` before opkg/apk sign; `tests/sdk-matrix-digests.test.sh` |
@@ -303,3 +306,17 @@ lock (#204), removal of unpinned `@playwright/mcp@latest` (#205). Ledger refresh
 
 **Result.** Open findings table empty. #204/#205 in Verified findings. `SECURITY.md`
 links to this ledger for review state.
+
+### 2026-08-31 — B1 rpcd fixes (Task 1–3)
+
+**Scope.** `build_rules_map` pipeline subshell (rules map empty in production), duplicate JSON keys when slug==raw, `poll_lines_from_input` overflow/zero clamp bypass. File: `openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive`.
+
+**Method.** Host reproduction under `dash` and `busybox sh`; stub-based `rules` method tests (nft + iptables-save on PATH); `__selftest` with `poll_clamp_lines` helper; `shellcheck -s sh`.
+
+**Fixes (minimal, POSIX sh, no temp file).**
+
+- **Task 1 (pipeline):** `build_rules_map` now captures fragments via `frag=$(nft_list_ruleset | { OUT=''; map_from_nft_stream; printf '%s' "$OUT"; })` and merges with comma handling for nft, iptables-save and ip6tables-save. No `mktemp`/symlink surface; preserves `run_with_timeout $NFT_TIMEOUT` and `ip6tables-save` presence check. `rulesmap_from_iptables_file` (redirect path) unchanged. Verified both shells; test fails before fix (empty map) and passes after.
+- **Task 2 (duplicate keys):** `map_prefix_with_label` and `map_uci_rule_names` compute `slug=$(slug_key …)` and skip second `map_add` when `slug==raw`. Approach: skip-second (not global idempotent) — minimal change, no global state, sufficient for described fw4 case where lower-hyphen raw duplicates slug; both lookups still resolve (single key covers both). Raw JSON duplicate assertion added.
+- **Task 3 (poll clamp):** Added `poll_clamp_lines` helper: strip leading zeros, if empty →50, if `${#tmp} > ${#POLL_LINES_MAX}` →2000 before any `test -gt`, else safe numeric clamp. `poll_lines_from_input` delegates to helper. `0` now →50, over-long (`99999999999999999999`, `18446744073709551616`) →2000, `2001` →2000, `500` passes. Helper tested without `jshn` (direct `poll_clamp_lines` calls) and with `jshn` via `poll_lines_from_input`; read-ACL reachable `poll` is now defence-in-depth clamped without relying on silenced `test` error.
+
+**Result.** Three new host controls (see table). No temp file created. `shellcheck` and `./scripts/fwlive-test.sh` pass.
