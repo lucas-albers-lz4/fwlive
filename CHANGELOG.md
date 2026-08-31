@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.37] — 2026-08-31
+
+### Security
+- Rules map temp files use mktemp-only on sticky `/tmp` with POSIX `[ -k ]` (no `stat -c` on BusyBox) (#227, #204 class)
+- Poll line count clamp rejects over-long digit strings before numeric compare (#221, #227)
+- Declare `+jsonfilter` in `LUCI_DEPENDS`; missing filter exits non-zero with `error` (#220, #228)
+- `json_escape` lives in `fwlive-logging.sh` so prerm does not fail standalone (#222, #228)
+
+### Fixed
+- Rules map reaches the client (no pipeline-subshell discard); global first-wins dedup (#217, #227)
+- `fwlive.resolve` uses BusyBox `nslookup` instead of absent `getent` (#218, #228)
+- Classifier is one awk pass per poll (not O(entries) forks); JSON filter decodes libubox escapes (#219, #228)
+- UCI rule names with whitespace are not word-split into junk keys (#226, #228)
+- Empty poll success returns `{"log":[]}`; `json_escape` preserves blank lines (#228)
+
+### Changed
+- Poll fetch depth scales with row limit (`rowLimit*4`, full ring when paused) (#228)
+- Upstream cut strips `SOURCE_DATE_EPOCH` block; `PKG_VERSION`/`APP_VERSION` gate in baseline (#224, #228)
+- Dual-maintenance policy and dependency prose in README (#225, #228)
+
 ## [v0.1.36] — 2026-08-25
 
 ### Security
@@ -393,6 +413,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.37]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.36...v0.1.37
 [v0.1.36]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.35...v0.1.36
 [v0.1.35]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.34...v0.1.35
 [v0.1.34]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.33...v0.1.34
