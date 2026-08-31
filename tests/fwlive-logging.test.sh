@@ -583,8 +583,61 @@ rm -rf "$BASELINE_WORK"
 unset WAN_LOG_BASELINE_FILE WAN_ZONE_LOG BASELINE_WORK
 unset -f uci reload_firewall mkdir acquire_wan_log_lock release_wan_log_lock
 
-# @zone[N] vs cfgXXXX false firewall_changes_pending: fixed in #241 / PR #241
-# (strict host regression lives there; do not reintroduce a loose repro here).
+# --- @zone[N] vs cfgXXXX in uci changes (issue #239) ---
+# find_wan_zone_section returns @zone[0]; stock uci often reports staged lines as
+# firewall.cfg03dc81.log='1'. wan_log_foreign_staged_lines must treat both as ours.
+ZONE_MISMATCH_WORK=$(mktemp -d)
+WAN_LOG_BASELINE_FILE="$ZONE_MISMATCH_WORK/wan-log-baseline"
+printf '' >"$WAN_LOG_BASELINE_FILE"
+PENDING_STAGED=0
+CURRENT_LOG=''
+uci() {
+	case "$*" in
+		'-q changes firewall')
+			[ "$PENDING_STAGED" = 1 ] && printf "firewall.cfg03dc81.log='1'\n"
+			;;
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+			;;
+		'-q get firewall.@zone[0]')
+			printf 'zone\n'
+			;;
+		'-q get firewall.@zone[0].name')
+			printf 'wan\n'
+			;;
+		'-q get firewall.@zone[0].log')
+			printf '%s' "$CURRENT_LOG"
+			;;
+		'-q get firewall.cfg03dc81')
+			printf 'zone\n'
+			;;
+		'-q get firewall.cfg03dc81.name')
+			printf 'wan\n'
+			;;
+		'set firewall.@zone[0].log='*)
+			PENDING_STAGED=1
+			;;
+		'commit firewall')
+			CURRENT_LOG='1'
+			PENDING_STAGED=0
+			;;
+		*) return 0 ;;
+	esac
+}
+check_nf_log_ipv4() { return 0; }
+check_nf_log_ipv6() { return 0; }
+acquire_wan_log_lock() { return 0; }
+release_wan_log_lock() { return 0; }
+reload_firewall() { return 0; }
+logger() { return 0; }
+out=$(enable_wan_logging)
+case "$out" in
+	*'"ok":true'*'"changed":true'*) ok "enable succeeds when uci changes resolves zone to cfg id" ;;
+	*) die "expected ok:true/changed:true when zone is @zone[0] but changes use cfg id, got: $out" ;;
+esac
+rm -rf "$ZONE_MISMATCH_WORK"
+unset WAN_LOG_BASELINE_FILE PENDING_STAGED CURRENT_LOG ZONE_MISMATCH_WORK
+unset -f uci check_nf_log_ipv4 check_nf_log_ipv6 acquire_wan_log_lock release_wan_log_lock reload_firewall logger
 
 sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
 ok "rpcd __selftest"
