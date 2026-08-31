@@ -5,8 +5,55 @@ upstream PR. Publish checklist pointer:
 [`../github-publish-checklist.md`](../github-publish-checklist.md).
 Agent review order before filing: [pr-cycle.md](pr-cycle.md).
 
-This monorepo stays the development home. The luci PR is a **copy**, not a
-move. The signed binary / `src-link` feed stays for non-snapshot users.
+This monorepo is the development home.
+The luci PR is a **copy**, not a move.
+The signed binary feed and `src-link` stay for users who do not use snapshots.
+
+## Maintenance model
+
+This section answers questions from LuCI maintainers.
+The package README has a link to this section.
+
+### Which tree wins
+
+| Tree | Role |
+|------|------|
+| **[lucas-albers-lz4/fwlive](https://github.com/lucas-albers-lz4/fwlive)** | Primary source. Develop, test, release, and cut from this tree. |
+| **`openwrt/luci` `applications/luci-app-fwlive/`** | Snapshot for OpenWrt snapshot images and the luci feed. |
+| **Signed binary feed** | Second install path for users who do not use snapshots. Not a second source of truth. |
+
+If the two trees disagree, **this monorepo wins**.
+The next run of `./scripts/upstream-cut.sh` replaces the luci copy (code and `.pot`).
+Do not use the luci tree as a second place to develop the app.
+
+### Generated / snapshot files
+
+Some shipped files are **snapshots**. They are not hand-edited LuCI sources.
+After the cut, their headers say this (for example `fwlive-is-firewall-event.sh` and `css.js`).
+Keep `APP_VERSION` in `constants.js` equal to `PKG_VERSION`.
+To change the classifier, edit `CLASSIFY_SPEC` in this monorepo, run `./scripts/gen-all.sh`, then cut again.
+If you edit those files only in luci, the next snapshot will overwrite your change.
+
+### Keeping luci current
+
+When we ship a fix or a release, we cut the change into `openwrt/luci` again.
+Use the same FormalityCheck path as the first PR.
+After Weblate owns `po/<lang>/`, a re-cut must **not** replace those locale files.
+Re-cut only code and `.pot` ([After merge](#after-merge-upstream)).
+
+We keep two trees on purpose, with one winner.
+We do not use two equal homes (see `luci-app-https-dns-proxy` as a bad example).
+Send fixes to fwlive. Do not leave long-lived patches only in luci.
+
+### Why not `PKG_SOURCE`
+
+We looked at a `PKG_SOURCE` / tarball package. We **do not** use that design:
+
+- LuCI apps usually live **in the tree** under `applications/`
+- After merge, **Weblate** owns `po/<lang>/` in luci. A GitHub download still needs version bumps and still has two places to update
+- Snapshot and image builders expect a plain tree. They must not fetch from the network when they build the package
+
+An in-tree snapshot with a clear “fwlive wins” rule fits LuCI practice better than an out-of-tree tarball.
 
 ## Where it lands
 
@@ -117,7 +164,8 @@ paste review threads upstream.
 | `PKG_VERSION` | Keep in the cut (lockstep with `APP_VERSION`) |
 | License | State Apache-2.0 in the PR body. `PKG_LICENSE` is already set; do not add `PKG_LICENSE_FILES` (peer LuCI apps) |
 | Out-of-tree | New in-tree app, not an LLM redirect heuristic; feed stays |
-| Generated files | Snapshots from this repo |
+| Generated files | Snapshots from this repo. See [Maintenance model](#maintenance-model). |
+| Dual tree / `PKG_SOURCE` | fwlive wins. Keep the in-tree snapshot. Do not use `PKG_SOURCE`. See [Maintenance model](#maintenance-model). |
 
 ## After merge (upstream)
 
