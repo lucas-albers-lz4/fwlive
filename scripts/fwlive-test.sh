@@ -59,6 +59,12 @@ echo "== fwlive theme tint helpers ==" >&2
 echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js
 
+echo "== fwlive view poll contract (#233 / #240) =="
+"$NODE" tests/fwlive-view-poll-error.test.js
+
+echo "== fwlive view poll guard (#240) =="
+"$NODE" tests/fwlive-view-poll-guard.test.js
+
 echo "== fwlive LuCI-accurate E() harness (#149) ==" >&2
 "$NODE" tests/fwlive-e-harness.test.js
 

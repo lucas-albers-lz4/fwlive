@@ -24,6 +24,20 @@ jobs:
       - name: Link check (internal markdown links + external URLs)
         run: ./scripts/fwlive-linkcheck.sh
 
+  test-view-mock:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Mocked view smoke (Tier 2)
+        run: npm run test:view
+
   zizmor:
     runs-on: ubuntu-latest
     env:
