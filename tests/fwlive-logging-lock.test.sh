@@ -304,4 +304,45 @@ fi
 	|| die "symlink target truncated (got '$(cat "$decoy")')"
 ok "symlink at lock path rejected; decoy content preserved"
 
+# --- Part F: wan_log_lock_dir_safe without GNU/BusyBox stat -c (#232) -------
+# Production calls this only when FWLIVE_WAN_LOG_LOCK_FILE is unset. Host CI
+# has GNU stat, so shadow it to prove the BusyBox STAT=n path.
+nostat="$WORK/nostat-bin"
+mkdir -p "$nostat"
+cat > "$nostat/stat" <<'EOF'
+#!/bin/sh
+echo "stat should not be required (#232)" >&2
+exit 127
+EOF
+chmod +x "$nostat/stat"
+
+safe_dir="$WORK/lock-dir-safe"
+mkdir -m 0755 "$safe_dir"
+# shellcheck disable=SC1090
+. "$LOGGING_SH"
+PATH="$nostat:$PATH" wan_log_lock_dir_safe "$safe_dir" \
+	|| die "wan_log_lock_dir_safe failed on euid-owned 0755 dir with stat shadowed"
+ok "wan_log_lock_dir_safe succeeds without stat (0755, euid-owned)"
+
+group_w="$WORK/lock-dir-group-w"
+mkdir -m 0775 "$group_w"
+if PATH="$nostat:$PATH" wan_log_lock_dir_safe "$group_w"; then
+	die "wan_log_lock_dir_safe accepted group-writable dir"
+fi
+ok "wan_log_lock_dir_safe rejects group-writable dir"
+
+other_w="$WORK/lock-dir-other-w"
+mkdir -m 0757 "$other_w"
+if PATH="$nostat:$PATH" wan_log_lock_dir_safe "$other_w"; then
+	die "wan_log_lock_dir_safe accepted other-writable dir"
+fi
+ok "wan_log_lock_dir_safe rejects other-writable dir"
+
+symlink_dir="$WORK/lock-dir-symlink"
+ln -s "$safe_dir" "$symlink_dir"
+if PATH="$nostat:$PATH" wan_log_lock_dir_safe "$symlink_dir"; then
+	die "wan_log_lock_dir_safe accepted symlink dir"
+fi
+ok "wan_log_lock_dir_safe rejects symlink dir"
+
 echo "fwlive-logging-lock tests passed"

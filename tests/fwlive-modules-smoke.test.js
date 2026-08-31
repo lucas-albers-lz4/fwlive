@@ -37,6 +37,12 @@ assert.ok(
 	/const fetchLines = this\.paused\s*\?\s*constants\.FETCH_LINES_MAX\s*:\s*Math\.min\(\s*Math\.max\(\s*this\.rowLimit \* 4/.test(viewSrc),
 	'poll must scale raw fetch with rowLimit and use FETCH_LINES_MAX when paused'
 );
+assert.ok(!/expect:\s*\{\s*log:\s*\[\]\s*\}/.test(viewSrc),
+	'callFwlivePoll must not use expect:{log:[]} (strips reply.error, #233)');
+assert.ok(/if\s*\(\s*reply\.error\s*\)/.test(viewSrc),
+	'fetchEntries must set lastPollError when poll reply includes error');
+assert.ok(/const raw = reply\.log/.test(viewSrc),
+	'fetchEntries must read log array from the full poll reply object');
 console.log('fwlive-modules smoke: constants OK');
 
 /* --- log (needed by links/chips/table) --- */

@@ -583,6 +583,9 @@ rm -rf "$BASELINE_WORK"
 unset WAN_LOG_BASELINE_FILE WAN_ZONE_LOG BASELINE_WORK
 unset -f uci reload_firewall mkdir acquire_wan_log_lock release_wan_log_lock
 
+# @zone[N] vs cfgXXXX false firewall_changes_pending: fixed in #241 / PR #241
+# (strict host regression lives there; do not reintroduce a loose repro here).
+
 sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
 ok "rpcd __selftest"
 
