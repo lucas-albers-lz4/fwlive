@@ -1,6 +1,6 @@
 # Security review state
 
-> **Status:** 36 controls in force; 0 open findings.
+> **Status:** 37 controls in force; 0 open findings.
 > **Last review:** 2026-08-31 (upstream-review remaining).
 > **Open:** none.
 > **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
@@ -57,7 +57,7 @@ should carry a note saying what would raise it.
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
 | rpcd plugin + ACL scope | 2026-08-31 | Diff + selftest | B1 fixes: redirect via mktemp-only helper (`_fwlive_mktemp`, fixed `/tmp`, `TMPDIR` deliberately ignored), duplicate-key skip, poll clamp length check; read/write split; no `ubus log.*`; predictable-path and bare-`mktemp` fallbacks removed, graceful degradation when mktemp absent |
 | Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
-| Shell helpers — **file modes and lock ownership** | 2026-08-23 | Reproduced | #204 fix: symlink at lock path rejected; Part E in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
+| Shell helpers — **file modes and lock ownership** | 2026-08-31 | Reproduced | #204 symlink reject + #232 BusyBox-safe dir check (`[ -O ]` + `find -perm`, no `stat -c`); Parts E/F in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-08-22 | Read + host test | `/etc/fwlive/wan-log-baseline`; restore only on `remove` |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-08-13 | Host test | #177: pending-delta refuse; named/anonymous/non-zone lookups |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
@@ -108,6 +108,7 @@ should carry a note saying what would raise it.
 | Uninstall restores WAN `log` from pre-first-enable baseline | `host` | `tests/fwlive-logging.test.sh` — baseline snapshot/restore; `scripts/qemu-logging-uninstall-smoke.sh` (`lab`) |
 | The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600 |
 | Lock path rejects symlinks before truncate/chmod/chown | `host` | `tests/fwlive-logging-lock.test.sh` Part E — #204 |
+| Production lock dir check works without `stat -c` (BusyBox `STAT=n`) | `host` | `wan_log_lock_dir_safe`: `[ -O ]` + `find -prune -perm`; Part F shadows `stat` |
 
 ## Open findings
 
@@ -344,3 +345,25 @@ links to this ledger for review state.
 - **Cleanup:** inline `rm -f` immediately after parsing, with no `return`/`exit` between creation and removal. No `trap` — a signal can leak one root-owned 0600 file in sticky `/tmp`, which tmpfs clears on reboot; portable `trap` save/restore across `dash`/BusyBox `ash` (no `trap -p`) was judged to add more failure surface than it removes. Reviewed and accepted at the gate.
 
 **Test.** `testNoMktempGracefulDegradation` in `tests/fwlive-rules-map.test.js` — shadows `mktemp` (exit 127) at front of `PATH`, calls `rules` under `dash` (and `busybox sh` only when BusyBox honours PATH; Ubuntu standalone applets skip). Asserts: (1) well-formed JSON + `backend==nft` + UCI names still present (catches missing degradation / malformed JSON), (2) no `/tmp/fwlive-{nft,ipt,ip6t}*` file created (catches predictable-path symlink write), (3) nft-derived key `should-not-appear` absent (catches fixed-path dump still being parsed). `testTmpDirSticky` pins reject of a non-sticky dir and of a symlink. Verified `grep -n '\$\$' rpcd/fwlive` empty and `grep -n 'mktemp'` shows only helper + call sites.
+
+### 2026-08-31 — R5 remaining luci#8992 folds (#228)
+
+**Scope.** Second wave of [openwrt/luci#8992](https://github.com/openwrt/luci/pull/8992) review fixes after B1/R4: hostname resolve without `getent`, declared `jsonfilter` dependency, one-pass awk classifier (poll fork storm), `json_escape` owned by `fwlive-logging.sh` for standalone `prerm`, JSON unescape before classify, UCI whitespace rule-name skip, luci-copy `SOURCE_DATE_EPOCH` / dual-maintenance docs. Sticky `/tmp` via POSIX `[ -k ]` is recorded under R4; this entry covers the #228 surface.
+
+**Method.** Host `./scripts/fwlive-test.sh` (dash + BusyBox ash stubs); `validate-baseline.sh` for `+jsonfilter` in `LUCI_DEPENDS`; shell-filter / rules-map / logging suites.
+
+**Fixes recorded.**
+
+- **Resolve:** BusyBox `nslookup` replaces `getent`; missing resolver → `error:no_resolver` (not empty `names`).
+- **Poll filter:** `+jsonfilter` hard depends; missing binary → non-zero + `error:jsonfilter_missing`; classifier is one awk pass; filter is one `jsonfilter` + one awk; libubox string escapes unescaped before classify.
+- **prerm / escape:** `json_escape` lives in `fwlive-logging.sh` so `prerm` can source it standalone (#222).
+- **Rules map:** UCI names with whitespace are not word-split into junk keys (#226).
+- **Docs / cut:** dual-maintenance policy and Dependencies prose for the luci snapshot (#224/#225).
+
+**Result.** Controls for nslookup, `json_escape` ownership, whitespace UCI names, `jsonfilter` depends, and JSON unescape added to the table. Open findings none from this wave; post-merge follow-ups filed separately (#229–#235).
+
+### 2026-08-31 — #232 BusyBox-safe WAN lock dir check
+
+**Scope.** `wan_log_lock_dir_safe` used `stat -c '%u'/'%a'`, which default OpenWrt BusyBox omits (`STAT=n` / `FEATURE_STAT_FORMAT=n`). Fail-closed then made Enable/Disable WAN logging dead on a stock image.
+
+**Fix.** `[ -O ]` for euid ownership; `find -prune \( -perm -020 -o -perm -002 \)` for group/other write. No `stat`. Part F in `fwlive-logging-lock.test.sh` shadows `stat` on `PATH`.
