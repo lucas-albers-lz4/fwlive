@@ -65,6 +65,8 @@ sed -i '/^# Wire feed first/,/^$/d' "$OUT/Makefile"
 # SOURCE_DATE_EPOCH is already exported by OpenWrt toplevel.mk; the block is
 # a no-op in luci and the comment cites docker-sdk.sh (monorepo-only) (#224).
 sed -i '/^# Reproducible build: honor SOURCE_DATE_EPOCH/,/^endif$/d' "$OUT/Makefile"
+# The delete leaves a double blank before PKG_LICENSE; squeeze to one (#246).
+sed -i '/^PKG_RELEASE:=/{n;/^$/{n;/^$/d;};}' "$OUT/Makefile"
 
 # First luci PR: .pot only. Empty locale dirs still make luci.mk emit empty
 # luci-i18n-* packages — remove the directories entirely.
@@ -201,6 +203,21 @@ fi
 
 if grep -q 'docker-sdk' "$OUT/Makefile"; then
 	echo "  FAIL: docker-sdk.sh reference remains in luci-shaped Makefile" >&2
+	fail=1
+fi
+
+# No double blank before PKG_LICENSE (residue from dropping SOURCE_DATE_EPOCH) (#246).
+# Note: awk still runs END after `exit` from the main body, so use a found flag.
+if awk '
+	$0 ~ /^PKG_RELEASE:=/ { blanks = 0; watching = 1; next }
+	watching {
+		if ($0 == "") { blanks++; next }
+		if (blanks >= 2 && $0 ~ /^PKG_LICENSE:=/) { found = 1; exit }
+		watching = 0
+	}
+	END { exit(found ? 0 : 1) }
+' "$OUT/Makefile"; then
+	echo "  FAIL: double blank before PKG_LICENSE in luci-shaped Makefile" >&2
 	fail=1
 fi
 
