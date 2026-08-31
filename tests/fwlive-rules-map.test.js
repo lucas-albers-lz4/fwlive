@@ -65,18 +65,16 @@ function makeStub(dir, name, content) {
 	fs.writeFileSync(p, content, { mode: 0o755 });
 }
 
+function runRpcd(shell, args, opts) {
+	if (shell === 'busybox') {
+		return execFileSync('busybox', ['sh', RPCD, ...args], opts);
+	}
+	return execFileSync(shell, [RPCD, ...args], opts);
+}
+
 function runWithShell(shell, env) {
 	// shell is 'dash' or 'busybox' (busybox needs 'sh' arg)
-	if (shell === 'busybox') {
-		return execFileSync('busybox', ['sh', RPCD, 'call', 'rules'], {
-			encoding: 'utf8',
-			env,
-		});
-	}
-	return execFileSync(shell, [RPCD, 'call', 'rules'], {
-		encoding: 'utf8',
-		env,
-	});
+	return runRpcd(shell, ['call', 'rules'], { encoding: 'utf8', env });
 }
 
 let _posixShells;
@@ -98,6 +96,24 @@ function posixShells() {
 	assert.ok(found.length > 0, 'need dash or busybox on PATH for POSIX coverage');
 	_posixShells = found;
 	return found;
+}
+
+function busyboxHonorsPath(cmd) {
+	let probe;
+	try {
+		probe = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbpath-'));
+		makeStub(probe, cmd, '#!/bin/sh\necho STUB_RAN\nexit 0\n');
+		const out = execFileSync('busybox', ['sh', '-c', `${cmd} 192.0.2.1`], {
+			encoding: 'utf8',
+			env: { ...process.env, PATH: `${probe}:${process.env.PATH}` },
+		});
+		return out.includes('STUB_RAN');
+	} catch (e) {
+		if (e.code === 'ENOENT') return false;
+		return false;
+	} finally {
+		if (probe) fs.rmSync(probe, { recursive: true, force: true });
+	}
 }
 
 function testProductionNft() {
@@ -921,8 +937,15 @@ function testResolveNslookup() {
 	got = execFileSync(RPCD, ['__parse_nslookup', miniOut], { encoding: 'utf8' }).trim();
 	assert.equal(got, 'dns.google', 'mini nslookup must skip resolver Address N');
 
-	got = execFileSync(RPCD, ['__parse_nslookup', 'Server: 127.0.0.1\nAddress: 127.0.0.1:53'], { encoding: 'utf8' }).trim();
+	let emptyStatus = 0;
+	try {
+		got = execFileSync(RPCD, ['__parse_nslookup', 'Server: 127.0.0.1\nAddress: 127.0.0.1:53'], { encoding: 'utf8' }).trim();
+	} catch (e) {
+		emptyStatus = e.status;
+		got = String(e.stdout || '').trim();
+	}
 	assert.equal(got, '', 'server-only is not a name');
+	assert.equal(emptyStatus, 1, 'empty parse must fail');
 
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ns-'));
 	try {
@@ -940,23 +963,27 @@ echo "getent-must-not-run" >> "${stubDir}/called"
 exit 1
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		const out = execFileSync('dash', [RPCD, '__resolve_one', '192.0.2.1'], { encoding: 'utf8', env }).trim();
-		assert.equal(out, 'ptr.example', 'resolve_hostname uses nslookup');
-		const called = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
-		assert.ok(called.includes('marker-nslookup 192.0.2.1'), 'nslookup saw the validated IP');
-		assert.ok(!called.includes('getent-must-not-run'), 'getent must not run');
+		const shells = posixShells().filter((s) => s !== 'busybox' || busyboxHonorsPath('nslookup'));
+		assert.ok(shells.length > 0, 'need a PATH-honouring POSIX shell for nslookup stub');
+		for (const shell of shells) {
+			const out = runRpcd(shell, ['__resolve_one', '192.0.2.1'], { encoding: 'utf8', env }).trim();
+			assert.equal(out, 'ptr.example', `[${shell}] resolve_hostname uses nslookup`);
+			const called = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
+			assert.ok(called.includes('marker-nslookup 192.0.2.1'), `[${shell}] nslookup saw the validated IP`);
+			assert.ok(!called.includes('getent-must-not-run'), `[${shell}] getent must not run`);
 
-		let rejected = false;
-		try {
-			execFileSync('dash', [RPCD, '__resolve_one', 'dead.beef.cafe.baad'], {
-				encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe']
-			});
-		} catch (e) {
-			rejected = e.status !== 0;
+			let rejected = false;
+			try {
+				runRpcd(shell, ['__resolve_one', 'dead.beef.cafe.baad'], {
+					encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe']
+				});
+			} catch (e) {
+				rejected = e.status !== 0;
+			}
+			assert.equal(rejected, true, `[${shell}] hostname-shaped token must not reach nslookup`);
+			const called2 = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
+			assert.ok(!called2.includes('dead.beef'), `[${shell}] invalid token must not reach nslookup`);
 		}
-		assert.equal(rejected, true, 'hostname-shaped token must not reach nslookup');
-		const called2 = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
-		assert.ok(!called2.includes('dead.beef'), 'invalid token must not reach nslookup');
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 
 	const noNs = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-nons-'));

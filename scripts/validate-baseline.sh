@@ -65,8 +65,10 @@ if [[ -z "$pkg_ver" || "$pkg_ver" != "$app_ver" ]]; then
 fi
 echo "baseline OK: PKG_VERSION == APP_VERSION ($pkg_ver)" >&2
 
-if ! grep -q 'jsonfilter' "${ROOT}/openwrt-feed/luci-app-fwlive/Makefile"; then
-	echo "baseline FAIL: LUCI_DEPENDS must declare jsonfilter" >&2
+luci_depends=$(sed -n 's/^LUCI_DEPENDS:=//p' \
+	"${ROOT}/openwrt-feed/luci-app-fwlive/Makefile" | head -1)
+if ! grep -Eq '(^|[[:space:]])\+jsonfilter([[:space:]]|$)' <<<"$luci_depends"; then
+	echo "baseline FAIL: LUCI_DEPENDS must declare +jsonfilter" >&2
 	exit 1
 fi
 echo "baseline OK: jsonfilter declared" >&2

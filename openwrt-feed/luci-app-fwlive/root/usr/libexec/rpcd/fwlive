@@ -363,11 +363,14 @@ fetch_firewall_logs() {
 
 	# Do not swallow a filter failure into a silent empty table (#220).
 	# If the filter exits non-zero but still printed JSON, keep it.
+	# Empty success is not valid poll JSON — the shipped filter always
+	# prints {"log":[...]}, but a stub/regression must not emit a blank body.
 	if ! out=$(printf '%s' "$raw" | "$FILTER_SH"); then
 		if [ -z "$out" ]; then
 			out='{"log":[],"error":"filter_failed"}'
 		fi
 	fi
+	[ -n "$out" ] || out='{"log":[]}'
 	printf '%s' "$out"
 }
 
@@ -574,6 +577,15 @@ run_selftest() {
 	expected='x\u0001y\u001fz'
 	if [ "$escaped" != "$expected" ]; then
 		echo "json_escape C0: expected $expected got $escaped" >&2
+		return 1
+	fi
+
+	# Blank lines are data (paragraph-mode RS="" used to drop them).
+	input=$(printf 'a\n\nb')
+	escaped=$(printf '%s' "$input" | json_escape)
+	expected=$(printf 'a\\n\\nb')
+	if [ "$escaped" != "$expected" ]; then
+		echo "json_escape blank line: expected $expected got $escaped" >&2
 		return 1
 	fi
 
@@ -795,9 +807,13 @@ case "$1" in
 		exit 1
 		;;
 	__parse_nslookup)
-		parse_nslookup_name "$2"
+		name=$(parse_nslookup_name "$2")
+		if [ -n "$name" ]; then
+			printf '%s\n' "$name"
+			exit 0
+		fi
 		printf '\n'
-		exit $?
+		exit 1
 		;;
 	list)
 		# Method names only — args objects describe call parameters.

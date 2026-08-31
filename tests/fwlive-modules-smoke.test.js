@@ -30,10 +30,11 @@ assert.ok(typeof constants.APP_VERSION === 'string' && /^\d+\.\d+\.\d+$/.test(co
 const makefile = fs.readFileSync(path.join(PKG, 'Makefile'), 'utf8');
 const mkVer = (makefile.match(/^PKG_VERSION:=(\S+)/m) || [])[1];
 assert.strictEqual(constants.APP_VERSION, mkVer, 'constants.APP_VERSION must match Makefile PKG_VERSION');
-assert.ok(/\+jsonfilter/.test(makefile), 'LUCI_DEPENDS must declare +jsonfilter');
+const luciDepends = (makefile.match(/^LUCI_DEPENDS:=(.*)$/m) || [])[1] || '';
+assert.ok(/(^|\s)\+jsonfilter(\s|$)/.test(luciDepends), 'LUCI_DEPENDS must declare +jsonfilter');
 const viewSrc = fs.readFileSync(path.join(PKG, 'htdocs/luci-static/resources/view/status/fwlive.js'), 'utf8');
 assert.ok(
-	viewSrc.includes('this.rowLimit * 4') && viewSrc.includes('this.paused'),
+	/const fetchLines = this\.paused\s*\?\s*constants\.FETCH_LINES_MAX\s*:\s*Math\.min\(\s*Math\.max\(\s*this\.rowLimit \* 4/.test(viewSrc),
 	'poll must scale raw fetch with rowLimit and use FETCH_LINES_MAX when paused'
 );
 console.log('fwlive-modules smoke: constants OK');

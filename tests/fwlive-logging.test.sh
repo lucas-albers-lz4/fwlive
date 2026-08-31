@@ -12,6 +12,9 @@ ok() { echo "fwlive-logging test OK: $*"; }
 . "$LOGGING_SH"
 
 type json_escape >/dev/null 2>&1 || die "json_escape must be defined after sourcing logging.sh"
+got=$(printf 'a\n\nb' | json_escape)
+[ "$got" = "$(printf 'a\\n\\nb')" ] || die "json_escape must keep blank lines, got: $got"
+ok "json_escape keeps blank lines"
 
 WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-$(mktemp)}"
 export WAN_LOG_BASELINE_FILE
