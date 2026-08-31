@@ -394,8 +394,9 @@ parse_nslookup_name() {
 		}
 		NF == 0 { in_answer = 1; next }
 		in_answer && $1 == "Address" && $2 ~ /^[0-9]+:/ && NF >= 4 {
-			print $4
-			exit
+			host = $4
+			gsub(/\.$/, "", host)
+			if (host != "") { print host; exit }
 		}
 	'
 }
@@ -742,7 +743,7 @@ Address: 127.0.0.1:53
 	got=$(parse_nslookup_name "Server:		127.0.0.1
 Address:	127.0.0.1:53
 
-Address 1: 8.8.8.8 dns.google")
+Address 1: 8.8.8.8 dns.google.")
 	if [ "$got" != "dns.google" ]; then
 		echo "parse_nslookup_name: busybox Address N expected dns.google got '$got'" >&2
 		return 1

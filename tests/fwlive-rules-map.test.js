@@ -913,7 +913,7 @@ function testResolveNslookup() {
 	let got = execFileSync(RPCD, ['__parse_nslookup', bindOut], { encoding: 'utf8' }).trim();
 	assert.equal(got, 'ptr.example', 'bind-style name = host');
 
-	const bbOut = 'Server:\t\t127.0.0.1\nAddress:\t127.0.0.1:53\n\nAddress 1: 192.0.2.1 ptr.example';
+	const bbOut = 'Server:\t\t127.0.0.1\nAddress:\t127.0.0.1:53\n\nAddress 1: 192.0.2.1 ptr.example.';
 	got = execFileSync(RPCD, ['__parse_nslookup', bbOut], { encoding: 'utf8' }).trim();
 	assert.equal(got, 'ptr.example', 'busybox Address N: ip host');
 
