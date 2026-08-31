@@ -452,15 +452,15 @@ msgstr "ÐÑÐ°Ð²Ð¸Ð»Ð¾"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:934
 msgid "Rule labels incomplete — map truncated"
-msgstr ""
+msgstr "Rule labels incomplete — map truncated"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:938
 msgid "Rule labels unavailable"
-msgstr ""
+msgstr "Rule labels unavailable"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:936
 msgid "Rule labels unavailable — temp file failed"
-msgstr ""
+msgstr "Rule labels unavailable — temp file failed"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:41
 msgid "SPort"
