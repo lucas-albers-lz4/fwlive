@@ -235,7 +235,9 @@ _fwlive_tmp_dir_ok() {
 	[ -n "$dir" ] || return 1
 	[ -L "$dir" ] && return 1
 	[ -d "$dir" ] || return 1
-	# POSIX sticky-bit test — no `stat` (BusyBox STAT is off on default OpenWrt).
+	# POSIX XCU `test -k`; BusyBox/dash implement it. shellcheck SC3065
+	# incorrectly treats -k as non-POSIX (and `stat -c` is not on OpenWrt).
+	# shellcheck disable=SC3065
 	[ -k "$dir" ]
 }
 
