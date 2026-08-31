@@ -82,13 +82,18 @@ function jsonfilterPathEnv() {
 	fs.writeFileSync(path.join(stubDir, 'jsonfilter'), [
 		'#!/usr/bin/env node',
 		"'use strict';",
+		'const fs = require("fs");',
 		'let input = "";',
 		'let expr = "";',
+		'let usedS = false;',
 		'const argv = process.argv.slice(2);',
 		'for (let i = 0; i < argv.length; i++) {',
-		'\tif (argv[i] === "-s" && i + 1 < argv.length) input = argv[++i];',
+		'\tif (argv[i] === "-s" && i + 1 < argv.length) { input = argv[++i]; usedS = true; }',
 		'\telse if (argv[i] === "-e" && i + 1 < argv.length) expr = argv[++i];',
 		'}',
+		'/* Host stand-in for Linux MAX_ARG_STRLEN (#234): reject huge -s. */',
+		'if (usedS && Buffer.byteLength(input, "utf8") > 128 * 1024) process.exit(1);',
+		'if (!usedS) input = fs.readFileSync(0, "utf8");',
 		'if (expr !== "@.log[*]") process.exit(1);',
 		'let data;',
 		'try { data = JSON.parse(input); } catch (e) { process.exit(1); }',
@@ -200,12 +205,38 @@ function runMissingJsonfilter() {
 	}
 }
 
+function runOversizedStdin() {
+	/* Stub rejects -s over 128KiB; stdin path must still classify (#234). */
+	const pad = 'x'.repeat(130 * 1024);
+	const payload = JSON.stringify({
+		log: [
+			{ msg: 'IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP', id: 1, _pad: pad }
+		]
+	});
+	assert.ok(Buffer.byteLength(payload, 'utf8') > 128 * 1024);
+	const jf = jsonfilterPathEnv();
+	try {
+		const filtered = shSpawn(null, {
+			argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+		const out = JSON.parse(filtered.stdout);
+		assert.equal(out.log.length, 1, 'oversized stdin must not collapse to empty log');
+		assert.equal(out.log[0].msg,
+			'IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP');
+		assert.equal(out.error, undefined);
+	} finally {
+		jf.cleanup();
+	}
+}
+
 function run() {
 	runMsgParity();
 	runJsonParity();
 	runJsonGetMsgEscapes();
 	runMetacharSafety();
 	runMissingJsonfilter();
+	runOversizedStdin();
 	console.log('fwlive shell filter parity tests passed (SH=' + SH + ')');
 }
 

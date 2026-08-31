@@ -4,8 +4,8 @@
  *
  *   FWLIVE_URL=http://127.0.0.1:8080 node tests/fwlive-ui-reliability-smoke.mjs
  *
- * Covers: poll error banner, hostname toggle race, pause/resume, filter debounce,
- * poll leak on leave/revisit.
+ * Covers: poll error banner (transport abort + reply.error #233), hostname
+ * toggle race, pause/resume, filter debounce, poll leak on leave/revisit.
  *
  * Compatible with pre-A2 (#fwlive-autorefresh) and A2 (#fwlive-pause) chrome.
  */
@@ -118,7 +118,60 @@ async function testPollErrorBanner(page) {
 		return el && !/Connection lost/i.test(el.textContent || '');
 	}, { timeout: 20000 });
 
-	console.log('OK: poll error banner shows then clears');
+	console.log('OK: poll error banner shows then clears (transport abort)');
+}
+
+/**
+ * #233 — well-formed {"log":[],"error":"filter_failed"} must show the banner.
+ * LuCI list-form ubus: [[id,sid],[0, result]].
+ */
+function fulfillFwlivePollError(postData) {
+	let req;
+	try {
+		req = JSON.parse(postData);
+	} catch (e) {
+		return null;
+	}
+	if (!Array.isArray(req) || req.length < 2)
+		return null;
+	const id = req[0];
+	return JSON.stringify([id, [0, { log: [], error: 'filter_failed' }]]);
+}
+
+async function testPollErrorFieldBanner(page) {
+	await waitForRows(page);
+
+	await page.route(ubusRouteMatch, async (route) => {
+		const post = route.request().postData() || '';
+		if (isFwlivePoll(post)) {
+			const body = fulfillFwlivePollError(post);
+			if (body) {
+				await route.fulfill({
+					status: 200,
+					contentType: 'application/json',
+					body
+				});
+				return;
+			}
+			await route.abort('failed');
+			return;
+		}
+		await route.continue();
+	});
+
+	await page.waitForFunction(() => {
+		const el = document.getElementById('fwlive-status');
+		return el && /Connection lost/i.test(el.textContent || '');
+	}, { timeout: 15000 });
+
+	await page.unroute(ubusRouteMatch);
+
+	await page.waitForFunction(() => {
+		const el = document.getElementById('fwlive-status');
+		return el && !/Connection lost/i.test(el.textContent || '');
+	}, { timeout: 20000 });
+
+	console.log('OK: poll reply.error banner shows then clears (#233)');
 }
 
 async function testHostnameToggleRace(page) {
@@ -318,6 +371,7 @@ async function main() {
 		await waitForRows(page);
 
 		await testPollErrorBanner(page);
+		await testPollErrorFieldBanner(page);
 		await testHostnameToggleRace(page);
 		await testPauseResume(page);
 		await testFilterDebounce(page);
