@@ -139,12 +139,13 @@ async function main() {
 	const enableBtn = page.locator('#fwlive-empty button.cbi-button-action').first();
 	await enableBtn.click();
 	await page.waitForTimeout(3000);
-	if (!(await page.locator('text=WAN logging on').count())) {
+	const loggingOnBtn = page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' });
+	if (!(await loggingOnBtn.count())) {
 		/* Same UCI fallback when enable_wan_logging hits firewall_changes_pending. */
 		guestSsh('rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(uci show firewall | sed -n "s/^firewall\\.\\([^.]*\\)\\.name=.wan.$/\\1/p" | head -1); uci set firewall.$zid.log=1; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci');
 		await openFwlive(page);
 	}
-	await page.waitForSelector('text=WAN logging on', { timeout: 20000 });
+	await loggingOnBtn.waitFor({ state: 'visible', timeout: 20000 });
 	await page.screenshot({ path: path.join(OUT, 'fwlive-after-enable.png'), fullPage: true });
 
 	// Generate visible rows

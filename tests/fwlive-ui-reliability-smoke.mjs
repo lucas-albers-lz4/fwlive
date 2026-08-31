@@ -123,7 +123,7 @@ async function testPollErrorBanner(page) {
 
 /**
  * #233 — well-formed {"log":[],"error":"filter_failed"} must show the banner.
- * LuCI list-form ubus: [[id,sid],[0, result]].
+ * LuCI rpc.declare posts JSON-RPC 2.0 to /ubus.
  */
 function fulfillFwlivePollError(postData) {
 	let req;
@@ -132,20 +132,27 @@ function fulfillFwlivePollError(postData) {
 	} catch (e) {
 		return null;
 	}
-	if (!Array.isArray(req) || req.length < 2)
+	if (!req || typeof req !== 'object' || req.jsonrpc !== '2.0')
 		return null;
-	const id = req[0];
-	return JSON.stringify([id, [0, { log: [], error: 'filter_failed' }]]);
+	if (typeof req.id === 'undefined')
+		return null;
+	return JSON.stringify({
+		jsonrpc: '2.0',
+		id: req.id,
+		result: [0, { log: [], error: 'filter_failed' }]
+	});
 }
 
 async function testPollErrorFieldBanner(page) {
 	await waitForRows(page);
 
+	let fulfilledPoll = false;
 	await page.route(ubusRouteMatch, async (route) => {
 		const post = route.request().postData() || '';
 		if (isFwlivePoll(post)) {
 			const body = fulfillFwlivePollError(post);
 			if (body) {
+				fulfilledPoll = true;
 				await route.fulfill({
 					status: 200,
 					contentType: 'application/json',
@@ -161,14 +168,17 @@ async function testPollErrorFieldBanner(page) {
 
 	await page.waitForFunction(() => {
 		const el = document.getElementById('fwlive-status');
-		return el && /Connection lost/i.test(el.textContent || '');
+		return el && el.classList.contains('fwlive-status-error');
 	}, { timeout: 15000 });
+
+	if (!fulfilledPoll)
+		throw new Error('poll error test must fulfill JSON-RPC, not abort');
 
 	await page.unroute(ubusRouteMatch);
 
 	await page.waitForFunction(() => {
 		const el = document.getElementById('fwlive-status');
-		return el && !/Connection lost/i.test(el.textContent || '');
+		return el && !el.classList.contains('fwlive-status-error');
 	}, { timeout: 20000 });
 
 	console.log('OK: poll reply.error banner shows then clears (#233)');
