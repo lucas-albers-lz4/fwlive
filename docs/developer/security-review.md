@@ -81,6 +81,7 @@ should carry a note saying what would raise it.
 | `json_escape` is defined in `fwlive-logging.sh` (prerm standalone) | `host` | `tests/fwlive-logging.test.sh` type check; rpcd `__selftest` |
 | UCI rule names with whitespace are not word-split into junk keys | `host` | `tests/fwlive-rules-map.test.js` `testUciWhitespaceNames` |
 | `jsonfilter` declared; missing filter exits non-zero with `error` | `host` | Makefile `LUCI_DEPENDS`; `tests/fwlive-shell-filter.test.js` `runMissingJsonfilter` |
+| JSON filter unescapes libubox string escapes (`\b` `\f` `\n` `\r` `\t` `\u00XX`) before classify | `host` | `tests/fwlive-shell-filter.test.js` `runJsonGetMsgEscapes` / `runJsonParity` |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
 | Reload failure rolls back the UCI write | `host` | same |

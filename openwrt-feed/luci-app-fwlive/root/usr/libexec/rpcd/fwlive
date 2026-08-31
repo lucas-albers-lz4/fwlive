@@ -702,6 +702,40 @@ run_selftest() {
 		return 1
 	fi
 
+	got=$(parse_nslookup_name "Server: 127.0.0.1
+Address: 127.0.0.1:53
+
+8.8.8.8.in-addr.arpa	name = dns.google.")
+	if [ "$got" != "dns.google" ]; then
+		echo "parse_nslookup_name: bind-style expected dns.google got '$got'" >&2
+		return 1
+	fi
+	got=$(parse_nslookup_name "Server:		127.0.0.1
+Address:	127.0.0.1:53
+
+Address 1: 8.8.8.8 dns.google.")
+	if [ "$got" != "dns.google" ]; then
+		echo "parse_nslookup_name: busybox Address N expected dns.google got '$got'" >&2
+		return 1
+	fi
+	got=$(parse_nslookup_name "Server: 192.168.1.1
+Address 1: 192.168.1.1 router.lan
+
+Name: 8.8.8.8
+Address 1: 8.8.8.8 dns.google")
+	if [ "$got" != "dns.google" ]; then
+		echo "parse_nslookup_name: mini nslookup must skip resolver Address N, got '$got'" >&2
+		return 1
+	fi
+	got=$(parse_nslookup_name "Server: 127.0.0.1
+Address: 127.0.0.1:53")
+	if [ -n "$got" ]; then
+		echo "parse_nslookup_name: server-only expected empty got '$got'" >&2
+		return 1
+	fi
+
+	run_logging_selftest || return 1
+
 	if ! command -v jshn >/dev/null 2>&1; then
 		echo "skip: jshn not available (poll cap via jshn not tested)" >&2
 		return 0
@@ -743,40 +777,6 @@ run_selftest() {
 		echo "poll_lines_from_input: expected 100 got $got" >&2
 		return 1
 	fi
-
-	got=$(parse_nslookup_name "Server: 127.0.0.1
-Address: 127.0.0.1:53
-
-8.8.8.8.in-addr.arpa	name = dns.google.")
-	if [ "$got" != "dns.google" ]; then
-		echo "parse_nslookup_name: bind-style expected dns.google got '$got'" >&2
-		return 1
-	fi
-	got=$(parse_nslookup_name "Server:		127.0.0.1
-Address:	127.0.0.1:53
-
-Address 1: 8.8.8.8 dns.google.")
-	if [ "$got" != "dns.google" ]; then
-		echo "parse_nslookup_name: busybox Address N expected dns.google got '$got'" >&2
-		return 1
-	fi
-	got=$(parse_nslookup_name "Server: 192.168.1.1
-Address 1: 192.168.1.1 router.lan
-
-Name: 8.8.8.8
-Address 1: 8.8.8.8 dns.google")
-	if [ "$got" != "dns.google" ]; then
-		echo "parse_nslookup_name: mini nslookup must skip resolver Address N, got '$got'" >&2
-		return 1
-	fi
-	got=$(parse_nslookup_name "Server: 127.0.0.1
-Address: 127.0.0.1:53")
-	if [ -n "$got" ]; then
-		echo "parse_nslookup_name: server-only expected empty got '$got'" >&2
-		return 1
-	fi
-
-	run_logging_selftest || return 1
 
 	return 0
 }

@@ -53,7 +53,7 @@ flowchart TB
 | Parser disagreement | After poll, the client re-applies `isFirewallEvent`; **client wins** (drops lines the shell kept if heuristics disagree) |
 | MAC redaction | Client display only (`formatMessageDisplay` strips `MAC=…`, including message `title`); poll JSON may still contain MACs on the wire |
 | Output encoding | Renderers must emit untrusted values as text nodes; server map keys are additionally gated by `is_uci_style_name` — [Security model § Invariants](security-model.md#invariants) |
-| Log filter injection | `fwlive-log-filter.sh` feeds messages as data through jsonfilter/grep stdin — not a shell-injection surface |
+| Log filter injection | `fwlive-log-filter.sh` feeds messages as data through jsonfilter/awk stdin — not a shell-injection surface |
 | Log content is untrusted | Every parsed field is attacker-influenced regardless of who wrote the firewall rule — [Security model § Untrusted input inventory](security-model.md#untrusted-input-inventory) |
 | Opt-in hostnames | `fwlive.resolve` via BusyBox `nslookup`; checkbox default off; server checks the IPv4/IPv6 shape before lookup |
 | `core/` + LuCI mirror | Parser tested without browser or router |
