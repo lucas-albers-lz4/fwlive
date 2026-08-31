@@ -225,13 +225,31 @@ detect_firewall_backend() {
 	printf '%s' unknown
 }
 
+_fwlive_tmp_dir_ok() {
+	# Fail closed unless the dump dir is a real directory with the sticky
+	# bit. Without sticky, another uid can unlink a just-created mktemp
+	# file and replace it with a symlink before we reopen with `>` as
+	# root (same class as #204). Optional $1 is for CLI tests; production
+	# always uses /tmp.
+	dir="${1:-/tmp}"
+	[ -n "$dir" ] || return 1
+	[ -L "$dir" ] && return 1
+	[ -d "$dir" ] || return 1
+	m=$(stat -c '%a' "$dir" 2>/dev/null) || return 1
+	# sticky is 1000 octal; 4-digit mode with low bit of the first digit set.
+	case "$m" in
+		[1357][0-7][0-7][0-7]) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
 _fwlive_mktemp() {
 	# Secure temp file for ruleset dumps. Uses mktemp only -- no
 	# predictable fallback (symlink arbitrary-write primitive when
 	# running as root under rpcd). Uses /tmp explicitly and does not
-	# honour TMPDIR (fixed sticky directory is safer when running as
-	# root under rpcd where environment is not user-controlled). Never
-	# rm+reuse, never touch/chmod into existence, template stays inside /tmp.
+	# honour TMPDIR. /tmp must be sticky (checked). Never rm+reuse,
+	# never touch/chmod into existence, template stays inside /tmp.
+	_fwlive_tmp_dir_ok || return 1
 	_mk_prefix="$1"
 	_mk_file=$(mktemp "/tmp/${_mk_prefix}.XXXXXX" 2>/dev/null) || return 1
 	[ -n "$_mk_file" ] || return 1
@@ -693,6 +711,11 @@ run_selftest() {
 
 	run_logging_selftest || return 1
 
+	if ! _fwlive_tmp_dir_ok; then
+		echo "_fwlive_tmp_dir_ok: /tmp must be a sticky directory" >&2
+		return 1
+	fi
+
 	return 0
 }
 
@@ -708,6 +731,10 @@ case "$1" in
 		;;
 	__poll_clamp)
 		poll_clamp_lines "$2"
+		exit $?
+		;;
+	__tmp_dir_ok)
+		_fwlive_tmp_dir_ok "$2"
 		exit $?
 		;;
 	list)

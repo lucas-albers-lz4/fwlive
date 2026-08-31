@@ -841,6 +841,37 @@ exit 0
 	} finally { fs.rmSync(stubDir2, { recursive: true, force: true }); }
 }
 
+function testTmpDirSticky() {
+	execFileSync(RPCD, ['__tmp_dir_ok']);
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-tmpok-'));
+	const link = `${dir}-link`;
+	try {
+		fs.chmodSync(dir, 0o777);
+		let failed = false;
+		try {
+			execFileSync(RPCD, ['__tmp_dir_ok', dir], { stdio: 'ignore' });
+		} catch (e) {
+			failed = e.status !== 0;
+		}
+		assert.equal(failed, true, '0777 without sticky must fail');
+
+		fs.chmodSync(dir, 0o1777);
+		execFileSync(RPCD, ['__tmp_dir_ok', dir]);
+
+		fs.symlinkSync(dir, link);
+		failed = false;
+		try {
+			execFileSync(RPCD, ['__tmp_dir_ok', link], { stdio: 'ignore' });
+		} catch (e) {
+			failed = e.status !== 0;
+		}
+		assert.equal(failed, true, 'symlink dump dir must fail');
+	} finally {
+		try { fs.unlinkSync(link); } catch { /* absent */ }
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+}
+
 function run() {
 	runRedirectPath();
 	testProductionNft();
@@ -854,6 +885,7 @@ function run() {
 	testPollClampLinesContract();
 	testNoMktempGracefulDegradation();
 	testGlobMetacharDedup();
+	testTmpDirSticky();
 	console.log('fwlive rules map tests passed');
 }
 

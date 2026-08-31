@@ -110,9 +110,9 @@ The rpcd plugin runs as **root**. Its entire input surface is:
 | `logging_status` | none | read |
 | `enable_wan_logging` / `disable_wan_logging` | none | write |
 
-`__selftest` and `__rulesmap_iptables` are CLI-only and must never become ubus
-methods. `__rulesmap_iptables` reads a fixed path and rejects argv-supplied
-files.
+`__selftest`, `__rulesmap_iptables`, `__poll_clamp`, and `__tmp_dir_ok` are
+CLI-only and must never become ubus methods. `__rulesmap_iptables` reads a
+fixed path and rejects argv-supplied files.
 
 The `uci set` touches only bit 0 of the WAN zone `log` value, and UCI is rolled
 back if the firewall reload fails. Before `uci set` / commit, the toggle refuses
