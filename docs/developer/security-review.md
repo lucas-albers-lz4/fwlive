@@ -1,7 +1,7 @@
 # Security review state
 
-> **Status:** 26 controls in force; 0 open findings.
-> **Last review:** 2026-08-23.
+> **Status:** 31 controls in force; 0 open findings.
+> **Last review:** 2026-08-31 (R4 temp-file).
 > **Open:** none.
 > **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. For coverage beyond that script, follow [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md). Values current as of this PR.
@@ -55,7 +55,7 @@ should carry a note saying what would raise it.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-08-13 | Sweep + harness | #177: #175/#176 UI delta on recording-`innerHTML` harness; no non-empty innerHTML writes |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
-| rpcd plugin + ACL scope | 2026-08-13 | Diff + selftest | #177: no diff since `ce9df02`; read/write split; no `ubus log.*` |
+| rpcd plugin + ACL scope | 2026-08-31 | Diff + selftest | B1 fixes: redirect via mktemp-only helper (`_fwlive_mktemp`, fixed `/tmp`, `TMPDIR` deliberately ignored), duplicate-key skip, poll clamp length check; read/write split; no `ubus log.*`; predictable-path and bare-`mktemp` fallbacks removed, graceful degradation when mktemp absent |
 | Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
 | Shell helpers — **file modes and lock ownership** | 2026-08-23 | Reproduced | #204 fix: symlink at lock path rejected; Part E in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-08-22 | Read + host test | `/etc/fwlive/wan-log-baseline`; restore only on `remove` |
@@ -75,12 +75,17 @@ should carry a note saying what would raise it.
 | Sessions never receive `ubus log.*` | `host` | `tests/fwlive-rpcd-security.test.js` |
 | Read and write ACL scopes stay separate | `host` | same |
 | Caller line count validated and clamped | `host` | rpcd `__selftest` |
+| Poll line-count clamp rejects over-long digit strings before numeric compare (no silenced `test` overflow) and maps `0`→50 | `host` | rpcd `poll_clamp_lines` helper + `__selftest` (over-long, zero, 2001, 500) — defence-in-depth for read-ACL reachable `poll` |
 | Addresses shape-validated before `getent` | `host` | rpcd `__selftest`, incl. a literal `$(reboot)` token |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
 | Reload failure rolls back the UCI write | `host` | same |
 | `resolve` bounded by a wall-clock budget | `manual` | `RESOLVE_BUDGET`; no test asserts the bound |
-| `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` |
+| `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` (clamp helper tested without jshn) |
+| Rules map temp file created only via `mktemp` (`_fwlive_mktemp`, fixed `/tmp` after a sticky-dir check, `TMPDIR` NOT honoured, no `rm`+reuse) with graceful degradation; accumulation via redirect keeps global first-wins dedup | `host` | `tests/fwlive-rules-map.test.js` production-path stubs under `dash` (and `busybox sh` when BusyBox honours PATH); `testNoMktempGracefulDegradation`; `testTmpDirSticky` |
+| Rules map has no predictable-path write (no `$$` fallback); `>` follows a symlink if one is there, so safety is the unpredictable mktemp name plus a verified sticky `/tmp` | `host` | `tests/fwlive-rules-map.test.js` `testNoMktempGracefulDegradation` (mktemp shadowed, asserts no `/tmp/fwlive-{nft,ipt,ip6t}*` created; would catch `printf '/tmp/...-$$'` primitive); `testTmpDirSticky` |
+| Rules map emits each key at most once (global first-wins in `map_add`, plus slug==raw skip) | `host` | same test — raw JSON duplicate-key assertion |
+| `/tmp` used for ruleset dumps is a real directory with the sticky bit (fail closed; POSIX `[ -k ]`, no `stat`) | `host` | `_fwlive_tmp_dir_ok`; `tests/fwlive-rules-map.test.js` `testTmpDirSticky` |
 | Every `E()` string child is array-wrapped | `host` | rendering harness ([#138](https://github.com/lucas-albers-lz4/fwlive/issues/138)) |
 | Actions SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` | `manual` | `.github/workflows/publish-packages.yml` — `peaceiris/actions-gh-pages@84c30a85c…` = `v4.1.0` (verified 2026-08-13); CodeQL alert 7 closed as **fixed**; re-check before each `v*` tag ([#178](https://github.com/lucas-albers-lz4/fwlive/issues/178)) |
 | SDK image digest-pinned at first **secret-touching** pull | `host` | `sdk_matrix_pull_and_pin` in `validate-feed-keys.sh`; `feed_publish_apply_sdk_pin` before opkg/apk sign; `tests/sdk-matrix-digests.test.sh` |
@@ -303,3 +308,34 @@ lock (#204), removal of unpinned `@playwright/mcp@latest` (#205). Ledger refresh
 
 **Result.** Open findings table empty. #204/#205 in Verified findings. `SECURITY.md`
 links to this ledger for review state.
+
+### 2026-08-31 — B1 rpcd fixes (Task 1–3)
+
+**Scope.** `build_rules_map` pipeline subshell (rules map empty in production), duplicate JSON keys when slug==raw, `poll_lines_from_input` overflow/zero clamp bypass. File: `openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive`.
+
+**Method.** Host reproduction under `dash` and `busybox sh`; stub-based `rules` method tests (nft + iptables-save on PATH); `__selftest` with `poll_clamp_lines` helper; `shellcheck -s sh`.
+
+**Fixes (minimal, POSIX sh).**
+
+- **Task 1 (pipeline):** The first cut captured fragments via `frag=$(nft_list_ruleset | { OUT=''; map_from_nft_stream; printf '%s' "$OUT"; })` so the map escaped the pipeline subshell. That left no global first-wins `OUT` across backends. R4 (below) replaced it with `_fwlive_mktemp` + redirect so accumulation stays in the main shell. `run_with_timeout $NFT_TIMEOUT` and the `ip6tables-save` presence check are unchanged. `rulesmap_from_iptables_file` (redirect path) was already on the non-pipeline path. Verified both shells; test fails before fix (empty map) and passes after.
+- **Task 2 (duplicate keys):** Two layers. `map_prefix_with_label` / `map_uci_rule_names` skip a second `map_add` when `slug==raw` (fw4 lower-hyphen identity). `map_add` itself is global first-wins against `$OUT` (`case "$OUT" in *"\"$esc_key\":"*)`), so the same key from UCI + nft + iptables is emitted once. The slug==raw skip is not a substitute for that global state.
+- **Task 3 (poll clamp):** Added `poll_clamp_lines` helper: strip leading zeros, if empty →50, if `${#tmp} > ${#POLL_LINES_MAX}` →2000 before any `test -gt`, else safe numeric clamp. `poll_lines_from_input` delegates to helper. `0` now →50, over-long (`99999999999999999999`, `18446744073709551616`) →2000, `2001` →2000, `500` passes. Helper tested without `jshn` (direct `poll_clamp_lines` calls) and with `jshn` via `poll_lines_from_input`; read-ACL reachable `poll` is now defence-in-depth clamped without relying on silenced `test` error.
+
+**Result.** Three new host controls (see table). Accumulation via redirect (no pipeline subshell) enables global dedup. `shellcheck` and `./scripts/fwlive-test.sh` pass.
+
+### 2026-08-31 — R4 temp-file hardening (round 4)
+
+**Scope.** Predictable temp path `printf '/tmp/fwlive-nft-%s' "$$"` fallback in `build_rules_map` (3 sites) gave a root-level arbitrary-write primitive via symlink at `/tmp/fwlive-*` (PIDs brute-forceable). `mktemp` present on OpenWrt (BusyBox) so fallback unlikely but must not exist in root-context code. Same class as #204 (lock symlink).
+
+**Method.** Grep for `$$` / `printf.*fwlive`; host reproduction under `dash` + `busybox sh` with `mktemp` shadowed (absent).
+
+**Fix (minimal, POSIX sh).**
+
+- **Delete fallback:** removed `|| printf '/tmp/fwlive-nft-%s' "$$"` from all 3 sites (no predictable-path code path remains).
+- **Single helper:** `_fwlive_mktemp <prefix>` — `_fwlive_tmp_dir_ok` then `mktemp "/tmp/<prefix>.XXXXXX" 2>/dev/null` only. `TMPDIR` is **deliberately not honoured** and there is **no bare-`mktemp` fallback**: bare `mktemp` consults `TMPDIR`, and an attacker-writable non-sticky `TMPDIR` would restore the create-then-reopen (TOCTOU) symlink-write primitive, since `build_rules_map` reopens the path with `>` while running as root. Stickiness of `/tmp` is **checked** with POSIX `[ -k ]` (not `stat -c`, which default OpenWrt BusyBox may omit). Fail closed → skip enrichment. Never `rm`+reuse, never `touch`/`chmod`. If `mktemp` fails, the backend enrichment is skipped and a well-formed map is still returned. BusyBox `mktemp` sane.
+- **Graceful degradation:** ``_tmp=$(_fwlive_mktemp fwlive-nft) || _tmp=''`` then `if [ -n "$_tmp" ]; then nft_list_ruleset >"$_tmp" ...; rm -f "$_tmp"; fi` — if `mktemp` absent/failing, backend enrichment skipped, still returns well-formed `{"backend":...,"rules":{...}}` with UCI names. No fixed-path write.
+- **Cleanup guaranteed:** `rm -f "$_tmp"` is unconditional inside the `if [ -n "$_tmp" ]` block, immediately after use, with no early `return`/`exit` between creation and removal. nft, iptables, and ip6tables each get a fresh `_fwlive_mktemp` into the same `_tmp` after the previous file is removed. Failure path (`mktemp` empty) never creates a file, so no cleanup needed. The `map_from_*` helpers do not `exit` the shell.
+- **tmpfs/RAM:** `/tmp` on OpenWrt is `tmpfs` (RAM). `NFT_TIMEOUT=5` bounds the nft dump's **duration, not its size**, and `iptables-save`/`ip6tables-save` run with **no timeout at all**; size is not bounded by code. Typical firewall dumps are <100KB and the file is removed immediately after parsing, so RAM impact is negligible in practice. No pipeline subshell reintroduced (global `OUT` dedup preserved).
+- **Cleanup:** inline `rm -f` immediately after parsing, with no `return`/`exit` between creation and removal. No `trap` — a signal can leak one root-owned 0600 file in sticky `/tmp`, which tmpfs clears on reboot; portable `trap` save/restore across `dash`/BusyBox `ash` (no `trap -p`) was judged to add more failure surface than it removes. Reviewed and accepted at the gate.
+
+**Test.** `testNoMktempGracefulDegradation` in `tests/fwlive-rules-map.test.js` — shadows `mktemp` (exit 127) at front of `PATH`, calls `rules` under `dash` (and `busybox sh` only when BusyBox honours PATH; Ubuntu standalone applets skip). Asserts: (1) well-formed JSON + `backend==nft` + UCI names still present (catches missing degradation / malformed JSON), (2) no `/tmp/fwlive-{nft,ipt,ip6t}*` file created (catches predictable-path symlink write), (3) nft-derived key `should-not-appear` absent (catches fixed-path dump still being parsed). `testTmpDirSticky` pins reject of a non-sticky dir and of a symlink. Verified `grep -n '\$\$' rpcd/fwlive` empty and `grep -n 'mktemp'` shows only helper + call sites.
