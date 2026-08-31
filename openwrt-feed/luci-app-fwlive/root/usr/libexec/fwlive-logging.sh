@@ -22,6 +22,46 @@ NF_LOG_IPV6='/proc/sys/net/netfilter/nf_log/10'
 WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/etc/fwlive/logging.lock}"
 WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-baseline}"
 
+# RFC 8259 string escape. Lives here so prerm can source this file
+# standalone (#222). rpcd sources us and must not redefine this.
+json_escape() {
+	# Escape for JSON string content per RFC 8259 (including remaining C0 controls).
+	# Slurp stdin as one string. Default awk RS is newline — RS="" is
+	# paragraph mode and drops blank-line separators (a\n\nb → ab). A
+	# sentinel is appended so a leading, trailing, or lone newline is kept.
+	{ cat; printf '%s' '_'; } | awk '
+	BEGIN {
+		ORS = ""
+		for (n = 1; n < 128; n++)
+			ord[sprintf("%c", n)] = n
+	}
+	{
+		if (NR > 1) buf = buf "\n"
+		buf = buf $0
+	}
+	END {
+		if (length(buf) > 0)
+			buf = substr(buf, 1, length(buf) - 1)
+		for (i = 1; i <= length(buf); i++) {
+			c = substr(buf, i, 1)
+			if (c == "\\") printf "\\\\"
+			else if (c == "\"") printf "\\\""
+			else if (c == "\t") printf "\\t"
+			else if (c == "\r") printf "\\r"
+			else if (c == "\n") printf "\\n"
+			else {
+				o = ord[c] + 0
+				if (o > 0 && o < 32)
+					printf "\\u%04x", o
+				else if (o == 127)
+					printf "\\u007f"
+				else
+					printf "%s", c
+			}
+		}
+	}'
+}
+
 # Production lock dir must be root-owned with no group/other write (#204).
 wan_log_lock_dir_safe() {
 	dir="$1"

@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 LUCI_TITLE:=Firewall Live View
 LUCI_DESCRIPTION:=Live firewall log table (nftables/fw4 and iptables LOG) with filters
-LUCI_DEPENDS:=+luci-base +logd
+LUCI_DEPENDS:=+luci-base +logd +jsonfilter
 LUCI_PKGARCH:=all
 
 PKG_VERSION:=0.1.36

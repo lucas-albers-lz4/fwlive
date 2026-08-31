@@ -68,13 +68,13 @@ sinks. The rendering regression harness
 
 ### 2. Log data is never interpolated into a shell command string
 
-`fwlive-log-filter.sh` passes messages as data through `jsonfilter`/`grep`
+`fwlive-log-filter.sh` passes messages as data through `jsonfilter`/`awk`
 stdin. Keep it that way — no `eval`, no unquoted expansion into a command.
 
 ### 3. Addresses are shape-validated before reaching a subprocess
 
 `is_resolvable_address` accepts only IPv4/IPv6-shaped tokens and rejects shell
-metacharacters before `getent` runs. Its selftest asserts rejection of a literal
+metacharacters before `nslookup` runs. Its selftest asserts rejection of a literal
 `$(reboot)` token.
 
 ### 4. Caller-supplied numbers are validated and clamped
@@ -110,9 +110,10 @@ The rpcd plugin runs as **root**. Its entire input surface is:
 | `logging_status` | none | read |
 | `enable_wan_logging` / `disable_wan_logging` | none | write |
 
-`__selftest`, `__rulesmap_iptables`, `__poll_clamp`, and `__tmp_dir_ok` are
-CLI-only and must never become ubus methods. `__rulesmap_iptables` reads a
-fixed path and rejects argv-supplied files.
+`__selftest`, `__rulesmap_iptables`, `__poll_clamp`, `__tmp_dir_ok`,
+`__resolve_one`, and `__parse_nslookup` are CLI-only and must never become
+ubus methods. `__rulesmap_iptables` reads a fixed path and rejects
+argv-supplied files.
 
 The `uci set` touches only bit 0 of the WAN zone `log` value, and UCI is rolled
 back if the firewall reload fails. Before `uci set` / commit, the toggle refuses

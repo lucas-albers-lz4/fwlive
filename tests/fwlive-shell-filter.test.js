@@ -4,6 +4,7 @@
 const assert = require('node:assert/strict');
 const { execFileSync, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const core = require('../core/fwlive-log.js');
 
@@ -23,7 +24,8 @@ function shSpawn(scriptOrFile, opts) {
 	if (opts && opts.argvFile) {
 		return spawnSync(cmd, prefix.concat([opts.argvFile]), {
 			input: opts.input,
-			encoding: opts.encoding || 'utf8'
+			encoding: opts.encoding || 'utf8',
+			env: opts.env || process.env
 		});
 	}
 	return execFileSync(cmd, prefix.concat(['-c', scriptOrFile]), {
@@ -71,28 +73,82 @@ function runMsgParity() {
 	}
 }
 
-function runJsonParity() {
-	if (!fs.existsSync(FILTER_SH))
-		throw new Error('missing fwlive-log-filter.sh');
-
-	const payload = fs.readFileSync(FIXTURE, 'utf8');
+function jsonfilterPathEnv() {
 	const jf = spawnSync('sh', ['-c', 'command -v jsonfilter'], { encoding: 'utf8' });
-	if (jf.status !== 0 || !jf.stdout.trim()) {
-		console.log('fwlive shell filter: skip JSON round-trip (jsonfilter not on host)');
-		return;
-	}
+	if (jf.status === 0 && jf.stdout.trim())
+		return { env: process.env, cleanup: function() {} };
 
-	const filtered = shSpawn(null, { argvFile: FILTER_SH, input: payload, encoding: 'utf8' });
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-jf-'));
+	fs.writeFileSync(path.join(stubDir, 'jsonfilter'), [
+		'#!/usr/bin/env node',
+		"'use strict';",
+		'let input = "";',
+		'let expr = "";',
+		'const argv = process.argv.slice(2);',
+		'for (let i = 0; i < argv.length; i++) {',
+		'\tif (argv[i] === "-s" && i + 1 < argv.length) input = argv[++i];',
+		'\telse if (argv[i] === "-e" && i + 1 < argv.length) expr = argv[++i];',
+		'}',
+		'if (expr !== "@.log[*]") process.exit(1);',
+		'let data;',
+		'try { data = JSON.parse(input); } catch (e) { process.exit(1); }',
+		'const log = (data && Array.isArray(data.log)) ? data.log : [];',
+		'for (const e of log) process.stdout.write(JSON.stringify(e) + "\\n");',
+		''
+	].join('\n'), { mode: 0o755 });
+	return {
+		env: { ...process.env, PATH: stubDir + path.delimiter + (process.env.PATH || '') },
+		cleanup: function() { fs.rmSync(stubDir, { recursive: true, force: true }); }
+	};
+}
+
+function assertFilterParity(payload, env) {
+	const filtered = shSpawn(null, {
+		argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: env
+	});
 	assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
-
 	const shellOut = JSON.parse(filtered.stdout);
 	const jsMsgs = JSON.parse(payload).log
 		.filter((e) => core.isFirewallEvent(e))
 		.map((e) => e.msg)
 		.sort();
 	const shMsgs = (shellOut.log || []).map((e) => e.msg).sort();
-
 	assert.deepEqual(shMsgs, jsMsgs);
+}
+
+function runJsonParity() {
+	if (!fs.existsSync(FILTER_SH))
+		throw new Error('missing fwlive-log-filter.sh');
+
+	const jf = jsonfilterPathEnv();
+	try {
+		assertFilterParity(fs.readFileSync(FIXTURE, 'utf8'), jf.env);
+		assertFilterParity(JSON.stringify({
+			log: [
+				{ msg: 'fw4: DROP\bIN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP' },
+				{ msg: 'fw4: DROP\fIN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP' },
+				{ msg: 'fw4: DROP' + String.fromCharCode(1) + 'IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP' }
+			]
+		}), jf.env);
+	} finally {
+		jf.cleanup();
+	}
+}
+
+function runJsonGetMsgEscapes() {
+	const cases = [
+		'{"msg":"fw4: DROP\\bIN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}',
+		'{"msg":"fw4: DROP\\fIN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}',
+		'{"msg":"fw4: DROP\\u0009IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}',
+		'{"msg":"fw4: DROP\\u0001IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}'
+	];
+	for (const line of cases) {
+		const out = shSpawn(
+			'. "$IS_FW" && printf \'%s\\n\' "$LINE" | _fwlive_filter_json_entries',
+			{ env: { ...process.env, IS_FW: IS_FW, LINE: line } }
+		);
+		assert.ok(out.includes('IN=wan'), 'json_get_msg dropped classify for ' + line);
+	}
 }
 
 function runMetacharSafety() {
@@ -111,24 +167,45 @@ function runMetacharSafety() {
 	if (!fs.existsSync(FILTER_SH))
 		throw new Error('missing fwlive-log-filter.sh');
 
-	const jf = spawnSync('sh', ['-c', 'command -v jsonfilter'], { encoding: 'utf8' });
-	if (jf.status !== 0 || !jf.stdout.trim()) {
-		console.log('fwlive shell filter: skip metachar JSON round-trip (jsonfilter not on host)');
-		return;
-	}
-
 	const payload = JSON.stringify({
 		log: nasty.map((msg, i) => ({ msg, id: i }))
 	});
-	const filtered = shSpawn(null, { argvFile: FILTER_SH, input: payload, encoding: 'utf8' });
-	assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
-	assert.doesNotThrow(() => JSON.parse(filtered.stdout));
+	const jf = jsonfilterPathEnv();
+	try {
+		const filtered = shSpawn(null, {
+			argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+		assert.doesNotThrow(() => JSON.parse(filtered.stdout));
+	} finally {
+		jf.cleanup();
+	}
+}
+
+function runMissingJsonfilter() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-no-jf-'));
+	try {
+		fs.writeFileSync(path.join(stubDir, 'logger'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+		const r = spawnSync('/bin/sh', [FILTER_SH], {
+			input: '{"log":[{"msg":"IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP"}]}',
+			encoding: 'utf8',
+			env: { ...process.env, PATH: stubDir }
+		});
+		assert.notEqual(r.status, 0, 'missing jsonfilter must exit non-zero');
+		const j = JSON.parse(r.stdout);
+		assert.equal(j.error, 'jsonfilter_missing');
+		assert.deepEqual(j.log, []);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
 }
 
 function run() {
 	runMsgParity();
 	runJsonParity();
+	runJsonGetMsgEscapes();
 	runMetacharSafety();
+	runMissingJsonfilter();
 	console.log('fwlive shell filter parity tests passed (SH=' + SH + ')');
 }
 

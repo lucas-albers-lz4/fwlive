@@ -62,6 +62,10 @@ sed -i 's|include $(TOPDIR)/feeds/luci/luci.mk|include ../../luci.mk|' \
 # Keep the SPDX line; real luci apps start clean from there.
 sed -i '/^# Wire feed first/,/^$/d' "$OUT/Makefile"
 
+# SOURCE_DATE_EPOCH is already exported by OpenWrt toplevel.mk; the block is
+# a no-op in luci and the comment cites docker-sdk.sh (monorepo-only) (#224).
+sed -i '/^# Reproducible build: honor SOURCE_DATE_EPOCH/,/^endif$/d' "$OUT/Makefile"
+
 # First luci PR: .pot only. Empty locale dirs still make luci.mk emit empty
 # luci-i18n-* packages — remove the directories entirely.
 for lang in "${DROP_PO_LANGS[@]}"; do
@@ -186,6 +190,24 @@ fi
 
 if ! grep -q 'PKG_VERSION:=' "$OUT/Makefile"; then
 	echo "  FAIL: PKG_VERSION missing (keep lockstep with APP_VERSION)" >&2
+	fail=1
+fi
+
+if grep -q 'SOURCE_DATE_EPOCH' "$OUT/Makefile"; then
+	echo "  FAIL: SOURCE_DATE_EPOCH block remains in luci-shaped Makefile" >&2
+	fail=1
+fi
+
+if grep -q 'docker-sdk' "$OUT/Makefile"; then
+	echo "  FAIL: docker-sdk.sh reference remains in luci-shaped Makefile" >&2
+	fail=1
+fi
+
+cut_pkg=$(sed -n 's/^PKG_VERSION:=//p' "$OUT/Makefile" | head -1)
+cut_app=$(sed -n "s/.*APP_VERSION: '\\([^']*\\)'.*/\\1/p" \
+	"$OUT/htdocs/luci-static/resources/fwlive/constants.js" | head -1)
+if [ -z "$cut_pkg" ] || [ "$cut_pkg" != "$cut_app" ]; then
+	echo "  FAIL: PKG_VERSION ($cut_pkg) != APP_VERSION ($cut_app)" >&2
 	fail=1
 fi
 
