@@ -70,6 +70,7 @@ wan_log_lock_dir_safe() {
 	[ -L "$dir" ] && return 1
 	[ -d "$dir" ] || return 1
 	# POSIX -O: true when the effective uid owns the directory (rpcd → root).
+	# shellcheck disable=SC3067 # BusyBox/dash implement -O; SC3067 is overly strict
 	[ -O "$dir" ] || return 1
 	# Fail closed if group or other write is set. find -perm is on BusyBox;
 	# -prune limits the walk to this directory only.

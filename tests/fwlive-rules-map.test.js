@@ -15,7 +15,8 @@ const RULESMAP = '/tmp/rulesmap';
 const RULESMAP_LOCK = '/tmp/fwlive-rulesmap-test.lock';
 
 function withFileLock(lockPath, fn) {
-	// mkdir is atomic; busy-wait with 50ms sleep. 5s timeout prevents hung CI.
+	// mkdir is atomic; busy-wait with 50ms sleep. Break a stale lock left
+	// after SIGKILL (mtime older than 60s) so CI cannot hang 5s forever (#231).
 	const deadline = Date.now() + 5000;
 	while (true) {
 		try {
@@ -23,7 +24,16 @@ function withFileLock(lockPath, fn) {
 			break;
 		} catch (e) {
 			if (e.code !== 'EEXIST') throw e;
-			if (Date.now() > deadline) throw new Error('lock timeout ' + lockPath);
+			if (Date.now() > deadline) {
+				try {
+					const st = fs.statSync(lockPath);
+					if (Date.now() - st.mtimeMs > 60000) {
+						fs.rmdirSync(lockPath);
+						continue;
+					}
+				} catch { /* gone */ }
+				throw new Error('lock timeout ' + lockPath);
+			}
 			try { execFileSync('sleep', ['0.05']); } catch {}
 		}
 	}
@@ -759,12 +769,14 @@ fi
 echo "mktemp shadow: absent" >&2
 exit 127
 `);
-			// clean any leftover nft/ipt/ip6t temps from prior runs (and prove no new file)
-			try { execFileSync('sh', ['-c', 'rm -f /tmp/fwlive-nft.* /tmp/fwlive-ipt.* /tmp/fwlive-ip6t.* 2>/dev/null; true']); } catch {}
-			const pre = (() => {
-				try { return execFileSync('sh', ['-c', 'ls /tmp/fwlive-nft* /tmp/fwlive-ipt* /tmp/fwlive-ip6t* 2>/dev/null || true'], { encoding: 'utf8' }).trim(); } catch { return ''; }
-			})();
-			assert.equal(pre, '', `[${shell}] pre: no /tmp/fwlive-{nft,ipt,ip6t}* should exist before test`);
+			const listTemps = () => {
+				try {
+					return execFileSync('sh', ['-c',
+						'ls -1 /tmp/fwlive-nft.* /tmp/fwlive-ipt.* /tmp/fwlive-ip6t.* 2>/dev/null || true'],
+					{ encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+				} catch { return []; }
+			};
+			const before = new Set(listTemps());
 			const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
 			let raw;
 			try {
@@ -778,20 +790,18 @@ exit 127
 			let res;
 			try { res = JSON.parse(raw); } catch (e) { throw new Error(`[${shell}] JSON malformed when mktemp absent: ${raw}: ${e.message}`); }
 			assert.equal(res.backend, 'nft', `[${shell}] backend should still be nft when mktemp absent`);
+			assert.equal(res.error, 'mktemp_failed', `[${shell}] mktemp skip must surface error (#231)`);
 			assert.equal(res.rules['uci-keep'], 'uci-keep', `[${shell}] uci-keep must survive mktemp absent (graceful degradation)`);
 			assert.equal(res.rules['another-rule'], 'another-rule', `[${shell}] another-rule must survive`);
 			// nft-derived enrichment must be skipped (no temp file to parse)
 			assert.equal(res.rules['should-not-appear'], undefined, `[${shell}] nft enrichment must be skipped when mktemp absent, not written via fixed path`);
-			// must not have created any nft/ipt/ip6t temp file
-			const after = (() => {
-				try { return execFileSync('sh', ['-c', 'ls /tmp/fwlive-nft* /tmp/fwlive-ipt* /tmp/fwlive-ip6t* 2>/dev/null || true'], { encoding: 'utf8' }).trim(); } catch { return ''; }
-			})();
-			assert.equal(after, '', `[${shell}] no /tmp/fwlive-{nft,ipt,ip6t}* file must be created when mktemp absent, got: ${after} (catches predictable-path write)`);
+			// must not have created any NEW nft/ipt/ip6t temp file (do not rm peers)
+			const created = listTemps().filter((f) => !before.has(f));
+			assert.equal(created.length, 0, `[${shell}] no new /tmp/fwlive-{nft,ipt,ip6t}* when mktemp absent, got: ${created.join(' ')}`);
 			// raw JSON must not contain the nft key at all
 			assert.equal((raw.match(/"should-not-appear"/g) || []).length, 0, `[${shell}] raw must not contain should-not-appear`);
 		} finally {
 			fs.rmSync(stubDir, { recursive: true, force: true });
-			try { execFileSync('sh', ['-c', 'rm -f /tmp/fwlive-nft.* /tmp/fwlive-ipt.* /tmp/fwlive-ip6t.* 2>/dev/null; true']); } catch {}
 		}
 	}
 	assert.ok(ran > 0, 'mktemp degradation must run under at least one POSIX shell');
@@ -1020,6 +1030,105 @@ exit 1
 	} finally { fs.rmSync(noNs, { recursive: true, force: true }); }
 }
 
+function testFw4LabeledBeatsCosmetic() {
+	// Unlabeled shared-pfx then !fw4: Authoritative-Name must prefer the label (#230).
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-fw4pref-'));
+	try {
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "shared-pfx"
+		log prefix "shared-pfx" comment "!fw4: Authoritative-Name"
+	}
+}
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+exit 0
+`);
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(res.rules['shared-pfx'], 'Authoritative-Name',
+				`[${shell}] !fw4: must beat earlier cosmetic, got ${JSON.stringify(res.rules['shared-pfx'])}`);
+			assert.notEqual(res.rules['shared-pfx'], 'shared pfx',
+				`[${shell}] cosmetic must not win`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testIptablesSaveTimeout() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-iptto-'));
+	try {
+		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
+		makeStub(stubDir, 'iptables-save', `#!/bin/sh
+sleep 30
+echo '*filter'
+echo 'COMMIT'
+`);
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:${process.env.PATH}`,
+			FWLIVE_IPTABLES_TIMEOUT: '1'
+		};
+		const t0 = Date.now();
+		let raw;
+		try {
+			raw = runWithShell('dash', env);
+		} catch (e) {
+			if (e.code === 'ENOENT')
+				raw = runWithShell('sh', env);
+			else
+				throw e;
+		}
+		const elapsed = Date.now() - t0;
+		assert.ok(elapsed < 8000, `hung iptables-save must not pin worker (${elapsed}ms)`);
+		const res = JSON.parse(raw);
+		assert.equal(res.backend, 'iptables');
+		assert.ok(res.rules);
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testRulesMapKeyBound() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-bound-'));
+	try {
+		const lines = [];
+		for (let i = 0; i < 600; i++)
+			lines.push(`\t\tlog prefix "pfx-${i}"`);
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+${lines.join('\n')}
+	}
+}
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(res.error, 'rules_truncated', `[${shell}] oversized map must set rules_truncated`);
+			const keys = Object.keys(res.rules || {});
+			assert.ok(keys.length <= 512, `[${shell}] keys ${keys.length} must be <= 512`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
 function run() {
 	runRedirectPath();
 	testProductionNft();
@@ -1029,9 +1138,12 @@ function run() {
 	testIdempotentNormalizationCrossBackend();
 	testEmptyPrefixGuard();
 	testUciStreamMergeAndCollision();
+	testFw4LabeledBeatsCosmetic();
 	testIpv4Ipv6BothContributing();
 	testPollClampLinesContract();
 	testNoMktempGracefulDegradation();
+	testIptablesSaveTimeout();
+	testRulesMapKeyBound();
 	testGlobMetacharDedup();
 	testTmpDirSticky();
 	testUciWhitespaceNames();

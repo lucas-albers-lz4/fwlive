@@ -1,6 +1,6 @@
 # Security review state
 
-> **Status:** 37 controls in force; 0 open findings.
+> **Status:** 40 controls in force; 0 open findings.
 > **Last review:** 2026-08-31 (upstream-review remaining).
 > **Open:** none.
 > **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
@@ -109,6 +109,9 @@ should carry a note saying what would raise it.
 | The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600 |
 | Lock path rejects symlinks before truncate/chmod/chown | `host` | `tests/fwlive-logging-lock.test.sh` Part E — #204 |
 | Production lock dir check works without `stat -c` (BusyBox `STAT=n`) | `host` | `wan_log_lock_dir_safe`: `[ -O ]` + `find -prune -perm`; Part F shadows `stat` |
+| Rules map prefers `!fw4:` labels over earlier cosmetics for the same prefix (UCI still first-wins) | `host` | labeled-then-unlabeled passes; `tests/fwlive-rules-map.test.js` `testFw4LabeledBeatsCosmetic` |
+| `iptables-save` / `ip6tables-save` bounded by `IPTABLES_TIMEOUT`; rules map key/byte capped | `host` | `testIptablesSaveTimeout`, `testRulesMapKeyBound` |
+| mktemp-skip on rules map surfaces `error:mktemp_failed` | `host` | `testNoMktempGracefulDegradation` |
 
 ## Open findings
 
