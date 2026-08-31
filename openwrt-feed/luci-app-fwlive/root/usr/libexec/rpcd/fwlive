@@ -77,6 +77,14 @@ map_add() {
 	[ -n "$key" ] || return 0
 	[ -n "$val" ] || return 0
 	esc_key=$(printf '%s' "$key" | json_escape)
+	# Global first-wins deduplication: skip if escaped key already present.
+	# Uses anchored pattern "\"<key>\":" to avoid substring false positives
+	# ("foo" vs "foobar") and value false positives ("see foo").
+	# Glob metachars in the key are escaped so the match is literal.
+	pat=$(printf '%s' "$esc_key" | sed 's/\\/\\\\/g; s/\*/\\*/g; s/\?/\\?/g; s/\[/\\[/g')
+	case "$OUT" in
+		*"\"$pat\":"*) return 0 ;;
+	esac
 	esc_val=$(printf '%s' "$val" | json_escape)
 	if [ -n "$OUT" ]; then
 		OUT="${OUT},"
@@ -97,7 +105,7 @@ is_uci_style_name() {
 }
 
 normalize_log_prefix() {
-	printf '%s' "$1" | sed 's/[[:space:]]*$//; s/:$//'
+	printf '%s' "$1" | sed 's/[[:space:]:]*$//'
 }
 
 read_rpc_input() {
@@ -147,7 +155,8 @@ map_log_prefix_entry() {
 		label="$comment"
 	fi
 
-	prefix=$(normalize_log_prefix "$prefix")
+	# Single normalization site is map_prefix_with_label; idempotent so
+	# double-normalization is safe but this redundant call is removed.
 	[ -n "$prefix" ] || return 0
 
 	map_prefix_with_label "$prefix" "$label"
@@ -217,6 +226,18 @@ detect_firewall_backend() {
 	printf '%s' unknown
 }
 
+_fwlive_mktemp() {
+	# Secure temp file for ruleset dumps. Uses mktemp only -- no
+	# predictable fallback (symlink arbitrary-write primitive when
+	# running as root under rpcd). Respects TMPDIR, hardcodes /tmp
+	# only as default. Never rm+reuse, never touch/chmod into
+	# existence, template stays inside TMPDIR.
+	prefix="$1"
+	_mk_file=$(mktemp "${TMPDIR:-/tmp}/${prefix}.XXXXXX" 2>/dev/null || mktemp 2>/dev/null) || return 1
+	[ -n "$_mk_file" ] || return 1
+	printf '%s' "$_mk_file"
+}
+
 build_rules_map() {
 	OUT=''
 	backend=$(detect_firewall_backend)
@@ -225,45 +246,35 @@ build_rules_map() {
 
 	case "$backend" in
 		nft)
-			# shellcheck disable=SC2030,SC2031 # OUT in pipeline subshell is intentional — captured via printf and merged
-			_frag=$(nft_list_ruleset | { OUT=''; map_from_nft_stream; printf '%s' "$OUT"; })
-			if [ -n "$_frag" ]; then
-				# shellcheck disable=SC2031 # outer OUT was not modified in subshell; subshell OUT captured via _frag
-				if [ -n "$OUT" ]; then
-					# shellcheck disable=SC2031
-					OUT="${OUT},${_frag}"
-				else
-					OUT="$_frag"
+			_tmp=$(_fwlive_mktemp fwlive-nft) || _tmp=''
+			if [ -n "$_tmp" ]; then
+				# nft ruleset write to TMPDIR (tmpfs on OpenWrt) is bounded
+				# by NFT_TIMEOUT (5s) and typical dumps are <100KB; removed
+				# immediately after parsing so RAM impact is negligible.
+				# No pipeline subshell: accumulation stays in main shell via
+				# redirect for global first-wins dedup.
+				if nft_list_ruleset >"$_tmp" 2>/dev/null; then
+					map_from_nft_stream <"$_tmp"
 				fi
+				rm -f "$_tmp"
 			fi
-			unset _frag
 			;;
 		iptables)
-			# shellcheck disable=SC2030,SC2031 # see above — subshell OUT captured via printf
-			_frag=$(iptables-save 2>/dev/null | { OUT=''; map_from_iptables_save_stream; printf '%s' "$OUT"; })
-			if [ -n "$_frag" ]; then
-				# shellcheck disable=SC2031
-				if [ -n "$OUT" ]; then
-					# shellcheck disable=SC2031
-					OUT="${OUT},${_frag}"
-				else
-					OUT="$_frag"
+			_tmp=$(_fwlive_mktemp fwlive-ipt) || _tmp=''
+			if [ -n "$_tmp" ]; then
+				if iptables-save >"$_tmp" 2>/dev/null; then
+					map_from_iptables_save_stream <"$_tmp"
 				fi
+				rm -f "$_tmp"
 			fi
-			unset _frag
 			if command -v ip6tables-save >/dev/null 2>&1; then
-				# shellcheck disable=SC2030,SC2031 # see above
-				_frag=$(ip6tables-save 2>/dev/null | { OUT=''; map_from_iptables_save_stream; printf '%s' "$OUT"; })
-				if [ -n "$_frag" ]; then
-					# shellcheck disable=SC2031
-					if [ -n "$OUT" ]; then
-						# shellcheck disable=SC2031
-						OUT="${OUT},${_frag}"
-					else
-						OUT="$_frag"
+				_tmp=$(_fwlive_mktemp fwlive-ip6t) || _tmp=''
+				if [ -n "$_tmp" ]; then
+					if ip6tables-save >"$_tmp" 2>/dev/null; then
+						map_from_iptables_save_stream <"$_tmp"
 					fi
+					rm -f "$_tmp"
 				fi
-				unset _frag
 			fi
 			;;
 	esac
@@ -281,7 +292,17 @@ rulesmap_from_iptables_file() {
 }
 
 poll_clamp_lines() {
+	# Contract: non-digit input returns default 50; digit strings are
+	# clamped to 1..POLL_LINES_MAX with leading zeros stripped. The
+	# caller (poll_lines_from_input) already filters non-digits, but this
+	# helper is now directly testable so it validates itself.
 	_val="$1"
+	case "$_val" in
+		''|*[!0-9]*)
+			printf '%s' "50"
+			return 0
+			;;
+	esac
 	_tmp=$(printf '%s' "$_val" | sed 's/^0*//')
 	if [ -z "$_tmp" ]; then
 		printf '%s' "50"
@@ -291,7 +312,7 @@ poll_clamp_lines() {
 		printf '%s' "$POLL_LINES_MAX"
 		return 0
 	fi
-	if [ "$_tmp" -gt "$POLL_LINES_MAX" ] 2>/dev/null; then
+	if [ "$_tmp" -gt "$POLL_LINES_MAX" ]; then
 		printf '%s' "$POLL_LINES_MAX"
 	else
 		printf '%s' "$_tmp"
@@ -680,6 +701,10 @@ case "$1" in
 	__rulesmap_iptables)
 		# CLI selftest only — never a ubus method. Fixed path only (no argv file read).
 		rulesmap_from_iptables_file "$RULESMAP_IPTABLES_FILE"
+		exit $?
+		;;
+	__poll_clamp)
+		poll_clamp_lines "$2"
 		exit $?
 		;;
 	list)
