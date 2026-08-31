@@ -345,4 +345,59 @@ if PATH="$nostat:$PATH" wan_log_lock_dir_safe "$symlink_dir"; then
 fi
 ok "wan_log_lock_dir_safe rejects symlink dir"
 
+# --- Part G: exec open failure must not abort the shell (#244) --------------
+# A bare `exec 9>bad 2>/dev/null || return 1` aborts dash/ash on redirect
+# failure. Prove (1) the probe idiom survives and (2) acquire_wan_log_lock
+# fail-closed paths return without killing the test shell.
+probe_rc=0
+dash -c '
+fail_open() {
+	f="/nonexistent-dir-fwlive-$$/x.lock"
+	( exec 9>>"$f" ) 2>/dev/null || return 1
+	exec 9>>"$f"
+	echo should_not_reach
+}
+if fail_open; then exit 10; fi
+echo survived
+' >/dev/null || probe_rc=$?
+[ "$probe_rc" -eq 0 ] || die "probe idiom aborted dash (rc=$probe_rc)"
+ok "subshell probe idiom returns without aborting dash (#244)"
+
+touch "$WORK/not-a-dir"
+FWLIVE_WAN_LOG_LOCK_FILE="$WORK/not-a-dir/x.lock"
+WAN_LOG_LOCK_FILE="$FWLIVE_WAN_LOG_LOCK_FILE"
+# shellcheck disable=SC1090
+. "$LOGGING_SH"
+set +e
+acquire_wan_log_lock
+acq_rc=$?
+set -e
+[ "$acq_rc" -ne 0 ] || die "acquire_wan_log_lock succeeded with file-as-parent path"
+ok "acquire_wan_log_lock returns non-zero without aborting shell (#244)"
+
+# Success path must not leave fd 2 pointed at /dev/null. Run acquire in a
+# child shell whose stderr we capture entirely — a silenced fd 2 yields an
+# empty probe file.
+FWLIVE_WAN_LOG_LOCK_FILE="$WORK/fwlive-logging.lock"
+WAN_LOG_LOCK_FILE="$FWLIVE_WAN_LOG_LOCK_FILE"
+rm -f "$FWLIVE_WAN_LOG_LOCK_FILE"
+cat > "$WORK/acq-stderr.sh" <<EOF
+#!/bin/sh
+set -e
+FWLIVE_WAN_LOG_LOCK_FILE="$FWLIVE_WAN_LOG_LOCK_FILE"
+WAN_LOG_LOCK_FILE="\$FWLIVE_WAN_LOG_LOCK_FILE"
+# shellcheck disable=SC1090
+. "$LOGGING_SH"
+acquire_wan_log_lock
+echo "stderr-still-open" >&2
+release_wan_log_lock
+EOF
+chmod +x "$WORK/acq-stderr.sh"
+err_probe="$WORK/stderr-probe"
+dash "$WORK/acq-stderr.sh" 2>"$err_probe" \
+	|| die "acq-stderr child failed"
+grep -q 'stderr-still-open' "$err_probe" \
+	|| die "stderr was silenced after successful acquire_wan_log_lock (probe='$(cat "$err_probe")')"
+ok "successful acquire_wan_log_lock preserves stderr (#244)"
+
 echo "fwlive-logging-lock tests passed"
