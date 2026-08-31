@@ -9,22 +9,9 @@ RPCD="$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive"
 die() { echo "fwlive-logging test FAIL: $*" >&2; exit 1; }
 ok() { echo "fwlive-logging test OK: $*"; }
 
-json_escape() {
-	awk 'BEGIN { RS = ""; ORS = "" }
-	{
-		for (i = 1; i <= length($0); i++) {
-			c = substr($0, i, 1)
-			if (c == "\\") printf "\\\\"
-			else if (c == "\"") printf "\\\""
-			else if (c == "\t") printf "\\t"
-			else if (c == "\r") printf "\\r"
-			else if (c == "\n") printf "\\n"
-			else printf "%s", c
-		}
-	}'
-}
-
 . "$LOGGING_SH"
+
+type json_escape >/dev/null 2>&1 || die "json_escape must be defined after sourcing logging.sh"
 
 WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-$(mktemp)}"
 export WAN_LOG_BASELINE_FILE

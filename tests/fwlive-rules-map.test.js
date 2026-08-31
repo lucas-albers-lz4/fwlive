@@ -872,6 +872,108 @@ function testTmpDirSticky() {
 	}
 }
 
+function testUciWhitespaceNames() {
+	// #226: "My Rule" must not word-split into My/Rule junk keys, and must
+	// not shadow a real rule named Rule. Space-containing names are skipped
+	// (parseRuleHint cannot match them).
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ws-'));
+	try {
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
+	echo "firewall.@rule[0].name='My Rule'"
+	echo "firewall.@rule[1].name='Rule'"
+	echo "firewall.@rule[2].name='Allow-SSH'"
+else
+	exit 0
+fi
+`);
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(res.rules['My'], undefined, `[${shell}] fragment My must not exist`);
+			assert.equal(res.rules['my'], undefined, `[${shell}] fragment my must not exist`);
+			assert.equal(res.rules['My Rule'], undefined, `[${shell}] space-containing name is skipped`);
+			assert.equal(res.rules['Rule'], 'Rule', `[${shell}] real Rule must not be shadowed`);
+			assert.equal(res.rules['rule'], 'Rule', `[${shell}] Rule slug present`);
+			assert.equal(res.rules['Allow-SSH'], 'Allow-SSH', `[${shell}] Allow-SSH kept`);
+			assert.equal((raw.match(/"My":/g) || []).length, 0, `[${shell}] raw must not contain My`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testResolveNslookup() {
+	const bindOut = 'Server: 127.0.0.1\nAddress: 127.0.0.1:53\n\n1.2.0.192.in-addr.arpa\tname = ptr.example.';
+	let got = execFileSync(RPCD, ['__parse_nslookup', bindOut], { encoding: 'utf8' }).trim();
+	assert.equal(got, 'ptr.example', 'bind-style name = host');
+
+	const bbOut = 'Server:\t\t127.0.0.1\nAddress:\t127.0.0.1:53\n\nAddress 1: 192.0.2.1 ptr.example';
+	got = execFileSync(RPCD, ['__parse_nslookup', bbOut], { encoding: 'utf8' }).trim();
+	assert.equal(got, 'ptr.example', 'busybox Address N: ip host');
+
+	const miniOut = 'Server: 192.168.1.1\nAddress 1: 192.168.1.1 router.lan\n\nName: 8.8.8.8\nAddress 1: 8.8.8.8 dns.google';
+	got = execFileSync(RPCD, ['__parse_nslookup', miniOut], { encoding: 'utf8' }).trim();
+	assert.equal(got, 'dns.google', 'mini nslookup must skip resolver Address N');
+
+	got = execFileSync(RPCD, ['__parse_nslookup', 'Server: 127.0.0.1\nAddress: 127.0.0.1:53'], { encoding: 'utf8' }).trim();
+	assert.equal(got, '', 'server-only is not a name');
+
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ns-'));
+	try {
+		makeStub(stubDir, 'nslookup', `#!/bin/sh
+echo "marker-nslookup $1" >> "${stubDir}/called"
+cat <<'EOF'
+Server: 127.0.0.1
+Address: 127.0.0.1:53
+
+1.2.0.192.in-addr.arpa	name = ptr.example.
+EOF
+`);
+		makeStub(stubDir, 'getent', `#!/bin/sh
+echo "getent-must-not-run" >> "${stubDir}/called"
+exit 1
+`);
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		const out = execFileSync('dash', [RPCD, '__resolve_one', '192.0.2.1'], { encoding: 'utf8', env }).trim();
+		assert.equal(out, 'ptr.example', 'resolve_hostname uses nslookup');
+		const called = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
+		assert.ok(called.includes('marker-nslookup 192.0.2.1'), 'nslookup saw the validated IP');
+		assert.ok(!called.includes('getent-must-not-run'), 'getent must not run');
+
+		let rejected = false;
+		try {
+			execFileSync('dash', [RPCD, '__resolve_one', 'dead.beef.cafe.baad'], {
+				encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe']
+			});
+		} catch (e) {
+			rejected = e.status !== 0;
+		}
+		assert.equal(rejected, true, 'hostname-shaped token must not reach nslookup');
+		const called2 = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
+		assert.ok(!called2.includes('dead.beef'), 'invalid token must not reach nslookup');
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+
+	const noNs = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-nons-'));
+	try {
+		makeStub(noNs, 'true', '#!/bin/sh\nexit 0\n');
+		// dirname is needed to source logging.sh; keep nslookup off PATH.
+		makeStub(noNs, 'dirname', '#!/bin/sh\n/usr/bin/dirname "$@"\n');
+		const env = { ...process.env, PATH: noNs };
+		const raw = execFileSync('/bin/dash', [RPCD, 'call', 'resolve'], {
+			encoding: 'utf8', env, input: '{"addresses":["192.0.2.1"]}'
+		});
+		const res = JSON.parse(raw);
+		assert.equal(res.error, 'no_resolver', 'missing nslookup must surface error');
+		assert.deepEqual(res.names, {}, 'names empty when resolver missing');
+	} finally { fs.rmSync(noNs, { recursive: true, force: true }); }
+}
+
 function run() {
 	runRedirectPath();
 	testProductionNft();
@@ -886,6 +988,8 @@ function run() {
 	testNoMktempGracefulDegradation();
 	testGlobMetacharDedup();
 	testTmpDirSticky();
+	testUciWhitespaceNames();
+	testResolveNslookup();
 	console.log('fwlive rules map tests passed');
 }
 

@@ -68,13 +68,13 @@ sinks. The rendering regression harness
 
 ### 2. Log data is never interpolated into a shell command string
 
-`fwlive-log-filter.sh` passes messages as data through `jsonfilter`/`grep`
+`fwlive-log-filter.sh` passes messages as data through `jsonfilter`/`awk`
 stdin. Keep it that way — no `eval`, no unquoted expansion into a command.
 
 ### 3. Addresses are shape-validated before reaching a subprocess
 
 `is_resolvable_address` accepts only IPv4/IPv6-shaped tokens and rejects shell
-metacharacters before `getent` runs. Its selftest asserts rejection of a literal
+metacharacters before `nslookup` runs. Its selftest asserts rejection of a literal
 `$(reboot)` token.
 
 ### 4. Caller-supplied numbers are validated and clamped

@@ -56,6 +56,21 @@ for f in "${required[@]}"; do
 done
 echo "baseline OK: required paths present" >&2
 
+pkg_ver=$(sed -n 's/^PKG_VERSION:=//p' "${ROOT}/openwrt-feed/luci-app-fwlive/Makefile" | head -1)
+app_ver=$(sed -n "s/.*APP_VERSION: '\\([^']*\\)'.*/\\1/p" \
+	"${ROOT}/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/constants.js" | head -1)
+if [[ -z "$pkg_ver" || "$pkg_ver" != "$app_ver" ]]; then
+	echo "baseline FAIL: PKG_VERSION (${pkg_ver:-empty}) != APP_VERSION (${app_ver:-empty})" >&2
+	exit 1
+fi
+echo "baseline OK: PKG_VERSION == APP_VERSION ($pkg_ver)" >&2
+
+if ! grep -q 'jsonfilter' "${ROOT}/openwrt-feed/luci-app-fwlive/Makefile"; then
+	echo "baseline FAIL: LUCI_DEPENDS must declare jsonfilter" >&2
+	exit 1
+fi
+echo "baseline OK: jsonfilter declared" >&2
+
 "${ROOT}/scripts/fwlive-test.sh"
 
 echo "baseline OK: parser tests" >&2

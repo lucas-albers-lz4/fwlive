@@ -1,7 +1,7 @@
 # Security review state
 
-> **Status:** 31 controls in force; 0 open findings.
-> **Last review:** 2026-08-31 (R4 temp-file).
+> **Status:** 35 controls in force; 0 open findings.
+> **Last review:** 2026-08-31 (upstream-review remaining).
 > **Open:** none.
 > **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. For coverage beyond that script, follow [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md). Values current as of this PR.
@@ -76,7 +76,11 @@ should carry a note saying what would raise it.
 | Read and write ACL scopes stay separate | `host` | same |
 | Caller line count validated and clamped | `host` | rpcd `__selftest` |
 | Poll line-count clamp rejects over-long digit strings before numeric compare (no silenced `test` overflow) and maps `0`→50 | `host` | rpcd `poll_clamp_lines` helper + `__selftest` (over-long, zero, 2001, 500) — defence-in-depth for read-ACL reachable `poll` |
-| Addresses shape-validated before `getent` | `host` | rpcd `__selftest`, incl. a literal `$(reboot)` token |
+| Addresses shape-validated before `nslookup` | `host` | rpcd `__selftest`, incl. a literal `$(reboot)` token |
+| Missing `nslookup` surfaces `error:no_resolver` (not silent empty names) | `host` | `tests/fwlive-rules-map.test.js` `testResolveNslookup` |
+| `json_escape` is defined in `fwlive-logging.sh` (prerm standalone) | `host` | `tests/fwlive-logging.test.sh` type check; rpcd `__selftest` |
+| UCI rule names with whitespace are not word-split into junk keys | `host` | `tests/fwlive-rules-map.test.js` `testUciWhitespaceNames` |
+| `jsonfilter` declared; missing filter exits non-zero with `error` | `host` | Makefile `LUCI_DEPENDS`; `tests/fwlive-shell-filter.test.js` `runMissingJsonfilter` |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
 | Reload failure rolls back the UCI write | `host` | same |
@@ -189,7 +193,7 @@ pattern before closing it, and record the sweep in the issue.
 S4's zone lookup and the parser divergence in the sibling repo
 ([usrmanage#108](https://github.com/lucas-albers-lz4/usrmanage/issues/108)) are
 the same bug: an ad-hoc regex over a platform format, narrower than the real
-parser, deciding something that matters. Call `uci`/`getent`/`fw4`, or fail
+parser, deciding something that matters. Call `uci`/`nslookup`/`fw4`, or fail
 closed on input the pattern cannot fully model.
 
 ### 4. Verify against upstream source, not against our own documentation

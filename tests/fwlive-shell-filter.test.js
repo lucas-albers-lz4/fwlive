@@ -4,6 +4,7 @@
 const assert = require('node:assert/strict');
 const { execFileSync, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const core = require('../core/fwlive-log.js');
 
@@ -125,10 +126,29 @@ function runMetacharSafety() {
 	assert.doesNotThrow(() => JSON.parse(filtered.stdout));
 }
 
+function runMissingJsonfilter() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-no-jf-'));
+	try {
+		fs.writeFileSync(path.join(stubDir, 'logger'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+		const r = spawnSync('/bin/sh', [FILTER_SH], {
+			input: '{"log":[{"msg":"IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP"}]}',
+			encoding: 'utf8',
+			env: { ...process.env, PATH: stubDir }
+		});
+		assert.notEqual(r.status, 0, 'missing jsonfilter must exit non-zero');
+		const j = JSON.parse(r.stdout);
+		assert.equal(j.error, 'jsonfilter_missing');
+		assert.deepEqual(j.log, []);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
 function run() {
 	runMsgParity();
 	runJsonParity();
 	runMetacharSafety();
+	runMissingJsonfilter();
 	console.log('fwlive shell filter parity tests passed (SH=' + SH + ')');
 }
 
