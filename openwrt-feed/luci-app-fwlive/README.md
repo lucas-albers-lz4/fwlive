@@ -39,9 +39,9 @@ No `luasrc/` — modern JS-only app.
 
 ## Maintenance
 
-Development home is [lucas-albers-lz4/fwlive](https://github.com/lucas-albers-lz4/fwlive).
-The copy in `openwrt/luci` is a snapshot. Which tree wins, re-cut cadence,
-generated files, and why not `PKG_SOURCE`:
+The development home is [lucas-albers-lz4/fwlive](https://github.com/lucas-albers-lz4/fwlive).
+The copy in `openwrt/luci` is a snapshot.
+For which tree wins, when we re-cut, generated files, and why we do not use `PKG_SOURCE`, see
 [Maintenance model](../../docs/developer/upstream-openwrt.md#maintenance-model).
 
 ## Documentation
