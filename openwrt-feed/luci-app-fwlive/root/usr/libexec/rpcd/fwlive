@@ -233,7 +233,7 @@ _fwlive_mktemp() {
 	# root under rpcd where environment is not user-controlled). Never
 	# rm+reuse, never touch/chmod into existence, template stays inside /tmp.
 	prefix="$1"
-	_mk_file=$(mktemp "/tmp/${prefix}.XXXXXX" 2>/dev/null || mktemp 2>/dev/null) || return 1
+	_mk_file=$(mktemp "/tmp/${prefix}.XXXXXX" 2>/dev/null) || return 1
 	[ -n "$_mk_file" ] || return 1
 	printf '%s' "$_mk_file"
 }
