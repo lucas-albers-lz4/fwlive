@@ -207,14 +207,15 @@ if grep -q 'docker-sdk' "$OUT/Makefile"; then
 fi
 
 # No double blank before PKG_LICENSE (residue from dropping SOURCE_DATE_EPOCH) (#246).
+# Note: awk still runs END after `exit` from the main body, so use a found flag.
 if awk '
 	$0 ~ /^PKG_RELEASE:=/ { blanks = 0; watching = 1; next }
 	watching {
 		if ($0 == "") { blanks++; next }
-		if (blanks >= 2 && $0 ~ /^PKG_LICENSE:=/) exit 0
+		if (blanks >= 2 && $0 ~ /^PKG_LICENSE:=/) { found = 1; exit }
 		watching = 0
 	}
-	END { exit 1 }
+	END { exit(found ? 0 : 1) }
 ' "$OUT/Makefile"; then
 	echo "  FAIL: double blank before PKG_LICENSE in luci-shaped Makefile" >&2
 	fail=1
