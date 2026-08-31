@@ -1,6 +1,6 @@
 # Security review state
 
-> **Status:** 35 controls in force; 0 open findings.
+> **Status:** 36 controls in force; 0 open findings.
 > **Last review:** 2026-08-31 (upstream-review remaining).
 > **Open:** none.
 > **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.

@@ -67,9 +67,24 @@ function makeStub(dir, name, content) {
 
 function runRpcd(shell, args, opts) {
 	if (shell === 'busybox') {
-		return execFileSync('busybox', ['sh', RPCD, ...args], opts);
+		for (const p of ['/usr/bin/busybox', '/bin/busybox', 'busybox']) {
+			try {
+				return execFileSync(p, ['sh', RPCD, ...args], opts);
+			} catch (e) {
+				if (e.code !== 'ENOENT') throw e;
+			}
+		}
+		throw new Error('busybox not found for runRpcd');
 	}
-	return execFileSync(shell, [RPCD, ...args], opts);
+	// opts.env may restrict PATH (e.g. no_resolver probe); spawn dash by absolute path.
+	for (const p of ['/bin/dash', '/usr/bin/dash', 'dash']) {
+		try {
+			return execFileSync(p, [RPCD, ...args], opts);
+		} catch (e) {
+			if (e.code !== 'ENOENT') throw e;
+		}
+	}
+	throw new Error('dash not found for runRpcd');
 }
 
 function runWithShell(shell, env) {
@@ -992,12 +1007,16 @@ exit 1
 		// dirname is needed to source logging.sh; keep nslookup off PATH.
 		makeStub(noNs, 'dirname', '#!/bin/sh\n/usr/bin/dirname "$@"\n');
 		const env = { ...process.env, PATH: noNs };
-		const raw = execFileSync('/bin/dash', [RPCD, 'call', 'resolve'], {
-			encoding: 'utf8', env, input: '{"addresses":["192.0.2.1"]}'
-		});
-		const res = JSON.parse(raw);
-		assert.equal(res.error, 'no_resolver', 'missing nslookup must surface error');
-		assert.deepEqual(res.names, {}, 'names empty when resolver missing');
+		const shells = posixShells().filter((s) => s !== 'busybox' || busyboxHonorsPath('nslookup'));
+		assert.ok(shells.length > 0, 'need a PATH-honouring POSIX shell for no_resolver probe');
+		for (const shell of shells) {
+			const raw = runRpcd(shell, ['call', 'resolve'], {
+				encoding: 'utf8', env, input: '{"addresses":["192.0.2.1"]}'
+			});
+			const res = JSON.parse(raw);
+			assert.equal(res.error, 'no_resolver', `[${shell}] missing nslookup must surface error`);
+			assert.deepEqual(res.names, {}, `[${shell}] names empty when resolver missing`);
+		}
 	} finally { fs.rmSync(noNs, { recursive: true, force: true }); }
 }
 
