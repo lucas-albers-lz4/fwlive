@@ -235,12 +235,8 @@ _fwlive_tmp_dir_ok() {
 	[ -n "$dir" ] || return 1
 	[ -L "$dir" ] && return 1
 	[ -d "$dir" ] || return 1
-	m=$(stat -c '%a' "$dir" 2>/dev/null) || return 1
-	# sticky is 1000 octal; 4-digit mode with low bit of the first digit set.
-	case "$m" in
-		[1357][0-7][0-7][0-7]) return 0 ;;
-		*) return 1 ;;
-	esac
+	# POSIX sticky-bit test — no `stat` (BusyBox STAT is off on default OpenWrt).
+	[ -k "$dir" ]
 }
 
 _fwlive_mktemp() {
@@ -667,6 +663,11 @@ run_selftest() {
 		return 1
 	fi
 
+	if ! _fwlive_tmp_dir_ok; then
+		echo "_fwlive_tmp_dir_ok: /tmp must be a sticky directory" >&2
+		return 1
+	fi
+
 	if ! command -v jshn >/dev/null 2>&1; then
 		echo "skip: jshn not available (poll cap via jshn not tested)" >&2
 		return 0
@@ -710,11 +711,6 @@ run_selftest() {
 	fi
 
 	run_logging_selftest || return 1
-
-	if ! _fwlive_tmp_dir_ok; then
-		echo "_fwlive_tmp_dir_ok: /tmp must be a sticky directory" >&2
-		return 1
-	fi
 
 	return 0
 }
