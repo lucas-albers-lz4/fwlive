@@ -62,10 +62,12 @@ sed -i 's|include $(TOPDIR)/feeds/luci/luci.mk|include ../../luci.mk|' \
 # Keep the SPDX line; real luci apps start clean from there.
 sed -i '/^# Wire feed first/,/^$/d' "$OUT/Makefile"
 
-# SOURCE_DATE_EPOCH is already exported by OpenWrt toplevel.mk; the block is
-# a no-op in luci and the comment cites docker-sdk.sh (monorepo-only) (#224).
+# Master keeps SOURCE_DATE_EPOCH block (reproducible-build flow exports it);
+# only the luci-shaped copy drops it — already exported by OpenWrt toplevel.mk,
+# no-op in luci and comment cites monorepo-only docker-sdk.sh (#224).
 sed -i '/^# Reproducible build: honor SOURCE_DATE_EPOCH/,/^endif$/d' "$OUT/Makefile"
 # The delete leaves a double blank before PKG_LICENSE; squeeze to one (#246).
+# Master keeps the block intentionally; only the copy is squeezed.
 sed -i '/^PKG_RELEASE:=/{n;/^$/{n;/^$/d;};}' "$OUT/Makefile"
 
 # First luci PR: .pot only. Empty locale dirs still make luci.mk emit empty
