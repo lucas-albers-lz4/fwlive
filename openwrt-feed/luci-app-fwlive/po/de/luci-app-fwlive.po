@@ -324,7 +324,7 @@ msgstr "Limit"
 
 #: /home/lalbers/gitroot/fwlive/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:536
 msgid "Limited diagnostics — timeout command missing"
-msgstr "Limited diagnostics — timeout command missing"
+msgstr "Eingeschränkte Diagnose — timeout-Befehl fehlt"
 
 #: /home/lalbers/gitroot/fwlive/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:210
 msgid "Logging is off on this router"
