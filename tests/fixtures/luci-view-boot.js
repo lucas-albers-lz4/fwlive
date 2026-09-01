@@ -87,7 +87,9 @@
 	};
 
 	window.setFwlivePollMock = function(fn) {
+		const prev = rpcMocks['fwlive.poll'];
 		rpcMocks['fwlive.poll'] = fn;
+		return prev;
 	};
 
 	const poll = {

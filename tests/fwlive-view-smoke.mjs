@@ -12,7 +12,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.FWLIVE_HARNESS_PORT || 8765);
-const BASE = process.env.FWLIVE_HARNESS_URL || `http://127.0.0.1:${PORT}`;
+const EXTERNAL_URL = process.env.FWLIVE_HARNESS_URL || '';
+const BASE = EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 
 async function waitForHarness(page) {
 	await page.goto(`${BASE}/tests/fixtures/luci-view-harness.html`, {
@@ -169,17 +170,27 @@ async function testHostnamesToggle(page) {
 }
 
 async function testPollErrorBanner(page) {
-	await page.evaluate(() => {
-		window.setFwlivePollMock(function() {
+	await page.evaluate(async () => {
+		window.__fwlivePrevPollMock = window.setFwlivePollMock(function() {
 			return { log: [], error: 'filter_failed' };
 		});
+		await window.fwliveView.fetchEntries();
+		window.fwliveView.updateStatus();
 	});
-	await page.evaluate(() => window.fwliveView.fetchEntries().then(() => window.fwliveView.updateStatus()));
-	await page.waitForFunction(() => {
-		const el = document.getElementById('fwlive-status');
-		return el && /Connection lost/i.test(el.textContent || '');
-	}, { timeout: 10000 });
-	console.log('OK: poll error banner (#233)');
+	try {
+		await page.waitForFunction(() => {
+			const el = document.getElementById('fwlive-status');
+			return el && /Connection lost/i.test(el.textContent || '');
+		}, { timeout: 10000 });
+		console.log('OK: poll error banner (#233)');
+	} finally {
+		await page.evaluate(() => {
+			if (typeof window.__fwlivePrevPollMock !== 'undefined') {
+				window.setFwlivePollMock(window.__fwlivePrevPollMock);
+				delete window.__fwlivePrevPollMock;
+			}
+		});
+	}
 }
 
 async function runSmoke(browser) {
@@ -299,7 +310,8 @@ async function mainDirect() {
 	}
 }
 
-const direct = process.argv.includes('--no-server');
+/* --no-server or FWLIVE_HARNESS_URL: use an already-running harness (no local spawn). */
+const direct = process.argv.includes('--no-server') || !!EXTERNAL_URL;
 (direct ? mainDirect() : mainWithServer()).catch((e) => {
 	console.error(e);
 	process.exit(1);
