@@ -112,6 +112,8 @@ should carry a note saying what would raise it.
 | Rules map prefers `!fw4:` labels over earlier cosmetics for the same prefix (UCI still first-wins) | `host` | labeled-then-unlabeled passes; `tests/fwlive-rules-map.test.js` `testFw4LabeledBeatsCosmetic` |
 | `iptables-save` / `ip6tables-save` bounded by `IPTABLES_TIMEOUT`; rules map key/byte capped | `host` | `testIptablesSaveTimeout`, `testRulesMapKeyBound` |
 | mktemp-skip on rules map surfaces `error:mktemp_failed` | `host` | `testNoMktempGracefulDegradation` |
+| `timeout` absent surfaces `timeout_missing` blocker (fail-closed `run_with_timeout` diagnosability) | `host` | `fwlive-logging.sh` `collect_logging_blockers` → `logging_status` `blockers` (`command -v timeout` probe, POSIX) |
+| Rules-map degradation (`rules_truncated`/`mktemp_failed`/`rules_unavailable`) surfaces in `#fwlive-backend` span, not the live counter / paused class | `host` | `view/status/fwlive.js` `updateBackendUi` (backend label + ` · ` + error via `_()`), `updateStatus` always reaches counter branch; `lastPollError` precedence unchanged |
 
 ## Open findings
 
