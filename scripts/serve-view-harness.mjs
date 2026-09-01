@@ -2,6 +2,8 @@
 /**
  * Static server for mocked LuCI view harness (Tier 2 / #240 Wave B2).
  *
+ * Loopback-only by default. Refuses path escape via `..` or symlinks (#249).
+ *
  *   node scripts/serve-view-harness.mjs
  *   FWLIVE_HARNESS_PORT=8765 node scripts/serve-view-harness.mjs
  */
@@ -11,8 +13,25 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT_REAL = fs.realpathSync(ROOT);
 const PORT = Number(process.env.FWLIVE_HARNESS_PORT || 8765);
-const HOST = process.env.FWLIVE_HARNESS_HOST || '127.0.0.1';
+const HOST_RAW = process.env.FWLIVE_HARNESS_HOST || '127.0.0.1';
+
+const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost']);
+
+function assertLoopbackHost(host) {
+	const h = String(host || '').toLowerCase();
+	if (!LOOPBACK.has(h)) {
+		console.error(
+			`serve-view-harness: refusing non-loopback bind "${host}" ` +
+			'(set FWLIVE_HARNESS_HOST to 127.0.0.1 or ::1)'
+		);
+		process.exit(1);
+	}
+	return host === 'localhost' ? '127.0.0.1' : host;
+}
+
+const HOST = assertLoopbackHost(HOST_RAW);
 
 const MIME = {
 	'.html': 'text/html; charset=utf-8',
@@ -23,13 +42,32 @@ const MIME = {
 	'.svg': 'image/svg+xml'
 };
 
+/** Resolve URL to a real file under ROOT; null if missing, escaped, or .git. */
 function safePath(urlPath) {
-	const decoded = decodeURIComponent(urlPath.split('?')[0]);
+	const decoded = decodeURIComponent((urlPath || '').split('?')[0]);
 	const rel = decoded.replace(/^\/+/, '');
+	if (!rel || rel.split(/[/\\]/).includes('..'))
+		return null;
+	if (rel === '.git' || rel.startsWith('.git/') || rel.startsWith('.git' + path.sep))
+		return null;
+
 	const abs = path.resolve(ROOT, rel);
 	if (!abs.startsWith(ROOT + path.sep) && abs !== ROOT)
 		return null;
-	return abs;
+
+	let real;
+	try {
+		if (!fs.existsSync(abs))
+			return null;
+		real = fs.realpathSync(abs);
+	} catch (e) {
+		return null;
+	}
+
+	if (!real.startsWith(ROOT_REAL + path.sep) && real !== ROOT_REAL)
+		return null;
+
+	return real;
 }
 
 const server = http.createServer((req, res) => {
@@ -38,7 +76,21 @@ const server = http.createServer((req, res) => {
 		urlPath = '/tests/fixtures/luci-view-harness.html';
 
 	const abs = safePath(urlPath);
-	if (!abs || !fs.existsSync(abs) || fs.statSync(abs).isDirectory()) {
+	if (!abs) {
+		res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+		res.end('not found');
+		return;
+	}
+
+	let st;
+	try {
+		st = fs.statSync(abs);
+	} catch (e) {
+		res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+		res.end('not found');
+		return;
+	}
+	if (st.isDirectory()) {
 		res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
 		res.end('not found');
 		return;

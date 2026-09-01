@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Mocked LuCI view Playwright smoke (Tier 2 / #240 Wave B2) — no QEMU.
+ * Hardens pageerror / cleanup / hostname resolve assertions (#249).
  *
  *   npm run test:view
  */
@@ -112,14 +113,46 @@ async function testSegmentToggles(page) {
 }
 
 async function testHostnamesToggle(page) {
+	await clearFilters(page);
+	/* Simple view so filteredRows() still has the canned log IPs. */
+	const simple = page.locator('#fwlive-view-simple');
+	if (await simple.count())
+		await simple.click();
+
+	await page.evaluate(() => {
+		window.fwliveResolveCalls = [];
+		const v = window.fwliveView;
+		if (v.hostnameCache)
+			v.hostnameCache.clear();
+		if (v.hostnameFailed)
+			v.hostnameFailed.clear();
+		v.resolveInFlight = false;
+	});
+
 	const cb = page.locator('#fwlive-show-hostnames');
+	if (await cb.isChecked())
+		await cb.uncheck();
 	const genBefore = await page.evaluate(() => window.fwliveView.resolveGeneration);
 	await cb.check();
-	await page.waitForTimeout(200);
+
+	await page.waitForFunction(() => {
+		const v = window.fwliveView;
+		return v &&
+			window.fwliveResolveCalls.length > 0 &&
+			v.hostnameCache &&
+			v.hostnameCache.has('192.0.2.1') &&
+			v.hostnameCache.get('192.0.2.1') === 'src-host';
+	}, { timeout: 10000 });
+
 	const genAfter = await page.evaluate(() => window.fwliveView.resolveGeneration);
 	if (genAfter <= genBefore)
 		throw new Error('hostnames toggle must bump resolveGeneration');
-	console.log('OK: hostnames toggle generation bump');
+
+	const calls = await page.evaluate(() => window.fwliveResolveCalls);
+	if (!calls.length || !calls[0].includes('192.0.2.1'))
+		throw new Error('resolve RPC must be called with row IPs, got: ' + JSON.stringify(calls));
+
+	console.log('OK: hostnames resolve called and names applied');
 }
 
 async function testPollErrorBanner(page) {
@@ -136,67 +169,125 @@ async function testPollErrorBanner(page) {
 	console.log('OK: poll error banner (#233)');
 }
 
-async function main() {
-	const browser = await chromium.launch({ headless: true });
+async function runSmoke(browser) {
+	const pageErrors = [];
 	const page = await browser.newPage();
-	page.on('pageerror', (e) => console.error('pageerror:', e.message));
+	page.on('pageerror', (e) => {
+		pageErrors.push(e.message);
+		console.error('pageerror:', e.message);
+	});
 
-	await waitForHarness(page);
-	await testInitialRender(page);
-	await testPauseResume(page);
-	await testDisplayDrawer(page);
-	await testProtoCustomWins(page);
-	await testChipInvert(page);
-	await testSegmentToggles(page);
-	await testHostnamesToggle(page);
-	await testPollErrorBanner(page);
+	try {
+		await waitForHarness(page);
+		await testInitialRender(page);
+		await testPauseResume(page);
+		await testDisplayDrawer(page);
+		await testProtoCustomWins(page);
+		await testChipInvert(page);
+		await testSegmentToggles(page);
+		await testHostnamesToggle(page);
+		await testPollErrorBanner(page);
 
-	console.log('fwlive view smoke OK (mocked harness)');
-	await browser.close();
+		if (pageErrors.length)
+			throw new Error('pageerror(s) during smoke: ' + pageErrors.join('; '));
+
+		console.log('fwlive view smoke OK (mocked harness)');
+	} finally {
+		await page.close().catch(() => {});
+	}
 }
 
 function spawnHarnessServer() {
 	return spawn(process.execPath, ['scripts/serve-view-harness.mjs'], {
 		cwd: ROOT,
-		env: { ...process.env, FWLIVE_HARNESS_PORT: String(PORT) },
+		env: {
+			...process.env,
+			FWLIVE_HARNESS_PORT: String(PORT),
+			FWLIVE_HARNESS_HOST: '127.0.0.1'
+		},
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
 }
 
 function waitForServerReady(child) {
 	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => reject(new Error('harness server start timeout')), 15000);
+		let settled = false;
+		const timer = setTimeout(() => {
+			if (!settled) {
+				settled = true;
+				reject(new Error('harness server start timeout'));
+			}
+		}, 15000);
 		child.stdout.on('data', (chunk) => {
-			if (/fwlive view harness/.test(String(chunk))) {
+			if (/fwlive view harness/.test(String(chunk)) && !settled) {
+				settled = true;
 				clearTimeout(timer);
 				resolve();
 			}
 		});
-		child.on('error', reject);
+		child.stderr.on('data', (chunk) => {
+			process.stderr.write(chunk);
+		});
+		child.on('error', (err) => {
+			if (!settled) {
+				settled = true;
+				clearTimeout(timer);
+				reject(err);
+			}
+		});
 		child.on('exit', (code) => {
-			clearTimeout(timer);
-			reject(new Error('harness server exited early: ' + code));
+			if (!settled) {
+				settled = true;
+				clearTimeout(timer);
+				reject(new Error('harness server exited early: ' + code));
+			}
 		});
 	});
 }
 
-const direct = process.argv.includes('--no-server');
-if (direct) {
-	main().catch((e) => {
-		console.error(e);
-		process.exit(1);
-	});
-} else {
-	const child = spawnHarnessServer();
-	waitForServerReady(child)
-		.then(() => main())
-		.then(() => {
-			child.kill('SIGTERM');
-			process.exit(0);
-		})
-		.catch((e) => {
-			console.error(e);
-			child.kill('SIGTERM');
-			process.exit(1);
+function stopChild(child) {
+	if (!child || child.killed || child.exitCode != null)
+		return Promise.resolve();
+	return new Promise((resolve) => {
+		const t = setTimeout(() => {
+			try { child.kill('SIGKILL'); } catch (e) { /* ignore */ }
+			resolve();
+		}, 3000);
+		child.once('exit', () => {
+			clearTimeout(t);
+			resolve();
 		});
+		try { child.kill('SIGTERM'); } catch (e) { clearTimeout(t); resolve(); }
+	});
 }
+
+async function mainWithServer() {
+	const child = spawnHarnessServer();
+	let browser;
+	try {
+		await waitForServerReady(child);
+		browser = await chromium.launch({ headless: true });
+		await runSmoke(browser);
+	} finally {
+		if (browser)
+			await browser.close().catch(() => {});
+		await stopChild(child);
+	}
+}
+
+async function mainDirect() {
+	let browser;
+	try {
+		browser = await chromium.launch({ headless: true });
+		await runSmoke(browser);
+	} finally {
+		if (browser)
+			await browser.close().catch(() => {});
+	}
+}
+
+const direct = process.argv.includes('--no-server');
+(direct ? mainDirect() : mainWithServer()).catch((e) => {
+	console.error(e);
+	process.exit(1);
+});

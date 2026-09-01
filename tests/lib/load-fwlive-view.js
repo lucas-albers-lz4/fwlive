@@ -96,6 +96,21 @@ function defaultRpcReply(key) {
 	}
 }
 
+function applyExpect(reply, expect) {
+	if (!expect || typeof expect !== 'object')
+		return reply;
+	const keys = Object.keys(expect);
+	if (keys.length === 1 && keys[0] === '')
+		return reply;
+	if (keys.length === 1) {
+		const k = keys[0];
+		if (reply && typeof reply === 'object' && Object.prototype.hasOwnProperty.call(reply, k))
+			return reply[k];
+		return expect[k];
+	}
+	return reply;
+}
+
 function loadFwliveView(options) {
 	options = options || {};
 	const rpcMocks = Object.assign(Object.create(null), options.rpcMocks || {});
@@ -133,12 +148,16 @@ function loadFwliveView(options) {
 	const rpc = {
 		declare: function(cfg) {
 			const key = cfg.object + '.' + cfg.method;
+			const expect = cfg.expect;
 			return async function() {
+				let raw;
 				if (rpcMocks[key])
-					return rpcMocks[key].apply(null, arguments);
-				if (typeof options.defaultRpc === 'function')
-					return options.defaultRpc(key, arguments);
-				return defaultRpcReply(key);
+					raw = await rpcMocks[key].apply(null, arguments);
+				else if (typeof options.defaultRpc === 'function')
+					raw = await options.defaultRpc(key, arguments);
+				else
+					raw = defaultRpcReply(key);
+				return applyExpect(raw, expect);
 			};
 		}
 	};

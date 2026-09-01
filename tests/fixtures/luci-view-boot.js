@@ -1,5 +1,6 @@
 /**
  * Mocked LuCI harness boot for view/status/fwlive.js (Tier 2 / #240 Wave B2).
+ * Honors rpc.declare `expect` unwrap like LuCI (#249 / #243).
  */
 (function() {
 	'use strict';
@@ -37,6 +38,17 @@
 		{ id: 3, time: 1704067202, msg: 'fw4: IN=wan OUT= SRC=192.0.2.3 DST=192.0.2.4 PROTO=UDP SPT=53 DPT=53' }
 	];
 
+	const NAME_MAP = {
+		'192.0.2.1': 'src-host',
+		'192.0.2.2': 'dst-host',
+		'203.0.113.5': 'attacker',
+		'192.168.1.1': 'router',
+		'192.0.2.3': 'udp-src',
+		'192.0.2.4': 'udp-dst'
+	};
+
+	window.fwliveResolveCalls = [];
+
 	const rpcMocks = {
 		'fwlive.poll': function() {
 			return { log: CANNED_LOGS.slice() };
@@ -44,8 +56,16 @@
 		'fwlive.rules': function() {
 			return { rules: { 'wan-lan': 'Allow LAN', 'block-wan': '!fw4: Block WAN' } };
 		},
-		'fwlive.resolve': function() {
-			return { names: {} };
+		'fwlive.resolve': function(opts) {
+			const addrs = (opts && opts.addresses) || [];
+			window.fwliveResolveCalls.push(addrs.slice());
+			const names = {};
+			for (let i = 0; i < addrs.length; i++) {
+				const ip = addrs[i];
+				if (NAME_MAP[ip])
+					names[ip] = NAME_MAP[ip];
+			}
+			return { names: names };
 		},
 		'fwlive.logging_status': function() {
 			return {
@@ -70,14 +90,37 @@
 		rpcMocks['fwlive.poll'] = fn;
 	};
 
+	/**
+	 * LuCI rpc.declare expect unwrap:
+	 * - expect: { names: {} } → reply.names
+	 * - expect: { '': shape } → whole reply
+	 * - no expect → whole reply
+	 */
+	function applyExpect(reply, expect) {
+		if (!expect || typeof expect !== 'object')
+			return reply;
+		const keys = Object.keys(expect);
+		if (keys.length === 1 && keys[0] === '')
+			return reply;
+		if (keys.length === 1) {
+			const k = keys[0];
+			if (reply && typeof reply === 'object' && Object.prototype.hasOwnProperty.call(reply, k))
+				return reply[k];
+			return expect[k];
+		}
+		return reply;
+	}
+
 	const poll = { add: function() {}, remove: function() {} };
 	const view = { extend: function(desc) { return desc; } };
 	const rpc = {
 		declare: function(cfg) {
 			const key = cfg.object + '.' + cfg.method;
+			const expect = cfg.expect;
 			return function() {
 				const mock = rpcMocks[key];
-				return Promise.resolve(mock ? mock.apply(null, arguments) : {});
+				const raw = mock ? mock.apply(null, arguments) : {};
+				return Promise.resolve(applyExpect(raw, expect));
 			};
 		}
 	};
