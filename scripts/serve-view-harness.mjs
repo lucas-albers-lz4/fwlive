@@ -2,7 +2,7 @@
 /**
  * Static server for mocked LuCI view harness (Tier 2 / #240 Wave B2).
  *
- * Loopback-only by default. Refuses path escape via `..`, symlinks, or `.git`.
+ * Loopback-only. Serves only allowlisted prefixes under fixed roots (#249 / CodeQL).
  *
  *   node scripts/serve-view-harness.mjs
  *   FWLIVE_HARNESS_PORT=8765 node scripts/serve-view-harness.mjs
@@ -13,11 +13,31 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ROOT_REAL = fs.realpathSync(ROOT);
 const PORT = Number(process.env.FWLIVE_HARNESS_PORT || 8765);
 const HOST_RAW = process.env.FWLIVE_HARNESS_HOST || '127.0.0.1';
 
 const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost']);
+
+/** Fixed roots — URL must match prefix; path segments validated before join. */
+const ALLOWED_ROOTS = [
+	{
+		prefix: '/tests/fixtures/',
+		root: path.join(ROOT, 'tests', 'fixtures')
+	},
+	{
+		prefix: '/openwrt-feed/luci-app-fwlive/htdocs/luci-static/',
+		root: path.join(ROOT, 'openwrt-feed', 'luci-app-fwlive', 'htdocs', 'luci-static')
+	}
+];
+
+const MIME = {
+	'.html': 'text/html; charset=utf-8',
+	'.js': 'text/javascript; charset=utf-8',
+	'.css': 'text/css; charset=utf-8',
+	'.json': 'application/json; charset=utf-8',
+	'.png': 'image/png',
+	'.svg': 'image/svg+xml'
+};
 
 function assertLoopbackHost(host) {
 	const h = String(host || '').toLowerCase();
@@ -33,65 +53,73 @@ function assertLoopbackHost(host) {
 
 const HOST = assertLoopbackHost(HOST_RAW);
 
-const MIME = {
-	'.html': 'text/html; charset=utf-8',
-	'.js': 'text/javascript; charset=utf-8',
-	'.css': 'text/css; charset=utf-8',
-	'.json': 'application/json; charset=utf-8',
-	'.png': 'image/png',
-	'.svg': 'image/svg+xml'
-};
+function isSafeSegment(seg) {
+	return seg.length > 0 && seg !== '.' && seg !== '..' &&
+		seg !== '.git' && /^[a-zA-Z0-9._-]+$/.test(seg);
+}
 
-function isDeniedGitPath(real) {
-	const rel = path.relative(ROOT_REAL, real);
+function isDeniedGitPath(rootReal, real) {
+	const rel = path.relative(rootReal, real);
 	if (!rel || rel.startsWith('..'))
 		return true;
 	return rel.split(path.sep).includes('.git');
 }
 
-/** Resolve URL to a real file under ROOT; null if missing, escaped, or denied. */
-function safePath(urlPath) {
-	let decoded;
+/** Map request URL to a real file under an allowlisted root, or null. */
+function resolveAllowedFile(urlPath) {
+	let pathname;
 	try {
-		decoded = decodeURIComponent((urlPath || '').split('?')[0]);
+		pathname = decodeURIComponent(String(urlPath || '').split('?')[0]);
 	} catch (e) {
 		return null;
 	}
 
-	const rel = decoded.replace(/^\/+/, '');
-	if (!rel || rel.split(/[/\\]/).includes('..'))
-		return null;
-	if (rel === '.git' || rel.startsWith('.git/') || rel.startsWith('.git' + path.sep))
-		return null;
+	if (pathname === '/' || pathname === '')
+		pathname = '/tests/fixtures/luci-view-harness.html';
 
-	const abs = path.resolve(ROOT, rel);
-	if (!abs.startsWith(ROOT + path.sep) && abs !== ROOT)
-		return null;
+	for (const entry of ALLOWED_ROOTS) {
+		if (!pathname.startsWith(entry.prefix))
+			continue;
 
-	let real;
-	try {
-		if (!fs.existsSync(abs))
+		const suffix = pathname.slice(entry.prefix.length);
+		if (!suffix)
 			return null;
-		real = fs.realpathSync(abs);
-	} catch (e) {
-		return null;
+
+		const segments = suffix.split('/').filter(Boolean);
+		if (!segments.length || !segments.every(isSafeSegment))
+			return null;
+
+		let rootReal;
+		try {
+			rootReal = fs.realpathSync(entry.root);
+		} catch (e) {
+			return null;
+		}
+
+		const abs = path.join(rootReal, ...segments);
+		let real;
+		try {
+			if (!fs.existsSync(abs))
+				return null;
+			real = fs.realpathSync(abs);
+		} catch (e) {
+			return null;
+		}
+
+		if (!real.startsWith(rootReal + path.sep) && real !== rootReal)
+			return null;
+		if (isDeniedGitPath(rootReal, real))
+			return null;
+
+		return real;
 	}
 
-	if (!real.startsWith(ROOT_REAL + path.sep) && real !== ROOT_REAL)
-		return null;
-	if (isDeniedGitPath(real))
-		return null;
-
-	return real;
+	return null;
 }
 
 const server = http.createServer((req, res) => {
 	try {
-		let urlPath = req.url || '/';
-		if (urlPath === '/')
-			urlPath = '/tests/fixtures/luci-view-harness.html';
-
-		const abs = safePath(urlPath);
+		const abs = resolveAllowedFile(req.url);
 		if (!abs) {
 			res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
 			res.end('not found');
