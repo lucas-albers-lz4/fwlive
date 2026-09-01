@@ -120,9 +120,13 @@
 			const key = cfg.object + '.' + cfg.method;
 			const expect = cfg.expect;
 			return function() {
-				const mock = rpcMocks[key];
-				const raw = mock ? mock.apply(null, arguments) : {};
-				return Promise.resolve(FwliveRpcExpect.applyExpect(raw, expect));
+				const args = arguments;
+				return Promise.resolve().then(function() {
+					const mock = rpcMocks[key];
+					return mock ? mock.apply(null, args) : {};
+				}).then(function(raw) {
+					return FwliveRpcExpect.applyExpect(raw, expect);
+				});
 			};
 		}
 	};
