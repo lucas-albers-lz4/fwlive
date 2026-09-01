@@ -2,7 +2,7 @@
 /**
  * Static server for mocked LuCI view harness (Tier 2 / #240 Wave B2).
  *
- * Loopback-only by default. Refuses path escape via `..` or symlinks (#249).
+ * Loopback-only by default. Refuses path escape via `..`, symlinks, or `.git`.
  *
  *   node scripts/serve-view-harness.mjs
  *   FWLIVE_HARNESS_PORT=8765 node scripts/serve-view-harness.mjs
@@ -42,9 +42,22 @@ const MIME = {
 	'.svg': 'image/svg+xml'
 };
 
-/** Resolve URL to a real file under ROOT; null if missing, escaped, or .git. */
+function isDeniedGitPath(real) {
+	const rel = path.relative(ROOT_REAL, real);
+	if (!rel || rel.startsWith('..'))
+		return true;
+	return rel.split(path.sep).includes('.git');
+}
+
+/** Resolve URL to a real file under ROOT; null if missing, escaped, or denied. */
 function safePath(urlPath) {
-	const decoded = decodeURIComponent((urlPath || '').split('?')[0]);
+	let decoded;
+	try {
+		decoded = decodeURIComponent((urlPath || '').split('?')[0]);
+	} catch (e) {
+		return null;
+	}
+
 	const rel = decoded.replace(/^\/+/, '');
 	if (!rel || rel.split(/[/\\]/).includes('..'))
 		return null;
@@ -66,39 +79,53 @@ function safePath(urlPath) {
 
 	if (!real.startsWith(ROOT_REAL + path.sep) && real !== ROOT_REAL)
 		return null;
+	if (isDeniedGitPath(real))
+		return null;
 
 	return real;
 }
 
 const server = http.createServer((req, res) => {
-	let urlPath = req.url || '/';
-	if (urlPath === '/')
-		urlPath = '/tests/fixtures/luci-view-harness.html';
-
-	const abs = safePath(urlPath);
-	if (!abs) {
-		res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-		res.end('not found');
-		return;
-	}
-
-	let st;
 	try {
-		st = fs.statSync(abs);
-	} catch (e) {
-		res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-		res.end('not found');
-		return;
-	}
-	if (st.isDirectory()) {
-		res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-		res.end('not found');
-		return;
-	}
+		let urlPath = req.url || '/';
+		if (urlPath === '/')
+			urlPath = '/tests/fixtures/luci-view-harness.html';
 
-	const ext = path.extname(abs);
-	res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
-	fs.createReadStream(abs).pipe(res);
+		const abs = safePath(urlPath);
+		if (!abs) {
+			res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+			res.end('not found');
+			return;
+		}
+
+		let st;
+		try {
+			st = fs.statSync(abs);
+		} catch (e) {
+			res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+			res.end('not found');
+			return;
+		}
+		if (st.isDirectory()) {
+			res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+			res.end('not found');
+			return;
+		}
+
+		const ext = path.extname(abs);
+		res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+		const stream = fs.createReadStream(abs);
+		stream.on('error', () => {
+			if (!res.headersSent)
+				res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+			res.end('read error');
+		});
+		stream.pipe(res);
+	} catch (e) {
+		if (!res.headersSent)
+			res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+		res.end('server error');
+	}
 });
 
 server.listen(PORT, HOST, () => {

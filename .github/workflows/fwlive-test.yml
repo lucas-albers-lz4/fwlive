@@ -24,6 +24,7 @@ jobs:
       - name: Link check (internal markdown links + external URLs)
         run: ./scripts/fwlive-linkcheck.sh
 
+  # Tier 2 mocked LuCI view smoke — required check (add test-view-mock to branch protection).
   test-view-mock:
     runs-on: ubuntu-latest
     steps:

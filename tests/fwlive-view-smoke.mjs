@@ -57,8 +57,14 @@ async function testDisplayDrawer(page) {
 async function clearFilters(page) {
 	await page.locator('#fwlive-proto').selectOption('');
 	await page.locator('#fwlive-proto-custom').fill('');
-	await page.locator('a.fwlive-chip-clear').first().click().catch(() => {});
-	await page.waitForTimeout(200);
+	await page.locator('#fwlive-action').selectOption('');
+	await page.locator('#fwlive-q').fill('');
+	const clearAll = page.locator('a.fwlive-chip-clear');
+	if (await clearAll.count())
+		await clearAll.first().click();
+	await page.waitForFunction(() => document.querySelectorAll('.fwlive-chip').length === 0, {
+		timeout: 5000
+	});
 }
 
 async function testProtoCustomWins(page) {
@@ -70,7 +76,11 @@ async function testProtoCustomWins(page) {
 		throw new Error(`expected TCP chip, got: ${chip}`);
 
 	await page.locator('#fwlive-proto-custom').fill('esp');
-	await page.waitForTimeout(400);
+	await page.waitForFunction(() => {
+		const sel = document.getElementById('fwlive-proto');
+		const chip = document.querySelector('.fwlive-chip-label');
+		return sel && sel.value === '' && chip && /esp/i.test(chip.textContent || '');
+	}, { timeout: 5000 });
 	const sel = await page.locator('#fwlive-proto').inputValue();
 	chip = await page.locator('.fwlive-chip-label').first().textContent();
 	if (sel !== '')
@@ -86,7 +96,10 @@ async function testChipInvert(page) {
 	await page.waitForSelector('.fwlive-chip', { timeout: 5000 });
 	const before = await page.locator('.fwlive-chip-label').first().textContent();
 	await page.locator('.fwlive-chip-invert').first().click();
-	await page.waitForTimeout(300);
+	await page.waitForFunction(() => {
+		const chip = document.querySelector('.fwlive-chip-label');
+		return chip && /not pass/i.test(chip.textContent || '');
+	}, { timeout: 5000 });
 	const after = await page.locator('.fwlive-chip-label').first().textContent();
 	if (before === after || !/not pass/i.test(after || ''))
 		throw new Error(`chip invert failed: ${before} -> ${after}`);

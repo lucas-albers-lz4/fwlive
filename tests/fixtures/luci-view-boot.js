@@ -90,28 +90,30 @@
 		rpcMocks['fwlive.poll'] = fn;
 	};
 
-	/**
-	 * LuCI rpc.declare expect unwrap:
-	 * - expect: { names: {} } → reply.names
-	 * - expect: { '': shape } → whole reply
-	 * - no expect → whole reply
-	 */
-	function applyExpect(reply, expect) {
-		if (!expect || typeof expect !== 'object')
-			return reply;
-		const keys = Object.keys(expect);
-		if (keys.length === 1 && keys[0] === '')
-			return reply;
-		if (keys.length === 1) {
-			const k = keys[0];
-			if (reply && typeof reply === 'object' && Object.prototype.hasOwnProperty.call(reply, k))
-				return reply[k];
-			return expect[k];
+	const poll = {
+		_entries: [],
+		_timer: null,
+		add: function(fn, intervalSec) {
+			this._entries.push({ fn: fn, intervalSec: intervalSec || 1 });
+			if (this._timer)
+				return;
+			/* Slow tick so smoke stays deterministic; exercises poll.add wiring. */
+			this._timer = setInterval(function() {
+				for (let i = 0; i < poll._entries.length; i++) {
+					const entry = poll._entries[i];
+					if (typeof entry.fn === 'function')
+						entry.fn();
+				}
+			}, 5000);
+		},
+		remove: function(fn) {
+			this._entries = this._entries.filter(function(e) { return e.fn !== fn; });
+			if (!this._entries.length && this._timer) {
+				clearInterval(this._timer);
+				this._timer = null;
+			}
 		}
-		return reply;
-	}
-
-	const poll = { add: function() {}, remove: function() {} };
+	};
 	const view = { extend: function(desc) { return desc; } };
 	const rpc = {
 		declare: function(cfg) {
@@ -120,7 +122,7 @@
 			return function() {
 				const mock = rpcMocks[key];
 				const raw = mock ? mock.apply(null, arguments) : {};
-				return Promise.resolve(applyExpect(raw, expect));
+				return Promise.resolve(FwliveRpcExpect.applyExpect(raw, expect));
 			};
 		}
 	};

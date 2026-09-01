@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const { loadFwliveModule, fakeGettext } = require('./load-fwlive-module');
+const { applyExpect } = require('./rpc-expect');
 const luciE = require('./luci-e-harness');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -94,21 +95,6 @@ function defaultRpcReply(key) {
 	default:
 		return {};
 	}
-}
-
-function applyExpect(reply, expect) {
-	if (!expect || typeof expect !== 'object')
-		return reply;
-	const keys = Object.keys(expect);
-	if (keys.length === 1 && keys[0] === '')
-		return reply;
-	if (keys.length === 1) {
-		const k = keys[0];
-		if (reply && typeof reply === 'object' && Object.prototype.hasOwnProperty.call(reply, k))
-			return reply[k];
-		return expect[k];
-	}
-	return reply;
 }
 
 function loadFwliveView(options) {
