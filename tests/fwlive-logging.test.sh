@@ -32,7 +32,45 @@ case "$out" in
 	*'"blockers":'*) ;;
 	*) die "logging_status JSON missing blockers: $out" ;;
 esac
+case "$out" in
+	*'"warnings":'*) ;;
+	*) die "logging_status JSON missing warnings: $out" ;;
+esac
 ok "build_logging_status_json shape"
+
+# timeout_missing is a warning, not a blocker (openwrt/luci#8992 round 4).
+command() {
+	case "$1 $2" in
+		'-v timeout') return 1 ;;
+		*) command command "$@" ;;
+	esac
+}
+check_nf_log_ipv4() { return 0; }
+check_nf_log_ipv6() { return 0; }
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+			;;
+		'-q get firewall.@zone[0]')
+			printf 'zone\n'
+			;;
+		'-q get firewall.@zone[0].log'|'-q get firewall.@zone[0].log_limit')
+			return 1
+			;;
+		*) return 0 ;;
+	esac
+}
+out=$(build_logging_status_json)
+case "$out" in
+	*'"warnings":["timeout_missing"]'*) ;;
+	*) die "expected timeout_missing in warnings, got: $out" ;;
+esac
+case "$out" in
+	*'"blockers":["timeout_missing"]'*) die "timeout_missing must not appear in blockers: $out" ;;
+esac
+unset -f command uci check_nf_log_ipv4 check_nf_log_ipv6
+ok "timeout_missing warning does not gate logging CTA"
 
 # restore_wan_zone_log: empty previous => delete; non-empty => set + commit
 UCI_LOG=()
@@ -638,6 +676,54 @@ esac
 rm -rf "$ZONE_MISMATCH_WORK"
 unset WAN_LOG_BASELINE_FILE PENDING_STAGED CURRENT_LOG ZONE_MISMATCH_WORK
 unset -f uci check_nf_log_ipv4 check_nf_log_ipv6 acquire_wan_log_lock release_wan_log_lock reload_firewall logger
+
+# --- #239 staged-line helpers (unit coverage for openwrt/luci#8992 round 4) ---
+got=$(wan_log_staged_line_section "firewall.cfg03dc81.log='1'")
+[ "$got" = "cfg03dc81" ] || die "staged_line_section set form: expected cfg03dc81 got '$got'"
+got=$(wan_log_staged_line_section '-firewall.@zone[1].log')
+[ "$got" = "@zone[1]" ] || die "staged_line_section delete form: expected @zone[1] got '$got'"
+got=$(wan_log_staged_line_section '- firewall.cfg03dc81.log')
+[ "$got" = "cfg03dc81" ] || die "staged_line_section spaced delete form: expected cfg03dc81 got '$got'"
+ok "wan_log_staged_line_section parses all uci changes forms"
+
+uci() {
+	case "$*" in
+		'-q get firewall.@zone[1].name'|'-q get firewall.cfg03dc81.name')
+			printf 'wan\n'
+			;;
+		'-q get firewall.@zone[1]'|'-q get firewall.cfg03dc81')
+			printf 'zone\n'
+			;;
+		*) return 1 ;;
+	esac
+}
+_staged="firewall.cfg03dc81.log='1'
+firewall.cfg01aaaa.log='1'
+firewall.@rule[3].target='REJECT'"
+_ids=$(wan_log_staged_zone_ids '@zone[1]' "$_staged")
+case "$_ids" in
+	*'@zone[1]'*|*'cfg03dc81'*) ;;
+	*) die "staged_zone_ids expected both WAN ids, got: $_ids" ;;
+esac
+case "$_ids" in
+	*cfg01aaaa*) die "staged_zone_ids must not include lan cfg id: $_ids" ;;
+esac
+_foreign=$(wan_log_foreign_staged_lines '@zone[1]' "$_staged")
+case "$_foreign" in
+	*'firewall.cfg01aaaa.log'*) ;;
+	*) die "foreign_staged_lines expected lan log line, got: $_foreign" ;;
+esac
+case "$_foreign" in
+	*'@rule[3].target'*) ;;
+	*) die "foreign_staged_lines expected rule target line, got: $_foreign" ;;
+esac
+case "$_foreign" in
+	*cfg03dc81*|*'@zone[1].log'*) die "foreign_staged_lines must not flag our WAN log lines: $_foreign" ;;
+esac
+_ours=$(wan_log_count_our_staged_lines '@zone[1]' "$_staged")
+[ "$_ours" = "1" ] || die "count_our_staged_lines expected 1, got '$_ours'"
+unset -f uci
+ok "wan_log staged-line helpers classify cfg id vs foreign lines"
 
 sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
 ok "rpcd __selftest"
