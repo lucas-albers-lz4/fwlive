@@ -39,6 +39,8 @@ assert.ok(
 );
 assert.ok(!/expect:\s*\{\s*log:\s*\[\]\s*\}/.test(viewSrc),
 	'callFwlivePoll must not use expect:{log:[]} (strips reply.error, #233)');
+assert.ok(/expect:\s*\{\s*'':\s*\{\s*wan_zone: null,\s*wan_log: false,\s*wan_log_limit: null,\s*nf_log_ipv4: false,\s*nf_log_ipv6: false,\s*ready: false,\s*blockers: \[\],\s*warnings: \[\]\s*\}\s*\}/.test(viewSrc),
+	'callFwliveLoggingStatus expect must document the full reply shape incl. warnings (openwrt/luci#8992 round 5)');
 assert.ok(/if\s*\(\s*reply\.error\s*\)/.test(viewSrc),
 	'fetchEntries must set lastPollError when poll reply includes error');
 assert.ok(/const raw = reply\.log/.test(viewSrc),
