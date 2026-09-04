@@ -240,9 +240,10 @@ Rules:
 3. Pre-merge audit (wave PRs): case-insensitive grep of the PR title, body, and
    all branch commit messages for a closing keyword followed by a cross-repo
    reference (`owner/repo#N` **or** a github.com `…/pull/N` / `…/issues/N` URL).
-   Patterns (keywords case-insensitive; `:` after the keyword optional):
+   Patterns require PCRE (`grep -P` / `rg`); keywords case-insensitive; `:` after
+   the keyword optional:
 
-```
+```regex
 (?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\b\s*:?\s*(?:https?://github\.com/)?[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#\d+
 (?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\b\s*:?\s*https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:pull|issues)/\d+
 ```
