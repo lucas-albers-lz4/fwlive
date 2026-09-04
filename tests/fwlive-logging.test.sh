@@ -637,6 +637,9 @@ uci() {
 		'-q show firewall')
 			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
 			;;
+		'-q -X show firewall.@zone[0]'|'-q -X show firewall.cfg03dc81')
+			printf "firewall.cfg03dc81=zone\n"
+			;;
 		'-q get firewall.@zone[0]')
 			printf 'zone\n'
 			;;
@@ -693,10 +696,22 @@ ok "wan_log_staged_line_section parses all uci changes forms"
 
 uci() {
 	case "$*" in
+		'-q -X show firewall.@zone[1]'|'-q -X show firewall.cfg03dc81')
+			printf "firewall.cfg03dc81=zone\n"
+			;;
+		'-q -X show firewall.cfg01aaaa')
+			printf "firewall.cfg01aaaa=zone\n"
+			;;
 		'-q get firewall.@zone[1].name'|'-q get firewall.cfg03dc81.name')
 			printf 'wan\n'
 			;;
 		'-q get firewall.@zone[1]'|'-q get firewall.cfg03dc81')
+			printf 'zone\n'
+			;;
+		'-q get firewall.cfg01aaaa.name')
+			printf 'lan\n'
+			;;
+		'-q get firewall.cfg01aaaa')
 			printf 'zone\n'
 			;;
 		*) return 1 ;;
@@ -729,6 +744,38 @@ _ours=$(wan_log_count_our_staged_lines '@zone[1]' "$_staged")
 [ "$_ours" = "1" ] || die "count_our_staged_lines expected 1, got '$_ours'"
 unset -f uci
 ok "wan_log staged-line helpers classify cfg id vs foreign lines"
+
+# B-1: duplicate name=wan zones must NOT be treated as the same section.
+uci() {
+	case "$*" in
+		'-q -X show firewall.@zone[0]')
+			printf "firewall.cfgWAN1=zone\n"
+			;;
+		'-q -X show firewall.cfgWAN1')
+			printf "firewall.cfgWAN1=zone\n"
+			;;
+		'-q -X show firewall.cfgDUP')
+			printf "firewall.cfgDUP=zone\n"
+			;;
+		*) return 1 ;;
+	esac
+}
+wan_firewall_zone_same '@zone[0]' 'cfgWAN1' \
+	|| die "B-1: @zone[0] and its cfg id must still match"
+wan_firewall_zone_same '@zone[0]' 'cfgDUP' \
+	&& die "B-1: duplicate wan cfgDUP must NOT match @zone[0]"
+_staged_dup="firewall.cfgWAN1.log='1'
+firewall.cfgDUP.log='0'"
+_foreign_dup=$(wan_log_foreign_staged_lines '@zone[0]' "$_staged_dup")
+case "$_foreign_dup" in
+	*'firewall.cfgDUP.log'*) ;;
+	*) die "B-1: foreign_staged_lines must keep duplicate wan .log as foreign, got: $_foreign_dup" ;;
+esac
+case "$_foreign_dup" in
+	*cfgWAN1*) die "B-1: our cfgWAN1.log must not be foreign: $_foreign_dup" ;;
+esac
+unset -f uci
+ok "B-1 duplicate wan zones stay distinct for commit-scope"
 
 sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
 ok "rpcd __selftest"
