@@ -1,7 +1,7 @@
 # Security review state
 
-> **Status:** 40 controls in force; 0 open findings.
-> **Last review:** 2026-08-31 (upstream-review remaining).
+> **Status:** 41 controls in force; 0 open findings.
+> **Last review:** 2026-09-03 (lab deploy SSH host-key default).
 > **Open:** none.
 > **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. For coverage beyond that script, follow [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md). Values current as of this PR.
@@ -67,12 +67,14 @@ should carry a note saying what would raise it.
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-08-23 | Read | No ACL or path regressions |
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-08-23 | Read | Pins intact |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
+| Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
 
 ## Controls in force
 
 | Control | Proof class | Where |
 |---------|-------------|-------|
 | Sessions never receive `ubus log.*` | `host` | `tests/fwlive-rpcd-security.test.js` |
+| Lab `.ipk` deploy keeps SSH host-key verification unless explicitly opted in | `manual` | `scripts/agent-build-and-deploy.sh` — default empty `SSH_OPTS`; `ALLOW_INSECURE_SSH=1` or `--lab-only` required for `StrictHostKeyChecking=no` (#261) |
 | Read and write ACL scopes stay separate | `host` | same |
 | Caller line count validated and clamped | `host` | rpcd `__selftest` |
 | Poll line-count clamp rejects over-long digit strings before numeric compare (no silenced `test` overflow) and maps `0`→50 | `host` | rpcd `poll_clamp_lines` helper + `__selftest` (over-long, zero, 2001, 500) — defence-in-depth for read-ACL reachable `poll` |
