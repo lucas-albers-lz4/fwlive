@@ -23,6 +23,15 @@ echo "== fwlive view syntax (node --check) ==" >&2
 echo "== fwlive shellcheck (libexec/rpcd) ==" >&2
 bash "$ROOT/scripts/fwlive-shellcheck.sh"
 
+echo "== fwlive .pot #: paths are repo-relative (#256) ==" >&2
+POT="$ROOT/openwrt-feed/luci-app-fwlive/po/templates/luci-app-fwlive.pot"
+if grep -E '^#: (/home/|/Users/|/tmp/|/var/)' "$POT" >/dev/null; then
+	echo "FAIL: absolute #: refs in $POT — run ./scripts/normalize-pot-paths.sh" >&2
+	grep -E '^#: (/home/|/Users/|/tmp/|/var/)' "$POT" | head -5 >&2
+	exit 1
+fi
+echo "OK: no absolute #: refs in luci-app-fwlive.pot" >&2
+
 echo "== fwlive parser sync (core vs LuCI) ==" >&2
 "$NODE" tests/fwlive-parser-sync.test.js
 
