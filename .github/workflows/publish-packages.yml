@@ -105,18 +105,25 @@ jobs:
           OPKG_PUB: ${{ secrets.OPKG_FEED_PUBLIC_KEY }}
           APK_PUB: ${{ secrets.APK_FEED_PUBLIC_KEY }}
         run: |
+          # Feed signing keys must NOT live in $GITHUB_WORKSPACE: the whole
+          # workspace is bind-mounted read-only into the network-attached SDK
+          # build containers (docker-compose.yml `sdk` service), whose copy-out
+          # step runs as root (sdk-matrix.sh). Secrets in the workspace are
+          # readable by root-capable code in those containers (#269). Write to
+          # $RUNNER_TEMP — no compose service mounts it.
           # shellcheck disable=SC2153 # env vars mapped from secrets above
           test -n "$OPKG_SECRET" && test -n "$APK_SECRET"
+          mkdir -p "${RUNNER_TEMP}/fwlive-keys"
           # shellcheck source=scripts/lib/feed-keys.sh
           source ./scripts/lib/feed-keys.sh
-          feed_keys_write_from_env "$GITHUB_WORKSPACE"
+          feed_keys_write_from_env "${RUNNER_TEMP}/fwlive-keys"
 
       - name: Validate signing keys
         env:
-          OPKG_FEED_SECRET_KEY: ${{ github.workspace }}/opkg-secret.key
-          OPKG_FEED_PUBLIC_KEY: ${{ github.workspace }}/public.key
-          APK_FEED_SECRET_KEY: ${{ github.workspace }}/apk-secret.rsa
-          APK_FEED_PUBLIC_KEY: ${{ github.workspace }}/fwlive-feed.rsa.pub
+          OPKG_FEED_SECRET_KEY: ${{ runner.temp }}/fwlive-keys/opkg-secret.key
+          OPKG_FEED_PUBLIC_KEY: ${{ runner.temp }}/fwlive-keys/public.key
+          APK_FEED_SECRET_KEY: ${{ runner.temp }}/fwlive-keys/apk-secret.rsa
+          APK_FEED_PUBLIC_KEY: ${{ runner.temp }}/fwlive-keys/fwlive-feed.rsa.pub
         run: ./scripts/validate-feed-keys.sh
 
       # #128: bind-mount .ci-sdk-cache into /builder/dl + /builder/feeds (no volume tar/copy).
@@ -151,6 +158,18 @@ jobs:
 
       - name: Build packages (21.02, 22.03, 23.05, 24.10, 25.12)
         run: |
+          set -euo pipefail
+          # #269 fail-closed: no signing-secret material may exist anywhere
+          # under the workspace, which is bind-mounted into the build
+          # containers. POSIX find (no -maxdepth/-quit GNU extensions); a find
+          # error aborts under set -e rather than being swallowed.
+          leaked="$(find "$GITHUB_WORKSPACE" -type f \
+            \( -name 'opkg-secret.key*' -o -name 'apk-secret.rsa*' -o -name 'public.key*' \
+               -o -name 'fwlive-feed.rsa.pub*' \) -print)"
+          if [[ -n "$leaked" ]]; then
+            echo "error: signing key material found in workspace before build: $leaked" >&2
+            exit 1
+          fi
           mkdir -p out
           for ver in 21.02 22.03 23.05 24.10 25.12; do
             echo "=== docker-sdk build: OpenWrt ${ver} ==="
@@ -184,10 +203,10 @@ jobs:
 
       - name: Stage signed feed
         env:
-          OPKG_FEED_SECRET_KEY: ${{ github.workspace }}/opkg-secret.key
-          OPKG_FEED_PUBLIC_KEY: ${{ github.workspace }}/public.key
-          APK_FEED_SECRET_KEY: ${{ github.workspace }}/apk-secret.rsa
-          APK_FEED_PUBLIC_KEY: ${{ github.workspace }}/fwlive-feed.rsa.pub
+          OPKG_FEED_SECRET_KEY: ${{ runner.temp }}/fwlive-keys/opkg-secret.key
+          OPKG_FEED_PUBLIC_KEY: ${{ runner.temp }}/fwlive-keys/public.key
+          APK_FEED_SECRET_KEY: ${{ runner.temp }}/fwlive-keys/apk-secret.rsa
+          APK_FEED_PUBLIC_KEY: ${{ runner.temp }}/fwlive-keys/fwlive-feed.rsa.pub
           FWLIVE_GIT_TAG: ${{ env.FWLIVE_RELEASE_TAG }}
         run: ./scripts/publish-packages.sh feed-staging
 
