@@ -182,8 +182,9 @@ These PRs are the reference workflow for each review stage on
 | 1 | First `openwrt-ai` round | [#228](https://github.com/lucas-albers-lz4/fwlive/pull/228) (on [#227](https://github.com/lucas-albers-lz4/fwlive/pull/227)) | Resolver, awk/jsonfilter classifier, `json_escape` in logging.sh, UCI whitespace, cut README/`SOURCE_DATE_EPOCH` |
 | 2 | Round 2 | [#247](https://github.com/lucas-albers-lz4/fwlive/pull/247) (#243–#246) | Resolve double-unwrap, WAN lock probe, rules-map error in UI, Makefile blank |
 | 3 | Round 3 | [#253](https://github.com/lucas-albers-lz4/fwlive/pull/253) | Non-sticky rules error, #239 staged-line helpers; timeout diagnostics (revised in wave 4) |
-| 4 | Round 4 | *(this PR)* | `timeout_missing` → non-gating `warnings` + backend span; staged-line selftests |
-| 5+ | Round 5 … | *(next fwlive PR)* | Fold blockers in fwlive first; re-cut; push luci snapshot |
+| 4 | Round 4 | [#255](https://github.com/lucas-albers-lz4/fwlive/pull/255) | `timeout_missing` → non-gating `warnings` + backend span; staged-line selftests |
+| 5 | Round 5 | [#258](https://github.com/lucas-albers-lz4/fwlive/pull/258) | Document `warnings` expect key; warn-tint degraded backend span; drop inaccurate `classList.toggle` note |
+| 6+ | Round 6 … | *(next fwlive PR)* | Fold blockers in fwlive first; re-cut; push luci snapshot |
 
 Process docs for the agent gate live in [#212](https://github.com/lucas-albers-lz4/fwlive/pull/212)
 ([pr-cycle.md](pr-cycle.md) + this file). Umbrella issues [#216](https://github.com/lucas-albers-lz4/fwlive/issues/216) /
