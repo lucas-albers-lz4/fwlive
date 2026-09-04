@@ -157,9 +157,9 @@ path: `tests/validate-feed-keys-mode.test.sh` (gap 4 prefix; wired into
 
 | Property | Status | What would prove it |
 |----------|--------|---------------------|
-| `resolve` really returns within its budget on a loaded router | cannot-prove on host — **smoke script ready** | Lab: `./scripts/qemu-security-gaps-smoke.sh` flood is a responsiveness smoke (not blackhole-DNS proof of `RESOLVE_BUDGET`) |
-| The rpcd script timeout actually bounds a blocked `flock` waiter | cannot-prove on host — **smoke script ready**; BusyBox has no `flock -w` (**accepted residual** if client times out) | Lab: same script holds root flock + host-side client timeout; documents residual, does not clear it |
-| Pre-stage `firewall_changes_pending` refuse on a live device | optional lab smoke (**accepted residual** for package-commit ride-along — see above) | Lab: same script stages foreign delta, expects refuse; residual is architectural, not prove-next |
+| `resolve` really returns within its budget on a loaded router | lab smoke 2026-09-04 (responsiveness only; not blackhole-DNS budget proof) | Flood returned in 1s under `RESOLVE_SLACK_SEC=8` |
+| The rpcd script timeout actually bounds a blocked `flock` waiter | lab smoke 2026-09-04; BusyBox has no `flock -w` (**accepted residual** — client timed out, residual holds) | Host-side timeout fired; does not promote residual to cleared |
+| Pre-stage `firewall_changes_pending` refuse on a live device | lab smoke 2026-09-04 (**accepted residual** for package-commit ride-along — see above) | Foreign staging refused; foreign delta neither committed nor dropped |
 | Signing keys stay 0600 through validate rewrite path | `host` (validate-prefix) | `tests/validate-feed-keys-mode.test.sh` — write + decode/normalize/chmod mirror of `validate-feed-keys.sh` (no SDK pull). **Full usign docker sign + real publish** still prove-next on next `v*` tag |
 
 ## Review procedure
