@@ -20,14 +20,8 @@ validate_opkg_usign_key() {
 	require_file "$secret" "OPKG_FEED_SECRET_KEY"
 	require_file "$public" "OPKG_FEED_PUBLIC_KEY"
 
-	feed_keys_maybe_decode_base64 "$secret"
-	feed_keys_maybe_decode_base64 "$public"
-	feed_keys_normalize_usign_secret "$secret" \
-		|| die "OPKG_FEED_SECRET_KEY must be a usign secret (from: usign -G -s opkg-secret.key -p public.key). Paste both lines or base64-encode the file."
-	feed_keys_normalize_usign_keyfile "$public" \
-		|| die "OPKG_FEED_PUBLIC_KEY must be the matching usign public key (public.key from usign -G). Paste both lines or base64-encode the file."
-	# Decode/normalize rewrite via mv; re-assert secret mode (issue #165).
-	chmod 600 "$secret" || die "cannot chmod 600 OPKG_FEED_SECRET_KEY"
+	feed_keys_validate_opkg_rewrite_prefix "$secret" "$public" \
+		|| die "OPKG_FEED_SECRET_KEY / OPKG_FEED_PUBLIC_KEY must be a usign pair (usign -G) or base64 of those files (rewrite prefix failed)."
 
 	# R7: pin the SDK digest at first pull *before* mounting the usign secret.
 	# sdk_matrix_resolve alone uses a mutable tag; a moved tag could exfiltrate
@@ -64,9 +58,8 @@ validate_apk_rsa_key() {
 	require_file "$secret" "APK_FEED_SECRET_KEY"
 	require_file "$public" "APK_FEED_PUBLIC_KEY"
 
-	feed_keys_maybe_decode_base64 "$secret"
-	feed_keys_maybe_decode_base64 "$public"
-	chmod 600 "$secret" || die "cannot chmod 600 APK_FEED_SECRET_KEY"
+	feed_keys_validate_apk_rewrite_prefix "$secret" "$public" \
+		|| die "cannot decode/chmod APK_FEED_SECRET_KEY rewrite prefix"
 
 	head -1 "$secret" | grep -q 'BEGIN.*PRIVATE KEY' \
 		|| die "APK_FEED_SECRET_KEY must be an RSA private key (openssl genrsa). Do not use the usign opkg secret here."

@@ -30,10 +30,15 @@ ssh_guest() {
 
 echo "== fwlive security-gaps smoke (root@${HOST}:${PORT}) ==" >&2
 
+command -v timeout >/dev/null 2>&1 \
+	|| die "host 'timeout' required (bounds flock/ubus client wait)"
+
 ssh_guest 'echo connected' >/dev/null 2>&1 \
 	|| die "SSH unreachable — start QEMU and install fwlive first"
 ssh_guest 'command -v ubus >/dev/null && test -x /usr/libexec/rpcd/fwlive' \
 	|| die "fwlive rpcd plugin missing"
+ssh_guest 'command -v su >/dev/null' \
+	|| die "guest 'su' required for unprivileged flock probe"
 
 # --- Gap 1: resolve responsiveness (budget smoke) ---------------------------
 # Flood with RESOLVE_MAX addresses. This is a wall-clock responsiveness smoke
@@ -56,28 +61,28 @@ ok "resolve flood returned in ${ELAPSED_SEC}s (<= ${RESOLVE_SLACK_SEC}s)"
 LOCK_PATH=/etc/fwlive/logging.lock
 ssh_guest "test -d /etc/fwlive || mkdir -p /etc/fwlive; touch '$LOCK_PATH'; chmod 0600 '$LOCK_PATH'"
 
-# Unprivileged probe: nobody (or create fwlivegap)
-UNPRIV_RC="$(ssh_guest 'id nobody >/dev/null 2>&1 || adduser -D -H -s /bin/false fwlivegap 2>/dev/null || true
+# Unprivileged probe: nobody (or create fwlivegap). Fail closed if no usable user.
+UNPRIV_RC="$(ssh_guest '
+id nobody >/dev/null 2>&1 || adduser -D -H -s /bin/false fwlivegap >/dev/null || exit 42
 USER=nobody
 id nobody >/dev/null 2>&1 || USER=fwlivegap
-su -s /bin/sh "$USER" -c "flock -n /etc/fwlive/logging.lock true" >/dev/null 2>&1; echo $?' || echo 1)"
+id "$USER" >/dev/null || exit 42
+su -s /bin/sh "$USER" -c "flock -n /etc/fwlive/logging.lock true" >/dev/null 2>&1
+echo $?
+' || echo SETUP_FAIL)"
+[[ "$UNPRIV_RC" != "SETUP_FAIL" && "$UNPRIV_RC" != "42" && "$UNPRIV_RC" != "" ]] \
+	|| die "unprivileged flock probe setup failed (need nobody or adduser + su)"
 [[ "$UNPRIV_RC" != "0" ]] \
 	|| die "unprivileged flock -n on logging.lock succeeded (expected fail)"
 ok "unprivileged cannot LOCK_EX logging.lock (rc=${UNPRIV_RC})"
 
-# Root holder blocks; call enable with client-side timeout.
+# Root holder blocks; call enable with host-side timeout (required above).
 ssh_guest "flock '$LOCK_PATH' sleep 120" >/dev/null 2>&1 &
 HOLDER_PID=$!
 sleep 1
 set +e
-# Prefer host-side timeout (guest may lack timeout → timeout_missing).
-if command -v timeout >/dev/null 2>&1; then
-	ENABLE_OUT="$(timeout "${FLOCK_WAIT_SEC}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "ubus call fwlive enable_wan_logging" 2>&1)"
-	ENABLE_RC=$?
-else
-	ENABLE_OUT="$(ssh_guest "ubus call fwlive enable_wan_logging" 2>&1)"
-	ENABLE_RC=$?
-fi
+ENABLE_OUT="$(timeout "${FLOCK_WAIT_SEC}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "ubus call fwlive enable_wan_logging" 2>&1)"
+ENABLE_RC=$?
 set -e
 kill "$HOLDER_PID" 2>/dev/null || true
 wait "$HOLDER_PID" 2>/dev/null || true
@@ -103,8 +108,10 @@ ssh_guest "flock -n '$LOCK_PATH' true" >/dev/null 2>&1 \
 ZONE="$(ssh_guest "uci -q show firewall | sed -n \"s/^firewall\\.\\([^.]*\\)\\.name='wan'\$/\\1/p\" | head -1")"
 [[ -n "$ZONE" ]] || die "no WAN zone in firewall config"
 
-# Clean slate
-ssh_guest 'uci revert firewall 2>/dev/null || true; uci commit firewall 2>/dev/null || true'
+# Refuse to wipe operator staging — abort if firewall already has pending changes.
+EXISTING_CHANGES="$(ssh_guest 'uci changes firewall 2>/dev/null || true')"
+[[ -z "${EXISTING_CHANGES//[$'\t\r\n ']/}" ]] \
+	|| die "firewall already has staged changes; abort (will not uci revert): $EXISTING_CHANGES"
 
 # Stage an unrelated option (not the WAN log bit)
 MARKER="fwlive_gap_marker_$$"
