@@ -3,7 +3,7 @@
 > **Status:** 43 controls in force; 0 open findings.
 > **Last review:** 2026-09-03 (multi-model VVAH pass: playbook + B-1 zone identity; #261/#257 closed).
 > **Open:** none.
-> **Next:** run `./scripts/qemu-security-gaps-smoke.sh` on QEMU to promote gaps 1–3 to `lab`; re-check pins + full docker usign mode on next `v*` tag; **full surface re-pass deferred** (gate criteria not met — see skill § Multi-model pass / full-pass gate).
+> **Next:** on QEMU, run `./scripts/qemu-security-gaps-smoke.sh` as a lab *smoke* (resolve responsiveness; unprivileged lock deny; pre-stage `firewall_changes_pending` refuse) — do **not** auto-promote gap 2 flock residual or #191 post-stage window to `lab` from a green run; re-check pins + full docker usign on next `v*` tag; **full surface re-pass deferred** (gate criteria not met — see skill § Multi-model pass / full-pass gate).
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass (VVAH-style): [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
 
 What has been reviewed, when, with what strength of proof, and what is still
@@ -156,9 +156,9 @@ path: `tests/validate-feed-keys-mode.test.sh` (gap 4 prefix; wired into
 
 | Property | Status | What would prove it |
 |----------|--------|---------------------|
-| `resolve` really returns within its budget on a loaded router | cannot-prove on host — **script ready** | Lab: `./scripts/qemu-security-gaps-smoke.sh` (flood `fwlive.resolve`, wall clock ≤ slack) |
-| The rpcd script timeout actually bounds a blocked `flock` waiter | cannot-prove on host — **script ready**; BusyBox has no `flock -w` (accepted residual if client times out) | Lab: same script holds root flock, calls enable with client timeout; also asserts unprivileged cannot `LOCK_EX` |
-| `uci commit firewall` scope on a live device | prove-next — **script ready** | Lab: same script stages foreign `firewall` delta, expects `firewall_changes_pending`, marker not committed — **host-level fix landed 2026-08-21 (#191), tightened 2026-08-23**; residual window documented in prior entry |
+| `resolve` really returns within its budget on a loaded router | cannot-prove on host — **smoke script ready** | Lab: `./scripts/qemu-security-gaps-smoke.sh` flood is a responsiveness smoke (not blackhole-DNS proof of `RESOLVE_BUDGET`) |
+| The rpcd script timeout actually bounds a blocked `flock` waiter | cannot-prove on host — **smoke script ready**; BusyBox has no `flock -w` (**accepted residual** if client times out) | Lab: same script holds root flock + host-side client timeout; documents residual, does not clear it |
+| `uci commit firewall` scope on a live device | prove-next — **smoke script ready** (pre-stage refuse only) | Lab: same script stages foreign delta, expects `firewall_changes_pending`; does **not** cover #191 residual post-stage→commit window |
 | Signing keys stay 0600 through validate rewrite path | `host` (validate-prefix) | `tests/validate-feed-keys-mode.test.sh` — write + decode/normalize/chmod mirror of `validate-feed-keys.sh` (no SDK pull). **Full usign docker sign + real publish** still prove-next on next `v*` tag |
 
 ## Review procedure

@@ -35,9 +35,10 @@ ssh_guest 'echo connected' >/dev/null 2>&1 \
 ssh_guest 'command -v ubus >/dev/null && test -x /usr/libexec/rpcd/fwlive' \
 	|| die "fwlive rpcd plugin missing"
 
-# --- Gap 1: resolve budget -------------------------------------------------
-# Flood with RESOLVE_MAX unresolvable RFC5737 TEST-NET addresses; wall clock
-# must stay under RESOLVE_BUDGET + one lookup + slack (~8s default).
+# --- Gap 1: resolve responsiveness (budget smoke) ---------------------------
+# Flood with RESOLVE_MAX addresses. This is a wall-clock responsiveness smoke
+# against RESOLVE_BUDGET+slack — not a controlled blackhole-DNS proof. Prefer
+# non-routable TEST-NET; immediate NXDOMAIN still exercises the loop bound.
 ADDR_JSON='["203.0.113.1","203.0.113.2","203.0.113.3","203.0.113.4","203.0.113.5","203.0.113.6","203.0.113.7","203.0.113.8","203.0.113.9","203.0.113.10","203.0.113.11","203.0.113.12","203.0.113.13","203.0.113.14","203.0.113.15","203.0.113.16","203.0.113.17","203.0.113.18","203.0.113.19","203.0.113.20","203.0.113.21","203.0.113.22","203.0.113.23","203.0.113.24","203.0.113.25","203.0.113.26","203.0.113.27","203.0.113.28","203.0.113.29","203.0.113.30","203.0.113.31","203.0.113.32"]'
 START_S="$(date +%s)"
 ssh_guest "ubus call fwlive resolve '{\"addresses\":${ADDR_JSON}}'" >/dev/null \
@@ -69,8 +70,14 @@ ssh_guest "flock '$LOCK_PATH' sleep 120" >/dev/null 2>&1 &
 HOLDER_PID=$!
 sleep 1
 set +e
-ENABLE_OUT="$(ssh_guest "timeout ${FLOCK_WAIT_SEC} ubus call fwlive enable_wan_logging" 2>&1)"
-ENABLE_RC=$?
+# Prefer host-side timeout (guest may lack timeout → timeout_missing).
+if command -v timeout >/dev/null 2>&1; then
+	ENABLE_OUT="$(timeout "${FLOCK_WAIT_SEC}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "ubus call fwlive enable_wan_logging" 2>&1)"
+	ENABLE_RC=$?
+else
+	ENABLE_OUT="$(ssh_guest "ubus call fwlive enable_wan_logging" 2>&1)"
+	ENABLE_RC=$?
+fi
 set -e
 kill "$HOLDER_PID" 2>/dev/null || true
 wait "$HOLDER_PID" 2>/dev/null || true
@@ -113,9 +120,10 @@ ok "enable refused with firewall_changes_pending under foreign staging"
 STAGED="$(ssh_guest 'uci changes firewall' || true)"
 printf '%s' "$STAGED" | grep -q "$MARKER" \
 	|| die "foreign staged marker missing after refuse (uci changes: $STAGED)"
-COMMITTED="$(ssh_guest "uci -q get firewall.@defaults[0].fwlive_gap_test || true")"
-[[ "$COMMITTED" != "$MARKER" ]] \
-	|| die "foreign marker was committed to saved config"
+# `uci get` includes staged values — inspect the committed file instead.
+COMMITTED="$(ssh_guest "grep -E \"option[[:space:]]+fwlive_gap_test[[:space:]]+'${MARKER}'\" /etc/config/firewall 2>/dev/null || true")"
+[[ -z "$COMMITTED" ]] \
+	|| die "foreign marker was written into committed /etc/config/firewall"
 ok "foreign staged delta neither committed nor dropped by toggle refuse"
 
 ssh_guest 'uci revert firewall 2>/dev/null || true'
