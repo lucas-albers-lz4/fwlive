@@ -135,6 +135,10 @@ Feature branch (not `master`). Subject example:
   (`require_linked_github_account`)
 - GPG/SSH signing is **not** required; `check_signature` only validates a
   signature if present
+- **Body must describe the actual diff.** Do not claim files or behaviours that
+  are not in the commit. A snapshot commit may mention host-side test coverage
+  **only if** it says the tests live in the fwlive repo, names the path or PR,
+  and does not imply the luci tree contains them (luci ships no `tests/`).
 
 ## Filing sequence (prep → luci)
 
@@ -164,17 +168,45 @@ the luci tree**. Each round uses the same split:
    bot quotes when replying upstream.
 2. **Fix in fwlive** — feature branch with the full [pr-cycle.md](pr-cycle.md)
    gate (luna → Bugbot → human → file vs master → CodeRabbit → triage → merge).
-3. **Re-cut luci** — from merged fwlive master:
+3. **After the fwlive wave merge** — verify upstream is still open **before**
+   the next cut (catches accidental auto-close; see
+   [Upstream merge safety](#upstream-merge-safety)):
+   `gh pr view 8992 --repo openwrt/luci --json state,headRefOid`
+4. **Re-cut luci** — from merged fwlive master:
    `./scripts/upstream-cut.sh` → copy into the luci feature branch →
    `i18n-scan.pl` → FormalityCheck commit (e.g. “refresh snapshot for openwrt-ai
    round N”) → push `luci-app-fwlive-add`.
-4. **Reply on luci** — product / FormalityCheck prose only. Code folded in the
-   snapshot commit; no bot thread dumps.
+5. **Reply and resolve on luci** — two separate steps (reply alone is not enough):
+   - **Reply inline** on each finding thread: `Fixed in <sha>` + one product /
+     FormalityCheck line. Code folded in the snapshot commit; no bot thread dumps.
+   - **Resolve the thread** — human: “Resolve conversation” after the reply;
+     agent: GraphQL `resolveReviewThread`, then verify `isResolved: true`.
+
+### Upstream CI on fork heads
+
+Upstream heavy checks (Test Build, CodeQL, ESLint) often land
+`action_required` on fork heads until a maintainer approves. That is a
+**maintainer approval gate, not a failure** — do not retry from the fork.
+FormalityCheck green plus the *absence of review findings* is what an agent
+can act on; `action_required` itself means request or await maintainer
+approval. Local fwlive CI and earlier maintainer-approved upstream runs remain
+meaningful signals.
+
+### LuCI client compatibility claims
+
+When a review finding or an in-file comment asserts a browser/API
+incompatibility, verify it against the platform floor before acting — LuCI’s
+own usage in the tree and the browser support matrix. A code comment is
+evidence a claim exists, not that it is true. (Wave 5: an inaccurate
+`classList.toggle(name, force)` / “21.02-era” note steered a regression; LuCI
+core already uses the two-arg API; IE11 is out of scope.)
 
 ### Exemplar fwlive PRs per wave
 
-These PRs are the reference workflow for each review stage on
-[openwrt/luci#8992](https://github.com/openwrt/luci/pull/8992):
+Historical reference for completed waves on
+[openwrt/luci#8992](https://github.com/openwrt/luci/pull/8992).
+Update the table when a wave PR is **created** (not only when it closes).
+Living tracker for the open wave: [fwlive #209](https://github.com/lucas-albers-lz4/fwlive/issues/209).
 
 | Wave | luci review | fwlive PR | What it covered |
 |------|-------------|-----------|-----------------|
@@ -184,11 +216,40 @@ These PRs are the reference workflow for each review stage on
 | 3 | Round 3 | [#253](https://github.com/lucas-albers-lz4/fwlive/pull/253) | Non-sticky rules error, #239 staged-line helpers; timeout diagnostics (revised in wave 4) |
 | 4 | Round 4 | [#255](https://github.com/lucas-albers-lz4/fwlive/pull/255) | `timeout_missing` → non-gating `warnings` + backend span; staged-line selftests |
 | 5 | Round 5 | [#258](https://github.com/lucas-albers-lz4/fwlive/pull/258) | Document `warnings` expect key; warn-tint degraded backend span; drop inaccurate `classList.toggle` note |
-| 6+ | Round 6 … | *(next fwlive PR)* | Fold blockers in fwlive first; re-cut; push luci snapshot |
+| 6+ | Round 6 … | *(see #209)* | Fold blockers in fwlive first; re-cut; push luci snapshot |
 
 Process docs for the agent gate live in [#212](https://github.com/lucas-albers-lz4/fwlive/pull/212)
 ([pr-cycle.md](pr-cycle.md) + this file). Umbrella issues [#216](https://github.com/lucas-albers-lz4/fwlive/issues/216) /
 [#242](https://github.com/lucas-albers-lz4/fwlive/issues/242) track child tickets per wave.
+
+## Upstream merge safety
+
+Worked example: merging fwlive [#255](https://github.com/lucas-albers-lz4/fwlive/pull/255) with
+squash subject `fix: openwrt/luci#8992 …` **closed** the upstream PR
+[openwrt/luci#8992](https://github.com/openwrt/luci/pull/8992). GitHub treats
+closing keywords + `OWNER/REPO#N` (or a github.com URL) as close syntax in
+**any** parsed text — PR titles, bodies, and every commit subject/body on the
+branch — not only the squash message.
+
+Rules:
+
+1. Reference upstream threads only as `Refs owner/repo#N` (no closing keyword).
+2. Closing keywords (`fix`, `fixes`, `fixed`, `resolve`, `resolves`,
+   `resolved`, `close`, `closes`, `closed` — case-insensitive) pair **only**
+   with same-repo `#N`, where closing an fwlive issue is intentional.
+3. Pre-merge audit (wave PRs): case-insensitive grep of the PR title, body, and
+   all branch commit messages for a closing keyword followed by a cross-repo
+   reference (`owner/repo#N` **or** a github.com `…/pull/N` / `…/issues/N` URL).
+   Patterns require PCRE (`grep -P` / `rg`); keywords case-insensitive; `:` after
+   the keyword optional:
+
+```regex
+(?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\b\s*:?\s*(?:https?://github\.com/)?[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#\d+
+(?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\b\s*:?\s*https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:pull|issues)/\d+
+```
+
+4. After each internal wave merge, verify upstream is still open and note the
+   head OID **before** the next cut (Review waves step 3).
 
 ## PR-body answers (do not pre-fix)
 
