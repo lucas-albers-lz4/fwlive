@@ -5,7 +5,8 @@
   "scripts": {
     "test": "./scripts/fwlive-test.sh",
     "test:links": "./scripts/fwlive-linkcheck.sh",
-    "test:ui": "node scripts/capture-fwlive-screenshots.mjs"
+    "test:ui": "node scripts/capture-fwlive-screenshots.mjs",
+    "test:view": "node tests/fwlive-view-smoke.mjs"
   },
   "devDependencies": {
     "playwright": "1.60.0"
