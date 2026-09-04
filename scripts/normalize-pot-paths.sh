@@ -25,17 +25,17 @@ sed -E \
 	-e 's|^(#: ).*/applications/luci-app-fwlive/|\1applications/luci-app-fwlive/|' \
 	"$POT" > "$tmp"
 
-if cmp -s "$POT" "$tmp"; then
+if ! cmp -s "$POT" "$tmp"; then
+	mv "$tmp" "$POT"
+	echo "normalize-pot-paths: rewrote #: refs in $POT"
+else
 	rm -f "$tmp"
 	echo "normalize-pot-paths: already relative ($POT)"
-	exit 0
 fi
 
-mv "$tmp" "$POT"
-echo "normalize-pot-paths: rewrote #: refs in $POT"
-# Fail closed if anything absolute remains under common home/tmp roots.
-if grep -E '^#: (/home/|/Users/|/tmp/|/var/)' "$POT" >/dev/null; then
+# Fail closed if any absolute #: ref remains (any OS/CI layout).
+if grep -E '^#: /' "$POT" >/dev/null; then
 	echo "error: absolute #: refs remain after normalize" >&2
-	grep -E '^#: (/home/|/Users/|/tmp/|/var/)' "$POT" | head -5 >&2
+	grep -E '^#: /' "$POT" | head -5 >&2
 	exit 1
 fi
