@@ -3,7 +3,7 @@
 > **Status:** 43 controls in force; 0 open findings.
 > **Last review:** 2026-09-03 (multi-model VVAH pass: playbook + B-1 zone identity; #261/#257 closed).
 > **Open:** none.
-> **Next:** on QEMU, run `./scripts/qemu-security-gaps-smoke.sh` as a lab *smoke* (resolve responsiveness; unprivileged lock deny; pre-stage `firewall_changes_pending` refuse) — do **not** auto-promote gap 2 flock residual to `lab` from a green run; re-check pins + full docker usign on next `v*` tag; **full surface re-pass deferred** (gate criteria not met — see skill § Multi-model pass / full-pass gate).
+> **Next:** re-check pins + full docker usign on next `v*` tag (gap 4 close-out); **full surface re-pass deferred** (gate criteria not met — see skill § Multi-model pass / full-pass gate). Lab gaps 1–3 smoked 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green; gap 2 flock residual unchanged).
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass (VVAH-style): [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
 
 What has been reviewed, when, with what strength of proof, and what is still
