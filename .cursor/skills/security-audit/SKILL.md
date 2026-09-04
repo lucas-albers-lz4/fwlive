@@ -299,14 +299,14 @@ spaces after colons will match nothing and look like a failure:
 gh api /repos/{owner}/{repo}/security-advisories --jq '.[] | "\(.ghsa_id) \(.state)"'
 ```
 
-## Known-good — do not re-litigate without new evidence
+## Accepted items — do not reopen without new evidence
 
 Invariants 2–7 in [`security-model.md`](../../../docs/developer/security-model.md)
 were each audited and found correctly implemented, as was the
 `__rulesmap_iptables` fixed-path guard.
 
 Re-examine them only with new evidence — a code change in the area, or a concrete
-bypass. Spending the pass re-reading known-good shell is the main way an audit
+bypass. Spending the pass re-reading accepted shell is the main way an audit
 runs out of time before reaching the frontend.
 
 **Two entries were removed from this list on 2026-08-12**, and the reason
