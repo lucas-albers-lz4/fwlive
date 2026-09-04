@@ -2,7 +2,7 @@
 # Lab proofs for honest gaps in docs/developer/security-review.md:
 #   1. resolve wall-clock budget under flood
 #   2. flock hold vs enable_wan_logging (BusyBox flock has no -w)
-#   3. live uci commit firewall scope (foreign staged delta must not commit)
+#   3. pre-stage firewall_changes_pending refuse (package-commit ride-along = accepted residual)
 #
 #   ./scripts/qemu-security-gaps-smoke.sh
 #   OPENWRT_SSH_PORT=2222 ./scripts/qemu-security-gaps-smoke.sh

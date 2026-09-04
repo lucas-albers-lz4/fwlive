@@ -3,7 +3,7 @@
 > **Status:** 43 controls in force; 0 open findings.
 > **Last review:** 2026-09-03 (multi-model VVAH pass: playbook + B-1 zone identity; #261/#257 closed).
 > **Open:** none.
-> **Next:** on QEMU, run `./scripts/qemu-security-gaps-smoke.sh` as a lab *smoke* (resolve responsiveness; unprivileged lock deny; pre-stage `firewall_changes_pending` refuse) — do **not** auto-promote gap 2 flock residual or #191 post-stage window to `lab` from a green run; re-check pins + full docker usign on next `v*` tag; **full surface re-pass deferred** (gate criteria not met — see skill § Multi-model pass / full-pass gate).
+> **Next:** on QEMU, run `./scripts/qemu-security-gaps-smoke.sh` as a lab *smoke* (resolve responsiveness; unprivileged lock deny; pre-stage `firewall_changes_pending` refuse) — do **not** auto-promote gap 2 flock residual to `lab` from a green run; re-check pins + full docker usign on next `v*` tag; **full surface re-pass deferred** (gate criteria not met — see skill § Multi-model pass / full-pass gate).
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass (VVAH-style): [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
 
 What has been reviewed, when, with what strength of proof, and what is still
@@ -145,6 +145,7 @@ Known, judged acceptable. Reopen only with new evidence.
 | Any local UID can inject syslog lines that pass the firewall classifier | `logd` chmods its socket 0666 upstream (ubox `log/syslog.c`). Not fixable from this package; the consequence is forged rows in the view, and every field is already rendered as text |
 | `date +%s` can jump under NTP sync, over- or under-running `RESOLVE_BUDGET` | Worker starvation is still prevented, which is the property the budget exists for |
 | A LuCI admin session is root-equivalent | Structural to LuCI. It is the reason script execution on this page is treated as a root compromise, not a lesser bug |
+| `uci commit firewall` is package-wide ([#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) residual) | OpenWrt has no option-scoped commit. Pre/post-stage gates refuse when foreign staging is visible; a second privileged writer can still stage in the tiny window before commit and ride the same publish — two root processes publishing each other's already-staged work. Unprivileged staging is blocked by libuci dir modes. Reopen only with an unprivileged or cross-session path. |
 | `feed_publish_ensure_usign` leaves its build dir for the process lifetime | `PATH` points into it and `usign` is called later; the name is unpredictable per invocation, and `/tmp` is reaped on reboot |
 
 ## What this pass could not prove
@@ -158,7 +159,7 @@ path: `tests/validate-feed-keys-mode.test.sh` (gap 4 prefix; wired into
 |----------|--------|---------------------|
 | `resolve` really returns within its budget on a loaded router | cannot-prove on host — **smoke script ready** | Lab: `./scripts/qemu-security-gaps-smoke.sh` flood is a responsiveness smoke (not blackhole-DNS proof of `RESOLVE_BUDGET`) |
 | The rpcd script timeout actually bounds a blocked `flock` waiter | cannot-prove on host — **smoke script ready**; BusyBox has no `flock -w` (**accepted residual** if client times out) | Lab: same script holds root flock + host-side client timeout; documents residual, does not clear it |
-| `uci commit firewall` scope on a live device | prove-next — **smoke script ready** (pre-stage refuse only) | Lab: same script stages foreign delta, expects `firewall_changes_pending`; does **not** cover #191 residual post-stage→commit window |
+| Pre-stage `firewall_changes_pending` refuse on a live device | optional lab smoke (**accepted residual** for package-commit ride-along — see above) | Lab: same script stages foreign delta, expects refuse; residual is architectural, not prove-next |
 | Signing keys stay 0600 through validate rewrite path | `host` (validate-prefix) | `tests/validate-feed-keys-mode.test.sh` — write + decode/normalize/chmod mirror of `validate-feed-keys.sh` (no SDK pull). **Full usign docker sign + real publish** still prove-next on next `v*` tag |
 
 ## Review procedure
