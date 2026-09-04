@@ -30,6 +30,36 @@ CodeRabbit, that is separate — do not paste this repo’s review threads.
   - `@coderabbitai full review` — full re-review from scratch
   - `@coderabbitai pause` / `@coderabbitai resume` — stop / restart auto-reviews
     (auto-pause kicks in after many reviewed commits)
+  - `@coderabbitai rate limit` — quota status only (does **not** consume a review)
+
+## Efficient trigger path (prefer this)
+
+Goal: **one review slot per stable head**, not a fixed one-hour sleep.
+
+1. **Finish the branch first** (luna + Bugbot + human + CI green on the
+   rebased head). Stay in draft while pushing.
+2. **Pre-flight quota** — comment `@coderabbitai rate limit` on the draft.
+   If allowance is `0`, wait until the bot’s refresh window (or the plan’s
+   rolling hour) before the next step. Do **not** mark Ready just to “use
+   up” an empty slot.
+3. **One trigger only** — when quota is available, either:
+   - `gh pr ready` (preferred; starts auto-review), **or**
+   - `@coderabbitai review` while still draft  
+   **Never both** on the same head — that can burn two slots for one diff.
+4. **Poll for completion, don’t wall-clock guess.** Record trigger time + head
+   SHA. Watch until either:
+   - a new `COMMENTED` review from `coderabbitai[bot]` with matching
+     `commit_id` (round done), or
+   - a rate-limit issue comment / `Review rate limited` check (terminal —
+     head was **not** reviewed).
+5. **If rate-limited after Ready** — leave the PR Ready (do not bounce
+   draft↔ready). When quota refreshes, post **one**
+   `@coderabbitai review` for that same head. No fixed “wait an hour then
+   hope”; use the bot’s rate-limit text / next `@coderabbitai rate limit`.
+6. **Fixes** — collect the full round, batch into **one** push, then wait for
+   the incremental round (or `@coderabbitai review` if auto-review is paused /
+   limited). Repeat until the latest round has no actionable `CONFIRMED`
+   findings.
 
 ## The 4 rules
 
@@ -71,8 +101,12 @@ CodeRabbit, that is separate — do not paste this repo’s review threads.
 
 When an agent drives the fix loop:
 
-- Trigger the review, then **poll** — do not time-box with a guess. Check
-  `pulls/<n>/reviews` for a new submission before starting any fix.
+- **Quota before Ready** — `@coderabbitai rate limit` first; only then
+  `gh pr ready` (or a single manual review). Never Ready + manual review on
+  the same SHA.
+- Trigger the review, then **poll** — do not time-box with a guess (“wait an
+  hour”). Check `pulls/<n>/reviews` for a new submission, and issue comments /
+  checks for rate-limit, before starting any fix.
 - Do not auto-push per-finding as the bot posts comments. Collect the full
   round, fix in one batch, push once.
 - After the push, re-fetch `pulls/<n>/reviews` + `pulls/<n>/comments` and diff
@@ -80,5 +114,7 @@ When an agent drives the fix loop:
   with refined findings, not just `Addressed` markers on old ones.
 - Rate limits are plan-specific rolling allowances (e.g. Free 1/hr, Pro 5/hr,
   Pro+ 10/hr — check the plan's limits). They apply to automatic and manual
-  triggers alike; check remaining quota with `@coderabbitai rate limit` and
-  prefer batching over `@coderabbitai review` spam.
+  triggers alike; prefer batching over `@coderabbitai review` spam.
+- On rate-limit: stay Ready, sleep until the reported refresh (or re-check
+  `@coderabbitai rate limit`), then one `@coderabbitai review` — do not flip
+  draft state to “retry” auto-review.
