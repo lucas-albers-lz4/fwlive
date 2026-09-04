@@ -12,23 +12,23 @@ for the trust boundaries and invariants, and
 for what has already been checked, with what proof, and what is open. This file
 is the *how*.
 
-A pass owes the ledger a coverage-map update, a proof class for every control it
-touches, and its non-findings — see
+After a pass, update the coverage map in the ledger. Record a proof class for
+every control the pass touches. Record the non-findings — see
 [security-review.md § Review procedure](../../../docs/developer/security-review.md#review-procedure).
 
 ## Multi-model pass (VVAH-style)
 
-Token-efficient asymmetric loop shared with sibling OpenWrt packages (e.g.
-usrmanage). Cheap/deterministic work first; reserve a **frontier reasoner**
-only for narrow judgment. Do not invent a new procedure in chat — follow this
-section.
+Sibling OpenWrt packages (for example usrmanage) share this loop. Do cheap,
+deterministic work first. Reserve a **frontier reasoner** for narrow judgment
+only. Do not invent a new procedure in chat — follow this section.
 
 ### Phase order
 
 1. **Close open issues / prove honest gaps** (ledger `Next:` / cannot-prove /
    prove-next) before a broad re-read.
 2. **Delta** since the last coverage-map dates (touched surfaces only).
-3. **Full-pass gate** — only if criteria below fire; otherwise record deferral.
+3. **Full-pass gate** — run it only if one of the criteria below is true.
+   Otherwise record the deferral.
 
 ### Frontier reasoner profiles
 
@@ -38,7 +38,7 @@ round.
 | Profile | Stage 2 (reason) | Stage 1 helpers | Validation panel | Notes |
 |---------|------------------|-----------------|------------------|-------|
 | **Fable** (default when available) | Claude Fable 5.1 — medium effort; high only for root/XSS chains | Grok (map) + Luna (polish) | Luna + Grok (severity) | Strong on multi-step OpenWrt/LuCI chains |
-| **GLM** (alternate review process) | GLM-5.3 at **max thinking** | Luna + GLM-5.3 Flash **or** DeepSeek V4 Flash | Luna + the same flash helper (severity) | Use when the orchestrator runs GLM instead of Fable; max thinking is required — medium/low under-reasons on ACL/commit-scope |
+| **GLM** (alternate review process) | GLM-5.3 at **max thinking** | Luna + GLM-5.3 Flash **or** DeepSeek V4 Flash | Luna + the same flash helper (pairwise) | Use when the orchestrator runs GLM instead of Fable. Use max thinking. Medium or low thinking does not reason enough about ACL and commit scope. |
 
 Composer remains Stage 3 (patches) under both profiles. Doc-only PRs do not
 need a frontier reasoner — Luna (+ optional Grok for cross-repo wording) is
@@ -54,10 +54,10 @@ enough.
 | 3 Execute & fix | Patches, tests, ledger | Composer | Bulk output |
 | Validation panel | Mechanism real? severity calibrated? duplicate of accepted residual? | Profile validation pair | Cheap gate before filing |
 
-**Maker-never-grader:** The Stage-2 reasoner must not bulk-write patches.
-Composer must not invent new trust boundaries (edit the model doc only when a
-finding falsifies it). Validation-panel models score candidates before `gh`
-advisory/issue.
+**Keep review and patching separate:** The Stage-2 reasoner must not write
+patches in bulk. Composer must not invent new trust boundaries. Edit the model
+doc only when a finding falsifies it. Validation-panel models score candidates
+before `gh` advisory/issue.
 
 **Engineer Mode (Stage-2 stub):** You are reviewing production code for
 structural security flaws. For each finding: mechanism, location, blast radius,
@@ -72,7 +72,7 @@ table + severity calibration below.
 
 ### Job-packet template
 
-Ephemeral (chat or scratch dir — do not commit noise):
+Ephemeral (chat or scratch dir — do not commit these files):
 
 - Files / short diff summary
 - Cached threat-model block (above)
@@ -85,16 +85,18 @@ Ephemeral (chat or scratch dir — do not commit noise):
 Run a full surface re-pass only if one of:
 
 - A gap failed and suggests a **class** bug (fix-the-class sweep)
-- Delta Stage-2 reasoner finds high/medium with blast radius beyond touched files
+- The Stage-2 reasoner finds a high or medium issue whose blast radius goes
+  beyond the touched files
 - A root-reachable control is still only `manual` with no raise path
-- Pre-`v*` tag and pin checklist is stale
+- You are about to cut a `v*` tag, and the pin checklist is stale
 
-Otherwise update coverage-map dates for surfaces examined, record non-findings,
-and set ledger `Next:` to the deferral reason.
+Otherwise update coverage-map dates for surfaces examined. Record non-findings.
+Set ledger `Next:` to the deferral reason.
 
 ### Cross-repo class memory (Stage 0 checklist)
 
-Not a Stage-2 dump — grep/confirm mechanically:
+Make sure that each item below is true. Use grep. Do not send this list to
+Stage 2:
 
 - Temp mode loss after `mv` / normalize rewrite
 - Unswept pin neighbors (one helper pinned, sibling not)
@@ -115,7 +117,7 @@ Not a Stage-2 dump — grep/confirm mechanically:
 
 ## Order of work
 
-Highest yield first when running a **full** surface pass. Prefer the multi-model
+Highest yield first when running a **full** surface pass. Use the multi-model
 phase order above for routine audits.
 
 ```

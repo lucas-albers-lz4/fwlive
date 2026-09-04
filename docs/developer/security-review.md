@@ -3,8 +3,8 @@
 > **Status:** 43 controls in force; 0 open findings.
 > **Last review:** 2026-09-03 (multi-model VVAH pass: playbook + B-1 zone identity; #261/#257 closed).
 > **Open:** none.
-> **Next:** re-check pins + full docker usign on next `v*` tag (gap 4 close-out); **full surface re-pass deferred** (gate criteria not met — see skill § Multi-model pass / full-pass gate). Lab gaps 1–3 smoked 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green; gap 2 flock residual unchanged).
-> **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass (VVAH-style): [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
+> **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
+> **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass: [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
 
 What has been reviewed, when, with what strength of proof, and what is still
 open. This document is the **record**; it owns no rules.
@@ -145,7 +145,7 @@ Known, judged acceptable. Reopen only with new evidence.
 | Any local UID can inject syslog lines that pass the firewall classifier | `logd` chmods its socket 0666 upstream (ubox `log/syslog.c`). Not fixable from this package; the consequence is forged rows in the view, and every field is already rendered as text |
 | `date +%s` can jump under NTP sync, over- or under-running `RESOLVE_BUDGET` | Worker starvation is still prevented, which is the property the budget exists for |
 | A LuCI admin session is root-equivalent | Structural to LuCI. It is the reason script execution on this page is treated as a root compromise, not a lesser bug |
-| `uci commit firewall` is package-wide ([#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) residual) | OpenWrt has no option-scoped commit. Pre/post-stage gates refuse when foreign staging is visible; a second privileged writer can still stage in the tiny window before commit and ride the same publish — two root processes publishing each other's already-staged work. Unprivileged staging is blocked by libuci dir modes. Reopen only with an unprivileged or cross-session path. |
+| `uci commit firewall` is package-wide ([#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) residual) | OpenWrt has no option-scoped commit. Pre/post-stage gates refuse when foreign staging is visible. A second privileged writer can still stage in the short interval before commit and publish those changes in the same `uci commit` — two root processes publishing each other's already-staged work. Unprivileged staging is blocked by libuci dir modes. Reopen only with an unprivileged or cross-session path. |
 | `feed_publish_ensure_usign` leaves its build dir for the process lifetime | `PATH` points into it and `usign` is called later; the name is unpredictable per invocation, and `/tmp` is reaped on reboot |
 
 ## What this pass could not prove
@@ -159,7 +159,7 @@ path: `tests/validate-feed-keys-mode.test.sh` (gap 4 prefix; wired into
 |----------|--------|---------------------|
 | `resolve` really returns within its budget on a loaded router | lab smoke 2026-09-04 (responsiveness only; not blackhole-DNS budget proof) | Flood returned in 1s under `RESOLVE_SLACK_SEC=8` |
 | The rpcd script timeout actually bounds a blocked `flock` waiter | lab smoke 2026-09-04; BusyBox has no `flock -w` (**accepted residual** — client timed out, residual holds) | Host-side timeout fired; does not promote residual to cleared |
-| Pre-stage `firewall_changes_pending` refuse on a live device | lab smoke 2026-09-04 (**accepted residual** for package-commit ride-along — see above) | Foreign staging refused; foreign delta neither committed nor dropped |
+| Pre-stage `firewall_changes_pending` refuse on a live device | lab smoke 2026-09-04 (**accepted residual** for package-commit publish of foreign staging — see above) | Foreign staging refused; foreign delta neither committed nor dropped |
 | Signing keys stay 0600 through validate rewrite path | `host` (validate-prefix) | `tests/validate-feed-keys-mode.test.sh` — write + decode/normalize/chmod mirror of `validate-feed-keys.sh` (no SDK pull). **Full usign docker sign + real publish** still prove-next on next `v*` tag |
 
 ## Review procedure
@@ -392,7 +392,7 @@ links to this ledger for review state.
 
 **Finding fixed in-tree (no public issue — Low, fixed same pass).**
 
-- **B-1** — `wan_firewall_zone_same` treated any `name=wan` zone as identical; duplicate wan `.log` deltas could ride a commit. Now compares canonical cfg ids via `uci -X show`. Host test covers duplicate-wan foreign line.
+- **B-1** — `wan_firewall_zone_same` treated any `name=wan` zone as identical. Duplicate wan `.log` deltas were able to publish with a commit. Now compares canonical cfg ids via `uci -X show`. Host test covers duplicate-wan foreign line.
 
 **Non-findings**
 
@@ -401,4 +401,4 @@ links to this ledger for review state.
 - Stage-0 class memory: no new `${{ }}` in `run:`, no new temp-mode/pin regressions in delta.
 - UCI `.log_*` near-miss grammar (#257) holds under Fable checklist.
 
-**Full-pass gate.** Deferred — no class bug beyond B-1 (fixed), no high/medium blast radius, pin ritual not due until next `v*` tag. Next: QEMU `qemu-security-gaps-smoke.sh` for gaps 1–3.
+**Full-pass gate.** Deferred — no class bug beyond B-1 (fixed), no high/medium blast radius. The pin checklist is not due until the next `v*` tag. Next: QEMU `qemu-security-gaps-smoke.sh` for gaps 1–3.
