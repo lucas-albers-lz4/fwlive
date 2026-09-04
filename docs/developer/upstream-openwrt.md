@@ -113,6 +113,8 @@ The POT must include JS `_()` strings **and** the menu title
 `Grant access to firewall live log view`.
 
 Copy the `.pot` back into this monorepo.
+Then run `./scripts/normalize-pot-paths.sh` so `#:` refs are repo-relative
+(`openwrt-feed/...`) — never `/home/...` absolute build-machine paths (#256).
 Then `msgmerge` the feed `.po` files.
 The header shape
 `msgstr "Content-Type: text/plain; charset=UTF-8"` (no embedded `\n`) is what
