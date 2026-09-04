@@ -1,7 +1,7 @@
 # Security review state
 
-> **Status:** 41 controls in force; 0 open findings.
-> **Last review:** 2026-09-03 (lab deploy SSH host-key default).
+> **Status:** 42 controls in force; 0 open findings.
+> **Last review:** 2026-09-03 (B-1 canonical WAN zone identity for staged uci changes).
 > **Open:** none.
 > **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. For coverage beyond that script, follow [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md). Values current as of this PR.
@@ -59,7 +59,7 @@ should carry a note saying what would raise it.
 | Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
 | Shell helpers — **file modes and lock ownership** | 2026-08-31 | Reproduced | #204 symlink reject + #232 BusyBox-safe dir check (`[ -O ]` + `find -perm`, no `stat -c`); Parts E/F in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-08-22 | Read + host test | `/etc/fwlive/wan-log-baseline`; restore only on `remove` |
-| Shell helpers — **UCI commit scope and zone grammar** | 2026-08-13 | Host test | #177: pending-delta refuse; named/anonymous/non-zone lookups |
+| Shell helpers — **UCI commit scope and zone grammar** | 2026-09-03 | Host test + Fable | #177 pending-delta; #241 cfg↔@zone; **B-1** canonical `uci -X` identity (duplicate wan no longer under-matches); `tests/fwlive-logging.test.sh` |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
 | Release pipeline — fetch pinning | 2026-08-18 | Read + host test | #177 fetch-pin gate; R7 digest pin-cache (`tests/sdk-matrix-digests.test.sh`); 2026-08-18 wrapper-export + exact-cache-key |
 | Workflow inputs into `run:` bodies | 2026-08-23 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY`; 2026-08-18: dispatch tag validated (control chars, shape, real-tag + HEAD identity) before repo scripts |
@@ -107,6 +107,7 @@ should carry a note saying what would raise it.
 | SDK feed cache key is exact (no `restore-keys` prefix fallback) | `manual` | same workflow — stale feed pins cannot be restored on cache miss |
 | SDK cache dirs owned by buildbot (1000:1000), owner-write + group/other read-traverse; enforced fail-closed pre-build (skipped only when CI pre-chowned both trees, roots AND nested entries; scan errors fail closed) | `host` | `tests/sdk-matrix-cache-owner.test.sh` — #208 (v0.1.36 chown regression) |
 | WAN toggle changes only the zone `log` bit | `host` | `tests/fwlive-logging.test.sh` — pending-delta refuse; named + anonymous zone lookup |
+| WAN zone identity for staged `uci changes` uses canonical cfg ids (`uci -X`), not class-match on `name=wan` | `host` | `uci_canonical_firewall_section` + `wan_firewall_zone_same`; B-1 duplicate-wan foreign `.log` stays foreign (`tests/fwlive-logging.test.sh`) |
 | Uninstall restores WAN `log` from pre-first-enable baseline | `host` | `tests/fwlive-logging.test.sh` — baseline snapshot/restore; `scripts/qemu-logging-uninstall-smoke.sh` (`lab`) |
 | The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600 |
 | Lock path rejects symlinks before truncate/chmod/chown | `host` | `tests/fwlive-logging-lock.test.sh` Part E — #204 |
@@ -126,6 +127,7 @@ should carry a note saying what would raise it.
 
 | ID | Severity | Issue | Summary | Verified |
 |----|----------|-------|---------|----------|
+| B-1 | Low | `wan_firewall_zone_same` class-matched any `name=wan` zone | Canonical `uci -X` cfg id compare; duplicate wan `.log` stays foreign | 2026-09-03 |
 | [#204](https://github.com/lucas-albers-lz4/fwlive/issues/204) | Low | Predictable lock path opened O_TRUNC without symlink check | Lock under `/etc/fwlive/`; `acquire_wan_log_lock` rejects `-L` before create/tighten/open; Part E | 2026-08-23 — security-audit PR |
 | [#205](https://github.com/lucas-albers-lz4/fwlive/issues/205) | Low | Unpinned `@playwright/mcp@latest` in `.cursor/mcp.json` | MCP entry removed; tests use pinned `playwright@1.60.0` | 2026-08-23 — security-audit PR |
 | [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | Low | `is_resolvable_address` hostname-shaped tokens | Strict IPv4/IPv6 validation + selftest cases | merged 2026-08-21 |
@@ -374,3 +376,11 @@ links to this ledger for review state.
 **Scope.** `wan_log_lock_dir_safe` used `stat -c '%u'/'%a'`, which default OpenWrt BusyBox omits (`STAT=n` / `FEATURE_STAT_FORMAT=n`). Fail-closed then made Enable/Disable WAN logging dead on a stock image.
 
 **Fix.** `[ -O ]` for euid ownership; `find -prune \( -perm -020 -o -perm -002 \)` for group/other write. No `stat`. Part F in `fwlive-logging-lock.test.sh` shadows `stat` on `PATH`.
+
+### 2026-09-03 — B-1 canonical WAN zone identity
+
+**Scope.** Fable Stage-2 review of hand-parsed `uci changes` grammar for WAN log commit scope (`wan_firewall_zone_same`).
+
+**Finding.** Class-match on `name=wan` + type `zone` treated any two wan zones as the same section, so a foreign staged `firewall.<dup>.log=` line could ride `uci commit firewall` (Low; admin + duplicate-zone misconfiguration).
+
+**Fix.** `uci_canonical_firewall_section` via `uci -X show`; identity is equal canonical cfg ids. Host test: duplicate wan foreign `.log` stays foreign; `@zone[N]`↔cfg bridge preserved.
