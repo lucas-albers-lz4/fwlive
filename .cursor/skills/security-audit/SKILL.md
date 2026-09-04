@@ -19,8 +19,9 @@ touches, and its non-findings — see
 ## Multi-model pass (VVAH-style)
 
 Token-efficient asymmetric loop shared with sibling OpenWrt packages (e.g.
-usrmanage). Cheap/deterministic work first; Fable 5.1 only for narrow judgment.
-Do not invent a new procedure in chat — follow this section.
+usrmanage). Cheap/deterministic work first; reserve a **frontier reasoner**
+only for narrow judgment. Do not invent a new procedure in chat — follow this
+section.
 
 ### Phase order
 
@@ -29,27 +30,42 @@ Do not invent a new procedure in chat — follow this section.
 2. **Delta** since the last coverage-map dates (touched surfaces only).
 3. **Full-pass gate** — only if criteria below fire; otherwise record deferral.
 
+### Frontier reasoner profiles
+
+Pick **one** Stage-2 reasoner for the pass. Do not mix both in the same packet
+round.
+
+| Profile | Stage 2 (reason) | Stage 1 helpers | Validation panel | Notes |
+|---------|------------------|-----------------|------------------|-------|
+| **Fable** (default when available) | Claude Fable 5.1 — medium effort; high only for root/XSS chains | Grok (map) + Luna (polish) | Luna + Grok (severity) | Strong on multi-step OpenWrt/LuCI chains |
+| **GLM** (alternate review process) | GLM-5.3 at **max thinking** | Luna + GLM-5.3 Flash **or** DeepSeek V4 Flash | Luna + the same flash helper (severity) | Use when the orchestrator runs GLM instead of Fable; max thinking is required — medium/low under-reasons on ACL/commit-scope |
+
+Composer remains Stage 3 (patches) under both profiles. Doc-only PRs do not
+need a frontier reasoner — Luna (+ optional Grok for cross-repo wording) is
+enough.
+
 ### Stages and models
 
-| Stage | Job | Model | Token rule |
-|-------|-----|-------|------------|
+| Stage | Job | Model (see profile above) | Token rule |
+|-------|-----|---------------------------|------------|
 | 0 Static seed | Repo greps (below), shellcheck/smoke, key `git check-ignore`, action SHA pin spot-check | Deterministic | Zero LLM |
-| 1 Prep & triage | Job packets from ledger + diff | Grok (map) + Luna (polish) | Cheap |
-| 2 Audit & reason | Multi-step chains; Engineer Mode; fix sketch beside each finding | Fable 5.1 medium (high only for root/XSS chains) | Premium, narrow |
+| 1 Prep & triage | Job packets from ledger + diff | Profile helpers | Cheap |
+| 2 Audit & reason | Multi-step chains; Engineer Mode; fix sketch beside each finding | Profile frontier reasoner | Premium, narrow |
 | 3 Execute & fix | Patches, tests, ledger | Composer | Bulk output |
-| Validation panel | Mechanism real? severity calibrated? duplicate of accepted residual? | Luna + Grok (severity) | Cheap gate before filing |
+| Validation panel | Mechanism real? severity calibrated? duplicate of accepted residual? | Profile validation pair | Cheap gate before filing |
 
-**Maker-never-grader:** Fable must not bulk-write patches. Composer must not
-invent new trust boundaries (edit the model doc only when a finding falsifies
-it). Luna/Grok score candidates before `gh` advisory/issue.
+**Maker-never-grader:** The Stage-2 reasoner must not bulk-write patches.
+Composer must not invent new trust boundaries (edit the model doc only when a
+finding falsifies it). Validation-panel models score candidates before `gh`
+advisory/issue.
 
-**Engineer Mode (Fable stub):** You are reviewing production code for structural
-security flaws. For each finding: mechanism, location, blast radius, severity
-per the calibration table, and a concrete fix sketch. Do not role-play an
-attacker sandbox or request exploit payloads. Scope is exactly the attached job
-packet checklist — not "find any security issue."
+**Engineer Mode (Stage-2 stub):** You are reviewing production code for
+structural security flaws. For each finding: mechanism, location, blast radius,
+severity per the calibration table, and a concrete fix sketch. Do not role-play
+an attacker sandbox or request exploit payloads. Scope is exactly the attached
+job packet checklist — not "find any security issue."
 
-**Static cache block (identical on every Fable call):** one-line threat model +
+**Static cache block (identical on every Stage-2 call):** one-line threat model +
 invariants from
 [`security-model.md`](../../../docs/developer/security-model.md) + ACL method
 table + severity calibration below.
@@ -69,7 +85,7 @@ Ephemeral (chat or scratch dir — do not commit noise):
 Run a full surface re-pass only if one of:
 
 - A gap failed and suggests a **class** bug (fix-the-class sweep)
-- Delta Fable finds high/medium with blast radius beyond touched files
+- Delta Stage-2 reasoner finds high/medium with blast radius beyond touched files
 - A root-reachable control is still only `manual` with no raise path
 - Pre-`v*` tag and pin checklist is stale
 
@@ -78,7 +94,7 @@ and set ledger `Next:` to the deferral reason.
 
 ### Cross-repo class memory (Stage 0 checklist)
 
-Not a Fable dump — grep/confirm mechanically:
+Not a Stage-2 dump — grep/confirm mechanically:
 
 - Temp mode loss after `mv` / normalize rewrite
 - Unswept pin neighbors (one helper pinned, sibling not)
