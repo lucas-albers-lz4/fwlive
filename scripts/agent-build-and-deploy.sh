@@ -9,8 +9,10 @@
 #
 #   OPENWRT_HOST=192.168.1.1 ./scripts/agent-build-and-deploy.sh --ipk path/to.ipk
 #
-#   ./scripts/agent-build-and-deploy.sh --legacy-hostfwd --ipk out/luci-app-fwlive_*.ipk
+#   ./scripts/agent-build-and-deploy.sh --legacy-hostfwd --lab-only --ipk out/luci-app-fwlive_*.ipk
 #
+# Host-key verification is ON by default. QEMU/ephemeral guests need an explicit
+# opt-in: ALLOW_INSECURE_SSH=1 or --lab-only (prints a warning).
 set -euo pipefail
 
 LEASES_FILE="${DHCPD_LEASES:-/var/db/dhcpd_leases}"
@@ -19,9 +21,12 @@ OPENWRT_SSH_PORT="${OPENWRT_SSH_PORT:-22}"
 OPENWRT_USER="${OPENWRT_USER:-root}"
 OPENWRT_HOST="${OPENWRT_HOST:-}"
 LEGACY_HOSTFWD=0
+LAB_ONLY=0
 IPK_PATH=""
 SKIP_CURL=0
-SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+# Default: normal host-key verification. Opt in to lab insecure SSH via
+# ALLOW_INSECURE_SSH=1 or --lab-only (see apply_ssh_opts).
+SSH_OPTS=()
 
 apply_legacy_defaults() {
 	if [[ "$LEGACY_HOSTFWD" -ne 1 ]]; then
@@ -31,10 +36,23 @@ apply_legacy_defaults() {
 	OPENWRT_SSH_PORT="${OPENWRT_SSH_LEGACY_PORT:-2222}"
 }
 
+apply_ssh_opts() {
+	local insecure=0
+	if [[ "${ALLOW_INSECURE_SSH:-0}" == "1" || "$LAB_ONLY" -eq 1 ]]; then
+		insecure=1
+	fi
+	if [[ "$insecure" -eq 1 ]]; then
+		SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+		echo "warn: insecure SSH enabled (StrictHostKeyChecking=no) — lab/QEMU only; MITM can swap the uploaded .ipk" >&2
+	else
+		SSH_OPTS=()
+	fi
+}
+
 die() { echo "error: $*" >&2; exit 1; }
 
 usage() {
-	sed -n '1,20p' "$0" | tail -n +2
+	sed -n '1,25p' "$0" | tail -n +2
 	exit "${1:-0}"
 }
 
@@ -93,6 +111,7 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		-h|--help) usage 0 ;;
 		--legacy-hostfwd) LEGACY_HOSTFWD=1 ;;
+		--lab-only) LAB_ONLY=1 ;;
 		--ipk) shift; [[ $# -gt 0 ]] || die "--ipk needs a path"; IPK_PATH="$1" ;;
 		--skip-curl) SKIP_CURL=1 ;;
 		*) die "unknown arg: $1 (try --help)" ;;
@@ -104,6 +123,7 @@ done
 [[ -f "$IPK_PATH" ]] || die "ipk not found: $IPK_PATH"
 
 apply_legacy_defaults
+apply_ssh_opts
 
 HOST="$(resolve_host)"
 REMOTE_IPK="/tmp/luci-app-fwlive.ipk"
