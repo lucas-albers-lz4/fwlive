@@ -746,6 +746,7 @@ unset -f uci
 ok "wan_log staged-line helpers classify cfg id vs foreign lines"
 
 # B-1: duplicate name=wan zones must NOT be treated as the same section.
+# Stub name/type probes too so a class-match revert would fail this test (Grok).
 uci() {
 	case "$*" in
 		'-q -X show firewall.@zone[0]')
@@ -756,6 +757,12 @@ uci() {
 			;;
 		'-q -X show firewall.cfgDUP')
 			printf "firewall.cfgDUP=zone\n"
+			;;
+		'-q get firewall.@zone[0].name'|'-q get firewall.cfgWAN1.name'|'-q get firewall.cfgDUP.name')
+			printf 'wan\n'
+			;;
+		'-q get firewall.@zone[0]'|'-q get firewall.cfgWAN1'|'-q get firewall.cfgDUP')
+			printf 'zone\n'
 			;;
 		*) return 1 ;;
 	esac
