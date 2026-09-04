@@ -162,8 +162,10 @@ jobs:
           # #269 fail-closed: no signing-secret material may exist anywhere
           # under the workspace, which is bind-mounted into the build
           # containers. POSIX find (no -maxdepth/-quit GNU extensions); a find
-          # error aborts under set -e rather than being swallowed.
-          leaked="$(find "$GITHUB_WORKSPACE" -type f \
+          # error aborts under set -e rather than being swallowed. Matches
+          # regular files AND symlinks by key name — a symlink named like a key
+          # could point at key material under another filename (CodeRabbit).
+          leaked="$(find "$GITHUB_WORKSPACE" \( -type f -o -type l \) \
             \( -name 'opkg-secret.key*' -o -name 'apk-secret.rsa*' -o -name 'public.key*' \
                -o -name 'fwlive-feed.rsa.pub*' \) -print)"
           if [[ -n "$leaked" ]]; then
@@ -209,6 +211,14 @@ jobs:
           APK_FEED_PUBLIC_KEY: ${{ runner.temp }}/fwlive-keys/fwlive-feed.rsa.pub
           FWLIVE_GIT_TAG: ${{ env.FWLIVE_RELEASE_TAG }}
         run: ./scripts/publish-packages.sh feed-staging
+
+      # #269 (CodeRabbit): scrub the signing-key directory as soon as staging is
+      # done — nothing after this step needs the keys (release assets are
+      # already-signed artifacts from out/). if: always() also covers a staging
+      # failure so keys never survive a job.
+      - name: Remove temporary signing keys
+        if: always()
+        run: rm -rf "${RUNNER_TEMP}/fwlive-keys"
 
       - name: Deploy to GitHub Pages (fwlive-packages)
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453  # v4.1.0
