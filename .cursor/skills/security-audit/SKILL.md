@@ -16,19 +16,100 @@ A pass owes the ledger a coverage-map update, a proof class for every control it
 touches, and its non-findings — see
 [security-review.md § Review procedure](../../../docs/developer/security-review.md#review-procedure).
 
+## Multi-model pass (VVAH-style)
+
+Token-efficient asymmetric loop shared with sibling OpenWrt packages (e.g.
+usrmanage). Cheap/deterministic work first; Fable 5.1 only for narrow judgment.
+Do not invent a new procedure in chat — follow this section.
+
+### Phase order
+
+1. **Close open issues / prove honest gaps** (ledger `Next:` / cannot-prove /
+   prove-next) before a broad re-read.
+2. **Delta** since the last coverage-map dates (touched surfaces only).
+3. **Full-pass gate** — only if criteria below fire; otherwise record deferral.
+
+### Stages and models
+
+| Stage | Job | Model | Token rule |
+|-------|-----|-------|------------|
+| 0 Static seed | Repo greps (below), shellcheck/smoke, key `git check-ignore`, action SHA pin spot-check | Deterministic | Zero LLM |
+| 1 Prep & triage | Job packets from ledger + diff | Grok (map) + Luna (polish) | Cheap |
+| 2 Audit & reason | Multi-step chains; Engineer Mode; fix sketch beside each finding | Fable 5.1 medium (high only for root/XSS chains) | Premium, narrow |
+| 3 Execute & fix | Patches, tests, ledger | Composer | Bulk output |
+| Validation panel | Mechanism real? severity calibrated? duplicate of accepted residual? | Luna + Grok (severity) | Cheap gate before filing |
+
+**Maker-never-grader:** Fable must not bulk-write patches. Composer must not
+invent new trust boundaries (edit the model doc only when a finding falsifies
+it). Luna/Grok score candidates before `gh` advisory/issue.
+
+**Engineer Mode (Fable stub):** You are reviewing production code for structural
+security flaws. For each finding: mechanism, location, blast radius, severity
+per the calibration table, and a concrete fix sketch. Do not role-play an
+attacker sandbox or request exploit payloads. Scope is exactly the attached job
+packet checklist — not "find any security issue."
+
+**Static cache block (identical on every Fable call):** one-line threat model +
+invariants from
+[`security-model.md`](../../../docs/developer/security-model.md) + ACL method
+table + severity calibration below.
+
+### Job-packet template
+
+Ephemeral (chat or scratch dir — do not commit noise):
+
+- Files / short diff summary
+- Cached threat-model block (above)
+- Checklist (surface-specific)
+- Prior non-findings for that surface from the ledger
+- Expected proof class on exit (`host` / `lab` / `manual`)
+
+### Full-pass gate
+
+Run a full surface re-pass only if one of:
+
+- A gap failed and suggests a **class** bug (fix-the-class sweep)
+- Delta Fable finds high/medium with blast radius beyond touched files
+- A root-reachable control is still only `manual` with no raise path
+- Pre-`v*` tag and pin checklist is stale
+
+Otherwise update coverage-map dates for surfaces examined, record non-findings,
+and set ledger `Next:` to the deferral reason.
+
+### Cross-repo class memory (Stage 0 checklist)
+
+Not a Fable dump — grep/confirm mechanically:
+
+- Temp mode loss after `mv` / normalize rewrite
+- Unswept pin neighbors (one helper pinned, sibling not)
+- Hand-parsed platform formats narrower than `uci`/`fw4`/`nslookup`
+- R7: digest-pin before secret mount + `--network none` on signing containers
+- Workflow `${{ }}` interpolated into `run:` bodies
+
+### fwlive bindings
+
+| Binding | Value |
+|---------|-------|
+| Threat model | [`docs/developer/security-model.md`](../../../docs/developer/security-model.md) |
+| Ledger | [`docs/developer/security-review.md`](../../../docs/developer/security-review.md) |
+| Host gate | `./scripts/fwlive-test.sh`, `./scripts/fwlive-shellcheck.sh` |
+| Lab / honest-gap smokes | `./scripts/qemu-smoke-fwlive.sh`, `./scripts/qemu-security-gaps-smoke.sh` |
+| Highest-yield surface | Frontend `E()` / log XSS (Steps 1–2 below) |
+| Honest gaps | Ledger § What this pass could not prove |
+
 ## Order of work
 
-Highest yield first. The frontend is where the exploitable bugs live; the
-backend has held up under audit.
+Highest yield first when running a **full** surface pass. Prefer the multi-model
+phase order above for routine audits.
 
 ```
+- [ ] 0. Multi-model: open issues / honest gaps → delta → gate
 - [ ] 1. Frontend rendering sinks (E() string children)
 - [ ] 2. Untrusted-input trace (log fields, PTR, URL hash, UCI)
 - [ ] 3. rpcd plugin + ACL scope
 - [ ] 4. Shell helpers (injection, quoting)
 - [ ] 5. Release pipeline (secrets, pinning, temp paths)
 ```
-
 ## Verified facts — do not re-derive
 
 The facts themselves live in the security model; this section only records **how

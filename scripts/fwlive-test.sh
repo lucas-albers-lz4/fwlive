@@ -104,6 +104,9 @@ bash tests/sdk-matrix-cache-owner.test.sh
 echo "== fwlive feed-keys mode (0600) ==" >&2
 bash tests/feed-keys-mode.test.sh
 
+echo "== fwlive validate-feed-keys mode path (0600) ==" >&2
+bash tests/validate-feed-keys-mode.test.sh
+
 echo "== fwlive fetch-pin gate ==" >&2
 bash tests/fetch-pin-gate.test.sh
 

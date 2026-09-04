@@ -7,7 +7,7 @@ Shipped surface: `openwrt-feed/luci-app-fwlive/`. Rules live in the linked owner
 - Sessions MUST NOT get `ubus log.read`. Keep read/write ACL scopes separate.
 - `PKG_VERSION` MUST match `APP_VERSION` (bump both in lockstep; see [release.md](docs/release.md)).
 - Renderer tests do not render — a green run is not XSS proof. [build-and-test.md](docs/developer/build-and-test.md)
-- rpcd / ACL / shell helpers / release pipeline: update [security-review.md](docs/developer/security-review.md) in the same PR; audit via `.cursor/skills/security-audit`.
+- rpcd / ACL / shell helpers / release pipeline: update [security-review.md](docs/developer/security-review.md) in the same PR; audit via `.cursor/skills/security-audit` (multi-model VVAH-style section + surface steps).
 - Releases: bump `PKG_VERSION`/`APP_VERSION`, fold CHANGELOG, tag `v0.1.N` — CI builds the signed feed + release assets. [release.md](docs/release.md)
 - Vulnerabilities go to a private advisory ([SECURITY.md](SECURITY.md)), not a public issue.
 - Agent PRs: luna (or grok) + Bugbot on the branch, **human review**, then file vs master, then CodeRabbit — not CI-green alone. [pr-cycle.md](docs/developer/pr-cycle.md)
