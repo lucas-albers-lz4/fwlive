@@ -684,6 +684,11 @@ got=$(wan_log_staged_line_section '-firewall.@zone[1].log')
 [ "$got" = "@zone[1]" ] || die "staged_line_section delete form: expected @zone[1] got '$got'"
 got=$(wan_log_staged_line_section '- firewall.cfg03dc81.log')
 [ "$got" = "cfg03dc81" ] || die "staged_line_section spaced delete form: expected cfg03dc81 got '$got'"
+# Near-miss: .log_limit / .log_* must not match the .log= / .log forms (#257).
+got=$(wan_log_staged_line_section "firewall.@zone[1].log_limit='10'")
+[ -z "$got" ] || die "staged_line_section log_limit near-miss: expected empty got '$got'"
+got=$(wan_log_staged_line_section "firewall.@zone[1].log_extra='1'")
+[ -z "$got" ] || die "staged_line_section log_extra near-miss: expected empty got '$got'"
 ok "wan_log_staged_line_section parses all uci changes forms"
 
 uci() {
