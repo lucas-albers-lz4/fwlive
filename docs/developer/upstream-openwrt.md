@@ -168,18 +168,19 @@ the luci tree**. Each round uses the same split:
    bot quotes when replying upstream.
 2. **Fix in fwlive** — feature branch with the full [pr-cycle.md](pr-cycle.md)
    gate (luna → Bugbot → human → file vs master → CodeRabbit → triage → merge).
-3. **Re-cut luci** — from merged fwlive master:
+3. **After the fwlive wave merge** — verify upstream is still open **before**
+   the next cut (catches accidental auto-close; see
+   [Upstream merge safety](#upstream-merge-safety)):
+   `gh pr view 8992 --repo openwrt/luci --json state,headRefOid`
+4. **Re-cut luci** — from merged fwlive master:
    `./scripts/upstream-cut.sh` → copy into the luci feature branch →
    `i18n-scan.pl` → FormalityCheck commit (e.g. “refresh snapshot for openwrt-ai
    round N”) → push `luci-app-fwlive-add`.
-4. **Reply and resolve on luci** — two separate steps (reply alone is not enough):
+5. **Reply and resolve on luci** — two separate steps (reply alone is not enough):
    - **Reply inline** on each finding thread: `Fixed in <sha>` + one product /
      FormalityCheck line. Code folded in the snapshot commit; no bot thread dumps.
    - **Resolve the thread** — human: “Resolve conversation” after the reply;
      agent: GraphQL `resolveReviewThread`, then verify `isResolved: true`.
-5. **After each fwlive wave merge** — check upstream state before the next cut:
-   `gh pr view 8992 --repo openwrt/luci --json state,headRefOid`
-   (catches accidental auto-close; see [Upstream merge safety](#upstream-merge-safety)).
 
 ### Upstream CI on fork heads
 
@@ -238,14 +239,16 @@ Rules:
    with same-repo `#N`, where closing an fwlive issue is intentional.
 3. Pre-merge audit (wave PRs): case-insensitive grep of the PR title, body, and
    all branch commit messages for a closing keyword followed by a cross-repo
-   reference. Pattern (keywords case-insensitive; `:` after the keyword optional):
+   reference (`owner/repo#N` **or** a github.com `…/pull/N` / `…/issues/N` URL).
+   Patterns (keywords case-insensitive; `:` after the keyword optional):
 
 ```
 (?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\b\s*:?\s*(?:https?://github\.com/)?[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#\d+
+(?i)\b(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\b\s*:?\s*https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:pull|issues)/\d+
 ```
 
 4. After each internal wave merge, verify upstream is still open and note the
-   head OID before the next cut (command in Review waves step 5).
+   head OID **before** the next cut (Review waves step 3).
 
 ## PR-body answers (do not pre-fix)
 
