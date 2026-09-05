@@ -11,6 +11,10 @@ boundaries, prefix+boundary, flag-token/ws language, glue site). Not
 ECMA-direct. NETFILTER_KV_GLUE lookahead is string-ops, not the lookahead
 regex. Pinned for stock z3-solver==5.0.0 (default seq backend; no z3str3).
 
+F5: normalize_log_prefix idempotency (P1) + fixpoint (P2) over a bounded
+domain, with a quantifier-weaken guard replaying the 2026-08 regression.
+P3 (client parity) lives in #254, not here.
+
 Usage:
   ./scripts/z3-verify.py --fast
   ./scripts/z3-verify.py --full
@@ -773,6 +777,194 @@ def run_f3_full() -> int:
 	return fail
 
 
+# ---------------------------------------------------------------------------
+# F5: normalize_log_prefix idempotency (#275).
+# The shipped shell (rpcd/fwlive) strips trailing spaces/tabs/colons with
+# sed 's/[[:space:]:]*$//'. P1 proves idempotency, P2 proves the fixpoint;
+# the quantifier-weaken guard replays the exact 2026-08 regression
+# (commit ed4486829c: '*' -> '?' strips one char per pass, so 'zz::'
+# drifts across passes) and must flip P1/P2 to SAT. P3 (client-parity
+# data-flow into parseRuleHint) is out of scope here — see #254.
+# Domain: strings up to F5_MAX_LEN over content + strip chars. Proofs are
+# valid up to this length (not length-independent); real prefixes are short.
+# ---------------------------------------------------------------------------
+F5_SHIPPED_SED = "sed 's/[[:space:]:]*$//'"
+F5_STRIP_CHARS = (" ", "	", ":")
+F5_CONTENT_CHARS = "abZ019_.-"
+F5_MAX_LEN = 8
+F5_GROUND_CORPUS = (
+	"zz::",
+	"zz:",
+	"zz",
+	"a: :",
+	"a ",
+	"tab	here:",
+	":::",
+	":",
+	"",
+	"a:b",
+	"a b",
+	"mix :	 :",
+	"fwlive-ssh ",
+)
+
+
+def _f5_alphabet() -> str:
+	return F5_CONTENT_CHARS + "".join(F5_STRIP_CHARS)
+
+
+def _f5_is_strip_char(c):
+	"""Z3 predicate: single character c is a trailing-strip character."""
+	return Or(*[c == StringVal(x) for x in F5_STRIP_CHARS])
+
+
+def _f5_strip_star(s, depth: int = F5_MAX_LEN):
+	"""Z3 model of the shipped '*' form: strip ALL trailing strip-chars."""
+	cur = s
+	for _ in range(depth):
+		last = SubString(cur, Length(cur) - 1, 1)
+		cur = If(
+			And(Length(cur) > 0, _f5_is_strip_char(last)),
+			SubString(cur, 0, Length(cur) - 1),
+			cur,
+		)
+	return cur
+
+
+def _f5_strip_once(s):
+	"""Z3 model of the weakened '?' form: strip at most ONE trailing char."""
+	last = SubString(s, Length(s) - 1, 1)
+	return If(
+		And(Length(s) > 0, _f5_is_strip_char(last)),
+		SubString(s, 0, Length(s) - 1),
+		s,
+	)
+
+
+def _f5_domain(s):
+	"""Z3 predicate: s is in the bounded proof domain."""
+	n = Length(s)
+	conds = [n >= 0, n <= F5_MAX_LEN]
+	for i in range(F5_MAX_LEN):
+		conds.append(If(n > i, _char_in(s, i, _f5_alphabet()), True))
+	return And(*conds)
+
+
+def _f5_shipped_text_ok() -> bool:
+	"""The proof means nothing if the shell no longer carries the '*' form."""
+	if not RPCD.is_file():
+		print("FAIL: F5 missing rpcd path", file=sys.stderr)
+		return False
+	body = RPCD.read_text(encoding="utf-8", errors="replace")
+	if F5_SHIPPED_SED not in body:
+		print(
+			"FAIL: F5 shipped sed form changed — re-verify P1/P2",
+			file=sys.stderr,
+		)
+		return False
+	print("ok: F5 shipped sed form present")
+	return True
+
+
+def _f5_shell_ground_truth() -> bool:
+	"""Run the shipped function twice over a tricky corpus: f(f(x)) == f(x)."""
+	lines = RPCD.read_text(encoding="utf-8", errors="replace").splitlines()
+	start = next(
+		(i for i, ln in enumerate(lines) if ln == "normalize_log_prefix() {"),
+		None,
+	)
+	if start is None:
+		print("FAIL: F5 normalize_log_prefix not found", file=sys.stderr)
+		return False
+	end = next(
+		(i for i in range(start, len(lines)) if lines[i] == "}"),
+		None,
+	)
+	if end is None:
+		print("FAIL: F5 function body unterminated", file=sys.stderr)
+		return False
+	func = "\n".join(lines[start : end + 1])
+	prog = (
+		func
+		+ '\nfor x in "$@"; do\n'
+		+ '  one=$(normalize_log_prefix "$x");\n'
+		+ '  two=$(normalize_log_prefix "$one");\n'
+		+ '  printf "%s\\n" "$one";\n'
+		+ '  printf "%s\\n" "$two";\n'
+		+ "done\n"
+	)
+	out = subprocess.run(
+		["sh", "-c", prog, "f5", *F5_GROUND_CORPUS],
+		cwd=ROOT,
+		capture_output=True,
+		text=True,
+	)
+	if out.returncode != 0:
+		print(f"FAIL: F5 shell replay — {out.stderr.strip()}", file=sys.stderr)
+		return False
+	outs = out.stdout.split("\n")
+	outs = outs[: len(F5_GROUND_CORPUS) * 2]
+	for i, x in enumerate(F5_GROUND_CORPUS):
+		one, two = outs[2 * i], outs[2 * i + 1]
+		if one != two:
+			print(
+				f"FAIL: F5 not idempotent on {x!r}: {one!r} -> {two!r}",
+				file=sys.stderr,
+			)
+			return False
+		if one != "" and one[-1] in (" ", "	", ":"):
+			print(
+				f"FAIL: F5 fixpoint violated on {x!r}: {one!r}",
+				file=sys.stderr,
+			)
+			return False
+	print(f"ok: F5 shell ground truth ({len(F5_GROUND_CORPUS)} inputs)")
+	return True
+
+
+def run_f5_fast() -> int:
+	"""F5 --fast: shipped-text pin + P1/P2 proofs + weaken guard."""
+	fail = 0
+	if not _f5_shipped_text_ok():
+		return 1
+	s = String("f5s")
+	if not check_unsat(
+		"F5 P1 idempotency",
+		And(_f5_domain(s), _f5_strip_star(_f5_strip_star(s)) != _f5_strip_star(s)),
+	):
+		fail += 1
+	t = _f5_strip_star(s)
+	last = SubString(t, Length(t) - 1, 1)
+	if not check_unsat(
+		"F5 P2 fixpoint",
+		And(_f5_domain(s), Length(t) > 0, _f5_is_strip_char(last)),
+	):
+		fail += 1
+	# Negative control: the '?' form must violate both (2026-08 replay).
+	w = String("f5w")
+	if not check_sat(
+		"F5 guard quantifier-weaken flips P1",
+		And(_f5_domain(w), _f5_strip_once(_f5_strip_once(w)) != _f5_strip_once(w)),
+	):
+		fail += 1
+	u = _f5_strip_once(w)
+	ulast = SubString(u, Length(u) - 1, 1)
+	if not check_sat(
+		"F5 guard quantifier-weaken flips P2",
+		And(_f5_domain(w), Length(u) > 0, _f5_is_strip_char(ulast)),
+	):
+		fail += 1
+	return fail
+
+
+def run_f5_full() -> int:
+	"""F5 --full: fast suite + shell ground-truth replay."""
+	fail = run_f5_fast()
+	if not _f5_shell_ground_truth():
+		fail += 1
+	return fail
+
+
 def run_f4_fast() -> int:
 	"""F4 --fast: malformed-input no-crash (normalize/classify corpus)."""
 	fail = 0
@@ -801,12 +993,12 @@ def run_f4_full() -> int:
 
 def run_fast() -> int:
 	"""Pre-commit subset (#121); return failure count."""
-	return run_f1_fast() + run_f2_fast() + run_f3_fast() + run_f4_fast()
+	return run_f1_fast() + run_f2_fast() + run_f3_fast() + run_f4_fast() + run_f5_fast()
 
 
 def run_full() -> int:
 	"""CI / full suite (#121); return failure count."""
-	return run_f1_full() + run_f2_full() + run_f3_full() + run_f4_full()
+	return run_f1_full() + run_f2_full() + run_f3_full() + run_f4_full() + run_f5_full()
 
 
 def main() -> int:
