@@ -114,20 +114,51 @@ feed_keys_write_from_env() {
 
 # Decode + normalize + chmod only — the rewrite prefix shared by
 # validate-feed-keys.sh before docker usign / openssl proofs (issue #165).
+# Each step prints which key/step failed so publish CI can name the bad input.
 feed_keys_validate_opkg_rewrite_prefix() {
 	local secret="$1" public="$2"
-	[[ -f "$secret" && -f "$public" ]] || return 1
-	feed_keys_maybe_decode_base64 "$secret"
-	feed_keys_maybe_decode_base64 "$public"
-	feed_keys_normalize_usign_secret "$secret" || return 1
-	feed_keys_normalize_usign_keyfile "$public" || return 1
-	chmod 600 "$secret"
+	[[ -f "$secret" && -f "$public" ]] || {
+		echo "feed-keys: missing OPKG secret or public key file" >&2
+		return 1
+	}
+	feed_keys_maybe_decode_base64 "$secret" || {
+		echo "feed-keys: decode OPKG_FEED_SECRET_KEY (base64) failed" >&2
+		return 1
+	}
+	feed_keys_maybe_decode_base64 "$public" || {
+		echo "feed-keys: decode OPKG_FEED_PUBLIC_KEY (base64) failed" >&2
+		return 1
+	}
+	feed_keys_normalize_usign_secret "$secret" || {
+		echo "feed-keys: normalize OPKG_FEED_SECRET_KEY failed" >&2
+		return 1
+	}
+	feed_keys_normalize_usign_keyfile "$public" || {
+		echo "feed-keys: normalize OPKG_FEED_PUBLIC_KEY failed" >&2
+		return 1
+	}
+	chmod 600 "$secret" || {
+		echo "feed-keys: chmod 600 OPKG_FEED_SECRET_KEY failed" >&2
+		return 1
+	}
 }
 
 feed_keys_validate_apk_rewrite_prefix() {
 	local secret="$1" public="$2"
-	[[ -f "$secret" && -f "$public" ]] || return 1
-	feed_keys_maybe_decode_base64 "$secret"
-	feed_keys_maybe_decode_base64 "$public"
-	chmod 600 "$secret"
+	[[ -f "$secret" && -f "$public" ]] || {
+		echo "feed-keys: missing APK secret or public key file" >&2
+		return 1
+	}
+	feed_keys_maybe_decode_base64 "$secret" || {
+		echo "feed-keys: decode APK_FEED_SECRET_KEY (base64) failed" >&2
+		return 1
+	}
+	feed_keys_maybe_decode_base64 "$public" || {
+		echo "feed-keys: decode APK_FEED_PUBLIC_KEY (base64) failed" >&2
+		return 1
+	}
+	chmod 600 "$secret" || {
+		echo "feed-keys: chmod 600 APK_FEED_SECRET_KEY failed" >&2
+		return 1
+	}
 }

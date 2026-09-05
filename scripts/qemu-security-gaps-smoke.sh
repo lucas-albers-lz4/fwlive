@@ -85,16 +85,25 @@ ok "unprivileged cannot LOCK_EX logging.lock (rc=${UNPRIV_RC})"
 
 # Root holder blocks; call enable with host-side timeout (required above).
 # The holder must outlive the ssh_guest bound — bypass it explicitly.
+# EXIT trap kills the holder if we die() between start and the explicit release.
+release_flock_holder() {
+	if [[ -n "${HOLDER_PID:-}" ]]; then
+		kill "$HOLDER_PID" 2>/dev/null || true
+		wait "$HOLDER_PID" 2>/dev/null || true
+		HOLDER_PID=
+	fi
+}
 FWLIVE_SSH_NO_TIMEOUT=1 ssh_guest "flock '$LOCK_PATH' sleep 120" >/dev/null 2>&1 &
 HOLDER_PID=$!
+trap release_flock_holder EXIT
 unset FWLIVE_SSH_NO_TIMEOUT
 sleep 1
 set +e
 ENABLE_OUT="$(timeout "${FLOCK_WAIT_SEC}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "ubus call fwlive enable_wan_logging" 2>&1)"
 ENABLE_RC=$?
 set -e
-kill "$HOLDER_PID" 2>/dev/null || true
-wait "$HOLDER_PID" 2>/dev/null || true
+release_flock_holder
+trap - EXIT
 
 if [[ "$ENABLE_RC" -eq 124 ]]; then
 	# Client timeout fired — rpcd worker still blocked on flock (accepted residual:

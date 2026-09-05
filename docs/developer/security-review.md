@@ -1,6 +1,6 @@
 # Security review state
 
-> **Status:** 43 controls in force; 0 open findings.
+> **Status:** 45 controls in force; 0 open findings.
 > **Last review:** 2026-09-03 (multi-model VVAH pass: playbook + B-1 zone identity; #261/#257 closed).
 > **Open:** none.
 > **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
