@@ -12,8 +12,8 @@ ECMA-direct. NETFILTER_KV_GLUE lookahead is string-ops, not the lookahead
 regex. Pinned for stock z3-solver==5.0.0 (default seq backend; no z3str3).
 
 F5: normalize_log_prefix idempotency (P1) + fixpoint (P2) over a bounded
-domain, with a quantifier-weaken guard replaying the 2026-08 regression.
-P3 (client parity) lives in #254, not here.
+domain, with quantifier-weaken and colon-drop guards (negative controls).
+P3 (client parity): shell normalize → JS parseRuleHint capture (#254).
 
 Usage:
   ./scripts/z3-verify.py --fast
@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -778,18 +779,22 @@ def run_f3_full() -> int:
 
 
 # ---------------------------------------------------------------------------
-# F5: normalize_log_prefix idempotency (#275).
+# F5: normalize_log_prefix idempotency (#275 / #254).
 # The shipped shell (rpcd/fwlive) strips trailing spaces/tabs/colons with
-# sed 's/[[:space:]:]*$//'. P1 proves idempotency, P2 proves the fixpoint;
-# the quantifier-weaken guard replays the exact 2026-08 regression
-# (commit ed4486829c: '*' -> '?' strips one char per pass, so 'zz::'
-# drifts across passes) and must flip P1/P2 to SAT. P3 (client-parity
-# data-flow into parseRuleHint) is out of scope here — see #254.
+# sed 's/[[:space:]:]*$//'. P1 proves idempotency, P2 proves the fixpoint.
+# Guards (must flip P1/P2 to SAT):
+#   - quantifier-weaken: '*' -> '?' (2026-08 regression ed4486829c)
+#   - colon-drop: strip [[:space:]] only, leave trailing ':' (adjacent mode)
+# P3: after shell normalize, JS parseRuleHint never captures a key that
+# still ends with a strip char (cross-module contract into rulesMap).
 # Domain: strings up to F5_MAX_LEN over content + strip chars. Proofs are
 # valid up to this length (not length-independent); real prefixes are short.
+# F5_GROUND_CORPUS is shell-replay / P3 only and may use chars outside
+# F5_CONTENT_CHARS (intentionally not in the Z3 alphabet).
 # ---------------------------------------------------------------------------
 F5_SHIPPED_SED = "sed 's/[[:space:]:]*$//'"
 F5_STRIP_CHARS = (" ", "	", ":")
+F5_SPACE_CHARS = (" ", "	")
 F5_CONTENT_CHARS = "abZ019_.-"
 F5_MAX_LEN = 8
 F5_GROUND_CORPUS = (
@@ -839,6 +844,24 @@ def _f5_strip_once(s):
 		SubString(s, 0, Length(s) - 1),
 		s,
 	)
+
+
+def _f5_is_space_char(c):
+	"""Z3 predicate: c is space or tab (colon-drop alphabet)."""
+	return Or(*[c == StringVal(x) for x in F5_SPACE_CHARS])
+
+
+def _f5_strip_space_star(s, depth: int = F5_MAX_LEN):
+	"""Colon-drop model: sed 's/[[:space:]]*$//' — leaves trailing ':'."""
+	cur = s
+	for _ in range(depth):
+		last = SubString(cur, Length(cur) - 1, 1)
+		cur = If(
+			And(Length(cur) > 0, _f5_is_space_char(last)),
+			SubString(cur, 0, Length(cur) - 1),
+			cur,
+		)
+	return cur
 
 
 def _f5_domain(s):
@@ -943,7 +966,7 @@ def _f5_shell_ground_truth() -> bool:
 
 
 def run_f5_fast() -> int:
-	"""F5 --fast: shipped-text pin + P1/P2 proofs + weaken guard."""
+	"""F5 --fast: shipped-text pin + P1/P2 proofs + weaken/colon-drop guards."""
 	fail = 0
 	if not _f5_shipped_text_ok():
 		return 1
@@ -974,13 +997,144 @@ def run_f5_fast() -> int:
 		And(_f5_domain(w), Length(u) > 0, _f5_is_strip_char(ulast)),
 	):
 		fail += 1
+	# Negative control: space-only strip leaves trailing ':' (adjacent mode).
+	# Space-star remains idempotent; the failure mode is the fixpoint (P2),
+	# not a second-pass drift — so only P2 is required to flip SAT.
+	c = String("f5c")
+	v = _f5_strip_space_star(c)
+	vlast = SubString(v, Length(v) - 1, 1)
+	if not check_sat(
+		"F5 guard colon-drop flips P2",
+		And(_f5_domain(c), Length(v) > 0, _f5_is_strip_char(vlast)),
+	):
+		fail += 1
 	return fail
 
 
+def _f5_p3_client_parity() -> bool:
+	"""Shell normalize → JS parseRuleHint (core + LuCI): no strip-char keys."""
+	if not RPCD.is_file():
+		print("FAIL: F5 P3 missing rpcd path", file=sys.stderr)
+		return False
+	body = RPCD.read_text(encoding="utf-8", errors="replace")
+	func = _f5_extract_normalize_log_prefix(body)
+	if func is None:
+		print("FAIL: F5 P3 normalize_log_prefix not found", file=sys.stderr)
+		return False
+	prog = (
+		func
+		+ '\nfor x in "$@"; do\n'
+		+ '  printf "%s\\n" "$(normalize_log_prefix "$x")"\n'
+		+ "done\n"
+	)
+	out = subprocess.run(
+		["sh", "-c", prog, "f5p3", *F5_GROUND_CORPUS],
+		cwd=ROOT,
+		capture_output=True,
+		text=True,
+	)
+	if out.returncode != 0:
+		print(f"FAIL: F5 P3 shell normalize — {out.stderr.strip()}", file=sys.stderr)
+		return False
+	# Exact cardinality — do not zip-truncate a short stdout into a false pass.
+	normalized = out.stdout.splitlines()
+	if len(normalized) != len(F5_GROUND_CORPUS):
+		print(
+			f"FAIL: F5 P3 normalize line count {len(normalized)} != "
+			f"{len(F5_GROUND_CORPUS)}",
+			file=sys.stderr,
+		)
+		return False
+	# Node: core + LuCI parseRuleHint on "<norm> IN=wan ..." for each line.
+	node_script = r"""
+const core = require('./core/fwlive-log.js');
+const { loadFwliveModule } = require('./tests/lib/load-fwlive-module');
+const luci = loadFwliveModule('log');
+const strip = new Set([' ', '\t', ':']);
+const lines = require('fs').readFileSync(0, 'utf8').split('\n');
+// Drop the final empty split from a trailing newline so count stays exact.
+if (lines.length && lines[lines.length - 1] === '') lines.pop();
+const n = Number(process.env.F5_P3_EXPECT || '0');
+if (lines.length !== n) {
+	console.error('F5 P3 node line count', lines.length, '!=', n);
+	process.exit(3);
+}
+for (const line of lines) {
+	const msg = line === ''
+		? ' IN=wan OUT= SRC=1.1.1.1 DST=2.2.2.2 PROTO=TCP'
+		: line + ' IN=wan OUT= SRC=1.1.1.1 DST=2.2.2.2 PROTO=TCP';
+	for (const [name, parse] of [['core', core.parseRuleHint], ['luci', luci.parseRuleHint.bind(luci)]]) {
+		const hint = parse(msg);
+		if (hint && strip.has(hint[hint.length - 1])) {
+			console.error('F5 P3', name, 'strip-char hint', JSON.stringify(hint), 'for', JSON.stringify(line));
+			process.exit(2);
+		}
+		process.stdout.write(name + '\t' + hint + '\n');
+	}
+}
+"""
+	node = subprocess.run(
+		["node", "-e", node_script],
+		cwd=ROOT,
+		input="\n".join(normalized) + "\n",
+		capture_output=True,
+		text=True,
+		env={**os.environ, "F5_P3_EXPECT": str(len(F5_GROUND_CORPUS))},
+	)
+	if node.returncode == 2:
+		print(
+			f"FAIL: F5 P3 parseRuleHint captured a key ending in strip char — {node.stderr.strip()}",
+			file=sys.stderr,
+		)
+		return False
+	if node.returncode == 3:
+		print(f"FAIL: F5 P3 node cardinality — {node.stderr.strip()}", file=sys.stderr)
+		return False
+	if node.returncode != 0:
+		print(f"FAIL: F5 P3 node — {node.stderr.strip()}", file=sys.stderr)
+		return False
+	hint_lines = [ln for ln in node.stdout.splitlines() if ln != ""]
+	if len(hint_lines) != len(F5_GROUND_CORPUS) * 2:
+		print(
+			f"FAIL: F5 P3 hint rows {len(hint_lines)} != {len(F5_GROUND_CORPUS) * 2}",
+			file=sys.stderr,
+		)
+		return False
+	for i, raw in enumerate(F5_GROUND_CORPUS):
+		norm = normalized[i]
+		if norm and norm[-1] in F5_STRIP_CHARS:
+			print(
+				f"FAIL: F5 P3 normalize left strip char on {raw!r} -> {norm!r}",
+				file=sys.stderr,
+			)
+			return False
+		core_hint = hint_lines[2 * i].split("\t", 1)[1] if "\t" in hint_lines[2 * i] else ""
+		luci_hint = hint_lines[2 * i + 1].split("\t", 1)[1] if "\t" in hint_lines[2 * i + 1] else ""
+		if core_hint != luci_hint:
+			print(
+				f"FAIL: F5 P3 core/luci hint mismatch {core_hint!r} vs {luci_hint!r} (from {raw!r})",
+				file=sys.stderr,
+			)
+			return False
+		# When the normalized prefix is itself a parseRuleHint-shaped tag,
+		# the capture must equal it (rulesMap key contract).
+		if norm and re.match(r"^[A-Za-z0-9_.-]+$", norm):
+			if core_hint != norm:
+				print(
+					f"FAIL: F5 P3 hint {core_hint!r} != normalized prefix {norm!r} (from {raw!r})",
+					file=sys.stderr,
+				)
+				return False
+	print(f"ok: F5 P3 client parity ({len(F5_GROUND_CORPUS)} inputs, core+luci)")
+	return True
+
+
 def run_f5_full() -> int:
-	"""F5 --full: fast suite + shell ground-truth replay."""
+	"""F5 --full: fast suite + shell ground-truth replay + P3 client parity."""
 	fail = run_f5_fast()
 	if not _f5_shell_ground_truth():
+		fail += 1
+	if not _f5_p3_client_parity():
 		fail += 1
 	return fail
 
