@@ -1012,7 +1012,7 @@ def run_f5_fast() -> int:
 
 
 def _f5_p3_client_parity() -> bool:
-	"""Shell normalize → JS parseRuleHint: captured keys never keep strip chars."""
+	"""Shell normalize → JS parseRuleHint (core + LuCI): no strip-char keys."""
 	if not RPCD.is_file():
 		print("FAIL: F5 P3 missing rpcd path", file=sys.stderr)
 		return False
@@ -1036,50 +1036,96 @@ def _f5_p3_client_parity() -> bool:
 	if out.returncode != 0:
 		print(f"FAIL: F5 P3 shell normalize — {out.stderr.strip()}", file=sys.stderr)
 		return False
-	normalized = out.stdout.split("\n")[: len(F5_GROUND_CORPUS)]
-	# Node one-shot: parseRuleHint on "<norm> IN=wan ..." for each non-empty prefix.
-	node_script = (
-		"const {parseRuleHint}=require('./core/fwlive-log.js');\n"
-		"const strip=new Set([' ', '\\t', ':']);\n"
-		"for (const line of require('fs').readFileSync(0,'utf8').split('\\n')) {\n"
-		"  if (line === '') { console.log(''); continue; }\n"
-		"  const msg = line + ' IN=wan OUT= SRC=1.1.1.1 DST=2.2.2.2 PROTO=TCP';\n"
-		"  const hint = parseRuleHint(msg);\n"
-		"  if (hint && strip.has(hint[hint.length-1])) process.exit(2);\n"
-		"  console.log(hint);\n"
-		"}\n"
-	)
+	# Exact cardinality — do not zip-truncate a short stdout into a false pass.
+	normalized = out.stdout.splitlines()
+	if len(normalized) != len(F5_GROUND_CORPUS):
+		print(
+			f"FAIL: F5 P3 normalize line count {len(normalized)} != "
+			f"{len(F5_GROUND_CORPUS)}",
+			file=sys.stderr,
+		)
+		return False
+	# Node: core + LuCI parseRuleHint on "<norm> IN=wan ..." for each line.
+	node_script = r"""
+const core = require('./core/fwlive-log.js');
+const { loadFwliveModule } = require('./tests/lib/load-fwlive-module');
+const luci = loadFwliveModule('log');
+const strip = new Set([' ', '\t', ':']);
+const lines = require('fs').readFileSync(0, 'utf8').split('\n');
+// Drop the final empty split from a trailing newline so count stays exact.
+if (lines.length && lines[lines.length - 1] === '') lines.pop();
+const n = Number(process.env.F5_P3_EXPECT || '0');
+if (lines.length !== n) {
+	console.error('F5 P3 node line count', lines.length, '!=', n);
+	process.exit(3);
+}
+for (const line of lines) {
+	const msg = line === ''
+		? ' IN=wan OUT= SRC=1.1.1.1 DST=2.2.2.2 PROTO=TCP'
+		: line + ' IN=wan OUT= SRC=1.1.1.1 DST=2.2.2.2 PROTO=TCP';
+	for (const [name, parse] of [['core', core.parseRuleHint], ['luci', luci.parseRuleHint.bind(luci)]]) {
+		const hint = parse(msg);
+		if (hint && strip.has(hint[hint.length - 1])) {
+			console.error('F5 P3', name, 'strip-char hint', JSON.stringify(hint), 'for', JSON.stringify(line));
+			process.exit(2);
+		}
+		process.stdout.write(name + '\t' + hint + '\n');
+	}
+}
+"""
 	node = subprocess.run(
 		["node", "-e", node_script],
 		cwd=ROOT,
 		input="\n".join(normalized) + "\n",
 		capture_output=True,
 		text=True,
+		env={**os.environ, "F5_P3_EXPECT": str(len(F5_GROUND_CORPUS))},
 	)
 	if node.returncode == 2:
-		print("FAIL: F5 P3 parseRuleHint captured a key ending in strip char", file=sys.stderr)
+		print(
+			f"FAIL: F5 P3 parseRuleHint captured a key ending in strip char — {node.stderr.strip()}",
+			file=sys.stderr,
+		)
+		return False
+	if node.returncode == 3:
+		print(f"FAIL: F5 P3 node cardinality — {node.stderr.strip()}", file=sys.stderr)
 		return False
 	if node.returncode != 0:
 		print(f"FAIL: F5 P3 node — {node.stderr.strip()}", file=sys.stderr)
 		return False
-	hints = node.stdout.split("\n")[: len(normalized)]
-	for i, (raw, norm, hint) in enumerate(zip(F5_GROUND_CORPUS, normalized, hints)):
+	hint_lines = [ln for ln in node.stdout.splitlines() if ln != ""]
+	if len(hint_lines) != len(F5_GROUND_CORPUS) * 2:
+		print(
+			f"FAIL: F5 P3 hint rows {len(hint_lines)} != {len(F5_GROUND_CORPUS) * 2}",
+			file=sys.stderr,
+		)
+		return False
+	for i, raw in enumerate(F5_GROUND_CORPUS):
+		norm = normalized[i]
 		if norm and norm[-1] in F5_STRIP_CHARS:
 			print(
 				f"FAIL: F5 P3 normalize left strip char on {raw!r} -> {norm!r}",
 				file=sys.stderr,
 			)
 			return False
+		core_hint = hint_lines[2 * i].split("\t", 1)[1] if "\t" in hint_lines[2 * i] else ""
+		luci_hint = hint_lines[2 * i + 1].split("\t", 1)[1] if "\t" in hint_lines[2 * i + 1] else ""
+		if core_hint != luci_hint:
+			print(
+				f"FAIL: F5 P3 core/luci hint mismatch {core_hint!r} vs {luci_hint!r} (from {raw!r})",
+				file=sys.stderr,
+			)
+			return False
 		# When the normalized prefix is itself a parseRuleHint-shaped tag,
 		# the capture must equal it (rulesMap key contract).
 		if norm and re.match(r"^[A-Za-z0-9_.-]+$", norm):
-			if hint != norm:
+			if core_hint != norm:
 				print(
-					f"FAIL: F5 P3 hint {hint!r} != normalized prefix {norm!r} (from {raw!r})",
+					f"FAIL: F5 P3 hint {core_hint!r} != normalized prefix {norm!r} (from {raw!r})",
 					file=sys.stderr,
 				)
 				return False
-	print(f"ok: F5 P3 client parity ({len(F5_GROUND_CORPUS)} inputs)")
+	print(f"ok: F5 P3 client parity ({len(F5_GROUND_CORPUS)} inputs, core+luci)")
 	return True
 
 
