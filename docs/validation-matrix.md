@@ -78,19 +78,22 @@ Via `qemu-smoke-fwlive.sh`:
 | `OWRT_VALIDATE_SSH_WAIT_X86` | `300` | SSH wait (seconds) |
 | `OWRT_VALIDATE_SSH_WAIT_ARMSR` | `1800` | SSH wait for TCG |
 
-## Measured job times (Phase 5 / #276, 2026-09-05)
+## Measured job times (Phase 5 / #276 + C2 / #240, 2026-09-05)
 
 Merge-latency decisions rest on these numbers, not tribal estimates.
 Cold = clean checkout through green; warm = smoke binary only.
+QEMU C2 numbers are from a **pre-booted** 24.10.5 x86_64 guest
+(`root@127.0.0.1:2222`, fwlive already installed).
 
 | Job | Runner | Cold | Warm | Date |
 |-----|--------|------|------|------|
 | `test-view-mock` (Tier-2, required) | `ubuntu-latest` GH-hosted | ~25 s (`npm ci` ~1 s + Chromium install ~21 s + smoke ~3 s; job ~28 s end-to-end) | ~3 s (`npm run test:view`) | 2026-09-05, run 33940847911 |
 | `test:view` local | x86_64 container, cached browsers | n/a (browsers pre-seeded) | ~2 s | 2026-09-05 |
-| QEMU x86 full smoke | — | ESTIMATE ~5 min (boot alone ~1–2 min per matrix above) | — | unmeasured; next measurement: when a lab cell is next run |
-| QEMU armsr full smoke | — | ESTIMATE ~20 min (boot alone ~15–30 min TCG per matrix above) | — | unmeasured; next measurement: when a lab cell is next run |
+| QEMU x86 Playwright lab bundle (`qemu-playwright-lab-smoke.sh`) | local x86 lab, guest already up | n/a (needs a booted guest + fwlive) | **32 s** (one Chromium; chip-invert + proto-ui + ui-reliability) | 2026-09-05 |
+| QEMU x86 `qemu-smoke-fwlive.sh` | local x86 lab, guest already up | unmeasured (add KVM boot ~1–2 min per matrix above); next measurement: time `validate-openwrt.sh --version 24.10` from a stopped guest | **5 s** | 2026-09-05 |
+| QEMU armsr full smoke | — | unmeasured (TCG boot ~15–30 min per matrix above); next measurement: when an armsr cell is next run on this host | — | no armsr guest this pass |
 
-QEMU rows stay labeled ESTIMATE until a real lab run replaces them.
+QEMU boot-inclusive and armsr rows stay unmeasured until those cells run.
 
 ## Flake history (`test-view-mock` since required)
 
@@ -101,15 +104,18 @@ failures attributable to browser flake rather than real failure. Per
 
 ## Playwright consolidation (Wave C2)
 
-The required path runs a single Playwright file
+**Landed 2026-09-05.** Lab Playwright smokes share one Chromium context
+via `tests/fwlive-lab-playwright-bundle.mjs` /
+`scripts/qemu-playwright-lab-smoke.sh`. Sequence after one login:
+chip-invert → proto-ui → ui-reliability. Individual
+`tests/fwlive-*-smoke.mjs` and `scripts/qemu-*-smoke.sh` stay callable.
+theme-tint stays separate (SSH theme switch + two sessions).
+i18n-spotcheck stays separate (lang switch). Not on `fwlive-test.yml`.
+
+The required path is unchanged: one Playwright file
 (`tests/fwlive-view-smoke.mjs`) with one browser launch and one
 in-process harness server (`scripts/serve-view-harness.mjs` on
-localhost); there is no cross-file browser-context startup to
-consolidate on the required path. The remaining `tests/*.mjs` files
-(chip-invert, proto-ui, theme-tint, ui-reliability, i18n-spotcheck)
-are lab/QEMU Playwright smokes (`qemu-*-smoke.sh` drivers), not required
-on `fwlive-test.yml` — sequencing them into a shared context is deferred
-until one of them becomes required.
+localhost).
 
 ## Related
 
