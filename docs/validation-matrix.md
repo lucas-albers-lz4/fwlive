@@ -78,6 +78,38 @@ Via `qemu-smoke-fwlive.sh`:
 | `OWRT_VALIDATE_SSH_WAIT_X86` | `300` | SSH wait (seconds) |
 | `OWRT_VALIDATE_SSH_WAIT_ARMSR` | `1800` | SSH wait for TCG |
 
+## Measured job times (Phase 5 / #276, 2026-09-05)
+
+Merge-latency decisions rest on these numbers, not tribal estimates.
+Cold = clean checkout through green; warm = smoke binary only.
+
+| Job | Runner | Cold | Warm | Date |
+|-----|--------|------|------|------|
+| `test-view-mock` (Tier-2, required) | `ubuntu-latest` GH-hosted | ~25 s (`npm ci` ~1 s + Chromium install ~21 s + smoke ~3 s; job ~28 s end-to-end) | ~3 s (`npm run test:view`) | 2026-09-05, run 33940847911 |
+| `test:view` local | x86_64 container, cached browsers | n/a (browsers pre-seeded) | ~2 s | 2026-09-05 |
+| QEMU x86 full smoke | — | ESTIMATE ~5 min (boot alone ~1–2 min per matrix above) | — | unmeasured |
+| QEMU armsr full smoke | — | ESTIMATE ~20 min (boot alone ~15–30 min TCG per matrix above) | — | unmeasured |
+
+QEMU rows stay labeled ESTIMATE until a real lab run replaces them.
+
+## Flake history (`test-view-mock` since required)
+
+29/29 green across the 30 most recent `fwlive-test.yml` runs
+(2026-09-04 → 2026-09-05, incl. all Phase 1–4 wave branches). Zero
+failures attributable to browser flake rather than real failure. Per
+#240 §8: no revisit of required-now without numbers to the contrary.
+
+## Playwright consolidation (Wave C2)
+
+The required path runs a single Playwright file
+(`tests/fwlive-view-smoke.mjs`) with one browser launch and one
+in-process harness server (`scripts/serve-view-harness.mjs` on
+localhost); there is no cross-file browser-context startup to
+consolidate on the required path. The remaining `tests/*.mjs` files
+(chip-invert, proto-ui, theme-tint, ui-reliability, i18n-spotcheck)
+are manual-only developer tools, not CI jobs — sequencing them into a
+shared context is deferred until one of them becomes required.
+
 ## Related
 
 - [`sdk-build-matrix.md`](sdk-build-matrix.md) — Docker SDK builds
