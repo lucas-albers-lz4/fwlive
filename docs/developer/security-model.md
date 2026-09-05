@@ -119,8 +119,11 @@ The `uci set` touches only bit 0 of the WAN zone `log` value, and UCI is rolled
 back if the firewall reload fails. Before `uci set` / commit, the toggle refuses
 when `uci changes firewall` is non-empty (`firewall_changes_pending`) so a
 package-wide commit cannot publish unrelated staged deltas
-([#168](https://github.com/lucas-albers-lz4/fwlive/issues/168)). Zone lookup
-accepts both anonymous `@zone[N]` and named sections.
+([#168](https://github.com/lucas-albers-lz4/fwlive/issues/168)).
+`uci commit firewall` remains package-wide. Two privileged writers can still
+publish each other's already-staged changes in a race ([#191](https://github.com/lucas-albers-lz4/fwlive/issues/191)
+residual — accepted). Zone lookup accepts both anonymous `@zone[N]` and named
+sections.
 
 Serialization of the toggle uses a lock file created/tightened to `0600` so
 unprivileged UIDs cannot take `LOCK_EX` ([#167](https://github.com/lucas-albers-lz4/fwlive/issues/167)).

@@ -12,23 +12,122 @@ for the trust boundaries and invariants, and
 for what has already been checked, with what proof, and what is open. This file
 is the *how*.
 
-A pass owes the ledger a coverage-map update, a proof class for every control it
-touches, and its non-findings — see
+After a pass, update the coverage map in the ledger. Record a proof class for
+every control the pass touches. Record the non-findings — see
 [security-review.md § Review procedure](../../../docs/developer/security-review.md#review-procedure).
+
+## Multi-model pass (VVAH-style)
+
+Sibling OpenWrt packages (for example usrmanage) share this loop. Do cheap,
+deterministic work first. Reserve a **frontier reasoner** for narrow judgment
+only. Do not invent a new procedure in chat — follow this section.
+
+### Phase order
+
+1. **Close open issues / prove honest gaps** (ledger `Next:` / cannot-prove /
+   prove-next) before a broad re-read.
+2. **Delta** since the last coverage-map dates (touched surfaces only).
+3. **Full-pass gate** — run it only if one of the criteria below is true.
+   Otherwise record the deferral.
+
+### Frontier reasoner profiles
+
+Pick **one** Stage-2 reasoner for the pass. Do not mix both in the same packet
+round.
+
+| Profile | Stage 2 (reason) | Stage 1 helpers | Validation panel | Notes |
+|---------|------------------|-----------------|------------------|-------|
+| **Fable** (default when available) | Claude Fable 5.1 — medium effort; high only for root/XSS chains | Grok (map) + Luna (polish) | Luna + Grok (severity) | Strong on multi-step OpenWrt/LuCI chains |
+| **GLM** (alternate review process) | GLM-5.3 at **max thinking** | Luna + GLM-5.3 Flash **or** DeepSeek V4 Flash | Luna + the same flash helper (pairwise) | Use when the orchestrator runs GLM instead of Fable. Use max thinking. Medium or low thinking does not reason enough about ACL and commit scope. |
+
+Composer remains Stage 3 (patches) under both profiles. Doc-only PRs do not
+need a frontier reasoner — Luna (+ optional Grok for cross-repo wording) is
+enough.
+
+### Stages and models
+
+| Stage | Job | Model (see profile above) | Token rule |
+|-------|-----|---------------------------|------------|
+| 0 Static seed | Repo greps (below), shellcheck/smoke, key `git check-ignore`, action SHA pin spot-check | Deterministic | Zero LLM |
+| 1 Prep & triage | Job packets from ledger + diff | Profile helpers | Cheap |
+| 2 Audit & reason | Multi-step chains; Engineer Mode; fix sketch beside each finding | Profile frontier reasoner | Premium, narrow |
+| 3 Execute & fix | Patches, tests, ledger | Composer | Bulk output |
+| Validation panel | Mechanism real? severity calibrated? duplicate of accepted residual? | Profile validation pair | Cheap gate before filing |
+
+**Keep review and patching separate:** The Stage-2 reasoner must not write
+patches in bulk. Composer must not invent new trust boundaries. Edit the model
+doc only when a finding falsifies it. Validation-panel models score candidates
+before `gh` advisory/issue.
+
+**Engineer Mode (Stage-2 stub):** You are reviewing production code for
+structural security flaws. For each finding: mechanism, location, blast radius,
+severity per the calibration table, and a concrete fix sketch. Do not role-play
+an attacker sandbox or request exploit payloads. Scope is exactly the attached
+job packet checklist — not "find any security issue."
+
+**Static cache block (identical on every Stage-2 call):** one-line threat model +
+invariants from
+[`security-model.md`](../../../docs/developer/security-model.md) + ACL method
+table + severity calibration below.
+
+### Job-packet template
+
+Ephemeral (chat or scratch dir — do not commit these files):
+
+- Files / short diff summary
+- Cached threat-model block (above)
+- Checklist (surface-specific)
+- Prior non-findings for that surface from the ledger
+- Expected proof class on exit (`host` / `lab` / `manual`)
+
+### Full-pass gate
+
+Run a full surface re-pass only if one of:
+
+- A gap failed and suggests a **class** bug (fix-the-class sweep)
+- The Stage-2 reasoner finds a high or medium issue whose blast radius goes
+  beyond the touched files
+- A root-reachable control is still only `manual` with no raise path
+- You are about to cut a `v*` tag, and the pin checklist is stale
+
+Otherwise update coverage-map dates for surfaces examined. Record non-findings.
+Set ledger `Next:` to the deferral reason.
+
+### Cross-repo class memory (Stage 0 checklist)
+
+Make sure that each item below is true. Use grep. Do not send this list to
+Stage 2:
+
+- Temp mode loss after `mv` / normalize rewrite
+- Unswept pin neighbors (one helper pinned, sibling not)
+- Hand-parsed platform formats narrower than `uci`/`fw4`/`nslookup`
+- R7: digest-pin before secret mount + `--network none` on signing containers
+- Workflow `${{ }}` interpolated into `run:` bodies
+
+### fwlive bindings
+
+| Binding | Value |
+|---------|-------|
+| Threat model | [`docs/developer/security-model.md`](../../../docs/developer/security-model.md) |
+| Ledger | [`docs/developer/security-review.md`](../../../docs/developer/security-review.md) |
+| Host gate | `./scripts/fwlive-test.sh`, `./scripts/fwlive-shellcheck.sh` |
+| Lab / honest-gap smokes | `./scripts/qemu-smoke-fwlive.sh`, `./scripts/qemu-security-gaps-smoke.sh` |
+| Highest-yield surface | Frontend `E()` / log XSS (Steps 1–2 below) |
+| Honest gaps | Ledger § What this pass could not prove |
 
 ## Order of work
 
-Highest yield first. The frontend is where the exploitable bugs live; the
-backend has held up under audit.
+Highest yield first when running a **full** surface pass. Use the multi-model
+phase order above for routine audits.
 
 ```
+- [ ] 0. Multi-model: open issues / honest gaps → delta → gate
 - [ ] 1. Frontend rendering sinks (E() string children)
 - [ ] 2. Untrusted-input trace (log fields, PTR, URL hash, UCI)
 - [ ] 3. rpcd plugin + ACL scope
 - [ ] 4. Shell helpers (injection, quoting)
 - [ ] 5. Release pipeline (secrets, pinning, temp paths)
 ```
-
 ## Verified facts — do not re-derive
 
 The facts themselves live in the security model; this section only records **how
@@ -200,14 +299,14 @@ spaces after colons will match nothing and look like a failure:
 gh api /repos/{owner}/{repo}/security-advisories --jq '.[] | "\(.ghsa_id) \(.state)"'
 ```
 
-## Known-good — do not re-litigate without new evidence
+## Accepted items — do not reopen without new evidence
 
 Invariants 2–7 in [`security-model.md`](../../../docs/developer/security-model.md)
 were each audited and found correctly implemented, as was the
 `__rulesmap_iptables` fixed-path guard.
 
 Re-examine them only with new evidence — a code change in the area, or a concrete
-bypass. Spending the pass re-reading known-good shell is the main way an audit
+bypass. Spending the pass re-reading accepted shell is the main way an audit
 runs out of time before reaching the frontend.
 
 **Two entries were removed from this list on 2026-08-12**, and the reason

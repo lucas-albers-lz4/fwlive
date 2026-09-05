@@ -1,10 +1,10 @@
 # Security review state
 
-> **Status:** 42 controls in force; 0 open findings.
-> **Last review:** 2026-09-03 (B-1 canonical WAN zone identity for staged uci changes).
+> **Status:** 45 controls in force; 0 open findings.
+> **Last review:** 2026-09-03 (multi-model VVAH pass: playbook + B-1 zone identity; #261/#257 closed).
 > **Open:** none.
-> **Next:** re-check pins before each `v*` tag; close the 4 honest gaps in the lab.
-> **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. For coverage beyond that script, follow [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md). Values current as of this PR.
+> **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
+> **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass: [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
 
 What has been reviewed, when, with what strength of proof, and what is still
 open. This document is the **record**; it owns no rules.
@@ -12,7 +12,7 @@ open. This document is the **record**; it owns no rules.
 | Read this for | Go here |
 |---------------|---------|
 | What we trust, invariants, ACL scope, supply-chain surface | [security-model.md](security-model.md) |
-| How to run a pass, re-verification commands | [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) |
+| How to run a pass (multi-model stages + surface steps) | [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) |
 | Whether a surface was checked, and whether a control is *proven* | this file |
 
 Start here before a pass. Do not re-derive the trust boundaries, and do not
@@ -63,11 +63,12 @@ should carry a note saying what would raise it.
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
 | Release pipeline — fetch pinning | 2026-08-18 | Read + host test | #177 fetch-pin gate; R7 digest pin-cache (`tests/sdk-matrix-digests.test.sh`); 2026-08-18 wrapper-export + exact-cache-key |
 | Workflow inputs into `run:` bodies | 2026-08-23 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY`; 2026-08-18: dispatch tag validated (control chars, shape, real-tag + HEAD identity) before repo scripts |
-| LuCI view (templates / shipped JS) | 2026-08-23 | Read | No new sinks; untrusted values remain text nodes |
+| LuCI view (templates / shipped JS) | 2026-09-03 | Delta + Fable | `#fwlive-backend` via `textContent` only; `timeout_missing` warnings; Wave B Playwright = UX contract — XSS SoT remains recording-`innerHTML` harness (NON-FINDING) |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-08-23 | Read | No ACL or path regressions |
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-08-23 | Read | Pins intact |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
+| Lab honest-gap smokes | 2026-09-04 | Lab smoke | `scripts/qemu-security-gaps-smoke.sh` gaps 1–3 green 2026-09-04; gap-2 BusyBox `flock` (no `-w`) accepted residual; `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
 
 ## Controls in force
 
@@ -97,6 +98,7 @@ should carry a note saying what would raise it.
 | Actions SHA-pinned, including the step receiving `FEED_DEPLOY_KEY` | `manual` | `.github/workflows/publish-packages.yml` — `peaceiris/actions-gh-pages@84c30a85c…` = `v4.1.0` (verified 2026-08-13); CodeQL alert 7 closed as **fixed**; re-check before each `v*` tag ([#178](https://github.com/lucas-albers-lz4/fwlive/issues/178)) |
 | SDK image digest-pinned at first **secret-touching** pull | `host` | `sdk_matrix_pull_and_pin` in `validate-feed-keys.sh`; `feed_publish_apply_sdk_pin` before opkg/apk sign; `tests/sdk-matrix-digests.test.sh` |
 | Signing-secret containers have no network | `host` | `docker run --network none` on validate usign check and opkg/apk sign steps (Compose v2 has no `--network` on `compose run`); same test |
+| Signing secrets stay 0600 through validate-feed-keys rewrite prefix (decode/normalize/chmod) | `host` | `tests/validate-feed-keys-mode.test.sh` — calls shared `feed_keys_validate_*_rewrite_prefix` (same helpers as `validate-feed-keys.sh`) including a base64 decode rewrite; full docker usign sign on next `v*` still prove-next |
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
 | Only public keys reach `feed-staging/` | `manual` | `feed_publish_copy_keys` |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
@@ -127,7 +129,7 @@ should carry a note saying what would raise it.
 
 | ID | Severity | Issue | Summary | Verified |
 |----|----------|-------|---------|----------|
-| B-1 | Low | `wan_firewall_zone_same` class-matched any `name=wan` zone | Canonical `uci -X` cfg id compare; duplicate wan `.log` stays foreign | 2026-09-03 |
+| B-1 | Low | `wan_firewall_zone_same` class-matched any `name=wan` zone | Canonical `uci -X` cfg id compare; duplicate wan `.log` stays foreign | 2026-09-03 — multi-model audit |
 | [#204](https://github.com/lucas-albers-lz4/fwlive/issues/204) | Low | Predictable lock path opened O_TRUNC without symlink check | Lock under `/etc/fwlive/`; `acquire_wan_log_lock` rejects `-L` before create/tighten/open; Part E | 2026-08-23 — security-audit PR |
 | [#205](https://github.com/lucas-albers-lz4/fwlive/issues/205) | Low | Unpinned `@playwright/mcp@latest` in `.cursor/mcp.json` | MCP entry removed; tests use pinned `playwright@1.60.0` | 2026-08-23 — security-audit PR |
 | [#190](https://github.com/lucas-albers-lz4/fwlive/issues/190) | Low | `is_resolvable_address` hostname-shaped tokens | Strict IPv4/IPv6 validation + selftest cases | merged 2026-08-21 |
@@ -143,23 +145,28 @@ Known, judged acceptable. Reopen only with new evidence.
 | Any local UID can inject syslog lines that pass the firewall classifier | `logd` chmods its socket 0666 upstream (ubox `log/syslog.c`). Not fixable from this package; the consequence is forged rows in the view, and every field is already rendered as text |
 | `date +%s` can jump under NTP sync, over- or under-running `RESOLVE_BUDGET` | Worker starvation is still prevented, which is the property the budget exists for |
 | A LuCI admin session is root-equivalent | Structural to LuCI. It is the reason script execution on this page is treated as a root compromise, not a lesser bug |
+| `uci commit firewall` is package-wide ([#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) residual) | OpenWrt has no option-scoped commit. Pre/post-stage gates refuse when foreign staging is visible. A second privileged writer can still stage in the short interval before commit and publish those changes in the same `uci commit` — two root processes publishing each other's already-staged work. Unprivileged staging is blocked by libuci dir modes. Reopen only with an unprivileged or cross-session path. |
 | `feed_publish_ensure_usign` leaves its build dir for the process lifetime | `PATH` points into it and `usign` is called later; the name is unpredictable per invocation, and `/tmp` is reaped on reboot |
 
 ## What this pass could not prove
 
 Honest gaps, so the next pass starts here rather than rediscovering them.
+Lab runner: `./scripts/qemu-security-gaps-smoke.sh` (gaps 1–3). Host validate
+path: `tests/validate-feed-keys-mode.test.sh` (gap 4 prefix; wired into
+`./scripts/fwlive-test.sh`).
 
 | Property | Status | What would prove it |
 |----------|--------|---------------------|
-| `resolve` really returns within its budget on a loaded router | cannot-prove on host | Lab: flood `fwlive.resolve` with unresolvable addresses, measure wall time |
-| The rpcd script timeout actually bounds a blocked `flock` waiter | cannot-prove on host | Lab: hold the lock from an unprivileged shell, call the toggle, observe rpcd |
-| `uci commit firewall` scope on a live device | prove-next | Lab: stage an unrelated `firewall` delta over SSH, toggle logging, check whether it committed — **host-level fix landed 2026-08-21 (#191), tightened 2026-08-23**: staging+commit moved inside `commit_wan_log_change` behind (1) a pre-stage `firewall_changes_pending` re-check and (2) a post-stage check that aborts and undoes only our log delta when foreign staging appears after `uci set`/`delete` (never `uci revert firewall` on foreign data); commit-failure path reverts ONLY when our option is the sole staged delta; post-commit read-back verification; residual window is a writer staging between the post-stage check and `uci commit` (or same-option races on `firewall.<wan>.log`) — narrowed to the minimum UCI allows; lab confirmation still pending |
-| Signing keys stay 0600 through a full publish | prove-next | The host test in [#165](https://github.com/lucas-albers-lz4/fwlive/issues/165) covers the library; a real run also passes through `validate-feed-keys.sh` |
+| `resolve` really returns within its budget on a loaded router | lab smoke 2026-09-04 (responsiveness only; not blackhole-DNS budget proof) | Flood returned in 1s under `RESOLVE_SLACK_SEC=8` |
+| The rpcd script timeout actually bounds a blocked `flock` waiter | lab smoke 2026-09-04; BusyBox has no `flock -w` (**accepted residual** — client timed out, residual holds) | Host-side timeout fired; does not promote residual to cleared |
+| Pre-stage `firewall_changes_pending` refuse on a live device | lab smoke 2026-09-04 (**accepted residual** for package-commit publish of foreign staging — see above) | Foreign staging refused; foreign delta neither committed nor dropped |
+| Signing keys stay 0600 through validate rewrite path | `host` (validate-prefix) | `tests/validate-feed-keys-mode.test.sh` — write + shared `feed_keys_validate_*_rewrite_prefix` (decode/normalize/chmod; base64 branch). **Full usign docker sign + real publish** still prove-next on next `v*` tag |
 
 ## Review procedure
 
 The *how* lives in
-[`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md).
+[`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md)
+(including § Multi-model pass for gaps → delta → gated full pass).
 This section covers only what a pass owes this file.
 
 A pass is not finished until it has:
@@ -377,10 +384,21 @@ links to this ledger for review state.
 
 **Fix.** `[ -O ]` for euid ownership; `find -prune \( -perm -020 -o -perm -002 \)` for group/other write. No `stat`. Part F in `fwlive-logging-lock.test.sh` shadows `stat` on `PATH`.
 
-### 2026-09-03 — B-1 canonical WAN zone identity
+### 2026-09-03 — Multi-model VVAH pass (playbook + delta + B-1)
 
-**Scope.** Fable Stage-2 review of hand-parsed `uci changes` grammar for WAN log commit scope (`wan_firewall_zone_same`).
+**Scope.** Document portable multi-model audit (fwlive skill + usrmanage twin); Stage 0 seed; Stage 1 delta packets (warnings UI, zone grammar, Wave B harness, Stage-0 class memory); Fable Stage 2 on flagged packets; validation panel; Composer fix for B-1. Honest-gap lab scripts landed (QEMU not available this pass).
 
-**Finding.** Class-match on `name=wan` + type `zone` treated any two wan zones as the same section, so a foreign staged `firewall.<dup>.log=` line could ride `uci commit firewall` (Low; admin + duplicate-zone misconfiguration).
+**Method.** Deterministic greps + `./scripts/fwlive-test.sh` / shellcheck; Grok+Luna job packets; Fable 5.1 Engineer Mode on UCI grammar + Wave B proof boundary; Luna validation panel on B-1.
 
-**Fix.** `uci_canonical_firewall_section` via `uci -X show`; identity is equal canonical cfg ids. Host test: duplicate wan foreign `.log` stays foreign; `@zone[N]`↔cfg bridge preserved.
+**Finding fixed in-tree (no public issue — Low, fixed same pass).**
+
+- **B-1** — `wan_firewall_zone_same` treated any `name=wan` zone as identical. Duplicate wan `.log` deltas were able to publish with a commit. Now compares canonical cfg ids via `uci -X show`. Host test covers duplicate-wan foreign line.
+
+**Non-findings**
+
+- `#fwlive-backend` / `timeout_missing`: `textContent` + allowlisted `_()` strings only.
+- Wave B Playwright: UX contract only; XSS SoT remains recording-`innerHTML` harness (Fable NON-FINDING).
+- Stage-0 class memory: no new `${{ }}` in `run:`, no new temp-mode/pin regressions in delta.
+- UCI `.log_*` near-miss grammar (#257) holds under Fable checklist.
+
+**Full-pass gate.** Deferred — no class bug beyond B-1 (fixed), no high/medium blast radius. The pin checklist is not due until the next `v*` tag. Next: QEMU `qemu-security-gaps-smoke.sh` for gaps 1–3.
