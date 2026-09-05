@@ -850,13 +850,41 @@ def _f5_domain(s):
 	return And(*conds)
 
 
+def _f5_extract_normalize_log_prefix(body: str):
+	"""Return the normalize_log_prefix() body via brace-depth, or None."""
+	lines = body.splitlines()
+	start = next(
+		(i for i, ln in enumerate(lines) if ln == "normalize_log_prefix() {"),
+		None,
+	)
+	if start is None:
+		return None
+	depth = 0
+	end = None
+	for i in range(start, len(lines)):
+		depth += lines[i].count("{") - lines[i].count("}")
+		if i > start and depth == 0:
+			end = i
+			break
+	if end is None:
+		return None
+	return "\n".join(lines[start : end + 1])
+
+
 def _f5_shipped_text_ok() -> bool:
 	"""The proof means nothing if the shell no longer carries the '*' form."""
 	if not RPCD.is_file():
 		print("FAIL: F5 missing rpcd path", file=sys.stderr)
 		return False
 	body = RPCD.read_text(encoding="utf-8", errors="replace")
-	if F5_SHIPPED_SED not in body:
+	func = _f5_extract_normalize_log_prefix(body)
+	if func is None:
+		print("FAIL: F5 normalize_log_prefix not found", file=sys.stderr)
+		return False
+	# Pin the sed form inside the extracted body so a leftover comment or a
+	# later nested `}` elsewhere cannot keep Z3 on `*` while shell replay
+	# runs different text.
+	if F5_SHIPPED_SED not in func:
 		print(
 			"FAIL: F5 shipped sed form changed — re-verify P1/P2",
 			file=sys.stderr,
@@ -868,22 +896,14 @@ def _f5_shipped_text_ok() -> bool:
 
 def _f5_shell_ground_truth() -> bool:
 	"""Run the shipped function twice over a tricky corpus: f(f(x)) == f(x)."""
-	lines = RPCD.read_text(encoding="utf-8", errors="replace").splitlines()
-	start = next(
-		(i for i, ln in enumerate(lines) if ln == "normalize_log_prefix() {"),
-		None,
-	)
-	if start is None:
-		print("FAIL: F5 normalize_log_prefix not found", file=sys.stderr)
+	if not RPCD.is_file():
+		print("FAIL: F5 missing rpcd path", file=sys.stderr)
 		return False
-	end = next(
-		(i for i in range(start, len(lines)) if lines[i] == "}"),
-		None,
-	)
-	if end is None:
-		print("FAIL: F5 function body unterminated", file=sys.stderr)
+	body = RPCD.read_text(encoding="utf-8", errors="replace")
+	func = _f5_extract_normalize_log_prefix(body)
+	if func is None:
+		print("FAIL: F5 normalize_log_prefix not found or unterminated", file=sys.stderr)
 		return False
-	func = "\n".join(lines[start : end + 1])
 	prog = (
 		func
 		+ '\nfor x in "$@"; do\n'
