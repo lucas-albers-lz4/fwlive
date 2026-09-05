@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.38] — 2026-09-05
+
+### Fixed
+- B-1 canonical WAN zone identity for `uci changes` — `@zone[N]` and `cfg…` ids for the same WAN stay distinct from duplicate `name=wan` sections (#267, #239)
+- Keep feed signing keys out of workspace-mounted build containers (#270)
+- Require opt-in for insecure SSH in `agent-build-and-deploy` (no default host-key bypass)
+- luci#8992 review follow-ups after v0.1.37: `timeout_missing` as warning, non-sticky rules-error UI, warn-tint degraded backend span (#253, #255, round-2/5 hygiene)
+
+### Added
+- Test coverage wave: timeout / `run_with_timeout` pins, upstream-cut / `.pot` parity, `rules_truncated` smoke, F5 Z3 idempotency + colon-drop/P3, C1 parser corpus, C2 lab Playwright bundle (#277–#284, #272–#276)
+- Multi-model VVAH security audit playbook and honest-gap QEMU smoke (#268)
+
+### Changed
+- Validation matrix: measured Tier-2 times, warm lab Playwright bundle notes, flake history (#281, #284)
+- Docs: upstream-merge lessons from luci#8992 waves; AGENTS.md upstream link anchors
+
 ## [v0.1.37] — 2026-08-31
 
 ### Security
@@ -413,6 +429,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.38]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.37...v0.1.38
 [v0.1.37]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.36...v0.1.37
 [v0.1.36]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.35...v0.1.36
 [v0.1.35]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.34...v0.1.35
