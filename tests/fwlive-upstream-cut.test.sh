@@ -71,8 +71,28 @@ cp -r "$CUT_WORK/cut" "$CUT_WORK/scanwork/luci-app-fwlive"
 python3 - "$CUT_WORK/scanwork/fresh.pot" "$POT" <<'EOF' || die "msgid parity failed"
 import re, sys
 def msgids(p):
+    # Multiline-aware: msgid "" + continuation "..." lines form one entry.
+    # Single-line regexes silently drop those and can pass on a mismatch.
     s = open(p, encoding='utf-8', errors='replace').read()
-    return set(re.findall(r'^msgid "(.*)"$', s, re.M)) - {''}
+    out = set()
+    cur = None
+    for line in s.splitlines():
+        m = re.match(r'^msgid "(.*)"$', line)
+        if m:
+            if cur:
+                out.add("".join(cur))
+            cur = [m.group(1)]
+            continue
+        m = re.match(r'^"(.*)"$', line)
+        if m and cur is not None:
+            cur.append(m.group(1))
+            continue
+        if cur:
+            out.add("".join(cur))
+            cur = None
+    if cur:
+        out.add("".join(cur))
+    return out - {''}
 fresh, checked = msgids(sys.argv[1]), msgids(sys.argv[2])
 only_fresh = sorted(fresh - checked)
 only_checked = sorted(checked - fresh)
