@@ -4,31 +4,17 @@
  *
  *   FWLIVE_URL=http://127.0.0.1:8080 node tests/fwlive-ui-reliability-smoke.mjs
  *
+ * Bundle: tests/fwlive-lab-playwright-bundle.mjs (shared context).
+ *
  * Covers: poll error banner (transport abort + reply.error #233), hostname
  * toggle race, pause/resume, filter debounce, poll leak on leave/revisit.
  *
  * Compatible with pre-A2 (#fwlive-autorefresh) and A2 (#fwlive-pause) chrome.
  */
-import { chromium } from 'playwright';
+import { isDirectRun, labBaseUrl, labFwliveUrl, withLabPage } from './lib/playwright-lab.mjs';
 
-const BASE = process.env.FWLIVE_URL || 'http://127.0.0.1:8080';
-const FWLIVE = `${BASE}/cgi-bin/luci/admin/status/fwlive`;
-
-async function login(page) {
-	await page.goto(FWLIVE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-	if (await page.locator('input[name="luci_username"]').count()) {
-		await page.fill('input[name="luci_username"]', 'root');
-		const pw = page.locator('input[name="luci_password"]');
-		if (await pw.count())
-			await pw.fill('');
-		await Promise.all([
-			page.waitForURL(/\/cgi-bin\/luci/, { timeout: 30000 }).catch(() => {}),
-			page.click('button, input[type="submit"]')
-		]);
-		await page.goto(FWLIVE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-	}
-	await page.waitForSelector('.fwlive-map', { timeout: 30000 });
-}
+const BASE = labBaseUrl();
+const FWLIVE = labFwliveUrl();
 
 function isFwlivePoll(postData) {
 	if (!postData)
@@ -123,24 +109,29 @@ async function testPollErrorBanner(page) {
 
 /**
  * #233 — well-formed {"log":[],"error":"filter_failed"} must show the banner.
- * LuCI rpc.declare posts JSON-RPC 2.0 to /ubus.
+ * LuCI rpc.declare posts JSON-RPC 2.0 to /ubus (single object or one-call batch).
  */
 function fulfillFwlivePollError(postData) {
-	let req;
+	let parsed;
 	try {
-		req = JSON.parse(postData);
+		parsed = JSON.parse(postData);
 	} catch (e) {
 		return null;
 	}
+	const batched = Array.isArray(parsed);
+	if (batched && parsed.length !== 1)
+		return null;
+	const req = batched ? parsed[0] : parsed;
 	if (!req || typeof req !== 'object' || req.jsonrpc !== '2.0')
 		return null;
 	if (typeof req.id === 'undefined')
 		return null;
-	return JSON.stringify({
+	const reply = {
 		jsonrpc: '2.0',
 		id: req.id,
 		result: [0, { log: [], error: 'filter_failed' }]
-	});
+	};
+	return JSON.stringify(batched ? [reply] : reply);
 }
 
 async function testPollErrorFieldBanner(page) {
@@ -369,34 +360,33 @@ async function testPollLeak(page) {
 	console.log(`OK: poll leak spot-check (baseline=${baseline}, away=+${leaked}, back=${afterReturn})`);
 }
 
-async function main() {
-	const browser = await chromium.launch({ headless: true });
+export async function runUiReliabilitySmoke(page) {
+	const errors = [];
+	const onErr = (e) => errors.push(e.message);
+	page.on('pageerror', onErr);
 	try {
-		const context = await browser.newContext();
-		const page = await context.newPage();
-		const errors = [];
-		page.on('pageerror', (e) => errors.push(e.message));
-
-		await login(page);
 		await waitForRows(page);
-
 		await testPollErrorBanner(page);
 		await testPollErrorFieldBanner(page);
 		await testHostnameToggleRace(page);
 		await testPauseResume(page);
 		await testFilterDebounce(page);
 		await testPollLeak(page);
-
 		if (errors.length)
 			throw new Error('unhandled pageerror(s): ' + errors.join('; '));
-
 		console.log('fwlive UI reliability smoke OK (#71)');
 	} finally {
-		await browser.close();
+		page.off('pageerror', onErr);
 	}
 }
 
-main().catch((e) => {
-	console.error(e);
-	process.exit(1);
-});
+async function main() {
+	await withLabPage(runUiReliabilitySmoke);
+}
+
+if (isDirectRun(import.meta.url)) {
+	main().catch((e) => {
+		console.error(e);
+		process.exit(1);
+	});
+}

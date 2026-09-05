@@ -4,29 +4,12 @@
  *
  *   FWLIVE_URL=http://127.0.0.1:8080 node tests/fwlive-proto-ui-smoke.mjs
  *
+ * Bundle: tests/fwlive-lab-playwright-bundle.mjs (shared context).
+ *
  * Covers: custom proto wins over menu, chip invert/clear for proto,
  * Detail/Message segmented aria-pressed.
  */
-import { chromium } from 'playwright';
-
-const BASE = process.env.FWLIVE_URL || 'http://127.0.0.1:8080';
-const FWLIVE = `${BASE}/cgi-bin/luci/admin/status/fwlive`;
-
-async function login(page) {
-	await page.goto(FWLIVE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-	if (await page.locator('input[name="luci_username"]').count()) {
-		await page.fill('input[name="luci_username"]', 'root');
-		const pw = page.locator('input[name="luci_password"]');
-		if (await pw.count())
-			await pw.fill('');
-		await Promise.all([
-			page.waitForURL(/\/cgi-bin\/luci/, { timeout: 30000 }).catch(() => {}),
-			page.click('button, input[type="submit"]')
-		]);
-		await page.goto(FWLIVE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-	}
-	await page.waitForSelector('.fwlive-map', { timeout: 30000 });
-}
+import { isDirectRun, withLabPage } from './lib/playwright-lab.mjs';
 
 async function clearFilters(page) {
 	const clearAll = page.locator('a.fwlive-chip-clear');
@@ -118,21 +101,20 @@ async function expectVisible(page, selector) {
 	await page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
 }
 
-async function main() {
-	const browser = await chromium.launch({ headless: true });
-	const page = await browser.newPage();
-	page.on('pageerror', (e) => console.error('pageerror:', e.message));
-
-	await login(page);
+export async function runProtoUiSmoke(page) {
 	await page.waitForSelector('#fwlive-proto-custom', { timeout: 15000 });
 	await assertProtoCustomWins(page);
 	await assertSegments(page);
-
 	console.log('fwlive proto UI smoke OK (custom wins + invert/clear + segments)');
-	await browser.close();
 }
 
-main().catch((e) => {
-	console.error(e);
-	process.exit(1);
-});
+async function main() {
+	await withLabPage(runProtoUiSmoke);
+}
+
+if (isDirectRun(import.meta.url)) {
+	main().catch((e) => {
+		console.error(e);
+		process.exit(1);
+	});
+}

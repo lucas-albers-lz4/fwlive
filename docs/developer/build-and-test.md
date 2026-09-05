@@ -58,6 +58,7 @@ That regenerates `…/fwlive/css.js` (`styleText` string). Do not edit `css.js` 
 ./scripts/qemu-wait-guest.sh
 ./scripts/qemu-install-fwlive.sh
 ./scripts/qemu-smoke-fwlive.sh
+./scripts/qemu-playwright-lab-smoke.sh   # C2: chip-invert + proto-ui + reliability, one browser
 ./scripts/qemu-proto-ui-smoke.sh   # protocol pair + Detail/Message segments (Playwright)
 ./scripts/qemu-logging-uninstall-smoke.sh   # uninstall restores WAN log baseline (guest required)
 ```

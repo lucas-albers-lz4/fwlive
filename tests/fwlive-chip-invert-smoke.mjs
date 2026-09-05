@@ -1,22 +1,12 @@
 #!/usr/bin/env node
-import { chromium } from 'playwright';
-
-const BASE = process.env.FWLIVE_URL || 'http://127.0.0.1:8080';
-
-async function login(page) {
-	await page.goto(`${BASE}/cgi-bin/luci/admin/status/fwlive`, {
-		waitUntil: 'networkidle',
-		timeout: 60000
-	});
-	if (await page.locator('input[name="luci_username"]').count()) {
-		await page.fill('input[name="luci_username"]', 'root');
-		const pw = page.locator('input[name="luci_password"]');
-		if (await pw.count())
-			await pw.fill('');
-		await page.click('button, input[type="submit"]');
-		await page.waitForTimeout(1500);
-	}
-}
+/**
+ * Chip invert smoke against a running QEMU LuCI guest.
+ *
+ *   FWLIVE_URL=http://127.0.0.1:8080 node tests/fwlive-chip-invert-smoke.mjs
+ *
+ * Bundle: tests/fwlive-lab-playwright-bundle.mjs (shared context).
+ */
+import { isDirectRun, withLabPage } from './lib/playwright-lab.mjs';
 
 async function assertInvert(page, { paused }) {
 	await page.locator('.fwlive-chip-clear').click({ timeout: 2000 }).catch(() => {});
@@ -51,20 +41,19 @@ async function assertInvert(page, { paused }) {
 		throw new Error(`invert did not filter table while ${paused ? 'paused' : 'live'} (${passBefore} -> ${passAfter} pass rows)`);
 }
 
-async function main() {
-	const browser = await chromium.launch({ headless: true });
-	const page = await browser.newPage();
-	page.on('pageerror', (e) => console.error('pageerror:', e.message));
-
-	await login(page);
+export async function runChipInvertSmoke(page) {
 	await assertInvert(page, { paused: false });
 	await assertInvert(page, { paused: true });
-
 	console.log('fwlive chip invert smoke OK (live + paused)');
-	await browser.close();
 }
 
-main().catch((e) => {
-	console.error(e);
-	process.exit(1);
-});
+async function main() {
+	await withLabPage(runChipInvertSmoke);
+}
+
+if (isDirectRun(import.meta.url)) {
+	main().catch((e) => {
+		console.error(e);
+		process.exit(1);
+	});
+}
