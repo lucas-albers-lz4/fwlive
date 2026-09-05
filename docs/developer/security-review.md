@@ -68,7 +68,7 @@ should carry a note saying what would raise it.
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-08-23 | Read | Pins intact |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
-| Lab honest-gap smokes | 2026-09-03 | Scripts landed | `scripts/qemu-security-gaps-smoke.sh` (gaps 1–3; QEMU not run this pass); `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
+| Lab honest-gap smokes | 2026-09-04 | Lab smoke | `scripts/qemu-security-gaps-smoke.sh` gaps 1–3 green 2026-09-04; gap-2 BusyBox `flock` (no `-w`) accepted residual; `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
 
 ## Controls in force
 

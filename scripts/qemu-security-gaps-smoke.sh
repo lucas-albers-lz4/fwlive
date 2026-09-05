@@ -25,7 +25,14 @@ die() { echo "security-gaps smoke FAIL: $*" >&2; exit 1; }
 ok() { echo "security-gaps smoke OK: $*"; }
 
 ssh_guest() {
-	ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
+	# ConnectTimeout bounds setup only — wrap the whole command so a hung
+	# guest cannot stall the lab run. Set FWLIVE_SSH_NO_TIMEOUT=1 for the
+	# intentional flock holder (sleep 120), which must outlive this bound.
+	if [[ -n "${FWLIVE_SSH_NO_TIMEOUT:-}" ]]; then
+		ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
+	else
+		timeout "${SSH_TIMEOUT_SEC:-60}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
+	fi
 }
 
 echo "== fwlive security-gaps smoke (root@${HOST}:${PORT}) ==" >&2
@@ -77,8 +84,10 @@ echo $?
 ok "unprivileged cannot LOCK_EX logging.lock (rc=${UNPRIV_RC})"
 
 # Root holder blocks; call enable with host-side timeout (required above).
-ssh_guest "flock '$LOCK_PATH' sleep 120" >/dev/null 2>&1 &
+# The holder must outlive the ssh_guest bound — bypass it explicitly.
+FWLIVE_SSH_NO_TIMEOUT=1 ssh_guest "flock '$LOCK_PATH' sleep 120" >/dev/null 2>&1 &
 HOLDER_PID=$!
+unset FWLIVE_SSH_NO_TIMEOUT
 sleep 1
 set +e
 ENABLE_OUT="$(timeout "${FLOCK_WAIT_SEC}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "ubus call fwlive enable_wan_logging" 2>&1)"
@@ -86,8 +95,6 @@ ENABLE_RC=$?
 set -e
 kill "$HOLDER_PID" 2>/dev/null || true
 wait "$HOLDER_PID" 2>/dev/null || true
-# Release any leftover lock from the sleep if still held
-ssh_guest "flock -u '$LOCK_PATH' true 2>/dev/null || true; true" >/dev/null 2>&1 || true
 
 if [[ "$ENABLE_RC" -eq 124 ]]; then
 	# Client timeout fired — rpcd worker still blocked on flock (accepted residual:
@@ -100,9 +107,21 @@ else
 	die "unexpected enable under lock hold (rc=${ENABLE_RC}): $ENABLE_OUT"
 fi
 
-# Ensure lock released for gap 3
-ssh_guest "flock -n '$LOCK_PATH' true" >/dev/null 2>&1 \
-	|| ssh_guest "rm -f '$LOCK_PATH'; mkdir -p /etc/fwlive; touch '$LOCK_PATH'; chmod 0600 '$LOCK_PATH'"
+# Ensure lock released for gap 3 — same inode, never rm+recreate. A timed-out
+# rpcd worker may still hold the old fd; a new inode would split serialization.
+if ! ssh_guest "flock -n '$LOCK_PATH' true" >/dev/null 2>&1; then
+	RELEASED=0
+	for ((_i = 0; _i < 10; _i++)); do
+		sleep 1
+		if ssh_guest "flock -n '$LOCK_PATH' true" >/dev/null 2>&1; then
+			RELEASED=1
+			break
+		fi
+	done
+	[[ "$RELEASED" == "1" ]] \
+		|| die "logging.lock still held after holder kill (will not rm+recreate: stuck holder keeps old inode)"
+fi
+ok "logging.lock released on the same inode"
 
 # --- Gap 3: foreign firewall staging must not be committed -----------------
 ZONE="$(ssh_guest "uci -q show firewall | sed -n \"s/^firewall\\.\\([^.]*\\)\\.name='wan'\$/\\1/p\" | head -1")"
@@ -117,6 +136,9 @@ EXISTING_CHANGES="$(ssh_guest 'uci changes firewall 2>/dev/null || true')"
 MARKER="fwlive_gap_marker_$$"
 ssh_guest "uci set firewall.@defaults[0].fwlive_gap_test='${MARKER}'" \
 	|| die "could not stage foreign firewall delta"
+# Revert only what this script staged — a package-wide revert would discard
+# an unrelated delta staged after the empty-state check above.
+trap 'ssh_guest "uci revert firewall.@defaults[0].fwlive_gap_test 2>/dev/null || true" >/dev/null 2>&1 || true' EXIT
 
 EN="$(ssh_guest 'ubus call fwlive enable_wan_logging' 2>&1 || true)"
 printf '%s' "$EN" | grep -Eq 'firewall_changes_pending' \
@@ -133,6 +155,7 @@ COMMITTED="$(ssh_guest "grep -E \"option[[:space:]]+fwlive_gap_test[[:space:]]+'
 	|| die "foreign marker was written into committed /etc/config/firewall"
 ok "foreign staged delta neither committed nor dropped by toggle refuse"
 
-ssh_guest 'uci revert firewall 2>/dev/null || true'
+ssh_guest "uci revert firewall.@defaults[0].fwlive_gap_test 2>/dev/null || true"
+trap - EXIT
 
 echo "== security-gaps smoke passed ==" >&2
