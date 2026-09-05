@@ -815,17 +815,23 @@ else
 fi
 
 # Gap 3: run_with_timeout contract, tested against the shipped text.
+# Exec/timeout halves need a real timeout binary; the fail-closed half
+# shadows it via the command stub below and runs everywhere.
 _run_with_timeout_src=$(sed -n '/^run_with_timeout()/,/^}/p' "$RPCD")
 [ -n "$_run_with_timeout_src" ] || die "run_with_timeout not found in $RPCD"
 eval "$_run_with_timeout_src"
 unset _run_with_timeout_src
-got=$(run_with_timeout 5 echo hello)
-[ "$got" = "hello" ] || die "run_with_timeout must exec with timeout present, got: $got"
-ok "run_with_timeout execs with timeout present"
-_rc=0
-run_with_timeout 1 sleep 5 2>/dev/null || _rc=$?
-[ "$_rc" -ne 0 ] && [ "$_rc" -ne 127 ] || die "run_with_timeout must time out (non-zero, not 127), got: $_rc"
-ok "run_with_timeout times out without running unbounded"
+if command -v timeout >/dev/null 2>&1; then
+	got=$(run_with_timeout 5 echo hello)
+	[ "$got" = "hello" ] || die "run_with_timeout must exec with timeout present, got: $got"
+	ok "run_with_timeout execs with timeout present"
+	_rc=0
+	run_with_timeout 1 sleep 5 2>/dev/null || _rc=$?
+	[ "$_rc" -ne 0 ] && [ "$_rc" -ne 127 ] || die "run_with_timeout must time out (non-zero, not 127), got: $_rc"
+	ok "run_with_timeout times out without running unbounded"
+else
+	ok "run_with_timeout exec/timeout skipped (no timeout on test host)"
+fi
 # command is a shell keyword, so command command reaches the real builtin.
 command() {
 	case "$1 $2" in
