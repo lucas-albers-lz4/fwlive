@@ -193,6 +193,54 @@ async function testPollErrorBanner(page) {
 	}
 }
 
+async function testRulesTruncatedDegraded(page) {
+	/* Tier-2 Gap 1 (#274): a truncated rules reply degrades the backend span
+	 * while the counter and paused class still render (~256-rules shape). */
+	const pauseBtn = page.locator('#fwlive-pause');
+	await pauseBtn.click();
+	await page.waitForFunction(() => {
+		const map = document.querySelector('.fwlive-map');
+		return map && map.classList.contains('fwlive-watch-paused');
+	}, { timeout: 10000 });
+	try {
+		await page.evaluate(async () => {
+			window.__fwlivePrevRulesMock = window.setFwliveRulesMock(function() {
+				return { rules: {}, error: 'rules_truncated' };
+			});
+			await window.fwliveView.loadRulesMap();
+			window.fwliveView.updateStatus();
+		});
+		await page.waitForFunction(() => {
+			const el = document.getElementById('fwlive-backend');
+			return el && /map truncated/i.test(el.textContent || '');
+		}, { timeout: 10000 });
+		const status = await page.locator('#fwlive-status').textContent();
+		if (!/matching/i.test(status || ''))
+			throw new Error('counter must still render under rules_truncated, got: ' + status);
+		const paused = await page.evaluate(() => {
+			const map = document.querySelector('.fwlive-map');
+			return !!(map && map.classList.contains('fwlive-watch-paused'));
+		});
+		if (!paused)
+			throw new Error('paused class must survive rules_truncated');
+		console.log('OK: rules_truncated backend-span + counter/paused (#274)');
+	} finally {
+		await page.evaluate(async () => {
+			if (typeof window.__fwlivePrevRulesMock !== 'undefined') {
+				window.setFwliveRulesMock(window.__fwlivePrevRulesMock);
+				delete window.__fwlivePrevRulesMock;
+			}
+			await window.fwliveView.loadRulesMap();
+			window.fwliveView.updateStatus();
+		});
+		await pauseBtn.click();
+		await page.waitForFunction(() => {
+			const map = document.querySelector('.fwlive-map');
+			return map && !map.classList.contains('fwlive-watch-paused');
+		}, { timeout: 10000 });
+	}
+}
+
 async function runSmoke(browser) {
 	const pageErrors = [];
 	const page = await browser.newPage();
@@ -211,6 +259,7 @@ async function runSmoke(browser) {
 		await testSegmentToggles(page);
 		await testHostnamesToggle(page);
 		await testPollErrorBanner(page);
+		await testRulesTruncatedDegraded(page);
 
 		if (pageErrors.length)
 			throw new Error('pageerror(s) during smoke: ' + pageErrors.join('; '));
