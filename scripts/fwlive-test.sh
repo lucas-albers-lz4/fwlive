@@ -50,6 +50,9 @@ echo "== fwlive shell filter parity ==" >&2
 echo "== fwlive classify spec ==" >&2
 "$NODE" tests/fwlive-classify-spec.test.js
 
+echo "== fwlive parser corpus pin (#240 C1) ==" >&2
+"$NODE" tests/fwlive-parser-corpus.test.js
+
 echo "== fwlive codegen freshness ==" >&2
 "$NODE" tests/fwlive-codegen.test.js
 
