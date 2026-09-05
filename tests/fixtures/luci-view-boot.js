@@ -92,6 +92,12 @@
 		return prev;
 	};
 
+	window.setFwliveRulesMock = function(fn) {
+		const prev = rpcMocks['fwlive.rules'];
+		rpcMocks['fwlive.rules'] = fn;
+		return prev;
+	};
+
 	const poll = {
 		_entries: [],
 		_timer: null,
