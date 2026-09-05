@@ -12,11 +12,25 @@ die() { echo "fwlive-upstream-cut test FAIL: $*" >&2; exit 1; }
 ok() { echo "fwlive-upstream-cut test OK: $*"; }
 
 CUT_WORK=$(mktemp -d)
-trap 'rm -rf "$CUT_WORK"; git -C "$ROOT" branch -D upstream/luci-app-fwlive >/dev/null 2>&1 || true' EXIT
+# Preserve a pre-existing regenerable split ref; only delete if we created it.
+SAVED_UPSTREAM_CUT_SHA=
+if git -C "$ROOT" rev-parse --verify refs/heads/upstream/luci-app-fwlive >/dev/null 2>&1; then
+	SAVED_UPSTREAM_CUT_SHA=$(git -C "$ROOT" rev-parse refs/heads/upstream/luci-app-fwlive)
+fi
+_restore_upstream_cut_ref() {
+	rm -rf "$CUT_WORK"
+	if [ -n "${SAVED_UPSTREAM_CUT_SHA:-}" ]; then
+		git -C "$ROOT" update-ref refs/heads/upstream/luci-app-fwlive "$SAVED_UPSTREAM_CUT_SHA" >/dev/null 2>&1 || true
+	else
+		git -C "$ROOT" branch -D upstream/luci-app-fwlive >/dev/null 2>&1 || true
+	fi
+}
+trap _restore_upstream_cut_ref EXIT
 
 # Gap 4: the cut must stay luci-shaped. Time it for the wave record.
+# Keep stderr so named invariant failures from the cut script reach CI.
 _start=$(date +%s)
-"$ROOT/scripts/upstream-cut.sh" "$CUT_WORK/cut" >/dev/null 2>&1 || die "upstream-cut.sh failed"
+"$ROOT/scripts/upstream-cut.sh" "$CUT_WORK/cut" >/dev/null || die "upstream-cut.sh failed"
 _end=$(date +%s)
 echo "fwlive-upstream-cut test INFO: cut wall time $((_end - _start))s"
 
