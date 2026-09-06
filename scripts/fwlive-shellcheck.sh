@@ -15,21 +15,22 @@ fi
 # Empty baseline → no --exclude (fail closed on any new warning).
 EXCLUDE_ARGS=()
 if [[ -f "$BASELINE" ]]; then
-	mapfile -t SC_IDS < <(
-		awk '
-			/^[[:space:]]*#/ { next }
-			/^[[:space:]]*$/ { next }
-			match($0, /^SC[0-9]+/) {
-				id = substr($0, RSTART, RLENGTH)
-				if ($0 !~ /#/) {
-					print "FAIL: shellcheck-baseline entry missing # reason: " $0 > "/dev/stderr"
-					exit 2
-				}
-				print id
-			}
-		' "$BASELINE" | sort -u
-	)
+	SC_IDS=()
+	while IFS= read -r line || [[ -n "$line" ]]; do
+		[[ "$line" =~ ^[[:space:]]*# ]] && continue
+		[[ -z "${line//[[:space:]]/}" ]] && continue
+		if [[ "$line" =~ ^(SC[0-9]+) ]]; then
+			id="${BASH_REMATCH[1]}"
+			if [[ "$line" != *#* ]]; then
+				echo "FAIL: shellcheck-baseline entry missing # reason: $line" >&2
+				exit 1
+			fi
+			SC_IDS+=("$id")
+		fi
+	done < "$BASELINE"
 	if [[ ${#SC_IDS[@]} -gt 0 ]]; then
+		# Unique sorted ids for --exclude=A,B,C
+		mapfile -t SC_IDS < <(printf '%s\n' "${SC_IDS[@]}" | sort -u)
 		EXCLUDE_ARGS=(--exclude="$(IFS=,; echo "${SC_IDS[*]}")")
 	fi
 fi
