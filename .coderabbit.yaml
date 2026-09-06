@@ -16,6 +16,14 @@ reviews:
     enabled: true
     drafts: false              # automatic reviews skip drafts; manual @coderabbitai review still works
     base: auto
+  # fwlive is ash + LuCI JS, not a docstring-gated library API. CR's default
+  # 80% docstring coverage pre-merge check false-positives on shell/JS diffs.
+  pre_merge_checks:
+    docstrings:
+      mode: off
+  finishing_touches:
+    docstrings:
+      enabled: false
   tools:
     ast_grep: true            # the tool name is ast_grep (NOT "ast_grex" — see discussion)
     bullseye: true            # security add-on: good for the rpcd/frontend boundary

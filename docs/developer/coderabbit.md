@@ -32,6 +32,19 @@ CodeRabbit, that is separate — do not paste this repo’s review threads.
     (auto-pause kicks in after many reviewed commits)
   - `@coderabbitai rate limit` — quota status only (does **not** consume a review)
 
+### Intentionally disabled: docstring coverage
+
+CodeRabbit’s default pre-merge check requires ~80% docstring coverage on
+functions touched by the diff. That gate is **off** here
+(`reviews.pre_merge_checks.docstrings.mode: off`), and the “generate
+docstrings” finishing touch is disabled too.
+
+**Why:** fwlive is BusyBox ash (rpcd/libexec), host Bash CI scripts, and LuCI
+JS — not a Python/JSDoc public library. The check false-positives on shell
+`function` / JS helpers and would push boilerplate docs that CI and tests do
+not use as a proof gate. Prefer substantive path_instructions findings over
+coverage nits. Do not re-enable without a concrete, language-scoped need.
+
 ## Efficient trigger path (prefer this)
 
 Goal: **one review slot per stable head**, not a fixed one-hour sleep.
