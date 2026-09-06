@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Curated shellcheck exclusions for shipped libexec/rpcd (#290 L7).
+# Format: SC####<optional trailing junk>  then "# reason" on the same line.
+# Only the SC id before the first non-id character is used for --exclude.
+# New SC findings at --severity=warning MUST NOT be added casually — each
+# entry needs a reviewer-auditable reason (same bar as CodeQL suppressions).
+#
+# As of 2026-09-06 the shipped surface is clean at warning (and style) under
+# `shellcheck -s sh`. This file intentionally has zero suppressions so the
+# gate fails closed on the next new SC id.
+
