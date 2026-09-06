@@ -1,4 +1,6 @@
 'use strict';
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright 2025-2026 Lucas Albers <lucas.b.albers@gmail.com> */
 /*
  * LuCI Firewall Live View — client-side view (view.extend + ubus fwlive.poll).
  * UI interaction patterns inspired by OPNsense Live View; original implementation
