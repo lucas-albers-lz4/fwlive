@@ -69,6 +69,32 @@ jobs:
             "$ZIZMOR_IMAGE" \
             --offline --persona=regular --min-severity=high .
 
+  # #290 L6: actionlint (docker run, not job container — usrmanage #85 EACCES).
+  actionlint:
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_IMAGE: rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+      ACTIONLINT_VERSION: "1.7.7"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+      - name: Verify actionlint version (pinned image)
+        run: |
+          out="$(docker run --rm "$ACTIONLINT_IMAGE" -version)"
+          printf '%s\n' "$out"
+          if ! printf '%s\n' "$out" | grep -q "${ACTIONLINT_VERSION}"; then
+            echo "expected actionlint ${ACTIONLINT_VERSION} in version output" >&2
+            exit 1
+          fi
+      - name: Run actionlint on workflows
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/repo:ro" \
+            -w /repo \
+            "$ACTIONLINT_IMAGE" \
+            -color
+
   # #121: authoritative Z3 suite (F1-F4).
   z3-verify:
     runs-on: ubuntu-latest

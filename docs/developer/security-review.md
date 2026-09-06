@@ -415,3 +415,15 @@ links to this ledger for review state.
 
 **Result.** H1 done (no package code change). H2 remains open until the operator UI toggles land; do not treat GHAS sub-features as cleared yet.
 
+### 2026-09-06 — Lint / actionlint / shellcheck baseline (#290)
+
+**Scope.** Upstream-readiness Tier-1 tooling: actionlint CI job (L6) and curated shellcheck `--severity=warning` baseline (L7).
+
+**Artifacts.**
+
+- **actionlint:** job `actionlint` in `.github/workflows/fwlive-test.yml` runs `docker run` (not job-level `container:`) with digest-pinned `rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9` (v1.7.7), same EACCES-safe pattern as zizmor / usrmanage.
+- **shellcheck baseline:** `scripts/shellcheck-baseline.txt` (zero suppressions as of this date — shipped libexec/rpcd clean at warning+style) + `scripts/fwlive-shellcheck.sh` uses `--severity=warning` and applies `--exclude` only for justified baseline ids.
+
+**Result.** New SC warnings and Actions config mistakes fail the PR gate. Baseline grows only with an annotated reason per SC id.
+
+
