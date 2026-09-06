@@ -7,6 +7,7 @@
  */
 
 const path = require('node:path');
+const js = require('@eslint/js');
 
 const luciBrowserGlobals = {
 	document: 'readonly',
@@ -65,6 +66,7 @@ const fwliveViewAliases = {
 	buffer: 'readonly',
 	hostname: 'readonly',
 	proto: 'readonly',
+	links: 'readonly',
 };
 
 /** Wrap LuCI AMD bodies so top-level `return` parses under Espree. */
@@ -129,6 +131,7 @@ module.exports = [
 			},
 		},
 		rules: {
+			...js.configs.recommended.rules,
 			'no-undef': 'error',
 			'no-implicit-globals': 'error',
 			'no-eval': 'error',
