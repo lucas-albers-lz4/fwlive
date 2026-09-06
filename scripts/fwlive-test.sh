@@ -20,6 +20,34 @@ fi
 echo "== fwlive view syntax (node --check) ==" >&2
 "$NODE" --check openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js
 
+echo "== fwlive SPDX headers on shipped surface (#291) ==" >&2
+SPDX_FAIL=0
+SPDX_FILES=(
+	"$ROOT/openwrt-feed/luci-app-fwlive/Makefile"
+	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive"
+	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh"
+	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh"
+	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh"
+	"$ROOT/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js"
+)
+while IFS= read -r -d '' f; do
+	SPDX_FILES+=("$f")
+done < <(find \
+	"$ROOT/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive" \
+	-type f -name '*.js' -print0)
+for f in "${SPDX_FILES[@]}"; do
+	[[ -f "$f" ]] || { echo "FAIL: expected shipped file missing: $f" >&2; SPDX_FAIL=1; continue; }
+	if ! grep -q 'SPDX-License-Identifier' "$f"; then
+		echo "FAIL: missing SPDX-License-Identifier: $f" >&2
+		SPDX_FAIL=1
+	fi
+done
+if [[ "$SPDX_FAIL" -ne 0 ]]; then
+	echo "FAIL: add SPDX-License-Identifier to shipped files (#291 C2)" >&2
+	exit 1
+fi
+echo "OK: SPDX headers present on shipped JS/shell/Makefile" >&2
+
 echo "== fwlive shellcheck (libexec/rpcd) ==" >&2
 bash "$ROOT/scripts/fwlive-shellcheck.sh"
 
