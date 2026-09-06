@@ -1,7 +1,7 @@
 # Security review state
 
 > **Status:** 45 controls in force; 0 open findings.
-> **Last review:** 2026-09-03 (multi-model VVAH pass: playbook + B-1 zone identity; #261/#257 closed).
+> **Last review:** 2026-09-06 (housekeeping hygiene #293: stale branch deleted; GHAS secret-scanning sub-features).
 > **Open:** none.
 > **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass: [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
@@ -402,3 +402,15 @@ links to this ledger for review state.
 - UCI `.log_*` near-miss grammar (#257) holds under Fable checklist.
 
 **Full-pass gate.** Deferred — no class bug beyond B-1 (fixed), no high/medium blast radius. The pin checklist is not due until the next `v*` tag. Next: QEMU `qemu-security-gaps-smoke.sh` for gaps 1–3.
+
+### 2026-09-06 — Housekeeping hygiene (#293)
+
+**Scope.** Carryover from upstream-readiness review (#288 M10, M12) and live housekeeping scan: stale merged branch + GHAS secret-scanning sub-features (User-account UI toggles; no REST path).
+
+**Actions.**
+
+- **H1:** Deleted remote `fix/rpcd-hardening` (merged via PR #68 on 2026-07-29; predated `delete_branch_on_merge`). Verified `GET .../git/refs/heads/fix/rpcd-hardening` → 404.
+- **H2:** Enabled GitHub secret scanning **Validity checks** and **Non-provider patterns** in repo Settings → Code security (User account; UI-only). Base secret scanning + push protection were already `enabled`.
+- **H3:** This ledger entry records the state for the next housekeeping re-scan.
+
+**Result.** No code change to the shipped package. Housekeeping `stale_merged_branches` / GHAS sub-feature findings cleared for this scan window.
