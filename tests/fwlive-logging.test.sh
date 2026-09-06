@@ -161,6 +161,29 @@ got=$(find_wan_zone_section)
 [ "$got" = "@zone[0]" ] || die "skip non-zone name=wan expected @zone[0], got '$got'"
 ok "find_wan_zone_section skips non-zone name=wan"
 
+# uci -q get miss must not abort WAN discovery under set -e (#291 C3).
+uci() {
+	case "$*" in
+		'-q show firewall')
+			cat <<'EOF'
+firewall.gone.name='wan'
+firewall.@zone[0]=zone
+firewall.@zone[0].name='wan'
+EOF
+			;;
+		'-q get firewall.gone')
+			return 1
+			;;
+		'-q get firewall.@zone[0]')
+			printf 'zone\n'
+			;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "@zone[0]" ] || die "uci get miss must continue, expected @zone[0], got '$got'"
+ok "find_wan_zone_section continues after uci get miss"
+
 # firewall_changes_pending + enable refuse (issue #168)
 PENDING_STAGED=1
 UCI_COMMITTED=0

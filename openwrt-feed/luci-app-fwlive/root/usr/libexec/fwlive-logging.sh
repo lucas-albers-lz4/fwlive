@@ -132,7 +132,10 @@ find_wan_zone_section() {
 		| sed -n "s/^firewall\.\([^.]*\)\.name='wan'$/\1/p") || true
 	for zone in $_zones; do
 		[ -n "$zone" ] || continue
-		[ "$(uci -q get "firewall.${zone}" 2>/dev/null)" = "zone" ] || continue
+		# uci -q get exits 1 on a missing section. Capture with || true so
+		# set -e cannot abort inside "$(…)" before || continue (#291 C3).
+		_type=$(uci -q get "firewall.${zone}" 2>/dev/null || true)
+		[ "$_type" = "zone" ] || continue
 		printf '%s' "$zone"
 		return 0
 	done
@@ -443,7 +446,11 @@ build_logging_status_json() {
 	zone=$(find_wan_zone_section)
 	# Empty zone / unset log bit are valid; set -e cannot apply (#291 C3).
 	log_val=$(wan_zone_log_value "$zone") || log_val=
-	limit_val=$( [ -n "$zone" ] && uci -q get "firewall.${zone}.log_limit" 2>/dev/null || true )
+	# Unset log_limit is a valid empty value; uci -q get exits 1 (#291 C3).
+	limit_val=
+	if [ -n "$zone" ]; then
+		limit_val=$(uci -q get "firewall.${zone}.log_limit" 2>/dev/null || true)
+	fi
 	wan_log=false
 	if wan_filter_log_enabled "$log_val"; then
 		wan_log=true
