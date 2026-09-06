@@ -1,9 +1,9 @@
 # Security review state
 
-> **Status:** 45 controls in force; 0 open findings.
-> **Last review:** 2026-09-03 (multi-model VVAH pass: playbook + B-1 zone identity; #261/#257 closed).
-> **Open:** none.
-> **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
+> **Status:** 45 controls in force; 0 open security findings; housekeeping GHAS sub-features pending operator UI toggle (#293 H2).
+> **Last review:** 2026-09-06 (housekeeping hygiene #293: H1 stale branch deleted; H2 Validity checks + Non-provider patterns still operator-pending).
+> **Open:** #293 H2 — enable secret scanning Validity checks and Non-provider patterns (repo Settings → Code security; User-account UI-only).
+> **Next:** After H2 toggles, re-scan with housekeeping (expect `secret_validity_checks_off` / `secret_nonprovider_patterns_off` clear). On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass: [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
 
 What has been reviewed, when, with what strength of proof, and what is still
@@ -402,3 +402,16 @@ links to this ledger for review state.
 - UCI `.log_*` near-miss grammar (#257) holds under Fable checklist.
 
 **Full-pass gate.** Deferred — no class bug beyond B-1 (fixed), no high/medium blast radius. The pin checklist is not due until the next `v*` tag. Next: QEMU `qemu-security-gaps-smoke.sh` for gaps 1–3.
+
+### 2026-09-06 — Housekeeping hygiene (#293)
+
+**Scope.** Carryover from upstream-readiness review (#288 M10, M12) and live housekeeping scan: stale merged branch + GHAS secret-scanning sub-features (User-account UI toggles; no REST path).
+
+**Actions.**
+
+- **H1:** Deleted remote `fix/rpcd-hardening` (merged via PR #68 on 2026-07-29; predated `delete_branch_on_merge`). Verified `GET .../git/refs/heads/fix/rpcd-hardening` → 404.
+- **H2:** Repo Settings → Code security: enable secret scanning **Validity checks** and **Non-provider patterns** (User account; UI-only, no API). Base secret scanning + push protection already `enabled` (API-confirmed 2026-09-06). **Still operator-pending** as of this entry; housekeeping still reports `secret_validity_checks_off` / `secret_nonprovider_patterns_off` until toggled and re-scanned.
+- **H3:** This ledger entry records H1 complete and H2 pending for the next housekeeping re-scan.
+
+**Result.** H1 done (no package code change). H2 remains open until the operator UI toggles land; do not treat GHAS sub-features as cleared yet.
+
