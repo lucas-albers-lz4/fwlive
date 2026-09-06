@@ -1,0 +1,9 @@
+out/
+build/
+node_modules/
+lab/
+wave/
+coverage/
+openwrt/
+.sdk/
+.ci-sdk-cache/

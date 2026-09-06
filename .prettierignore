@@ -1,0 +1,13 @@
+out/
+build/
+node_modules/
+lab/
+wave/
+coverage/
+openwrt/
+.sdk/
+.ci-sdk-cache/
+package-lock.json
+*.min.js
+# Generated CSS embed — format via source fwlive.css + embed script
+openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/css.js
