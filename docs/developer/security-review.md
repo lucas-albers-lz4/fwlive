@@ -410,7 +410,5 @@ links to this ledger for review state.
 **Actions.**
 
 - **H1:** Deleted remote `fix/rpcd-hardening` (merged via PR #68 on 2026-07-29; predated `delete_branch_on_merge`). Verified `GET .../git/refs/heads/fix/rpcd-hardening` → 404.
-- **H2:** Enabled GitHub secret scanning **Validity checks** and **Non-provider patterns** in repo Settings → Code security (User account; UI-only). Base secret scanning + push protection were already `enabled`.
-- **H3:** This ledger entry records the state for the next housekeeping re-scan.
-
-**Result.** No code change to the shipped package. Housekeeping `stale_merged_branches` / GHAS sub-feature findings cleared for this scan window.
+- **H2:** Repo Settings → Code security: enable secret scanning **Validity checks** and **Non-provider patterns** (User account; UI-only, no API). Base secret scanning + push protection already `enabled` (API-confirmed 2026-09-06). Operator completes the two sub-feature toggles when landing this issue; re-scan with housekeeping afterward should clear `secret_validity_checks_off` / `secret_nonprovider_patterns_off`.
+- **H3:** This ledger entry records the hygiene close-out for the next housekeeping re-scan.
