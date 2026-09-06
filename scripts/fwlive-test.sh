@@ -55,8 +55,10 @@ done < <(find \
 	-type f -name '*.js' -print0)
 for f in "${SPDX_FILES[@]}"; do
 	[[ -f "$f" ]] || { echo "FAIL: expected shipped file missing: $f" >&2; SPDX_FAIL=1; continue; }
-	# Require a valid SPDX header in the first 6 lines (not a mid-file mention).
-	if ! sed -n '1,6p' "$f" | grep -qE 'SPDX-License-Identifier:[[:space:]]+[^[:space:]]+'; then
+	# Require a comment-form SPDX header in the first 6 lines (# or /* …).
+	# Reject bare string/prose matches in the header window (Luna on #301).
+	if ! sed -n '1,6p' "$f" | grep -qE \
+		'^[[:space:]]*(#|/\*)[[:space:]]*SPDX-License-Identifier:[[:space:]]+[^[:space:]]+'; then
 		echo "FAIL: missing SPDX-License-Identifier header: $f" >&2
 		SPDX_FAIL=1
 	fi
