@@ -21,7 +21,8 @@ if [[ -f "$BASELINE" ]]; then
 		[[ -z "${line//[[:space:]]/}" ]] && continue
 		if [[ "$line" =~ ^(SC[0-9]+) ]]; then
 			id="${BASH_REMATCH[1]}"
-			if [[ "$line" != *#* ]]; then
+			reason="${line#*#}"
+			if [[ "$line" != *#* || -z "${reason//[[:space:]]/}" ]]; then
 				echo "FAIL: shellcheck-baseline entry missing # reason: $line" >&2
 				exit 1
 			fi

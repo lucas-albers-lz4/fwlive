@@ -18,7 +18,9 @@ if [[ -z "$NODE" ]]; then
 fi
 
 echo "== fwlive JS/CSS lint stack (#290) ==" >&2
-if [[ ! -d "$ROOT/node_modules/eslint" ]]; then
+if [[ ! -x "$ROOT/node_modules/.bin/eslint" ||
+	! -x "$ROOT/node_modules/.bin/prettier" ||
+	! -x "$ROOT/node_modules/.bin/stylelint" ]]; then
 	echo "Installing npm devDependencies for lint gates..." >&2
 	(cd "$ROOT" && npm ci)
 fi
@@ -53,8 +55,9 @@ done < <(find \
 	-type f -name '*.js' -print0)
 for f in "${SPDX_FILES[@]}"; do
 	[[ -f "$f" ]] || { echo "FAIL: expected shipped file missing: $f" >&2; SPDX_FAIL=1; continue; }
-	if ! grep -q 'SPDX-License-Identifier' "$f"; then
-		echo "FAIL: missing SPDX-License-Identifier: $f" >&2
+	# Require a valid SPDX header in the first 6 lines (not a mid-file mention).
+	if ! sed -n '1,6p' "$f" | grep -qE 'SPDX-License-Identifier:[[:space:]]+[^[:space:]]+'; then
+		echo "FAIL: missing SPDX-License-Identifier header: $f" >&2
 		SPDX_FAIL=1
 	fi
 done

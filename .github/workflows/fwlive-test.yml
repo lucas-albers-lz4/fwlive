@@ -88,8 +88,10 @@ jobs:
         run: |
           out="$(docker run --rm "$ACTIONLINT_IMAGE" -version)"
           printf '%s\n' "$out"
-          if ! printf '%s\n' "$out" | grep -q "${ACTIONLINT_VERSION}"; then
-            echo "expected actionlint ${ACTIONLINT_VERSION} in version output" >&2
+          # First line is the version token (e.g. "1.7.7"); compare exactly.
+          ver="$(printf '%s\n' "$out" | head -n1 | awk '{print $1}')"
+          if [[ "$ver" != "$ACTIONLINT_VERSION" ]]; then
+            echo "expected actionlint '${ACTIONLINT_VERSION}', got '${ver}'" >&2
             exit 1
           fi
       - name: Run actionlint on workflows
