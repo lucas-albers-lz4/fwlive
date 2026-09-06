@@ -130,6 +130,7 @@ function busyboxHonorsPath(cmd) {
 		makeStub(probe, cmd, '#!/bin/sh\necho STUB_RAN\nexit 0\n');
 		const out = execFileSync('busybox', ['sh', '-c', `${cmd} 192.0.2.1`], {
 			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'ignore'],
 			env: { ...process.env, PATH: `${probe}:${process.env.PATH}` },
 		});
 		return out.includes('STUB_RAN');
@@ -139,6 +140,36 @@ function busyboxHonorsPath(cmd) {
 	} finally {
 		if (probe) fs.rmSync(probe, { recursive: true, force: true });
 	}
+}
+
+function pathHonouringShells(cmd) {
+	const shells = posixShells().filter((s) => s !== 'busybox' || busyboxHonorsPath(cmd));
+	assert.ok(shells.length > 0, `need a PATH-honouring POSIX shell for ${cmd} stub`);
+	return shells;
+}
+
+function stubPathEnv(stubDir) {
+	return { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+}
+
+function installNftUciStubs(stubDir) {
+	makeStub(stubDir, 'nft', `#!/bin/sh
+[ "$1" = list ] && [ "$2" = ruleset ] || exit 1
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "fwlive-ssh" comment "!fw4: Allow-SSH"
+	}
+}
+EOF
+`);
+	makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+}
+
+function assertNftSshRules(shell, raw) {
+	const res = JSON.parse(raw);
+	assert.equal(res.backend, 'nft', `[${shell}] backend should be nft`);
+	assert.equal(res.rules['fwlive-ssh'], 'Allow-SSH', `[${shell}] fwlive-ssh`);
 }
 
 function testProductionNft() {
@@ -1129,6 +1160,125 @@ fi
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
 
+function installNslookupStub(stubDir) {
+	makeStub(stubDir, 'nslookup', `#!/bin/sh
+echo "marker-nslookup $1" >> "${stubDir}/called"
+cat <<'EOF'
+Server: 127.0.0.1
+Address: 127.0.0.1:53
+
+1.2.0.192.in-addr.arpa	name = ptr.example.
+EOF
+`);
+}
+
+function testBusyboxPathShadowNslookup() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-ns-'));
+	try {
+		installNslookupStub(stubDir);
+		const env = stubPathEnv(stubDir);
+		for (const shell of pathHonouringShells('nslookup')) {
+			const out = runRpcd(shell, ['__resolve_one', '192.0.2.1'], { encoding: 'utf8', env }).trim();
+			assert.equal(out, 'ptr.example', `[${shell}] PATH-first nslookup still parses`);
+			const called = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
+			assert.ok(called.includes('marker-nslookup 192.0.2.1'), `[${shell}] nslookup stub ran`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testBusyboxPathShadowTimeout() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-to-'));
+	try {
+		makeStub(stubDir, 'timeout', `#!/bin/sh
+echo "marker-timeout" >> "${stubDir}/called"
+shift
+exec "$@"
+`);
+		installNftUciStubs(stubDir);
+		const env = stubPathEnv(stubDir);
+		for (const shell of pathHonouringShells('timeout')) {
+			const raw = runWithShell(shell, env);
+			assertNftSshRules(shell, raw);
+			const called = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
+			assert.ok(called.includes('marker-timeout'), `[${shell}] timeout stub ran`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testBusyboxPathShadowJsonfilter() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-jf-'));
+	try {
+		makeStub(stubDir, 'jsonfilter', `#!/bin/sh
+echo "marker-jsonfilter" >> "${stubDir}/called"
+exit 1
+`);
+		installNftUciStubs(stubDir);
+		const env = stubPathEnv(stubDir);
+		for (const shell of pathHonouringShells('jsonfilter')) {
+			assertNftSshRules(shell, runWithShell(shell, env));
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testBusyboxPathShadowStat() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-stat-'));
+	try {
+		makeStub(stubDir, 'stat', `#!/bin/sh
+echo "marker-stat" >> "${stubDir}/called"
+exit 1
+`);
+		installNftUciStubs(stubDir);
+		const env = stubPathEnv(stubDir);
+		for (const shell of pathHonouringShells('stat')) {
+			assertNftSshRules(shell, runWithShell(shell, env));
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testBusyboxPathShadowGetent() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-getent-'));
+	try {
+		installNslookupStub(stubDir);
+		makeStub(stubDir, 'getent', `#!/bin/sh
+echo "getent-must-not-run" >> "${stubDir}/called"
+exit 1
+`);
+		const env = stubPathEnv(stubDir);
+		const shells = pathHonouringShells('getent').filter((s) => s !== 'busybox' || busyboxHonorsPath('nslookup'));
+		assert.ok(shells.length > 0, 'need a PATH-honouring POSIX shell for getent+nslookup stubs');
+		for (const shell of shells) {
+			const out = runRpcd(shell, ['__resolve_one', '192.0.2.1'], { encoding: 'utf8', env }).trim();
+			assert.equal(out, 'ptr.example', `[${shell}] resolve still parses with PATH-first getent`);
+			const called = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
+			assert.ok(called.includes('marker-nslookup 192.0.2.1'), `[${shell}] nslookup stub ran`);
+			assert.ok(!called.includes('getent-must-not-run'), `[${shell}] getent must not run`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testBusyboxPathShadowIptablesSave() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-ipt-'));
+	try {
+		makeStub(stubDir, 'iptables-save', `#!/bin/sh
+echo "marker-iptables-save" >> "${stubDir}/called"
+cat <<'EOF'
+-A INPUT -m comment --comment "Allow-SSH" -j LOG --log-prefix "fwlive-ssh "
+EOF
+`);
+		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = stubPathEnv(stubDir);
+		for (const shell of pathHonouringShells('iptables-save')) {
+			const raw = runWithShell(shell, env);
+			const res = JSON.parse(raw);
+			assert.equal(res.backend, 'iptables', `[${shell}] backend should be iptables`);
+			assert.equal(res.rules['fwlive-ssh'], 'Allow-SSH', `[${shell}] iptables fwlive-ssh`);
+			const called = fs.readFileSync(path.join(stubDir, 'called'), 'utf8');
+			assert.ok(called.includes('marker-iptables-save'), `[${shell}] iptables-save stub ran`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
 function run() {
 	runRedirectPath();
 	testProductionNft();
@@ -1148,6 +1298,12 @@ function run() {
 	testTmpDirSticky();
 	testUciWhitespaceNames();
 	testResolveNslookup();
+	testBusyboxPathShadowNslookup();
+	testBusyboxPathShadowTimeout();
+	testBusyboxPathShadowJsonfilter();
+	testBusyboxPathShadowStat();
+	testBusyboxPathShadowGetent();
+	testBusyboxPathShadowIptablesSave();
 	console.log('fwlive rules map tests passed');
 }
 
