@@ -20,6 +20,22 @@ fi
 echo "== fwlive view syntax (node --check) ==" >&2
 "$NODE" --check openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js
 
+echo "== fwlive JS/CSS lint stack (#290) ==" >&2
+if [[ ! -d "$ROOT/node_modules/eslint" ]]; then
+	echo "Installing npm devDependencies for lint gates..." >&2
+	(cd "$ROOT" && npm ci)
+fi
+(cd "$ROOT" && npm run lint:js)
+(cd "$ROOT" && npm run lint:format)
+(cd "$ROOT" && npm run lint:css)
+if command -v ruff >/dev/null 2>&1; then
+	echo "== fwlive ruff (Python) ==" >&2
+	ruff check "$ROOT/tests/fwlive-linkcheck-classify.test.py"
+else
+	echo "FAIL: ruff not found on PATH (install ruff for #290 L3)" >&2
+	exit 1
+fi
+
 echo "== fwlive SPDX headers on shipped surface (#291) ==" >&2
 SPDX_FAIL=0
 SPDX_FILES=(

@@ -1,0 +1,25 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = [
+	"out",
+	"build",
+	"node_modules",
+	"lab",
+	"wave",
+	"coverage",
+	"openwrt",
+	".sdk",
+	".ci-sdk-cache",
+	".venv",
+]
+
+[tool.ruff.lint]
+# House norm: check only — never --fix / --unsafe-fixes in CI (#290 L3).
+select = ["E", "F", "W", "B", "UP"]
+ignore = [
+	"E501", # line length — existing corpus uses long fixture strings
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]

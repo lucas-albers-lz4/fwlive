@@ -6,9 +6,17 @@
     "test": "./scripts/fwlive-test.sh",
     "test:links": "./scripts/fwlive-linkcheck.sh",
     "test:ui": "node scripts/capture-fwlive-screenshots.mjs",
-    "test:view": "node tests/fwlive-view-smoke.mjs"
+    "test:view": "node tests/fwlive-view-smoke.mjs",
+    "lint:js": "eslint \"openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/**/*.js\" \"openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js\"",
+    "lint:format": "prettier --check \"openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/**/*.js\" \"openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js\"",
+    "lint:css": "stylelint \"openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/fwlive.css\"",
+    "lint": "npm run lint:js && npm run lint:format && npm run lint:css"
   },
   "devDependencies": {
-    "playwright": "1.60.0"
+    "eslint": "9.39.5",
+    "playwright": "1.60.0",
+    "prettier": "3.9.6",
+    "stylelint": "17.14.1",
+    "stylelint-config-standard": "40.0.0"
   }
 }

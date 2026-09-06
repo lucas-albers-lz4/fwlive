@@ -16,8 +16,13 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
         with:
           node-version: '22'
-      - name: Install shellcheck and busybox
-        run: sudo apt-get update && sudo apt-get install -y shellcheck busybox
+      - name: Install shellcheck, busybox, and ruff
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck busybox pipx
+          pipx install ruff
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: npm ci
       - run: ./scripts/fwlive-test.sh
       - name: Shell parity under busybox sh
         run: SH='busybox sh' node tests/fwlive-shell-filter.test.js
