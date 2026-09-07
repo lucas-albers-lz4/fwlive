@@ -264,6 +264,8 @@ function testLoggingStatusNeverSilent() {
 	assert.equal(typeof res.ready, 'boolean');
 	assert.ok(Array.isArray(res.blockers));
 	assert.ok(Array.isArray(res.warnings));
+	assert.ok(!Object.prototype.hasOwnProperty.call(res, 'error'),
+		'logging_status must not carry an error field (intentional exception)');
 }
 
 function testToggleNoWanZone() {
