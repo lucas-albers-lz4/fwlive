@@ -1,9 +1,9 @@
 # Security review state
 
-> **Status:** 45 controls in force; 0 open security findings; housekeeping GHAS sub-features pending operator UI toggle (#293 H2).
-> **Last review:** 2026-09-06 (housekeeping hygiene #293: H1 stale branch deleted; H2 Validity checks + Non-provider patterns still operator-pending).
-> **Open:** #293 H2 — enable secret scanning Validity checks and Non-provider patterns (repo Settings → Code security; User-account UI-only).
-> **Next:** After H2 toggles, re-scan with housekeeping (expect `secret_validity_checks_off` / `secret_nonprovider_patterns_off` clear). On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
+> **Status:** 45 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
+> **Last review:** 2026-09-08 (housekeeping hygiene #293: H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
+> **Open:** None from #293. Housekeeping may still emit `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24) lands plan-aware scanning.
+> **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass: [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
 
 What has been reviewed, when, with what strength of proof, and what is still
@@ -418,10 +418,10 @@ links to this ledger for review state.
 **Actions.**
 
 - **H1:** Deleted remote `fix/rpcd-hardening` (merged via PR #68 on 2026-07-29; predated `delete_branch_on_merge`). Verified `GET .../git/refs/heads/fix/rpcd-hardening` → 404.
-- **H2:** Repo Settings → Code security: enable secret scanning **Validity checks** and **Non-provider patterns** (User account; UI-only, no API). Base secret scanning + push protection already `enabled` (API-confirmed 2026-09-06). **Still operator-pending** as of this entry; housekeeping still reports `secret_validity_checks_off` / `secret_nonprovider_patterns_off` until toggled and re-scanned.
-- **H3:** This ledger entry records H1 complete and H2 pending for the next housekeeping re-scan.
+- **H2:** **N/A — plan-gated.** Validity checks and non-provider patterns require GitHub Team/Enterprise with Secret Protection; they are not available on personal User accounts (no UI toggle path). Documented upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24). Base secret scanning + push protection already `enabled` (API-confirmed 2026-09-06). Housekeeping may still report `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until plan-aware scanning lands.
+- **H3:** This ledger entry records H1 complete and H2 N/A.
 
-**Result.** H1 done (no package code change). H2 remains open until the operator UI toggles land; do not treat GHAS sub-features as cleared yet.
+**Result.** H1 done (no package code change). H2 closed as not actionable on this account; #293 closed 2026-09-08.
 
 ### 2026-09-06 — Lint / actionlint / shellcheck baseline (#290)
 
