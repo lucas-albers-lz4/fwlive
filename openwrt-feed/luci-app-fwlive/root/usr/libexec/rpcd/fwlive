@@ -9,16 +9,7 @@
 #   logging_status — WAN zone logging readiness (no args)
 #   enable_wan_logging / disable_wan_logging — opt-in WAN zone log=1 (no args)
 #
-# Entry point (rpcd plugin). Sourced helpers inherit these options. Do not
-# copy set -euo into fwlive-logging.sh — prerm sources that file alone (#222)
-# and keeps soft-fail / || return 1 contracts (#244, #291 C3).
-set -eu
-# pipefail: BusyBox ash (device) supports it; Debian dash (host `sh` in
-# CI) rejects `set -o pipefail` as a startup abort. Probe in a subshell —
-# a failed `set` in-process is fatal even under `if` (same class as #244
-# failed exec).
-# shellcheck disable=SC3040 # pipefail is ash/bash; dash probe is a subshell
-(set -o pipefail) 2>/dev/null && set -o pipefail
+# Entry point (rpcd plugin). Sourced helpers own their strict-mode behavior.
 
 FW4_TAG='!fw4: '
 LIBEXEC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
