@@ -12,7 +12,16 @@ run_arch() {
 		"${ROOT}/scripts/qemu-smoke-fwlive.sh"
 }
 
+set +e
 run_arch x86_64 "${FWLIVE_X86_SSH_PORT:-2222}" "${FWLIVE_X86_HTTP_PORT:-8080}"
+x86_status=$?
 run_arch armsr-armv8 "${FWLIVE_ARMSR_SSH_PORT:-2223}" "${FWLIVE_ARMSR_HTTP_PORT:-8081}"
+armsr_status=$?
+set -e
+
+if (( x86_status != 0 || armsr_status != 0 )); then
+	echo "== architecture smoke failed (x86_64=${x86_status}, armsr-armv8=${armsr_status}) ==" >&2
+	exit 1
+fi
 
 echo "== both architecture smokes passed ==" >&2
