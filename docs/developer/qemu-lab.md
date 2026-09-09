@@ -108,7 +108,9 @@ pre-dirname F2 sketch (6 → 7).
 
 | stage | exec count | parse-ms median-of-50 | notes |
 |-------|------------|----------------------|-------|
-| rpcd parse (`bash -n`) | — | 2.0 | Full script + sourced logging.sh |
+| rpcd entrypoint (`bash -n`) | — | 2.0 | Does **not** follow `.` sources |
+| `fwlive-logging.sh` (`bash -n`) | — | 2.0 | Sourced by rpcd every exec |
+| rpcd+logging (sum of medians) | — | 4.0 | Host proxy for poll-process parse |
 | filter parse (`bash -n`) | — | 1.0 | `fwlive-log-filter.sh` alone |
 | classify parse (`bash -n`) | — | 1.0 | Generated heredoc shell wrapper |
 | filter subprocess | 5 | — | dirname + stdin cat + jsonfilter + heredoc cat + awk |

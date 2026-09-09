@@ -19,6 +19,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FILTER_SH="${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh"
 CLASSIFY_SH="${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh"
+LOGGING_SH="${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh"
 RPCD="${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive"
 FIXTURE="${ROOT}/tests/fixtures/logread-mixed.json"
 EXPECT_FILTER=""
@@ -280,9 +281,18 @@ echo
 
 if [[ "$SKIP_PARSE" -eq 0 ]]; then
 	echo "--- parse-only medians (bash -n, n=50, ms) ---"
-	echo "rpcd:     $(median_parse_ms "$RPCD")"
-	echo "filter:   $(median_parse_ms "$FILTER_SH")"
-	echo "classify: $(median_parse_ms "$CLASSIFY_SH")"
+	echo "note: bash -n does not follow '.' sources — measure helpers separately"
+	RPCD_MS="$(median_parse_ms "$RPCD")"
+	LOGGING_MS="$(median_parse_ms "$LOGGING_SH")"
+	FILTER_MS="$(median_parse_ms "$FILTER_SH")"
+	CLASSIFY_MS="$(median_parse_ms "$CLASSIFY_SH")"
+	# Approximate poll-process parse: entrypoint + sourced logging (host proxy).
+	COMBINED_MS="$(awk -v a="$RPCD_MS" -v b="$LOGGING_MS" 'BEGIN { printf "%.1f", a + b }')"
+	echo "rpcd:           ${RPCD_MS}  (entrypoint only)"
+	echo "logging.sh:     ${LOGGING_MS}  (sourced by rpcd every exec)"
+	echo "rpcd+logging:   ${COMBINED_MS}  (sum of medians; host proxy for poll-process parse)"
+	echo "filter:         ${FILTER_MS}"
+	echo "classify:       ${CLASSIFY_MS}"
 	echo
 fi
 
