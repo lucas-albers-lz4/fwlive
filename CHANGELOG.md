@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.39] — 2026-09-09
+
+### Fixed
+- Restore shell strict mode while isolating OpenWrt jshn parsing from nounset state variables (#312, #313)
+
 ## [v0.1.38] — 2026-09-05
 
 ### Fixed
