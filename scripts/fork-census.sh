@@ -201,8 +201,11 @@ run_poll_census() {
 	local tally="${WORKDIR}/poll.tally"
 	: >"$tally"
 	prepare_shims "$tally"
-	FWLIVE_CENSUS_TALLY="$tally" PATH="${SHIM_DIR}:${PATH}" \
-		sh "$RPCD" call poll '{"addresses":["50"]}' >/dev/null
+	# rpcd supplies the request object on stdin when no argv object is present.
+	# Exercise that production path so read_rpc_input's cat is included.
+	printf '%s' '{"addresses":["50"]}' | \
+		FWLIVE_CENSUS_TALLY="$tally" PATH="${SHIM_DIR}:${PATH}" \
+		sh "$RPCD" call poll >/dev/null
 	printf '%s' "$tally"
 }
 
@@ -256,7 +259,7 @@ POLL_TOTAL="$(tally_total "$POLL_TALLY")"
 echo "--- full poll via rpcd call (host; jshn.sh absent so clamp sed not exercised) ---"
 echo "exec total: ${POLL_TOTAL}"
 tally_breakdown "$POLL_TALLY"
-echo "production: dirname (LIBEXEC_DIR) + ubus + filter chain above"
+echo "production: dirname (LIBEXEC_DIR) + stdin cat + ubus + filter chain above"
 echo "harness: ubus stub is one counted 'ubus' exec (device: real ubus IPC); fixture emit uses /bin/cat uncounted"
 echo "not on host: jshn source+exec, poll_clamp_lines sed (need device / jshn.sh)"
 echo
