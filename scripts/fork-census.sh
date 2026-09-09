@@ -14,6 +14,7 @@
 #   ./scripts/fork-census.sh
 #   ./scripts/fork-census.sh --fixture tests/fixtures/logread-2000.json
 #   ./scripts/fork-census.sh --expect-filter N --expect-poll N
+# Relative --fixture paths resolve against the repo root (script location), not cwd.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,16 +28,13 @@ EXPECT_POLL=""
 SKIP_PARSE=0
 
 # dirname is required (#308 Phase 0a); jq is stub-accounted when used by the harness.
-# jshn/sed are listed for device census completeness but are NOT installed on the
-# host PATH: a present jshn makes poll_lines_from_input source missing
-# /usr/share/libubox/jshn.sh and abort under set -e (#308 F2 — jshn not
-# exercisable host-side). Device runs install them via --with-jshn when a
-# jshn.sh mock is available.
+# jshn/sed are device-only (#308 F2 / #310): poll_lines_from_input sources a fixed
+# /usr/share/libubox/jshn.sh path, so a PATH stub alone aborts under set -e on host.
+# Do not pretend host can exercise that branch — leave jshn off PATH here.
 SHIM_CMDS=(cat jsonfilter awk dirname jq sed ubus)
-WITH_JSHN=0
 
 usage() {
-	sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
 	exit "${1:-0}"
 }
 
@@ -46,11 +44,15 @@ while [[ $# -gt 0 ]]; do
 		--expect-filter) EXPECT_FILTER="${2:?}"; shift 2 ;;
 		--expect-poll) EXPECT_POLL="${2:?}"; shift 2 ;;
 		--skip-parse) SKIP_PARSE=1; shift ;;
-		--with-jshn) WITH_JSHN=1; shift ;;
 		-h|--help) usage 0 ;;
 		*) echo "unknown arg: $1" >&2; usage 1 ;;
 	esac
 done
+
+# Resolve relative fixture paths against ROOT before the existence check.
+if [[ "$FIXTURE" != /* ]]; then
+	FIXTURE="${ROOT}/${FIXTURE}"
+fi
 
 if [[ ! -f "$FIXTURE" ]]; then
 	echo "fixture not found: $FIXTURE" >&2
@@ -59,11 +61,6 @@ fi
 if [[ ! -f "$FILTER_SH" || ! -f "$RPCD" ]]; then
 	echo "missing filter or rpcd script under openwrt-feed/" >&2
 	exit 1
-fi
-
-# Resolve relative fixture paths against ROOT.
-if [[ "$FIXTURE" != /* ]]; then
-	FIXTURE="${ROOT}/${FIXTURE}"
 fi
 
 WORKDIR="$(mktemp -d)"
@@ -157,19 +154,6 @@ EOF
 	chmod +x "${SHIM_DIR}/ubus"
 }
 
-install_jshn_stub() {
-	local tally="$1"
-	# Minimal stub: present on PATH so poll_lines_from_input does not early-return,
-	# but sourcing /usr/share/libubox/jshn.sh still fails on host — same as production
-	# host CI. Counting the jshn binary probe is enough for census completeness.
-	cat >"${SHIM_DIR}/jshn" <<EOF
-#!/bin/sh
-printf '%s\\n' "jshn" >>"$tally"
-exit 1
-EOF
-	chmod +x "${SHIM_DIR}/jshn"
-}
-
 tally_total() {
 	local tally="$1"
 	if [[ ! -s "$tally" ]]; then
@@ -196,10 +180,6 @@ prepare_shims() {
 		install_passthrough_shim "$name" "$tally"
 	done
 	install_ubus_stub "$FIXTURE" "$tally"
-	if [[ "$WITH_JSHN" -eq 1 ]]; then
-		install_jshn_stub "$tally"
-		install_passthrough_shim sed "$tally"
-	fi
 	# Prefer real jsonfilter when present; otherwise stub (still counted).
 	if env -i PATH="/usr/bin:/bin" command -v jsonfilter >/dev/null 2>&1; then
 		install_passthrough_shim jsonfilter "$tally"
