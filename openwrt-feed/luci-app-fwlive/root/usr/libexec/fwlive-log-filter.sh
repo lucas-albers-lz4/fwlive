@@ -9,7 +9,11 @@
 # Perf (#219): one jsonfilter for @.log[*] plus one awk classify. Process
 # count is constant per poll, not O(entries).
 #
-# Entry point (pipeline). The classifier sibling owns its strict-mode behavior.
+# Entry point (pipeline). The classifier sibling is sourced and must not set
+# strict mode itself (#291 C3).
+set -eu
+# shellcheck disable=SC3040
+(set -o pipefail) 2>/dev/null && set -o pipefail
 
 if ! command -v jsonfilter >/dev/null 2>&1; then
 	command -v logger >/dev/null 2>&1 && logger -t fwlive "jsonfilter not found; cannot filter firewall logs"
