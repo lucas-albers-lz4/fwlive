@@ -102,6 +102,13 @@ jobs:
           fi
           echo "feed PKG_VERSION $pkg matches tag $FWLIVE_RELEASE_TAG" >&2
 
+      - name: Install real jshn release variants
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential pkg-config libjson-c-dev busybox
+          ./scripts/install-host-jshn.sh --all
+          bash tests/install-host-jshn.test.sh
+
       - name: Validate baseline
         run: ./scripts/validate-baseline.sh
 
