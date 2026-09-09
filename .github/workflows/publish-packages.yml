@@ -42,6 +42,13 @@ jobs:
           # R1: do not write GITHUB_TOKEN into .git/config (workspace is bind-mounted into SDK).
           persist-credentials: false
 
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          pipx install ruff
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Resolve release tag
         env:
           TAG: ${{ github.event.inputs.tag }}
@@ -142,16 +149,16 @@ jobs:
       - name: Prepare SDK cache dirs
         run: |
           set -euo pipefail
+          mkdir -p .ci-sdk-cache/dl
+          for v in 21.02.7 22.03.7 23.05.5 24.10.8 25.12.5; do
+            mkdir -p ".ci-sdk-cache/feeds/$v"
+          done
           # #208: refuse to mkdir/chown through a symlinked cache path — sudo
           # chmod -R on a symlinked root would modify the target (luna r10).
           source ./scripts/lib/sdk-matrix.sh
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
-          mkdir -p .ci-sdk-cache/dl
-          for v in 21.02.7 22.03.7 23.05.5 24.10.8 25.12.5; do
-            mkdir -p ".ci-sdk-cache/feeds/$v"
-          done
           # Least privilege: buildbot owns cache; no group/other write.
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache

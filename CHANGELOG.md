@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.40] — 2026-09-09
+
+### Fixed
+- Prepare the SDK cache before validating its path and install release validation tooling (#44)
+
 ## [v0.1.39] — 2026-09-09
 
 ### Fixed
