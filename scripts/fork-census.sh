@@ -126,11 +126,16 @@ const log = (data && Array.isArray(data.log)) ? data.log : [];
 for (const e of log) process.stdout.write(JSON.stringify(e) + '\n');
 EOF
 	chmod +x "$stub_js"
-	# Count in the shell wrapper so a missing node still records the exec attempt.
+	# Count in the shell wrapper so tally is recorded before node starts.
 	cat >"${SHIM_DIR}/jsonfilter" <<EOF
 #!/bin/sh
 printf '%s\\n' "jsonfilter" >>"$tally"
-exec node "$stub_js" "\$@"
+NODE_BIN=\$(command -v node || command -v nodejs || true)
+if [ -z "\$NODE_BIN" ]; then
+	echo "fork-census: node required for jsonfilter stub" >&2
+	exit 1
+fi
+exec "\$NODE_BIN" "$stub_js" "\$@"
 EOF
 	chmod +x "${SHIM_DIR}/jsonfilter"
 }
