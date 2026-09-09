@@ -99,7 +99,7 @@ from host numbers alone.
 
 ### Host baseline (Phase 0a — non-authoritative)
 
-> **Non-authoritative — bash host, not BusyBox ash. Do not use for candidate prioritization.**
+> **Non-authoritative — host exec census via `/bin/sh` (Dash on this host), parse timings via Bash. Do not use for candidate prioritization.**
 
 Measured 2026-09-08 on `x86_64` Linux host at `f1399c2` (pre-PR tip of master);
 fixture `tests/fixtures/logread-mixed.json` (7 entries / 919 bytes). Shim list

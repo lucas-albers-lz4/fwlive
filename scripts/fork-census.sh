@@ -79,7 +79,7 @@ resolve_real() {
 		fi
 	done
 	# Fall back via env -i PATH to avoid our own shims.
-	p="$(env -i PATH="/usr/bin:/bin:/usr/sbin" command -v "$name" 2>/dev/null || true)"
+	p="$(env -i PATH="/usr/bin:/bin:/usr/sbin" sh -c 'command -v "$1"' sh "$name" 2>/dev/null || true)"
 	if [[ -n "$p" && -x "$p" ]]; then
 		printf '%s' "$p"
 		return 0
@@ -181,7 +181,7 @@ prepare_shims() {
 	done
 	install_ubus_stub "$FIXTURE" "$tally"
 	# Prefer real jsonfilter when present; otherwise stub (still counted).
-	if env -i PATH="/usr/bin:/bin" command -v jsonfilter >/dev/null 2>&1; then
+	if [[ "$(resolve_real jsonfilter)" != /bin/false ]]; then
 		install_passthrough_shim jsonfilter "$tally"
 	else
 		install_jsonfilter_stub "$tally"
@@ -236,7 +236,9 @@ median_parse_ms() {
 
 echo "=== fork census (#308) ==="
 echo "fixture: $(fixture_meta)"
-echo "substrate: host/$(uname -m)/$(basename "$(readlink -f /proc/$$/exe 2>/dev/null || echo bash)") (non-authoritative — not BusyBox ash)"
+CENSUS_SHELL="$(readlink -f "$(command -v sh)" 2>/dev/null || command -v sh)"
+echo "substrate: host/$(uname -m)/$(basename "$CENSUS_SHELL") (exec census via sh; non-authoritative host measurement)"
+echo "parse interpreter: bash (bash -n only)"
 echo "shim cmds: ${SHIM_CMDS[*]}"
 echo "accounting: PATH-shim external execs only; builtin-only subshell forks are outside this census"
 echo
