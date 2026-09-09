@@ -104,12 +104,12 @@ EOF
 
 install_jsonfilter_stub() {
 	local tally="$1"
+	local stub_js="${WORKDIR}/jsonfilter-stub.js"
 	# Host stand-in for OpenWrt jsonfilter (same shape as tests/fwlive-shell-filter.test.js).
-	cat >"${SHIM_DIR}/jsonfilter" <<EOF
+	cat >"$stub_js" <<'EOF'
 #!/usr/bin/env node
 'use strict';
 const fs = require('fs');
-fs.appendFileSync(process.env.FWLIVE_CENSUS_TALLY || '/dev/null', 'jsonfilter\\n');
 let input = '';
 let expr = '';
 let usedS = false;
@@ -123,7 +123,14 @@ if (expr !== '@.log[*]') process.exit(1);
 let data;
 try { data = JSON.parse(input); } catch (e) { process.exit(1); }
 const log = (data && Array.isArray(data.log)) ? data.log : [];
-for (const e of log) process.stdout.write(JSON.stringify(e) + '\\n');
+for (const e of log) process.stdout.write(JSON.stringify(e) + '\n');
+EOF
+	chmod +x "$stub_js"
+	# Count in the shell wrapper so a missing node still records the exec attempt.
+	cat >"${SHIM_DIR}/jsonfilter" <<EOF
+#!/bin/sh
+printf '%s\\n' "jsonfilter" >>"$tally"
+exec node "$stub_js" "\$@"
 EOF
 	chmod +x "${SHIM_DIR}/jsonfilter"
 }
@@ -199,7 +206,7 @@ run_filter_census() {
 	local tally="${WORKDIR}/filter.tally"
 	: >"$tally"
 	prepare_shims "$tally"
-	FWLIVE_CENSUS_TALLY="$tally" PATH="${SHIM_DIR}:/usr/bin:/bin" \
+	FWLIVE_CENSUS_TALLY="$tally" PATH="${SHIM_DIR}:${PATH}" \
 		sh "$FILTER_SH" <"$FIXTURE" >/dev/null
 	printf '%s' "$tally"
 }
@@ -208,7 +215,7 @@ run_poll_census() {
 	local tally="${WORKDIR}/poll.tally"
 	: >"$tally"
 	prepare_shims "$tally"
-	FWLIVE_CENSUS_TALLY="$tally" PATH="${SHIM_DIR}:/usr/bin:/bin" \
+	FWLIVE_CENSUS_TALLY="$tally" PATH="${SHIM_DIR}:${PATH}" \
 		sh "$RPCD" call poll '{"addresses":["50"]}' >/dev/null
 	printf '%s' "$tally"
 }
