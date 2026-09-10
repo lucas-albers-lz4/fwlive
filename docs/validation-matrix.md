@@ -102,6 +102,21 @@ QEMU C2 numbers are from a **pre-booted** 24.10.5 x86_64 guest
 
 QEMU boot-inclusive and armsr rows stay unmeasured until those cells run.
 
+## Z3 full verification timing
+
+Measured locally on 2026-09-09 at commit
+`58f76e3bb910605a931f25941314e3bcad4aaa47` (AMD Ryzen 7 5800X, 16 logical
+CPUs, 32 GB RAM; Python 3.14.6; z3-solver 4.16.0):
+
+```text
+/usr/bin/time -f 'elapsed=%e user=%U sys=%S exit=%x' python3 scripts/z3-verify.py --full
+elapsed=31.02 user=30.49 sys=0.58 exit=0
+```
+
+This is a host-local reference, not a CI promise. Investigate if a comparable
+run exceeds roughly 2 minutes; do not turn that soft budget into a CI failure
+without a separate decision.
+
 ## Flake history (`test-view-mock` since required)
 
 30/30 green across the 30 most recent `fwlive-test.yml` runs
