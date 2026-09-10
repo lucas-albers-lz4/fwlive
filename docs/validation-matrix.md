@@ -53,6 +53,13 @@ Back-compat: `./scripts/validate-openwrt-23.05.sh` → `validate-openwrt.sh --ve
 
 Via `qemu-smoke-fwlive.sh`:
 
+For a release or compatibility sign-off, run both lab architectures with
+`scripts/qemu-smoke-matrix.sh` after starting and installing the package in
+each guest. The wrapper keeps the existing single-guest smoke unchanged and
+fails if either guest fails. x86_64 is the fast lab path; armsr/armv8 runs
+under TCG and is substantially slower, so the two-architecture check is
+manual/release validation rather than a required pull-request CI job.
+
 - SSH, OpenWrt release, guest arch
 - `ubus fwlive poll`, `ubus fwlive rules`, `ubus fwlive resolve`
 - LuCI static JS + dispatcher (HTTP 403 login = OK)
