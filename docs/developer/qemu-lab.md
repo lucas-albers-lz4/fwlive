@@ -121,32 +121,57 @@ request path, adding the `read_rpc_input` stdin capture to the poll total.
 Re-run: `./scripts/fork-census.sh` (prints `CENSUS_FILTER_TOTAL` /
 `CENSUS_POLL_TOTAL`). CI asserts filter=5 and poll=8 via `fwlive-test.sh`.
 
-### Device budget-split table (Phase 0b — placeholder)
+### Device budget-split table (Phase 0b — armsr TCG)
 
-Tracked in [#310](https://github.com/lucas-albers-lz4/fwlive/issues/310). Fill after
-armsr guest install; replace this placeholder. Schema from #308 R1:
+Tracked in [#310](https://github.com/lucas-albers-lz4/fwlive/issues/310). The
+following run used OpenWrt 24.10.8 (`r29233-443ec4032a`), `aarch64`, BusyBox
+ash, one vCPU, 256 MiB, QEMU TCG on the Linux x86_64 host, and source SHA
+`4ac992d`. The guest's `busybox date` ignored `%N`; `/proc/uptime` provided a
+10 ms clock. Each row below reports all five raw samples in milliseconds,
+followed by median ± full spread. Batched rows retain their repeat count in the
+raw values; values below the clock resolution are not represented as zero.
 
-| stage | exec count | wall-ms median-of-5 | % of poll total |
-|-------|------------|---------------------|-----------------|
-| rpcd parse | | | |
-| jshn | | | |
-| log.read + capture | | | |
-| filter parse | | | |
-| cat capture (filter stdin) | | | |
-| jsonfilter | | | |
-| heredoc + cat (classify) | | | |
-| awk classify | | | |
-| stdout → blobmsg | | | |
-| HTTP + JS parse | | | |
-| JS render | | | |
-| `read_rpc_input` stdin-cat | | | production expect 1 |
+| stage | exec count | raw samples (ms, n=5) | median ± spread (ms) | share of full poll (median 860 ms) |
+|-------|------------|------------------------|----------------------|------------------------------------|
+| rpcd parse (`sh -n`, n=20) | n/a (shell startup) | 31, 32, 31, 31, 31 | 31 ± 1 | 3.6% |
+| jshn (n=20) | 1 | 21, 21, 21, 20, 21 | 21 ± 1 | 2.4% |
+| log.read + capture (n=5) | 1 (`ubus`) | 76, 74, 72, 72, 72 | 72 ± 4 | 8.4% |
+| filter parse (`sh -n`, n=20) | n/a (shell startup) | 17, 16, 17, 17, 16 | 17 ± 1 | 2.0% |
+| `read_rpc_input` stdin-cat (n=10) | 1 | 17, 15, 15, 16, 17 | 16 ± 2 | 1.9% |
+| filter stdin cat (n=10) | 1 | 17, 15, 15, 16, 17 | 16 ± 2 | 1.9% |
+| jsonfilter (n=5) | 1 | 18, 18, 18, 20, 18 | 18 ± 2 | 2.1% |
+| heredoc cat (n=50) | 1 | 15, 15, 15, 15, 15 | 15 ± 0 | 1.7% |
+| awk classify (n=5) | 1 | 110, 110, 110, 120, 110 | 110 ± 10 | 12.8% |
+| stdout → blobmsg | n/a | unresolved in shell attribution | n/a | n/a |
+| HTTP + JS parse | n/a | not part of device poll | n/a | n/a |
+| JS render | n/a | not part of device poll | n/a | n/a |
+
+The full real-logd `ubus call fwlive poll` samples were 840, 860, 860, 860,
+850 ms (median 860 ± 20 ms). The 205,475-byte/2,000-entry fixture filter is a
+separate microbenchmark: 14,490, 14,430, 14,620, 14,500, 14,570 ms (median
+14,500 ± 190 ms), and must not be substituted for real logd capture. A
+PATH-shim fixture poll observed 10 external execs: `dirname`×2, `cat`×3
+(including the production stdin capture), `jshn`×1, `sed`×1, `ubus`×1,
+`jsonfilter`×1, and `awk`×1. The stage shares are inclusive and overlap; they
+are not expected to sum to 100%.
+
+For the repeatable run and raw output, use:
+
+```sh
+OPENWRT_SSH_PORT=2222 ./scripts/qemu-budget-split.sh
+```
+
+The same harness on an x86_64 24.10.5 guest with two vCPUs/256 MiB and KVM
+measured the fixture filter at 750–780 ms (median 770 ms) and a real poll at
+20–30 ms (median 30 ms). This is a host-side comparison only; it does not
+replace the armsr TCG table or predict native ARM timings.
 
 **0b checklist**
 
-- [ ] Timing primitive probe on guest (`%3N` or `/proc/uptime`)
-- [ ] Install fwlive on armsr guest
-- [ ] Stage attribution on `tests/fixtures/logread-2000.json` (median of 5)
-- [ ] Record substrate (`qemu-armsr-tcg` vs native virt) + date + git SHA
+- [x] Timing primitive probe on guest (`/proc/uptime`, 10 ms resolution; `%N` unsupported)
+- [x] Install fwlive on armsr guest
+- [x] Stage attribution on `tests/fixtures/logread-2000.json` (five raw samples, median and spread)
+- [x] Record substrate (`qemu-armsr-tcg`) + date + git SHA
 
 ## Further reading
 
