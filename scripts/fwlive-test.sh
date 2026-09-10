@@ -105,6 +105,9 @@ echo "== fwlive parser corpus pin (#240 C1) ==" >&2
 echo "== fwlive codegen freshness ==" >&2
 "$NODE" tests/fwlive-codegen.test.js
 
+echo "== real jshn compatibility (#316) ==" >&2
+python3 tests/fwlive-jshn-compat.test.py
+
 echo "== fwlive rpcd security ==" >&2
 "$NODE" tests/fwlive-rpcd-security.test.js
 

@@ -95,3 +95,14 @@ Functional, performance, and sign-off tables: [`../fwlive-acceptance.md`](../fwl
 ```
 
 `smoke-x86` skips **snapshot** (minimal image, no LuCI).
+
+### Real jshn compatibility (#316)
+
+Install `busybox`, `cmake`, a C compiler and `libjson-c-dev`, then run
+`./scripts/install-host-jshn.sh --all` before `./scripts/fwlive-test.sh`.
+The installer uses matched libubox binaries and shell libraries in
+`~/.cache/fwlive-jshn` (`FWLIVE_JSHN_PREFIX` overrides this directory).
+No system library is replaced. All five release pairs are mandatory in the
+compatibility gate, even when their shell libraries have identical contents.
+`bash tests/install-host-jshn.test.sh` checks repeat installs and pin mismatch
+handling. Ordinary dash tests remain separate from these BusyBox ash tests.

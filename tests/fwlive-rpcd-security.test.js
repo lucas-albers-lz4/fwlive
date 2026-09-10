@@ -216,39 +216,8 @@ function testResolveJshnMissing() {
 	}
 }
 
-function testResolveInvalidInput() {
-	// Needs jshn on PATH (production checks `command -v jshn`); the libubox
-	// source file alone is not enough. Stock hosts without jshn skip,
-	// matching the __selftest jshn skip.
-	//
-	// Production guards nslookup first (no_resolver). On a host that has
-	// jshn but no nslookup, the call would exit at no_resolver before the
-	// malformed-input branch ever runs. Pin a working nslookup stub so the
-	// invalid_input path is the one under test, regardless of host PATH.
-	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-inv-'));
-	let hasJshn = false;
-	try {
-		execFileSync('sh', ['-c', 'command -v jshn >/dev/null 2>&1'], { stdio: 'ignore' });
-		hasJshn = true;
-	} catch {}
-	if (!hasJshn) {
-		fs.rmSync(stubDir, { recursive: true, force: true });
-		console.log('fwlive rpcd security: skip invalid_input (jshn not available)');
-		return;
-	}
-	try {
-		makeStub(stubDir, 'nslookup', '#!/bin/sh\nexit 0\n');
-		const raw = runCall(['call', 'resolve', 'not-json{{{'], {
-			encoding: 'utf8',
-			env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` }
-		});
-		const res = JSON.parse(raw);
-		assertStructuredError(res, 'resolve/invalid_input');
-		assert.equal(res.error, 'invalid_input');
-	} finally {
-		fs.rmSync(stubDir, { recursive: true, force: true });
-	}
-}
+// Malformed JSON is mandatory in fwlive-jshn-compat.test.py for every real
+// release pair under ash; do not add a host-dependent skip here.
 
 function testLoggingStatusNeverSilent() {
 	// logging_status has no error field by design: failures travel as
@@ -305,7 +274,6 @@ testRulesIptablesDumpFailure();
 testRulesIp6tablesDumpFailure();
 testPollUbusFailure();
 testResolveJshnMissing();
-testResolveInvalidInput();
 testLoggingStatusNeverSilent();
 testToggleNoWanZone();
 

@@ -435,3 +435,21 @@ links to this ledger for review state.
 **Result.** New SC warnings and Actions config mistakes fail the PR gate. Baseline grows only with an annotated reason per SC id.
 
 
+
+### #316 — real jshn RPC coverage
+
+Host coverage uses matched, commit-pinned libubox binaries and shell helpers for
+21.02, 22.03, 23.05, 24.10 and 25.12. The production RPC copy changes only the
+host location of the device library; stdin input, parser, validation and output
+paths remain production code. Malformed resolve JSON must return `invalid_input`;
+missing fields remain empty names, and poll retains its bounded default.
+Nounset/errexit flags are checked after successful return on every tested branch.
+JSON element boundaries are preserved before newline transport. The parser's
+exit is checked before evaluating its generated assignments (one parse only).
+ACLs, DNS timeouts and literal-address validation are unchanged. Lab proof: full smoke on armsr/armv8 OpenWrt 24.10.8 passed for this delta;
+installed RPC SHA-256 `8c82a2909d81fa6921fa72bbfc5d864d229f628c3b0f2fe0c8de654663c5d284`
+matched the local file. Device malformed resolve returned `invalid_input` and
+`__selftest` exited zero. Host tests reject old master on every variant.
+Luna delta review found no blockers; Bugbot is unavailable in this environment.
+Full surface re-audit is deferred: changes are confined to the parser and its
+host harness; no ACL, DOM or logging mutation paths changed.

@@ -404,7 +404,11 @@ poll_lines_from_input() {
 	_first=$( (
 		set +u
 		. /usr/share/libubox/jshn.sh
-		if ! json_load "$input" 2>/dev/null; then exit 1; fi
+		# json_load masks a failing jshn exit through eval. Check the real
+		# parser once, then evaluate only its generated shell assignments.
+		_json_no_warning=1
+		_json_code=$(jshn -r "$input" 2>/dev/null) || exit 1
+		eval "$_json_code" || exit 1
 		if ! json_select addresses 2>/dev/null; then exit 1; fi
 		json_get_var first 1 || exit 1
 		printf '%s' "${first:-}"
@@ -600,13 +604,21 @@ resolve_addresses() {
 	_addresses=$( (
 		set +u
 		. /usr/share/libubox/jshn.sh
-		if ! json_load "$input" 2>/dev/null; then exit 1; fi
+		# json_load masks a failing jshn exit through eval. Check the real
+		# parser once, then evaluate only its generated shell assignments.
+		_json_no_warning=1
+		_json_code=$(jshn -r "$input" 2>/dev/null) || exit 1
+		eval "$_json_code" || exit 1
 		if ! json_select addresses 2>/dev/null; then exit 0; fi
 		idx=1
 		# shellcheck disable=SC2154
 		while json_get_type atype "$idx" && [ "$atype" = string ]; do
 			json_get_var ip "$idx" || exit 1
-			printf '%s\n' "${ip:-}"
+			# Preserve JSON element boundaries in the newline transport.
+			# Invalid addresses (including embedded newlines) never leave it.
+			if is_resolvable_address "${ip:-}"; then
+				printf '%s\n' "$ip"
+			fi
 			idx=$((idx + 1))
 		done
 	) ) || {
