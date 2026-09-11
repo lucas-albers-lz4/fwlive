@@ -105,6 +105,14 @@ if [ -f "$shell_gen" ]; then
 		"$shell_gen"
 fi
 
+awk_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.awk"
+if [ -f "$awk_gen" ]; then
+	sed -i \
+		-e 's|^# GENERATED FILE — do not edit\. Run: \.\/scripts\/gen-all\.sh$|# Snapshot from the fwlive monorepo (lucas-albers-lz4/fwlive). Do not edit by hand.|' \
+		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js — regenerate upstream of this tree.|' \
+		"$awk_gen"
+fi
+
 css_js="$OUT/htdocs/luci-static/resources/fwlive/css.js"
 if [ -f "$css_js" ]; then
 	sed -i \

@@ -103,6 +103,7 @@ RPCD_BIN="$FWLIVE_PKG/root/usr/libexec/rpcd/fwlive"
 LIBEXEC_LOGGING="$FWLIVE_PKG/root/usr/libexec/fwlive-logging.sh"
 LIBEXEC_FILTER="$FWLIVE_PKG/root/usr/libexec/fwlive-log-filter.sh"
 LIBEXEC_ISFW="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.sh"
+LIBEXEC_ISFW_AWK="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.awk"
 ACL_JSON="$FWLIVE_PKG/root/usr/share/rpcd/acl.d/luci-app-fwlive.json"
 MENU_JSON="$FWLIVE_PKG/root/usr/share/luci/menu.d/luci-app-fwlive.json"
 if [[ -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
@@ -156,6 +157,11 @@ EOF
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 			"cat > /usr/libexec/fwlive-is-firewall-event.sh" \
 			< "$LIBEXEC_ISFW"
+	fi
+	if [[ -f "$LIBEXEC_ISFW_AWK" ]]; then
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"cat > /usr/libexec/fwlive-is-firewall-event.awk && chmod 644 /usr/libexec/fwlive-is-firewall-event.awk" \
+			< "$LIBEXEC_ISFW_AWK"
 	fi
 	if [[ -f "$ACL_JSON" ]]; then
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \

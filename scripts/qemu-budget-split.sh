@@ -75,16 +75,15 @@ stage_read_rpc_input() {
 	printf '%s' '{"addresses":["50"]}' \
 		| sh -c '. /usr/libexec/rpcd/fwlive; read_rpc_input ""' /usr/libexec/rpcd/fwlive
 }
-stage_filter_cat() { cat "$fixture"; }
 stage_jsonfilter() { jsonfilter -e '@.log[*]' <"$fixture"; }
-stage_heredoc_cat() {
-	cat <<'EOF'
-classifier-input
-EOF
+stage_classifier_file() {
+	awk -v MODE=msg -f /usr/libexec/fwlive-is-firewall-event.awk </dev/null
 }
 stage_awk_classify() {
 	(
 		set +u
+		FILTER_DIR=/usr/libexec
+		export FILTER_DIR
 		. /usr/libexec/fwlive-is-firewall-event.sh
 		_fwlive_run_classify json </tmp/fwlive-logread-2000.json
 	)
@@ -104,9 +103,8 @@ measure jshn 20 stage_jshn
 measure log_read_capture 5 stage_log_capture
 measure filter_parse 20 stage_filter_parse
 measure read_rpc_input 20 stage_read_rpc_input
-measure filter_stdin_cat 10 stage_filter_cat
 measure jsonfilter 5 stage_jsonfilter
-measure heredoc_cat 50 stage_heredoc_cat
+measure classifier_file 5 stage_classifier_file
 measure awk_classify 5 stage_awk_classify
 measure filter_fixture 1 stage_filter_fixture
 measure poll_real 1 stage_poll_real

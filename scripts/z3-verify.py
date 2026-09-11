@@ -627,7 +627,12 @@ def _shell_is_firewall(msg: str, sh: str = "sh") -> bool:
 		cwd=ROOT,
 		capture_output=True,
 		text=True,
-		env={**os.environ, "FW_MSG": msg, "IS_FW": str(IS_FW)},
+		env={
+			**os.environ,
+			"FILTER_DIR": str(IS_FW.parent),
+			"FW_MSG": msg,
+			"IS_FW": str(IS_FW),
+		},
 	)
 	if out.returncode != 0:
 		raise RuntimeError(out.stderr or out.stdout)
