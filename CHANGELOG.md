@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.41] — 2026-09-11
+
+### Fixed
+- Contain OpenWrt jshn parsing inside a `set +u` subshell so strict-mode callers no longer abort poll/resolve on 24.10.8; real-jshn host coverage across five pinned releases + dual-arch QEMU smoke matrix (#317, #315, #316)
+
+### Changed
+- GitHub Release bodies are generated from the matching CHANGELOG section instead of `--generate-notes` (which shipped near-empty bodies for direct-commit tag ranges); missing fold falls back loudly (#324)
+
+### Performance
+- Extract the generated firewall-event classifier to a standalone `.awk` asset (`awk -f`) and stream filter stdin directly into jsonfilter — filter hot path 5 → 3 execs per poll, document capture removed, missing asset fails closed with `classifier_missing` (#322, refs #321/#308)
+
+### Added
+- Fork/exec census harness and armsr device budget-split table as the #308 profiling baseline (#311, #320); measured z3 full-verification timings (#318)
+
 ## [v0.1.40] — 2026-09-09
 
 ### Fixed
@@ -439,6 +453,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.41]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.40...v0.1.41
+[v0.1.40]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.39...v0.1.40
+[v0.1.39]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.38...v0.1.39
 [v0.1.38]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.37...v0.1.38
 [v0.1.37]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.36...v0.1.37
 [v0.1.36]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.35...v0.1.36
