@@ -262,7 +262,16 @@ jobs:
           printf '  %s\n' "${assets[@]##*/}"
 
           publish_new() {
-            gh release create "$tag" "${assets[@]}" --title "$tag" --generate-notes
+            # CHANGELOG section is the authoritative body; GitHub's
+            # --generate-notes lists only merged PRs in the tag range and
+            # ships near-empty bodies otherwise (v0.1.40: compare link only).
+            local notes="${RUNNER_TEMP}/fwlive-release-notes.md"
+            if feed_publish_release_notes_file "$notes" "$tag"; then
+              gh release create "$tag" "${assets[@]}" --title "$tag" --notes-file "$notes"
+            else
+              echo "warn: no CHANGELOG.md section for $tag; falling back to --generate-notes" >&2
+              gh release create "$tag" "${assets[@]}" --title "$tag" --generate-notes
+            fi
           }
 
           if gh release view "$tag" >/dev/null 2>&1; then

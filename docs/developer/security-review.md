@@ -1,7 +1,7 @@
 # Security review state
 
-> **Status:** 46 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
-> **Last review:** 2026-09-11 delta on shell helpers (#321/#308); full-surface housekeeping review 2026-09-08 (H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
+> **Status:** 47 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
+> **Last review:** 2026-09-11 delta on release-notes pipeline (#322 follow-up: CHANGELOG-driven GitHub Release body, publish workflow + host test); shell-helpers delta same day (#321/#308); full-surface housekeeping review 2026-09-08 (H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
 > **Open:** None from #293. Housekeeping may still emit `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24) lands plan-aware scanning.
 > **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass: [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
@@ -85,6 +85,7 @@ should carry a note saying what would raise it.
 | UCI rule names with whitespace are not word-split into junk keys | `host` | `tests/fwlive-rules-map.test.js` `testUciWhitespaceNames` |
 | `jsonfilter` declared; missing filter exits non-zero with `error` | `host` | Makefile `LUCI_DEPENDS`; `tests/fwlive-shell-filter.test.js` `runMissingJsonfilter` |
 | Generated classifier asset is required; missing asset exits non-zero with `classifier_missing` instead of silently filtering everything out | `host` | `tests/fwlive-shell-filter.test.js` `runMissingClassifier`; codegen freshness covers the `.awk` asset |
+| GitHub Release body is the CHANGELOG section (no empty `--generate-notes` bodies); fallback is loud | `host` | `feed_publish_release_notes_file` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-release-assets.test.sh` notes assertions; `publish_new` warn on fallback |
 | JSON filter unescapes libubox string escapes (`\b` `\f` `\n` `\r` `\t` `\u00XX`) before classify | `host` | `tests/fwlive-shell-filter.test.js` `runJsonGetMsgEscapes` / `runJsonParity` |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
