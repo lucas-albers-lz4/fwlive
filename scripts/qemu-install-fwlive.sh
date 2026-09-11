@@ -162,6 +162,12 @@ EOF
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 			"cat > /usr/libexec/fwlive-is-firewall-event.awk && chmod 644 /usr/libexec/fwlive-is-firewall-event.awk" \
 			< "$LIBEXEC_ISFW_AWK"
+	else
+		# A previous run may have installed the asset; leaving it behind would
+		# let checks run against a stale classifier and mask the
+		# classifier_missing fail-closed path (CodeRabbit #322).
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"rm -f /usr/libexec/fwlive-is-firewall-event.awk"
 	fi
 	if [[ -f "$ACL_JSON" ]]; then
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \

@@ -180,7 +180,9 @@ replace the armsr TCG table or predict native ARM timings.
 
 Measured 2026-09-11 after both hot-path changes on OpenWrt 24.10.8
 (`r29233-443ec4032a`), `aarch64`, BusyBox ash 1.36.1-r3, one vCPU, 256 MiB,
-QEMU TCG, source SHA at the rerun worktree, and `/proc/uptime` 10 ms
+QEMU TCG, source SHA `e3614d528d` (the `perf/310-device-budget` head carrying
+the `awk -f` asset and the regenerated `id` fixture — every stage row below
+exists only from this tree), and `/proc/uptime` 10 ms
 resolution. The guest system log buffer was `log_size=128` KiB
 (`system.@system[0].log_size`; there is no separate `log_buffer_size` UCI key).
 The regenerated fixture was 224,365 bytes / 2,000 entries and includes a
