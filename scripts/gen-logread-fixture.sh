@@ -28,7 +28,8 @@ if (!Array.isArray(base.log) || base.log.length === 0) {
 const log = [];
 for (let i = 0; i < want; i++) {
 	const e = base.log[i % base.log.length];
-	log.push({ time: (e.time || 0) + i, msg: e.msg });
+	/* logd's id is monotonic for the lifetime of the logd instance. */
+	log.push({ id: i, time: (e.time || 0) + i, msg: e.msg });
 }
 fs.writeFileSync(out, JSON.stringify({ log }));
 const bytes = fs.statSync(out).size;

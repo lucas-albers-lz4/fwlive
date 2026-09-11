@@ -43,6 +43,20 @@ grep -q '^include ../../luci.mk' "$CUT_WORK/cut/Makefile" \
 	|| die "docker-sdk reference remains in luci-shaped Makefile"
 ok "cut Makefile is luci-shaped (include, no SOURCE_DATE_EPOCH, no docker-sdk)"
 
+if git -C "$ROOT" ls-files --error-unmatch \
+	openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.awk \
+	>/dev/null 2>&1; then
+	[ -f "$CUT_WORK/cut/root/usr/libexec/fwlive-is-firewall-event.awk" ] \
+		|| die "cut classifier awk asset missing"
+	! grep -qE 'core/fwlive-log|\./scripts/gen-all' \
+		"$CUT_WORK/cut/root/usr/libexec/fwlive-is-firewall-event.sh" \
+		"$CUT_WORK/cut/root/usr/libexec/fwlive-is-firewall-event.awk" \
+		|| die "monorepo-only classifier paths remain in cut"
+	ok "cut includes standalone classifier awk asset"
+else
+	ok "cut awk-asset assertion deferred until new generated file is tracked"
+fi
+
 grep -q 'github.com/lucas-albers-lz4/fwlive/blob/master' "$CUT_WORK/cut/README.md" \
 	|| die "README links not rewritten to the blob URL"
 ! grep -q '\.\./\.\./docs' "$CUT_WORK/cut/README.md" \

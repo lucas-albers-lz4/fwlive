@@ -1,7 +1,7 @@
 # Security review state
 
-> **Status:** 45 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
-> **Last review:** 2026-09-08 (housekeeping hygiene #293: H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
+> **Status:** 46 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
+> **Last review:** 2026-09-11 delta on shell helpers (#321/#308); full-surface housekeeping review 2026-09-08 (H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
 > **Open:** None from #293. Housekeeping may still emit `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24) lands plan-aware scanning.
 > **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
 > **How to verify:** `./scripts/fwlive-test.sh` runs automated host checks. Multi-model pass: [`.cursor/skills/security-audit/SKILL.md`](../../.cursor/skills/security-audit/SKILL.md) § Multi-model pass. Values current as of this PR.
@@ -56,7 +56,7 @@ should carry a note saying what would raise it.
 | Frontend rendering sinks (`E()` string children) | 2026-08-13 | Sweep + harness | #177: #175/#176 UI delta on recording-`innerHTML` harness; no non-empty innerHTML writes |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
 | rpcd plugin + ACL scope | 2026-08-31 | Diff + selftest | B1 fixes: redirect via mktemp-only helper (`_fwlive_mktemp`, fixed `/tmp`, `TMPDIR` deliberately ignored), duplicate-key skip, poll clamp length check; read/write split; no `ubus log.*`; predictable-path and bare-`mktemp` fallbacks removed, graceful degradation when mktemp absent |
-| Shell helpers — injection and quoting | 2026-08-13 | Read | #177: no log data reaches a command string |
+| Shell helpers — injection and quoting | 2026-09-11 | Delta + host test | #321/#308: generated classifier is loaded with quoted `awk -f`; missing classifier asset returns structured `classifier_missing`; log data remains stdin-only and the filter-side heredoc + `input="$(cat)"` log-data capture are removed (the rpcd `read_rpc_input` request-capture `cat` remains — S3 scope) |
 | Shell helpers — **file modes and lock ownership** | 2026-08-31 | Reproduced | #204 symlink reject + #232 BusyBox-safe dir check (`[ -O ]` + `find -perm`, no `stat -c`); Parts E/F in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-08-22 | Read + host test | `/etc/fwlive/wan-log-baseline`; restore only on `remove` |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-09-03 | Host test + Fable | #177 pending-delta; #241 cfg↔@zone; **B-1** canonical `uci -X` identity (duplicate wan no longer under-matches); `tests/fwlive-logging.test.sh` |
@@ -84,6 +84,7 @@ should carry a note saying what would raise it.
 | `json_escape` is defined in `fwlive-logging.sh` (prerm standalone) | `host` | `tests/fwlive-logging.test.sh` type check; rpcd `__selftest` |
 | UCI rule names with whitespace are not word-split into junk keys | `host` | `tests/fwlive-rules-map.test.js` `testUciWhitespaceNames` |
 | `jsonfilter` declared; missing filter exits non-zero with `error` | `host` | Makefile `LUCI_DEPENDS`; `tests/fwlive-shell-filter.test.js` `runMissingJsonfilter` |
+| Generated classifier asset is required; missing asset exits non-zero with `classifier_missing` instead of silently filtering everything out | `host` | `tests/fwlive-shell-filter.test.js` `runMissingClassifier`; codegen freshness covers the `.awk` asset |
 | JSON filter unescapes libubox string escapes (`\b` `\f` `\n` `\r` `\t` `\u00XX`) before classify | `host` | `tests/fwlive-shell-filter.test.js` `runJsonGetMsgEscapes` / `runJsonParity` |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |

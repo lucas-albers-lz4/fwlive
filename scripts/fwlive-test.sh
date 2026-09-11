@@ -46,6 +46,7 @@ SPDX_FILES=(
 	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh"
 	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh"
 	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh"
+	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.awk"
 	"$ROOT/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js"
 )
 while IFS= read -r -d '' f; do
@@ -185,6 +186,6 @@ echo "== fwlive parser benchmark ==" >&2
 
 echo "== fwlive fork census (#308 Phase 0a) ==" >&2
 bash "$ROOT/scripts/fork-census.sh" --skip-parse \
-	--expect-filter 5 --expect-poll 8
+	--expect-filter 3 --expect-poll 6
 
 echo "All fwlive tests passed." >&2

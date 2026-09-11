@@ -37,7 +37,7 @@ function shSpawn(scriptOrFile, opts) {
 function shellIsFirewall(msg) {
 	const out = shSpawn(
 		'. "$IS_FW" && is_firewall_event_msg "$FW_MSG" && echo yes || echo no',
-		{ env: { ...process.env, IS_FW: IS_FW, FW_MSG: msg } }
+		{ env: { ...process.env, FILTER_DIR: path.dirname(IS_FW), IS_FW: IS_FW, FW_MSG: msg } }
 	).trim();
 	return out === 'yes';
 }
@@ -150,9 +150,25 @@ function runJsonGetMsgEscapes() {
 	for (const line of cases) {
 		const out = shSpawn(
 			'. "$IS_FW" && printf \'%s\\n\' "$LINE" | _fwlive_filter_json_entries',
-			{ env: { ...process.env, IS_FW: IS_FW, LINE: line } }
+			{ env: { ...process.env, FILTER_DIR: path.dirname(IS_FW), IS_FW: IS_FW, LINE: line } }
 		);
 		assert.ok(out.includes('IN=wan'), 'json_get_msg dropped classify for ' + line);
+	}
+}
+
+function runEmptyMalformedInput() {
+	const jf = jsonfilterPathEnv();
+	try {
+		for (const input of ['', '{not-json']) {
+			const filtered = shSpawn(null, {
+				argvFile: FILTER_SH, input, encoding: 'utf8', env: jf.env
+			});
+			assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+			assert.deepEqual(JSON.parse(filtered.stdout), { log: [] },
+				'empty/malformed input must stay a valid empty result');
+		}
+	} finally {
+		jf.cleanup();
 	}
 }
 
@@ -205,6 +221,27 @@ function runMissingJsonfilter() {
 	}
 }
 
+function runMissingClassifier() {
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-no-classifier-'));
+	const jf = jsonfilterPathEnv();
+	try {
+		fs.copyFileSync(FILTER_SH, path.join(work, 'fwlive-log-filter.sh'));
+		fs.copyFileSync(IS_FW, path.join(work, 'fwlive-is-firewall-event.sh'));
+		const r = spawnSync('/bin/sh', [path.join(work, 'fwlive-log-filter.sh')], {
+			input: '{"log":[{"msg":"IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP"}]}',
+			encoding: 'utf8',
+			env: jf.env
+		});
+		assert.notEqual(r.status, 0, 'missing classifier must exit non-zero');
+		const j = JSON.parse(r.stdout);
+		assert.equal(j.error, 'classifier_missing');
+		assert.deepEqual(j.log, []);
+	} finally {
+		jf.cleanup();
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function runOversizedStdin() {
 	/* Stub rejects -s over 128KiB; stdin path must still classify (#234). */
 	const pad = 'x'.repeat(130 * 1024);
@@ -234,8 +271,10 @@ function run() {
 	runMsgParity();
 	runJsonParity();
 	runJsonGetMsgEscapes();
+	runEmptyMalformedInput();
 	runMetacharSafety();
 	runMissingJsonfilter();
+	runMissingClassifier();
 	runOversizedStdin();
 	console.log('fwlive shell filter parity tests passed (SH=' + SH + ')');
 }

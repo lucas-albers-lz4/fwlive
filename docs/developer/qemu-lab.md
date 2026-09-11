@@ -97,7 +97,7 @@ from host numbers alone.
 - Regenerate the flood fixture: `./scripts/gen-logread-fixture.sh` →
   `tests/fixtures/logread-2000.json` (2000 entries).
 
-### Historical host baseline (Phase 0a — non-authoritative)
+### Historical host baseline (Phase 0a, pre-#321/#308 — non-authoritative)
 
 > **Non-authoritative — host exec census via `/bin/sh` (Dash on this host), parse timings via Bash. Do not use for candidate prioritization.**
 
@@ -119,7 +119,17 @@ request path, adding the `read_rpc_input` stdin capture to the poll total.
 | full poll (`rpcd call poll`) | 8 | — | dirname (rpcd) + stdin cat + ubus + filter 5; jshn/sed not on host |
 
 Re-run: `./scripts/fork-census.sh` (prints `CENSUS_FILTER_TOTAL` /
-`CENSUS_POLL_TOTAL`). CI asserts filter=5 and poll=8 via `fwlive-test.sh`.
+`CENSUS_POLL_TOTAL`). This pre-optimization record measured filter=5 and
+poll=8; the current gate records the post-#321/#308 values below.
+
+### Post-#321/#308 host census
+
+Measured 2026-09-11 on the same host and `logread-mixed.json` fixture after
+extracting the classifier asset and streaming filter stdin. The filter is now
+**3** execs (`dirname`, `jsonfilter`, `awk`) and the full production-shaped poll
+is **6** on this host (`dirname`×2, stdin `cat`, `ubus`, `jsonfilter`, `awk`).
+The test gate records these as `CENSUS_FILTER_TOTAL=3` and
+`CENSUS_POLL_TOTAL=6`.
 
 ### Device budget-split table (Phase 0b — armsr TCG)
 
@@ -165,6 +175,39 @@ The same harness on an x86_64 24.10.5 guest with two vCPUs/256 MiB and KVM
 measured the fixture filter at 750–780 ms (median 770 ms) and a real poll at
 20–30 ms (median 30 ms). This is a host-side comparison only; it does not
 replace the armsr TCG table or predict native ARM timings.
+
+### Post-#321/#308 device rerun
+
+Measured 2026-09-11 after both hot-path changes on OpenWrt 24.10.8
+(`r29233-443ec4032a`), `aarch64`, BusyBox ash 1.36.1-r3, one vCPU, 256 MiB,
+QEMU TCG, source SHA `e3614d528d` (the `perf/310-device-budget` head carrying
+the `awk -f` asset and the regenerated `id` fixture — every stage row below
+exists only from this tree), and `/proc/uptime` 10 ms
+resolution. The guest system log buffer was `log_size=128` KiB
+(`system.@system[0].log_size`; there is no separate `log_buffer_size` UCI key).
+The regenerated fixture was 224,365 bytes / 2,000 entries and includes a
+monotonic `id` field per entry.
+
+| stage | exec count | raw samples (ms, n=5) | median ± spread (ms) | share of full poll (median 810 ms) |
+|-------|------------|----------------------|----------------------|------------------------------------|
+| rpcd parse (`sh -n`, n=20) | n/a (shell startup) | 31, 31, 33, 31, 31 | 31 ± 2 | 3.8% |
+| jshn (n=20) | 1 | 22, 22, 21, 22, 21 | 22 ± 1 | 2.7% |
+| log.read + capture (n=5) | 1 (`ubus`) | 68, 66, 64, 66, 66 | 66 ± 4 | 8.1% |
+| filter parse (`sh -n`, n=20) | n/a (shell startup) | 18, 17, 16, 17, 17 | 17 ± 2 | 2.1% |
+| `read_rpc_input` stdin capture (source + stdin, n=20) | 1 (`cat`) | 95, 96, 97, 98, 101 | 97 ± 6 | 12.0% |
+| jsonfilter (n=5) | 1 | 176, 172, 178, 180, 178 | 178 ± 8 | 22.0% |
+| classifier file (`awk -f`, n=5) | 1 | 46, 42, 46, 42, 44 | 44 ± 4 | 5.4% |
+| awk classify (n=5) | 1 | 80, 80, 82, 82, 78 | 80 ± 4 | 9.9% |
+| stdout → blobmsg | n/a | unresolved in shell attribution | n/a | n/a |
+
+Full real-logd `ubus call fwlive poll` samples were 800, 840, 810, 820, 810
+ms (median **810 ± 40 ms**). The fixture filter samples were 15,010, 15,180,
+15,460, 15,210, 15,350 ms (median **15,210 ± 450 ms**), kept separate from
+real poll latency. A PATH-shim fixture poll observed **8** external execs:
+`dirname`×2, `cat`×1 (the rpcd request capture), `jshn`×1, `sed`×1,
+`ubus`×1, `jsonfilter`×1, and `awk`×1. The former heredoc `cat` row is gone;
+the `classifier file` row measures the replacement `awk -f` invocation, not a
+standalone file-open cost. Stage shares remain inclusive and non-additive.
 
 **0b checklist**
 

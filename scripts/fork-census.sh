@@ -6,8 +6,8 @@
 #
 # Accounting rules:
 # - Only commands reached through shims in SHIM_CMDS are counted.
-# - Builtin subshell forks (raw=$(…), $(cat <<'AWK') as a subshell) are NOT
-#   observed unless they exec a shimmed binary (the heredoc's `cat` is counted).
+# - Builtin subshell forks (raw=$(…)) are NOT observed unless they exec a
+#   shimmed binary.
 # - The report separates production-path execs from harness-only artifacts.
 #
 # Usage:
@@ -250,7 +250,7 @@ FILTER_TOTAL="$(tally_total "$FILTER_TALLY")"
 echo "--- filter subprocess (production path) ---"
 echo "exec total: ${FILTER_TOTAL}"
 tally_breakdown "$FILTER_TALLY"
-echo "production: dirname (FILTER_DIR) + stdin cat + jsonfilter + heredoc cat + awk"
+echo "production: dirname (FILTER_DIR) + jsonfilter + awk"
 echo
 
 POLL_TALLY="$(run_poll_census)"
