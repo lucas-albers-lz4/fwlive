@@ -217,4 +217,60 @@ if [[ -s "${fixture}/abort-staging/manifest.json" ]] && \
 fi
 unset MOCK_REPO_DIGESTS MOCK_NO_ID
 
+# Release notes body = CHANGELOG section (generate-notes lists only merged PRs
+# in the tag range → near-empty bodies for direct-commit ranges, v0.1.40).
+notes_fix="${fixture}/notes-repo"
+mkdir -p "$notes_fix"
+cat > "$notes_fix/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [v9.9.9] — 2026-09-11
+
+### Fixed
+- Synthetic fix (#000)
+
+### Added
+- Synthetic addition
+
+## [v9.9.8] — 2026-09-01
+
+### Fixed
+- Older section must not leak
+EOF
+FEED_PUBLISH_ROOT="$notes_fix" feed_publish_release_notes_file "${fixture}/notes.md" v9.9.9 ||
+	{ echo "FAIL: notes helper must succeed for a known version" >&2; exit 1; }
+grep -q "Synthetic fix" "${fixture}/notes.md" ||
+	{ echo "FAIL: notes must carry the version section" >&2; exit 1; }
+grep -q "Older section must not leak" "${fixture}/notes.md" &&
+	{ echo "FAIL: notes must stop at the next heading" >&2; exit 1; }
+grep -q "## \[v9.9.8\]" "${fixture}/notes.md" &&
+	{ echo "FAIL: next heading leaked" >&2; exit 1; }
+# Non-repo root → no previous tag resolvable: version-line fallback footer,
+# never a bogus compare range.
+grep -q "PKG_VERSION 9.9.9" "${fixture}/notes.md" ||
+	{ echo "FAIL: fallback version footer missing" >&2; exit 1; }
+grep -q "Full Changelog" "${fixture}/notes.md" &&
+	{ echo "FAIL: compare footer must not appear without tags" >&2; exit 1; }
+# Real git root with tags → previous-tag compare footer.
+git_fix="${fixture}/git-repo"
+mkdir -p "$git_fix"
+cp "$notes_fix/CHANGELOG.md" "$git_fix/CHANGELOG.md"
+git -C "$git_fix" init -q
+git -C "$git_fix" -c user.name=t -c user.email=t@t add CHANGELOG.md
+git -C "$git_fix" -c user.name=t -c user.email=t@t commit -qm x
+git -C "$git_fix" tag v9.9.8
+git -C "$git_fix" tag v9.9.9
+FEED_PUBLISH_ROOT="$git_fix" feed_publish_release_notes_file "${fixture}/notes-git.md" v9.9.9 ||
+	{ echo "FAIL: notes helper must succeed in a tagged repo" >&2; exit 1; }
+grep -q "compare/v9\.9\.8\.\.\.v9\.9\.9" "${fixture}/notes-git.md" ||
+	{ echo "FAIL: compare footer missing in tagged repo" >&2; exit 1; }
+# Unknown version → non-zero (caller falls back to --generate-notes)
+FEED_PUBLISH_ROOT="$notes_fix" feed_publish_release_notes_file "${fixture}/none.md" v9.9.7 &&
+	{ echo "FAIL: unknown version must return non-zero" >&2; exit 1; }
+# Malformed tag → non-zero before touching the changelog
+FEED_PUBLISH_ROOT="$notes_fix" feed_publish_release_notes_file "${fixture}/bad.md" 'v9.9.9; rm' &&
+	{ echo "FAIL: malformed tag must return non-zero" >&2; exit 1; }
+
 echo "feed-publish release asset tests passed"

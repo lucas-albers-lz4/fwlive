@@ -88,7 +88,20 @@ Make sure that the filenames match `PKG_VERSION` in the Makefile.
 
 ## Release notes template
 
-Include in each release:
+The publish workflow generates the GitHub Release **body from the matching
+`## [vX.Y.Z]` section of CHANGELOG.md** (`feed_publish_release_notes_file`) —
+not from GitHub's `--generate-notes`, which enumerates only merged PRs in the
+tag range and ships a near-empty body when the range holds direct commits
+(v0.1.40 shipped with just the compare link). Consequences for the cut:
+
+- **The CHANGELOG fold for the version is required before tagging** — if the
+  section is missing, the workflow falls back to `--generate-notes` with a
+  warning, which is exactly the empty-body behavior we removed.
+- Keep each folded section readable standalone on the release page: it is
+  copied verbatim; the workflow appends the feed-install footer and the
+  previous-tag compare link.
+
+Include in each release (CHANGELOG section content):
 
 - Supported OpenWrt: **21.02**, **22.03**, **23.05**, **24.10** (opkg) · **25.12** (apk)
 - Feed install: [binary-feed.md](binary-feed.md)

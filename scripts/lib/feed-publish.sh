@@ -493,3 +493,42 @@ feed_publish_write_manifest() {
 	done
 	printf '\n  ]\n}\n' >> "$manifest"
 }
+
+# Write the release notes body for tag $2 into $1 from CHANGELOG.md (repo root
+# of $FEED_PUBLISH_ROOT). GitHub's --generate-notes lists merged PRs in the
+# tag range only — direct commits and versions cut in the same hour leave an
+# effectively empty body (v0.1.39 never existed, v0.1.40 shipped with only the
+# compare link). The CHANGELOG fold is the authoritative record; use it.
+# Returns 0 and writes the file when the section exists; non-zero (caller
+# falls back to --generate-notes) when CHANGELOG.md or the version section is
+# missing. Trailing footer: feed/install pointers + previous/compare links.
+feed_publish_release_notes_file() {
+	local out="$1" tag="$2" root prev changelog
+	[[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+	root="$(feed_publish_root)"
+	changelog="$root/CHANGELOG.md"
+	[[ -f "$changelog" ]] || return 1
+	# Section: from '## [vX.Y.Z]' up to (excluding) the next '## [' heading.
+	local ver="$tag"
+	python3 - "$changelog" "$ver" "$out" <<'PY' || return 1
+import re, sys
+path, ver, out = sys.argv[1:4]
+text = open(path, encoding="utf-8").read()
+m = re.search(r"^## \[%s\].*?(?=^## \[|\Z)" % re.escape(ver), text, re.M | re.S)
+if not m:
+	sys.exit(1)
+open(out, "w", encoding="utf-8").write(m.group(0).rstrip() + "\n")
+PY
+	# Footer: stable usage pointers + lineage links (previous tag if known).
+	prev="$(git -C "$root" tag --sort=v:refname 2>/dev/null |
+		awk -v want="$tag" 'prev && $0==want {print prev} {prev=$0}' | head -1)"
+	{
+		printf '\n**Install (recommended):** signed feed — see [docs/binary-feed.md](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/binary-feed.md) · Manual download: the assets below\n\n'
+		if [[ -n "$prev" ]]; then
+			printf '**Full Changelog**: https://github.com/lucas-albers-lz4/fwlive/compare/%s...%s\n' "$prev" "$tag"
+		else
+			printf '**Package versions**: PKG_VERSION %s = APP_VERSION (lockstep)\n' "${tag#v}"
+		fi
+	} >> "$out" || return 1
+	return 0
+}
