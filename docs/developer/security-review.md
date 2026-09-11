@@ -85,7 +85,7 @@ should carry a note saying what would raise it.
 | UCI rule names with whitespace are not word-split into junk keys | `host` | `tests/fwlive-rules-map.test.js` `testUciWhitespaceNames` |
 | `jsonfilter` declared; missing filter exits non-zero with `error` | `host` | Makefile `LUCI_DEPENDS`; `tests/fwlive-shell-filter.test.js` `runMissingJsonfilter` |
 | Generated classifier asset is required; missing asset exits non-zero with `classifier_missing` instead of silently filtering everything out | `host` | `tests/fwlive-shell-filter.test.js` `runMissingClassifier`; codegen freshness covers the `.awk` asset |
-| GitHub Release body is the CHANGELOG section (no empty `--generate-notes` bodies); fallback is loud | `host` | `feed_publish_release_notes_file` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-release-assets.test.sh` notes assertions; `publish_new` warn on fallback |
+| GitHub Release normal-path body is the CHANGELOG section; missing-section fallback is `--generate-notes` with a loud warning (body may be sparse — fold before tagging) | `host` | `feed_publish_release_notes_file` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-release-assets.test.sh` notes assertions; `publish_new` warn on fallback |
 | JSON filter unescapes libubox string escapes (`\b` `\f` `\n` `\r` `\t` `\u00XX`) before classify | `host` | `tests/fwlive-shell-filter.test.js` `runJsonGetMsgEscapes` / `runJsonParity` |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |

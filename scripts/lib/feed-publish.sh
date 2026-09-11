@@ -529,6 +529,6 @@ PY
 		else
 			printf '**Package versions**: PKG_VERSION %s = APP_VERSION (lockstep)\n' "${tag#v}"
 		fi
-	} >> "$out"
+	} >> "$out" || return 1
 	return 0
 }

@@ -240,9 +240,9 @@ cat > "$notes_fix/CHANGELOG.md" <<'EOF'
 - Older section must not leak
 EOF
 FEED_PUBLISH_ROOT="$notes_fix" feed_publish_release_notes_file "${fixture}/notes.md" v9.9.9 ||
-	echo "FAIL: notes helper must succeed for a known version" >&2
+	{ echo "FAIL: notes helper must succeed for a known version" >&2; exit 1; }
 grep -q "Synthetic fix" "${fixture}/notes.md" ||
-	echo "FAIL: notes must carry the version section" >&2
+	{ echo "FAIL: notes must carry the version section" >&2; exit 1; }
 grep -q "Older section must not leak" "${fixture}/notes.md" &&
 	{ echo "FAIL: notes must stop at the next heading" >&2; exit 1; }
 grep -q "## \[v9.9.8\]" "${fixture}/notes.md" &&
