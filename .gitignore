@@ -11,6 +11,7 @@ core.legacy/
 
 # --- Disk / VM images (large binaries) ---
 /lab/images/
+/lab/qemu-known_hosts
 *.img
 *.img.gz
 *.img.xz

@@ -131,25 +131,25 @@ ash, one vCPU, 256 MiB, QEMU TCG on the Linux x86_64 host, and source SHA
 followed by median ± full spread. Batched rows retain their repeat count in the
 raw values; values below the clock resolution are not represented as zero.
 
-| stage | exec count | raw samples (ms, n=5) | median ± spread (ms) | share of full poll (median 860 ms) |
+| stage | exec count | raw samples (ms, n=5) | median ± spread (ms) | share of full poll (median 950 ms) |
 |-------|------------|------------------------|----------------------|------------------------------------|
-| rpcd parse (`sh -n`, n=20) | n/a (shell startup) | 31, 32, 31, 31, 31 | 31 ± 1 | 3.6% |
-| jshn (n=20) | 1 | 21, 21, 21, 20, 21 | 21 ± 1 | 2.4% |
-| log.read + capture (n=5) | 1 (`ubus`) | 76, 74, 72, 72, 72 | 72 ± 4 | 8.4% |
-| filter parse (`sh -n`, n=20) | n/a (shell startup) | 17, 16, 17, 17, 16 | 17 ± 1 | 2.0% |
-| `read_rpc_input` stdin-cat (n=10) | 1 | 17, 15, 15, 16, 17 | 16 ± 2 | 1.9% |
-| filter stdin cat (n=10) | 1 | 17, 15, 15, 16, 17 | 16 ± 2 | 1.9% |
-| jsonfilter (n=5) | 1 | 18, 18, 18, 20, 18 | 18 ± 2 | 2.1% |
-| heredoc cat (n=50) | 1 | 15, 15, 15, 15, 15 | 15 ± 0 | 1.7% |
-| awk classify (n=5) | 1 | 110, 110, 110, 120, 110 | 110 ± 10 | 12.8% |
+| rpcd parse (`sh -n`, n=20) | n/a (shell startup) | 32, 31, 31, 43, 32 | 32 ± 12 | 3.4% |
+| jshn (n=20) | 1 | 21, 21, 21, 21, 21 | 21 ± 0 | 2.2% |
+| log.read + capture (n=5) | 1 (`ubus`) | 68, 60, 58, 60, 58 | 60 ± 10 | 6.3% |
+| filter parse (`sh -n`, n=20) | n/a (shell startup) | 18, 17, 17, 18, 17 | 17 ± 1 | 1.8% |
+| `read_rpc_input` stdin capture (source + stdin, n=20) | 1 (`cat`) | 99, 97, 98, 95, 100 | 98 ± 5 | 10.3% |
+| filter stdin cat (n=10) | 1 | 18, 20, 18, 20, 17 | 18 ± 3 | 1.9% |
+| jsonfilter (n=5) | 1 | 170, 152, 150, 152, 152 | 152 ± 20 | 16.0% |
+| heredoc cat (n=50) | 1 | 15, 15, 15, 15, 16 | 15 ± 1 | 1.6% |
+| awk classify (n=5) | 1 | 110, 104, 104, 104, 112 | 104 ± 8 | 10.9% |
 | stdout → blobmsg | n/a | unresolved in shell attribution | n/a | n/a |
 | HTTP + JS parse | n/a | not part of device poll | n/a | n/a |
 | JS render | n/a | not part of device poll | n/a | n/a |
 
-The full real-logd `ubus call fwlive poll` samples were 840, 860, 860, 860,
-850 ms (median 860 ± 20 ms). The 205,475-byte/2,000-entry fixture filter is a
-separate microbenchmark: 14,490, 14,430, 14,620, 14,500, 14,570 ms (median
-14,500 ± 190 ms), and must not be substituted for real logd capture. A
+The full real-logd `ubus call fwlive poll` samples were 980, 940, 950, 950,
+940 ms (median 950 ± 40 ms). The 205,475-byte/2,000-entry fixture filter is a
+separate microbenchmark: 15,630, 15,330, 15,660, 14,770, 14,540 ms (median
+15,330 ± 1,120 ms), and must not be substituted for real logd capture. A
 PATH-shim fixture poll observed 10 external execs: `dirname`×2, `cat`×3
 (including the production stdin capture), `jshn`×1, `sed`×1, `ubus`×1,
 `jsonfilter`×1, and `awk`×1. The stage shares are inclusive and overlap; they

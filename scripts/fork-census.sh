@@ -139,15 +139,14 @@ EOF
 }
 
 install_ubus_stub() {
-	local fixture="$1"
-	local tally="$2"
+	local tally="$1"
 	# Production: ubus is one IPC exec. Host stub cats the fixture (harness artifact).
 	cat >"${SHIM_DIR}/ubus" <<EOF
 #!/bin/sh
 printf '%s\\n' "ubus" >>"$tally"
 if [ "\$1" = call ] && [ "\$2" = log ] && [ "\$3" = read ]; then
 	# Harness: emit fixture via real cat (not shimmed) so we do not double-count.
-	exec /bin/cat "$fixture"
+	exec /bin/cat "\${FWLIVE_CENSUS_FIXTURE:?}"
 fi
 exit 1
 EOF
@@ -179,7 +178,7 @@ prepare_shims() {
 	for name in cat awk dirname jq sed; do
 		install_passthrough_shim "$name" "$tally"
 	done
-	install_ubus_stub "$FIXTURE" "$tally"
+	install_ubus_stub "$tally"
 	# Prefer real jsonfilter when present; otherwise stub (still counted).
 	if [[ "$(resolve_real jsonfilter)" != /bin/false ]]; then
 		install_passthrough_shim jsonfilter "$tally"
@@ -192,7 +191,7 @@ run_filter_census() {
 	local tally="${WORKDIR}/filter.tally"
 	: >"$tally"
 	prepare_shims "$tally"
-	FWLIVE_CENSUS_TALLY="$tally" PATH="${SHIM_DIR}:${PATH}" \
+	FWLIVE_CENSUS_TALLY="$tally" FWLIVE_CENSUS_FIXTURE="$FIXTURE" PATH="${SHIM_DIR}:${PATH}" \
 		sh "$FILTER_SH" <"$FIXTURE" >/dev/null
 	printf '%s' "$tally"
 }
@@ -204,7 +203,7 @@ run_poll_census() {
 	# rpcd supplies the request object on stdin when no argv object is present.
 	# Exercise that production path so read_rpc_input's cat is included.
 	printf '%s' '{"addresses":["50"]}' | \
-		FWLIVE_CENSUS_TALLY="$tally" PATH="${SHIM_DIR}:${PATH}" \
+		FWLIVE_CENSUS_TALLY="$tally" FWLIVE_CENSUS_FIXTURE="$FIXTURE" PATH="${SHIM_DIR}:${PATH}" \
 		sh "$RPCD" call poll >/dev/null
 	printf '%s' "$tally"
 }

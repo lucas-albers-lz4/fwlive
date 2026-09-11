@@ -15,13 +15,16 @@ HOST="${OPENWRT_HOST:-127.0.0.1}"
 PORT="${OPENWRT_SSH_PORT:-2222}"
 FIXTURE="${1:-${ROOT}/tests/fixtures/logread-2000.json}"
 REMOTE_FIXTURE=/tmp/fwlive-logread-2000.json
-SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
+KNOWN_HOSTS="${FWLIVE_KNOWN_HOSTS:-${ROOT}/lab/qemu-known_hosts}"
+mkdir -p "$(dirname "$KNOWN_HOSTS")"
+touch "$KNOWN_HOSTS"
+SSH_OPTS=(-o StrictHostKeyChecking="${FWLIVE_STRICT_HOST_KEY_CHECKING:-accept-new}" -o UserKnownHostsFile="$KNOWN_HOSTS" -o ConnectTimeout=15 -p "$PORT")
 
 [[ -f "$FIXTURE" ]] || { echo "fixture not found: $FIXTURE" >&2; exit 1; }
 ssh "${SSH_OPTS[@]}" "root@$HOST" 'echo connected' >/dev/null
 
 echo "Copying $(basename "$FIXTURE") to root@$HOST:$PORT:$REMOTE_FIXTURE" >&2
-if scp -O -q -P "$PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+if scp -O -q -P "$PORT" -o StrictHostKeyChecking="${FWLIVE_STRICT_HOST_KEY_CHECKING:-accept-new}" -o UserKnownHostsFile="$KNOWN_HOSTS" \
 	"$FIXTURE" "root@$HOST:$REMOTE_FIXTURE" 2>/dev/null; then
 	:
 else
@@ -50,7 +53,10 @@ measure() {
 		start=$(clock_cs)
 		j=1
 		while [ "$j" -le "$repeats" ]; do
-			"$@" </dev/null >/dev/null 2>&1 || true
+			if ! "$@" </dev/null >/dev/null 2>&1; then
+				echo "PROFILE_ERROR stage=$name command_failed" >&2
+				return 1
+			fi
 			j=$((j + 1))
 		done
 		end=$(clock_cs)
@@ -65,8 +71,12 @@ stage_rpcd_parse() { sh -n /usr/libexec/rpcd/fwlive; }
 stage_filter_parse() { sh -n /usr/libexec/fwlive-log-filter.sh; }
 stage_jshn() { jshn -r '{"addresses":["50"]}'; }
 stage_log_capture() { ubus call log read '{"lines":2000,"stream":false,"oneshot":true}'; }
+stage_read_rpc_input() {
+	printf '%s' '{"addresses":["50"]}' \
+		| sh -c '. /usr/libexec/rpcd/fwlive; read_rpc_input ""' /usr/libexec/rpcd/fwlive
+}
 stage_filter_cat() { cat "$fixture"; }
-stage_jsonfilter() { jsonfilter -e '@.log[*]' "$fixture"; }
+stage_jsonfilter() { jsonfilter -e '@.log[*]' <"$fixture"; }
 stage_heredoc_cat() {
 	cat <<'EOF'
 classifier-input
@@ -93,6 +103,7 @@ measure rpcd_parse 20 stage_rpcd_parse
 measure jshn 20 stage_jshn
 measure log_read_capture 5 stage_log_capture
 measure filter_parse 20 stage_filter_parse
+measure read_rpc_input 20 stage_read_rpc_input
 measure filter_stdin_cat 10 stage_filter_cat
 measure jsonfilter 5 stage_jsonfilter
 measure heredoc_cat 50 stage_heredoc_cat
@@ -131,6 +142,6 @@ for command in cat jsonfilter awk dirname sed jshn ubus; do
 done
 : >"$tally"
 printf '%s' '{"addresses":["50"]}' \
-	| PATH="$shim_dir:$PATH" /usr/libexec/rpcd/fwlive call poll >/dev/null 2>&1 || true
+	| PATH="$shim_dir:$PATH" /usr/libexec/rpcd/fwlive call poll >/dev/null 2>&1
 sort "$tally" | uniq -c | awk '{ printf "PROFILE_EXEC command=%s count=%s\n", $2, $1 }'
 REMOTE
