@@ -31,9 +31,18 @@ else
 	ssh "${SSH_OPTS[@]}" "root@$HOST" "cat > $REMOTE_FIXTURE" <"$FIXTURE"
 fi
 
-ssh "${SSH_OPTS[@]}" "root@$HOST" sh -s -- "$REMOTE_FIXTURE" <<'REMOTE'
+RUN_ID="${FWLIVE_PROFILE_RUN_ID:-$(date +%Y%m%dT%H%M%S)-$RANDOM}"
+# OpenSSH joins remote argv into a shell command; keep run_id safe as $2.
+case "$RUN_ID" in
+	''|*[!A-Za-z0-9._-]*)
+		echo "invalid FWLIVE_PROFILE_RUN_ID (use [A-Za-z0-9._-]+): $RUN_ID" >&2
+		exit 1
+		;;
+esac
+ssh "${SSH_OPTS[@]}" "root@$HOST" sh -s -- "$REMOTE_FIXTURE" "$RUN_ID" <<'REMOTE'
 set -eu
 fixture=$1
+run_id=$2
 
 clock_cs() {
 	read uptime _ </proc/uptime
@@ -96,6 +105,7 @@ echo "PROFILE_META revision=$(sed -n 's/^DISTRIB_REVISION=//p' /etc/openwrt_rele
 echo "PROFILE_META arch=$(uname -m) busybox=$(opkg status busybox 2>/dev/null | sed -n 's/^Version: //p')"
 echo "PROFILE_META clock=/proc/uptime resolution_centiseconds"
 echo "PROFILE_META fixture=$(wc -c <"$fixture" | tr -d ' ')_bytes"
+echo "PROFILE_META run_id=$run_id"
 
 # Batches make elapsed values meaningful when a single command is below 10 ms.
 measure rpcd_parse 20 stage_rpcd_parse
