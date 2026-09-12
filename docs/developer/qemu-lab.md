@@ -359,17 +359,21 @@ FWLIVE_PROFILE_RUN_ID="flood-armsr-$(date +%Y%m%dT%H%M%S)" \
 
 `qemu-install-fwlive.sh` syncs `fwlive-adaptive-cap.sh` with the other libexec helpers.
 
-#### Binding table — armsr TCG (pending first green run)
+#### Binding table — armsr TCG PATH-shim C1 (pending first green run)
+
+Measurement path is **fixture PATH-shim** (same class as memory-census C1), not
+stock-ring logd. Induce uses the 2000-entry fixture filter (~15 s on armsr TCG);
+follow polls must honor `lines=` via the shim so delivered msgs ≤250.
 
 | field | value |
 |-------|-------|
-| substrate | `qemu-armsr-tcg` (pending) |
+| substrate | `qemu-armsr-tcg` / path=`c1_fixture_shim` (pending) |
 | SMP / MEM | `1` / `256` |
-| log UCI | pending (`FLOOD_META log_uci_key=…`) |
+| log UCI | skipped for C1 (`--raise-log` optional) |
 | run_id / git SHA | pending |
-| induce wall_ms (on) | pending — need >800 ms or `bucket=hot` |
-| follow×3 (on) | pending — `truncated:1`, `log_msgs≤250` |
-| A/B (off) | pending — `adaptive:0`, no shed cap |
+| induce (on) | pending — `state_bucket=hot` / `state_duration_ms>800` |
+| follow×3 (on) | pending — `truncated:1`, `log_msgs≤250`, `resolve disabled=load` after induce |
+| A/B (off) | pending — `adaptive:0`, `log_msgs≫250`, no shed |
 | `FLOOD_VERDICT ac_pass` | pending |
 
 Visibility-pause degraded baseline remains blocked on Layer 2.
