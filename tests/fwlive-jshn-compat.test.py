@@ -45,7 +45,9 @@ def main():
                 path.chmod(0o755)
             env = dict(os.environ, PATH=f'{bindir}:{pair / "bin"}:/usr/bin:/bin',
                        LOOKUP_LOG=str(lookup_log), POLL_REQUEST=str(work / 'poll'),
-                       FWLIVE_ADAPTIVE_STATE_FILE=str(work / 'adaptive-state.json'))
+                       FWLIVE_ADAPTIVE='1',
+                       FWLIVE_ADAPTIVE_STATE_FILE=str(work / 'adaptive-state.json'),
+                       FWLIVE_ADAPTIVE_OFF_FILE=str(work / 'adaptive-off-absent'))
 
             def run(method, data, plugin=plugin, env=env, release=release):
                 result = subprocess.run([busybox, 'sh', '-eu', str(plugin), 'call', method],

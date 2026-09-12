@@ -125,6 +125,22 @@ if grep -n 'log_read_failed' -A6 "$RPCD" | grep -q 'fwlive_adaptive_record'; the
 fi
 ok "failed-read keeps prior bucket (no record)"
 
+# Lock path unopenable → fail-open still records (CodeRabbit CR1).
+fwlive_adaptive_write_state 0 2000 cold 0 0 0
+_lock_dir="$WORKDIR/lock-as-dir"
+mkdir -p "$_lock_dir"
+_saved_lock=${FWLIVE_ADAPTIVE_LOCK_FILE:-}
+export FWLIVE_ADAPTIVE_LOCK_FILE="$_lock_dir"
+fwlive_adaptive_record 900 2000
+set -- $(fwlive_adaptive_read_state)
+[ "$3" = hot ] || die "record must run when lock open fails, bucket=$3"
+if [ -n "$_saved_lock" ]; then
+	export FWLIVE_ADAPTIVE_LOCK_FILE="$_saved_lock"
+else
+	unset FWLIVE_ADAPTIVE_LOCK_FILE
+fi
+ok "lock-open failure fail-opens record"
+
 # merge_reply shape
 got=$(fwlive_adaptive_merge_reply '{"log":[]}' 0 50 0 0)
 case "$got" in

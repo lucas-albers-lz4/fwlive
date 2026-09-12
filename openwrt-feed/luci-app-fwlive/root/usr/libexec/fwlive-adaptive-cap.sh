@@ -219,6 +219,7 @@ fwlive_adaptive_write_state() {
 # missing/busy. Release by exiting the subshell (closes fd 9) — no flock -u.
 # Busy ⇒ run unlocked: last-writer-wins is acceptable (valid one-line JSON;
 # ordering under contention is not guaranteed).
+# Lock-open failure (redirection) also fail-opens unlocked so record() still runs.
 fwlive_adaptive_with_lock() {
 	if ! command -v flock >/dev/null 2>&1; then
 		"$@"
@@ -231,6 +232,12 @@ fwlive_adaptive_with_lock() {
 	_lock=$(fwlive_adaptive_lock_path)
 	# Symlinked lock path: do not create/follow; fail open unlocked.
 	if [ -L "$_lock" ]; then
+		"$@"
+		return $?
+	fi
+	# Prove the lock path is openable before entering the locked subshell.
+	# If `9>>` would fail, the subshell never runs — that used to skip record().
+	if ! ( : >>"$_lock" ) 2>/dev/null; then
 		"$@"
 		return $?
 	fi
