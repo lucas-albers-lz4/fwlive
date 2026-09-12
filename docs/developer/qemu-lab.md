@@ -341,7 +341,8 @@ this calibration.
 - [x] Idle / nofork / retention baselines + C2/C1 peak samples (n=5 peaks)
 - [x] Commit numeric Z from nofork; fill result tables
 - [x] armsr confirmation run against soft budget
-- [x] Degraded-mode baselines (adaptive cap + visibility pause) — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr C1 table filled (`ac_pass=1`, run `flood-armsr-20260912T174001`). Visibility-pause baseline still blocked on Layer 2.
+- [x] Degraded-mode adaptive-cap baseline — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr C1 table filled (`ac_pass=1`, run `flood-armsr-20260912T174001`)
+- [ ] Degraded-mode visibility-pause baseline — blocked on Layer 2 client backoff
 
 ### Adaptive flood evidence (#306 Layer 1)
 
