@@ -1,0 +1,2967 @@
+{
+ "tool": "lizard 1.24.0 -Ehalstead",
+ "formula": "MI = (171 - 5.2*ln(V) - 0.23*G - 16.2*ln(LOC)) * 100/171, floor 0",
+ "scope": [
+  "core",
+  "openwrt-feed",
+  "scripts"
+ ],
+ "excludes": [
+  "*/css.js"
+ ],
+ "bands": {
+  "good": 85,
+  "low": 65
+ },
+ "summary": {
+  "functions": 327,
+  "mean_mi": 64.8,
+  "median_mi": 64.1,
+  "below_65": 169
+ },
+ "functions": [
+  {
+   "file": "core/fwlive-log.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@530-530@core/fwlive-log.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 13.93,
+   "mi": 91.9
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@531-531@core/fwlive-log.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 23.26,
+   "mi": 90.3
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "action",
+   "loc": "action@105-105@core/fwlive-log.js",
+   "nloc": 1,
+   "ccn": 2,
+   "volume": 76.0,
+   "mi": 86.6
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "actionRowClass",
+   "loc": "actionRowClass@443-450@core/fwlive-log.js",
+   "nloc": 8,
+   "ccn": 5,
+   "volume": 180.09,
+   "mi": 63.8
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "cliMain",
+   "loc": "cliMain@502-532@core/fwlive-log.js",
+   "nloc": 19,
+   "ccn": 4,
+   "volume": 683.71,
+   "mi": 51.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "detectAction",
+   "loc": "detectAction@79-82@core/fwlive-log.js",
+   "nloc": 4,
+   "ccn": 2,
+   "volume": 121.01,
+   "mi": 72.0
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "evalNode",
+   "loc": "evalNode@109-131@core/fwlive-log.js",
+   "nloc": 23,
+   "ccn": 9,
+   "volume": 745.85,
+   "mi": 49.0
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "evaluateClassifySpec",
+   "loc": "evaluateClassifySpec@84-138@core/fwlive-log.js",
+   "nloc": 18,
+   "ccn": 5,
+   "volume": 606.0,
+   "mi": 52.5
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "extractAddrs",
+   "loc": "extractAddrs@273-280@core/fwlive-log.js",
+   "nloc": 8,
+   "ccn": 5,
+   "volume": 165.67,
+   "mi": 64.1
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "extractIfaces",
+   "loc": "extractIfaces@282-291@core/fwlive-log.js",
+   "nloc": 10,
+   "ccn": 9,
+   "volume": 296.13,
+   "mi": 59.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "filterLogEntries",
+   "loc": "filterLogEntries@452-472@core/fwlive-log.js",
+   "nloc": 18,
+   "ccn": 7,
+   "volume": 720.64,
+   "mi": 51.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "formatFilterChipLabel",
+   "loc": "formatFilterChipLabel@351-364@core/fwlive-log.js",
+   "nloc": 11,
+   "ccn": 6,
+   "volume": 341.32,
+   "mi": 58.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "formatRuleLabel",
+   "loc": "formatRuleLabel@176-184@core/fwlive-log.js",
+   "nloc": 7,
+   "ccn": 3,
+   "volume": 122.62,
+   "mi": 66.5
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "formatTimestampDisplay",
+   "loc": "formatTimestampDisplay@246-252@core/fwlive-log.js",
+   "nloc": 6,
+   "ccn": 2,
+   "volume": 149.34,
+   "mi": 67.5
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "has",
+   "loc": "has@87-87@core/fwlive-log.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 39.86,
+   "mi": 88.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "hasAny",
+   "loc": "hasAny@88-94@core/fwlive-log.js",
+   "nloc": 7,
+   "ccn": 3,
+   "volume": 169.46,
+   "mi": 65.6
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "hint",
+   "loc": "hint@106-106@core/fwlive-log.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 36.54,
+   "mi": 88.9
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "inferActionRaw",
+   "loc": "inferActionRaw@187-205@core/fwlive-log.js",
+   "nloc": 14,
+   "ccn": 11,
+   "volume": 562.62,
+   "mi": 54.3
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "isFirewallEvent",
+   "loc": "isFirewallEvent@254-264@core/fwlive-log.js",
+   "nloc": 8,
+   "ccn": 5,
+   "volume": 222.97,
+   "mi": 63.2
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "kv",
+   "loc": "kv@97-103@core/fwlive-log.js",
+   "nloc": 7,
+   "ccn": 3,
+   "volume": 197.15,
+   "mi": 65.1
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "kvAny",
+   "loc": "kvAny@104-104@core/fwlive-log.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 39.86,
+   "mi": 88.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "kvHas",
+   "loc": "kvHas@42-44@core/fwlive-log.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 88.0,
+   "mi": 75.8
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "makeEntryId",
+   "loc": "makeEntryId@266-271@core/fwlive-log.js",
+   "nloc": 5,
+   "ccn": 5,
+   "volume": 388.42,
+   "mi": 65.9
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "matchesActionField",
+   "loc": "matchesActionField@400-409@core/fwlive-log.js",
+   "nloc": 9,
+   "ccn": 5,
+   "volume": 363.11,
+   "mi": 60.6
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "matchesExactField",
+   "loc": "matchesExactField@375-384@core/fwlive-log.js",
+   "nloc": 9,
+   "ccn": 3,
+   "volume": 282.03,
+   "mi": 61.6
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "matchesFilter",
+   "loc": "matchesFilter@423-441@core/fwlive-log.js",
+   "nloc": 19,
+   "ccn": 17,
+   "volume": 822.06,
+   "mi": 49.4
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "matchesInterfaceField",
+   "loc": "matchesInterfaceField@411-421@core/fwlive-log.js",
+   "nloc": 10,
+   "ccn": 5,
+   "volume": 298.06,
+   "mi": 60.2
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "matchesQueryField",
+   "loc": "matchesQueryField@386-398@core/fwlive-log.js",
+   "nloc": 12,
+   "ccn": 4,
+   "volume": 607.74,
+   "mi": 56.4
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "matchesTextField",
+   "loc": "matchesTextField@366-373@core/fwlive-log.js",
+   "nloc": 7,
+   "ccn": 3,
+   "volume": 225.62,
+   "mi": 64.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "normalizeAction",
+   "loc": "normalizeAction@140-151@core/fwlive-log.js",
+   "nloc": 12,
+   "ccn": 5,
+   "volume": 348.39,
+   "mi": 58.0
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "normalizeEntry",
+   "loc": "normalizeEntry@293-566@core/fwlive-log.js",
+   "nloc": 89,
+   "ccn": 13,
+   "volume": 3180.46,
+   "mi": 31.2
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "normalizeNetfilterMessage",
+   "loc": "normalizeNetfilterMessage@61-63@core/fwlive-log.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 68.53,
+   "mi": 76.5
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "parseFlags",
+   "loc": "parseFlags@207-218@core/fwlive-log.js",
+   "nloc": 10,
+   "ccn": 4,
+   "volume": 317.29,
+   "mi": 60.1
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "parseKeyValueLog",
+   "loc": "parseKeyValueLog@65-76@core/fwlive-log.js",
+   "nloc": 9,
+   "ccn": 2,
+   "volume": 396.82,
+   "mi": 60.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "parseLength",
+   "loc": "parseLength@220-227@core/fwlive-log.js",
+   "nloc": 7,
+   "ccn": 5,
+   "volume": 220.92,
+   "mi": 64.5
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "readInputPayload",
+   "loc": "readInputPayload@489-500@core/fwlive-log.js",
+   "nloc": 11,
+   "ccn": 5,
+   "volume": 348.46,
+   "mi": 58.8
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "runOn",
+   "loc": "runOn@506-514@core/fwlive-log.js",
+   "nloc": 9,
+   "ccn": 2,
+   "volume": 324.33,
+   "mi": 61.3
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "statsLogEntries",
+   "loc": "statsLogEntries@474-487@core/fwlive-log.js",
+   "nloc": 12,
+   "ccn": 4,
+   "volume": 401.29,
+   "mi": 57.7
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "timestampUnix",
+   "loc": "timestampUnix@229-244@core/fwlive-log.js",
+   "nloc": 13,
+   "ccn": 9,
+   "volume": 795.39,
+   "mi": 54.2
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "toggleFilterNegation",
+   "loc": "toggleFilterNegation@343-349@core/fwlive-log.js",
+   "nloc": 6,
+   "ccn": 3,
+   "volume": 159.91,
+   "mi": 67.2
+  },
+  {
+   "file": "core/fwlive-log.js",
+   "func": "wordPattern",
+   "loc": "wordPattern@36-39@core/fwlive-log.js",
+   "nloc": 4,
+   "ccn": 1,
+   "volume": 116.69,
+   "mi": 72.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@32-34@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 31.7,
+   "mi": 78.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@35-40@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "nloc": 6,
+   "ccn": 6,
+   "volume": 228.4,
+   "mi": 65.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "func": "applyFetchedEntries",
+   "loc": "applyFetchedEntries@52-67@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "nloc": 13,
+   "ccn": 7,
+   "volume": 590.19,
+   "mi": 55.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "func": "ingestCap",
+   "loc": "ingestCap@15-17@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 51.89,
+   "mi": 77.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "func": "mergeById",
+   "loc": "mergeById@19-42@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js",
+   "nloc": 15,
+   "ccn": 8,
+   "volume": 774.52,
+   "mi": 53.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@86-88@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 53.77,
+   "mi": 77.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@102-104@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 53.77,
+   "mi": 77.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@138-140@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 34.87,
+   "mi": 78.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "func": "chipLeadingSym",
+   "loc": "chipLeadingSym@44-54@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "nloc": 11,
+   "ccn": 2,
+   "volume": 140.55,
+   "mi": 62.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "func": "chipValueNodes",
+   "loc": "chipValueNodes@19-42@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "nloc": 20,
+   "ccn": 7,
+   "volume": 928.12,
+   "mi": 49.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "func": "renderFilterChips",
+   "loc": "renderFilterChips@56-145@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js",
+   "nloc": 75,
+   "ccn": 9,
+   "volume": 2200.02,
+   "mi": 34.5
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js",
+   "func": "failIsHot",
+   "loc": "failIsHot@35-45@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js",
+   "nloc": 11,
+   "ccn": 6,
+   "volume": 442.61,
+   "mi": 57.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js",
+   "func": "failMark",
+   "loc": "failMark@47-57@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js",
+   "nloc": 11,
+   "ccn": 5,
+   "volume": 482.15,
+   "mi": 57.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js",
+   "func": "lruGet",
+   "loc": "lruGet@27-33@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js",
+   "nloc": 7,
+   "ccn": 2,
+   "volume": 207.45,
+   "mi": 65.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js",
+   "func": "lruSet",
+   "loc": "lruSet@16-25@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js",
+   "nloc": 10,
+   "ccn": 4,
+   "volume": 379.78,
+   "mi": 59.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@60-62@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 43.19,
+   "mi": 78.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@88-90@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 43.19,
+   "mi": 78.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@129-136@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 8,
+   "ccn": 5,
+   "volume": 218.51,
+   "mi": 63.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@155-157@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 43.19,
+   "mi": 78.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "addrFilterLink",
+   "loc": "addrFilterLink@75-94@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 16,
+   "ccn": 6,
+   "volume": 506.88,
+   "mi": 54.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "filterLink",
+   "loc": "filterLink@51-66@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 13,
+   "ccn": 3,
+   "volume": 310.0,
+   "mi": 57.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "firewallZonesLink",
+   "loc": "firewallZonesLink@34-43@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 10,
+   "ccn": 2,
+   "volume": 133.98,
+   "mi": 63.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "firewallZonesPath",
+   "loc": "firewallZonesPath@26-28@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 15.51,
+   "mi": 81.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "firewallZonesUrl",
+   "loc": "firewallZonesUrl@30-32@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 33.0,
+   "mi": 78.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "ifaceLink",
+   "loc": "ifaceLink@146-161@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 13,
+   "ccn": 2,
+   "volume": 245.18,
+   "mi": 58.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "luciUrl",
+   "loc": "luciUrl@20-24@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 4,
+   "ccn": 3,
+   "volume": 114.45,
+   "mi": 72.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "ruleAdminLink",
+   "loc": "ruleAdminLink@114-140@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 18,
+   "ccn": 3,
+   "volume": 508.97,
+   "mi": 53.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "func": "ruleAdminPath",
+   "loc": "ruleAdminPath@100-106@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js",
+   "nloc": 5,
+   "ccn": 3,
+   "volume": 108.0,
+   "mi": 70.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "action",
+   "loc": "action@125-127@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 66.42,
+   "mi": 76.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "actionRowClass",
+   "loc": "actionRowClass@531-536@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 6,
+   "ccn": 5,
+   "volume": 180.09,
+   "mi": 66.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "evalNode",
+   "loc": "evalNode@133-152@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 20,
+   "ccn": 9,
+   "volume": 745.85,
+   "mi": 50.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "formatFilterChipLabel",
+   "loc": "formatFilterChipLabel@452-464@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 10,
+   "ccn": 6,
+   "volume": 398.35,
+   "mi": 59.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "has",
+   "loc": "has@105-107@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 50.19,
+   "mi": 77.5
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "hasAny",
+   "loc": "hasAny@108-113@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 6,
+   "ccn": 3,
+   "volume": 169.46,
+   "mi": 67.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "hint",
+   "loc": "hint@128-130@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 44.97,
+   "mi": 77.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "kv",
+   "loc": "kv@116-121@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 6,
+   "ccn": 3,
+   "volume": 197.15,
+   "mi": 66.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "kvAny",
+   "loc": "kvAny@122-124@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 39.86,
+   "mi": 78.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "matchesActionField",
+   "loc": "matchesActionField@496-505@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 9,
+   "ccn": 5,
+   "volume": 376.52,
+   "mi": 60.5
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "matchesExactField",
+   "loc": "matchesExactField@474-482@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 8,
+   "ccn": 3,
+   "volume": 294.8,
+   "mi": 62.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "matchesFilter",
+   "loc": "matchesFilter@519-529@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 11,
+   "ccn": 17,
+   "volume": 908.44,
+   "mi": 54.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "matchesInterfaceField",
+   "loc": "matchesInterfaceField@507-517@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 10,
+   "ccn": 5,
+   "volume": 310.91,
+   "mi": 60.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "matchesQueryField",
+   "loc": "matchesQueryField@484-494@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 10,
+   "ccn": 4,
+   "volume": 622.38,
+   "mi": 58.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "matchesTextField",
+   "loc": "matchesTextField@466-472@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 6,
+   "ccn": 3,
+   "volume": 237.74,
+   "mi": 66.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "pad",
+   "loc": "pad@257-259@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 64.73,
+   "mi": 76.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "pad",
+   "loc": "pad@275-277@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 64.73,
+   "mi": 76.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "func": "toggleFilterNegation",
+   "loc": "toggleFilterNegation@445-450@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js",
+   "nloc": 5,
+   "ccn": 3,
+   "volume": 171.3,
+   "mi": 68.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@108-110@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 27.0,
+   "mi": 79.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@126-128@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 27.0,
+   "mi": 79.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@173-176@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 4,
+   "ccn": 1,
+   "volume": 41.21,
+   "mi": 75.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@186-191@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 6,
+   "ccn": 4,
+   "volume": 203.13,
+   "mi": 66.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@298-301@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 4,
+   "ccn": 1,
+   "volume": 41.21,
+   "mi": 75.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "blockerCode",
+   "loc": "blockerCode@49-58@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 10,
+   "ccn": 4,
+   "volume": 230.7,
+   "mi": 61.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "buildConsentPanel",
+   "loc": "buildConsentPanel@135-200@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 58,
+   "ccn": 3,
+   "volume": 1814.81,
+   "mi": 38.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "buildEmptyStateNodes",
+   "loc": "buildEmptyStateNodes@202-310@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 98,
+   "ccn": 9,
+   "volume": 2990.58,
+   "mi": 31.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "consentDismissedPermanent",
+   "loc": "consentDismissedPermanent@33-39@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 7,
+   "ccn": 2,
+   "volume": 100.0,
+   "mi": 67.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "persistConsentDismissed",
+   "loc": "persistConsentDismissed@41-47@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 6,
+   "ccn": 2,
+   "volume": 79.95,
+   "mi": 69.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "renderEmptyState",
+   "loc": "renderEmptyState@312-316@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 5,
+   "ccn": 2,
+   "volume": 235.02,
+   "mi": 67.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "renderManualTestNodes",
+   "loc": "renderManualTestNodes@323-342@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 20,
+   "ccn": 2,
+   "volume": 593.73,
+   "mi": 51.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "func": "renderToolbar",
+   "loc": "renderToolbar@60-133@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js",
+   "nloc": 65,
+   "ccn": 10,
+   "volume": 2103.94,
+   "mi": 35.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/proto.js",
+   "func": "readProtoFilter",
+   "loc": "readProtoFilter@12-20@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/proto.js",
+   "nloc": 9,
+   "ccn": 5,
+   "volume": 248.8,
+   "mi": 61.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/proto.js",
+   "func": "setProtoFilterValue",
+   "loc": "setProtoFilterValue@22-47@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/proto.js",
+   "nloc": 23,
+   "ccn": 9,
+   "volume": 708.28,
+   "mi": 49.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@282-283@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 41.51,
+   "mi": 82.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "func": "buildColumnCell",
+   "loc": "buildColumnCell@121-231@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "nloc": 103,
+   "ccn": 26,
+   "volume": 4336.14,
+   "mi": 27.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "func": "columnCellClass",
+   "loc": "columnCellClass@54-87@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "nloc": 34,
+   "ccn": 17,
+   "volume": 526.87,
+   "mi": 45.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "func": "columnLabel",
+   "loc": "columnLabel@31-52@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "nloc": 21,
+   "ccn": 2,
+   "volume": 720.46,
+   "mi": 50.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "func": "flowCell",
+   "loc": "flowCell@89-119@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "nloc": 11,
+   "ccn": 5,
+   "volume": 617.34,
+   "mi": 57.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "func": "pushAddr",
+   "loc": "pushAddr@92-109@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "nloc": 17,
+   "ccn": 6,
+   "volume": 404.24,
+   "mi": 54.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "func": "renderRows",
+   "loc": "renderRows@258-301@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "nloc": 39,
+   "ccn": 13,
+   "volume": 1843.14,
+   "mi": 40.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "func": "renderThead",
+   "loc": "renderThead@234-256@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js",
+   "nloc": 19,
+   "ccn": 5,
+   "volume": 903.97,
+   "mi": 50.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "func": "cssColorPaintDelta",
+   "loc": "cssColorPaintDelta@57-66@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "nloc": 8,
+   "ccn": 7,
+   "volume": 737.01,
+   "mi": 59.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "func": "hexPairForMode",
+   "loc": "hexPairForMode@30-34@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "nloc": 5,
+   "ccn": 2,
+   "volume": 148.68,
+   "mi": 69.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "func": "normalizeRowTint",
+   "loc": "normalizeRowTint@25-28@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "nloc": 4,
+   "ccn": 4,
+   "volume": 88.81,
+   "mi": 72.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "func": "parseCssRgbChannels",
+   "loc": "parseCssRgbChannels@36-94@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "nloc": 31,
+   "ccn": 7,
+   "volume": 1117.29,
+   "mi": 45.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "func": "tintShouldEngageFallback",
+   "loc": "tintShouldEngageFallback@68-79@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js",
+   "nloc": 7,
+   "ccn": 5,
+   "volume": 269.34,
+   "mi": 63.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@846-846@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 22.46,
+   "mi": 90.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@860-860@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 22.46,
+   "mi": 90.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@949-949@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 4.75,
+   "mi": 95.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@951-954@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 4,
+   "ccn": 1,
+   "volume": 51.89,
+   "mi": 74.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@964-964@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 13.93,
+   "mi": 91.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@966-968@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 28.53,
+   "mi": 79.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@987-990@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 4,
+   "ccn": 2,
+   "volume": 75.28,
+   "mi": 73.5
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@991-993@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 19.65,
+   "mi": 80.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1289-1289@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 6.34,
+   "mi": 94.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1304-1307@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 4,
+   "ccn": 1,
+   "volume": 51.89,
+   "mi": 74.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1339-1342@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 4,
+   "ccn": 2,
+   "volume": 70.31,
+   "mi": 73.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1348-1351@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 4,
+   "ccn": 3,
+   "volume": 108.0,
+   "mi": 72.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1403-1416@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 13,
+   "ccn": 4,
+   "volume": 233.52,
+   "mi": 58.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1421-1421@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 0.0,
+   "mi": 99.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1493-1494@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 15.51,
+   "mi": 85.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1504-1505@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 15.51,
+   "mi": 85.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1535-1536@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 15.51,
+   "mi": 85.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@1546-1547@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 15.51,
+   "mi": 85.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "actionRowTintClass",
+   "loc": "actionRowTintClass@308-313@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 5,
+   "volume": 180.09,
+   "mi": 66.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "actionRowTintClass",
+   "loc": "actionRowTintClass@1272-1273@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 30.0,
+   "mi": 83.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "activeColumns",
+   "loc": "activeColumns@392-394@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 72.34,
+   "mi": 76.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "addFooter",
+   "loc": "addFooter@1774-1802@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 29,
+   "ccn": 4,
+   "volume": 1329.9,
+   "mi": 45.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "applyHash",
+   "loc": "applyHash@177-206@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 29,
+   "ccn": 14,
+   "volume": 1396.26,
+   "mi": 44.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "applyRowLimit",
+   "loc": "applyRowLimit@899-904@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 4,
+   "volume": 286.62,
+   "mi": 65.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "applyRowTintMode",
+   "loc": "applyRowTintMode@252-258@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 4,
+   "volume": 233.83,
+   "mi": 65.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "applyTintFallback",
+   "loc": "applyTintFallback@315-324@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 9,
+   "ccn": 2,
+   "volume": 343.48,
+   "mi": 61.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "attachHandlers",
+   "loc": "attachHandlers@1320-1369@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 36,
+   "ccn": 12,
+   "volume": 2114.6,
+   "mi": 41.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "backendDisplayLabel",
+   "loc": "backendDisplayLabel@474-478@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 5,
+   "ccn": 3,
+   "volume": 138.97,
+   "mi": 69.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "clearAllFilters",
+   "loc": "clearAllFilters@1159-1170@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 10,
+   "ccn": 6,
+   "volume": 473.13,
+   "mi": 58.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "clearFilter",
+   "loc": "clearFilter@1131-1136@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 5,
+   "ccn": 3,
+   "volume": 140.0,
+   "mi": 69.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "clearTintFallback",
+   "loc": "clearTintFallback@326-334@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 8,
+   "ccn": 2,
+   "volume": 210.83,
+   "mi": 63.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "collectIpsFromEntries",
+   "loc": "collectIpsFromEntries@1045-1055@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 9,
+   "ccn": 6,
+   "volume": 470.0,
+   "mi": 59.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "commitRowTintChange",
+   "loc": "commitRowTintChange@273-279@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 7,
+   "ccn": 1,
+   "volume": 132.83,
+   "mi": 66.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "compactCountText",
+   "loc": "compactCountText@851-870@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 14,
+   "ccn": 6,
+   "volume": 681.21,
+   "mi": 54.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "consumeRenderBudget",
+   "loc": "consumeRenderBudget@792-807@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 14,
+   "ccn": 3,
+   "volume": 259.12,
+   "mi": 57.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "enrichEntry",
+   "loc": "enrichEntry@679-682@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 4,
+   "ccn": 1,
+   "volume": 74.01,
+   "mi": 73.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "fetchEntries",
+   "loc": "fetchEntries@702-747@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 37,
+   "ccn": 9,
+   "volume": 1345.65,
+   "mi": 42.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "filterClick",
+   "loc": "filterClick@1036-1043@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 4,
+   "volume": 183.48,
+   "mi": 66.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "filteredRows",
+   "loc": "filteredRows@843-849@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 7,
+   "ccn": 1,
+   "volume": 162.52,
+   "mi": 65.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "handleDisableLogging",
+   "loc": "handleDisableLogging@564-593@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 27,
+   "ccn": 8,
+   "volume": 824.9,
+   "mi": 47.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "handleDismissConsent",
+   "loc": "handleDismissConsent@605-610@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 2,
+   "volume": 130.8,
+   "mi": 67.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "handleEnableLogging",
+   "loc": "handleEnableLogging@522-562@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 37,
+   "ccn": 10,
+   "volume": 1081.9,
+   "mi": 43.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "ingestCap",
+   "loc": "ingestCap@762-764@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 82.04,
+   "mi": 76.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "invertFilter",
+   "loc": "invertFilter@1138-1157@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 17,
+   "ccn": 6,
+   "volume": 579.97,
+   "mi": 53.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "isLikelyIp",
+   "loc": "isLikelyIp@386-390@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 4,
+   "ccn": 2,
+   "volume": 155.89,
+   "mi": 71.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "limitSelectOptions",
+   "loc": "limitSelectOptions@996-1003@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 8,
+   "ccn": 2,
+   "volume": 291.43,
+   "mi": 62.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "load",
+   "loc": "load@1395-1423@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 15,
+   "ccn": 4,
+   "volume": 492.41,
+   "mi": 55.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "loadLoggingStatus",
+   "loc": "loadLoggingStatus@511-520@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 10,
+   "ccn": 2,
+   "volume": 187.65,
+   "mi": 62.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "loadRulesMap",
+   "loc": "loadRulesMap@458-472@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 14,
+   "ccn": 9,
+   "volume": 525.0,
+   "mi": 54.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "loggingState",
+   "loc": "loggingState@612-620@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 9,
+   "ccn": 1,
+   "volume": 166.8,
+   "mi": 63.5
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "loggingUiSignature",
+   "loc": "loggingUiSignature@624-636@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 12,
+   "ccn": 10,
+   "volume": 515.74,
+   "mi": 56.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "normalizePollBatch",
+   "loc": "normalizePollBatch@684-700@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 14,
+   "ccn": 5,
+   "volume": 650.74,
+   "mi": 54.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onClear",
+   "loc": "onClear@1184-1185@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 49.83,
+   "mi": 81.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onClearAll",
+   "loc": "onClearAll@1185-1186@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 30.0,
+   "mi": 83.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onDisable",
+   "loc": "onDisable@647-648@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 22.46,
+   "mi": 83.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onDismissConsent",
+   "loc": "onDismissConsent@662-663@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 30.0,
+   "mi": 83.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onEnable",
+   "loc": "onEnable@646-647@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 27.0,
+   "mi": 83.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onEnable",
+   "loc": "onEnable@661-662@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 27.0,
+   "mi": 83.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onFilterClick",
+   "loc": "onFilterClick@1271-1272@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 65.73,
+   "mi": 80.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onFilterInput",
+   "loc": "onFilterInput@1297-1299@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 31.7,
+   "mi": 78.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onFilterInputDebounced",
+   "loc": "onFilterInputDebounced@1301-1310@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 7,
+   "ccn": 2,
+   "volume": 132.0,
+   "mi": 66.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onInvert",
+   "loc": "onInvert@1183-1184@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 49.83,
+   "mi": 81.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onPauseClick",
+   "loc": "onPauseClick@940-971@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 24,
+   "ccn": 6,
+   "volume": 576.88,
+   "mi": 49.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onRowClick",
+   "loc": "onRowClick@441-449@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 7,
+   "ccn": 7,
+   "volume": 294.8,
+   "mi": 63.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onRowClick",
+   "loc": "onRowClick@1270-1271@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 49.83,
+   "mi": 81.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onRowLimitChange",
+   "loc": "onRowLimitChange@973-994@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 15,
+   "ccn": 6,
+   "volume": 748.38,
+   "mi": 53.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onRowTintEnabledChange",
+   "loc": "onRowTintEnabledChange@260-271@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 12,
+   "ccn": 6,
+   "volume": 408.63,
+   "mi": 57.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onRowTintPaletteChange",
+   "loc": "onRowTintPaletteChange@281-288@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 8,
+   "ccn": 5,
+   "volume": 290.05,
+   "mi": 62.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onScrollArea",
+   "loc": "onScrollArea@1312-1318@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 4,
+   "volume": 180.94,
+   "mi": 66.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "onShowHostnamesChange",
+   "loc": "onShowHostnamesChange@929-938@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 8,
+   "ccn": 5,
+   "volume": 360.55,
+   "mi": 61.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "optionNodes",
+   "loc": "optionNodes@88-93@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 2,
+   "volume": 290.05,
+   "mi": 65.5
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "pollData",
+   "loc": "pollData@1371-1393@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 19,
+   "ccn": 5,
+   "volume": 461.51,
+   "mi": 52.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "probeRowTintPaint",
+   "loc": "probeRowTintPaint@343-384@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 34,
+   "ccn": 14,
+   "volume": 1973.05,
+   "mi": 41.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "protoSelectOptions",
+   "loc": "protoSelectOptions@1006-1034@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 29,
+   "ccn": 1,
+   "volume": 2088.67,
+   "mi": 44.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "readFilters",
+   "loc": "readFilters@150-1803@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 105,
+   "ccn": 3,
+   "volume": 3217.39,
+   "mi": 30.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "readMessageLayout",
+   "loc": "readMessageLayout@1190-1192@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 66.42,
+   "mi": 76.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "readRowLimit",
+   "loc": "readRowLimit@889-893@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 5,
+   "ccn": 2,
+   "volume": 176.42,
+   "mi": 68.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "readRowTint",
+   "loc": "readRowTint@227-235@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 8,
+   "ccn": 7,
+   "volume": 344.92,
+   "mi": 61.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "readShowHostnames",
+   "loc": "readShowHostnames@219-221@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 46.6,
+   "mi": 77.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "readViewMode",
+   "loc": "readViewMode@208-213@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 4,
+   "volume": 161.42,
+   "mi": 67.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "refillRenderBucket",
+   "loc": "refillRenderBucket@780-790@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 10,
+   "ccn": 2,
+   "volume": 314.93,
+   "mi": 60.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "rememberSessionId",
+   "loc": "rememberSessionId@749-760@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 11,
+   "ccn": 4,
+   "volume": 531.36,
+   "mi": 57.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "render",
+   "loc": "render@1425-1772@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 344,
+   "ccn": 1,
+   "volume": 12060.27,
+   "mi": 16.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "renderBudgetCost",
+   "loc": "renderBudgetCost@810-826@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 8,
+   "ccn": 9,
+   "volume": 427.35,
+   "mi": 60.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "renderFilterChips",
+   "loc": "renderFilterChips@1172-1188@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 13,
+   "ccn": 2,
+   "volume": 285.29,
+   "mi": 58.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "renderRows",
+   "loc": "renderRows@1222-1295@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 58,
+   "ccn": 20,
+   "volume": 2756.87,
+   "mi": 34.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "renderThead",
+   "loc": "renderThead@451-456@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 5,
+   "ccn": 2,
+   "volume": 199.04,
+   "mi": 68.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "resolveHostnamesForEntries",
+   "loc": "resolveHostnamesForEntries@1057-1105@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 38,
+   "ccn": 18,
+   "volume": 2013.94,
+   "mi": 40.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "resolveRuleLabel",
+   "loc": "resolveRuleLabel@668-677@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 7,
+   "ccn": 4,
+   "volume": 276.72,
+   "mi": 63.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "rowTintEnabled",
+   "loc": "rowTintEnabled@248-250@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 57.36,
+   "mi": 77.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "rowTintPaletteOptions",
+   "loc": "rowTintPaletteOptions@241-246@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 1,
+   "volume": 105.49,
+   "mi": 68.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "runProbe",
+   "loc": "runProbe@1285-1287@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 60.94,
+   "mi": 76.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "saveMessageLayout",
+   "loc": "saveMessageLayout@1194-1196@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 41.51,
+   "mi": 78.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "saveRowLimit",
+   "loc": "saveRowLimit@895-897@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 53.77,
+   "mi": 77.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "saveRowTint",
+   "loc": "saveRowTint@237-239@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 41.51,
+   "mi": 78.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "saveShowHostnames",
+   "loc": "saveShowHostnames@223-225@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 62.51,
+   "mi": 76.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "saveViewMode",
+   "loc": "saveViewMode@215-217@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 41.51,
+   "mi": 78.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "setFilterFieldValue",
+   "loc": "setFilterFieldValue@1107-1129@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 18,
+   "ccn": 9,
+   "volume": 886.09,
+   "mi": 50.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "setMessageLayout",
+   "loc": "setMessageLayout@1211-1220@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 9,
+   "ccn": 4,
+   "volume": 296.13,
+   "mi": 61.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "setViewMode",
+   "loc": "setViewMode@396-406@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 10,
+   "ccn": 3,
+   "volume": 350.94,
+   "mi": 60.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "shouldShowLoggingConsent",
+   "loc": "shouldShowLoggingConsent@595-603@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 9,
+   "ccn": 7,
+   "volume": 297.21,
+   "mi": 60.9
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "statusSuffix",
+   "loc": "statusSuffix@766-778@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 12,
+   "ccn": 9,
+   "volume": 638.63,
+   "mi": 55.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "storeValue",
+   "loc": "storeValue@80-86@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 6,
+   "ccn": 2,
+   "volume": 91.38,
+   "mi": 69.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "storedValue",
+   "loc": "storedValue@71-78@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 8,
+   "ccn": 3,
+   "volume": 165.0,
+   "mi": 64.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateBackendUi",
+   "loc": "updateBackendUi@480-509@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 28,
+   "ccn": 10,
+   "volume": 1142.31,
+   "mi": 45.7
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateDetailToggleUi",
+   "loc": "updateDetailToggleUi@408-419@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 10,
+   "ccn": 6,
+   "volume": 485.0,
+   "mi": 58.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateEmptyStateUi",
+   "loc": "updateEmptyStateUi@652-666@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 11,
+   "ccn": 4,
+   "volume": 440.0,
+   "mi": 58.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateFilterPanelUi",
+   "loc": "updateFilterPanelUi@421-439@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 17,
+   "ccn": 8,
+   "volume": 412.18,
+   "mi": 53.8
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateFloodBanner",
+   "loc": "updateFloodBanner@828-841@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 13,
+   "ccn": 3,
+   "volume": 291.43,
+   "mi": 58.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateLoggingToolbarUi",
+   "loc": "updateLoggingToolbarUi@638-650@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 9,
+   "ccn": 3,
+   "volume": 305.53,
+   "mi": 61.4
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateMessageLayoutUi",
+   "loc": "updateMessageLayoutUi@1198-1209@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 12,
+   "ccn": 6,
+   "volume": 525.0,
+   "mi": 56.6
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateRowTintUi",
+   "loc": "updateRowTintUi@290-306@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 15,
+   "ccn": 7,
+   "volume": 574.48,
+   "mi": 54.1
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateStatus",
+   "loc": "updateStatus@872-887@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 13,
+   "ccn": 5,
+   "volume": 493.48,
+   "mi": 56.2
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateStreamControlsUi",
+   "loc": "updateStreamControlsUi@906-927@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 21,
+   "ccn": 11,
+   "volume": 1133.14,
+   "mi": 48.3
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "updateTintWarnUi",
+   "loc": "updateTintWarnUi@336-341@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 5,
+   "ccn": 3,
+   "volume": 153.8,
+   "mi": 69.0
+  },
+  {
+   "file": "openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "func": "val",
+   "loc": "val@151-154@openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js",
+   "nloc": 4,
+   "ccn": 3,
+   "volume": 110.45,
+   "mi": 72.2
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@40-40@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 0.0,
+   "mi": 99.9
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@49-51@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 3,
+   "ccn": 2,
+   "volume": 60.94,
+   "mi": 76.8
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@114-116@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 41.51,
+   "mi": 78.1
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@135-135@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 0.0,
+   "mi": 99.9
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@158-158@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 19.65,
+   "mi": 90.8
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@166-166@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 0.0,
+   "mi": 99.9
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@167-167@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 0.0,
+   "mi": 99.9
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@168-168@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 0.0,
+   "mi": 99.9
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@225-228@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 4,
+   "ccn": 1,
+   "volume": 51.89,
+   "mi": 74.7
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "clearConsent",
+   "loc": "clearConsent@48-52@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 66.61,
+   "mi": 76.7
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "enableDarkMode",
+   "loc": "enableDarkMode@113-117@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 49.83,
+   "mi": 77.6
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "ensureWanLoggingOff",
+   "loc": "ensureWanLoggingOff@54-67@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 12,
+   "ccn": 3,
+   "volume": 394.73,
+   "mi": 57.9
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "expandFirstRow",
+   "loc": "expandFirstRow@101-111@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 11,
+   "ccn": 3,
+   "volume": 492.41,
+   "mi": 58.0
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "guestSsh",
+   "loc": "guestSsh@69-74@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 6,
+   "ccn": 2,
+   "volume": 188.02,
+   "mi": 66.8
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "login",
+   "loc": "login@20-29@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 9,
+   "ccn": 2,
+   "volume": 375.0,
+   "mi": 60.9
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "main",
+   "loc": "main@119-223@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 90,
+   "ccn": 13,
+   "volume": 6081.64,
+   "mi": 29.1
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "openFwlive",
+   "loc": "openFwlive@31-46@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 16,
+   "ccn": 3,
+   "volume": 801.43,
+   "mi": 53.0
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "resetGuestLogs",
+   "loc": "resetGuestLogs@77-84@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 8,
+   "ccn": 3,
+   "volume": 318.02,
+   "mi": 62.4
+  },
+  {
+   "file": "scripts/capture-fwlive-screenshots.mjs",
+   "func": "runPingHelper",
+   "loc": "runPingHelper@86-98@scripts/capture-fwlive-screenshots.mjs",
+   "nloc": 13,
+   "ccn": 6,
+   "volume": 677.66,
+   "mi": 55.1
+  },
+  {
+   "file": "scripts/embed-fwlive-css.js",
+   "func": "generate",
+   "loc": "generate@26-48@scripts/embed-fwlive-css.js",
+   "nloc": 22,
+   "ccn": 2,
+   "volume": 388.35,
+   "mi": 52.3
+  },
+  {
+   "file": "scripts/embed-fwlive-css.js",
+   "func": "main",
+   "loc": "main@50-60@scripts/embed-fwlive-css.js",
+   "nloc": 11,
+   "ccn": 2,
+   "volume": 412.08,
+   "mi": 58.7
+  },
+  {
+   "file": "scripts/gen-luci-wrapper.js",
+   "func": "extractClassifySpec",
+   "loc": "extractClassifySpec@32-54@scripts/gen-luci-wrapper.js",
+   "nloc": 23,
+   "ccn": 5,
+   "volume": 881.51,
+   "mi": 49.0
+  },
+  {
+   "file": "scripts/gen-shell-classifier.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@25-25@scripts/gen-shell-classifier.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 34.87,
+   "mi": 89.1
+  },
+  {
+   "file": "scripts/gen-shell-classifier.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@27-27@scripts/gen-shell-classifier.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 34.87,
+   "mi": 89.1
+  },
+  {
+   "file": "scripts/gen-shell-classifier.js",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@56-56@scripts/gen-shell-classifier.js",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 34.87,
+   "mi": 89.1
+  },
+  {
+   "file": "scripts/gen-shell-classifier.js",
+   "func": "awkEscapeAlt",
+   "loc": "awkEscapeAlt@19-21@scripts/gen-shell-classifier.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 39.86,
+   "mi": 78.3
+  },
+  {
+   "file": "scripts/gen-shell-classifier.js",
+   "func": "emitAwkAnd",
+   "loc": "emitAwkAnd@35-37@scripts/gen-shell-classifier.js",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 70.31,
+   "mi": 76.5
+  },
+  {
+   "file": "scripts/gen-shell-classifier.js",
+   "func": "emitAwkPred",
+   "loc": "emitAwkPred@23-33@scripts/gen-shell-classifier.js",
+   "nloc": 11,
+   "ccn": 5,
+   "volume": 352.53,
+   "mi": 58.8
+  },
+  {
+   "file": "scripts/gen-shell-classifier.js",
+   "func": "emitAwkProgram",
+   "loc": "emitAwkProgram@53-174@scripts/gen-shell-classifier.js",
+   "nloc": 121,
+   "ccn": 1,
+   "volume": 2117.47,
+   "mi": 31.1
+  },
+  {
+   "file": "scripts/gen-shell-classifier.js",
+   "func": "emitAwkRules",
+   "loc": "emitAwkRules@39-51@scripts/gen-shell-classifier.js",
+   "nloc": 13,
+   "ccn": 5,
+   "volume": 585.06,
+   "mi": 55.7
+  },
+  {
+   "file": "scripts/lib/linkcheck_classify.py",
+   "func": "classify_code",
+   "loc": "classify_code@19-35@scripts/lib/linkcheck_classify.py",
+   "nloc": 11,
+   "ccn": 6,
+   "volume": 244.42,
+   "mi": 59.8
+  },
+  {
+   "file": "scripts/mi-trend.py",
+   "func": "diff_baseline",
+   "loc": "diff_baseline@85-102@scripts/mi-trend.py",
+   "nloc": 17,
+   "ccn": 10,
+   "volume": 860.96,
+   "mi": 51.3
+  },
+  {
+   "file": "scripts/mi-trend.py",
+   "func": "key",
+   "loc": "key@81-82@scripts/mi-trend.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 77.71,
+   "mi": 80.1
+  },
+  {
+   "file": "scripts/mi-trend.py",
+   "func": "main",
+   "loc": "main@105-150@scripts/mi-trend.py",
+   "nloc": 43,
+   "ccn": 10,
+   "volume": 2247.04,
+   "mi": 39.6
+  },
+  {
+   "file": "scripts/mi-trend.py",
+   "func": "mi_vs",
+   "loc": "mi_vs@32-37@scripts/mi-trend.py",
+   "nloc": 5,
+   "ccn": 1,
+   "volume": 383.78,
+   "mi": 66.5
+  },
+  {
+   "file": "scripts/mi-trend.py",
+   "func": "parse_functions",
+   "loc": "parse_functions@53-78@scripts/mi-trend.py",
+   "nloc": 24,
+   "ccn": 6,
+   "volume": 1100.08,
+   "mi": 47.8
+  },
+  {
+   "file": "scripts/mi-trend.py",
+   "func": "run_lizard",
+   "loc": "run_lizard@40-50@scripts/mi-trend.py",
+   "nloc": 11,
+   "ccn": 3,
+   "volume": 466.66,
+   "mi": 58.2
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@146-150@scripts/serve-view-harness.mjs",
+   "nloc": 5,
+   "ccn": 2,
+   "volume": 116.76,
+   "mi": 70.0
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@120-157@scripts/serve-view-harness.mjs",
+   "nloc": 32,
+   "ccn": 7,
+   "volume": 1173.92,
+   "mi": 44.7
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@159-161@scripts/serve-view-harness.mjs",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 78.14,
+   "mi": 76.2
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "(anonymous)",
+   "loc": "(anonymous)@164-164@scripts/serve-view-harness.mjs",
+   "nloc": 1,
+   "ccn": 1,
+   "volume": 13.93,
+   "mi": 91.9
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "assertLoopbackHost",
+   "loc": "assertLoopbackHost@42-52@scripts/serve-view-harness.mjs",
+   "nloc": 11,
+   "ccn": 4,
+   "volume": 312.89,
+   "mi": 59.3
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "isDeniedGitPath",
+   "loc": "isDeniedGitPath@61-66@scripts/serve-view-harness.mjs",
+   "nloc": 6,
+   "ccn": 3,
+   "volume": 222.91,
+   "mi": 66.2
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "isSafeSegment",
+   "loc": "isSafeSegment@56-59@scripts/serve-view-harness.mjs",
+   "nloc": 4,
+   "ccn": 5,
+   "volume": 223.47,
+   "mi": 69.7
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "resolveAllowedFile",
+   "loc": "resolveAllowedFile@69-118@scripts/serve-view-harness.mjs",
+   "nloc": 41,
+   "ccn": 16,
+   "volume": 1458.96,
+   "mi": 40.5
+  },
+  {
+   "file": "scripts/serve-view-harness.mjs",
+   "func": "shutdown",
+   "loc": "shutdown@163-165@scripts/serve-view-harness.mjs",
+   "nloc": 3,
+   "ccn": 1,
+   "volume": 39.86,
+   "mi": 78.3
+  },
+  {
+   "file": "scripts/z3-robustness.js",
+   "func": "exercise",
+   "loc": "exercise@47-57@scripts/z3-robustness.js",
+   "nloc": 11,
+   "ccn": 1,
+   "volume": 437.14,
+   "mi": 58.7
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_alnum_us_re",
+   "loc": "_alnum_us_re@194-196@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 132.0,
+   "mi": 78.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_alphabet_of",
+   "loc": "_alphabet_of@114-116@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 92.51,
+   "mi": 79.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_both_cases",
+   "loc": "_both_cases@119-128@scripts/z3-verify.py",
+   "nloc": 9,
+   "ccn": 4,
+   "volume": 283.28,
+   "mi": 61.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_char_in",
+   "loc": "_char_in@143-145@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 2,
+   "volume": 153.73,
+   "mi": 77.9
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_alphabet",
+   "loc": "_f5_alphabet@822-823@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 50.19,
+   "mi": 81.4
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_domain",
+   "loc": "_f5_domain@872-878@scripts/z3-verify.py",
+   "nloc": 6,
+   "ccn": 2,
+   "volume": 294.41,
+   "mi": 65.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_extract_normalize_log_prefix",
+   "loc": "_f5_extract_normalize_log_prefix@881-899@scripts/z3-verify.py",
+   "nloc": 18,
+   "ccn": 8,
+   "volume": 645.73,
+   "mi": 51.9
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_is_space_char",
+   "loc": "_f5_is_space_char@854-856@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 2,
+   "volume": 88.0,
+   "mi": 79.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_is_strip_char",
+   "loc": "_f5_is_strip_char@826-828@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 2,
+   "volume": 88.0,
+   "mi": 79.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_p3_client_parity",
+   "loc": "_f5_p3_client_parity@1019-1134@scripts/z3-verify.py",
+   "nloc": 84,
+   "ccn": 20,
+   "volume": 3826.62,
+   "mi": 30.2
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_shell_ground_truth",
+   "loc": "_f5_shell_ground_truth@925-970@scripts/z3-verify.py",
+   "nloc": 45,
+   "ccn": 8,
+   "volume": 1707.38,
+   "mi": 40.2
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_shipped_text_ok",
+   "loc": "_f5_shipped_text_ok@902-922@scripts/z3-verify.py",
+   "nloc": 17,
+   "ccn": 4,
+   "volume": 454.95,
+   "mi": 54.0
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_strip_once",
+   "loc": "_f5_strip_once@844-851@scripts/z3-verify.py",
+   "nloc": 7,
+   "ccn": 1,
+   "volume": 229.35,
+   "mi": 64.9
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_strip_space_star",
+   "loc": "_f5_strip_space_star@859-869@scripts/z3-verify.py",
+   "nloc": 10,
+   "ccn": 2,
+   "volume": 352.53,
+   "mi": 60.1
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_f5_strip_star",
+   "loc": "_f5_strip_star@831-841@scripts/z3-verify.py",
+   "nloc": 10,
+   "ccn": 2,
+   "volume": 352.53,
+   "mi": 60.1
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_flag_tail_re",
+   "loc": "_flag_tail_re@262-266@scripts/z3-verify.py",
+   "nloc": 4,
+   "ccn": 2,
+   "volume": 257.84,
+   "mi": 69.7
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_in_finite_set",
+   "loc": "_in_finite_set@189-191@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 2,
+   "volume": 98.1,
+   "mi": 79.2
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_is_boundary_char",
+   "loc": "_is_boundary_char@199-201@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 102.8,
+   "mi": 79.2
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_is_ws_at",
+   "loc": "_is_ws_at@278-283@scripts/z3-verify.py",
+   "nloc": 5,
+   "ccn": 1,
+   "volume": 164.0,
+   "mi": 69.1
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_js_is_firewall",
+   "loc": "_js_is_firewall@597-612@scripts/z3-verify.py",
+   "nloc": 15,
+   "ccn": 3,
+   "volume": 388.5,
+   "mi": 55.8
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_lit",
+   "loc": "_lit@308-315@scripts/z3-verify.py",
+   "nloc": 6,
+   "ccn": 1,
+   "volume": 191.76,
+   "mi": 66.9
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_non_word_char_at",
+   "loc": "_non_word_char_at@204-206@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 106.61,
+   "mi": 79.1
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_run_node",
+   "loc": "_run_node@583-594@scripts/z3-verify.py",
+   "nloc": 11,
+   "ccn": 4,
+   "volume": 518.65,
+   "mi": 57.7
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_shell_is_firewall",
+   "loc": "_shell_is_firewall@615-639@scripts/z3-verify.py",
+   "nloc": 24,
+   "ccn": 3,
+   "volume": 761.54,
+   "mi": 49.3
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_whole_word_unrolled",
+   "loc": "_whole_word_unrolled@209-232@scripts/z3-verify.py",
+   "nloc": 19,
+   "ccn": 3,
+   "volume": 765.1,
+   "mi": 51.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_z3_adversarial_corpus",
+   "loc": "_z3_adversarial_corpus@672-708@scripts/z3-verify.py",
+   "nloc": 30,
+   "ccn": 3,
+   "volume": 894.82,
+   "mi": 46.7
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_z3_model_string",
+   "loc": "_z3_model_string@642-648@scripts/z3-verify.py",
+   "nloc": 6,
+   "ccn": 4,
+   "volume": 322.02,
+   "mi": 64.9
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "_z3_sat_samples",
+   "loc": "_z3_sat_samples@651-669@scripts/z3-verify.py",
+   "nloc": 16,
+   "ccn": 5,
+   "volume": 857.87,
+   "mi": 52.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "alphabet_ok",
+   "loc": "alphabet_ok@148-159@scripts/z3-verify.py",
+   "nloc": 6,
+   "ccn": 2,
+   "volume": 284.6,
+   "mi": 65.6
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "check_sat",
+   "loc": "check_sat@177-186@scripts/z3-verify.py",
+   "nloc": 9,
+   "ccn": 2,
+   "volume": 274.79,
+   "mi": 61.8
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "check_unsat",
+   "loc": "check_unsat@162-174@scripts/z3-verify.py",
+   "nloc": 12,
+   "ccn": 3,
+   "volume": 403.55,
+   "mi": 57.8
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "main",
+   "loc": "main@1183-1196@scripts/z3-verify.py",
+   "nloc": 13,
+   "ccn": 4,
+   "volume": 577.68,
+   "mi": 55.8
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "matches_action_re",
+   "loc": "matches_action_re@235-237@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 2,
+   "volume": 88.0,
+   "mi": 79.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "matches_deny",
+   "loc": "matches_deny@240-242@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 2,
+   "volume": 88.0,
+   "mi": 79.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "matches_flag_tail",
+   "loc": "matches_flag_tail@269-275@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 44.38,
+   "mi": 81.8
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "matches_glue",
+   "loc": "matches_glue@286-305@scripts/z3-verify.py",
+   "nloc": 15,
+   "ccn": 3,
+   "volume": 541.11,
+   "mi": 54.8
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "matches_nf_prefix",
+   "loc": "matches_nf_prefix@245-259@scripts/z3-verify.py",
+   "nloc": 14,
+   "ccn": 2,
+   "volume": 346.13,
+   "mi": 56.9
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f1_fast",
+   "loc": "run_f1_fast@318-361@scripts/z3-verify.py",
+   "nloc": 34,
+   "ccn": 7,
+   "volume": 1099.76,
+   "mi": 44.4
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f1_full",
+   "loc": "run_f1_full@364-396@scripts/z3-verify.py",
+   "nloc": 25,
+   "ccn": 5,
+   "volume": 729.11,
+   "mi": 48.8
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f2_fast",
+   "loc": "run_f2_fast@399-502@scripts/z3-verify.py",
+   "nloc": 92,
+   "ccn": 18,
+   "volume": 4132.52,
+   "mi": 29.4
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f2_full",
+   "loc": "run_f2_full@505-580@scripts/z3-verify.py",
+   "nloc": 64,
+   "ccn": 12,
+   "volume": 2843.06,
+   "mi": 34.8
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f3_fast",
+   "loc": "run_f3_fast@711-739@scripts/z3-verify.py",
+   "nloc": 28,
+   "ccn": 7,
+   "volume": 842.0,
+   "mi": 47.0
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f3_full",
+   "loc": "run_f3_full@742-783@scripts/z3-verify.py",
+   "nloc": 38,
+   "ccn": 10,
+   "volume": 1521.07,
+   "mi": 41.9
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f4_fast",
+   "loc": "run_f4_fast@1147-1152@scripts/z3-verify.py",
+   "nloc": 5,
+   "ccn": 2,
+   "volume": 133.78,
+   "mi": 69.6
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f4_full",
+   "loc": "run_f4_full@1155-1170@scripts/z3-verify.py",
+   "nloc": 15,
+   "ccn": 5,
+   "volume": 647.86,
+   "mi": 54.0
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f5_fast",
+   "loc": "run_f5_fast@973-1016@scripts/z3-verify.py",
+   "nloc": 39,
+   "ccn": 7,
+   "volume": 1427.53,
+   "mi": 42.3
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_f5_full",
+   "loc": "run_f5_full@1137-1144@scripts/z3-verify.py",
+   "nloc": 7,
+   "ccn": 3,
+   "volume": 124.0,
+   "mi": 66.5
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_fast",
+   "loc": "run_fast@1173-1175@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 96.21,
+   "mi": 79.4
+  },
+  {
+   "file": "scripts/z3-verify.py",
+   "func": "run_full",
+   "loc": "run_full@1178-1180@scripts/z3-verify.py",
+   "nloc": 2,
+   "ccn": 1,
+   "volume": 96.21,
+   "mi": 79.4
+  }
+ ]
+}
