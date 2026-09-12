@@ -35,6 +35,13 @@ HOT_MS="${FWLIVE_FLOOD_HOT_MS:-800}"
 MAX_SERVED="${FWLIVE_FLOOD_MAX_SERVED:-250}"
 STRICT="${FWLIVE_FLOOD_STRICT:-1}"
 
+case "$FOLLOW_POLLS" in
+	''|*[!0-9]*|0)
+		echo "FWLIVE_FLOOD_FOLLOW_POLLS must be a positive integer (got: $FOLLOW_POLLS)" >&2
+		exit 1
+		;;
+esac
+
 usage() {
 	sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
 	exit "${1:-0}"
@@ -110,6 +117,8 @@ OFF=/var/run/fwlive-adaptive-off
 POLL_OUT=/tmp/fwlive-flood-poll.json
 SHIM_DIR=/tmp/fwlive-flood-shims
 ENTRIES=/tmp/fwlive-flood-entries.txt
+# Always clear adaptive-off so a failed off-mode poll cannot leave the guest disabled.
+trap 'rm -f "$OFF"' EXIT HUP INT TERM
 
 # Match product fwlive_adaptive_clock_cs (no octal; two frac digits).
 clock_cs() {

@@ -347,12 +347,13 @@ this calibration.
 
 Harness (host → guest SSH):
 
-```sh
+```bash
 OWRT_RELEASE=24.10.8 OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256 \
   ./scripts/run-openwrt-armsr-armv8-qemu.sh
 ./scripts/qemu-wait-guest.sh
 OWRT_FWLIVE_VERSION=24.10.8 OWRT_FWLIVE_ARCH=aarch64_generic \
   ./scripts/qemu-install-fwlive.sh
+set -o pipefail
 FWLIVE_PROFILE_RUN_ID="flood-armsr-$(date +%Y%m%dT%H%M%S)" \
   OPENWRT_SSH_PORT=2222 ./scripts/qemu-adaptive-flood.sh | tee lab/flood-armsr-latest.txt
 ```
