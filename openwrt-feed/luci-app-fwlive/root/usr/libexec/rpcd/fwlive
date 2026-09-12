@@ -437,10 +437,8 @@ fetch_firewall_logs() {
 	start_cs=$(fwlive_adaptive_clock_cs)
 	# Drop dead oneshot flag — only consumed on logd's stream branch (#306).
 	if ! raw=$(ubus call log read "{\"lines\":$lines,\"stream\":false}" 2>/dev/null); then
-		end_cs=$(fwlive_adaptive_clock_cs)
-		_dur=$(((end_cs - start_cs) * 10))
-		[ "$_dur" -lt 0 ] && _dur=0
-		fwlive_adaptive_record "$_dur" "$lines"
+		# Do not record ~0 ms as cold: failure is not healthy fast processing
+		# and must not clear an existing hot/shed cap (#329 Hermes Q1).
 		out='{"log":[],"error":"log_read_failed"}'
 		fwlive_adaptive_merge_reply "$out" "$shed_flag" "$lines" 0 0
 		return 0

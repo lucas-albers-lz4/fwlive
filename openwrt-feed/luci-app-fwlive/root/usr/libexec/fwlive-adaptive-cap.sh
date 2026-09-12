@@ -5,7 +5,8 @@
 # Layer 1 adaptive poll cap (#306). Sourced by rpcd/fwlive.
 # Always on unless test/triage override (no UCI / no product config):
 #   FWLIVE_ADAPTIVE=0|false|off|no
-#   or sentinel file ${FWLIVE_ADAPTIVE_OFF_FILE:-/tmp/fwlive-adaptive-off}
+#   or sentinel ${FWLIVE_ADAPTIVE_OFF_FILE:-<state-dir>/fwlive-adaptive-off}
+#   (default under /var/run next to state — not world-writable /tmp).
 #
 # State: ${FWLIVE_ADAPTIVE_STATE_FILE:-/var/run/fwlive-state.json}
 # Lock: sibling ${FWLIVE_ADAPTIVE_LOCK_FILE:-$STATE.lock} — never the JSON
@@ -14,12 +15,14 @@
 # Hot-path budget: ≤1 flock exec per update (release by closing the fd when the
 # subshell exits — no flock -u). /proc/uptime + state I/O via shell builtins/
 # redirects (no sed/cat/jsonfilter on the adaptive path). Fail-open on missing
-# flock, lock busy, or corrupt state.
+# flock, lock busy, or corrupt state. Lock-busy ⇒ unlocked last-writer-wins is
+# acceptable (state stays one valid JSON line; ordering is not guaranteed).
+# Failed ubus log.read must NOT call record() — a ~0 ms failure is not "cold"
+# health and must not clear an existing hot/shed cap (#329 Hermes Q1).
 
 FWLIVE_ADAPTIVE_STATE_FILE="${FWLIVE_ADAPTIVE_STATE_FILE:-/var/run/fwlive-state.json}"
-# Optional override; when unset, lock is always the sibling of the current state path.
-# Do not bake STATE into LOCK at source time — tests may relocate STATE after source.
-FWLIVE_ADAPTIVE_OFF_FILE="${FWLIVE_ADAPTIVE_OFF_FILE:-/tmp/fwlive-adaptive-off}"
+# Optional overrides; when unset, lock/off paths are siblings of the current state.
+# Do not bake STATE into LOCK/OFF at source time — tests may relocate STATE after source.
 
 # Bucket thresholds (processing duration, ms).
 FWLIVE_ADAPTIVE_COLD_MS=100
@@ -40,11 +43,21 @@ fwlive_adaptive_lock_path() {
 	fi
 }
 
+fwlive_adaptive_off_path() {
+	if [ -n "${FWLIVE_ADAPTIVE_OFF_FILE:-}" ]; then
+		printf '%s\n' "$FWLIVE_ADAPTIVE_OFF_FILE"
+	else
+		_dir=${FWLIVE_ADAPTIVE_STATE_FILE%/*}
+		[ "$_dir" = "$FWLIVE_ADAPTIVE_STATE_FILE" ] && _dir=/var/run
+		printf '%s\n' "$_dir/fwlive-adaptive-off"
+	fi
+}
+
 fwlive_adaptive_enabled() {
 	case "${FWLIVE_ADAPTIVE:-1}" in
 		0|false|off|no|FALSE|OFF|NO) return 1 ;;
 	esac
-	[ -e "$FWLIVE_ADAPTIVE_OFF_FILE" ] && return 1
+	[ -e "$(fwlive_adaptive_off_path)" ] && return 1
 	return 0
 }
 
@@ -204,6 +217,8 @@ fwlive_adaptive_write_state() {
 
 # One non-blocking flock on the persistent sibling lock file; fail-open if
 # missing/busy. Release by exiting the subshell (closes fd 9) — no flock -u.
+# Busy ⇒ run unlocked: last-writer-wins is acceptable (valid one-line JSON;
+# ordering under contention is not guaranteed).
 fwlive_adaptive_with_lock() {
 	if ! command -v flock >/dev/null 2>&1; then
 		"$@"

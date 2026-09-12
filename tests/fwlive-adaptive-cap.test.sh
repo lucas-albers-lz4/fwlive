@@ -96,6 +96,16 @@ unset FWLIVE_ADAPTIVE
 fwlive_adaptive_enabled && die "sentinel must disable"
 rm -f "$FWLIVE_ADAPTIVE_OFF_FILE"
 fwlive_adaptive_enabled || die "enabled again after sentinel remove"
+# Default off path is under the state dir (not world-writable /tmp) when OFF unset.
+_saved_off=$FWLIVE_ADAPTIVE_OFF_FILE
+unset FWLIVE_ADAPTIVE_OFF_FILE
+_saved_state=$FWLIVE_ADAPTIVE_STATE_FILE
+FWLIVE_ADAPTIVE_STATE_FILE=/var/run/fwlive-state.json
+_def_off=$(fwlive_adaptive_off_path)
+[ "$_def_off" = /var/run/fwlive-adaptive-off ] || \
+	die "production default off path want /var/run/fwlive-adaptive-off got: $_def_off"
+FWLIVE_ADAPTIVE_STATE_FILE=$_saved_state
+export FWLIVE_ADAPTIVE_OFF_FILE="$_saved_off"
 ok "test/triage overrides"
 
 # Fail-open: corrupt state → defaults, no abort.
@@ -103,6 +113,17 @@ printf 'not-json\n' >"$FWLIVE_ADAPTIVE_STATE_FILE"
 set -- $(fwlive_adaptive_read_state)
 [ "$1" = 0 ] && [ "$3" = cold ] || die "corrupt state defaults got: $*"
 ok "corrupt state fail-open"
+
+# Q1: without a success record, prior hot/shed must persist (failed ubus ≠ cold).
+fwlive_adaptive_write_state 900 250 hot 0 1 "$(fwlive_adaptive_clock_cs)"
+fwlive_adaptive_is_hot || die "hot must persist without a success record"
+set -- $(fwlive_adaptive_plan 2000)
+[ "$1" = 250 ] || die "hot floor must persist without record, got $1"
+[ "$2" = 1 ] || die "shed must persist without record, got $2"
+if grep -n 'log_read_failed' -A6 "$RPCD" | grep -q 'fwlive_adaptive_record'; then
+	die "log_read_failed path must not call fwlive_adaptive_record"
+fi
+ok "failed-read keeps prior bucket (no record)"
 
 # merge_reply shape
 got=$(fwlive_adaptive_merge_reply '{"log":[]}' 0 50 0 0)
