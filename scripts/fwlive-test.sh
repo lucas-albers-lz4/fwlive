@@ -44,6 +44,7 @@ SPDX_FILES=(
 	"$ROOT/openwrt-feed/luci-app-fwlive/Makefile"
 	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive"
 	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh"
+	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-adaptive-cap.sh"
 	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh"
 	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh"
 	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.awk"
@@ -168,6 +169,9 @@ bash tests/validate-feed-keys-mode.test.sh
 
 echo "== fwlive fetch-pin gate ==" >&2
 bash tests/fetch-pin-gate.test.sh
+
+echo "== fwlive adaptive cap (#306 Layer 1) ==" >&2
+bash tests/fwlive-adaptive-cap.test.sh
 
 echo "== fwlive logging lock (race) ==" >&2
 bash tests/fwlive-logging-lock.test.sh

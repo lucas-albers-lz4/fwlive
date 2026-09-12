@@ -190,6 +190,8 @@ function testPollUbusFailure() {
 		assert.ok(Array.isArray(res.log), 'poll failure must keep the log shape');
 		assertStructuredError(res, 'poll/log_read_failed');
 		assert.equal(res.error, 'log_read_failed');
+		assert.equal(res.adaptive, 1, 'Layer 1 adaptive reply field');
+		assert.ok(Object.prototype.hasOwnProperty.call(res, 'messages_received'));
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 	}

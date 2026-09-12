@@ -44,7 +44,8 @@ def main():
                 path.write_text(body)
                 path.chmod(0o755)
             env = dict(os.environ, PATH=f'{bindir}:{pair / "bin"}:/usr/bin:/bin',
-                       LOOKUP_LOG=str(lookup_log), POLL_REQUEST=str(work / 'poll'))
+                       LOOKUP_LOG=str(lookup_log), POLL_REQUEST=str(work / 'poll'),
+                       FWLIVE_ADAPTIVE_STATE_FILE=str(work / 'adaptive-state.json'))
 
             def run(method, data, plugin=plugin, env=env, release=release):
                 result = subprocess.run([busybox, 'sh', '-eu', str(plugin), 'call', method],
@@ -65,7 +66,10 @@ def main():
             assert not lookup_log.exists(), 'newline must not become two valid addresses'
             for data, expected in [('not-json{{{', 50), ('{}', 50), ('{"addresses":[]}', 50),
                                    ('{"addresses":["500"]}', 500), ('{"addresses":["0"]}', 50), ('{"addresses":["0005"]}', 5), ('{"addresses":["999999999999999999999"]}', 2000)]:
-                assert run('poll', data) == {'log': [], 'error': 'log_read_failed'}
+                got = run('poll', data)
+                assert got.get('log') == [] and got.get('error') == 'log_read_failed', (release, data, got)
+                assert got.get('adaptive') == 1, (release, got)
+                assert 'messages_received' in got, (release, got)
                 assert json.loads((work / 'poll').read_text())['lines'] == expected
             # Source only function definitions; verify functions return before
             # checking flags, so an unrelated abort cannot masquerade as proof.
