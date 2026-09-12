@@ -343,8 +343,8 @@ measure_peak() {
 	# Capture starttime while watch still lives; never fall back to min_start=0
 	# (that would count all pre-existing rpcd descendants as poll peak).
 	min_start=
-	i=0
-	while [ "$i" -lt 20 ]; do
+	st_try=0
+	while [ "$st_try" -lt 20 ]; do
 		if kill -0 "$watch" 2>/dev/null; then
 			st=$(read_starttime "$watch")
 			if [ -n "$st" ] && [ "$st" -gt 0 ] 2>/dev/null; then
@@ -354,7 +354,7 @@ measure_peak() {
 		else
 			break
 		fi
-		i=$((i + 1))
+		st_try=$((st_try + 1))
 	done
 	if [ -z "$min_start" ]; then
 		wait "$watch" 2>/dev/null || true
