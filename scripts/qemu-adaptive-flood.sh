@@ -4,15 +4,20 @@
 #
 # QEMU guest flood evidence for #306 Layer 1 adaptive shedding.
 #
-# Binding AC (armsr): OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256, raised log ring,
-# one flood poll >800 ms, next 3 polls truncated:1 and ≤250 lines; A/B with
-# /var/run/fwlive-adaptive-off.
+# Measurement path: PATH-shim C1 (fixture-backed log.read), same class as
+# memory-census C1 / budget-split fixture filter — not stock-ring logd.
+# Adaptive measures processing duration; the 2000-entry fixture filter is the
+# reliable way to exceed the hot threshold on armsr TCG.
+#
+# Binding AC (armsr): OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256; induce hot; next 3
+# polls truncated:1 and ≤250 delivered msgs; A/B with /var/run/fwlive-adaptive-off.
 #
 # Usage (guest already running + fwlive installed):
 #   OPENWRT_SSH_PORT=2222 ./scripts/qemu-adaptive-flood.sh
-#   OPENWRT_SSH_PORT=2222 ./scripts/qemu-adaptive-flood.sh --skip-raise-log
+#   OPENWRT_SSH_PORT=2222 ./scripts/qemu-adaptive-flood.sh --raise-log
 #
-# Emits FLOOD_* lines for CI grepping / table fill.
+# Emits FLOOD_* lines. Host exits non-zero unless FLOOD_VERDICT ac_pass=1
+# (override with FWLIVE_FLOOD_STRICT=0).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,20 +27,23 @@ FIXTURE="${FWLIVE_FLOOD_FIXTURE:-${ROOT}/tests/fixtures/logread-2000.json}"
 REMOTE_FIXTURE=/tmp/fwlive-logread-2000.json
 KNOWN_HOSTS="${FWLIVE_KNOWN_HOSTS:-${ROOT}/lab/qemu-known_hosts}"
 LOG_SIZE_KIB="${FWLIVE_FLOOD_LOG_SIZE_KIB:-1024}"
-SKIP_RAISE_LOG=0
+# C1 fixture path does not need a raised ring; optional for rig documentation.
+RAISE_LOG=0
 REQUESTED_LINES="${FWLIVE_FLOOD_LINES:-2000}"
 FOLLOW_POLLS="${FWLIVE_FLOOD_FOLLOW_POLLS:-3}"
 HOT_MS="${FWLIVE_FLOOD_HOT_MS:-800}"
 MAX_SERVED="${FWLIVE_FLOOD_MAX_SERVED:-250}"
+STRICT="${FWLIVE_FLOOD_STRICT:-1}"
 
 usage() {
-	sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
 	exit "${1:-0}"
 }
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--skip-raise-log) SKIP_RAISE_LOG=1; shift ;;
+		--raise-log) RAISE_LOG=1; shift ;;
+		--skip-raise-log) RAISE_LOG=0; shift ;;
 		--fixture) FIXTURE="${2:?}"; shift 2 ;;
 		--log-size) LOG_SIZE_KIB="${2:?}"; shift 2 ;;
 		-h|--help) usage 0 ;;
@@ -74,21 +82,24 @@ else
 	ssh "${SSH_OPTS[@]}" "root@$HOST" "cat > $REMOTE_FIXTURE" <"$FIXTURE"
 fi
 
-# Ensure adaptive helper is present (source-sync installs historically omitted it).
 if ! ssh "${SSH_OPTS[@]}" "root@$HOST" 'test -f /usr/libexec/fwlive-adaptive-cap.sh'; then
 	echo "FLOOD_ERROR reason=adaptive_helper_missing hint=run_qemu-install-fwlive.sh" >&2
 	exit 1
 fi
 
+OUT_FILE="$(mktemp)"
+trap 'rm -f "$OUT_FILE"' EXIT
+
 ssh "${SSH_OPTS[@]}" "root@$HOST" sh -s -- \
-	"$REMOTE_FIXTURE" "$RUN_ID" "$GIT_SHA" "$LOG_SIZE_KIB" "$SKIP_RAISE_LOG" \
-	"$REQUESTED_LINES" "$FOLLOW_POLLS" "$HOT_MS" "$MAX_SERVED" <<'REMOTE'
+	"$REMOTE_FIXTURE" "$RUN_ID" "$GIT_SHA" "$LOG_SIZE_KIB" "$RAISE_LOG" \
+	"$REQUESTED_LINES" "$FOLLOW_POLLS" "$HOT_MS" "$MAX_SERVED" \
+	<<'REMOTE' | tee "$OUT_FILE"
 set -eu
 fixture=$1
 run_id=$2
 git_sha=$3
 log_size_kib=$4
-skip_raise=$5
+raise_log=$5
 requested=$6
 follow_n=$7
 hot_ms=$8
@@ -98,49 +109,43 @@ STATE=/var/run/fwlive-state.json
 OFF=/var/run/fwlive-adaptive-off
 POLL_OUT=/tmp/fwlive-flood-poll.json
 SHIM_DIR=/tmp/fwlive-flood-shims
+ENTRIES=/tmp/fwlive-flood-entries.txt
 
+# Match product fwlive_adaptive_clock_cs (no octal; two frac digits).
 clock_cs() {
-	read uptime _ </proc/uptime
-	seconds=${uptime%.*}
-	fraction=${uptime#*.}
-	fraction=${fraction#0}
-	[ -n "$fraction" ] || fraction=0
-	# Avoid octal: strip leading zeros digit-wise for BusyBox ash.
-	_s=$seconds
-	_n=0
-	while [ -n "$_s" ]; do
-		_d=${_s%"${_s#?}"}
-		_s=${_s#?}
-		case "$_d" in [0-9]) _n=$((_n * 10 + _d)) ;; esac
-	done
-	_f=$fraction
-	_m=0
-	while [ -n "$_f" ]; do
-		_d=${_f%"${_f#?}"}
-		_f=${_f#?}
-		case "$_d" in [0-9]) _m=$((_m * 10 + _d)) ;; esac
-	done
-	# At most two frac digits.
-	case "$fraction" in
-		?) _m=$((_m * 10)) ;;
+	_up=
+	read -r _up _ </proc/uptime 2>/dev/null || { printf '%s\n' 0; return 0; }
+	_sec=${_up%.*}
+	_frac=${_up#*.}
+	[ "$_frac" = "$_up" ] && _frac=0
+	case "$_frac" in
+		'') _frac=0 ;;
+		?) _frac="${_frac}0" ;;
 		??) ;;
 		*)
-			_m=0
-			_f=$fraction
-			_i=0
-			while [ "$_i" -lt 2 ] && [ -n "$_f" ]; do
-				_d=${_f%"${_f#?}"}
-				_f=${_f#?}
-				case "$_d" in [0-9]) _m=$((_m * 10 + _d)) ;; esac
-				_i=$((_i + 1))
-			done
+			_a=${_frac%${_frac#?}}
+			_r=${_frac#?}
+			_b=${_r%${_r#?}}
+			_frac="${_a}${_b}"
 			;;
 	esac
-	printf '%s\n' $((_n * 100 + _m))
+	_atoi() {
+		_s=$1
+		_n=0
+		case "$_s" in ''|*[!0-9]*) printf '0'; return ;; esac
+		while [ -n "$_s" ]; do
+			_d=${_s%"${_s#?}"}
+			_s=${_s#?}
+			_n=$((_n * 10 + _d))
+		done
+		printf '%s' "$_n"
+	}
+	_sec=$(_atoi "$_sec")
+	_frac=$(_atoi "$_frac")
+	printf '%s\n' $((_sec * 100 + _frac))
 }
 
 json_int() {
-	# Extract first "key":N from one-line JSON (busybox-safe).
 	_blob=$1
 	_key=$2
 	_def=$3
@@ -166,7 +171,14 @@ json_int() {
 }
 
 count_log_msgs() {
+	# Prefer jsonfilter when present (off product hot path).
 	_json=$1
+	if command -v jsonfilter >/dev/null 2>&1; then
+		_n=$(printf '%s' "$_json" | jsonfilter -e '@.log[*]' 2>/dev/null | wc -l | tr -d ' \n')
+		case "$_n" in ''|*[!0-9]*) _n=0 ;; esac
+		printf '%s\n' "$_n"
+		return 0
+	fi
 	_n=0
 	_rest=$_json
 	while :; do
@@ -181,13 +193,59 @@ count_log_msgs() {
 	printf '%s\n' "$_n"
 }
 
+# Pre-split fixture entries once (one jsonfilter pass).
+prepare_entries() {
+	if command -v jsonfilter >/dev/null 2>&1; then
+		jsonfilter -i "$fixture" -e '@.log[*]' >"$ENTRIES" 2>/dev/null || : >"$ENTRIES"
+	else
+		: >"$ENTRIES"
+	fi
+	printf 'FLOOD_META fixture_entries=%s\n' "$(wc -l <"$ENTRIES" | tr -d ' ')"
+}
+
 setup_shim() {
 	rm -rf "$SHIM_DIR"
 	mkdir -p "$SHIM_DIR"
+	# Honor lines= from ubus JSON arg (Bugbot/Luna/Grok P1).
 	cat >"$SHIM_DIR/ubus" <<'UBUS'
 #!/bin/sh
 if [ "$1" = call ] && [ "$2" = log ] && [ "$3" = read ]; then
-	exec /bin/cat /tmp/fwlive-logread-2000.json
+	arg=${4:-}
+	lines=2000
+	case "$arg" in
+		*\"lines\":*)
+			rest=${arg#*\"lines\":}
+			while case "$rest" in ' '*) true;; *) false;; esac; do
+				rest=${rest# }
+			done
+			num=
+			while :; do
+				case "$rest" in '') break ;; esac
+				c=${rest%"${rest#?}"}
+				case "$c" in
+					[0-9]) num="${num}${c}"; rest=${rest#?} ;;
+					*) break ;;
+				esac
+			done
+			case "$num" in ''|*[!0-9]*) ;; *) lines=$num ;; esac
+			;;
+	esac
+	entries=/tmp/fwlive-flood-entries.txt
+	out=/tmp/fwlive-flood-shim-out.json
+	{
+		printf '{"log":['
+		i=0
+		first=1
+		while IFS= read -r ent; do
+			[ "$i" -ge "$lines" ] && break
+			[ "$first" = 1 ] || printf ','
+			first=0
+			printf '%s' "$ent"
+			i=$((i + 1))
+		done <"$entries"
+		printf ']}'
+	} >"$out"
+	exec /bin/cat "$out"
 fi
 exec /bin/ubus "$@"
 UBUS
@@ -195,15 +253,16 @@ UBUS
 }
 
 raise_log_ring() {
-	[ "$skip_raise" = 1 ] && return 0
-	# Prefer log_size (documented); fall back to log_buffer_size if present.
+	[ "$raise_log" = 1 ] || {
+		printf 'FLOOD_META log_uci=skipped path=c1_fixture_shim\n'
+		return 0
+	}
 	key=
 	if uci -q get system.@system[0].log_size >/dev/null 2>&1; then
 		key=log_size
 	elif uci -q get system.@system[0].log_buffer_size >/dev/null 2>&1; then
 		key=log_buffer_size
 	else
-		# Create log_size on anonymous system section.
 		key=log_size
 	fi
 	uci set "system.@system[0].${key}=${log_size_kib}"
@@ -234,16 +293,16 @@ poll_once() {
 	[ "$elapsed_cs" -lt 0 ] && elapsed_cs=0
 	wall_ms=$((elapsed_cs * 10))
 	raw=
-	IFS= read -r raw <"$POLL_OUT" || raw=
-	adaptive=$(json_int "$raw" adaptive 0)
-	truncated=$(json_int "$raw" truncated 0)
-	msgs=$(count_log_msgs "$raw")
-	# shed.limit if present
-	shed_limit=$(json_int "$raw" limit 0)
-	case "$raw" in
-		*'"shed"'*) shed=1 ;;
-		*) shed=0 ;;
-	esac
+	# Reply may be large — avoid stuffing into ash vars when possible.
+	adaptive=$(jsonfilter -i "$POLL_OUT" -e '@.adaptive' 2>/dev/null || echo 0)
+	truncated=$(jsonfilter -i "$POLL_OUT" -e '@.truncated' 2>/dev/null || echo 0)
+	case "$truncated" in ''|*[!0-9]*) truncated=0 ;; esac
+	case "$adaptive" in ''|*[!0-9]*) adaptive=0 ;; esac
+	msgs=$(count_log_msgs "$(cat "$POLL_OUT")")
+	shed_limit=$(jsonfilter -i "$POLL_OUT" -e '@.shed.limit' 2>/dev/null || echo 0)
+	case "$shed_limit" in ''|*[!0-9]*) shed_limit=0 ;; esac
+	shed=0
+	jsonfilter -i "$POLL_OUT" -e '@.shed' >/dev/null 2>&1 && shed=1
 	state_bucket=none
 	state_dur=0
 	if [ -f "$STATE" ]; then
@@ -255,24 +314,27 @@ poll_once() {
 	fi
 	printf 'FLOOD_POLL phase=%s mode=%s wall_ms=%s adaptive=%s truncated=%s shed=%s shed_limit=%s log_msgs=%s state_bucket=%s state_duration_ms=%s\n' \
 		"$label" "$mode" "$wall_ms" "$adaptive" "$truncated" "$shed" "$shed_limit" "$msgs" "$state_bucket" "$state_dur"
-	# Export for caller via files
 	printf '%s\n' "$wall_ms" >/tmp/fwlive-flood-last-wall
 	printf '%s\n' "$truncated" >/tmp/fwlive-flood-last-trunc
 	printf '%s\n' "$msgs" >/tmp/fwlive-flood-last-msgs
 	printf '%s\n' "$adaptive" >/tmp/fwlive-flood-last-adapt
 	printf '%s\n' "$state_bucket" >/tmp/fwlive-flood-last-bucket
 	printf '%s\n' "$shed" >/tmp/fwlive-flood-last-shed
+	printf '%s\n' "$shed_limit" >/tmp/fwlive-flood-last-shed-limit
+	printf '%s\n' "$state_dur" >/tmp/fwlive-flood-last-state-dur
 }
 
 resolve_check() {
 	mode=$1
 	out=$(ubus call fwlive resolve '{"addresses":["192.0.2.1"]}' 2>/dev/null || echo '{}')
 	case "$out" in
-		*'"disabled":"load"'*|*'\"disabled\":\"load\"'*)
+		*'"disabled":"load"'*)
 			printf 'FLOOD_RESOLVE mode=%s disabled=load\n' "$mode"
+			printf '1\n' >/tmp/fwlive-flood-last-resolve
 			;;
 		*)
-			printf 'FLOOD_RESOLVE mode=%s disabled=none raw=%s\n' "$mode" "$(printf '%s' "$out" | tr '\n' ' ')"
+			printf 'FLOOD_RESOLVE mode=%s disabled=none\n' "$mode"
+			printf '0\n' >/tmp/fwlive-flood-last-resolve
 			;;
 	esac
 }
@@ -286,21 +348,28 @@ run_mode() {
 		rm -f "$OFF"
 	fi
 
-	# Induce: first poll at full request (fixture-backed via PATH-shim).
 	poll_once induce "$mode" || return 1
-	wall=$(cat /tmp/fwlive-flood-last-wall)
 	bucket=$(cat /tmp/fwlive-flood-last-bucket)
-	shed=$(cat /tmp/fwlive-flood-last-shed)
+	state_dur=$(cat /tmp/fwlive-flood-last-state-dur)
+	wall=$(cat /tmp/fwlive-flood-last-wall)
 
 	hot_ok=0
 	if [ "$mode" = on ]; then
-		if [ "$wall" -gt "$hot_ms" ] || [ "$bucket" = hot ] || [ "$shed" = 1 ]; then
+		# Gate on product state after induce record — not harness wall (Grok P2).
+		if [ "$bucket" = hot ] || [ "$state_dur" -gt "$hot_ms" ]; then
 			hot_ok=1
 		fi
-		printf 'FLOOD_INDUCE mode=on wall_ms=%s hot_threshold_ms=%s hot_ok=%s\n' \
-			"$wall" "$hot_ms" "$hot_ok"
+		printf 'FLOOD_INDUCE mode=on wall_ms=%s state_duration_ms=%s state_bucket=%s hot_ok=%s\n' \
+			"$wall" "$state_dur" "$bucket" "$hot_ok"
+		if [ "$hot_ok" = 1 ]; then
+			resolve_check on
+		else
+			printf '0\n' >/tmp/fwlive-flood-last-resolve
+			printf 'FLOOD_RESOLVE mode=on skipped=induce_not_hot\n'
+		fi
 	else
-		printf 'FLOOD_INDUCE mode=off wall_ms=%s (no shed expected)\n' "$wall"
+		printf 'FLOOD_INDUCE mode=off wall_ms=%s\n' "$wall"
+		printf '0\n' >/tmp/fwlive-flood-last-resolve
 	fi
 
 	i=1
@@ -310,6 +379,8 @@ run_mode() {
 		trunc=$(cat /tmp/fwlive-flood-last-trunc)
 		msgs=$(cat /tmp/fwlive-flood-last-msgs)
 		adapt=$(cat /tmp/fwlive-flood-last-adapt)
+		shed=$(cat /tmp/fwlive-flood-last-shed)
+		slimit=$(cat /tmp/fwlive-flood-last-shed-limit)
 		if [ "$mode" = on ]; then
 			if [ "$trunc" != 1 ] || [ "$msgs" -gt "$max_served" ]; then
 				pass_follow=0
@@ -317,29 +388,35 @@ run_mode() {
 			if [ "$adapt" != 1 ]; then
 				pass_follow=0
 			fi
+			# When shed is present, limit must be the hot floor.
+			if [ "$shed" = 1 ] && [ "$slimit" -gt 0 ] && [ "$slimit" -gt "$max_served" ]; then
+				pass_follow=0
+			fi
 		else
-			# Off: no truncation from adaptive; may still be filter-sized.
 			if [ "$adapt" != 0 ]; then
+				pass_follow=0
+			fi
+			if [ "$shed" = 1 ]; then
+				pass_follow=0
+			fi
+			# Off: still full fixture-scale payload (firewall msgs >> max_served).
+			if [ "$msgs" -le "$max_served" ]; then
 				pass_follow=0
 			fi
 		fi
 		i=$((i + 1))
 	done
 
-	if [ "$mode" = on ] && [ "$hot_ok" = 1 ]; then
-		resolve_check on
-	elif [ "$mode" = on ]; then
-		printf 'FLOOD_RESOLVE mode=on skipped=induce_not_hot\n'
-	fi
-
-	printf 'FLOOD_MODE_RESULT mode=%s follow_pass=%s induce_hot_ok=%s\n' \
-		"$mode" "$pass_follow" "${hot_ok:-0}"
+	resolve_pass=$(cat /tmp/fwlive-flood-last-resolve 2>/dev/null || echo 0)
+	printf 'FLOOD_MODE_RESULT mode=%s follow_pass=%s induce_hot_ok=%s resolve_pass=%s\n' \
+		"$mode" "$pass_follow" "${hot_ok:-0}" "$resolve_pass"
 	printf '%s\n' "$pass_follow" >"/tmp/fwlive-flood-verdict-${mode}-follow"
 	printf '%s\n' "${hot_ok:-0}" >"/tmp/fwlive-flood-verdict-${mode}-hot"
+	printf '%s\n' "$resolve_pass" >"/tmp/fwlive-flood-verdict-${mode}-resolve"
 }
 
-# --- meta ---
-printf 'FLOOD_META run_id=%s git_sha=%s arch=%s\n' "$run_id" "$git_sha" "$(uname -m)"
+printf 'FLOOD_META run_id=%s git_sha=%s arch=%s path=c1_fixture_shim\n' \
+	"$run_id" "$git_sha" "$(uname -m)"
 printf 'FLOOD_META release=%s revision=%s\n' \
 	"$(sed -n 's/^DISTRIB_RELEASE=//p' /etc/openwrt_release)" \
 	"$(sed -n 's/^DISTRIB_REVISION=//p' /etc/openwrt_release)"
@@ -352,25 +429,31 @@ printf 'FLOOD_META busybox=%s\n' \
 	"$(opkg status busybox 2>/dev/null | sed -n 's/^Version: //p' || echo unknown)"
 
 raise_log_ring
+prepare_entries
 
 run_mode on
 run_mode off
 
+# Leave adaptive enabled for any follow-up UI work on the guest.
+rm -f "$OFF"
+
 on_hot=$(cat /tmp/fwlive-flood-verdict-on-hot 2>/dev/null || echo 0)
 on_follow=$(cat /tmp/fwlive-flood-verdict-on-follow 2>/dev/null || echo 0)
+on_resolve=$(cat /tmp/fwlive-flood-verdict-on-resolve 2>/dev/null || echo 0)
 off_follow=$(cat /tmp/fwlive-flood-verdict-off-follow 2>/dev/null || echo 0)
 
 ac_pass=0
-if [ "$on_hot" = 1 ] && [ "$on_follow" = 1 ] && [ "$off_follow" = 1 ]; then
+if [ "$on_hot" = 1 ] && [ "$on_follow" = 1 ] && [ "$on_resolve" = 1 ] && [ "$off_follow" = 1 ]; then
 	ac_pass=1
 fi
-printf 'FLOOD_VERDICT ac_pass=%s on_induce_hot=%s on_follow_pass=%s off_follow_pass=%s\n' \
-	"$ac_pass" "$on_hot" "$on_follow" "$off_follow"
+printf 'FLOOD_VERDICT ac_pass=%s on_induce_hot=%s on_follow_pass=%s on_resolve_pass=%s off_follow_pass=%s\n' \
+	"$ac_pass" "$on_hot" "$on_follow" "$on_resolve" "$off_follow"
 printf 'FLOOD_DONE run_id=%s\n' "$run_id"
 REMOTE
 
-# Host-side: fail if guest did not emit ac_pass=1 (optional strict mode).
-if [[ "${FWLIVE_FLOOD_STRICT:-0}" == 1 ]]; then
-	# Re-run would be needed to capture; instead tee is caller's job.
-	:
+if [[ "$STRICT" == 1 ]]; then
+	if ! grep -q 'FLOOD_VERDICT ac_pass=1' "$OUT_FILE"; then
+		echo "FLOOD_ERROR host: ac_pass!=1 (set FWLIVE_FLOOD_STRICT=0 to ignore)" >&2
+		exit 1
+	fi
 fi
