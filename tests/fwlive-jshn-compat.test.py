@@ -71,7 +71,7 @@ def main():
                 got = run('poll', data)
                 assert got.get('log') == [] and got.get('error') == 'log_read_failed', (release, data, got)
                 assert got.get('adaptive') == 1, (release, got)
-                assert 'messages_received' in got, (release, got)
+                assert got.get('messages_received') == 0, (release, got)
                 assert json.loads((work / 'poll').read_text())['lines'] == expected
             # Source only function definitions; verify functions return before
             # checking flags, so an unrelated abort cannot masquerade as proof.

@@ -19,6 +19,9 @@
 # acceptable (state stays one valid JSON line; ordering is not guaranteed).
 # Failed ubus log.read must NOT call record() — a ~0 ms failure is not "cold"
 # health and must not clear an existing hot/shed cap (#329 Hermes Q1).
+# Outside the measured duration interval: plan (pre), record/merge (post).
+# messages_received is 0 in Layer 1 — do not ash-scan the filter JSON after
+# end_cs (Grok #329 P1); accurate count belongs in the filter or a later layer.
 
 FWLIVE_ADAPTIVE_STATE_FILE="${FWLIVE_ADAPTIVE_STATE_FILE:-/var/run/fwlive-state.json}"
 # Optional overrides; when unset, lock/off paths are siblings of the current state.
@@ -235,9 +238,13 @@ fwlive_adaptive_with_lock() {
 		"$@"
 		return $?
 	fi
-	# Prove the lock path is openable before entering the locked subshell.
-	# If `9>>` would fail, the subshell never runs — that used to skip record().
-	if ! ( : >>"$_lock" ) 2>/dev/null; then
+	# Create lock at 0600 (logging.lock #167 — world-readable fd can take LOCK_EX).
+	if [ ! -e "$_lock" ]; then
+		if ! ( umask 077; : >"$_lock" ) 2>/dev/null; then
+			"$@"
+			return $?
+		fi
+	elif [ ! -w "$_lock" ]; then
 		"$@"
 		return $?
 	fi
@@ -416,7 +423,9 @@ fwlive_adaptive_merge_reply() {
 	fi
 }
 
-# Count log[*] via "msg" keys — no jsonfilter (hot-path budget).
+# Count log[*] via "msg" keys — helper for tests / future filter-side count.
+# NOT called on the poll hot path (Grok #329 P1): ash-scanning a 2000-entry
+# reply after end_cs is unmeasured overhead that cannot shed itself.
 fwlive_adaptive_count_log() {
 	_json=$1
 	_n=0

@@ -455,14 +455,16 @@ fetch_firewall_logs() {
 	fi
 	[ -n "$out" ] || out='{"log":[],"error":"filter_empty"}'
 	end_cs=$(fwlive_adaptive_clock_cs)
-	_dur=$(((end_cs - start_cs) * 10))
-	[ "$_dur" -lt 0 ] && _dur=0
-	fwlive_adaptive_record "$_dur" "$lines"
-	_msgs=$(fwlive_adaptive_count_log "$out")
+	# Uptime wrap / skew: end < start — do not record as cold (Grok #329 P2).
+	if [ "$end_cs" -ge "$start_cs" ]; then
+		_dur=$(((end_cs - start_cs) * 10))
+		fwlive_adaptive_record "$_dur" "$lines"
+	fi
+	# Layer 1: messages_received stays 0 — no post-filter ash count (Grok #329 P1).
 	_trunc=0
 	[ "$shed_flag" = 1 ] && _trunc=1
 	[ "$lines" -lt "$requested" ] && _trunc=1
-	fwlive_adaptive_merge_reply "$out" "$shed_flag" "$lines" "$_trunc" "$_msgs"
+	fwlive_adaptive_merge_reply "$out" "$shed_flag" "$lines" "$_trunc" 0
 }
 
 poll_logs() {

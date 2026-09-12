@@ -154,10 +154,24 @@ case "$got" in
 esac
 ok "merge_reply"
 
-# count_log without jsonfilter
+# count_log helper (not used on poll hot path — Layer 1 ships messages_received:0)
 [ "$(fwlive_adaptive_count_log '{"log":[]}')" = 0 ] || die "empty count"
 [ "$(fwlive_adaptive_count_log '{"log":[{"msg":"a"},{"msg":"b"}]}')" = 2 ] || die "count 2"
-ok "count_log"
+ok "count_log helper"
+
+# Lock file mode 0600 on create (Grok #329 P2 / logging.lock #167).
+rm -f "$(fwlive_adaptive_lock_path)"
+(
+	umask 022
+	fwlive_adaptive_record 50 50
+)
+_lock=$(fwlive_adaptive_lock_path)
+_mode=$(stat -c '%a' "$_lock" 2>/dev/null || stat -f '%OLp' "$_lock")
+case "$_mode" in
+	600|0600) ;;
+	*) die "lock mode want 0600 got $_mode" ;;
+esac
+ok "lock created 0600 under umask 022"
 
 # oneshot dropped from production poll path
 if grep -E 'oneshot[[:space:]]*:[[:space:]]*true' "$RPCD" >/dev/null; then

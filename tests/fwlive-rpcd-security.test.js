@@ -198,7 +198,8 @@ function testPollUbusFailure() {
 		assertStructuredError(res, 'poll/log_read_failed');
 		assert.equal(res.error, 'log_read_failed');
 		assert.equal(res.adaptive, 1, 'Layer 1 adaptive reply field');
-		assert.ok(Object.prototype.hasOwnProperty.call(res, 'messages_received'));
+		assert.equal(res.messages_received, 0,
+			'Layer 1 ships messages_received:0 (no post-filter ash scan)');
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 		fs.rmSync(work, { recursive: true, force: true });
