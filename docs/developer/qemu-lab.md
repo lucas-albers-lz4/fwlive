@@ -224,9 +224,10 @@ profiling only — no CI guest job yet (same stance as the #310 device table).
 ### Metric contract
 
 - **Budget series = summed VmRSS (kB)** of the chosen process tree. Soft ceilings
-  bind on RSS, not PSS. On x86, emit PSS from `smaps_rollup` as a companion to
-  quantify shared-page overcount; armsr has no `CONFIG_PROC_PAGE_MONITOR`, so
-  VmRSS/VmHWM only.
+  bind on RSS, not PSS. The harness **probes** `/proc/*/smaps_rollup` each run:
+  when PSS is available it emits `PROFILE_META primitive=pss` and companion
+  `pss_kb` samples; otherwise `primitive=vmrss` and no PSS rows. Do not assume
+  PSS by architecture — record the probe result from the guest run.
 - **Idle ≠ peak.** Idle is rpcd-at-rest (+ leaked descendants). Peak is the max
   of concurrent ~50 ms tree samples during one poll (BusyBox `sleep` may be 1 s
   only — the harness busy-waits on `/proc/uptime` centiseconds). Sampled peak is
@@ -236,13 +237,15 @@ profiling only — no CI guest job yet (same stance as the #310 device table).
   (`ubus call fwlive poll`) use `root=rpcd`. Never walk rpcd for C1.
 - **C1 exercises the full poll path** (`raw=$(ubus…)` + filter), not filter-only.
 - **RSS sums double-count** shared text across ash/jsonfilter/awk children —
-  intentional; document it; use x86 PSS to quantify.
+  intentional; document it; use PSS to quantify when the probe finds it.
 - **Sub-50 ms children** (jshn/dirname/cat) may be missed by the sampler;
   jsonfilter/awk usually appear.
-- **Retention:** settle after prior poll cases, then T0 idle → 10 polls → 60 s
-  idle → T1; `Δ = T1 − T0`. **nofork:** same 60 s with zero polls. Soft-budget
-  **Z is sized from the nofork Δ only**. A peak sample with no in-flight tree
-  observation is emitted as `value=invalid`, not a post-exit walk.
+- **Case order and settles:** idle → **nofork** (60 s zero-poll baseline, **no**
+  10 s settle) → C2 (n=5) → **10 s settle** → retention T0 → 10× C2 polls →
+  60 s idle → T1 (`Δ = T1 − T0`; `delta_rss_kb=invalid` if any retention poll
+  fails) → C1 last. Soft-budget **Z is sized from the nofork Δ only**. A peak
+  sample with no in-flight tree observation is `value=invalid`, not a post-exit
+  walk.
 - **logd** RSS is a context metric only — never added to the fwlive budget sum.
 - **Line pins:** C2 `addresses:["50"]` = normal; C1 fixture / `["2000"]` = max.
   Record returned `lines=` (stock 64 KiB ring may not hold 2000).
@@ -265,10 +268,25 @@ profiling only — no CI guest job yet (same stance as the #310 device table).
 
 ### Actionable rule (AC-4)
 
-A memory change is actionable if **any** of: > 2σ of the pre-change 5-run baseline
-mean, OR > 5% of that baseline’s peak RSS, OR > 8 MB absolute. Disposition before
-merge: owner approval, blocking follow-up issue, or documented exception here.
+Compare a candidate’s **post** C1 (or C2) peak series to the **pre-change**
+baseline of the same case. Units are kB (VmRSS process-tree peak).
 
+Definitions (from the five `peak_rss_kb` samples for that case):
+
+- `baseline_peak` / `post_peak` — median of the five samples (kB)
+- `baseline_mean` — arithmetic mean of the five baseline samples (kB)
+- `σ` — sample standard deviation of those five baseline samples (kB)
+- `Δ_peak` — `post_peak − baseline_peak` (kB); actionable thresholds apply to
+  this **increase**, not to the absolute post value alone
+
+A memory change is actionable if **any** of:
+
+1. `Δ_peak > 2σ`, or
+2. `Δ_peak > 0.05 × baseline_peak`, or
+3. `Δ_peak > 8192` (8 MB absolute)
+
+Disposition before merge: owner approval, blocking follow-up issue, or
+documented exception here.
 ### #308 gate linkage (AC-6)
 
 Any #308 S-candidate PR that changes fork/exec count or pipeline structure must

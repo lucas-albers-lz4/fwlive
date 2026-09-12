@@ -100,11 +100,18 @@ read_starttime() {
 read_pss() {
 	pid=$1
 	[ -r "/proc/$pid/smaps_rollup" ] || { printf '%s\n' 0; return; }
+	# Process may exit between -r and open; failed redirect must not abort (set -eu).
+	set +e
 	while read key val unit; do
 		case "$key" in
-			Pss:) printf '%s\n' "${val:-0}"; return ;;
+			Pss:)
+				set -e
+				printf '%s\n' "${val:-0}"
+				return
+				;;
 		esac
 	done <"/proc/$pid/smaps_rollup"
+	set -e
 	printf '%s\n' 0
 }
 
@@ -137,11 +144,16 @@ rpcd_pid() {
 
 probe_pss() {
 	[ -r /proc/self/smaps_rollup ] || return 1
+	set +e
 	while read key val unit; do
 		case "$key" in
-			Pss:) return 0 ;;
+			Pss:)
+				set -e
+				return 0
+				;;
 		esac
 	done </proc/self/smaps_rollup
+	set -e
 	return 1
 }
 
@@ -154,6 +166,8 @@ scan_proc() {
 		ppid=0
 		rss=0
 		hwm=0
+		# Race: PID can vanish after -r; skip instead of aborting under set -eu.
+		set +e
 		while read key val unit; do
 			case "$key" in
 				PPid:) ppid=${val:-0} ;;
@@ -161,6 +175,9 @@ scan_proc() {
 				VmHWM:) hwm=${val:-0} ;;
 			esac
 		done <"$status"
+		rc=$?
+		set -e
+		[ "$rc" -eq 0 ] || continue
 		printf '%s %s %s %s\n' "$pid" "$ppid" "$rss" "$hwm" >>"$DUMP"
 	done
 }
@@ -286,11 +303,15 @@ emit_logd() {
 		return
 	fi
 	rss=0
+	set +e
 	while read key val unit; do
 		case "$key" in
 			VmRSS:) rss=${val:-0}; break ;;
 		esac
 	done <"/proc/$pid/status"
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || rss=0
 	emit "case=$case" metric=logd_rss_kb "value=$rss"
 }
 
@@ -466,15 +487,22 @@ sleep 10
 emit_idle_metrics retention sample_i=0
 t0=$TREE_RSS
 j=1
+ret_ok=1
 while [ "$j" -le 10 ]; do
-	ubus call fwlive poll '{"addresses":["50"]}' >/dev/null 2>&1 || \
+	if ! ubus call fwlive poll '{"addresses":["50"]}' >/dev/null 2>&1; then
 		echo "PROFILE_ERROR case=retention poll=$j command_failed" >&2
+		ret_ok=0
+	fi
 	j=$((j + 1))
 done
 echo "waiting 60s (retention)" >&2
 sleep 60
 emit_idle_metrics retention sample_i=1
-emit "case=retention" root=rpcd metric=delta_rss_kb "value=$((TREE_RSS - t0))"
+if [ "$ret_ok" = 1 ]; then
+	emit "case=retention" root=rpcd metric=delta_rss_kb "value=$((TREE_RSS - t0))"
+else
+	emit "case=retention" root=rpcd metric=delta_rss_kb value=invalid
+fi
 emit_logd retention
 
 # --- C1 last: PATH-shim direct plugin, fixture-backed log read, root=fwlive ---
