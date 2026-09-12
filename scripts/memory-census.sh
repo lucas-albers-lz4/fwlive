@@ -42,6 +42,13 @@ else
 fi
 
 RUN_ID="${FWLIVE_PROFILE_RUN_ID:-$(date +%Y%m%dT%H%M%S)-$RANDOM}"
+# OpenSSH joins remote argv into a shell command; keep run_id safe as $2.
+case "$RUN_ID" in
+	''|*[!A-Za-z0-9._-]*)
+		echo "invalid FWLIVE_PROFILE_RUN_ID (use [A-Za-z0-9._-]+): $RUN_ID" >&2
+		exit 1
+		;;
+esac
 
 ssh "${SSH_OPTS[@]}" "root@$HOST" sh -s -- "$REMOTE_FIXTURE" "$RUN_ID" <<'REMOTE'
 set -eu
@@ -312,14 +319,8 @@ sampler_loop() {
 		wait_cs 5
 	done
 
-	if [ "$peak_n" -eq 0 ]; then
-		walk_tree "$root" "$exclude" "$min_start"
-		peak_rss=$TREE_RSS
-		peak_pss=$TREE_PSS
-		peak_hwm=$TREE_HWM
-		peak_n=$TREE_NPROCS
-	fi
-
+	# No post-exit fallback: a zero-sample peak is invalid (poll finished
+	# before the concurrent sampler recorded an in-flight tree).
 	printf '%s %s %s %s\n' "$peak_rss" "$peak_n" "$peak_pss" "$peak_hwm" >"$out"
 }
 
@@ -339,7 +340,29 @@ measure_peak() {
 		watch=$!
 	fi
 
-	min_start=$(read_starttime "$watch")
+	# Capture starttime while watch still lives; never fall back to min_start=0
+	# (that would count all pre-existing rpcd descendants as poll peak).
+	min_start=
+	i=0
+	while [ "$i" -lt 20 ]; do
+		if kill -0 "$watch" 2>/dev/null; then
+			st=$(read_starttime "$watch")
+			if [ -n "$st" ] && [ "$st" -gt 0 ] 2>/dev/null; then
+				min_start=$st
+				break
+			fi
+		else
+			break
+		fi
+		i=$((i + 1))
+	done
+	if [ -z "$min_start" ]; then
+		wait "$watch" 2>/dev/null || true
+		echo "PROFILE_ERROR case=$case sample_i=$sample_i reason=starttime_unreadable" >&2
+		emit "case=$case" "root=$root_kind" metric=peak_rss_kb value=invalid "sample_i=$sample_i"
+		return 0
+	fi
+
 	rm -f "$PEAK"
 	sampler_loop "$root" "$watch" "$min_start" "$PEAK" &
 	sampler=$!
@@ -352,6 +375,12 @@ measure_peak() {
 	peak_hwm=0
 	[ -s "$PEAK" ] && read peak_rss peak_n peak_pss peak_hwm <"$PEAK" || true
 	lines=$(count_log_lines "$POLL_OUT")
+
+	if [ "$peak_n" -eq 0 ]; then
+		echo "PROFILE_ERROR case=$case sample_i=$sample_i reason=no_in_flight_sample" >&2
+		emit "case=$case" "root=$root_kind" metric=peak_rss_kb value=invalid "sample_i=$sample_i" "lines=$lines"
+		return 0
+	fi
 
 	emit "case=$case" "root=$root_kind" metric=peak_rss_kb "value=$peak_rss" "nprocs=$peak_n" "sample_i=$sample_i" "lines=$lines"
 	if [ "$HAS_PSS" = 1 ]; then
@@ -428,6 +457,10 @@ while [ "$i" -le 5 ]; do
 	measure_peak c2_live rpcd "$i"
 	i=$((i + 1))
 done
+
+# Settle so retention T0 is true idle, not post-C2 residual RSS/descendants.
+echo "waiting 10s (settle before retention T0)" >&2
+sleep 10
 
 # --- retention: T0 idle → 10× C2 polls → 60s idle → T1 ---
 emit_idle_metrics retention sample_i=0

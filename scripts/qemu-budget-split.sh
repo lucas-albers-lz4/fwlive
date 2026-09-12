@@ -32,6 +32,13 @@ else
 fi
 
 RUN_ID="${FWLIVE_PROFILE_RUN_ID:-$(date +%Y%m%dT%H%M%S)-$RANDOM}"
+# OpenSSH joins remote argv into a shell command; keep run_id safe as $2.
+case "$RUN_ID" in
+	''|*[!A-Za-z0-9._-]*)
+		echo "invalid FWLIVE_PROFILE_RUN_ID (use [A-Za-z0-9._-]+): $RUN_ID" >&2
+		exit 1
+		;;
+esac
 ssh "${SSH_OPTS[@]}" "root@$HOST" sh -s -- "$REMOTE_FIXTURE" "$RUN_ID" <<'REMOTE'
 set -eu
 fixture=$1

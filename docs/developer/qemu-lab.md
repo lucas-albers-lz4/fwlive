@@ -239,8 +239,10 @@ profiling only — no CI guest job yet (same stance as the #310 device table).
   intentional; document it; use x86 PSS to quantify.
 - **Sub-50 ms children** (jshn/dirname/cat) may be missed by the sampler;
   jsonfilter/awk usually appear.
-- **Retention:** T0 idle → 10 polls → 60 s idle → T1; `Δ = T1 − T0`. **nofork:**
-  same 60 s with zero polls. Soft-budget **Z is sized from the nofork Δ only**.
+- **Retention:** settle after prior poll cases, then T0 idle → 10 polls → 60 s
+  idle → T1; `Δ = T1 − T0`. **nofork:** same 60 s with zero polls. Soft-budget
+  **Z is sized from the nofork Δ only**. A peak sample with no in-flight tree
+  observation is emitted as `value=invalid`, not a post-exit walk.
 - **logd** RSS is a context metric only — never added to the fwlive budget sum.
 - **Line pins:** C2 `addresses:["50"]` = normal; C1 fixture / `["2000"]` = max.
   Record returned `lines=` (stock 64 KiB ring may not hold 2000).
