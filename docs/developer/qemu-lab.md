@@ -216,8 +216,88 @@ standalone file-open cost. Stage shares remain inclusive and non-additive.
 - [x] Stage attribution on `tests/fixtures/logread-2000.json` (five raw samples, median and spread)
 - [x] Record substrate (`qemu-armsr-tcg`) + date + git SHA
 
+## Memory profiling (#319)
+
+Harness: [`scripts/memory-census.sh`](../../scripts/memory-census.sh). Manual/release
+profiling only — no CI guest job yet (same stance as the #310 device table).
+
+### Metric contract
+
+- **Budget series = summed VmRSS (kB)** of the chosen process tree. Soft ceilings
+  bind on RSS, not PSS. On x86, emit PSS from `smaps_rollup` as a companion to
+  quantify shared-page overcount; armsr has no `CONFIG_PROC_PAGE_MONITOR`, so
+  VmRSS/VmHWM only.
+- **Idle ≠ peak.** Idle is rpcd-at-rest (+ leaked descendants). Peak is the max
+  of concurrent ~50 ms tree samples during one poll (BusyBox `sleep` may be 1 s
+  only — the harness busy-waits on `/proc/uptime` centiseconds). Sampled peak is
+  not `/proc` `VmPeak` (virtual); worker `VmHWM` is an optional companion.
+- **Split roots.** C1 (PATH-shim direct `/usr/libexec/rpcd/fwlive call poll`,
+  fixture-backed `log read`) uses `root=fwlive`. C2 / idle / retention
+  (`ubus call fwlive poll`) use `root=rpcd`. Never walk rpcd for C1.
+- **C1 exercises the full poll path** (`raw=$(ubus…)` + filter), not filter-only.
+- **RSS sums double-count** shared text across ash/jsonfilter/awk children —
+  intentional; document it; use x86 PSS to quantify.
+- **Sub-50 ms children** (jshn/dirname/cat) may be missed by the sampler;
+  jsonfilter/awk usually appear.
+- **Retention:** T0 idle → 10 polls → 60 s idle → T1; `Δ = T1 − T0`. **nofork:**
+  same 60 s with zero polls. Soft-budget **Z is sized from the nofork Δ only**.
+- **logd** RSS is a context metric only — never added to the fwlive budget sum.
+- **Line pins:** C2 `addresses:["50"]` = normal; C1 fixture / `["2000"]` = max.
+  Record returned `lines=` (stock 64 KiB ring may not hold 2000).
+- Emit `n=5` peak samples per poll case (same convention as #310). Join CPU and
+  memory rows with `PROFILE_META run_id=…` (`FWLIVE_PROFILE_RUN_ID` or auto).
+
+### Soft budget (provisional)
+
+| Ceiling | Value | Notes |
+|---|---|---|
+| Idle RSS (X) | ≤ 8 MB | ~5–10% of the 128 MB device class |
+| Peak process-tree RSS (Y) | ≤ 16 MB | ≈ 2× idle; fork-heavy poll |
+| Retained Δ RSS (Z) | TBD | Commit from first nofork baseline before accepting results |
+| Future stretch | 64 MB class | Documented only; not binding |
+
+- **Binding substrate:** x86_64 guest `OWRT_QEMU_MEM=128` (hardcoded `-smp 2` is fine).
+- **Production-target confirmation:** armsr `OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256`.
+- **Owner:** @lucas-albers-lz4. Re-evaluate each release; re-open automation if a
+  single change regresses peak RSS by >10% or retained RSS by > Z.
+
+### Actionable rule (AC-4)
+
+A memory change is actionable if **any** of: > 2σ of the pre-change 5-run baseline
+mean, OR > 5% of that baseline’s peak RSS, OR > 8 MB absolute. Disposition before
+merge: owner approval, blocking follow-up issue, or documented exception here.
+
+### #308 gate linkage (AC-6)
+
+Any #308 S-candidate PR that changes fork/exec count or pipeline structure must
+include pre/post peak and retained RSS snapshots (from this harness) in the PR
+description.
+
+### Checklist
+
+- [x] Harness + this stub
+- [ ] Guest primitive probe confirm (x86 PSS / armsr VmRSS)
+- [ ] Idle / nofork / C2 / retention / C1 baselines (n=5)
+- [ ] Commit numeric Z from nofork; fill result tables
+- [ ] armsr confirmation run against soft budget
+- [ ] Degraded-mode baselines (adaptive cap + visibility pause) — **blocked on #306**
+
+### Sample invocation
+
+```sh
+# Binding: x86_64 128 MB class
+OWRT_QEMU_MEM=128 ./scripts/run-openwrt-x86-qemu.sh
+# wait + install fwlive, then:
+OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
+
+# Confirmation: armsr weak-device rig
+OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256 ./scripts/run-openwrt-armsr-armv8-qemu.sh
+OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
+```
+
 ## Further reading
 
 - [`../armvirt-armsr-testing.md`](../armvirt-armsr-testing.md)
 - [`../openwrt-rootfs-x86-docker.md`](../openwrt-rootfs-x86-docker.md) — optional Docker experiment
 - [`../../lab/README.md`](../../lab/README.md)
+- [#319](https://github.com/lucas-albers-lz4/fwlive/issues/319) — memory footprint requirements
