@@ -374,6 +374,19 @@ FWLIVE_PROFILE_RUN_ID="flood-armsr-$(date +%Y%m%dT%H%M%S)" \
 
 Visibility-pause degraded baseline remains blocked on Layer 2.
 
+### Sample invocation (memory census)
+
+```sh
+# Binding: x86_64 128 MB class (lab: MEM=160 → guest MemTotal ≈ 128 MiB)
+OWRT_RELEASE=24.10.8 OWRT_QEMU_MEM=160 ./scripts/run-openwrt-x86-qemu.sh
+# wait + install fwlive, then:
+OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
+
+# Confirmation: armsr weak-device rig
+OWRT_RELEASE=24.10.8 OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256 ./scripts/run-openwrt-armsr-armv8-qemu.sh
+OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
+```
+
 ## Further reading
 
 - [`../armvirt-armsr-testing.md`](../armvirt-armsr-testing.md)
