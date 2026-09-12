@@ -1,0 +1,23 @@
+Copying logread-2000.json → root@127.0.0.1:2222:/tmp/fwlive-logread-2000.json
+FLOOD_META run_id=flood-armsr-20260912T174001 git_sha=a4d0b2f arch=aarch64 path=c1_fixture_shim
+FLOOD_META release='24.10.8' revision='r29233-443ec4032a'
+FLOOD_META nproc=1 memtotal_kb=238556
+FLOOD_META fixture_bytes=224365 requested=2000 follow_n=3 hot_ms=800 max_served=250
+FLOOD_META busybox=1.36.1-r3
+FLOOD_META log_uci=skipped path=c1_fixture_shim
+FLOOD_META fixture_entries=2000
+FLOOD_POLL phase=induce mode=on wall_ms=37030 adaptive=1 truncated=0 shed=0 shed_limit=0 log_msgs=1143 state_bucket=hot state_duration_ms=36630
+FLOOD_INDUCE mode=on wall_ms=37030 state_duration_ms=36630 state_bucket=hot hot_ok=1
+FLOOD_RESOLVE mode=on disabled=load
+FLOOD_POLL phase=follow1 mode=on wall_ms=5410 adaptive=1 truncated=1 shed=1 shed_limit=250 log_msgs=143 state_bucket=hot state_duration_ms=4910
+FLOOD_POLL phase=follow2 mode=on wall_ms=5640 adaptive=1 truncated=1 shed=1 shed_limit=250 log_msgs=143 state_bucket=hot state_duration_ms=5130
+FLOOD_POLL phase=follow3 mode=on wall_ms=5560 adaptive=1 truncated=1 shed=1 shed_limit=250 log_msgs=143 state_bucket=hot state_duration_ms=5090
+FLOOD_MODE_RESULT mode=on follow_pass=1 induce_hot_ok=1 resolve_pass=1
+FLOOD_POLL phase=induce mode=off wall_ms=36810 adaptive=0 truncated=0 shed=0 shed_limit=0 log_msgs=1143 state_bucket=none state_duration_ms=0
+FLOOD_INDUCE mode=off wall_ms=36810
+FLOOD_POLL phase=follow1 mode=off wall_ms=36240 adaptive=0 truncated=0 shed=0 shed_limit=0 log_msgs=1143 state_bucket=none state_duration_ms=0
+FLOOD_POLL phase=follow2 mode=off wall_ms=36100 adaptive=0 truncated=0 shed=0 shed_limit=0 log_msgs=1143 state_bucket=none state_duration_ms=0
+FLOOD_POLL phase=follow3 mode=off wall_ms=36670 adaptive=0 truncated=0 shed=0 shed_limit=0 log_msgs=1143 state_bucket=none state_duration_ms=0
+FLOOD_MODE_RESULT mode=off follow_pass=1 induce_hot_ok=0 resolve_pass=0
+FLOOD_VERDICT ac_pass=1 on_induce_hot=1 on_follow_pass=1 on_resolve_pass=1 off_follow_pass=1
+FLOOD_DONE run_id=flood-armsr-20260912T174001

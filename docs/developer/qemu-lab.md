@@ -341,7 +341,7 @@ this calibration.
 - [x] Idle / nofork / retention baselines + C2/C1 peak samples (n=5 peaks)
 - [x] Commit numeric Z from nofork; fill result tables
 - [x] armsr confirmation run against soft budget
-- [ ] Degraded-mode baselines (adaptive cap + visibility pause) — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr table **pending** (PR evidence fill)
+- [x] Degraded-mode baselines (adaptive cap + visibility pause) — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr C1 table filled (`ac_pass=1`, run `flood-armsr-20260912T174001`). Visibility-pause baseline still blocked on Layer 2.
 
 ### Adaptive flood evidence (#306 Layer 1)
 
@@ -360,22 +360,27 @@ FWLIVE_PROFILE_RUN_ID="flood-armsr-$(date +%Y%m%dT%H%M%S)" \
 
 `qemu-install-fwlive.sh` syncs `fwlive-adaptive-cap.sh` with the other libexec helpers.
 
-#### Binding table — armsr TCG PATH-shim C1 (pending first green run)
+#### Binding table — armsr TCG PATH-shim C1
 
 Measurement path is **fixture PATH-shim** (same class as memory-census C1), not
-stock-ring logd. Induce uses the 2000-entry fixture filter (~15 s on armsr TCG);
-follow polls must honor `lines=` via the shim so delivered msgs ≤250.
+stock-ring logd. Induce uses the 2000-entry fixture filter (~37 s on armsr TCG);
+follow polls honor `lines=` via the shim so delivered msgs ≤250.
+
+Run: `flood-armsr-20260912T174001` · git `a4d0b2f` · 2026-09-12 · BusyBox 1.36.1-r3
 
 | field | value |
 |-------|-------|
-| substrate | `qemu-armsr-tcg` / path=`c1_fixture_shim` (pending) |
-| SMP / MEM | `1` / `256` |
+| substrate | `qemu-armsr-tcg` / path=`c1_fixture_shim` |
+| SMP / MEM | `1` / `256` (guest `nproc=1`, `memtotal_kb=238556`) |
+| OpenWrt | 24.10.8 `r29233-443ec4032a` |
 | log UCI | skipped for C1 (`--raise-log` optional) |
-| run_id / git SHA | pending |
-| induce (on) | pending — `state_bucket=hot` / `state_duration_ms>800` |
-| follow×3 (on) | pending — `truncated:1`, `log_msgs≤250`, `resolve disabled=load` after induce |
-| A/B (off) | pending — `adaptive:0`, `log_msgs≫250`, no shed |
-| `FLOOD_VERDICT ac_pass` | pending |
+| induce (on) | `state_bucket=hot`, `state_duration_ms=36630`, wall 37030 ms, 1143 msgs |
+| resolve (on) | `disabled=load` immediately after induce |
+| follow×3 (on) | `truncated:1`, `shed.limit=250`, **143** msgs each; wall ~5410–5640 ms |
+| A/B (off) | `adaptive:0`, no shed; **1143** msgs; follow wall ~36100–36670 ms |
+| `FLOOD_VERDICT ac_pass` | **1** (`on_induce_hot` ∧ `on_follow` ∧ `on_resolve` ∧ `off_follow`) |
+
+**Interpretation (Grok):** outcome row “on sheds ≤250; off stays large / slower” → next #306 slice is **Layer 2** (client surfacing + backoff), not threshold calibration and not fork-budget-first. Caveat: follow stays hot (~5 s > 800 ms) so cooldown / upward re-probe is not demonstrated on this substrate.
 
 Visibility-pause degraded baseline remains blocked on Layer 2.
 
