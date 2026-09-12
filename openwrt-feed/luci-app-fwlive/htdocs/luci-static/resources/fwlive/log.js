@@ -499,8 +499,7 @@ return baseclass.extend({
 
 		const want = p.value.toLowerCase();
 		const hit =
-			row.action === want ||
-			(row.action_raw || '').toUpperCase() === p.value.toUpperCase();
+			row.action === want || (row.action_raw || '').toUpperCase() === p.value.toUpperCase();
 		return p.negate ? !hit : hit;
 	},
 
@@ -510,9 +509,7 @@ return baseclass.extend({
 
 		const iface = p.value;
 		const hit =
-			row.interface === iface ||
-			row.interface_in === iface ||
-			row.interface_out === iface;
+			row.interface === iface || row.interface_in === iface || row.interface_out === iface;
 		return p.negate ? !hit : hit;
 	},
 
