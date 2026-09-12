@@ -181,17 +181,68 @@ function testPollUbusFailure() {
 	// like "no firewall events". The reply bypasses the filter, so this is
 	// deterministic with or without jsonfilter on PATH.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-poll-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-adapt-'));
 	try {
 		makeStub(stubDir, 'ubus', '#!/bin/sh\nexit 1\n');
-		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'state.json'),
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
 		const raw = runCall(['call', 'poll', '{"addresses":["50"]}'],
 			{ encoding: 'utf8', env });
 		const res = JSON.parse(raw);
 		assert.ok(Array.isArray(res.log), 'poll failure must keep the log shape');
 		assertStructuredError(res, 'poll/log_read_failed');
 		assert.equal(res.error, 'log_read_failed');
+		assert.equal(res.adaptive, 1, 'Layer 1 adaptive reply field');
+		assert.equal(res.messages_received, 0,
+			'Layer 1 ships messages_received:0 (no post-filter ash scan)');
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testAdaptiveHotSurvivesFailedPoll() {
+	// CodeRabbit CR2: hot state + failed ubus poll must keep shed; resolve
+	// must return disabled:load (rpcd path, not helper-only).
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-hot-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-state-'));
+	const stateFile = path.join(work, 'state.json');
+	try {
+		fs.writeFileSync(stateFile,
+			'{"duration_ms":900,"limit":250,"bucket":"hot","warm_halved":0,"shed":1,"completed_cs":1}\n');
+		makeStub(stubDir, 'ubus', '#!/bin/sh\nexit 1\n');
+		makeStub(stubDir, 'nslookup', '#!/bin/sh\nexit 0\n');
+		makePassthrough(stubDir, 'dirname', '/usr/bin/dirname');
+		makePassthrough(stubDir, 'date', '/bin/date');
+		makePassthrough(stubDir, 'cat', '/bin/cat');
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: stateFile,
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+		const pollRaw = runCall(['call', 'poll', '{"addresses":["50"]}'],
+			{ encoding: 'utf8', env });
+		const poll = JSON.parse(pollRaw);
+		assert.equal(poll.error, 'log_read_failed');
+		const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+		assert.equal(state.bucket, 'hot', 'failed poll must not clear hot bucket');
+		assert.equal(state.shed, 1, 'failed poll must not clear shed');
+		const resolveRaw = runCall(['call', 'resolve', '{"addresses":["192.0.2.1"]}'],
+			{ encoding: 'utf8', env });
+		const resolve = JSON.parse(resolveRaw);
+		assert.deepEqual(resolve.names, {});
+		assert.equal(resolve.disabled, 'load',
+			'resolve must shed when prior poll was hot');
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
 	}
 }
 
@@ -273,6 +324,7 @@ testRulesNftDumpFailure();
 testRulesIptablesDumpFailure();
 testRulesIp6tablesDumpFailure();
 testPollUbusFailure();
+testAdaptiveHotSurvivesFailedPoll();
 testResolveJshnMissing();
 testLoggingStatusNeverSilent();
 testToggleNoWanZone();
