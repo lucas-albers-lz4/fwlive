@@ -341,20 +341,38 @@ this calibration.
 - [x] Idle / nofork / retention baselines + C2/C1 peak samples (n=5 peaks)
 - [x] Commit numeric Z from nofork; fill result tables
 - [x] armsr confirmation run against soft budget
-- [ ] Degraded-mode baselines (adaptive cap + visibility pause) — **blocked on #306**
+- [ ] Degraded-mode baselines (adaptive cap + visibility pause) — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr table **pending** (PR evidence fill)
 
-### Sample invocation
+### Adaptive flood evidence (#306 Layer 1)
+
+Harness (host → guest SSH):
 
 ```sh
-# Binding: x86_64 128 MB class (lab: MEM=160 → guest MemTotal ≈ 128 MiB)
-OWRT_RELEASE=24.10.8 OWRT_QEMU_MEM=160 ./scripts/run-openwrt-x86-qemu.sh
-# wait + install fwlive, then:
-OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
-
-# Confirmation: armsr weak-device rig
-OWRT_RELEASE=24.10.8 OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256 ./scripts/run-openwrt-armsr-armv8-qemu.sh
-OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
+OWRT_RELEASE=24.10.8 OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256 \
+  ./scripts/run-openwrt-armsr-armv8-qemu.sh
+./scripts/qemu-wait-guest.sh
+OWRT_FWLIVE_VERSION=24.10.8 OWRT_FWLIVE_ARCH=aarch64_generic \
+  ./scripts/qemu-install-fwlive.sh
+FWLIVE_PROFILE_RUN_ID="flood-armsr-$(date +%Y%m%dT%H%M%S)" \
+  OPENWRT_SSH_PORT=2222 ./scripts/qemu-adaptive-flood.sh | tee lab/flood-armsr-latest.txt
 ```
+
+`qemu-install-fwlive.sh` syncs `fwlive-adaptive-cap.sh` with the other libexec helpers.
+
+#### Binding table — armsr TCG (pending first green run)
+
+| field | value |
+|-------|-------|
+| substrate | `qemu-armsr-tcg` (pending) |
+| SMP / MEM | `1` / `256` |
+| log UCI | pending (`FLOOD_META log_uci_key=…`) |
+| run_id / git SHA | pending |
+| induce wall_ms (on) | pending — need >800 ms or `bucket=hot` |
+| follow×3 (on) | pending — `truncated:1`, `log_msgs≤250` |
+| A/B (off) | pending — `adaptive:0`, no shed cap |
+| `FLOOD_VERDICT ac_pass` | pending |
+
+Visibility-pause degraded baseline remains blocked on Layer 2.
 
 ## Further reading
 

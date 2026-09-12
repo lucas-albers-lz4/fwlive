@@ -101,6 +101,7 @@ FWLIVE_PKG="$ROOT/openwrt-feed/luci-app-fwlive"
 FWLIVE_DIR="$FWLIVE_PKG/htdocs/luci-static/resources"
 RPCD_BIN="$FWLIVE_PKG/root/usr/libexec/rpcd/fwlive"
 LIBEXEC_LOGGING="$FWLIVE_PKG/root/usr/libexec/fwlive-logging.sh"
+LIBEXEC_ADAPTIVE="$FWLIVE_PKG/root/usr/libexec/fwlive-adaptive-cap.sh"
 LIBEXEC_FILTER="$FWLIVE_PKG/root/usr/libexec/fwlive-log-filter.sh"
 LIBEXEC_ISFW="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.sh"
 LIBEXEC_ISFW_AWK="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.awk"
@@ -147,6 +148,12 @@ restore_wan_log_baseline || logger -t fwlive "WAN log baseline restore failed du
 # Always exit 0 — see Package/luci-app-fwlive/prerm (do not strand uninstall).
 exit 0
 EOF
+	fi
+	if [[ -f "$LIBEXEC_ADAPTIVE" ]]; then
+		echo "Syncing fwlive-adaptive-cap.sh (#306)..."
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+			"cat > /usr/libexec/fwlive-adaptive-cap.sh && chmod 644 /usr/libexec/fwlive-adaptive-cap.sh" \
+			< "$LIBEXEC_ADAPTIVE"
 	fi
 	if [[ -f "$LIBEXEC_FILTER" ]]; then
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
