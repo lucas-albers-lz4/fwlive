@@ -270,6 +270,26 @@ function makeEntryId(entry, tsUnix, action, src, dst, sport, dport, proto, iface
 	return [tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut, entry.msg || ''].join('|');
 }
 
+function extractAddrs(kv) {
+	return {
+		src: kv.SRC || '',
+		dst: kv.DST || '',
+		sport: kv.SPT || '',
+		dport: kv.DPT || ''
+	};
+}
+
+function extractIfaces(kv) {
+	const ifaceIn = kv.IN || '';
+	const ifaceOut = kv.OUT || '';
+	return {
+		ifaceIn: ifaceIn,
+		ifaceOut: ifaceOut,
+		iface: ifaceIn || ifaceOut || '',
+		dir: ifaceIn && ifaceOut ? 'forward' : (ifaceIn ? 'in' : (ifaceOut ? 'out' : 'unknown'))
+	};
+}
+
 function normalizeEntry(entry) {
 	const kv = parseKeyValueLog(entry.msg || '');
 	const tsUnix = timestampUnix(entry);
@@ -277,21 +297,15 @@ function normalizeEntry(entry) {
 	const proto = (kv.PROTO || '').toUpperCase();
 	const actionRaw = inferActionRaw(entry.msg || '', kv, detectAction(entry.msg || ''));
 	const action = normalizeAction(actionRaw);
-	const src = kv.SRC || '';
-	const dst = kv.DST || '';
-	const sport = kv.SPT || '';
-	const dport = kv.DPT || '';
-	const ifaceIn = kv.IN || '';
-	const ifaceOut = kv.OUT || '';
-	const iface = ifaceIn || ifaceOut || '';
-	const dir = ifaceIn && ifaceOut ? 'forward' : (ifaceIn ? 'in' : (ifaceOut ? 'out' : 'unknown'));
+	const addrs = extractAddrs(kv);
+	const ifs = extractIfaces(kv);
 	const flags = parseFlags(entry.msg || '', kv);
 	const length = parseLength(kv);
 	const ruleHint = parseRuleHint(entry.msg || '');
 	const ruleLabel = formatRuleLabel(ruleHint);
 
 	return {
-		id: makeEntryId(entry, tsUnix, action, src, dst, sport, dport, proto, ifaceIn, ifaceOut),
+		id: makeEntryId(entry, tsUnix, action, addrs.src, addrs.dst, addrs.sport, addrs.dport, proto, ifs.ifaceIn, ifs.ifaceOut),
 		log_id: entry && entry.id != null ? Number(entry.id) : null,
 		timestamp: tsUnix,
 		timestamp_display: tsDisplay,
@@ -299,15 +313,15 @@ function normalizeEntry(entry) {
 		rule_label: ruleLabel,
 		action: action,
 		action_raw: actionRaw,
-		interface: iface,
-		interface_in: ifaceIn,
-		interface_out: ifaceOut,
-		direction: dir,
+		interface: ifs.iface,
+		interface_in: ifs.ifaceIn,
+		interface_out: ifs.ifaceOut,
+		direction: ifs.dir,
 		proto: proto,
-		src: src,
-		sport: sport,
-		dst: dst,
-		dport: dport,
+		src: addrs.src,
+		sport: addrs.sport,
+		dst: addrs.dst,
+		dport: addrs.dport,
 		flags: flags,
 		length: length,
 		message: entry.msg || ''
@@ -369,44 +383,50 @@ function matchesExactField(haystack, spec) {
 	return p.negate ? !hit : hit;
 }
 
+function matchesQueryField(row, spec) {
+	const p = parseFilterValue(spec);
+	if (!p.value)
+		return true;
+
+	const keys = Object.keys(row);
+	const parts = [];
+	for (let i = 0; i < keys.length; i++)
+		parts.push(row[keys[i]]);
+	const blob = parts.join(' ').toLowerCase();
+	const hit = blob.indexOf(p.value.toLowerCase()) !== -1;
+	return p.negate ? !hit : hit;
+}
+
+function matchesActionField(row, spec) {
+	const p = parseFilterValue(spec);
+	if (!p.value)
+		return true;
+
+	const want = p.value.toLowerCase();
+	const hit = row.action === want
+		|| (row.action_raw || '').toUpperCase() === p.value.toUpperCase();
+	return p.negate ? !hit : hit;
+}
+
+function matchesInterfaceField(row, spec) {
+	const p = parseFilterValue(spec);
+	if (!p.value)
+		return true;
+
+	const iface = p.value;
+	const hit = row.interface === iface
+		|| row.interface_in === iface
+		|| row.interface_out === iface;
+	return p.negate ? !hit : hit;
+}
+
 function matchesFilter(row, filters) {
-	if (filters.q) {
-		const p = parseFilterValue(filters.q);
-		if (p.value) {
-			const keys = Object.keys(row);
-			const parts = [];
-			for (let i = 0; i < keys.length; i++)
-				parts.push(row[keys[i]]);
-			const blob = parts.join(' ').toLowerCase();
-			const hit = blob.indexOf(p.value.toLowerCase()) !== -1;
-			if (p.negate ? hit : !hit)
-				return false;
-		}
-	}
-
-	if (filters.action) {
-		const p = parseFilterValue(filters.action);
-		if (p.value) {
-			const want = p.value.toLowerCase();
-			const hit = row.action === want
-				|| (row.action_raw || '').toUpperCase() === p.value.toUpperCase();
-			if (p.negate ? hit : !hit)
-				return false;
-		}
-	}
-
-	if (filters.interface) {
-		const p = parseFilterValue(filters.interface);
-		if (p.value) {
-			const iface = p.value;
-			const hit = row.interface === iface
-				|| row.interface_in === iface
-				|| row.interface_out === iface;
-			if (p.negate ? hit : !hit)
-				return false;
-		}
-	}
-
+	if (filters.q && !matchesQueryField(row, filters.q))
+		return false;
+	if (filters.action && !matchesActionField(row, filters.action))
+		return false;
+	if (filters.interface && !matchesInterfaceField(row, filters.interface))
+		return false;
 	if (filters.proto && !matchesExactField(row.proto, filters.proto))
 		return false;
 	if (filters.src && !matchesTextField(row.src, filters.src))

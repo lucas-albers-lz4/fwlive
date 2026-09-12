@@ -78,3 +78,46 @@ assert.ok(luciSrc.indexOf('Object.values') < 0, 'LuCI still uses Object.values')
 assert.ok(luciSrc.indexOf('@fwlive-codegen:luci-preserve-begin') >= 0, 'missing luci-preserve region');
 
 console.log('fwlive parser sync OK (classify + presentation)');
+
+const syncSamples = [
+	{ time: '2026-03-20T02:00:00.000Z', msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=10.0.0.2 DST=1.1.1.1 PROTO=TCP SPT=49999 DPT=443' },
+	{ time: '2026-03-20T02:00:00.000Z', msg: 'fw4: ACCEPT IN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP' },
+	{ time: '2026-03-20T02:00:00.000Z', msg: 'fw4: ACCEPT without key values' }
+];
+const syncFilters = [
+	{},
+	{ q: '10.0.0.2' },
+	{ q: '!10.0.0.2' },
+	{ action: 'drop' },
+	{ action: '!drop' },
+	{ interface: 'br-lan' },
+	{ interface: 'eth0' },
+	{ proto: 'TCP' },
+	{ src: '10.0.0.2', dst: '!1.1.1.1' }
+];
+// Expected outcomes: [sample][filterIndex] — correctness, not just parity.
+const syncExpected = [
+	[true, true, false, true, false, true, true, true, false],
+	[true, false, true, false, true, false, false, false, false],
+	[true, false, true, false, true, false, false, false, false]
+];
+for (let i = 0; i < syncSamples.length; i++) {
+	const coreRow = core.normalizeEntry(syncSamples[i]);
+	const luciRow = luci.normalizeEntry(syncSamples[i]);
+	assert.deepStrictEqual(luciRow, coreRow,
+		'normalizeEntry mismatch for ' + JSON.stringify(syncSamples[i].msg));
+	for (let j = 0; j < syncFilters.length; j++) {
+		assert.strictEqual(
+			core.matchesFilter(coreRow, syncFilters[j]),
+			syncExpected[i][j],
+			'unexpected filter result for sample ' + i + ' filter ' + JSON.stringify(syncFilters[j])
+		);
+		assert.strictEqual(
+			luci.matchesFilter(luciRow, syncFilters[j]),
+			core.matchesFilter(coreRow, syncFilters[j]),
+			'matchesFilter mismatch for filter ' + JSON.stringify(syncFilters[j])
+		);
+	}
+}
+
+console.log('fwlive parser sync OK (normalize + filter)');
