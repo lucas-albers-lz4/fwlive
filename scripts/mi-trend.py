@@ -12,6 +12,7 @@ Usage:
 import csv
 import json
 import math
+import statistics
 import subprocess
 import sys
 from pathlib import Path
@@ -78,8 +79,19 @@ def parse_functions(csv_text):
     return funcs
 
 
+def stable_key(f, seen):
+    """Baseline identity independent of line numbers: file + function name,
+    disambiguated by occurrence order for repeated/anonymous functions."""
+    k = f"{f['file']} :: {f['func']}"
+    n = seen.get(k, 0) + 1
+    seen[k] = n
+    return k if n == 1 else f"{k} #{n}"
+
+
 def key(f):
-    return f"{f['file']} :: {f['func']} ({f['loc']})"
+    # Legacy accessor kept for single lookups; batch diffs use stable_key so
+    # moving a function reports a location change, not a remove+add pair.
+    return f"{f['file']} :: {f['func']}"
 
 
 def diff_baseline(funcs):
@@ -87,15 +99,20 @@ def diff_baseline(funcs):
     if not BASELINE.exists():
         return ["no baseline at tests/fixtures/mi-baseline.json "
                 "(run with --update-baseline once, then commit it)"]
-    old = {key(f): f for f in json.loads(BASELINE.read_text())["functions"]}
-    new = {key(f): f for f in funcs}
+    old_list = json.loads(BASELINE.read_text())["functions"]
+    old_seen, new_seen = {}, {}
+    old = {stable_key(f, old_seen): f for f in old_list}
+    new = {stable_key(f, new_seen): f for f in funcs}
     lines = []
     for k, f in new.items():
         if k not in old:
             if f["mi"] < MI_LOW:
                 lines.append(f"NEW low-MI: {k} MI={f['mi']}")
-        elif old[k]["mi"] - f["mi"] > DRIFT_TOLERANCE:
-            lines.append(f"REGRESSED: {k} MI {old[k]['mi']} -> {f['mi']}")
+        else:
+            if old[k]["mi"] - f["mi"] > DRIFT_TOLERANCE:
+                lines.append(f"REGRESSED: {k} MI {old[k]['mi']} -> {f['mi']}")
+            if old[k]["loc"] != f["loc"]:
+                lines.append(f"MOVED: {k} {old[k]['loc']} -> {f['loc']}")
     for k in old:
         if k not in new:
             lines.append(f"REMOVED: {k}")
@@ -106,7 +123,11 @@ def main(argv):
     update = "--update-baseline" in argv
     out = DEFAULT_OUT
     if "--out" in argv:
-        out = Path(argv[argv.index("--out") + 1])
+        idx = argv.index("--out")
+        if idx + 1 >= len(argv):
+            print("--out requires a path argument", file=sys.stderr)
+            sys.exit(2)
+        out = Path(argv[idx + 1])
 
     try:
         out_v = subprocess.run(["lizard", "--version"], capture_output=True,
@@ -115,12 +136,14 @@ def main(argv):
         print("lizard not found; pip install lizard==1.24.0", file=sys.stderr)
         sys.exit(2)
     if LIZARD_VERSION not in out_v:
-        print(f"warning: expected lizard {LIZARD_VERSION}, got: {out_v}",
+        print(f"lizard version mismatch: expected {LIZARD_VERSION}, got: "
+              f"{out_v}; refusing to emit an incomparable report",
               file=sys.stderr)
+        sys.exit(2)
 
     funcs = parse_functions(run_lizard())
     low = sum(1 for f in funcs if f["mi"] < MI_LOW)
-    import statistics
+    mi_vals = [f["mi"] for f in funcs]
     report = {
         "tool": f"lizard {LIZARD_VERSION} -Ehalstead",
         "formula": "MI = (171 - 5.2*ln(V) - 0.23*G - 16.2*ln(LOC)) * 100/171, floor 0",
@@ -129,8 +152,8 @@ def main(argv):
         "bands": {"good": MI_GOOD, "low": MI_LOW},
         "summary": {
             "functions": len(funcs),
-            "mean_mi": round(statistics.mean(f["mi"] for f in funcs), 1),
-            "median_mi": round(statistics.median(f["mi"] for f in funcs), 1),
+            "mean_mi": round(statistics.mean(mi_vals), 1),
+            "median_mi": round(statistics.median(mi_vals), 1),
             "below_65": low,
         },
         "functions": funcs,

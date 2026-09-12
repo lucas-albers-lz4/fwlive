@@ -14,9 +14,9 @@
   "low": 65
  },
  "summary": {
-  "functions": 327,
+  "functions": 328,
   "mean_mi": 64.8,
-  "median_mi": 64.1,
+  "median_mi": 64.2,
   "below_65": 169
  },
  "functions": [
@@ -2381,34 +2381,34 @@
   {
    "file": "scripts/mi-trend.py",
    "func": "diff_baseline",
-   "loc": "diff_baseline@85-102@scripts/mi-trend.py",
-   "nloc": 17,
-   "ccn": 10,
-   "volume": 860.96,
-   "mi": 51.3
+   "loc": "diff_baseline@97-119@scripts/mi-trend.py",
+   "nloc": 22,
+   "ccn": 11,
+   "volume": 1196.74,
+   "mi": 47.7
   },
   {
    "file": "scripts/mi-trend.py",
    "func": "key",
-   "loc": "key@81-82@scripts/mi-trend.py",
+   "loc": "key@91-94@scripts/mi-trend.py",
    "nloc": 2,
    "ccn": 1,
-   "volume": 77.71,
-   "mi": 80.1
+   "volume": 49.83,
+   "mi": 81.4
   },
   {
    "file": "scripts/mi-trend.py",
    "func": "main",
-   "loc": "main@105-150@scripts/mi-trend.py",
-   "nloc": 43,
+   "loc": "main@122-173@scripts/mi-trend.py",
+   "nloc": 49,
    "ccn": 10,
-   "volume": 2247.04,
-   "mi": 39.6
+   "volume": 2489.37,
+   "mi": 38.0
   },
   {
    "file": "scripts/mi-trend.py",
    "func": "mi_vs",
-   "loc": "mi_vs@32-37@scripts/mi-trend.py",
+   "loc": "mi_vs@33-38@scripts/mi-trend.py",
    "nloc": 5,
    "ccn": 1,
    "volume": 383.78,
@@ -2417,7 +2417,7 @@
   {
    "file": "scripts/mi-trend.py",
    "func": "parse_functions",
-   "loc": "parse_functions@53-78@scripts/mi-trend.py",
+   "loc": "parse_functions@54-79@scripts/mi-trend.py",
    "nloc": 24,
    "ccn": 6,
    "volume": 1100.08,
@@ -2426,11 +2426,20 @@
   {
    "file": "scripts/mi-trend.py",
    "func": "run_lizard",
-   "loc": "run_lizard@40-50@scripts/mi-trend.py",
+   "loc": "run_lizard@41-51@scripts/mi-trend.py",
    "nloc": 11,
    "ccn": 3,
    "volume": 466.66,
    "mi": 58.2
+  },
+  {
+   "file": "scripts/mi-trend.py",
+   "func": "stable_key",
+   "loc": "stable_key@82-88@scripts/mi-trend.py",
+   "nloc": 5,
+   "ccn": 2,
+   "volume": 222.91,
+   "mi": 68.0
   },
   {
    "file": "scripts/serve-view-harness.mjs",

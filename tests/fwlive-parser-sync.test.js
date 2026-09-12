@@ -91,8 +91,15 @@ const syncFilters = [
 	{ action: 'drop' },
 	{ action: '!drop' },
 	{ interface: 'br-lan' },
+	{ interface: 'eth0' },
 	{ proto: 'TCP' },
 	{ src: '10.0.0.2', dst: '!1.1.1.1' }
+];
+// Expected outcomes: [sample][filterIndex] — correctness, not just parity.
+const syncExpected = [
+	[true, true, false, true, false, true, true, true, false],
+	[true, false, true, false, true, false, false, false, false],
+	[true, false, true, false, true, false, false, false, false]
 ];
 for (let i = 0; i < syncSamples.length; i++) {
 	const coreRow = core.normalizeEntry(syncSamples[i]);
@@ -100,6 +107,11 @@ for (let i = 0; i < syncSamples.length; i++) {
 	assert.deepStrictEqual(luciRow, coreRow,
 		'normalizeEntry mismatch for ' + JSON.stringify(syncSamples[i].msg));
 	for (let j = 0; j < syncFilters.length; j++) {
+		assert.strictEqual(
+			core.matchesFilter(coreRow, syncFilters[j]),
+			syncExpected[i][j],
+			'unexpected filter result for sample ' + i + ' filter ' + JSON.stringify(syncFilters[j])
+		);
 		assert.strictEqual(
 			luci.matchesFilter(luciRow, syncFilters[j]),
 			core.matchesFilter(coreRow, syncFilters[j]),
