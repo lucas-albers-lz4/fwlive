@@ -252,16 +252,19 @@ profiling only — no CI guest job yet (same stance as the #310 device table).
 - Emit `n=5` peak samples per poll case (same convention as #310). Join CPU and
   memory rows with `PROFILE_META run_id=…` (`FWLIVE_PROFILE_RUN_ID` or auto).
 
-### Soft budget (provisional)
+### Soft budget (committed 2026-09-12)
 
 | Ceiling | Value | Notes |
 |---|---|---|
 | Idle RSS (X) | ≤ 8 MB | ~5–10% of the 128 MB device class |
 | Peak process-tree RSS (Y) | ≤ 16 MB | ≈ 2× idle; fork-heavy poll |
-| Retained Δ RSS (Z) | TBD | Commit from first nofork baseline before accepting results |
+| Retained Δ RSS (Z) | ≤ **1 MB** | From first nofork baselines (both substrates Δ = 0 KB); 1 MB is the noise-floor soft ceiling so AC-4 stays usable |
 | Future stretch | 64 MB class | Documented only; not binding |
 
-- **Binding substrate:** x86_64 guest `OWRT_QEMU_MEM=128` (hardcoded `-smp 2` is fine).
+- **Binding substrate:** x86_64 guest targeting the **128 MB device class**. Lab EFI
+  combined images fail kernel decompress at `OWRT_QEMU_MEM=128`; use
+  **`OWRT_QEMU_MEM=160`** (guest `MemTotal` ≈ 128 MiB after OVMF). Hardcoded
+  `-smp 2` is fine.
 - **Production-target confirmation:** armsr `OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256`.
 - **Owner:** @lucas-albers-lz4. Re-evaluate each release; re-open automation if a
   single change regresses peak RSS by >10% or retained RSS by > Z.
@@ -293,25 +296,63 @@ Any #308 S-candidate PR that changes fork/exec count or pipeline structure must
 include pre/post peak and retained RSS snapshots (from this harness) in the PR
 description.
 
+### First calibration (2026-09-12)
+
+Package `luci-app-fwlive` 0.1.40-r1 + feed sync from harness tip `c56085a`.
+Fixture `tests/fixtures/logread-2000.json` (224,365 bytes). Primitive on both
+guests: **VmRSS only** (`/proc/self/smaps_rollup` absent on released 24.10.8
+x86_64 and armsr images — companion PSS not available for this calibration).
+
+#### Binding — x86_64 KVM (`OWRT_QEMU_MEM=160` → MemTotal 128 MiB, smp=2)
+
+`run_id=z-x86-20260912T091043`. OpenWrt 24.10.8 (`r29233-443ec4032a`), BusyBox
+1.36.1-r3.
+
+| Case | Metric | Values (kB) | Notes |
+|---|---|---|---|
+| idle | rss | 1788 | nprocs=1; under X |
+| idle | logd_rss | 936 | context only |
+| nofork | delta_rss | **0** | Z sized from this |
+| c2_live | peak_rss (n=5) | 1792, 1800, 1800, 1796, 1800 | median **1800**; lines=0 (empty ring); nprocs=1 |
+| retention | delta_rss | 4 | after 10× C2 + 60 s |
+| c1_fixture | peak_rss (n=5) | 8768, 8844, 8808, 8808, 8816 | median **8808** (~8.6 MB); lines=1143; nprocs=6; under Y |
+
+#### Confirmation — armsr TCG (`OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256`)
+
+`run_id=z-armsr-20260912T091441`. Same release/BusyBox. MemTotal 233 MiB.
+
+| Case | Metric | Values (kB) | Notes |
+|---|---|---|---|
+| idle | rss | 2344 | under X |
+| idle | logd_rss | 992 | context only |
+| nofork | delta_rss | **0** | confirms Z floor |
+| c2_live | peak_rss (n=5) | 2352 × 5 | median **2352**; lines=0; nprocs=1 |
+| retention | delta_rss | 4 | same shape as x86 |
+| c1_fixture | peak_rss (n=5) | 5948, 9396, 9384, 9448, 9224 | median **9384** (~9.2 MB); lines=1143; under Y |
+
+Both substrates satisfy X/Y/Z. C2 peaks ≈ idle because the stock ring had no
+firewall lines (`lines=0`); C1 fixture is the authoritative max-poll peak for
+this calibration.
+
 ### Checklist
 
 - [x] Harness + this stub
-- [ ] Guest primitive probe confirm (x86 PSS / armsr VmRSS)
-- [ ] Idle / nofork / C2 / retention / C1 baselines (n=5)
-- [ ] Commit numeric Z from nofork; fill result tables
-- [ ] armsr confirmation run against soft budget
+- [x] Guest primitive probe confirm (both substrates: VmRSS only on 24.10.8 images)
+- [x] Idle / nofork / retention baselines + C2/C1 peak samples (n=5 peaks)
+- [x] Commit numeric Z from nofork; fill result tables
+- [x] armsr confirmation run against soft budget
 - [ ] Degraded-mode baselines (adaptive cap + visibility pause) — **blocked on #306**
 
 ### Sample invocation
 
 ```sh
-# Binding: x86_64 128 MB class
-OWRT_QEMU_MEM=128 ./scripts/run-openwrt-x86-qemu.sh
+# Binding: x86_64 128 MB class (lab: MEM=160 → guest MemTotal ≈ 128 MiB)
+OWRT_RELEASE=24.10.8 OWRT_QEMU_MEM=160 ./scripts/run-openwrt-x86-qemu.sh
 # wait + install fwlive, then:
 OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
 
 # Confirmation: armsr weak-device rig
-OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256 ./scripts/run-openwrt-armsr-armv8-qemu.sh
+OWRT_RELEASE=24.10.8 OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
 ```
 
