@@ -230,8 +230,8 @@ fwlive_adaptive_with_lock() {
 		return $?
 	}
 	_lock=$(fwlive_adaptive_lock_path)
-	# Symlinked lock path: do not create/follow; fail open unlocked.
-	if [ -L "$_lock" ]; then
+	# Symlinked or non-file lock path: do not create/follow; fail open unlocked.
+	if [ -L "$_lock" ] || [ -d "$_lock" ]; then
 		"$@"
 		return $?
 	fi
