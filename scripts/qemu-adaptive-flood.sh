@@ -335,9 +335,10 @@ poll_once() {
 
 resolve_check() {
 	mode=$1
+	# ubus may pretty-print ("disabled": "load") or compact ("disabled":"load").
 	out=$(ubus call fwlive resolve '{"addresses":["192.0.2.1"]}' 2>/dev/null || echo '{}')
 	case "$out" in
-		*'"disabled":"load"'*)
+		*'"disabled"'*'"load"'*)
 			printf 'FLOOD_RESOLVE mode=%s disabled=load\n' "$mode"
 			printf '1\n' >/tmp/fwlive-flood-last-resolve
 			;;
