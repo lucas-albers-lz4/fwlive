@@ -90,14 +90,74 @@ async function testEpochDiscardsStale() {
 	release();
 	await p;
 	assert.strictEqual(v.entries.length, 0, 'stale epoch must not apply rows');
+	/* Stale finally must NOT clear the guard — resume owns that. */
+	assert.strictEqual(v.pollDataInFlight, true, 'stale poll must leave in-flight set');
 
-	/* Control: same reply without epoch bump must ingest. */
+	/* Control: resume clears the guard then catch-up ingests. */
 	h.setRpcMock('fwlive.poll', async function() {
 		return { log: [row], adaptive: 1 };
 	});
-	await v.pollData();
+	v.resumePollingAfterVisible();
+	await sleep(30);
 	assert.ok(v.entries.length >= 1, 'fresh epoch must apply rows');
 	console.log('fwlive-view layer2: epoch discard OK');
+}
+
+async function testHideShowWhileInFlightNoOverlap() {
+	let release1;
+	let release2;
+	const gate1 = new Promise(function(r) { release1 = r; });
+	const gate2 = new Promise(function(r) { release2 = r; });
+	let calls = 0;
+	const row = {
+		id: 99,
+		time: 1717675742,
+		msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.168.1.150 DST=8.8.8.8 PROTO=TCP SPT=49210 DPT=443'
+	};
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				calls++;
+				if (calls === 1) await gate1;
+				else await gate2;
+				return { log: [row], adaptive: 1 };
+			},
+			'fwlive.resolve': async function() { return { names: {} }; }
+		}
+	});
+	const v = h.view;
+	v.bindVisibility();
+	v.pollFn = v.pollData.bind(v);
+	v.paused = true;
+
+	const first = v.pollData();
+	assert.strictEqual(calls, 1);
+	assert.strictEqual(v.pollDataInFlight, true);
+
+	/* Hide while RPC outstanding — bumps epoch; stale must not clear catch-up guard. */
+	h.setHidden(true);
+	assert.ok(v.pollEpoch >= 1);
+
+	/* Show starts catch-up (2nd poll) while first still gated. */
+	h.setHidden(false);
+	await sleep(10);
+	assert.strictEqual(calls, 2, 'resume catch-up must start a second poll');
+	assert.strictEqual(v.pollDataInFlight, true, 'catch-up owns the in-flight guard');
+
+	/* Stale first completes — must not drop catch-up's guard or start another poll. */
+	release1();
+	await first;
+	assert.strictEqual(v.pollDataInFlight, true, 'stale finally must leave catch-up guard set');
+	assert.strictEqual(calls, 2, 'stale completion must not start a third poll');
+
+	release2();
+	await sleep(30);
+	assert.strictEqual(v.pollDataInFlight, false, 'catch-up finally clears its own guard');
+	assert.ok(v.entries.length >= 1);
+	const ids = {};
+	for (let i = 0; i < v.entries.length; i++) ids[v.entries[i].id] = true;
+	assert.strictEqual(Object.keys(ids).length, 1, 'must not double-apply the same row from stale+catch-up');
+	console.log('fwlive-view layer2: hide/show while in-flight OK');
 }
 
 async function testCadenceHysteresis() {
@@ -280,6 +340,7 @@ async function testResolveShedCooldown() {
 		await testRttKindHelpers();
 		await testVisibilityStopsPoll();
 		await testEpochDiscardsStale();
+		await testHideShowWhileInFlightNoOverlap();
 		await testCadenceHysteresis();
 		await testAdaptiveOffDisablesBackoff();
 		await testResolveLoadShed();

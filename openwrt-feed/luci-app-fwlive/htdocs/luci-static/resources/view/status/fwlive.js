@@ -1643,8 +1643,10 @@ return view.extend({
 				/* resolve unavailable — show IPs */
 			}
 		} finally {
-			/* Always clear — a mid-flight epoch bump (visibility) must not stick the guard. */
-			this.pollDataInFlight = false;
+			/* Only the owning epoch clears — a stale hidden-era poll must not
+			 * drop the catch-up guard after resume (Grok #331). Resume clears
+			 * explicitly before starting the catch-up poll. */
+			if (epoch === this.pollEpoch) this.pollDataInFlight = false;
 		}
 	},
 
