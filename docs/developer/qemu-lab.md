@@ -342,7 +342,7 @@ this calibration.
 - [x] Commit numeric Z from nofork; fill result tables
 - [x] armsr confirmation run against soft budget
 - [x] Degraded-mode adaptive-cap baseline — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr C1 table filled (`ac_pass=1`, run `flood-armsr-20260912T174001`)
-- [ ] Degraded-mode visibility-pause baseline — blocked on Layer 2 client backoff
+- [ ] Degraded-mode visibility-pause baseline — Layer 2 client backoff landed (`feat/306-layer2-visibility-backoff`); host unit coverage in `tests/fwlive-view-layer2-backoff.test.js`; Playwright/CDP timing measurement still follow-on
 
 ### Adaptive flood evidence (#306 Layer 1)
 
@@ -383,7 +383,7 @@ Run: `flood-armsr-20260912T174001` · git `a4d0b2f` · 2026-09-12 · BusyBox 1.3
 
 **Interpretation (Grok):** outcome row “on sheds ≤250; off stays large / slower” → next #306 slice is **Layer 2** (client surfacing + backoff), not threshold calibration and not fork-budget-first. Caveat: follow stays hot (~5 s > 800 ms) so cooldown / upward re-probe is not demonstrated on this substrate.
 
-Visibility-pause degraded baseline remains blocked on Layer 2.
+The visibility-pause degraded baseline is still pending the Playwright/CDP timing measurement.
 
 ### Sample invocation (memory census)
 

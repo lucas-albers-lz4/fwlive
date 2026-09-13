@@ -35,6 +35,8 @@ function createHarnessDocument() {
 	const idMap = Object.create(null);
 
 	const document = {
+		hidden: false,
+		_visListeners: [],
 		createElement(tagName) {
 			const el = new HarnessElement(tagName);
 			el.setAttribute = function(key, value) {
@@ -52,6 +54,14 @@ function createHarnessDocument() {
 		},
 		getElementById(id) {
 			return idMap[id] || null;
+		},
+		addEventListener(type, fn) {
+			if (type === 'visibilitychange')
+				this._visListeners.push(fn);
+		},
+		dispatchVisibility() {
+			for (let i = 0; i < this._visListeners.length; i++)
+				this._visListeners[i]();
 		},
 		body: {
 			appendChild(node) {
@@ -124,9 +134,26 @@ function loadFwliveView(options) {
 	const hostname = loadFwliveModule('hostname');
 	const proto = loadFwliveModule('proto', { document: document });
 
+	const pollOps = [];
+	const requestAnimationFrame =
+		typeof options.requestAnimationFrame === 'function'
+			? options.requestAnimationFrame
+			: function() { return 0; };
 	const poll = {
-		add: function() {},
-		remove: function() {}
+		add: function(fn, interval) {
+			pollOps.push({ op: 'add', interval: interval });
+			this._fn = fn;
+			this._interval = interval;
+		},
+		remove: function() {
+			pollOps.push({ op: 'remove' });
+		},
+		ops: function() {
+			return pollOps.slice();
+		},
+		clearOps: function() {
+			pollOps.length = 0;
+		}
 	};
 	const view = {
 		extend: function(desc) { return desc; }
@@ -160,6 +187,11 @@ function loadFwliveView(options) {
 		}
 	};
 
+	const win = {
+		addEventListener: function() {},
+		requestAnimationFrame: requestAnimationFrame
+	};
+
 	const src = fs.readFileSync(VIEW_PATH, 'utf8');
 	const body = src
 		.replace(/^'use strict';\s*/m, '')
@@ -169,12 +201,15 @@ function loadFwliveView(options) {
 	const fn = new Function(
 		'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
 		'table', 'buffer', 'hostname', 'proto', 'E', '_', 'document', 'window', 'localStorage',
+		'performance', 'requestAnimationFrame',
 		body
 	);
 
 	const viewDesc = fn(
 		view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
-		luciE.E, fakeGettext, document, { addEventListener: function() {} }, localStorage
+		luciE.E, fakeGettext, document, win, localStorage,
+		{ now: function() { return Date.now(); } },
+		requestAnimationFrame
 	);
 
 	if (viewDesc.render) {
@@ -187,9 +222,14 @@ function loadFwliveView(options) {
 	return {
 		view: viewDesc,
 		document: document,
+		poll: poll,
 		rpcMocks: rpcMocks,
 		setRpcMock: function(key, fn) {
 			rpcMocks[key] = fn;
+		},
+		setHidden: function(hidden) {
+			document.hidden = !!hidden;
+			document.dispatchVisibility();
 		}
 	};
 }
