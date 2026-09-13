@@ -1193,8 +1193,12 @@ return view.extend({
 			this.followLive = true;
 			/* Merge pause buffer with the first live poll — do not replace (#43). */
 			this.resumeMerge = true;
+			const epoch = this.pollEpoch;
 			this.fetchEntries()
-				.then(() => this.renderRows(true))
+				.then(() => {
+					/* A hide/show bump abandons this epoch; the catch-up poll paints. */
+					if (epoch === this.pollEpoch) this.renderRows(true);
+				})
 				.finally(
 					function () {
 						this.resumeMerge = false;
@@ -1216,8 +1220,11 @@ return view.extend({
 		this.pendingForceRender = true;
 		if (!this.paused) this.renderRows(true);
 		else this.updateStatus();
+		const epoch = this.pollEpoch;
 		this.fetchEntries()
 			.then(() => {
+				/* A hide/show bump abandons this epoch; the catch-up poll paints. */
+				if (epoch !== this.pollEpoch) return;
 				if (this.paused) this.updateStatus();
 				else this.renderRows(true);
 			})
@@ -1326,6 +1333,12 @@ return view.extend({
 
 			this.resolveLoadShed = false;
 			this.resolveShedUntil = 0;
+			/* RPC-level failure (no_resolver, jshn_missing, invalid_input): the
+			 * reply carries no per-address signal, so return without failMark —
+			 * otherwise every address looks like "no PTR" and retries stall
+			 * for the failure TTL. */
+			if (res && typeof res === 'object' && typeof res.error === 'string' && res.error)
+				return;
 			/* Full reply: names map under .names; legacy expect-unwrap was the map. */
 			const names =
 				res && typeof res === 'object' && res.names && typeof res.names === 'object'

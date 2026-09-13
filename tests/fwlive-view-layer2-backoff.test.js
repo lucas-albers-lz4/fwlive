@@ -336,6 +336,56 @@ async function testResolveShedCooldown() {
 }
 
 
+async function testResolveRpcErrorNoFailMark() {
+	for (const code of ['no_resolver', 'jshn_missing']) {
+		const h = loadFwliveView({
+			rpcMocks: {
+				'fwlive.poll': async function() { return { log: [], adaptive: 1 }; },
+				'fwlive.resolve': async function() { return { names: {}, error: code }; }
+			}
+		});
+		const v = h.view;
+		v.showHostnames = true;
+		v.hostnameCache = new Map();
+		v.hostnameFailed = new Map();
+		await v.resolveHostnamesForEntries([
+			{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }
+		]);
+		assert.strictEqual(v.resolveLoadShed, false, code + ': rpc error is not load shed');
+		assert.strictEqual(v.hostnameFailed.size, 0, code + ': must not mark DNS fails on rpc error');
+		assert.strictEqual(v.hostnameCache.size, 0, code + ': must not cache names on rpc error');
+	}
+	console.log('fwlive-view layer2: resolve rpc error OK');
+}
+
+
+async function testResumeStaleSkipsRender() {
+	async function run(stale) {
+		let release;
+		const gate = new Promise(function(r) { release = r; });
+		const h = loadFwliveView({
+			rpcMocks: {
+				'fwlive.poll': async function() { await gate; return { log: [], adaptive: 1 }; },
+				'fwlive.resolve': async function() { return { names: {} }; }
+			}
+		});
+		const v = h.view;
+		v.updateStreamControlsUi = function() {};
+		let renders = 0;
+		v.renderRows = function() { renders++; };
+		v.paused = true;
+		v.onPauseClick();
+		if (stale) v.bumpPollEpoch();
+		release();
+		await sleep(20);
+		return renders;
+	}
+	assert.strictEqual(await run(true), 0, 'stale resume completion must not paint');
+	assert.strictEqual(await run(false), 1, 'fresh resume completion must paint');
+	console.log('fwlive-view layer2: stale resume render guard OK');
+}
+
+
 (async function main() {
 	try {
 		await testRttKindHelpers();
@@ -348,6 +398,8 @@ async function testResolveShedCooldown() {
 		await testShedSurfacing();
 		await testStreakResetOnAdaptiveOff();
 		await testResolveShedCooldown();
+		await testResolveRpcErrorNoFailMark();
+		await testResumeStaleSkipsRender();
 		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {
