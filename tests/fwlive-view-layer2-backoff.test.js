@@ -205,6 +205,76 @@ async function testShedSurfacing() {
 	console.log('fwlive-view layer2: shed surfacing OK');
 }
 
+async function testStreakResetOnAdaptiveOff() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() { return { log: [], adaptive: 1 }; },
+			'fwlive.resolve': async function() { return { names: {} }; }
+		}
+	});
+	const v = h.view;
+	const c = loadFwliveModule('constants');
+	v.pollFn = v.pollData.bind(v);
+	v.serverAdaptive = 1;
+	v.setPollCadence(c.POLL_CADENCE_FAST_S);
+	h.poll.clearOps();
+
+	/* Two slow samples: below the N=3 streak, no trip. */
+	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
+	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
+	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_FAST_S);
+
+	/* adaptive:0 window must drop the partial streak. */
+	v.serverAdaptive = 0;
+	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
+	assert.strictEqual(v.rttStreakCount, 0);
+
+	/* Re-enable: two slows must still not trip; the third does. */
+	v.serverAdaptive = 1;
+	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
+	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
+	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_FAST_S);
+	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
+	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_SLOW_S);
+	console.log('fwlive-view layer2: adaptive:0 streak reset OK');
+}
+
+
+async function testResolveShedCooldown() {
+	let calls = 0;
+	let shed = true;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() { return { log: [], adaptive: 1 }; },
+			'fwlive.resolve': async function() {
+				calls++;
+				return shed ? { names: {}, disabled: 'load' } : { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	v.showHostnames = true;
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	const entries = [{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }];
+	await v.resolveHostnamesForEntries(entries);
+	assert.strictEqual(v.resolveLoadShed, true);
+	assert.strictEqual(calls, 1);
+
+	/* Cooldown: same poll must not re-ask while the router sheds load. */
+	await v.resolveHostnamesForEntries(entries);
+	assert.strictEqual(calls, 1, 'shed cooldown must skip resolve retry');
+
+	/* After cooldown with a healthy reply, shed clears. */
+	shed = false;
+	v.resolveShedUntil = Date.now() - 1;
+	await v.resolveHostnamesForEntries(entries);
+	assert.strictEqual(calls, 2);
+	assert.strictEqual(v.resolveLoadShed, false);
+	console.log('fwlive-view layer2: resolve shed cooldown OK');
+}
+
+
 (async function main() {
 	try {
 		await testRttKindHelpers();
@@ -214,6 +284,8 @@ async function testShedSurfacing() {
 		await testAdaptiveOffDisablesBackoff();
 		await testResolveLoadShed();
 		await testShedSurfacing();
+		await testStreakResetOnAdaptiveOff();
+		await testResolveShedCooldown();
 		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {

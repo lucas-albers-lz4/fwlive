@@ -880,6 +880,9 @@ return view.extend({
 	notePollRtt(ms, errored) {
 		if (!this.clientBackoffEnabled()) {
 			this.degradedSampling = false;
+			/* Drop any partial streak so a slow sample from before the
+			 * adaptive:0 window cannot trip degraded on re-enable. */
+			this.resetRttHistory();
 			if (this.pollCadenceSec !== constants.POLL_CADENCE_FAST_S)
 				this.setPollCadence(constants.POLL_CADENCE_FAST_S);
 			return;
@@ -931,12 +934,23 @@ return view.extend({
 		if (this.visibilityBound) return;
 		if (typeof document === 'undefined' || !document.addEventListener) return;
 		this.visibilityBound = true;
-		document.addEventListener(
-			'visibilitychange',
-			function () {
-				this.onVisibilityChange();
-			}.bind(this)
-		);
+		this.visibilityHandler = function () {
+			this.onVisibilityChange();
+		}.bind(this);
+		document.addEventListener('visibilitychange', this.visibilityHandler);
+	},
+
+
+	unbindVisibility() {
+		if (typeof document !== 'undefined' && document.removeEventListener && this.visibilityHandler) {
+			try {
+				document.removeEventListener('visibilitychange', this.visibilityHandler);
+			} catch (e) {
+				/* document gone */
+			}
+		}
+		this.visibilityHandler = null;
+		this.visibilityBound = false;
 	},
 
 	updateAdaptiveBanner() {
@@ -1279,6 +1293,9 @@ return view.extend({
 		const ips = this.collectIpsFromEntries(entries);
 		const need = [];
 		const now = Date.now();
+		/* While the router sheds resolve load, hold the paused banner without
+		 * re-asking every poll — retry after the cooldown expires. */
+		if (this.resolveLoadShed && now < (this.resolveShedUntil || 0)) return;
 
 		for (let i = 0; i < ips.length && need.length < 32; i++) {
 			const ip = ips[i];
@@ -1299,11 +1316,13 @@ return view.extend({
 
 			if (res && typeof res === 'object' && res.disabled === 'load') {
 				this.resolveLoadShed = true;
+				this.resolveShedUntil = Date.now() + 60000;
 				this.updateAdaptiveBanner();
 				return;
 			}
 
 			this.resolveLoadShed = false;
+			this.resolveShedUntil = 0;
 			/* Full reply: names map under .names; legacy expect-unwrap was the map. */
 			const names =
 				res && typeof res === 'object' && res.names && typeof res.names === 'object'
@@ -1607,8 +1626,10 @@ return view.extend({
 			try {
 				await this.fetchEntries();
 			} catch (e) {
+				/* fetchEntries already accounts the poll RTT for every rpc
+				 * outcome; a throw here is a local normalize/buffer bug, not
+				 * network slowness, so count nothing further. */
 				this.lastPollError = true;
-				this.notePollRtt(0, true);
 			}
 
 			if (epoch !== this.pollEpoch) return;
@@ -1638,6 +1659,7 @@ return view.extend({
 				window.addEventListener(
 					'pagehide',
 					function () {
+						this.unbindVisibility();
 						if (this.pollFn) {
 							try {
 								poll.remove(this.pollFn);
