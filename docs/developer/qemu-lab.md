@@ -383,7 +383,7 @@ Run: `flood-armsr-20260912T174001` · git `a4d0b2f` · 2026-09-12 · BusyBox 1.3
 
 **Interpretation (Grok):** outcome row “on sheds ≤250; off stays large / slower” → next #306 slice is **Layer 2** (client surfacing + backoff), not threshold calibration and not fork-budget-first. Caveat: follow stays hot (~5 s > 800 ms) so cooldown / upward re-probe is not demonstrated on this substrate.
 
-Visibility-pause degraded baseline remains blocked on Layer 2.
+The visibility-pause degraded baseline is still pending the Playwright/CDP timing measurement.
 
 ### Sample invocation (memory census)
 
