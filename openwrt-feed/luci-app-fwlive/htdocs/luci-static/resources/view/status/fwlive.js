@@ -940,9 +940,12 @@ return view.extend({
 		document.addEventListener('visibilitychange', this.visibilityHandler);
 	},
 
-
 	unbindVisibility() {
-		if (typeof document !== 'undefined' && document.removeEventListener && this.visibilityHandler) {
+		if (
+			typeof document !== 'undefined' &&
+			document.removeEventListener &&
+			this.visibilityHandler
+		) {
 			try {
 				document.removeEventListener('visibilitychange', this.visibilityHandler);
 			} catch (e) {
