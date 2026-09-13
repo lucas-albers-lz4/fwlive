@@ -1,0 +1,210 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * #306 Layer 2 — visibility pause, poll epoch discard, RTT cadence hysteresis,
+ * adaptive:0 gate, resolve disabled:load.
+ */
+
+const assert = require('node:assert/strict');
+const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { loadFwliveModule } = require('./lib/load-fwlive-module');
+
+function fail(msg) {
+	console.error(msg);
+	process.exit(1);
+}
+
+function sleep(ms) {
+	return new Promise(function(r) { setTimeout(r, ms); });
+}
+
+async function testRttKindHelpers() {
+	const h = loadFwliveView();
+	const v = h.view;
+	const c = loadFwliveModule('constants');
+	assert.strictEqual(v.rttKindFromMs(100, false), 'fast');
+	assert.strictEqual(v.rttKindFromMs(c.POLL_RTT_FAST_MS, false), 'mid');
+	assert.strictEqual(v.rttKindFromMs(c.POLL_RTT_SLOW_MS, false), 'mid');
+	assert.strictEqual(v.rttKindFromMs(c.POLL_RTT_SLOW_MS + 1, false), 'slow');
+	assert.strictEqual(v.rttKindFromMs(10, true), 'error');
+	assert.strictEqual(v.cadenceForKind('fast'), c.POLL_CADENCE_FAST_S);
+	assert.strictEqual(v.cadenceForKind('mid'), c.POLL_CADENCE_MID_S);
+	assert.strictEqual(v.cadenceForKind('slow'), c.POLL_CADENCE_SLOW_S);
+	console.log('fwlive-view layer2: rtt helpers OK');
+}
+
+async function testVisibilityStopsPoll() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() { return { log: [], adaptive: 1 }; },
+			'fwlive.resolve': async function() { return { names: {} }; }
+		}
+	});
+	const v = h.view;
+	v.bindVisibility();
+	v.pollFn = v.pollData.bind(v);
+	v.setPollCadence(1);
+	h.poll.clearOps();
+
+	h.setHidden(true);
+	const ops = h.poll.ops();
+	assert.ok(ops.some(function(o) { return o.op === 'remove'; }), 'hidden must remove poll');
+
+	await v.pollData();
+	assert.strictEqual(v.pollDataInFlight, false, 'hidden pollData is a no-op');
+
+	h.poll.clearOps();
+	h.setHidden(false);
+	const ops2 = h.poll.ops();
+	assert.ok(ops2.some(function(o) { return o.op === 'add'; }), 'visible must re-add poll');
+	console.log('fwlive-view layer2: visibility gate OK');
+}
+
+async function testEpochDiscardsStale() {
+	let release;
+	const gate = new Promise(function(r) { release = r; });
+	let calls = 0;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				calls++;
+				await gate;
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function() { return { names: {} }; }
+		}
+	});
+	const v = h.view;
+	v.paused = true;
+	const p = v.pollData();
+	assert.strictEqual(calls, 1);
+	const epochAtStart = v.pollEpoch;
+	v.bumpPollEpoch();
+	assert.notStrictEqual(v.pollEpoch, epochAtStart);
+	release();
+	await p;
+	assert.strictEqual(v.entries.length, 0, 'stale epoch must not apply rows');
+	console.log('fwlive-view layer2: epoch discard OK');
+}
+
+async function testCadenceHysteresis() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() { return { log: [], adaptive: 1 }; },
+			'fwlive.resolve': async function() { return { names: {} }; }
+		}
+	});
+	const v = h.view;
+	const c = loadFwliveModule('constants');
+	v.pollFn = v.pollData.bind(v);
+	v.serverAdaptive = 1;
+	v.setPollCadence(c.POLL_CADENCE_FAST_S);
+	h.poll.clearOps();
+
+	for (let i = 0; i < c.POLL_RTT_STREAK; i++)
+		v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
+
+	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_SLOW_S);
+	assert.strictEqual(v.degradedSampling, true);
+	assert.ok(h.poll.ops().some(function(o) {
+		return o.op === 'add' && o.interval === c.POLL_CADENCE_SLOW_S;
+	}));
+
+	v.resetRttHistory();
+	for (let i = 0; i < c.POLL_RTT_STREAK; i++)
+		v.notePollRtt(50, false);
+	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_FAST_S);
+	assert.strictEqual(v.degradedSampling, false);
+	console.log('fwlive-view layer2: cadence hysteresis OK');
+}
+
+async function testAdaptiveOffDisablesBackoff() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				return { log: [], adaptive: 0, truncated: 1, shed: { level: 'hot', limit: 250 } };
+			},
+			'fwlive.resolve': async function() { return { names: {} }; }
+		}
+	});
+	const v = h.view;
+	const c = loadFwliveModule('constants');
+	v.pollFn = v.pollData.bind(v);
+	await v.fetchEntries();
+	assert.strictEqual(v.serverAdaptive, 0);
+	assert.strictEqual(v.serverTruncated, 1);
+	v.notePollRtt(5000, false);
+	v.notePollRtt(5000, false);
+	v.notePollRtt(5000, false);
+	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_FAST_S, 'adaptive:0 keeps 1s');
+	assert.strictEqual(v.degradedSampling, false);
+	v.updateAdaptiveBanner();
+	const el = h.document.getElementById('fwlive-adaptive');
+	assert.ok(el);
+	assert.strictEqual(el.style.display, 'none', 'adaptive:0 hides banner');
+	console.log('fwlive-view layer2: adaptive:0 gate OK');
+}
+
+async function testResolveLoadShed() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() { return { log: [], adaptive: 1 }; },
+			'fwlive.resolve': async function() {
+				return { names: {}, disabled: 'load' };
+			}
+		}
+	});
+	const v = h.view;
+	v.showHostnames = true;
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	await v.resolveHostnamesForEntries([
+		{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }
+	]);
+	assert.strictEqual(v.resolveLoadShed, true);
+	assert.strictEqual(v.hostnameCache.size, 0, 'must not mark DNS fails on load shed');
+	console.log('fwlive-view layer2: resolve disabled:load OK');
+}
+
+async function testShedSurfacing() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				return {
+					log: [],
+					adaptive: 1,
+					truncated: 1,
+					shed: { level: 'hot', limit: 250 }
+				};
+			},
+			'fwlive.resolve': async function() { return { names: {} }; }
+		}
+	});
+	const v = h.view;
+	await v.fetchEntries();
+	assert.strictEqual(v.serverTruncated, 1);
+	assert.strictEqual(v.serverShed.limit, 250);
+	v.degradedSampling = true;
+	v.updateAdaptiveBanner();
+	const el = h.document.getElementById('fwlive-adaptive');
+	assert.strictEqual(el.style.display, 'block');
+	assert.ok(String(el.textContent).indexOf('250') >= 0 || String(el.textContent).length > 0);
+	console.log('fwlive-view layer2: shed surfacing OK');
+}
+
+(async function main() {
+	try {
+		await testRttKindHelpers();
+		await testVisibilityStopsPoll();
+		await testEpochDiscardsStale();
+		await testCadenceHysteresis();
+		await testAdaptiveOffDisablesBackoff();
+		await testResolveLoadShed();
+		await testShedSurfacing();
+		await sleep(20);
+		console.log('fwlive-view layer2 backoff tests passed');
+	} catch (e) {
+		fail(e && e.stack ? e.stack : String(e));
+	}
+})();

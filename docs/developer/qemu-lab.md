@@ -342,7 +342,7 @@ this calibration.
 - [x] Commit numeric Z from nofork; fill result tables
 - [x] armsr confirmation run against soft budget
 - [x] Degraded-mode adaptive-cap baseline — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr C1 table filled (`ac_pass=1`, run `flood-armsr-20260912T174001`)
-- [ ] Degraded-mode visibility-pause baseline — blocked on Layer 2 client backoff
+- [ ] Degraded-mode visibility-pause baseline — Layer 2 client backoff landed (`feat/306-layer2-visibility-backoff`); host unit coverage in `tests/fwlive-view-layer2-backoff.test.js`; Playwright/CDP timing measurement still follow-on
 
 ### Adaptive flood evidence (#306 Layer 1)
 

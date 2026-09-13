@@ -133,6 +133,7 @@ echo "== fwlive view poll contract (#233 / #240) =="
 
 echo "== fwlive view poll guard (#240) =="
 "$NODE" tests/fwlive-view-poll-guard.test.js
+"$NODE" tests/fwlive-view-layer2-backoff.test.js
 
 echo "== fwlive LuCI-accurate E() harness (#149) ==" >&2
 "$NODE" tests/fwlive-e-harness.test.js

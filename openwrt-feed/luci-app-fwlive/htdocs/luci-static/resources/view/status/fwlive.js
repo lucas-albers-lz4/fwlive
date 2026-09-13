@@ -35,8 +35,8 @@ const callFwliveRules = rpc.declare({
 const callFwliveResolve = rpc.declare({
 	object: 'fwlive',
 	method: 'resolve',
-	params: ['addresses'],
-	expect: { names: {} }
+	params: ['addresses']
+	/* Full reply kept so disabled:"load" reaches the view (#306 Layer 2). */
 });
 
 const callFwliveLoggingStatus = rpc.declare({
@@ -102,6 +102,18 @@ return view.extend({
 	resumeMerge: false,
 	pollFn: null,
 	pollDataInFlight: false,
+	/* #306 Layer 2 — visibility / RTT cadence / shed surfacing. */
+	pollEpoch: 0,
+	pollCadenceSec: 1,
+	rttStreakKind: null,
+	rttStreakCount: 0,
+	serverAdaptive: 1,
+	serverTruncated: 0,
+	serverShed: null,
+	degradedSampling: false,
+	resolveLoadShed: false,
+	visibilityBound: false,
+	renderRaf: 0,
 	filterInputTimer: null,
 	messageLayout: 'wrap',
 	renderBucket: constants.RENDER_CAP_PER_SEC,
@@ -702,7 +714,10 @@ return view.extend({
 	async fetchEntries() {
 		if (!this.sessionSeen) this.sessionSeen = new Set();
 
+		const epoch = this.pollEpoch;
+		const t0 = this.nowMs();
 		let reply;
+		let errored = false;
 		try {
 			/* Raw logd lines, not post-filter rows. Fetch a multiple of the
 			 * display limit so mixed syslog still fills the table; pause
@@ -714,25 +729,44 @@ return view.extend({
 				addresses: [String(fetchLines)]
 			});
 		} catch (e) {
-			this.lastPollError = true;
-			return;
+			errored = true;
+			reply = null;
 		}
-		/* Full poll object (no rpc expect strip). error → banner; log → rows. */
+
+		if (epoch !== this.pollEpoch) return;
+
+		const rtt = this.nowMs() - t0;
+
 		if (!reply || typeof reply !== 'object' || Array.isArray(reply)) {
 			this.lastPollError = true;
+			this.notePollRtt(rtt, true);
+			this.updateAdaptiveBanner();
 			return;
 		}
 		if (reply.error) {
 			this.lastPollError = true;
+			this.notePollRtt(rtt, true);
+			this.updateAdaptiveBanner();
 			return;
 		}
 		const raw = reply.log;
 		if (!Array.isArray(raw)) {
 			this.lastPollError = true;
+			this.notePollRtt(rtt, true);
+			this.updateAdaptiveBanner();
 			return;
 		}
 
 		this.lastPollError = false;
+		this.serverAdaptive = reply.adaptive === 0 || reply.adaptive === false ? 0 : 1;
+		this.serverTruncated = reply.truncated ? 1 : 0;
+		this.serverShed =
+			reply.shed && typeof reply.shed === 'object' && !Array.isArray(reply.shed)
+				? reply.shed
+				: null;
+
+		this.notePollRtt(rtt, errored);
+		this.updateAdaptiveBanner();
 
 		const batch = this.normalizePollBatch(raw);
 		this.lastPollNewEvents = batch.pollNew;
@@ -772,9 +806,187 @@ return view.extend({
 		const cap = this.ingestCap();
 		if (this.entries.length >= cap && cap > 0) bits.push(_('buffer full'));
 		if (this.floodSuppressed) bits.push(_('render paused (high rate)'));
+		if (this.degradedSampling && this.serverAdaptive !== 0) bits.push(_('Degraded — sampling'));
+		if (this.serverTruncated && this.serverAdaptive !== 0) bits.push(_('truncated'));
+		if (this.resolveLoadShed && this.serverAdaptive !== 0)
+			bits.push(_('resolve paused (load)'));
 		if (!this.paused && !this.followLive)
 			bits.push(_('scroll frozen — scroll to top to follow live'));
 		return bits.length ? ' — ' + bits.join(', ') : '';
+	},
+
+	nowMs() {
+		if (typeof performance !== 'undefined' && performance.now) return performance.now();
+		return Date.now();
+	},
+
+	isTabHidden() {
+		return typeof document !== 'undefined' && !!document.hidden;
+	},
+
+	/* Classify one RTT sample into hysteresis buckets (#306). */
+	rttKindFromMs(ms, errored) {
+		if (errored) return 'error';
+		if (!(ms >= 0)) return 'error';
+		if (ms < constants.POLL_RTT_FAST_MS) return 'fast';
+		if (ms <= constants.POLL_RTT_SLOW_MS) return 'mid';
+		return 'slow';
+	},
+
+	cadenceForKind(kind) {
+		if (kind === 'fast') return constants.POLL_CADENCE_FAST_S;
+		if (kind === 'mid') return constants.POLL_CADENCE_MID_S;
+		return constants.POLL_CADENCE_SLOW_S;
+	},
+
+	resetRttHistory() {
+		this.rttStreakKind = null;
+		this.rttStreakCount = 0;
+	},
+
+	bumpPollEpoch() {
+		this.pollEpoch = (this.pollEpoch || 0) + 1;
+		return this.pollEpoch;
+	},
+
+	clientBackoffEnabled() {
+		return this.serverAdaptive !== 0;
+	},
+
+	setPollCadence(sec) {
+		const next = sec > 0 ? sec : constants.POLL_CADENCE_FAST_S;
+		if (!this.pollFn) {
+			this.pollCadenceSec = next;
+			return;
+		}
+		if (this.isTabHidden()) {
+			this.pollCadenceSec = next;
+			return;
+		}
+		try {
+			poll.remove(this.pollFn);
+		} catch (e) {
+			/* poll gone */
+		}
+		this.pollCadenceSec = next;
+		try {
+			poll.add(this.pollFn, next);
+		} catch (e) {
+			/* poll gone */
+		}
+	},
+
+	notePollRtt(ms, errored) {
+		if (!this.clientBackoffEnabled()) {
+			this.degradedSampling = false;
+			if (this.pollCadenceSec !== constants.POLL_CADENCE_FAST_S)
+				this.setPollCadence(constants.POLL_CADENCE_FAST_S);
+			return;
+		}
+
+		const kind = this.rttKindFromMs(ms, errored);
+		if (kind === this.rttStreakKind) this.rttStreakCount++;
+		else {
+			this.rttStreakKind = kind;
+			this.rttStreakCount = 1;
+		}
+
+		if (this.rttStreakCount < constants.POLL_RTT_STREAK) return;
+
+		const cadence = this.cadenceForKind(kind);
+		this.degradedSampling = cadence === constants.POLL_CADENCE_SLOW_S;
+		if (cadence !== this.pollCadenceSec) this.setPollCadence(cadence);
+	},
+
+	stopPollingForHidden() {
+		if (!this.pollFn) return;
+		try {
+			poll.remove(this.pollFn);
+		} catch (e) {
+			/* poll gone */
+		}
+	},
+
+	resumePollingAfterVisible() {
+		this.bumpPollEpoch();
+		this.resetRttHistory();
+		/* In-flight poll from the hidden epoch must not apply after catch-up. */
+		this.pollDataInFlight = false;
+		if (!this.pollFn) this.pollFn = this.pollData.bind(this);
+		this.setPollCadence(this.pollCadenceSec || constants.POLL_CADENCE_FAST_S);
+		this.pollData();
+	},
+
+	onVisibilityChange() {
+		if (this.isTabHidden()) {
+			this.stopPollingForHidden();
+			this.bumpPollEpoch();
+			return;
+		}
+		this.resumePollingAfterVisible();
+	},
+
+	bindVisibility() {
+		if (this.visibilityBound) return;
+		if (typeof document === 'undefined' || !document.addEventListener) return;
+		this.visibilityBound = true;
+		document.addEventListener(
+			'visibilitychange',
+			function () {
+				this.onVisibilityChange();
+			}.bind(this)
+		);
+	},
+
+	updateAdaptiveBanner() {
+		const el = document.getElementById('fwlive-adaptive');
+		if (!el) return;
+		if (!el.style) el.style = { display: '' };
+
+		if (!this.clientBackoffEnabled()) {
+			el.style.display = 'none';
+			el.textContent = '';
+			return;
+		}
+
+		const parts = [];
+		if (this.degradedSampling)
+			parts.push(_('Degraded — sampling (slow poll RTT; cadence reduced).'));
+		if (this.serverShed && this.serverShed.limit)
+			parts.push(
+				_('Server shedding — at most %d log lines per poll.').format(this.serverShed.limit)
+			);
+		else if (this.serverTruncated) parts.push(_('Server truncated this poll (adaptive cap).'));
+		if (this.resolveLoadShed)
+			parts.push(_('Hostname resolve paused while the router is under load.'));
+
+		if (parts.length) {
+			el.style.display = 'block';
+			el.textContent = parts.join(' ');
+		} else {
+			el.style.display = 'none';
+			el.textContent = '';
+		}
+	},
+
+	scheduleRenderRows(force) {
+		const doForce = !!force;
+		if (typeof requestAnimationFrame !== 'function') {
+			this.renderRows(doForce);
+			return;
+		}
+		if (this.renderRaf) {
+			this.pendingForceRender = this.pendingForceRender || doForce;
+			return;
+		}
+		this.renderRaf = requestAnimationFrame(
+			function () {
+				this.renderRaf = 0;
+				const f = doForce || !!this.pendingForceRender;
+				this.pendingForceRender = false;
+				this.renderRows(f);
+			}.bind(this)
+		);
 	},
 
 	refillRenderBucket() {
@@ -828,6 +1040,7 @@ return view.extend({
 	updateFloodBanner() {
 		const el = document.getElementById('fwlive-flood');
 		if (!el) return;
+		if (!el.style) el.style = { display: '' };
 
 		if (this.floodSuppressed) {
 			el.style.display = 'block';
@@ -879,11 +1092,13 @@ return view.extend({
 		if (this.lastPollError) {
 			status.className = 'fwlive-status fwlive-status-error';
 			status.textContent = _('Connection lost — retrying…') + suffix;
+			this.updateAdaptiveBanner();
 			return;
 		}
 
 		status.className = this.paused ? 'fwlive-status fwlive-status-paused' : 'fwlive-status';
 		status.textContent = this.compactCountText(matchCount);
+		this.updateAdaptiveBanner();
 	},
 
 	readRowLimit() {
@@ -1081,8 +1296,20 @@ return view.extend({
 			const res = await callFwliveResolve({ addresses: need });
 			if (gen !== this.resolveGeneration) return;
 
-			/* rpc.declare expect: { names: {} } already unwraps — res IS the map (#243). */
-			const names = res || {};
+			if (res && typeof res === 'object' && res.disabled === 'load') {
+				this.resolveLoadShed = true;
+				this.updateAdaptiveBanner();
+				return;
+			}
+
+			this.resolveLoadShed = false;
+			/* Full reply: names map under .names; legacy expect-unwrap was the map. */
+			const names =
+				res && typeof res === 'object' && res.names && typeof res.names === 'object'
+					? res.names
+					: res && typeof res === 'object' && !Array.isArray(res)
+						? res
+						: {};
 			let updated = false;
 
 			for (let i = 0; i < need.length; i++) {
@@ -1096,7 +1323,8 @@ return view.extend({
 				}
 			}
 
-			if (updated) this.renderRows(true);
+			this.updateAdaptiveBanner();
+			if (updated) this.scheduleRenderRows(true);
 		} catch (e) {
 			/* resolve unavailable — show IPs */
 		} finally {
@@ -1221,7 +1449,7 @@ return view.extend({
 
 	renderRows(force) {
 		const el = document.getElementById('fwlive-table');
-		if (!el) return;
+		if (!el || typeof el.querySelector !== 'function') return;
 
 		const body = el.querySelector('tbody');
 		const empty = document.getElementById('fwlive-empty');
@@ -1369,18 +1597,23 @@ return view.extend({
 	},
 
 	async pollData() {
+		if (this.isTabHidden()) return;
 		if (this.pollDataInFlight) return;
 
+		const epoch = this.pollEpoch;
 		this.pollDataInFlight = true;
 		try {
 			try {
 				await this.fetchEntries();
 			} catch (e) {
 				this.lastPollError = true;
+				this.notePollRtt(0, true);
 			}
 
+			if (epoch !== this.pollEpoch) return;
+
 			if (this.paused) this.updateStatus();
-			else this.renderRows(!!this.pendingForceRender);
+			else this.scheduleRenderRows(!!this.pendingForceRender);
 
 			try {
 				await this.resolveHostnamesForEntries(this.filteredRows());
@@ -1388,14 +1621,16 @@ return view.extend({
 				/* resolve unavailable — show IPs */
 			}
 		} finally {
-			this.pollDataInFlight = false;
+			if (epoch === this.pollEpoch) this.pollDataInFlight = false;
 		}
 	},
 
 	load() {
+		this.bindVisibility();
 		if (!this.pollFn) {
 			this.pollFn = this.pollData.bind(this);
-			poll.add(this.pollFn, 1);
+			this.pollCadenceSec = constants.POLL_CADENCE_FAST_S;
+			if (!this.isTabHidden()) poll.add(this.pollFn, this.pollCadenceSec);
 			/* Best-effort teardown when leaving the page (LuCI SPA may full-reload). */
 			if (typeof window !== 'undefined' && window.addEventListener) {
 				window.addEventListener(
@@ -1553,6 +1788,7 @@ return view.extend({
 					)
 				]),
 				E('div', { 'id': 'fwlive-flood', 'class': 'fwlive-flood' }, ['']),
+				E('div', { 'id': 'fwlive-adaptive', 'class': 'fwlive-adaptive' }, ['']),
 				E('div', { 'id': 'fwlive-display-drawer', 'class': 'fwlive-display-bar' }, [
 					E('span', { 'class': 'fwlive-display-bar-label' }, [_('Display options')]),
 					E('div', { 'class': 'fwlive-display-controls' }, [
