@@ -36,11 +36,17 @@ MAX_SERVED="${FWLIVE_FLOOD_MAX_SERVED:-250}"
 STRICT="${FWLIVE_FLOOD_STRICT:-1}"
 
 case "$FOLLOW_POLLS" in
-	''|*[!0-9]*|0)
+	''|*[!0-9]*)
 		echo "FWLIVE_FLOOD_FOLLOW_POLLS must be a positive integer (got: $FOLLOW_POLLS)" >&2
 		exit 1
 		;;
 esac
+# Bash 10# avoids octal; reject 0 / 00 / 000 after normalize.
+FOLLOW_POLLS=$((10#$FOLLOW_POLLS))
+if [[ "$FOLLOW_POLLS" -lt 1 ]]; then
+	echo "FWLIVE_FLOOD_FOLLOW_POLLS must be a positive integer (got: 0)" >&2
+	exit 1
+fi
 
 usage() {
 	sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
