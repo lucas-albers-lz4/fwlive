@@ -27,7 +27,7 @@ async function testRttKindHelpers() {
 	assert.strictEqual(v.rttKindFromMs(c.POLL_RTT_FAST_MS, false), 'mid');
 	assert.strictEqual(v.rttKindFromMs(c.POLL_RTT_SLOW_MS, false), 'mid');
 	assert.strictEqual(v.rttKindFromMs(c.POLL_RTT_SLOW_MS + 1, false), 'slow');
-	assert.strictEqual(v.rttKindFromMs(10, true), 'error');
+	assert.strictEqual(v.rttKindFromMs(10, true), 'slow');
 	assert.strictEqual(v.cadenceForKind('fast'), c.POLL_CADENCE_FAST_S);
 	assert.strictEqual(v.cadenceForKind('mid'), c.POLL_CADENCE_MID_S);
 	assert.strictEqual(v.cadenceForKind('slow'), c.POLL_CADENCE_SLOW_S);
@@ -65,12 +65,17 @@ async function testEpochDiscardsStale() {
 	let release;
 	const gate = new Promise(function(r) { release = r; });
 	let calls = 0;
+	const row = {
+		id: 42,
+		time: 1717675742,
+		msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.168.1.150 DST=8.8.8.8 PROTO=TCP SPT=49210 DPT=443'
+	};
 	const h = loadFwliveView({
 		rpcMocks: {
 			'fwlive.poll': async function() {
 				calls++;
 				await gate;
-				return { log: [], adaptive: 1 };
+				return { log: [row], adaptive: 1 };
 			},
 			'fwlive.resolve': async function() { return { names: {} }; }
 		}
@@ -85,6 +90,13 @@ async function testEpochDiscardsStale() {
 	release();
 	await p;
 	assert.strictEqual(v.entries.length, 0, 'stale epoch must not apply rows');
+
+	/* Control: same reply without epoch bump must ingest. */
+	h.setRpcMock('fwlive.poll', async function() {
+		return { log: [row], adaptive: 1 };
+	});
+	await v.pollData();
+	assert.ok(v.entries.length >= 1, 'fresh epoch must apply rows');
 	console.log('fwlive-view layer2: epoch discard OK');
 }
 

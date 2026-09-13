@@ -824,10 +824,11 @@ return view.extend({
 		return typeof document !== 'undefined' && !!document.hidden;
 	},
 
-	/* Classify one RTT sample into hysteresis buckets (#306). */
+	/* Classify one RTT sample into hysteresis buckets (#306).
+	 * error and >1.5s share the slow/degraded streak so mixed failures still trip N=3. */
 	rttKindFromMs(ms, errored) {
-		if (errored) return 'error';
-		if (!(ms >= 0)) return 'error';
+		if (errored) return 'slow';
+		if (!(ms >= 0)) return 'slow';
 		if (ms < constants.POLL_RTT_FAST_MS) return 'fast';
 		if (ms <= constants.POLL_RTT_SLOW_MS) return 'mid';
 		return 'slow';
@@ -1621,7 +1622,8 @@ return view.extend({
 				/* resolve unavailable — show IPs */
 			}
 		} finally {
-			if (epoch === this.pollEpoch) this.pollDataInFlight = false;
+			/* Always clear — a mid-flight epoch bump (visibility) must not stick the guard. */
+			this.pollDataInFlight = false;
 		}
 	},
 
