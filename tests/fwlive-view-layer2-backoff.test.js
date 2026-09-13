@@ -385,6 +385,111 @@ async function testResumeStaleSkipsRender() {
 	console.log('fwlive-view layer2: stale resume render guard OK');
 }
 
+async function testResumeMergeSurvivesVisibilityRace() {
+	async function run(staleFirst) {
+		let releaseResume;
+		let releaseCatchup;
+		const resumeGate = new Promise(function(r) { releaseResume = r; });
+		const catchupGate = new Promise(function(r) { releaseCatchup = r; });
+		let calls = 0;
+		const h = loadFwliveView({
+			rpcMocks: {
+				'fwlive.poll': async function() {
+					calls++;
+					if (calls === 1) await resumeGate;
+					else await catchupGate;
+					return {
+						log: [{
+							id: calls,
+							time: 1717675742 + calls,
+							msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.168.1.150 DST=8.8.8.8 PROTO=TCP SPT=49210 DPT=443'
+						}],
+						adaptive: 1
+					};
+				},
+				'fwlive.resolve': async function() { return { names: {} }; }
+			}
+		});
+		const v = h.view;
+		v.updateStreamControlsUi = function() {};
+		v.entries = [{ id: 'pause-only', log_id: 0, timestamp: 1 }];
+		v.paused = true;
+		v.bindVisibility();
+		v.pollFn = v.pollData.bind(v);
+
+		/* Resume starts the first request with the pause-buffer merge obligation. */
+		v.onPauseClick();
+		assert.strictEqual(calls, 1);
+		assert.strictEqual(v.resumeMerge, true);
+
+		/* Hide/show abandons the first epoch and starts catch-up. */
+		h.setHidden(true);
+		h.setHidden(false);
+		await sleep(10);
+		assert.strictEqual(calls, 2);
+
+		if (staleFirst) {
+			releaseResume();
+			await sleep(20);
+			assert.strictEqual(v.resumeMerge, true, 'stale completion must preserve merge obligation');
+			releaseCatchup();
+		} else {
+			releaseCatchup();
+			await sleep(20);
+			assert.strictEqual(v.resumeMerge, false, 'current catch-up clears applied merge obligation');
+			releaseResume();
+		}
+
+		await sleep(30);
+		assert.ok(v.entries.some(function(e) { return e.id === 'pause-only'; }),
+			'successful resume/catch-up must retain pause-only rows');
+	}
+
+	await run(true);
+	await run(false);
+	console.log('fwlive-view layer2: resume merge visibility race OK');
+}
+
+async function testStaleAnimationFrameIsDropped() {
+	const frames = [];
+	const h = loadFwliveView({
+		requestAnimationFrame: function(fn) {
+			frames.push(fn);
+			return frames.length;
+		},
+		rpcMocks: {
+			'fwlive.poll': async function() { return { log: [], adaptive: 1 }; },
+			'fwlive.resolve': async function() { return { names: {} }; }
+		}
+	});
+	const v = h.view;
+	let renders = 0;
+	v.renderRows = function() { renders++; };
+
+	v.scheduleRenderRows(true);
+	assert.strictEqual(frames.length, 1);
+	v.bumpPollEpoch();
+	frames.shift()();
+	assert.strictEqual(renders, 0, 'old visibility epoch must not paint');
+
+	/* A current-epoch request after the stale callback still gets a frame. */
+	v.scheduleRenderRows(true);
+	assert.strictEqual(frames.length, 1);
+	frames.shift()();
+	assert.strictEqual(renders, 1, 'current epoch must still paint');
+
+	/* If the new request arrives before the old callback, requeue it. */
+	v.scheduleRenderRows(true);
+	v.bumpPollEpoch();
+	v.scheduleRenderRows(false);
+	frames.shift()();
+	assert.strictEqual(renders, 1, 'stale callback must not paint queued rows');
+	assert.strictEqual(frames.length, 1, 'current request must be requeued');
+	frames.shift()();
+	assert.strictEqual(renders, 2);
+	console.log('fwlive-view layer2: stale animation frame guard OK');
+}
+
 
 (async function main() {
 	try {
@@ -400,6 +505,8 @@ async function testResumeStaleSkipsRender() {
 		await testResolveShedCooldown();
 		await testResolveRpcErrorNoFailMark();
 		await testResumeStaleSkipsRender();
+		await testResumeMergeSurvivesVisibilityRace();
+		await testStaleAnimationFrameIsDropped();
 		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {

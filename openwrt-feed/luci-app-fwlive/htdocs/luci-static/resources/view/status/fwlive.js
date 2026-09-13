@@ -120,6 +120,7 @@ return view.extend({
 	renderBucketMs: 0,
 	floodSuppressed: false,
 	pendingForceRender: false,
+	pendingRenderEpoch: null,
 	lastPollNewEvents: 0,
 	showHostnames: false,
 	rowTint: constants.DEFAULT_ROW_TINT,
@@ -715,6 +716,7 @@ return view.extend({
 		if (!this.sessionSeen) this.sessionSeen = new Set();
 
 		const epoch = this.pollEpoch;
+		const resumeMerge = !!this.resumeMerge;
 		const t0 = this.nowMs();
 		let reply;
 		let errored = false;
@@ -774,10 +776,13 @@ return view.extend({
 		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
 			paused: this.paused,
-			resumeMerge: this.resumeMerge,
+			resumeMerge: resumeMerge,
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});
+		/* A stale request returns above. Keep this obligation until a current
+		 * request has actually applied the merged batch. */
+		if (resumeMerge) this.resumeMerge = false;
 	},
 
 	rememberSessionId(id) {
@@ -989,19 +994,29 @@ return view.extend({
 
 	scheduleRenderRows(force) {
 		const doForce = !!force;
+		const epoch = this.pollEpoch;
 		if (typeof requestAnimationFrame !== 'function') {
 			this.renderRows(doForce);
 			return;
 		}
 		if (this.renderRaf) {
 			this.pendingForceRender = this.pendingForceRender || doForce;
+			this.pendingRenderEpoch = epoch;
 			return;
 		}
 		this.renderRaf = requestAnimationFrame(
 			function () {
 				this.renderRaf = 0;
 				const f = doForce || !!this.pendingForceRender;
+				const pendingEpoch = this.pendingRenderEpoch;
 				this.pendingForceRender = false;
+				this.pendingRenderEpoch = null;
+				if (epoch !== this.pollEpoch) {
+					/* A newer epoch may have requested a render while this frame was
+					 * queued. Drop stale paint and requeue only that current request. */
+					if (pendingEpoch === this.pollEpoch) this.scheduleRenderRows(f);
+					return;
+				}
 				this.renderRows(f);
 			}.bind(this)
 		);
@@ -1199,11 +1214,7 @@ return view.extend({
 					/* A hide/show bump abandons this epoch; the catch-up poll paints. */
 					if (epoch === this.pollEpoch) this.renderRows(true);
 				})
-				.finally(
-					function () {
-						this.resumeMerge = false;
-					}.bind(this)
-				);
+				.catch(function () {});
 		}
 	},
 

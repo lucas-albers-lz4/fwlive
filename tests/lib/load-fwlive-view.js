@@ -135,6 +135,10 @@ function loadFwliveView(options) {
 	const proto = loadFwliveModule('proto', { document: document });
 
 	const pollOps = [];
+	const requestAnimationFrame =
+		typeof options.requestAnimationFrame === 'function'
+			? options.requestAnimationFrame
+			: function() { return 0; };
 	const poll = {
 		add: function(fn, interval) {
 			pollOps.push({ op: 'add', interval: interval });
@@ -185,10 +189,7 @@ function loadFwliveView(options) {
 
 	const win = {
 		addEventListener: function() {},
-		/* Sync no-op: deferred paints need a real DOM tbody; unit tests call renderRows directly. */
-		requestAnimationFrame: function() {
-			return 0;
-		}
+		requestAnimationFrame: requestAnimationFrame
 	};
 
 	const src = fs.readFileSync(VIEW_PATH, 'utf8');
@@ -208,7 +209,7 @@ function loadFwliveView(options) {
 		view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
 		luciE.E, fakeGettext, document, win, localStorage,
 		{ now: function() { return Date.now(); } },
-		win.requestAnimationFrame
+		requestAnimationFrame
 	);
 
 	if (viewDesc.render) {
