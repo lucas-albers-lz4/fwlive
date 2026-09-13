@@ -44,7 +44,7 @@ esac
 # FOLLOW_POLLS: same length cap + 10# as require_positive_int.
 _norm=$(printf '%s' "$FOLLOW_POLLS" | sed 's/^0*//')
 if [[ "$_norm" =~ ^0*$ ]]; then
-	echo "FWLIVE_FLOOD_FOLLOW_POLLS must be a positive integer (got: 0)" >&2
+	echo "FWLIVE_FLOOD_FOLLOW_POLLS must be a positive integer (got: $FOLLOW_POLLS)" >&2
 	exit 1
 fi
 if [[ ! "$_norm" =~ ^[0-9]{1,18}$ ]]; then
@@ -251,7 +251,15 @@ prepare_entries() {
 	else
 		: >"$ENTRIES"
 	fi
-	printf 'FLOOD_META fixture_entries=%s\n' "$(wc -l <"$ENTRIES" | tr -d ' ')"
+	_n=$(wc -l <"$ENTRIES" | tr -d ' ')
+	printf 'FLOOD_META fixture_entries=%s\n' "$_n"
+	# Off-mode gate assumes a fixture-scale payload above max_served; fail
+	# fast with a fixture diagnostic instead of a confusing off_follow fail.
+	case "$_n" in ''|*[!0-9]*) printf 'FLOOD_ERROR phase=prepare reason=fixture_unreadable\n'; return 1 ;; esac
+	if [ "$_n" -le "$max_served" ]; then
+		printf 'FLOOD_ERROR phase=prepare reason=fixture_below_max_served entries=%s max_served=%s\n' "$_n" "$max_served"
+		return 1
+	fi
 }
 
 setup_shim() {
@@ -397,7 +405,7 @@ resolve_disabled_value() {
 		for (i = 1; i <= NF; i++) {
 			f = $i; gsub(/[[:space:]{}]+/, "", f)
 			if (f ~ /"disabled"$/) {
-				v = $(i + 1); gsub(/[^a-z]/, "", v); print v; exit
+				v = $(i + 1); gsub(/[^A-Za-z]/, "", v); print v; exit
 			}
 		}
 	}'
