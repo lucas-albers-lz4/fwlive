@@ -52,6 +52,13 @@ check can be useful without being an enforced gate, but those are different
 claims. For generated or packaged artifacts, verify the artifact that users
 receive, not only its source counterpart.
 
+The security review uses a separate `host` / `lab` / `manual` proof-class
+vocabulary. For cross-reference, `host` normally means executed and enforced
+host evidence, `lab` means executed QEMU evidence, and `manual` means a person
+or inspection supplied the evidence. The security-review proof class remains
+the owner of security-review status; it must not be inferred from a test's
+existence alone.
+
 ## Choosing a test
 
 For each candidate behavior, answer these questions in a coverage ledger or
@@ -87,8 +94,8 @@ automatically sufficient for every boundary.
 | Level | Use it for | Current policy |
 | --- | --- | --- |
 | Host unit/CLI | Parser, filter, classifier, shell helper, UCI-shape, error, timeout, and state-machine contracts that can be reproduced with deterministic fixtures or faithful dependency stubs. | Required in the normal host suite when the behavior is part of the per-PR contract. |
-| Browser with mocked services | Real browser DOM/rendering, LuCI-style `E()` behavior, poll and event wiring, visibility transitions, and theme behavior. The harness must state which LuCI services are mocked and which production semantics it preserves. | Use for UI contracts that host objects cannot observe; the required mocked-view job runs per PR. |
-| QEMU/OpenWrt | Installed-package seams: real LuCI dispatch, rpcd/ubus/UCI behavior, BusyBox ash and utilities, firewall/log pipeline, reload/uninstall behavior, and representative end-to-end recovery. | Keep focused smokes for release or upstream sign-off, scheduled/manual or workflow-dispatch; do not make QEMU a routine per-PR gate by default. |
+| Browser with mocked services | A real browser DOM/rendering run, plus the harness's LuCI-style `E()` behavior, poll and event wiring, visibility transitions, and theme behavior. The harness must state which LuCI services are mocked and which production semantics it preserves. This is not an installed-LuCI/rpcd lifecycle test. | Use for UI contracts that host objects cannot observe; the required mocked-view job runs per PR. |
+| QEMU/OpenWrt | Installed-package seams: real LuCI dispatch, rpcd/ubus/UCI behavior, BusyBox ash and utilities, firewall/log pipeline, reload/uninstall behavior, and representative end-to-end recovery. | Run the focused smoke in the publish/release CI job (tag push; the same workflow can be dispatched). Do not add a scheduled QEMU job, and do not make QEMU a routine per-PR gate. Local QEMU remains available to reproduce an installed-system failure. |
 
 Move a check upward only when the lower level cannot reproduce the failure,
 cannot observe the relevant boundary, or has provided false confidence. Move a
@@ -120,16 +127,22 @@ failure evidence changes.
 
 ## Current execution tiers
 
-The normal per-PR path is the host suite, link checking, shell portability
-checks, and the required mocked-LuCI view job. It should remain fast enough for
-routine development. The project does not use a percentage threshold, a broad
-browser matrix, or routine per-PR QEMU.
+The normal per-PR path is the host suite, real-jshn compatibility and BusyBox
+shell checks, link checking, the required mocked-LuCI view job, Z3 verification,
+and workflow static analysis (`zizmor` and `actionlint`), as defined in
+[`fwlive-test.yml`](../../.github/workflows/fwlive-test.yml). It should remain
+fast enough for routine development. The project does not use a percentage
+threshold, a broad browser matrix, or routine per-PR QEMU.
 
 The QEMU lane remains valuable for the narrow path that host and mocked tests
 cannot prove: installed LuCI/rpcd dispatch, real `ubus log.read` to filtering
 and classification, UCI commit/reload behavior, BusyBox execution, and
-firewall/log integration. Keep that lane representative and small; record
-measured runtime and flakes before changing its frequency or scope.
+firewall/log integration. It runs as part of CI on the publish/release path,
+not on a calendar. Keep that lane representative and small; record measured
+runtime and flakes before changing its frequency or scope. The contributor
+workflow's `qemu-install-fwlive.sh` plus manual LuCI check is a
+`Manually verified` step when a LuCI or rpcd change warrants it; it is not a
+missing per-PR CI job. See [`contributing.md`](contributing.md).
 
 Renderer tests that construct descriptive objects do not render. They cannot
 prove that a value reaches the DOM as text rather than an HTML sink. Rendering
@@ -152,11 +165,18 @@ Do not begin by counting tests. Begin with evidence and risk:
 4. Trace stateful and resource-sensitive behavior through failure and recovery:
    poll failure/recovery, hide/show with requests outstanding, pause/resume,
    cancellation, adaptive degradation, and return to normal operation.
-5. Cross-check escaped defects using two consecutive, explicitly dated
-   fourteen-day windows plus a longer trend window. Deduplicate by root cause;
-   history informs priority but does not waive severe risks.
+5. Cross-check escaped defects since the last recorded baseline: the previous
+   coverage-review commit, or the last release tag (`v*`), whichever the
+   ledger names. Deduplicate by root cause. History informs priority but does
+   not waive severe risks. If that interval is too small to be informative,
+   a longer lookback is optional context, not a second required window.
 6. Produce a small ranked backlog and choose only the highest-value additions.
    Reassess after those changes rather than expanding the matrix all at once.
+
+For a project-wide review, keep the ledger in the review issue or pull request
+as a comment using the template below. A committed ledger is optional and
+should be added only if repeated reviews show that issue/PR comments are losing
+the necessary history.
 
 The review ledger should have at least:
 
@@ -172,27 +192,33 @@ explicit disposition, and the remaining candidates have low incremental value.
 
 ## Calibration examples
 
-Before using the criteria for a project-wide audit, apply them to three
-representative cases:
+Before using the criteria for a project-wide audit, apply them to these
+representative cases. The rows below are the intended starting dispositions;
+the reviewed revision and any changed evidence must still be recorded in the
+audit ledger.
 
-- **POT/source parity:** a catalog comparison is not source-freshness evidence
-  if the extractor is absent or the check can skip. The outcome should identify
-  the required artifact and whether the check is actually enforced.
-- **jshn or BusyBox compatibility:** preserve the real dependency semantics
-  that caused the portability risk; a bash-only stub is not equivalent evidence.
-- **Layer 2 polling races:** host tests can prove epoch and bounded-work
-  transitions, while browser or QEMU is justified only for a distinct DOM,
-  LuCI transport, or installed-service boundary.
+| Risk / contract | Existing evidence and fidelity | State | Outcome and revisit trigger |
+| --- | --- | --- | --- |
+| POT/source freshness | Catalog-to-POT consistency is checked, but source extraction is a separate concern when `xgettext`/the scanner is unavailable. | Structural check can be executed/enforced; source-freshness proof may be implemented without being executed or enforced. | Strengthen the existing upstream-cut/release sign-off path to fail closed when the extractor is required; revisit when the scanner is available in CI or the upstream/release path changes. |
+| Real jshn JSON semantics | `tests/fwlive-jshn-compat.test.py` runs matched real jshn release pairs under BusyBox `sh`. | Executed and enforced host evidence. | Existing coverage is sufficient unless that gate starts skipping or the supported jshn/libubox set changes. |
+| BusyBox applet differences | Host tests and shell stubs cover selected portability contracts; they cannot prove every installed applet or service boundary. | Mixed host evidence; the exact applet contract must be named. | Add a focused QEMU check only for an applet, `ubus`, UCI, or installed-service behavior the host cannot preserve; revisit after a relevant escape or supported-platform change. |
+| Existing poll guard and adaptive-cap behavior | Host contracts cover in-flight guarding, cap/degradation, and bounded work without a browser. | Executed and enforced host evidence where the named tests are in the required suite. | Existing coverage is sufficient for those contracts; strengthen if a failure escapes or the state machine changes. |
+| Client visibility/backoff races in [#306](https://github.com/lucas-albers-lz4/fwlive/issues/306) | This is a feature-specific contract, distinct from the existing poll guard/adaptive-cap tests; stub DOM, browser smoke, and QEMU prove different seams. | Defer as a feature/coverage decision until the behavior is in the shipped surface. | When shipped, add host tests for epoch/backoff and recovery; add browser coverage only for real DOM/LuCI event wiring, and QEMU only for an installed transport/service boundary. |
 
-If reviewers reach different outcomes for these examples, clarify the policy
-before starting the wider audit.
+The host renderer/document shim is not the mocked Playwright job. A fake
+`document` can prove a text-content or state contract; it does not prove
+LuCI-accurate `E()` behavior or real browser event wiring. Likewise, the
+mocked browser job does not prove the installed OpenWrt lifecycle. If reviewers
+reach different outcomes for these rows, clarify the policy before starting
+the wider audit.
 
 ## Definition of done for a coverage review
 
 A review is complete when:
 
 - shipped surfaces and their actual gates are inventoried;
-- recent escaped bugs and high-impact invariants have been considered;
+- escaped bugs since the last recorded baseline, and high-impact invariants,
+  have been considered;
 - each important contract has a credible test or an explicit disposition;
 - known gaps have an owner or revisit trigger when appropriate;
 - selected additions have a stated fidelity level, frequency, and runtime/
