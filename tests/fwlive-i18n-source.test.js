@@ -5,8 +5,9 @@
  *
  * The OpenWrt i18n scanner is not available in the normal host checkout, so
  * this gate checks the static string-literal form of every _() call in the
- * shipped JavaScript sources against the checked-in POT. It intentionally does
- * not claim coverage for dynamic or concatenated translation arguments.
+ * shipped JavaScript sources, including template-literal interpolations,
+ * against the checked-in POT. It intentionally does not claim coverage for
+ * dynamic or concatenated translation arguments.
  *
  * Usage:
  *   node tests/fwlive-i18n-source.test.js
@@ -119,13 +120,13 @@ function decodeEscapedText(raw) {
 	return out;
 }
 
-function readQuotedString(source, start) {
+function readQuotedString(source, start, limit = source.length) {
 	const quote = source[start];
 	let raw = '';
-	for (let i = start + 1; i < source.length; i++) {
+	for (let i = start + 1; i < limit; i++) {
 		const ch = source[i];
 		if (ch === quote) return { value: decodeEscapedText(raw), end: i + 1 };
-		if (ch === '\\' && i + 1 < source.length) raw += ch + source[++i];
+		if (ch === '\\' && i + 1 < limit) raw += ch + source[++i];
 		else raw += ch;
 	}
 	return null;
@@ -148,6 +149,54 @@ function skipTemplate(source, start) {
 			continue;
 		}
 		if (source[i] === '`') return i + 1;
+	}
+	return source.length;
+}
+
+function findTemplateExpressionEnd(source, start, limit = source.length) {
+	let depth = 1;
+	for (let i = start; i < limit; i++) {
+		const ch = source[i];
+		if (ch === '\\') {
+			i++;
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			const string = readQuotedString(source, i, limit);
+			i = string ? string.end - 1 : limit;
+			continue;
+		}
+		if (ch === '`') {
+			i = skipTemplate(source, i) - 1;
+			continue;
+		}
+		if (ch === '/' && source[i + 1] === '/') {
+			i = skipLineComment(source, i);
+			continue;
+		}
+		if (ch === '/' && source[i + 1] === '*') {
+			i = skipBlockComment(source, i) - 1;
+			continue;
+		}
+		if (ch === '{') depth++;
+		else if (ch === '}' && --depth === 0) return i;
+	}
+	return limit;
+}
+
+function scanTemplateExpressions(source, start, filePath, found) {
+	for (let i = start + 1; i < source.length; i++) {
+		if (source[i] === '\\') {
+			i++;
+			continue;
+		}
+		if (source[i] === '`') return i + 1;
+		if (source[i] === '$' && source[i + 1] === '{') {
+			const expressionStart = i + 2;
+			const expressionEnd = findTemplateExpressionEnd(source, expressionStart);
+			found.push(...extractI18nLiterals(source, filePath, expressionStart, expressionEnd));
+			i = expressionEnd;
+		}
 	}
 	return source.length;
 }
@@ -190,6 +239,24 @@ function skipSpaceAndComments(source, start) {
 	return i;
 }
 
+function canStartRegex(previousSignificant) {
+	return (
+		!previousSignificant ||
+		previousSignificant === 'return' ||
+		previousSignificant === 'throw' ||
+		previousSignificant === 'case' ||
+		previousSignificant === 'delete' ||
+		previousSignificant === 'void' ||
+		previousSignificant === 'typeof' ||
+		previousSignificant === 'instanceof' ||
+		previousSignificant === 'in' ||
+		previousSignificant === 'of' ||
+		previousSignificant === 'yield' ||
+		previousSignificant === 'await' ||
+		/[([{=,:;!?&|+\-*%^~<>]/.test(previousSignificant)
+	);
+}
+
 function lineNumber(source, offset) {
 	return source.slice(0, offset).split('\n').length;
 }
@@ -199,11 +266,11 @@ function normalizeSourceMsgid(value) {
 	return value.trim();
 }
 
-function extractI18nLiterals(source, filePath) {
+function extractI18nLiterals(source, filePath, start = 0, end = source.length) {
 	const found = [];
 	let previousSignificant = '';
 
-	for (let i = 0; i < source.length;) {
+	for (let i = start; i < end;) {
 		const ch = source[i];
 		if (/\s/.test(ch)) {
 			i++;
@@ -218,17 +285,17 @@ function extractI18nLiterals(source, filePath) {
 			continue;
 		}
 		if (ch === "'" || ch === '"') {
-			const string = readQuotedString(source, i);
+			const string = readQuotedString(source, i, end);
 			i = string ? string.end : source.length;
 			previousSignificant = 'value';
 			continue;
 		}
 		if (ch === '`') {
-			i = skipTemplate(source, i);
+			i = scanTemplateExpressions(source, i, filePath, found);
 			previousSignificant = 'value';
 			continue;
 		}
-		if (ch === '/' && /[([{=,:;!?&|+\-*%^~<>]/.test(previousSignificant)) {
+		if (ch === '/' && canStartRegex(previousSignificant)) {
 			i = skipRegex(source, i);
 			previousSignificant = 'value';
 			continue;
@@ -243,7 +310,7 @@ function extractI18nLiterals(source, filePath) {
 				const open = skipSpaceAndComments(source, i);
 				const arg = skipSpaceAndComments(source, open + 1);
 				if (source[open] === '(' && (source[arg] === "'" || source[arg] === '"')) {
-					const string = readQuotedString(source, arg);
+					const string = readQuotedString(source, arg, end);
 					if (string) {
 						found.push({
 							msgid: normalizeSourceMsgid(string.value),
@@ -253,7 +320,7 @@ function extractI18nLiterals(source, filePath) {
 					}
 				}
 			}
-			previousSignificant = 'value';
+			previousSignificant = identifier;
 			continue;
 		}
 
@@ -324,6 +391,17 @@ function removePotEntry(potText, msgid) {
 function main() {
 	if (!fs.existsSync(POT_FILE)) {
 		console.error('POT file not found:', POT_FILE);
+		return 1;
+	}
+
+	const scannerFixture =
+		"function fixture() { return /_('not a message')/; } const text = `${_('template message')}`;";
+	const scannerFixtureMessages = extractI18nLiterals(scannerFixture, 'scanner-fixture.js');
+	if (
+		scannerFixtureMessages.length !== 1 ||
+		scannerFixtureMessages[0].msgid !== 'template message'
+	) {
+		console.error('Scanner fixture failed: template interpolation or regex handling changed');
 		return 1;
 	}
 
