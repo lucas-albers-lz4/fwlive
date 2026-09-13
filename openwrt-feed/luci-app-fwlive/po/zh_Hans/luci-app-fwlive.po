@@ -694,6 +694,10 @@ msgstr "sets log on the WAN firewall zone and reloads the firewall."
 msgid "then ping the router."
 msgstr "然后 ping 路由器。"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:815
+msgid "truncated"
+msgstr "已截断"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:128
 msgid "turn it back off with the WAN logging on control on the watch strip."
 msgstr "turn it back off with the WAN logging on control on the watch strip."
