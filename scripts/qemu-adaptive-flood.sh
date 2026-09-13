@@ -41,12 +41,17 @@ case "$FOLLOW_POLLS" in
 		exit 1
 		;;
 esac
-# Bash 10# avoids octal; reject 0 / 00 / 000 after normalize.
-FOLLOW_POLLS=$((10#$FOLLOW_POLLS))
-if [[ "$FOLLOW_POLLS" -lt 1 ]]; then
+# FOLLOW_POLLS: same length cap + 10# as require_positive_int.
+_norm=$(printf '%s' "$FOLLOW_POLLS" | sed 's/^0*//')
+if [[ "$_norm" =~ ^0*$ ]]; then
 	echo "FWLIVE_FLOOD_FOLLOW_POLLS must be a positive integer (got: 0)" >&2
 	exit 1
 fi
+if [[ ! "$_norm" =~ ^[0-9]{1,18}$ ]]; then
+	echo "FWLIVE_FLOOD_FOLLOW_POLLS out of range (got: $FOLLOW_POLLS)" >&2
+	exit 1
+fi
+FOLLOW_POLLS=$((10#$FOLLOW_POLLS))
 
 usage() {
 	sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
@@ -64,6 +69,8 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+# Guards against values outside bash's signed 64-bit arithmetic range, which
+# would wrap silently under $((10#$v)) (CodeRabbit: 18446...7 wraps to 1).
 require_positive_int() {
 	_name=$1
 	_val=$2
@@ -73,11 +80,18 @@ require_positive_int() {
 			exit 1
 			;;
 	esac
-	_val=$((10#$_val))
-	if [[ "$_val" -lt 1 ]]; then
+	# Length-capped after stripping leading zeros: blocks wrap-widening values
+	# like 18446744073709551617, which $((10#...)) silently rounds (CodeRabbit).
+	_norm=$(printf '%s' "$_val" | sed 's/^0*//')
+	if [[ "$_norm" =~ ^0*$ ]]; then
 		echo "$_name must be a positive integer (got: 0)" >&2
 		exit 1
 	fi
+	if [[ ! "$_norm" =~ ^[0-9]{1,18}$ ]]; then
+		echo "$_name out of range (got: $_val)" >&2
+		exit 1
+	fi
+	_val=$((10#$_val))
 	printf '%s' "$_val"
 }
 
@@ -365,16 +379,28 @@ resolve_check() {
 	mode=$1
 	# ubus may pretty-print ("disabled": "load") or compact ("disabled":"load").
 	out=$(ubus call fwlive resolve '{"addresses":["192.0.2.1"]}' 2>/dev/null || echo '{}')
-	case "$out" in
-		*'"disabled"'*:*'"load"'*)
-			printf 'FLOOD_RESOLVE mode=%s disabled=load\n' "$mode"
-			printf '1\n' >/tmp/fwlive-flood-last-resolve
-			;;
-		*)
-			printf 'FLOOD_RESOLVE mode=%s disabled=none\n' "$mode"
-			printf '0\n' >/tmp/fwlive-flood-last-resolve
-			;;
-	esac
+	disabled=$(resolve_disabled_value "$out")
+	if [ "$disabled" = load ]; then
+		printf 'FLOOD_RESOLVE mode=%s disabled=load\n' "$mode"
+		printf '1\n' >/tmp/fwlive-flood-last-resolve
+	else
+		printf 'FLOOD_RESOLVE mode=%s disabled=%s\n' "$mode" "${disabled:-none}"
+		printf '0\n' >/tmp/fwlive-flood-last-resolve
+	fi
+}
+
+# Extract the value of the JSON "disabled" field only — not any other field
+# that happens to contain "disabled" or "load" (CodeRabbit: intervening fields).
+resolve_disabled_value() {
+	# awk parses field-aware; handles both compact and pretty-printed ubus JSON.
+	printf '%s' "$1" | awk 'BEGIN{RS=","; FS=":"} {
+		for (i = 1; i <= NF; i++) {
+			f = $i; gsub(/[[:space:]{}]+/, "", f)
+			if (f ~ /"disabled"$/) {
+				v = $(i + 1); gsub(/[^a-z]/, "", v); print v; exit
+			}
+		}
+	}'
 }
 
 run_mode() {
