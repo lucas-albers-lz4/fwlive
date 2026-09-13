@@ -235,7 +235,8 @@ async function testResolveLoadShed() {
 		{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }
 	]);
 	assert.strictEqual(v.resolveLoadShed, true);
-	assert.strictEqual(v.hostnameCache.size, 0, 'must not mark DNS fails on load shed');
+	assert.strictEqual(v.hostnameCache.size, 0, 'must not cache names on load shed');
+	assert.strictEqual(v.hostnameFailed.size, 0, 'must not mark DNS fails on load shed');
 	console.log('fwlive-view layer2: resolve disabled:load OK');
 }
 
@@ -261,7 +262,7 @@ async function testShedSurfacing() {
 	v.updateAdaptiveBanner();
 	const el = h.document.getElementById('fwlive-adaptive');
 	assert.strictEqual(el.style.display, 'block');
-	assert.ok(String(el.textContent).indexOf('250') >= 0 || String(el.textContent).length > 0);
+	assert.ok(String(el.textContent).indexOf('250') >= 0, 'banner must show the shed limit');
 	console.log('fwlive-view layer2: shed surfacing OK');
 }
 
