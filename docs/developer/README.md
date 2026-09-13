@@ -46,6 +46,7 @@ Documentation for **building, testing, and extending** `luci-app-fwlive` and the
 
 | Topic | Document |
 |-------|----------|
+| Test approach and coverage decisions | [test-approach.md](test-approach.md) |
 | Validation matrix | [`../validation-matrix.md`](../validation-matrix.md) |
 | QEMU lab (x86 + armsr) | [qemu-lab.md](qemu-lab.md) |
 

@@ -30,6 +30,9 @@ shell codegen + LuCI wrapper gate (`./scripts/gen-all.sh`), and shellcheck on sh
 Docs changes must pass the link checker — it checks relative paths **and**
 heading anchors against a GitHub-style slugger.
 
+The criteria for deciding what to test and which environment to use are in
+[`test-approach.md`](test-approach.md).
+
 ### Renderer tests do not render
 
 `tests/lib/load-fwlive-module.js` stubs LuCI's `E()` as a plain object
