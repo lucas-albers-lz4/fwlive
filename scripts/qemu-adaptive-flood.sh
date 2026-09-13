@@ -49,7 +49,7 @@ if [[ "$FOLLOW_POLLS" -lt 1 ]]; then
 fi
 
 usage() {
-	sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
 	exit "${1:-0}"
 }
 
@@ -63,6 +63,28 @@ while [[ $# -gt 0 ]]; do
 		*) echo "unknown arg: $1" >&2; usage 1 ;;
 	esac
 done
+
+require_positive_int() {
+	_name=$1
+	_val=$2
+	case "$_val" in
+		''|*[!0-9]*)
+			echo "$_name must be a positive integer (got: $_val)" >&2
+			exit 1
+			;;
+	esac
+	_val=$((10#$_val))
+	if [[ "$_val" -lt 1 ]]; then
+		echo "$_name must be a positive integer (got: 0)" >&2
+		exit 1
+	fi
+	printf '%s' "$_val"
+}
+
+REQUESTED_LINES=$(require_positive_int FWLIVE_FLOOD_LINES "$REQUESTED_LINES")
+HOT_MS=$(require_positive_int FWLIVE_FLOOD_HOT_MS "$HOT_MS")
+MAX_SERVED=$(require_positive_int FWLIVE_FLOOD_MAX_SERVED "$MAX_SERVED")
+LOG_SIZE_KIB=$(require_positive_int FWLIVE_FLOOD_LOG_SIZE_KIB "$LOG_SIZE_KIB")
 
 if [[ "$FIXTURE" != /* ]]; then
 	FIXTURE="${ROOT}/${FIXTURE}"
@@ -344,7 +366,7 @@ resolve_check() {
 	# ubus may pretty-print ("disabled": "load") or compact ("disabled":"load").
 	out=$(ubus call fwlive resolve '{"addresses":["192.0.2.1"]}' 2>/dev/null || echo '{}')
 	case "$out" in
-		*'"disabled"'*'"load"'*)
+		*'"disabled"'*:*'"load"'*)
 			printf 'FLOOD_RESOLVE mode=%s disabled=load\n' "$mode"
 			printf '1\n' >/tmp/fwlive-flood-last-resolve
 			;;
