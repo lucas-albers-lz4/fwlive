@@ -14,7 +14,6 @@
  */
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -239,20 +238,27 @@ function skipSpaceAndComments(source, start) {
 	return i;
 }
 
+const REGEX_PREFIX_KEYWORDS = new Set([
+	'return',
+	'throw',
+	'case',
+	'delete',
+	'void',
+	'typeof',
+	'instanceof',
+	'in',
+	'of',
+	'yield',
+	'await',
+	'else',
+	'do',
+	'new'
+]);
+
 function canStartRegex(previousSignificant) {
 	return (
 		!previousSignificant ||
-		previousSignificant === 'return' ||
-		previousSignificant === 'throw' ||
-		previousSignificant === 'case' ||
-		previousSignificant === 'delete' ||
-		previousSignificant === 'void' ||
-		previousSignificant === 'typeof' ||
-		previousSignificant === 'instanceof' ||
-		previousSignificant === 'in' ||
-		previousSignificant === 'of' ||
-		previousSignificant === 'yield' ||
-		previousSignificant === 'await' ||
+		REGEX_PREFIX_KEYWORDS.has(previousSignificant) ||
 		/[([{=,:;!?&|+\-*%^~<>]/.test(previousSignificant)
 	);
 }
@@ -353,6 +359,10 @@ function parsePoQuoted(raw) {
 	return decodeEscapedText(raw);
 }
 
+/*
+ * This gate currently compares msgid-only catalogs. The shipped sources do
+ * not emit ngettext/msgctxt entries; extend this parser if that changes.
+ */
 function parsePotMsgids(text) {
 	const ids = new Set();
 	let current = null;
@@ -394,8 +404,15 @@ function main() {
 		return 1;
 	}
 
-	const scannerFixture =
-		"function fixture() { return /_('not a message')/; } const text = `${_('template message')}`;";
+	const scannerFixture = [
+		"function fixture(value) {",
+		"\tif (value) return /_('not a message')/;",
+		"\telse /_('not after else')/;",
+		"\tdo /_('not after do')/; while (value);",
+		"\tnew /_('not after new')/;",
+		"\tconst text = `${_('template message')}`;",
+		'}'
+	].join('\n');
 	const scannerFixtureMessages = extractI18nLiterals(scannerFixture, 'scanner-fixture.js');
 	if (
 		scannerFixtureMessages.length !== 1 ||
@@ -427,24 +444,16 @@ function main() {
 		return 1;
 	}
 
-	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-i18n-source-'));
-	try {
-		for (const id of REGRESSION_MSGIDS) {
-			if (!report.sourceIds.has(id) || !report.potIds.has(id)) {
-				console.error(`Regression fixture is not present in source and POT: ${id}`);
-				return 1;
-			}
-			const mutatedPot = removePotEntry(potText, id);
-			const mutatedFile = path.join(tempDir, 'mutated.pot');
-			fs.writeFileSync(mutatedFile, mutatedPot);
-			const mutated = checkSourceToPot(sourceMessages, fs.readFileSync(mutatedFile, 'utf8'));
-			if (!mutated.missing.includes(id)) {
-				console.error(`Mutation did not expose source drift for: ${id}`);
-				return 1;
-			}
+	for (const id of REGRESSION_MSGIDS) {
+		if (!report.sourceIds.has(id) || !report.potIds.has(id)) {
+			console.error(`Regression fixture is not present in source and POT: ${id}`);
+			return 1;
 		}
-	} finally {
-		fs.rmSync(tempDir, { recursive: true, force: true });
+		const mutated = checkSourceToPot(sourceMessages, removePotEntry(potText, id));
+		if (!mutated.missing.includes(id)) {
+			console.error(`Mutation did not expose source drift for: ${id}`);
+			return 1;
+		}
 	}
 
 	console.log(
