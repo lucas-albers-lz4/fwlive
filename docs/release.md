@@ -19,6 +19,12 @@ Run from the repo root on **Linux x86_64**:
 ./scripts/validate-baseline.sh
 ```
 
+For upstream/release sign-off, require fresh source extraction by setting
+`FWLIVE_I18N_REQUIRE_SCAN=1` and provide the OpenWrt scanner with
+`FWLIVE_I18N_SCAN=/path/to/luci/build/i18n-scan.pl` when it is not on `PATH`.
+Missing scanner prerequisites then fail the sign-off run instead of being
+treated as a passing skip.
+
 Optional QEMU confidence: `./scripts/validate-openwrt.sh --version 24.10` — see [validation matrix](validation-matrix.md).
 
 Full publish checklist: [github-publish-checklist.md](github-publish-checklist.md).

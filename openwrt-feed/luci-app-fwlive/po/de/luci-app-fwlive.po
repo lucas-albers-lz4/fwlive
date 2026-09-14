@@ -143,7 +143,9 @@ msgstr "Eingeschränkt — Stichproben"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:977
 msgid "Degraded — sampling (slow poll RTT; cadence reduced)."
-msgstr "Eingeschränkt — Stichproben (langsame Poll-Roundtrip-Zeit; Frequenz reduziert)."
+msgstr ""
+"Eingeschränkt — Stichproben (langsame Poll-Roundtrip-Zeit; Frequenz "
+"reduziert)."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:40
 msgid "Destination"
@@ -722,6 +724,10 @@ msgstr "sets log on the WAN firewall zone and reloads the firewall."
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:258
 msgid "then ping the router."
 msgstr "dann den Router anpingen."
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:815
+msgid "truncated"
+msgstr "gekürzt"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:128
 msgid "turn it back off with the WAN logging on control on the watch strip."

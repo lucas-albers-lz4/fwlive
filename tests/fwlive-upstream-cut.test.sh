@@ -1,15 +1,30 @@
 #!/usr/bin/env bash
 # Phase 2 (issue #273): upstream-cut invariants + .pot msgid parity.
 # Runs scripts/upstream-cut.sh to a temp dir and pins the luci-shaped output.
-# Gap 5 needs i18n-scan.pl (openwrt/luci build tree); when absent the parity
-# half skips — CI has no luci checkout, so the cut invariants are the gate.
+# Gap 5 needs i18n-scan.pl (openwrt/luci build tree). Normal CI may skip the
+# parity half when its prerequisites are absent. Release/upstream sign-off can
+# set FWLIVE_I18N_REQUIRE_SCAN=1 to fail closed instead.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 POT="$ROOT/openwrt-feed/luci-app-fwlive/po/templates/luci-app-fwlive.pot"
+I18N_REQUIRE_SCAN="${FWLIVE_I18N_REQUIRE_SCAN:-0}"
 
 die() { echo "fwlive-upstream-cut test FAIL: $*" >&2; exit 1; }
 ok() { echo "fwlive-upstream-cut test OK: $*"; }
+skip_parity() {
+	local reason="$1"
+	if [[ "$I18N_REQUIRE_SCAN" == 1 ]]; then
+		die "msgid parity required but unavailable: $reason"
+	fi
+	echo "SKIP: msgid parity $reason"
+	echo "SUMMARY: upstream-cut structure checks passed; fresh msgid parity SKIPPED"
+	echo "fwlive-upstream-cut tests passed with explicit SKIP"
+	exit 0
+}
+
+[[ "$I18N_REQUIRE_SCAN" == 0 || "$I18N_REQUIRE_SCAN" == 1 ]] \
+	|| die "FWLIVE_I18N_REQUIRE_SCAN must be 0 or 1"
 
 CUT_WORK=$(mktemp -d)
 # Preserve a pre-existing regenerable split ref; only delete if we created it.
@@ -83,14 +98,12 @@ if [ -z "$SCAN" ] && command -v i18n-scan.pl >/dev/null 2>&1; then
 	SCAN=$(command -v i18n-scan.pl)
 fi
 if [ -z "$SCAN" ] || [ ! -f "$SCAN" ]; then
-	ok "msgid parity skipped (no i18n-scan.pl; set FWLIVE_I18N_SCAN)"
-	echo "fwlive-upstream-cut tests passed"
-	exit 0
+	skip_parity "no i18n-scan.pl; set FWLIVE_I18N_SCAN"
 fi
 command -v xgettext >/dev/null 2>&1 \
-	|| { ok "msgid parity skipped (xgettext missing)"; echo "fwlive-upstream-cut tests passed"; exit 0; }
+	|| skip_parity "xgettext missing"
 command -v python3 >/dev/null 2>&1 \
-	|| { ok "msgid parity skipped (python3 missing)"; echo "fwlive-upstream-cut tests passed"; exit 0; }
+	|| skip_parity "python3 missing"
 
 mkdir -p "$CUT_WORK/scanwork"
 cp -r "$CUT_WORK/cut" "$CUT_WORK/scanwork/luci-app-fwlive"

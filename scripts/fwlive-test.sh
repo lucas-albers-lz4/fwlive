@@ -85,6 +85,10 @@ echo "OK: no absolute #: refs in luci-app-fwlive.pot" >&2
 
 echo "== fwlive upstream-cut invariants + .pot parity (#273) ==" >&2
 bash "$ROOT/tests/fwlive-upstream-cut.test.sh"
+bash "$ROOT/tests/fwlive-upstream-cut-mode.test.sh"
+
+echo "== fwlive source-to-POT drift (#334) ==" >&2
+"$NODE" tests/fwlive-i18n-source.test.js
 
 echo "== fwlive parser sync (core vs LuCI) ==" >&2
 "$NODE" tests/fwlive-parser-sync.test.js
