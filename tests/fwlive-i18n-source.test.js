@@ -255,7 +255,8 @@ const REGEX_PREFIX_KEYWORDS = new Set([
 	'new'
 ]);
 
-function canStartRegex(previousSignificant) {
+function canStartRegex(previousSignificant, previousWasProperty) {
+	if (previousWasProperty) return false;
 	return (
 		!previousSignificant ||
 		REGEX_PREFIX_KEYWORDS.has(previousSignificant) ||
@@ -275,6 +276,7 @@ function normalizeSourceMsgid(value) {
 function extractI18nLiterals(source, filePath, start = 0, end = source.length) {
 	const found = [];
 	let previousSignificant = '';
+	let previousWasProperty = false;
 
 	for (let i = start; i < end;) {
 		const ch = source[i];
@@ -294,21 +296,25 @@ function extractI18nLiterals(source, filePath, start = 0, end = source.length) {
 			const string = readQuotedString(source, i, end);
 			i = string ? string.end : source.length;
 			previousSignificant = 'value';
+			previousWasProperty = false;
 			continue;
 		}
 		if (ch === '`') {
 			i = scanTemplateExpressions(source, i, filePath, found);
 			previousSignificant = 'value';
+			previousWasProperty = false;
 			continue;
 		}
-		if (ch === '/' && canStartRegex(previousSignificant)) {
+		if (ch === '/' && canStartRegex(previousSignificant, previousWasProperty)) {
 			i = skipRegex(source, i);
 			previousSignificant = 'value';
+			previousWasProperty = false;
 			continue;
 		}
 
 		if (isIdentifierStart(ch)) {
 			const start = i;
+			const isProperty = previousSignificant === '.';
 			i++;
 			while (isIdentifierPart(source[i])) i++;
 			const identifier = source.slice(start, i);
@@ -327,10 +333,12 @@ function extractI18nLiterals(source, filePath, start = 0, end = source.length) {
 				}
 			}
 			previousSignificant = identifier;
+			previousWasProperty = isProperty;
 			continue;
 		}
 
 		previousSignificant = ch;
+		previousWasProperty = false;
 		i++;
 	}
 	return found;
@@ -410,13 +418,14 @@ function main() {
 		"\telse /_('not after else')/;",
 		"\tdo /_('not after do')/; while (value);",
 		"\tnew /_('not after new')/;",
+		"\tconst division = object.in / _('division message') / 2;",
 		"\tconst text = `${_('template message')}`;",
 		'}'
 	].join('\n');
 	const scannerFixtureMessages = extractI18nLiterals(scannerFixture, 'scanner-fixture.js');
 	if (
-		scannerFixtureMessages.length !== 1 ||
-		scannerFixtureMessages[0].msgid !== 'template message'
+		scannerFixtureMessages.map((message) => message.msgid).sort().join('|') !==
+		'division message|template message'
 	) {
 		console.error('Scanner fixture failed: template interpolation or regex handling changed');
 		return 1;
