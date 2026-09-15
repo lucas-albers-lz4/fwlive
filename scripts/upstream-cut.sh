@@ -97,34 +97,35 @@ fi
 # home. The luci tree should not advertise an out-of-tree winner.
 sed -i '/^## Maintenance$/,$d' "$OUT/README.md"
 
-# GENERATED / sync comments must not point at monorepo paths absent from luci.
+# GENERATED / sync comments: drop monorepo paths, repo names, and do-not-edit
+# instructions. Provenance stays in the luci PR body (openwrt/luci#8992).
 shell_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.sh"
 if [ -f "$shell_gen" ]; then
 	sed -i \
-		-e 's|^# GENERATED FILE — do not edit. Run: \./scripts/gen-all\.sh$|# Generated classifier snapshot. Do not edit by hand.|' \
-		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js — regenerate upstream of this tree.|' \
+		-e 's|^# GENERATED FILE — do not edit. Run: \./scripts/gen-all\.sh$|# Generated classifier snapshot.|' \
+		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js.|' \
 		"$shell_gen"
 fi
 
 awk_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.awk"
 if [ -f "$awk_gen" ]; then
 	sed -i \
-		-e 's|^# GENERATED FILE — do not edit\. Run: \.\/scripts\/gen-all\.sh$|# Generated classifier snapshot. Do not edit by hand.|' \
-		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js — regenerate upstream of this tree.|' \
+		-e 's|^# GENERATED FILE — do not edit\. Run: \.\/scripts\/gen-all\.sh$|# Generated classifier snapshot.|' \
+		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js.|' \
 		"$awk_gen"
 fi
 
 css_js="$OUT/htdocs/luci-static/resources/fwlive/css.js"
 if [ -f "$css_js" ]; then
 	sed -i \
-		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Generated stylesheet snapshot. Style source is regenerated upstream of this tree.|' \
+		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Generated stylesheet snapshot.|' \
 		"$css_js"
 fi
 
 log_js="$OUT/htdocs/luci-static/resources/fwlive/log.js"
 if [ -f "$log_js" ]; then
 	sed -i \
-		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC — regenerate upstream of this tree|' \
+		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC.|' \
 		-e '/gen-luci-wrapper\.js gates full-spec drift/d' \
 		"$log_js"
 fi
@@ -252,8 +253,15 @@ if grep -qE 'openwrt-feed/|\./scripts/gen-all|core/fwlive-log|embed-fwlive-css' 
 	"$OUT/htdocs/luci-static/resources/fwlive/constants.js" \
 	"$OUT/htdocs/luci-static/resources/fwlive/css.js" \
 	"$OUT/htdocs/luci-static/resources/fwlive/log.js" \
-	"$OUT/root/usr/libexec/fwlive-is-firewall-event.sh" 2>/dev/null; then
+	"$OUT/root/usr/libexec/fwlive-is-firewall-event.sh" \
+	"$OUT/root/usr/libexec/fwlive-is-firewall-event.awk" 2>/dev/null; then
 	echo "  FAIL: monorepo-only paths remain in cut comments" >&2
+	fail=1
+fi
+
+if grep -rqE 'Do not edit by hand|regenerate(d)? upstream of this tree|Snapshot from the fwlive monorepo' \
+	"$OUT" 2>/dev/null; then
+	echo "  FAIL: luci cut still tells maintainers not to edit, or names the fwlive repo" >&2
 	fail=1
 fi
 

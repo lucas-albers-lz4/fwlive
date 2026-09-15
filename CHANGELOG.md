@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Luci-cut generated headers are labels only (no out-of-tree repo, no do-not-edit); wrap the sticky-dir lock comment
+- Luci FormalityCheck / PR body: “This commit ships po/templates only” (not “First commit”)
+- Reflow comments left ragged after tracker-id parentheticals were dropped
+
 ## [v0.1.43] — 2026-09-17
 
 ### Changed
