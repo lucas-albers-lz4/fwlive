@@ -252,7 +252,9 @@ for (const entry of (data && Array.isArray(data.log) ? data.log : []))
 		);
 		const env = {
 			...process.env,
-			PATH: `${stubDir}:/usr/bin:/bin`,
+			/* Keep the runner's Node location available to the jsonfilter stub;
+			 * hosted runners may not install node in /usr/bin. */
+			PATH: `${stubDir}:${process.env.PATH || '/usr/bin:/bin'}`,
 			FWLIVE_ADAPTIVE: '1',
 			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'state.json'),
 			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
