@@ -95,7 +95,8 @@ for path in root.rglob('*'):
     text = path.read_text(encoding='utf-8')
     for i, line in enumerate(text.splitlines(), 1):
         stripped = line.lstrip()
-        if not (stripped.startswith('#') or stripped.startswith('/*') or stripped.startswith('* ')):
+        if not (stripped.startswith('#') or stripped.startswith('//')
+                or stripped.startswith('/*') or stripped.startswith('* ')):
             continue
         if 'lucas-albers' in line:
             hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
