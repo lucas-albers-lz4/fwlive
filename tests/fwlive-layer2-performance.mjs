@@ -10,6 +10,7 @@
  *   FWLIVE_URL=http://127.0.0.1:8080 \
  *   FWLIVE_CPU_THROTTLE=4 \
  *   FWLIVE_SOAK_MS=1800000 \
+ *   FWLIVE_PERF_ROW_LIMIT=500 \
  *   node tests/fwlive-layer2-performance.mjs
  *
  * Set FWLIVE_ENFORCE=1 to turn the visibility and performance targets into
@@ -37,6 +38,15 @@ const SOAK_MS = SOAK_MS_RAW === undefined || SOAK_MS_RAW === ''
 const ENFORCE = process.env.FWLIVE_ENFORCE === '1';
 const REAL_POLL = process.env.FWLIVE_PERF_REAL_POLL === '1';
 const POLL_DELAY_MS = Math.max(0, Number(process.env.FWLIVE_PERF_POLL_DELAY_MS || 0));
+const PERF_ROW_LIMIT_RAW = process.env.FWLIVE_PERF_ROW_LIMIT;
+const PERF_ROW_LIMIT = PERF_ROW_LIMIT_RAW === undefined || PERF_ROW_LIMIT_RAW === ''
+	? 2000
+	: Number(PERF_ROW_LIMIT_RAW);
+const PERF_ROW_LIMIT_OPTIONS = [25, 50, 100, 250, 500, 1000, 2000];
+if (!Number.isInteger(PERF_ROW_LIMIT) || !PERF_ROW_LIMIT_OPTIONS.includes(PERF_ROW_LIMIT))
+	throw new Error(
+		`FWLIVE_PERF_ROW_LIMIT must be one of ${PERF_ROW_LIMIT_OPTIONS.join(', ')}: ${PERF_ROW_LIMIT_RAW}`
+	);
 
 const fixture = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'));
 if (!fixture || !Array.isArray(fixture.log) || fixture.log.length !== 2000)
@@ -302,14 +312,17 @@ async function main() {
 			timeout: 60000
 		});
 		await page.waitForSelector('.fwlive-map', { timeout: 30000 });
+		let displayRowLimit = Number(await page.locator('#fwlive-limit').inputValue());
 		if (REAL_POLL) {
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		} else {
-			await page.locator('#fwlive-limit').selectOption('2000');
+			await page.locator('#fwlive-limit').selectOption(String(PERF_ROW_LIMIT));
+			displayRowLimit = PERF_ROW_LIMIT;
 			await page.waitForFunction(
-				() =>
-					document.querySelector('#fwlive-limit')?.value === '2000' &&
-					document.querySelectorAll('#fwlive-table tbody tr').length > 1000,
+				(limit) =>
+					document.querySelector('#fwlive-limit')?.value === String(limit) &&
+					document.querySelectorAll('#fwlive-table tbody tr').length >= Math.min(limit, 100),
+				PERF_ROW_LIMIT,
 				{ timeout: 60000 }
 			);
 		}
@@ -375,6 +388,7 @@ async function main() {
 			fixture: path.relative(ROOT, FIXTURE_PATH),
 			poll_mode: REAL_POLL ? 'real-guest-log-pipeline' : 'fixture-intercepted',
 			raw_payload_rows: REAL_POLL ? null : fixtureBase.log.length,
+			display_row_limit: displayRowLimit,
 			visible_rows: visibleRows,
 			cpu_throttle_rate: CPU_THROTTLE,
 			soak_ms: SOAK_MS,

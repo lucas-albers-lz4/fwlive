@@ -447,6 +447,20 @@ To exercise the Layer 2 first-slow-RTT summary transition without waiting on a
 slow guest, add `FWLIVE_PERF_POLL_DELAY_MS=1600`. This is a harness-only delay;
 it does not model the server's adaptive-cap processing duration.
 
+For the #339 display-limit comparison, repeat the fixture run with the existing
+Limit options `250`, `500`, `1000`, and `2000`, for example:
+
+```sh
+FWLIVE_PERF_ROW_LIMIT=500 FWLIVE_SOAK_MS=10000 \
+./scripts/qemu-layer2-performance.sh
+```
+
+The report records `display_row_limit` and `visible_rows`. Compare the largest
+main-thread task and render-commit-to-paint distribution at the same CPU
+throttle and soak duration. This is measurement plumbing only; it does not
+change the shipped Limit options or claim that any candidate is a practical
+weak-device cap before the comparison is run.
+
 For a supplemental loaded-router check, leave the poll path real and run this
 mode while a guest load/traffic producer is active:
 
