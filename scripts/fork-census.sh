@@ -31,7 +31,7 @@ SKIP_PARSE=0
 # jshn/sed are device-only (#308 F2 / #310): poll_lines_from_input sources a fixed
 # /usr/share/libubox/jshn.sh path, so a PATH stub alone aborts under set -e on host.
 # Do not pretend host can exercise that branch — leave jshn off PATH here.
-SHIM_CMDS=(cat jsonfilter awk dirname jq sed ubus)
+SHIM_CMDS=(cat jsonfilter awk dirname jq sed ubus mktemp rm)
 
 usage() {
 	sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
@@ -175,7 +175,7 @@ prepare_shims() {
 	local tally="$1"
 	local name
 	rm -f "${SHIM_DIR:?}"/*
-	for name in cat awk dirname jq sed; do
+	for name in cat awk dirname jq sed mktemp rm; do
 		install_passthrough_shim "$name" "$tally"
 	done
 	install_ubus_stub "$tally"
@@ -250,7 +250,7 @@ FILTER_TOTAL="$(tally_total "$FILTER_TALLY")"
 echo "--- filter subprocess (production path) ---"
 echo "exec total: ${FILTER_TOTAL}"
 tally_breakdown "$FILTER_TALLY"
-echo "production: dirname (FILTER_DIR) + jsonfilter + awk"
+echo "production: dirname (FILTER_DIR) + jsonfilter + awk; mktemp + rm only on shells without pipefail"
 echo
 
 POLL_TALLY="$(run_poll_census)"

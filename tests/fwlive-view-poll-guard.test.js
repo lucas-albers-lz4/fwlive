@@ -15,17 +15,21 @@ function fail(msg) {
 
 function deferredPoll(reply) {
 	let resolveFn;
-	const promise = new Promise(function(resolve) {
+	const promise = new Promise(function (resolve) {
 		resolveFn = resolve;
 	});
 	let calls = 0;
-	const mock = async function() {
+	const mock = async function () {
 		calls++;
 		await promise;
 		return reply || { log: [] };
 	};
-	mock.calls = function() { return calls; };
-	mock.release = function() { resolveFn(); };
+	mock.calls = function () {
+		return calls;
+	};
+	mock.release = function () {
+		resolveFn();
+	};
 	return mock;
 }
 
@@ -34,7 +38,9 @@ async function testPollDataInFlightGuard() {
 	const h = loadFwliveView({
 		rpcMocks: {
 			'fwlive.poll': pollMock,
-			'fwlive.resolve': async function() { return { names: {} }; }
+			'fwlive.resolve': async function () {
+				return { names: {} };
+			}
 		}
 	});
 	const view = h.view;
@@ -43,15 +49,20 @@ async function testPollDataInFlightGuard() {
 	const first = view.pollData();
 	assert.strictEqual(pollMock.calls(), 1, 'first pollData must invoke poll once');
 
-	view.pollData();
-	assert.strictEqual(pollMock.calls(), 1, 'second pollData while in-flight must not invoke poll');
+	const queued = view.pollData();
+	assert.strictEqual(pollMock.calls(), 1, 'second pollData while in-flight must not overlap');
 
 	pollMock.release();
 	await first;
+	assert.strictEqual(pollMock.calls(), 2, 'queued refresh must start after the first completes');
+	pollMock.release();
+	await queued;
 
 	view.pollData();
-	await new Promise(function(r) { setTimeout(r, 10); });
-	assert.strictEqual(pollMock.calls(), 2, 'poll after first completes may proceed');
+	await new Promise(function (r) {
+		setTimeout(r, 10);
+	});
+	assert.strictEqual(pollMock.calls(), 3, 'poll after the queued refresh completes may proceed');
 	console.log('fwlive-view poll-guard: in-flight guard OK');
 }
 

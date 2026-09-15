@@ -119,6 +119,8 @@ function assertFilterParity(payload, env) {
 		.sort();
 	const shMsgs = (shellOut.log || []).map((e) => e.msg).sort();
 	assert.deepEqual(shMsgs, jsMsgs);
+	assert.equal(shellOut.messages_received, JSON.parse(payload).log.length,
+		'messages_received must count every enumerated log entry before filtering');
 }
 
 function runJsonParity() {
@@ -163,10 +165,47 @@ function runEmptyMalformedInput() {
 			const filtered = shSpawn(null, {
 				argvFile: FILTER_SH, input, encoding: 'utf8', env: jf.env
 			});
-			assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
-			assert.deepEqual(JSON.parse(filtered.stdout), { log: [] },
-				'empty/malformed input must stay a valid empty result');
+			assert.notEqual(filtered.status, 0, 'malformed input must remain an error');
+			assert.equal(JSON.parse(filtered.stdout).error, 'filter_failed',
+				'jsonfilter failure must not become a healthy empty result');
 		}
+	} finally {
+		jf.cleanup();
+	}
+}
+
+function runSummaryContract() {
+	const jf = jsonfilterPathEnv();
+	const payload = JSON.stringify({
+		log: [
+			{ msg: 'fw4: DROP IN=wan SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP' },
+			{ msg: 'fw4: DROP IN=wan SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP' },
+			{ msg: 'fw4: ACCEPT IN=wan SRC=203.0.113.2 DST=192.0.2.1 PROTO=TCP' },
+			{ msg: 'netifd: link ready' }
+		]
+	});
+	try {
+		const filtered = shSpawn(null, {
+			argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+		const out = JSON.parse(filtered.stdout);
+		assert.equal(out.summary.scope, 'top of shown sample');
+		assert.equal(out.summary.top_drops[0].value, 'drop');
+		assert.equal(out.summary.top_drops[0].count, 2);
+		assert.equal(out.summary.top_talkers[0].value, '203.0.113.1');
+		assert.ok(Buffer.byteLength(JSON.stringify(out.summary), 'utf8') <= 1024,
+			'summary must stay within the escaped JSON byte bound');
+
+		const disabled = shSpawn(null, {
+			argvFile: FILTER_SH,
+			input: payload,
+			encoding: 'utf8',
+			env: { ...jf.env, FWLIVE_SUMMARY: '0' }
+		});
+		assert.equal(disabled.status, 0, disabled.stderr || disabled.stdout);
+		assert.equal(JSON.parse(disabled.stdout).summary, undefined,
+			'adaptive-off filter reply must omit summary');
 	} finally {
 		jf.cleanup();
 	}
@@ -198,6 +237,56 @@ function runMetacharSafety() {
 		});
 		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
 		assert.doesNotThrow(() => JSON.parse(filtered.stdout));
+	} finally {
+		jf.cleanup();
+	}
+}
+
+function runUnicodeSummaryBound() {
+	const unicode = '🔥'.repeat(64);
+	const payload = JSON.stringify({
+		log: [0, 1, 2].map((i) => ({
+			msg: `${i}${unicode}: DROP IN=wan SRC=${i}${unicode} DST=192.0.2.1 PROTO=TCP`
+		}))
+	});
+	const jf = jsonfilterPathEnv();
+	try {
+		const filtered = shSpawn(null, {
+			argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+		const summary = JSON.parse(filtered.stdout).summary;
+		assert.equal(summary.truncated, true,
+			'Unicode summary must use the conservative byte-safe fallback');
+		assert.ok(Buffer.byteLength(JSON.stringify(summary), 'utf8') <= 1024,
+			'Unicode summary must stay within the escaped JSON byte bound');
+	} finally {
+		jf.cleanup();
+	}
+}
+
+function runUnicodeFieldTruncation() {
+	const unicode = '🔥'.repeat(20);
+	const payload = JSON.stringify({
+		log: [0, 1].map((i) => ({
+			msg: `${i}: DROP IN=wan SRC=203.0.113.1${unicode} DST=192.0.2.1 PROTO=TCP`
+		}))
+	});
+	const jf = jsonfilterPathEnv();
+	try {
+		const filtered = shSpawn(null, {
+			argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+		const summary = JSON.parse(filtered.stdout).summary;
+		assert.equal(summary.truncated, undefined,
+			'field truncation fixture must stay below the whole-summary fallback bound');
+		const value = summary.top_talkers[0].value;
+		assert.ok(Buffer.byteLength(value, 'utf8') <= 64,
+			'bounded talker value must stay within the raw byte limit');
+		assert.equal(Buffer.from(value, 'utf8').toString('utf8'), value,
+			'bounded talker value must end on a UTF-8 character boundary');
+		assert.ok(value.endsWith('🔥'), 'bounded talker value should retain complete emoji');
 	} finally {
 		jf.cleanup();
 	}
@@ -272,7 +361,10 @@ function run() {
 	runJsonParity();
 	runJsonGetMsgEscapes();
 	runEmptyMalformedInput();
+	runSummaryContract();
 	runMetacharSafety();
+	runUnicodeSummaryBound();
+	runUnicodeFieldTruncation();
 	runMissingJsonfilter();
 	runMissingClassifier();
 	runOversizedStdin();
