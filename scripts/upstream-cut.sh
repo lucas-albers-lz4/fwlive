@@ -101,7 +101,7 @@ sed -i '/^## Maintenance$/,$d' "$OUT/README.md"
 shell_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.sh"
 if [ -f "$shell_gen" ]; then
 	sed -i \
-		-e 's|^# GENERATED FILE — do not edit. Run: \./scripts/gen-all\.sh$|# Snapshot from the fwlive monorepo (lucas-albers-lz4/fwlive). Do not edit by hand.|' \
+		-e 's|^# GENERATED FILE — do not edit. Run: \./scripts/gen-all\.sh$|# Generated classifier snapshot. Do not edit by hand.|' \
 		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js — regenerate upstream of this tree.|' \
 		"$shell_gen"
 fi
@@ -109,7 +109,7 @@ fi
 awk_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.awk"
 if [ -f "$awk_gen" ]; then
 	sed -i \
-		-e 's|^# GENERATED FILE — do not edit\. Run: \.\/scripts\/gen-all\.sh$|# Snapshot from the fwlive monorepo (lucas-albers-lz4/fwlive). Do not edit by hand.|' \
+		-e 's|^# GENERATED FILE — do not edit\. Run: \.\/scripts\/gen-all\.sh$|# Generated classifier snapshot. Do not edit by hand.|' \
 		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js — regenerate upstream of this tree.|' \
 		"$awk_gen"
 fi
@@ -117,15 +117,15 @@ fi
 css_js="$OUT/htdocs/luci-static/resources/fwlive/css.js"
 if [ -f "$css_js" ]; then
 	sed -i \
-		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Snapshot from the fwlive monorepo. Style source is regenerated upstream of this tree.|' \
+		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Generated stylesheet snapshot. Style source is regenerated upstream of this tree.|' \
 		"$css_js"
 fi
 
 log_js="$OUT/htdocs/luci-static/resources/fwlive/log.js"
 if [ -f "$log_js" ]; then
 	sed -i \
-		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC — keep in sync with the fwlive monorepo|' \
-		-e 's|(gen-luci-wrapper\.js gates full-spec drift; \./scripts/gen-all\.sh verifies)\.| (regenerate upstream of this tree).|' \
+		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC — regenerate upstream of this tree|' \
+		-e '/gen-luci-wrapper\.js gates full-spec drift/d' \
 		"$log_js"
 fi
 
@@ -135,6 +135,51 @@ if [ -f "$constants_js" ]; then
 		's|Keep in sync with openwrt-feed/luci-app-fwlive/Makefile PKG_VERSION\.|Keep in sync with Makefile PKG_VERSION.|' \
 		"$constants_js"
 fi
+
+# Drop fwlive tracker ids from comments. GitHub would auto-link them to
+# openwrt/luci issues. Do not touch CSS hex or shell case arms (*[!0-9]*).
+python3 - "$OUT" <<'PY'
+import re, sys
+from pathlib import Path
+
+def is_comment(line, suffix):
+    s = line.lstrip()
+    if s.startswith('#!') or s.startswith('# shellcheck'):
+        return False
+    if suffix == '.js':
+        return (s.startswith('//') or s.startswith('/*') or s.startswith('* ')
+                or s.startswith('*/') or s == '*')
+    return s.startswith('#')
+
+def clean(s):
+    s = re.sub(r'\s*\(Grok #\d+[^)]*\)', '', s)
+    s = re.sub(r'\s*\(#\d+[^)]*\)', '', s)
+    s = re.sub(r'\s*\(issue #\d+\)', '', s, flags=re.I)
+    s = re.sub(r'\b[Ii]ssue #\d+:\s*', '', s)
+    s = re.sub(r'\bissue #\d+\s*/\s*', '', s)
+    s = re.sub(r'\bissue #\d+\b', '', s, flags=re.I)
+    s = re.sub(r',\s*#\d+(?:\s+C\d+)?\)', ')', s)
+    s = re.sub(r'^(\s*/\*\s*)#\d+\s+', r'\1', s)
+    s = re.sub(r'(#\s+)\.\s+', r'\1', s)
+    s = re.sub(r'(#)\.(?=\s)', r'\1 ', s)
+    return s
+
+root = Path(sys.argv[1])
+for path in root.rglob('*'):
+    if not path.is_file() or path.suffix in {'.pot', '.json'}:
+        continue
+    raw = path.read_text(encoding='utf-8')
+    out = []
+    for line in raw.splitlines(keepends=True):
+        nl = '\n' if line.endswith('\n') else ''
+        body = line[:-1] if nl else line
+        if is_comment(body, path.suffix):
+            body = clean(body)
+        out.append(body + nl)
+    new = ''.join(out)
+    if new != raw:
+        path.write_text(new, encoding='utf-8')
+PY
 
 echo "== 4/5 verify =="
 fail=0
