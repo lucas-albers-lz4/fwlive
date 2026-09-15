@@ -26,7 +26,6 @@ cd "$ROOT"
 PKG=openwrt-feed/luci-app-fwlive
 OUT="${1:-out/upstream/luci-app-fwlive}"
 SPLIT_BRANCH="upstream/luci-app-fwlive"
-GITHUB_BLOB="https://github.com/lucas-albers-lz4/fwlive/blob/master"
 # Locale dirs kept in the feed for the binary release; first luci PR ships .pot only.
 DROP_PO_LANGS=(de ru zh_Hans)
 # Source for embed-fwlive-css.js; view loads css.js (styleText), not this asset.
@@ -80,12 +79,10 @@ if [ "$DROP_CSS" -eq 1 ]; then
 	rm -f "$OUT/htdocs/luci-static/resources/fwlive/fwlive.css"
 fi
 
-# Package README: GitHub docs links; no core/ citation; list proto.js.
-# shellcheck disable=SC2016  # '"$GITHUB_BLOB"' splice is deliberate
+# Package README: luci copy is layout + deps only. Drop Maintenance and
+# Documentation (those name an out-of-tree winner or link this GitHub).
+# Keep the core/ citation rewrite and proto.js row. Feed README is unchanged.
 sed -i \
-	-e 's|\[`\.\./\.\./docs/user/installation\.md`\](\.\./\.\./docs/user/installation\.md)|[installation guide]('"$GITHUB_BLOB"'/docs/user/installation.md)|' \
-	-e 's|\[`\.\./\.\./docs/developer/README\.md`\](\.\./\.\./docs/developer/README.md)|[developer documentation]('"$GITHUB_BLOB"'/docs/developer/README.md)|' \
-	-e 's|\[Maintenance model\](\.\./\.\./docs/developer/upstream-openwrt\.md#maintenance-model)|[Maintenance model]('"$GITHUB_BLOB"'/docs/developer/upstream-openwrt.md#maintenance-model)|' \
 	-e 's|Parser/filter module (mirror of repo `core/fwlive-log.js`)|Parser/filter module (`CLASSIFY_SPEC` + LuCI helpers)|' \
 	"$OUT/README.md"
 
@@ -96,11 +93,15 @@ if ! grep -q 'proto\.js' "$OUT/README.md"; then
 		"$OUT/README.md"
 fi
 
+# Maintenance + Documentation are last; they name this GitHub as development
+# home. The luci tree should not advertise an out-of-tree winner.
+sed -i '/^## Maintenance$/,$d' "$OUT/README.md"
+
 # GENERATED / sync comments must not point at monorepo paths absent from luci.
 shell_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.sh"
 if [ -f "$shell_gen" ]; then
 	sed -i \
-		-e 's|^# GENERATED FILE — do not edit. Run: \./scripts/gen-all\.sh$|# Snapshot from the fwlive monorepo (lucas-albers-lz4/fwlive). Do not edit by hand.|' \
+		-e 's|^# GENERATED FILE — do not edit. Run: \./scripts/gen-all\.sh$|# Generated classifier snapshot. Do not edit by hand.|' \
 		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js — regenerate upstream of this tree.|' \
 		"$shell_gen"
 fi
@@ -108,7 +109,7 @@ fi
 awk_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.awk"
 if [ -f "$awk_gen" ]; then
 	sed -i \
-		-e 's|^# GENERATED FILE — do not edit\. Run: \.\/scripts\/gen-all\.sh$|# Snapshot from the fwlive monorepo (lucas-albers-lz4/fwlive). Do not edit by hand.|' \
+		-e 's|^# GENERATED FILE — do not edit\. Run: \.\/scripts\/gen-all\.sh$|# Generated classifier snapshot. Do not edit by hand.|' \
 		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js — regenerate upstream of this tree.|' \
 		"$awk_gen"
 fi
@@ -116,15 +117,15 @@ fi
 css_js="$OUT/htdocs/luci-static/resources/fwlive/css.js"
 if [ -f "$css_js" ]; then
 	sed -i \
-		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Snapshot from the fwlive monorepo. Style source is regenerated upstream of this tree.|' \
+		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Generated stylesheet snapshot. Style source is regenerated upstream of this tree.|' \
 		"$css_js"
 fi
 
 log_js="$OUT/htdocs/luci-static/resources/fwlive/log.js"
 if [ -f "$log_js" ]; then
 	sed -i \
-		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC — keep in sync with the fwlive monorepo|' \
-		-e 's|(gen-luci-wrapper\.js gates full-spec drift; \./scripts/gen-all\.sh verifies)\.| (regenerate upstream of this tree).|' \
+		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC — regenerate upstream of this tree|' \
+		-e '/gen-luci-wrapper\.js gates full-spec drift/d' \
 		"$log_js"
 fi
 
@@ -134,6 +135,51 @@ if [ -f "$constants_js" ]; then
 		's|Keep in sync with openwrt-feed/luci-app-fwlive/Makefile PKG_VERSION\.|Keep in sync with Makefile PKG_VERSION.|' \
 		"$constants_js"
 fi
+
+# Drop fwlive tracker ids from comments. GitHub would auto-link them to
+# openwrt/luci issues. Do not touch CSS hex or shell case arms (*[!0-9]*).
+python3 - "$OUT" <<'PY'
+import re, sys
+from pathlib import Path
+
+def is_comment(line, suffix):
+    s = line.lstrip()
+    if s.startswith('#!') or s.startswith('# shellcheck'):
+        return False
+    if suffix == '.js':
+        return (s.startswith('//') or s.startswith('/*') or s.startswith('* ')
+                or s.startswith('*/') or s == '*')
+    return s.startswith('#')
+
+def clean(s):
+    s = re.sub(r'\s*\(Grok #\d+[^)]*\)', '', s)
+    s = re.sub(r'\s*\(#\d+[^)]*\)', '', s)
+    s = re.sub(r'\s*\(issue #\d+\)', '', s, flags=re.I)
+    s = re.sub(r'\b[Ii]ssue #\d+:\s*', '', s)
+    s = re.sub(r'\bissue #\d+\s*/\s*', '', s)
+    s = re.sub(r'\bissue #\d+\b', '', s, flags=re.I)
+    s = re.sub(r',\s*#\d+(?:\s+C\d+)?\)', ')', s)
+    s = re.sub(r'^(\s*/\*\s*)#\d+\s+', r'\1', s)
+    s = re.sub(r'(#\s+)\.\s+', r'\1', s)
+    s = re.sub(r'(#)\.(?=\s)', r'\1 ', s)
+    return s
+
+root = Path(sys.argv[1])
+for path in root.rglob('*'):
+    if not path.is_file() or path.suffix in {'.pot', '.json'}:
+        continue
+    raw = path.read_text(encoding='utf-8')
+    out = []
+    for line in raw.splitlines(keepends=True):
+        nl = '\n' if line.endswith('\n') else ''
+        body = line[:-1] if nl else line
+        if is_comment(body, path.suffix):
+            body = clean(body)
+        out.append(body + nl)
+    new = ''.join(out)
+    if new != raw:
+        path.write_text(new, encoding='utf-8')
+PY
 
 echo "== 4/5 verify =="
 fail=0
@@ -169,6 +215,16 @@ fi
 
 if grep -rn '\.\./\.\./docs' "$OUT/README.md" >/dev/null 2>&1; then
 	echo "  FAIL: monorepo-relative docs links remain in README.md" >&2
+	fail=1
+fi
+
+if grep -q 'lucas-albers-lz4/fwlive' "$OUT/README.md"; then
+	echo "  FAIL: luci README still cites the out-of-tree GitHub repo" >&2
+	fail=1
+fi
+
+if grep -qE '^## (Maintenance|Documentation)$' "$OUT/README.md"; then
+	echo "  FAIL: luci README still has Maintenance or Documentation sections" >&2
 	fail=1
 fi
 
@@ -245,7 +301,7 @@ if [ "$fail" -ne 0 ]; then
 fi
 
 echo "  OK: $out_count files (source $src_count minus $drop_count); Makefile include rewritten;"
-echo "  OK: no monorepo-relative docs links; po template present; locale dirs dropped"
+echo "  OK: luci README has no out-of-tree GitHub links; po template present; locale dirs dropped"
 
 echo "== 5/5 next steps =="
 echo "  Copy $OUT into a luci fork at luci/applications/luci-app-fwlive/"

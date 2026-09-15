@@ -72,11 +72,45 @@ else
 	ok "cut awk-asset assertion deferred until new generated file is tracked"
 fi
 
-grep -q 'github.com/lucas-albers-lz4/fwlive/blob/master' "$CUT_WORK/cut/README.md" \
-	|| die "README links not rewritten to the blob URL"
+! grep -q 'lucas-albers-lz4/fwlive' "$CUT_WORK/cut/README.md" \
+	|| die "cut README still cites the out-of-tree GitHub repo"
+! grep -qE '^## (Maintenance|Documentation)$' "$CUT_WORK/cut/README.md" \
+	|| die "cut README still has Maintenance or Documentation sections"
 ! grep -q '\.\./\.\./docs' "$CUT_WORK/cut/README.md" \
 	|| die "monorepo-relative docs links remain in cut README"
-ok "cut README points at blob URLs, no monorepo-relative links"
+grep -q '^## Dependencies$' "$CUT_WORK/cut/README.md" \
+	|| die "cut README lost the Dependencies section"
+ok "cut README is layout/deps only, no out-of-tree GitHub links"
+
+# Tracker ids in comments auto-link to the luci issue tracker (openwrt/luci#8992).
+python3 - "$CUT_WORK/cut" <<'PY' || die "cut comments still contain tracker ids or GitHub org"
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+pat = re.compile(r'(?i)(?:issue\s+|Grok\s+)?#\d{2,}')
+hits = []
+for path in root.rglob('*'):
+    if not path.is_file() or path.suffix == '.pot':
+        continue
+    text = path.read_text(encoding='utf-8')
+    for i, line in enumerate(text.splitlines(), 1):
+        stripped = line.lstrip()
+        if not (stripped.startswith('#') or stripped.startswith('//')
+                or stripped.startswith('/*') or stripped.startswith('* ')):
+            continue
+        if 'lucas-albers' in line:
+            hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
+            continue
+        for m in pat.finditer(line):
+            raw = line[m.start():]
+            if re.match(r'#[0-9a-fA-F]*[a-fA-F]', raw) or re.match(r'#[0-9a-fA-F]{6}\b', raw):
+                continue
+            hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
+if hits:
+    print('\n'.join(hits[:20]))
+    sys.exit(1)
+PY
+ok "cut comments have no tracker ids or GitHub org"
 
 [ -f "$CUT_WORK/cut/po/templates/luci-app-fwlive.pot" ] \
 	|| die "po/templates/luci-app-fwlive.pot missing from cut"
