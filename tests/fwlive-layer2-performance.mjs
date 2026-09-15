@@ -28,7 +28,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIXTURE_PATH = process.env.FWLIVE_PERF_FIXTURE ||
 	path.join(ROOT, 'tests/fixtures/logread-2000.json');
 const CPU_THROTTLE = Math.max(1, Number(process.env.FWLIVE_CPU_THROTTLE || 4));
-const SOAK_MS = Math.max(1000, Number(process.env.FWLIVE_SOAK_MS || 30 * 60 * 1000));
+const SOAK_MS_RAW = process.env.FWLIVE_SOAK_MS;
+if (SOAK_MS_RAW !== undefined && !Number.isFinite(Number(SOAK_MS_RAW)))
+	throw new Error(`FWLIVE_SOAK_MS must be numeric: ${SOAK_MS_RAW}`);
+const SOAK_MS = SOAK_MS_RAW === undefined || SOAK_MS_RAW === ''
+	? 30 * 60 * 1000
+	: Math.max(1000, Number(SOAK_MS_RAW));
 const ENFORCE = process.env.FWLIVE_ENFORCE === '1';
 const REAL_POLL = process.env.FWLIVE_PERF_REAL_POLL === '1';
 const POLL_DELAY_MS = Math.max(0, Number(process.env.FWLIVE_PERF_POLL_DELAY_MS || 0));

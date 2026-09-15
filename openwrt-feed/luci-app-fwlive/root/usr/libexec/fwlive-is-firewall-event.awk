@@ -106,6 +106,21 @@ function is_fw(s, action) {
 	if (has_hint(s) && (has_kv(s, "IN") || has_kv(s, "OUT") || has_kv(s, "SRC") || has_kv(s, "DST") || has_kv(s, "PROTO"))) return 1
 	return 0
 }
+function utf8_prefix(s, max_bytes, out, i, c, width) {
+	out = ""
+	i = 1
+	while (i <= length(s)) {
+		c = substr(s, i, 1)
+		width = 1
+		if (c ~ ("^[\302-\337]$")) width = 2
+		else if (c ~ ("^[\340-\357]$")) width = 3
+		else if (c ~ ("^[\360-\367]$")) width = 4
+		if (i + width - 1 > max_bytes) break
+		out = out substr(s, i, width)
+		i += width
+	}
+	return out
+}
 function summary_kv(s, key, part) {
 	s = normalize(s)
 	if (!match(s, "(^|[[:space:]])" key "=[^[:space:]]+")) return ""
@@ -121,7 +136,7 @@ function summary_rule(s, first) {
 	sub(/[[:space:]:].*/, "", first)
 	if (first == "" || first ~ /^(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=/) return ""
 	if (tolower(first) == "kernel" || tolower(first) == "iptables") return ""
-	return substr(first, 1, 64)
+	return utf8_prefix(first, 64)
 }
 function summary_add_count(counts, key) {
 	if (key != "") counts[key]++
@@ -163,7 +178,7 @@ function summary_add(s, action, src, dst, rule) {
 	if (action == "drop" || action == "reject" || action == "deny" || action == "block") summary_add_count(summary_drop_counts, action)
 	src = summary_kv(s, "SRC")
 	if (src == "") src = summary_kv(s, "DST")
-	if (src != "") summary_add_count(summary_talker_counts, substr(src, 1, 64))
+	if (src != "") summary_add_count(summary_talker_counts, utf8_prefix(src, 64))
 	rule = summary_rule(s)
 	if (rule != "") summary_add_count(summary_rule_counts, rule)
 }
@@ -171,8 +186,7 @@ function summary_json(out) {
 	out = "{\"scope\":\"top of shown sample\",\"top_talkers\":" summary_top(summary_talker_counts, 3)
 	out = out ",\"top_drops\":" summary_top(summary_drop_counts, 3)
 	out = out ",\"top_rules\":" summary_top(summary_rule_counts, 3) "}"
-	# Keep a conservative UTF-8 character budget: 256 characters is at most
-	# 1024 bytes even when every character occupies four UTF-8 bytes.
+	# LC_ALL=C makes this a byte budget; utf8_prefix keeps field cuts valid.
 	if (length(out) > 256) return "{\"scope\":\"top of shown sample\",\"truncated\":true}"
 	return out
 }
@@ -186,7 +200,7 @@ BEGIN {
 	if (MODE == "json" || MODE == "json_reply") {
 		msg = json_get_msg($0)
 		if (is_fw(msg)) {
-			if (SUMMARY != "0") summary_add(msg)
+			if (MODE == "json_reply" && SUMMARY != "0") summary_add(msg)
 			if (out_n++) printf ","
 			printf "%s", $0
 		}

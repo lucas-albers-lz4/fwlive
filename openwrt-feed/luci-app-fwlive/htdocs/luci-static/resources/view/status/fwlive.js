@@ -1057,6 +1057,7 @@ return view.extend({
 	updateSummaryUi() {
 		const card = document.getElementById('fwlive-summary');
 		const scroll = document.getElementById('fwlive-scroll');
+		const empty = document.getElementById('fwlive-empty');
 		const toggle = document.getElementById('fwlive-summary-rows');
 		if (card) {
 			if (!card.style) card.style = { display: '' };
@@ -1065,6 +1066,10 @@ return view.extend({
 		if (scroll) {
 			if (!scroll.style) scroll.style = { display: '' };
 			scroll.style.display = this.summaryMode && !this.summaryRowsShown ? 'none' : '';
+		}
+		if (empty) {
+			if (!empty.style) empty.style = { display: '' };
+			empty.style.display = this.summaryMode && !this.summaryRowsShown ? 'none' : '';
 		}
 		if (toggle) {
 			toggle.textContent = this.summaryRowsShown ? _('Hide rows') : _('Show rows');

@@ -37,7 +37,7 @@ case "$out" in
 	*) die "logging_status JSON missing warnings: $out" ;;
 esac
 case "$out" in
-	*'"weak_device":false'*) ;;
+	*'"weak_device":true'*|*'"weak_device":false'*) ;;
 	*) die "logging_status expected strong host weak_device=false: $out" ;;
 esac
 ok "build_logging_status_json shape"

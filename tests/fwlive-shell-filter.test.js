@@ -265,6 +265,33 @@ function runUnicodeSummaryBound() {
 	}
 }
 
+function runUnicodeFieldTruncation() {
+	const unicode = '🔥'.repeat(20);
+	const payload = JSON.stringify({
+		log: [0, 1].map((i) => ({
+			msg: `${i}: DROP IN=wan SRC=203.0.113.1${unicode} DST=192.0.2.1 PROTO=TCP`
+		}))
+	});
+	const jf = jsonfilterPathEnv();
+	try {
+		const filtered = shSpawn(null, {
+			argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+		const summary = JSON.parse(filtered.stdout).summary;
+		assert.equal(summary.truncated, undefined,
+			'field truncation fixture must stay below the whole-summary fallback bound');
+		const value = summary.top_talkers[0].value;
+		assert.ok(Buffer.byteLength(value, 'utf8') <= 64,
+			'bounded talker value must stay within the raw byte limit');
+		assert.equal(Buffer.from(value, 'utf8').toString('utf8'), value,
+			'bounded talker value must end on a UTF-8 character boundary');
+		assert.ok(value.endsWith('🔥'), 'bounded talker value should retain complete emoji');
+	} finally {
+		jf.cleanup();
+	}
+}
+
 function runMissingJsonfilter() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-no-jf-'));
 	try {
@@ -337,6 +364,7 @@ function run() {
 	runSummaryContract();
 	runMetacharSafety();
 	runUnicodeSummaryBound();
+	runUnicodeFieldTruncation();
 	runMissingJsonfilter();
 	runMissingClassifier();
 	runOversizedStdin();

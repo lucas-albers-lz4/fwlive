@@ -12,7 +12,11 @@
 CLASSIFY_AWK="${FILTER_DIR:-${0%/*}}/fwlive-is-firewall-event.awk"
 
 _fwlive_run_classify() {
-	awk -v MODE="${1:-msg}" -v SUMMARY="${FWLIVE_SUMMARY:-1}" -f "$CLASSIFY_AWK"
+	if [ "${1:-msg}" = json_reply ]; then
+		LC_ALL=C awk -v MODE="${1:-msg}" -v SUMMARY="${FWLIVE_SUMMARY:-1}" -f "$CLASSIFY_AWK"
+	else
+		awk -v MODE="${1:-msg}" -v SUMMARY="${FWLIVE_SUMMARY:-1}" -f "$CLASSIFY_AWK"
+	fi
 }
 
 is_firewall_event_msg() {
