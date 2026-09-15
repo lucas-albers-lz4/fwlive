@@ -447,11 +447,15 @@ To exercise the Layer 2 first-slow-RTT summary transition without waiting on a
 slow guest, add `FWLIVE_PERF_POLL_DELAY_MS=1600`. This is a harness-only delay;
 it does not model the server's adaptive-cap processing duration.
 
-For the #339 display-limit comparison, repeat the fixture run with the existing
-Limit options `250`, `500`, `1000`, and `2000`, for example:
+For the #339 display-limit comparison, the harness accepts the full shipped
+Limit range: `25`, `50`, `100`, `250`, `500`, `1000`, and `2000`. Fixture mode
+defaults to the maximum `2000`-row selection; the shipped default remains the
+100-row option. An explicit `FWLIVE_PERF_ROW_LIMIT` also applies to real-poll
+mode. If it is unset in real-poll mode, the harness observes the guest's
+current UI preference (or its default), for example:
 
 ```sh
-FWLIVE_PERF_ROW_LIMIT=500 FWLIVE_SOAK_MS=10000 \
+FWLIVE_PERF_ROW_LIMIT=500 FWLIVE_CPU_THROTTLE=4 FWLIVE_SOAK_MS=10000 \
 ./scripts/qemu-layer2-performance.sh
 ```
 
@@ -461,9 +465,10 @@ throttle and soak duration. This is measurement plumbing only; it does not
 change the shipped Limit options or claim that any candidate is a practical
 weak-device cap before the comparison is run.
 
-The 2026-09-15 comparison on Chromium 148 / x86_64 KVM at 4x throttle found
-that 250 visible rows stayed below the 250 ms render/task target, while 500
-rows crossed it. A 30-second 250-row confirmation measured 50.9 ms p95 paint,
+The 2026-09-15 comparison used the shipped 100-row baseline plus 250, 500,
+1000, and 2000 selected rows. On Chromium 148 / x86_64 KVM at 4x throttle it
+found that 250 visible rows stayed below the 250 ms render/task target, while
+500 rows crossed it. A 30-second 250-row confirmation measured 50.9 ms p95 paint,
 175.7 ms maximum paint, a 217 ms largest task, and zero long tasks at or above
 250 ms. With `FWLIVE_PERF_WEAK_DEVICE=1`, a 2,000-row selected Limit was
 clamped to 250 rendered rows and measured 50.0 ms p95 / 182.4 ms maximum paint,

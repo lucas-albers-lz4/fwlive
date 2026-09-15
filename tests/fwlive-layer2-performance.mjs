@@ -43,11 +43,25 @@ const PERF_ROW_LIMIT_RAW = process.env.FWLIVE_PERF_ROW_LIMIT;
 const PERF_ROW_LIMIT = PERF_ROW_LIMIT_RAW === undefined || PERF_ROW_LIMIT_RAW === ''
 	? 2000
 	: Number(PERF_ROW_LIMIT_RAW);
+if (
+	PERF_ROW_LIMIT_RAW !== undefined &&
+	PERF_ROW_LIMIT_RAW !== '' &&
+	!/^[0-9]+$/.test(PERF_ROW_LIMIT_RAW)
+)
+	throw new Error(`FWLIVE_PERF_ROW_LIMIT must be a decimal integer: ${PERF_ROW_LIMIT_RAW}`);
 const PERF_ROW_LIMIT_OPTIONS = [25, 50, 100, 250, 500, 1000, 2000];
+/* Keep in sync with constants.ROW_LIMIT_OPTIONS; LuCI modules are not loaded here. */
 if (!Number.isInteger(PERF_ROW_LIMIT) || !PERF_ROW_LIMIT_OPTIONS.includes(PERF_ROW_LIMIT))
 	throw new Error(
 		`FWLIVE_PERF_ROW_LIMIT must be one of ${PERF_ROW_LIMIT_OPTIONS.join(', ')}: ${PERF_ROW_LIMIT_RAW}`
 	);
+
+function observedDisplayRowLimit(value) {
+	const parsed = Number(value);
+	return Number.isInteger(parsed) && PERF_ROW_LIMIT_OPTIONS.includes(parsed)
+		? parsed
+		: null;
+}
 
 const fixture = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'));
 if (!fixture || !Array.isArray(fixture.log) || fixture.log.length !== 2000)
@@ -313,17 +327,36 @@ async function main() {
 			timeout: 60000
 		});
 		await page.waitForSelector('.fwlive-map', { timeout: 30000 });
-		let displayRowLimit = Number(await page.locator('#fwlive-limit').inputValue());
+		let displayRowLimit = observedDisplayRowLimit(
+			await page.locator('#fwlive-limit').inputValue()
+		);
+		if (REAL_POLL && PERF_ROW_LIMIT_RAW !== undefined && PERF_ROW_LIMIT_RAW !== '') {
+			await page.locator('#fwlive-limit').selectOption(String(PERF_ROW_LIMIT));
+			displayRowLimit = observedDisplayRowLimit(
+				await page.locator('#fwlive-limit').inputValue()
+			);
+			if (displayRowLimit === null)
+				throw new Error('Limit select did not expose a valid shipped option');
+		}
 		if (REAL_POLL) {
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		} else {
 			await page.locator('#fwlive-limit').selectOption(String(PERF_ROW_LIMIT));
-			displayRowLimit = PERF_ROW_LIMIT;
+			displayRowLimit = observedDisplayRowLimit(
+				await page.locator('#fwlive-limit').inputValue()
+			);
+			if (displayRowLimit === null)
+				throw new Error('Limit select did not expose a valid shipped option');
+			const expectedVisibleRows = WEAK_DEVICE
+				? Math.min(PERF_ROW_LIMIT, 250)
+				: PERF_ROW_LIMIT >= 1000
+					? 1000
+					: PERF_ROW_LIMIT;
 			await page.waitForFunction(
-				(limit) =>
+				({ limit, expected }) =>
 					document.querySelector('#fwlive-limit')?.value === String(limit) &&
-					document.querySelectorAll('#fwlive-table tbody tr').length >= Math.min(limit, 100),
-				PERF_ROW_LIMIT,
+					document.querySelectorAll('#fwlive-table tbody tr').length >= expected,
+				{ limit: PERF_ROW_LIMIT, expected: expectedVisibleRows },
 				{ timeout: 60000 }
 			);
 		}
