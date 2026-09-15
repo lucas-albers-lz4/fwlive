@@ -112,6 +112,15 @@ if hits:
 PY
 ok "cut comments have no tracker ids or GitHub org"
 
+if grep -rqE 'Do not edit by hand|regenerate(d)? upstream of this tree|Snapshot from the fwlive monorepo' \
+	"$CUT_WORK/cut"; then
+	die "cut headers still name the fwlive repo or tell maintainers not to edit"
+fi
+grep -q '^# Generated classifier snapshot\.$' \
+	"$CUT_WORK/cut/root/usr/libexec/fwlive-is-firewall-event.sh" \
+	|| die "cut classifier header is not a generated-snapshot label"
+ok "cut generated headers are labels only"
+
 [ -f "$CUT_WORK/cut/po/templates/luci-app-fwlive.pot" ] \
 	|| die "po/templates/luci-app-fwlive.pot missing from cut"
 for lang in de ru zh_Hans; do

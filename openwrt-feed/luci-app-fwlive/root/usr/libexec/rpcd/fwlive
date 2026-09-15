@@ -255,8 +255,8 @@ _fwlive_tmp_dir_ok() {
 	# Fail closed unless the dump dir is a real directory with the sticky
 	# bit. Without sticky, another uid can unlink a just-created mktemp
 	# file and replace it with a symlink before we reopen with `>` as
-	# root (same class as the WAN logging lock). Optional $1 is for CLI tests; production
-	# always uses /tmp.
+	# root (same class as the WAN logging lock). Optional $1 is for
+	# CLI tests; production always uses /tmp.
 	dir="${1:-/tmp}"
 	[ -n "$dir" ] || return 1
 	[ -L "$dir" ] && return 1
