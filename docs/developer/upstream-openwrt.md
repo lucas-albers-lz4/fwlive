@@ -227,6 +227,7 @@ Living tracker for the open wave: [fwlive #209](https://github.com/lucas-albers-
 | 4 | Round 4 | [#255](https://github.com/lucas-albers-lz4/fwlive/pull/255) | `timeout_missing` → non-gating `warnings` + backend span; staged-line selftests |
 | 5 | Round 5 | [#258](https://github.com/lucas-albers-lz4/fwlive/pull/258) | Document `warnings` expect key; warn-tint degraded backend span; drop inaccurate `classList.toggle` note |
 | 6 | BKPepe (squash / README / `#43`) | [#337](https://github.com/lucas-albers-lz4/fwlive/pull/337) | Luci-safe README (no GitHub winner); drop `#43` from shipped comments; squash luci PR |
+| 7 | openwrt-ai post-squash (headers / wrap / “First commit”) | [#342](https://github.com/lucas-albers-lz4/fwlive/pull/342) | Cut headers labels-only (B); sticky-dir wrap; FormalityCheck “This commit ships po/templates only” |
 
 Process docs for the agent gate live in [#212](https://github.com/lucas-albers-lz4/fwlive/pull/212)
 ([pr-cycle.md](pr-cycle.md) + this file). Umbrella issues [#216](https://github.com/lucas-albers-lz4/fwlive/issues/216) /
