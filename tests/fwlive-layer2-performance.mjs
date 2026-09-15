@@ -38,6 +38,7 @@ const SOAK_MS = SOAK_MS_RAW === undefined || SOAK_MS_RAW === ''
 const ENFORCE = process.env.FWLIVE_ENFORCE === '1';
 const REAL_POLL = process.env.FWLIVE_PERF_REAL_POLL === '1';
 const POLL_DELAY_MS = Math.max(0, Number(process.env.FWLIVE_PERF_POLL_DELAY_MS || 0));
+const WEAK_DEVICE = process.env.FWLIVE_PERF_WEAK_DEVICE === '1';
 const PERF_ROW_LIMIT_RAW = process.env.FWLIVE_PERF_ROW_LIMIT;
 const PERF_ROW_LIMIT = PERF_ROW_LIMIT_RAW === undefined || PERF_ROW_LIMIT_RAW === ''
 	? 2000
@@ -109,7 +110,7 @@ function syntheticResult(req, payload) {
 			ready: true,
 			blockers: [],
 			warnings: [],
-			weak_device: false
+			weak_device: WEAK_DEVICE
 		};
 	}
 	if (object === 'uci' && method === 'changes') return {};
@@ -390,6 +391,7 @@ async function main() {
 			raw_payload_rows: REAL_POLL ? null : fixtureBase.log.length,
 			display_row_limit: displayRowLimit,
 			visible_rows: visibleRows,
+			weak_device: WEAK_DEVICE,
 			cpu_throttle_rate: CPU_THROTTLE,
 			soak_ms: SOAK_MS,
 			polls: counts.polls,

@@ -461,6 +461,15 @@ throttle and soak duration. This is measurement plumbing only; it does not
 change the shipped Limit options or claim that any candidate is a practical
 weak-device cap before the comparison is run.
 
+The 2026-09-15 comparison on Chromium 148 / x86_64 KVM at 4x throttle found
+that 250 visible rows stayed below the 250 ms render/task target, while 500
+rows crossed it. A 30-second 250-row confirmation measured 50.9 ms p95 paint,
+175.7 ms maximum paint, a 217 ms largest task, and zero long tasks at or above
+250 ms. With `FWLIVE_PERF_WEAK_DEVICE=1`, a 2,000-row selected Limit was
+clamped to 250 rendered rows and measured 50.0 ms p95 / 182.4 ms maximum paint,
+223 ms largest task, and zero long tasks at or above 250 ms. The weak-device
+toggle is harness-only; production receives the boolean from `logging_status`.
+
 For a supplemental loaded-router check, leave the poll path real and run this
 mode while a guest load/traffic producer is active:
 

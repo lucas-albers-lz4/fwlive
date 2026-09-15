@@ -91,7 +91,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | **Simple / Detail** | Segmented pair on the watch strip. The active segment is highlighted. Preferences saved in `localStorage`. |
 | **Wrap / One line** | Segmented pair next to Simple / Detail. Visible in Detailed view only. |
 | **Display options** | Inline bar below the watch strip: **Limit**, **Row tint** (checkbox + palette), and **Show hostnames**. |
-| **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. |
+| **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. On a router reported as a weak device, the browser renders at most 250 rows and explains the cap in the status line; the larger limit remains available for buffering and stronger devices. |
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns. Hover shows the IP. Click still filters by IP. |
 | **Quick search** | Matches across all normalized fields. |
 

@@ -36,6 +36,34 @@ async function testRttKindHelpers() {
 	console.log('fwlive-view layer2: rtt helpers OK');
 }
 
+async function testWeakDeviceDisplayCap() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.logging_status': async function () {
+				return { weak_device: true, ready: true, blockers: [], warnings: [] };
+			}
+		}
+	});
+	const v = h.view;
+	v.updateBackendUi = function () {};
+	v.updateLoggingToolbarUi = function () {};
+	v.updateEmptyStateUi = function () {};
+	v.applyRowLimit(2000);
+	v.entries = Array.from({ length: 1000 }, function (_, i) {
+		return { id: i + 1, msg: 'fw4: ACCEPT IN=wan SRC=192.0.2.1' };
+	});
+	await v.loadLoggingStatus();
+	assert.strictEqual(v.weakDevice, true);
+	assert.strictEqual(v.displayRowCap(), 250);
+	assert.strictEqual(v.filteredRows().length, 250);
+	assert.match(v.statusSuffix(), /Display limited to 250 rows on this device/);
+
+	v.weakDevice = false;
+	assert.strictEqual(v.displayRowCap(), 2000);
+	assert.strictEqual(v.filteredRows().length, 1000);
+	console.log('fwlive-view layer2: weak-device display cap OK');
+}
+
 async function testVisibilityStopsPoll() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -677,6 +705,7 @@ async function testStaleAnimationFrameIsDropped() {
 (async function main() {
 	try {
 		await testRttKindHelpers();
+		await testWeakDeviceDisplayCap();
 		await testVisibilityStopsPoll();
 		await testEpochDiscardsStale();
 		await testHideShowWhileInFlightNoOverlap();
