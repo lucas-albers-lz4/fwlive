@@ -124,12 +124,14 @@ poll=8; the current gate records the post-#321/#308 values below.
 
 ### Post-#321/#308 host census
 
-Measured 2026-09-11 on the same host and `logread-mixed.json` fixture after
+Measured 2026-09-15 on the same host and `logread-mixed.json` fixture after
 extracting the classifier asset and streaming filter stdin. The filter is now
-**3** execs (`dirname`, `jsonfilter`, `awk`) and the full production-shaped poll
-is **6** on this host (`dirname`×2, stdin `cat`, `ubus`, `jsonfilter`, `awk`).
-The test gate records these as `CENSUS_FILTER_TOTAL=3` and
-`CENSUS_POLL_TOTAL=6`.
+**5** execs (`dirname`, `jsonfilter`, `mktemp`, `awk`, `rm`), with jsonfilter
+output staged in a mode-0600 temporary file before classification. This avoids
+partial JSON output when jsonfilter fails, including on shells without
+pipefail. The full production-shaped poll is **8** on this host (`dirname`×2,
+stdin `cat`, `ubus`, and the 5-exec filter chain). The census records these as
+`CENSUS_FILTER_TOTAL=5` and `CENSUS_POLL_TOTAL=8`.
 
 ### Device budget-split table (Phase 0b — armsr TCG)
 
@@ -342,7 +344,7 @@ this calibration.
 - [x] Commit numeric Z from nofork; fill result tables
 - [x] armsr confirmation run against soft budget
 - [x] Degraded-mode adaptive-cap baseline — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr C1 table filled (`ac_pass=1`, run `flood-armsr-20260912T174001`)
-- [ ] Degraded-mode visibility-pause baseline — Layer 2 client backoff landed (`feat/306-layer2-visibility-backoff`); host unit coverage in `tests/fwlive-view-layer2-backoff.test.js`; Playwright/CDP timing measurement still follow-on
+- [ ] Degraded-mode visibility-pause baseline — Layer 2 client backoff landed (`feat/306-layer2-visibility-backoff`); host unit coverage in `tests/fwlive-view-layer2-backoff.test.js`; Playwright/CDP gate is tracked in [#339](https://github.com/lucas-albers-lz4/fwlive/issues/339)
 
 ### Adaptive flood evidence (#306 Layer 1)
 
@@ -383,7 +385,79 @@ Run: `flood-armsr-20260912T174001` · git `a4d0b2f` · 2026-09-12 · BusyBox 1.3
 
 **Interpretation (Grok):** outcome row “on sheds ≤250; off stays large / slower” → next #306 slice is **Layer 2** (client surfacing + backoff), not threshold calibration and not fork-budget-first. Caveat: follow stays hot (~5 s > 800 ms) so cooldown / upward re-probe is not demonstrated on this substrate.
 
+#### Raised-ring real-logd validation
+
+A real-logd run on the same canonical armsr rig was completed on 2026-09-15
+with `system.@system[0].log_size=1024` KiB (not the fixture PATH shim). The
+guest was OpenWrt 24.10.8 `r29233-443ec4032a`, 1 vCPU / 256 MiB, and the
+workload injected 2,000 firewall-shaped messages through `/dev/log`.
+
+| poll | `messages_received` | classified rows | truncated | `shed.limit` | state duration / bucket |
+|------|---------------------|------------------|-----------|--------------|-------------------------|
+| initial full | 2,000 | 2,000 | 0 | — | 24,020 ms / hot |
+| follow 1 (expired cooldown probe) | 500 | 488 | 1 | 500 | 5,840 ms / hot |
+| follow 2 | 250 | 238 | 1 | 250 | 3,330 ms / hot |
+| follow 3 | 250 | 238 | 1 | 250 | 3,290 ms / hot |
+| recovery probe after logd restart | 8 | 8 | 1 | — | 380 ms / warm |
+| recovery upward probe after warm cooldown | 11 | 8 | 1 | — | 380 ms / warm, retained limit 1,000 |
+
+This demonstrates the real-logd raised-ring path, an upward probe after the
+hot cooldown, and return to the 250-line floor when the probe remains hot. A
+small-ring recovery run exited hot state at 380 ms without a shed field and
+then raised the retained warm limit from 500 to 1,000 after the warm cooldown.
+It did not return to a cold/full 2,000-line cap, and it is not forwarding-SLO
+evidence; those remain separate #306 acceptance items.
+
 The visibility-pause degraded baseline is still pending the Playwright/CDP timing measurement.
+
+The repeatable browser gate uses the real LuCI page with only `fwlive.poll`
+replaced by the checked-in 2,000-entry fixture:
+
+```sh
+FWLIVE_URL=http://127.0.0.1:8080 \
+FWLIVE_CPU_THROTTLE=4 \
+FWLIVE_SOAK_MS=1800000 \
+./scripts/qemu-layer2-performance.sh
+```
+
+It reports visibility pause/resume, render-commit-to-paint samples, largest
+`longtask`, and Chromium heap growth. A short `FWLIVE_SOAK_MS` is for harness
+development only; #306 sign-off requires the 30-minute run.
+
+On 2026-09-15, the development gate was rerun after the table renderer gained
+keyed row reuse and targeted insertion for unchanged poll rows. With the same
+4x CPU throttle, 2,000-entry fixture, 1,143 visible rows, and 6-second soak,
+it observed 15 polls, 15 table mutations, 188.4 ms render-commit-to-paint p95,
+774.7 ms maximum paint delay, and a 943 ms largest main-thread task. Heap
+growth was -1.16 MiB at the final forced-GC sample, with a +2.84 MiB sampled
+peak. The result is effectively flat against the earlier ~949 ms largest task:
+the renderer now avoids rebuilding unchanged cells, but this workload remains
+dominated by table layout/paint. This is development evidence, not #306 sign-
+off evidence.
+
+The documented 30-minute run completed on the same rig on 2026-09-15: 1,809
+polls and table mutations, 172.7 ms render-commit-to-paint p95, 863.6 ms
+maximum paint delay, and a 1,056 ms largest main-thread task. It recorded 1,807
+long tasks at or above 250 ms. Final forced-GC heap growth was -0.28 MiB, with
+a +10.83 MiB sampled peak, and the client stayed out of summary mode. This
+confirms no sustained heap growth in the fixture run, but it does not meet a
+responsiveness SLO; the workload remains layout/paint-bound.
+
+To exercise the Layer 2 first-slow-RTT summary transition without waiting on a
+slow guest, add `FWLIVE_PERF_POLL_DELAY_MS=1600`. This is a harness-only delay;
+it does not model the server's adaptive-cap processing duration.
+
+For a supplemental loaded-router check, leave the poll path real and run this
+mode while a guest load/traffic producer is active:
+
+```sh
+FWLIVE_PERF_REAL_POLL=1 \
+FWLIVE_SOAK_MS=120000 \
+./scripts/qemu-layer2-performance.sh
+```
+
+This mode reports actual ubus poll RTTs and validates client cadence/backoff;
+it is separate from the controlled 2,000-entry browser-rendering gate.
 
 ### Sample invocation (memory census)
 

@@ -8,10 +8,11 @@ const path = require('node:path');
 const os = require('node:os');
 
 const ROOT = path.join(__dirname, '..');
-const RPCD = path.join(ROOT,
-	'openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive');
-const ACL = path.join(ROOT,
-	'openwrt-feed/luci-app-fwlive/root/usr/share/rpcd/acl.d/luci-app-fwlive.json');
+const RPCD = path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive');
+const ACL = path.join(
+	ROOT,
+	'openwrt-feed/luci-app-fwlive/root/usr/share/rpcd/acl.d/luci-app-fwlive.json'
+);
 const LOGGING_TEST = path.join(ROOT, 'tests/fwlive-logging.test.sh');
 
 const acl = JSON.parse(fs.readFileSync(ACL, 'utf8'));
@@ -26,8 +27,7 @@ if (!Array.isArray(readUbus.fwlive) || !readUbus.fwlive.includes('poll')) {
 }
 
 const out = execFileSync('sh', [RPCD, '__selftest'], { encoding: 'utf8' });
-if (out.includes('skip:'))
-	console.log('fwlive rpcd security: ' + out.trim());
+if (out.includes('skip:')) console.log('fwlive rpcd security: ' + out.trim());
 
 execFileSync('bash', [LOGGING_TEST], { stdio: 'inherit' });
 
@@ -60,8 +60,11 @@ function runCall(args, opts) {
 }
 
 function assertStructuredError(res, method) {
-	assert.equal(typeof res.error, 'string',
-		`[${method}] reply must carry an error field, got: ${JSON.stringify(res)}`);
+	assert.equal(
+		typeof res.error,
+		'string',
+		`[${method}] reply must carry an error field, got: ${JSON.stringify(res)}`
+	);
 	assert.ok(res.error.length > 0, `[${method}] error must be non-empty`);
 }
 
@@ -69,8 +72,10 @@ function testUnknownMethod() {
 	let failed = false;
 	let raw = '';
 	try {
-		execFileSync('sh', [RPCD, 'call', 'no_such_method_303'],
-			{ encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+		execFileSync('sh', [RPCD, 'call', 'no_such_method_303'], {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'pipe']
+		});
 	} catch (e) {
 		failed = e.status !== 0;
 		raw = String(e.stdout || '');
@@ -106,7 +111,10 @@ function testRulesNftDumpFailure() {
 	// failure degrading into a silent empty rules map.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-nftf-'));
 	try {
-		makeStub(stubDir, 'nft', `#!/bin/sh
+		makeStub(
+			stubDir,
+			'nft',
+			`#!/bin/sh
 state="${stubDir}/nft.calls"
 n="$(/bin/cat "$state" 2>/dev/null || echo 0)"
 echo $((n + 1)) >"$state"
@@ -115,7 +123,8 @@ if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
 	exit 1
 fi
 exit 1
-`);
+`
+		);
 		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
 		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
 		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
@@ -155,11 +164,15 @@ function testRulesIp6tablesDumpFailure() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-ip6f-'));
 	try {
 		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
-		makeStub(stubDir, 'iptables-save', `#!/bin/sh
+		makeStub(
+			stubDir,
+			'iptables-save',
+			`#!/bin/sh
 cat <<'EOF'
 -A INPUT -j LOG --log-prefix "ipv4-only"
 EOF
-`);
+`
+		);
 		makeStub(stubDir, 'ip6tables-save', '#!/bin/sh\nexit 1\n');
 		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
 		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
@@ -191,15 +204,67 @@ function testPollUbusFailure() {
 			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'state.json'),
 			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
 		};
-		const raw = runCall(['call', 'poll', '{"addresses":["50"]}'],
-			{ encoding: 'utf8', env });
+		const raw = runCall(['call', 'poll', '{"addresses":["50"]}'], { encoding: 'utf8', env });
 		const res = JSON.parse(raw);
 		assert.ok(Array.isArray(res.log), 'poll failure must keep the log shape');
 		assertStructuredError(res, 'poll/log_read_failed');
 		assert.equal(res.error, 'log_read_failed');
 		assert.equal(res.adaptive, 1, 'Layer 1 adaptive reply field');
-		assert.equal(res.messages_received, 0,
-			'Layer 1 ships messages_received:0 (no post-filter ash scan)');
+		assert.equal(
+			res.messages_received,
+			0,
+			'failed log.read must keep the messages_received fallback at 0'
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testPollMessagesReceived() {
+	// The filter must count every logd entry enumerated by jsonfilter, not only
+	// the firewall rows that survive classification.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-count-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-count-state-'));
+	const fixture = path.join(ROOT, 'tests/fixtures/logread-mixed.json');
+	try {
+		makeStub(
+			stubDir,
+			'ubus',
+			`#!/bin/sh
+exec /bin/cat '${fixture}'
+`
+		);
+		makeStub(
+			stubDir,
+			'jsonfilter',
+			`#!/usr/bin/env node
+'use strict';
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+const expr = args.indexOf('-e');
+if (expr < 0 || args[expr + 1] !== '@.log[*]') process.exit(1);
+let data;
+try { data = JSON.parse(fs.readFileSync(0, 'utf8')); } catch (e) { process.exit(1); }
+for (const entry of (data && Array.isArray(data.log) ? data.log : []))
+	process.stdout.write(JSON.stringify(entry) + '\\n');
+`
+		);
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'state.json'),
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+		const raw = runCall(['call', 'poll', '{"addresses":["50"]}'], { encoding: 'utf8', env });
+		const res = JSON.parse(raw);
+		assert.equal(
+			res.messages_received,
+			7,
+			'poll must report all seven logd entries, including non-firewall rows'
+		);
+		assert.equal(res.log.length, 4, 'fixture should still classify four firewall rows');
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 		fs.rmSync(work, { recursive: true, force: true });
@@ -213,8 +278,10 @@ function testAdaptiveHotSurvivesFailedPoll() {
 	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-state-'));
 	const stateFile = path.join(work, 'state.json');
 	try {
-		fs.writeFileSync(stateFile,
-			'{"duration_ms":900,"limit":250,"bucket":"hot","warm_halved":0,"shed":1,"completed_cs":1}\n');
+		fs.writeFileSync(
+			stateFile,
+			'{"duration_ms":900,"limit":250,"bucket":"hot","warm_halved":0,"shed":1,"completed_cs":1}\n'
+		);
 		makeStub(stubDir, 'ubus', '#!/bin/sh\nexit 1\n');
 		makeStub(stubDir, 'nslookup', '#!/bin/sh\nexit 0\n');
 		makePassthrough(stubDir, 'dirname', '/usr/bin/dirname');
@@ -227,19 +294,95 @@ function testAdaptiveHotSurvivesFailedPoll() {
 			FWLIVE_ADAPTIVE_STATE_FILE: stateFile,
 			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
 		};
-		const pollRaw = runCall(['call', 'poll', '{"addresses":["50"]}'],
-			{ encoding: 'utf8', env });
+		const pollRaw = runCall(['call', 'poll', '{"addresses":["50"]}'], {
+			encoding: 'utf8',
+			env
+		});
 		const poll = JSON.parse(pollRaw);
 		assert.equal(poll.error, 'log_read_failed');
 		const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
 		assert.equal(state.bucket, 'hot', 'failed poll must not clear hot bucket');
 		assert.equal(state.shed, 1, 'failed poll must not clear shed');
-		const resolveRaw = runCall(['call', 'resolve', '{"addresses":["192.0.2.1"]}'],
-			{ encoding: 'utf8', env });
+		const resolveRaw = runCall(['call', 'resolve', '{"addresses":["192.0.2.1"]}'], {
+			encoding: 'utf8',
+			env
+		});
 		const resolve = JSON.parse(resolveRaw);
 		assert.deepEqual(resolve.names, {});
-		assert.equal(resolve.disabled, 'load',
-			'resolve must shed when prior poll was hot');
+		assert.equal(resolve.disabled, 'load', 'resolve must shed when prior poll was hot');
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testAdaptiveHotSurvivesFilterFailures() {
+	// A filter can fail after log.read succeeded, including a structured
+	// classifier_missing body with exit status zero. None of those outcomes is
+	// a healthy sample that may clear the adaptive controller's hot state.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-filter-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-filter-work-'));
+	const libexec = path.join(work, 'usr', 'libexec');
+	const rpcdDir = path.join(libexec, 'rpcd');
+	const fixtureRpcd = path.join(rpcdDir, 'fwlive');
+	const fixtureFilter = path.join(libexec, 'fwlive-log-filter.sh');
+	const stateFile = path.join(work, 'state.json');
+	try {
+		fs.mkdirSync(rpcdDir, { recursive: true });
+		fs.copyFileSync(RPCD, fixtureRpcd);
+		fs.copyFileSync(
+			path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh'),
+			path.join(libexec, 'fwlive-logging.sh')
+		);
+		fs.copyFileSync(
+			path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-adaptive-cap.sh'),
+			path.join(libexec, 'fwlive-adaptive-cap.sh')
+		);
+		fs.chmodSync(fixtureRpcd, 0o755);
+		makeStub(stubDir, 'ubus', '#!/bin/sh\nprintf \'{"log":[]}\'\n');
+
+		const cases = [
+			{
+				name: 'nonzero with error body',
+				body: '#!/bin/sh\nprintf \'{"log":[],"error":"filter_failed"}\'\nexit 1\n'
+			},
+			{
+				name: 'nonzero without output',
+				body: '#!/bin/sh\nexit 1\n'
+			},
+			{
+				name: 'empty successful output',
+				body: '#!/bin/sh\nexit 0\n'
+			},
+			{
+				name: 'classifier error body with zero exit',
+				body: '#!/bin/sh\nprintf \'{"log":[],"error":"classifier_missing"}\'\nexit 0\n'
+			}
+		];
+		for (const test of cases) {
+			fs.writeFileSync(
+				stateFile,
+				'{"duration_ms":900,"limit":250,"bucket":"hot","warm_halved":0,"shed":1,"completed_cs":1}\n'
+			);
+			fs.writeFileSync(fixtureFilter, test.body, { mode: 0o755 });
+			const env = {
+				...process.env,
+				PATH: `${stubDir}:/usr/bin:/bin`,
+				FWLIVE_ADAPTIVE: '1',
+				FWLIVE_ADAPTIVE_STATE_FILE: stateFile,
+				FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+			};
+			const raw = execFileSync(
+				'/bin/dash',
+				[fixtureRpcd, 'call', 'poll', '{"addresses":["50"]}'],
+				{ encoding: 'utf8', env }
+			);
+			const res = JSON.parse(raw);
+			assert.ok(res.error, `${test.name} must preserve its error reply`);
+			const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+			assert.equal(state.bucket, 'hot', `${test.name} must preserve hot bucket`);
+			assert.equal(state.shed, 1, `${test.name} must preserve shed state`);
+		}
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 		fs.rmSync(work, { recursive: true, force: true });
@@ -256,8 +399,10 @@ function testResolveJshnMissing() {
 		makePassthrough(stubDir, 'cat', '/bin/cat');
 		makeStub(stubDir, 'nslookup', '#!/bin/sh\nexit 0\n');
 		const env = { ...process.env, PATH: stubDir };
-		const raw = runCall(['call', 'resolve', '{"addresses":["192.0.2.1"]}'],
-			{ encoding: 'utf8', env });
+		const raw = runCall(['call', 'resolve', '{"addresses":["192.0.2.1"]}'], {
+			encoding: 'utf8',
+			env
+		});
 		const res = JSON.parse(raw);
 		assert.deepEqual(res.names, {});
 		assertStructuredError(res, 'resolve/jshn_missing');
@@ -276,16 +421,30 @@ function testLoggingStatusNeverSilent() {
 	// can never degrade into a silent empty object.
 	const raw = runCall(['call', 'logging_status'], { encoding: 'utf8' });
 	const res = JSON.parse(raw);
-	for (const k of ['wan_zone', 'wan_log', 'wan_log_limit',
-		'nf_log_ipv4', 'nf_log_ipv6', 'ready', 'blockers', 'warnings']) {
-		assert.ok(Object.prototype.hasOwnProperty.call(res, k),
-			`logging_status must always carry ${k}, got: ${raw}`);
+	for (const k of [
+		'wan_zone',
+		'wan_log',
+		'wan_log_limit',
+		'nf_log_ipv4',
+		'nf_log_ipv6',
+		'ready',
+		'weak_device',
+		'blockers',
+		'warnings'
+	]) {
+		assert.ok(
+			Object.prototype.hasOwnProperty.call(res, k),
+			`logging_status must always carry ${k}, got: ${raw}`
+		);
 	}
 	assert.equal(typeof res.ready, 'boolean');
+	assert.equal(typeof res.weak_device, 'boolean');
 	assert.ok(Array.isArray(res.blockers));
 	assert.ok(Array.isArray(res.warnings));
-	assert.ok(!Object.prototype.hasOwnProperty.call(res, 'error'),
-		'logging_status must not carry an error field (intentional exception)');
+	assert.ok(
+		!Object.prototype.hasOwnProperty.call(res, 'error'),
+		'logging_status must not carry an error field (intentional exception)'
+	);
 }
 
 function testToggleNoWanZone() {
@@ -309,8 +468,10 @@ function testToggleNoWanZone() {
 			assert.equal(res.ok, false);
 			assertStructuredError(res, `${method}/no_wan_zone`);
 			assert.equal(res.error, 'no_wan_zone');
-			assert.ok(!fs.existsSync(lockFile),
-				`${method} must not touch the lock before finding a WAN zone`);
+			assert.ok(
+				!fs.existsSync(lockFile),
+				`${method} must not touch the lock before finding a WAN zone`
+			);
 		}
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
@@ -323,8 +484,10 @@ testRulesNoBackend();
 testRulesNftDumpFailure();
 testRulesIptablesDumpFailure();
 testRulesIp6tablesDumpFailure();
+testPollMessagesReceived();
 testPollUbusFailure();
 testAdaptiveHotSurvivesFailedPoll();
+testAdaptiveHotSurvivesFilterFailures();
 testResolveJshnMissing();
 testLoggingStatusNeverSilent();
 testToggleNoWanZone();

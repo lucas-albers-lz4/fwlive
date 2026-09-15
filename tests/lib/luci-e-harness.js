@@ -27,6 +27,7 @@ class Node {
 	constructor(nodeType) {
 		this.nodeType = nodeType;
 		this.childNodes = [];
+		this.parentNode = null;
 		this.lastChild = null;
 		this._innerHTML = '';
 		this._innerHTMLWrites = [];
@@ -51,17 +52,53 @@ class Node {
 		// EMPTY html matches real DOM: no child, lastChild === null
 		// (the renderer's clear must not leave a synthetic empty node).
 		if (html.length > 0) {
+			for (let i = 0; i < this.childNodes.length; i++) this.childNodes[i].parentNode = null;
 			this.childNodes = [new TextNode(html)];
+			this.childNodes[0].parentNode = this;
 			this.lastChild = this.childNodes[0];
 		} else {
+			for (let i = 0; i < this.childNodes.length; i++) this.childNodes[i].parentNode = null;
 			this.childNodes = [];
 			this.lastChild = null;
 		}
 	}
 
 	appendChild(node) {
+		if (node.nodeType === 11) {
+			while (node.childNodes.length) this.appendChild(node.childNodes[0]);
+			return node;
+		}
+		if (node.parentNode && typeof node.parentNode.removeChild === 'function')
+			node.parentNode.removeChild(node);
 		this.childNodes.push(node);
+		node.parentNode = this;
 		this.lastChild = node;
+		return node;
+	}
+
+	insertBefore(node, reference) {
+		if (node.nodeType === 11) {
+			while (node.childNodes.length) this.insertBefore(node.childNodes[0], reference);
+			return node;
+		}
+		if (node === reference) return node;
+		if (node.parentNode && typeof node.parentNode.removeChild === 'function')
+			node.parentNode.removeChild(node);
+		const index = reference ? this.childNodes.indexOf(reference) : this.childNodes.length;
+		this.childNodes.splice(index < 0 ? this.childNodes.length : index, 0, node);
+		node.parentNode = this;
+		this.lastChild = this.childNodes[this.childNodes.length - 1] || null;
+		return node;
+	}
+
+	removeChild(node) {
+		const index = this.childNodes.indexOf(node);
+		if (index < 0) throw new Error('removeChild: node is not a child');
+		this.childNodes.splice(index, 1);
+		node.parentNode = null;
+		this.lastChild = this.childNodes.length
+			? this.childNodes[this.childNodes.length - 1]
+			: null;
 		return node;
 	}
 
@@ -100,48 +137,48 @@ class DocumentFragment extends Node {
 const domParser = null;
 
 const document = {
-	createElement: function(tagName) { return new Element(tagName); },
-	createTextNode: function(text) { return new TextNode(text); },
-	createDocumentFragment: function() { return new DocumentFragment(); }
+	createElement: function (tagName) {
+		return new Element(tagName);
+	},
+	createTextNode: function (text) {
+		return new TextNode(text);
+	},
+	createDocumentFragment: function () {
+		return new DocumentFragment();
+	}
 };
 
 /* --- Ported verbatim from upstream luci.js (openwrt/luci@f6997523) --- */
 
 const dom = {
 	elem(e) {
-		return (e != null && typeof(e) == 'object' && 'nodeType' in e);
+		return e != null && typeof e == 'object' && 'nodeType' in e;
 	},
 
 	parse(s) {
 		try {
 			return domParser.parseFromString(s, 'text/html').body.firstChild;
-		}
-		catch(e) {
+		} catch (e) {
 			return null;
 		}
 	},
 
 	append(node, children) {
-		if (!this.elem(node))
-			return null;
+		if (!this.elem(node)) return null;
 
 		if (Array.isArray(children)) {
 			for (let i = 0; i < children.length; i++) {
-				if (this.elem(children[i]))
-					node.appendChild(children[i]);
+				if (this.elem(children[i])) node.appendChild(children[i]);
 				else if (children[i] !== null && children[i] !== undefined)
 					node.appendChild(document.createTextNode(`${children[i]}`));
 			}
 
 			return node.lastChild;
-		}
-		else if (typeof(children) === 'function') {
+		} else if (typeof children === 'function') {
 			return this.append(node, children(node));
-		}
-		else if (this.elem(children)) {
+		} else if (this.elem(children)) {
 			return node.appendChild(children);
-		}
-		else if (children !== null && children !== undefined) {
+		} else if (children !== null && children !== undefined) {
 			node.innerHTML = `${children}`;
 			return node.lastChild;
 		}
@@ -150,31 +187,27 @@ const dom = {
 	},
 
 	attr(node, key, val) {
-		if (!this.elem(node))
-			return null;
+		if (!this.elem(node)) return null;
 
 		let attr = null;
 
-		if (typeof(key) === 'object' && key !== null)
-			attr = key;
-		else if (typeof(key) === 'string')
-			attr = {}, attr[key] = val;
+		if (typeof key === 'object' && key !== null) attr = key;
+		else if (typeof key === 'string') ((attr = {}), (attr[key] = val));
 
 		for (key in attr) {
-			if (!attr.hasOwnProperty(key) || attr[key] == null)
-				continue;
+			if (!attr.hasOwnProperty(key) || attr[key] == null) continue;
 
-			switch (typeof(attr[key])) {
-			case 'function':
-				node.addEventListener(key, attr[key]);
-				break;
+			switch (typeof attr[key]) {
+				case 'function':
+					node.addEventListener(key, attr[key]);
+					break;
 
-			case 'object':
-				node.setAttribute(key, JSON.stringify(attr[key]));
-				break;
+				case 'object':
+					node.setAttribute(key, JSON.stringify(attr[key]));
+					break;
 
-			default:
-				node.setAttribute(key, attr[key]);
+				default:
+					node.setAttribute(key, attr[key]);
 			}
 		}
 	},
@@ -185,26 +218,20 @@ const dom = {
 		let data = arguments[2];
 		let elem;
 
-		if (!(attr instanceof Object) || Array.isArray(attr))
-			data = attr, attr = null;
+		if (!(attr instanceof Object) || Array.isArray(attr)) ((data = attr), (attr = null));
 
 		if (Array.isArray(html)) {
 			elem = document.createDocumentFragment();
-			for (let i = 0; i < html.length; i++)
-				elem.appendChild(this.create(html[i]));
-		}
-		else if (this.elem(html)) {
+			for (let i = 0; i < html.length; i++) elem.appendChild(this.create(html[i]));
+		} else if (this.elem(html)) {
 			elem = html;
-		}
-		else if (typeof(html) === 'string' && html.charCodeAt(0) === 60) {
+		} else if (typeof html === 'string' && html.charCodeAt(0) === 60) {
 			elem = this.parse(html);
-		}
-		else {
+		} else {
 			elem = document.createElement(html);
 		}
 
-		if (!elem)
-			return null;
+		if (!elem) return null;
 
 		this.attr(elem, attr);
 		this.append(elem, data);

@@ -80,6 +80,47 @@ set -- $(fwlive_adaptive_plan 50)
 [ "$1" = 50 ] || die "hot floor must not raise 50 → got $1"
 ok "hot floor + shed + min(request)"
 
+# Cooldown expiry: use a deterministic clock after sourcing so the probe
+# vector controls the helper's clock seam rather than /proc/uptime.
+(
+	FWLIVE_ADAPTIVE_STATE_FILE="$WORKDIR/probe-state.json"
+	FWLIVE_ADAPTIVE_OFF_FILE="$WORKDIR/probe-off"
+	export FWLIVE_ADAPTIVE_STATE_FILE FWLIVE_ADAPTIVE_OFF_FILE
+	. "$ADAPTIVE_SH"
+	_probe_cs=1600
+	fwlive_adaptive_clock_cs() { printf '%s\n' "$_probe_cs"; }
+
+	# Expired hot cooldown probes upward from the 250-line floor.
+	fwlive_adaptive_write_state 900 250 hot 0 1 1000
+	set -- $(fwlive_adaptive_plan 2000)
+	[ "$1" = 500 ] || die "expired hot cooldown probe=$1 want 500"
+
+	# A still-hot probe falls back to the floor.
+	_probe_cs=1601
+	fwlive_adaptive_record 900 500
+	set -- $(fwlive_adaptive_read_state)
+	[ "$2" = 250 ] && [ "$3" = hot ] || die "hot probe recovery state=$*"
+
+	# A healthy probe retains the raised limit for the short probe window.
+	fwlive_adaptive_write_state 900 250 hot 0 1 1000
+	_probe_cs=1600
+	set -- $(fwlive_adaptive_plan 2000)
+	[ "$1" = 500 ] || die "healthy probe setup=$1 want 500"
+	_probe_cs=1601
+	fwlive_adaptive_record 150 500
+	set -- $(fwlive_adaptive_read_state)
+	[ "$2" = 500 ] && [ "$3" = cool ] || die "healthy probe state=$*"
+	set -- $(fwlive_adaptive_plan 2000)
+	[ "$1" = 500 ] || die "healthy probe retained limit=$1 want 500"
+
+	# Warm cooldown also doubles its previous limit once the window expires.
+	fwlive_adaptive_write_state 400 1000 warm 1 0 1000
+	_probe_cs=1300
+	set -- $(fwlive_adaptive_plan 2000)
+	[ "$1" = 2000 ] || die "expired warm cooldown probe=$1 want 2000"
+)
+ok "cooldown expiry probes upward and recovers"
+
 # Cap rule on cool: request 50 stays 50.
 fwlive_adaptive_write_state 150 250 cool 0 0 "$(fwlive_adaptive_clock_cs)"
 set -- $(fwlive_adaptive_plan 50)
@@ -152,12 +193,15 @@ case "$got" in
 	*'"shed":{"level":"hot","limit":250}'*) ;;
 	*) die "merge missing shed: $got" ;;
 esac
+got=$(fwlive_adaptive_merge_reply '{"log":[],"messages_received":7}' 0 50 0 0)
+case "$got" in
+	*'"messages_received":7'*'"adaptive":1'*) ;;
+	*) die "merge must preserve filter count: $got" ;;
+esac
+[ "$(printf '%s' "$got" | awk -F 'messages_received' '{print NF - 1}')" = 1 ] || \
+	die "merge must not duplicate messages_received: $got"
+ok "merge preserves filter count"
 ok "merge_reply"
-
-# count_log helper (not used on poll hot path — Layer 1 ships messages_received:0)
-[ "$(fwlive_adaptive_count_log '{"log":[]}')" = 0 ] || die "empty count"
-[ "$(fwlive_adaptive_count_log '{"log":[{"msg":"a"},{"msg":"b"}]}')" = 2 ] || die "count 2"
-ok "count_log helper"
 
 # Lock file mode 0600 on create (Grok #329 P2 / logging.lock #167).
 rm -f "$(fwlive_adaptive_lock_path)"

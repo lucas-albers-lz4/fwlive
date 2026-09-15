@@ -36,7 +36,50 @@ case "$out" in
 	*'"warnings":'*) ;;
 	*) die "logging_status JSON missing warnings: $out" ;;
 esac
+case "$out" in
+	*'"weak_device":false'*) ;;
+	*) die "logging_status expected strong host weak_device=false: $out" ;;
+esac
 ok "build_logging_status_json shape"
+
+# #306 Layer 3: procfs-based weak-device detection. Keep the product path
+# read-only; fixture paths exercise both sides of the settled threshold.
+WEAK_WORK=$(mktemp -d)
+WEAK_MEMINFO="$WEAK_WORK/weak-meminfo"
+WEAK_CPUINFO="$WEAK_WORK/weak-cpuinfo"
+printf 'MemTotal:       131072 kB\n' >"$WEAK_MEMINFO"
+printf 'processor\t: 0\nprocessor\t: 1\n' >"$WEAK_CPUINFO"
+FWLIVE_MEMINFO_PATH="$WEAK_MEMINFO" FWLIVE_CPUINFO_PATH="$WEAK_CPUINFO" \
+	out=$(build_logging_status_json)
+case "$out" in
+	*'"weak_device":true'*) ;;
+	*) die "logging_status expected low-memory weak_device=true: $out" ;;
+esac
+printf 'MemTotal:       1048576 kB\n' >"$WEAK_MEMINFO"
+printf 'processor\t: 0\n' >"$WEAK_CPUINFO"
+FWLIVE_MEMINFO_PATH="$WEAK_MEMINFO" FWLIVE_CPUINFO_PATH="$WEAK_CPUINFO" \
+	out=$(build_logging_status_json)
+case "$out" in
+	*'"weak_device":true'*) ;;
+	*) die "logging_status expected single-core weak_device=true: $out" ;;
+esac
+FWLIVE_MEMINFO_PATH="$WEAK_WORK/missing-meminfo" FWLIVE_CPUINFO_PATH="$WEAK_WORK/missing-cpuinfo" \
+	out=$(build_logging_status_json)
+case "$out" in
+	*'"weak_device":false'*) ;;
+	*) die "logging_status expected missing procfs weak_device=false: $out" ;;
+esac
+printf 'MemTotal:       malformed kB\n' >"$WEAK_MEMINFO"
+printf 'processor\t: 0\nprocessor\t: 1\n' >"$WEAK_CPUINFO"
+FWLIVE_MEMINFO_PATH="$WEAK_MEMINFO" FWLIVE_CPUINFO_PATH="$WEAK_CPUINFO" \
+	out=$(build_logging_status_json)
+case "$out" in
+	*'"weak_device":false'*) ;;
+	*) die "logging_status expected malformed MemTotal weak_device=false: $out" ;;
+esac
+rm -rf "$WEAK_WORK"
+unset FWLIVE_MEMINFO_PATH FWLIVE_CPUINFO_PATH
+ok "weak-device procfs detection"
 
 # timeout_missing is a warning, not a blocker (openwrt/luci#8992 round 4).
 command() {

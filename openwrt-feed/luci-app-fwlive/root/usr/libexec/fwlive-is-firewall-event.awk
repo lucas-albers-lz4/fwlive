@@ -106,11 +106,87 @@ function is_fw(s, action) {
 	if (has_hint(s) && (has_kv(s, "IN") || has_kv(s, "OUT") || has_kv(s, "SRC") || has_kv(s, "DST") || has_kv(s, "PROTO"))) return 1
 	return 0
 }
-BEGIN { if (MODE != "json") ORS = "" }
+function summary_kv(s, key, part) {
+	s = normalize(s)
+	if (!match(s, "(^|[[:space:]])" key "=[^[:space:]]+")) return ""
+	part = substr(s, RSTART, RLENGTH)
+	sub(/^[^=]*=/, "", part)
+	return part
+}
+function summary_rule(s, first) {
+	s = trim(normalize(s))
+	sub(/^\[[[:space:]]*[0-9.]+\][[:space:]]*/, "", s)
+	if (tolower(s) ~ /^fw4:[[:space:]]*/) return "fw4"
+	first = s
+	sub(/[[:space:]:].*/, "", first)
+	if (first == "" || first ~ /^(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=/) return ""
+	if (tolower(first) == "kernel" || tolower(first) == "iptables") return ""
+	return substr(first, 1, 64)
+}
+function summary_add_count(counts, key) {
+	if (key != "") counts[key]++
+}
+function json_escape(s, out, i, c) {
+	out = ""
+	for (i = 1; i <= length(s); i++) {
+		c = substr(s, i, 1)
+		if (c == "\\") out = out "\\\\"
+		else if (c == "\"") out = out "\\\""
+		else if (c == "\n") out = out "\\n"
+		else if (c == "\r") out = out "\\r"
+		else if (c == "\t") out = out "\\t"
+		else if (c < " ") out = out " "
+		else out = out c
+	}
+	return out
+}
+function summary_top(counts, limit, out, i, k, best, best_n) {
+	for (k in summary_picked) delete summary_picked[k]
+	out = "["
+	for (i = 0; i < limit; i++) {
+		best = ""; best_n = 0
+		for (k in counts) {
+			if (!(k in summary_picked) && (counts[k] > best_n || (counts[k] == best_n && (best == "" || k < best)))) {
+				best = k; best_n = counts[k]
+			}
+		}
+		if (best == "") break
+		summary_picked[best] = 1
+		if (i) out = out ","
+		out = out "{\"value\":\"" json_escape(best) "\",\"count\":" best_n "}"
+	}
+	return out "]"
+}
+function summary_add(s, action, src, dst, rule) {
+	summary_count++
+	action = tolower(detect_action(normalize(s)))
+	if (action == "drop" || action == "reject" || action == "deny" || action == "block") summary_add_count(summary_drop_counts, action)
+	src = summary_kv(s, "SRC")
+	if (src == "") src = summary_kv(s, "DST")
+	if (src != "") summary_add_count(summary_talker_counts, substr(src, 1, 64))
+	rule = summary_rule(s)
+	if (rule != "") summary_add_count(summary_rule_counts, rule)
+}
+function summary_json(out) {
+	out = "{\"scope\":\"top of shown sample\",\"top_talkers\":" summary_top(summary_talker_counts, 3)
+	out = out ",\"top_drops\":" summary_top(summary_drop_counts, 3)
+	out = out ",\"top_rules\":" summary_top(summary_rule_counts, 3) "}"
+	# Keep a conservative UTF-8 character budget: 256 characters is at most
+	# 1024 bytes even when every character occupies four UTF-8 bytes.
+	if (length(out) > 256) return "{\"scope\":\"top of shown sample\",\"truncated\":true}"
+	return out
+}
+BEGIN {
+	if (MODE == "json_reply") {
+		ORS = ""
+		printf "{\"log\":["
+	} else if (MODE != "json") ORS = ""
+}
 {
-	if (MODE == "json") {
+	if (MODE == "json" || MODE == "json_reply") {
 		msg = json_get_msg($0)
 		if (is_fw(msg)) {
+			if (SUMMARY != "0") summary_add(msg)
 			if (out_n++) printf ","
 			printf "%s", $0
 		}
@@ -119,6 +195,11 @@ BEGIN { if (MODE != "json") ORS = "" }
 	buf = (NR == 1) ? $0 : buf "\n" $0
 }
 END {
-	if (MODE != "json")
+	if (MODE == "json_reply") {
+		printf "],\"messages_received\":%d", NR
+		if (SUMMARY != "0" && summary_count > 0) printf ",\"summary\":%s", summary_json()
+		printf "}"
+	}
+	else if (MODE != "json")
 		print is_fw(buf) ? 1 : 0
 }

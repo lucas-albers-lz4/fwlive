@@ -24,27 +24,48 @@ assert.strictEqual(constants.DEFAULT_ROW_LIMIT, 100);
 assert.ok(Array.isArray(constants.ROW_LIMIT_OPTIONS));
 assert.ok(constants.COLUMN_SETS.simple.indexOf('flow') >= 0);
 assert.ok(constants.COLUMN_SETS.detailed.indexOf('message') >= 0);
-assert.deepStrictEqual(constants.ROW_TINT_OPTIONS, [ 'off', 'classic', 'accessible' ]);
+assert.deepStrictEqual(constants.ROW_TINT_OPTIONS, ['off', 'classic', 'accessible']);
 assert.strictEqual(constants.DEFAULT_ROW_TINT, 'classic');
-assert.ok(typeof constants.APP_VERSION === 'string' && /^\d+\.\d+\.\d+$/.test(constants.APP_VERSION));
+assert.ok(
+	typeof constants.APP_VERSION === 'string' && /^\d+\.\d+\.\d+$/.test(constants.APP_VERSION)
+);
 const makefile = fs.readFileSync(path.join(PKG, 'Makefile'), 'utf8');
 const mkVer = (makefile.match(/^PKG_VERSION:=(\S+)/m) || [])[1];
-assert.strictEqual(constants.APP_VERSION, mkVer, 'constants.APP_VERSION must match Makefile PKG_VERSION');
+assert.strictEqual(
+	constants.APP_VERSION,
+	mkVer,
+	'constants.APP_VERSION must match Makefile PKG_VERSION'
+);
 const luciDepends = (makefile.match(/^LUCI_DEPENDS:=(.*)$/m) || [])[1] || '';
 assert.ok(/(^|\s)\+jsonfilter(\s|$)/.test(luciDepends), 'LUCI_DEPENDS must declare +jsonfilter');
-const viewSrc = fs.readFileSync(path.join(PKG, 'htdocs/luci-static/resources/view/status/fwlive.js'), 'utf8');
+const viewSrc = fs.readFileSync(
+	path.join(PKG, 'htdocs/luci-static/resources/view/status/fwlive.js'),
+	'utf8'
+);
 assert.ok(
-	/const fetchLines = this\.paused\s*\?\s*constants\.FETCH_LINES_MAX\s*:\s*Math\.min\(\s*Math\.max\(\s*this\.rowLimit \* 4/.test(viewSrc),
+	/const fetchLines = this\.paused\s*\?\s*constants\.FETCH_LINES_MAX\s*:\s*Math\.min\(\s*Math\.max\(\s*this\.rowLimit \* 4/.test(
+		viewSrc
+	),
 	'poll must scale raw fetch with rowLimit and use FETCH_LINES_MAX when paused'
 );
-assert.ok(!/expect:\s*\{\s*log:\s*\[\]\s*\}/.test(viewSrc),
-	'callFwlivePoll must not use expect:{log:[]} (strips reply.error, #233)');
-assert.ok(/expect:\s*\{\s*'':\s*\{\s*wan_zone: null,\s*wan_log: false,\s*wan_log_limit: null,\s*nf_log_ipv4: false,\s*nf_log_ipv6: false,\s*ready: false,\s*blockers: \[\],\s*warnings: \[\]\s*\}\s*\}/.test(viewSrc),
-	'callFwliveLoggingStatus expect must document the full reply shape incl. warnings (openwrt/luci#8992 round 5)');
-assert.ok(/if\s*\(\s*reply\.error\s*\)/.test(viewSrc),
-	'fetchEntries must set lastPollError when poll reply includes error');
-assert.ok(/const raw = reply\.log/.test(viewSrc),
-	'fetchEntries must read log array from the full poll reply object');
+assert.ok(
+	!/expect:\s*\{\s*log:\s*\[\]\s*\}/.test(viewSrc),
+	'callFwlivePoll must not use expect:{log:[]} (strips reply.error, #233)'
+);
+assert.ok(
+	/expect:\s*\{\s*'':\s*\{\s*wan_zone: null,\s*wan_log: false,\s*wan_log_limit: null,\s*nf_log_ipv4: false,\s*nf_log_ipv6: false,\s*ready: false,\s*blockers: \[\],\s*warnings: \[\]\s*\}\s*\}/.test(
+		viewSrc
+	),
+	'callFwliveLoggingStatus expect must document the full reply shape incl. warnings (openwrt/luci#8992 round 5)'
+);
+assert.ok(
+	/if\s*\(\s*reply\.error\s*\)/.test(viewSrc),
+	'fetchEntries must set lastPollError when poll reply includes error'
+);
+assert.ok(
+	/const raw = reply\.log/.test(viewSrc),
+	'fetchEntries must read log array from the full poll reply object'
+);
 console.log('fwlive-modules smoke: constants OK');
 
 /* --- log (needed by links/chips/table) --- */
@@ -58,9 +79,11 @@ const links = loadFwliveModule('links', { log: log });
 assert.strictEqual(links.firewallZonesPath(), 'admin/network/firewall/zones');
 assert.ok(String(links.luciUrl('admin/status/fwlive')).indexOf('luci') >= 0);
 const clicks = [];
-const fl = links.filterLink('proto', 'TCP', null, function(f, v) { clicks.push([f, v]); });
+const fl = links.filterLink('proto', 'TCP', null, function (f, v) {
+	clicks.push([f, v]);
+});
 assert.strictEqual(fl.tag, 'a');
-fl.attrs.click({ preventDefault: function() {} });
+fl.attrs.click({ preventDefault: function () {} });
 assert.deepStrictEqual(clicks[0], ['proto', 'TCP']);
 assert.strictEqual(links.ruleAdminPath('fw4', 'nft'), 'admin/network/firewall/rules');
 console.log('fwlive-modules smoke: links OK');
@@ -74,19 +97,25 @@ function renderChips(filters) {
 		className: '',
 		style: { display: '' },
 		children: [],
-		appendChild: function(n) { this.children.push(n); }
+		appendChild: function (n) {
+			this.children.push(n);
+		}
 	};
-	chips.renderFilterChips(chipHost, {
-		filters: filters || { action: 'drop', proto: '!tcp' },
-		chipFields: [
-			{ key: 'action', label: 'action' },
-			{ key: 'proto', label: 'proto' }
-		]
-	}, {
-		onInvert: function() {},
-		onClear: function() {},
-		onClearAll: function() {}
-	});
+	chips.renderFilterChips(
+		chipHost,
+		{
+			filters: filters || { action: 'drop', proto: '!tcp' },
+			chipFields: [
+				{ key: 'action', label: 'action' },
+				{ key: 'proto', label: 'proto' }
+			]
+		},
+		{
+			onInvert: function () {},
+			onClear: function () {},
+			onClearAll: function () {}
+		}
+	);
 	return chipHost;
 }
 
@@ -112,25 +141,26 @@ assert.strictEqual(typeof logging.renderEmptyState, 'function');
 assert.strictEqual(typeof logging.renderManualTestNodes, 'function');
 
 function collectText(node) {
-	if (!node)
-		return '';
-	if (node.nodeType === 3)
-		return String(node.textContent || '');
+	if (!node) return '';
+	if (node.nodeType === 3) return String(node.textContent || '');
 	const kids = node.childNodes || [];
 	let out = '';
-	for (let i = 0; i < kids.length; i++)
-		out += collectText(kids[i]);
+	for (let i = 0; i < kids.length; i++) out += collectText(kids[i]);
 	return out;
 }
 
 const bar = luciE.E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []);
 bar.style = {};
-logging.renderToolbar(bar, {
-	loggingStatus: { wan_log: true, wan_log_limit: null, blockers: [] },
-	loggingBusy: false,
-	entriesLength: 0,
-	loggingNotice: ''
-}, { onEnable: function() {}, onDisable: function() {} });
+logging.renderToolbar(
+	bar,
+	{
+		loggingStatus: { wan_log: true, wan_log_limit: null, blockers: [] },
+		loggingBusy: false,
+		entriesLength: 0,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
 assert.strictEqual(bar.style.display, 'contents');
 assert.strictEqual(bar.childNodes.length, 1, 'merged on-control is one button');
 assert.strictEqual(bar.childNodes[0].tagName, 'button');
@@ -140,23 +170,31 @@ assert.ok(onText.indexOf('WAN logging on') >= 0);
 assert.ok(onText.indexOf('default 10/minute') >= 0);
 assert.strictEqual(bar.childNodes[0]._innerHTMLWrites.length, 0, 'merged control uses text nodes');
 
-logging.renderToolbar(bar, {
-	loggingStatus: { wan_log: false, wan_log_limit: null, blockers: [] },
-	loggingBusy: false,
-	entriesLength: 0,
-	loggingNotice: ''
-}, { onEnable: function() {}, onDisable: function() {} });
+logging.renderToolbar(
+	bar,
+	{
+		loggingStatus: { wan_log: false, wan_log_limit: null, blockers: [] },
+		loggingBusy: false,
+		entriesLength: 0,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
 assert.strictEqual(bar.style.display, 'contents');
 assert.strictEqual(bar.childNodes.length, 1, 'off state is Enable CTA only');
 assert.ok(collectText(bar.childNodes[0]).indexOf('Enable logging') >= 0);
 
 const emptyHost = luciE.E('div', {}, []);
-logging.renderEmptyState(emptyHost, {
-	loggingStatus: { wan_log: false, blockers: [] },
-	loggingBusy: false,
-	entriesLength: 0,
-	loggingNotice: ''
-}, { onEnable: function() {} });
+logging.renderEmptyState(
+	emptyHost,
+	{
+		loggingStatus: { wan_log: false, blockers: [] },
+		loggingBusy: false,
+		entriesLength: 0,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {} }
+);
 assert.ok(emptyHost.childNodes.length > 0);
 console.log('fwlive-modules smoke: logging OK');
 
@@ -167,15 +205,17 @@ assert.strictEqual(typeof table.renderRows, 'function');
 
 const theadHost = {
 	_colgroup: null,
-	_tr: { innerHTML: '', appendChild: function() {} },
-	querySelector: function(sel) {
-		if (sel === 'thead tr')
-			return this._tr;
-		if (sel === 'colgroup')
-			return this._colgroup;
+	_tr: { innerHTML: '', appendChild: function () {} },
+	querySelector: function (sel) {
+		if (sel === 'thead tr') return this._tr;
+		if (sel === 'colgroup') return this._colgroup;
 		return null;
 	},
-	insertBefore: function(node) { this._colgroup = node; this._colgroup.innerHTML = ''; this._colgroup.appendChild = function() {}; },
+	insertBefore: function (node) {
+		this._colgroup = node;
+		this._colgroup.innerHTML = '';
+		this._colgroup.appendChild = function () {};
+	},
 	firstChild: null
 };
 table.renderThead(theadHost, { columns: ['action', 'time', 'flow'] }, {});
@@ -184,7 +224,9 @@ assert.strictEqual(theadHost._tr.innerHTML, '');
 
 const body = {
 	innerHTML: 'rows',
-	appendChild: function() { this._n = (this._n || 0) + 1; },
+	appendChild: function () {
+		this._n = (this._n || 0) + 1;
+	},
 	_n: 0
 };
 const row = {
@@ -201,9 +243,78 @@ const row = {
 	rule_hint: 'fw4',
 	rule_label: 'wan'
 };
-table.renderRows(body, {
+table.renderRows(
+	body,
+	{
+		rows: [row],
+		columns: ['action', 'time', 'flow', 'proto'],
+		viewMode: 'detailed',
+		messageLayout: 'wrap',
+		expandedRowId: null,
+		rowTint: false,
+		showHostnames: false,
+		hostnameCache: null,
+		firewallBackend: 'nft'
+	},
+	{
+		onRowClick: function () {},
+		onFilterClick: function () {},
+		actionRowTintClass: function () {
+			return '';
+		}
+	}
+);
+assert.strictEqual(body.innerHTML, '');
+assert.ok(body._n >= 1);
+
+const simpleBody = {
+	innerHTML: 'rows',
+	children: [],
+	appendChild: function (n) {
+		this.children.push(n);
+		this.innerHTML = '';
+	}
+};
+table.renderRows(
+	simpleBody,
+	{
+		rows: [row],
+		columns: ['time', 'action'],
+		viewMode: 'simple',
+		messageLayout: 'wrap',
+		expandedRowId: null,
+		rowTint: false,
+		showHostnames: false,
+		hostnameCache: null,
+		firewallBackend: 'nft'
+	},
+	{
+		onRowClick: function () {},
+		onFilterClick: function () {},
+		actionRowTintClass: function () {
+			return '';
+		}
+	}
+);
+assert.ok(simpleBody.children.length >= 1);
+const simpleTr = simpleBody.children[0];
+assert.strictEqual(simpleTr.tag, 'tr');
+const timeTd = simpleTr.children.find(function (c) {
+	return c.tag === 'td' && c.attrs && c.attrs.class === 'fwlive-time';
+});
+assert.ok(timeTd, 'simple view should render a time cell');
+assert.strictEqual(String(timeTd.attrs.title), 'Click a row for the full message');
+
+const keyedTable = loadFwliveModule('table', {
+	log: log,
+	links: links,
+	E: luciE.E
+});
+const keyedBody = luciE.E('tbody', {}, []);
+const keyedState = {
 	rows: [row],
 	columns: ['action', 'time', 'flow', 'proto'],
+	forceRender: false,
 	viewMode: 'detailed',
 	messageLayout: 'wrap',
 	expandedRowId: null,
@@ -211,42 +322,32 @@ table.renderRows(body, {
 	showHostnames: false,
 	hostnameCache: null,
 	firewallBackend: 'nft'
-}, {
-	onRowClick: function() {},
-	onFilterClick: function() {},
-	actionRowTintClass: function() { return ''; }
-});
-assert.strictEqual(body.innerHTML, '');
-assert.ok(body._n >= 1);
-
-const simpleBody = {
-	innerHTML: 'rows',
-	children: [],
-	appendChild: function(n) { this.children.push(n); this.innerHTML = ''; },
 };
-table.renderRows(simpleBody, {
-	rows: [row],
-	columns: ['time', 'action'],
-	viewMode: 'simple',
-	messageLayout: 'wrap',
-	expandedRowId: null,
-	rowTint: false,
-	showHostnames: false,
-	hostnameCache: null,
-	firewallBackend: 'nft'
-}, {
-	onRowClick: function() {},
-	onFilterClick: function() {},
-	actionRowTintClass: function() { return ''; }
+const keyedCallbacks = {
+	onRowClick: function () {},
+	onFilterClick: function () {},
+	actionRowTintClass: function () {
+		return '';
+	}
+};
+keyedTable.renderRows(keyedBody, keyedState, keyedCallbacks);
+const retainedRow = keyedBody.childNodes[0];
+const newerRow = Object.assign({}, row, {
+	id: 'r2',
+	timestamp: '2026-01-01T00:00:01Z'
 });
-assert.ok(simpleBody.children.length >= 1);
-const simpleTr = simpleBody.children[0];
-assert.strictEqual(simpleTr.tag, 'tr');
-const timeTd = simpleTr.children.find(function(c) {
-	return c.tag === 'td' && c.attrs && c.attrs.class === 'fwlive-time';
-});
-assert.ok(timeTd, 'simple view should render a time cell');
-assert.strictEqual(String(timeTd.attrs.title), 'Click a row for the full message');
+keyedTable.renderRows(
+	keyedBody,
+	Object.assign({}, keyedState, { rows: [newerRow, row] }),
+	keyedCallbacks
+);
+assert.strictEqual(keyedBody.childNodes[1], retainedRow, 'unchanged poll rows are reused');
+keyedTable.renderRows(
+	keyedBody,
+	Object.assign({}, keyedState, { forceRender: true }),
+	keyedCallbacks
+);
+assert.notStrictEqual(keyedBody.childNodes[0], retainedRow, 'forced renders rebuild rows');
 console.log('fwlive-modules smoke: table OK');
 
 /* --- buffer --- */
