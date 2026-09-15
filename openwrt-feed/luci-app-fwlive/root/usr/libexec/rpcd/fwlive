@@ -473,7 +473,7 @@ fetch_firewall_logs() {
 	# example classifier_missing).  Preserve the error for the caller, but do
 	# not let it overwrite a prior hot state as a healthy fast sample.
 	case "$out" in
-		*'"error"'*) _filter_ok=0 ;;
+		*'"error":'*) _filter_ok=0 ;;
 	esac
 	end_cs=$(fwlive_adaptive_clock_cs)
 	# Uptime wrap / skew: end < start — do not record as cold (Grok #329 P2).

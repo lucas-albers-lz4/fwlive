@@ -391,6 +391,60 @@ function testAdaptiveHotSurvivesFilterFailures() {
 	}
 }
 
+function testSummaryErrorValueDoesNotFailHealthGate() {
+	// The summary is data: a talker/rule value may literally be "error".
+	// The rpcd health gate must match the structured error key, not that value.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-summary-error-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-306-summary-error-work-'));
+	const libexec = path.join(work, 'usr', 'libexec');
+	const rpcdDir = path.join(libexec, 'rpcd');
+	const fixtureRpcd = path.join(rpcdDir, 'fwlive');
+	const fixtureFilter = path.join(libexec, 'fwlive-log-filter.sh');
+	const stateFile = path.join(work, 'state.json');
+	try {
+		fs.mkdirSync(rpcdDir, { recursive: true });
+		fs.copyFileSync(RPCD, fixtureRpcd);
+		fs.copyFileSync(
+			path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh'),
+			path.join(libexec, 'fwlive-logging.sh')
+		);
+		fs.copyFileSync(
+			path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-adaptive-cap.sh'),
+			path.join(libexec, 'fwlive-adaptive-cap.sh')
+		);
+		fs.chmodSync(fixtureRpcd, 0o755);
+		makeStub(stubDir, 'ubus', '#!/bin/sh\nprintf \'{"log":[{"msg":"fw4: DROP IN=wan OUT= SRC=error DST=192.0.2.1 PROTO=TCP"}]}\'\n');
+		fs.writeFileSync(fixtureFilter, [
+			'#!/bin/sh',
+			'printf \'{"log":[{"msg":"fw4: DROP IN=wan OUT= SRC=error DST=192.0.2.1 PROTO=TCP"}],"messages_received":1,"summary":{"scope":"top of shown sample","top_talkers":[{"value":"error","count":1}],"top_drops":[],"top_rules":[]}}\'',
+			''
+		].join('\n'), { mode: 0o755 });
+		fs.writeFileSync(
+			stateFile,
+			'{"duration_ms":900,"limit":250,"bucket":"hot","warm_halved":0,"shed":1,"completed_cs":1}\n'
+		);
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: stateFile,
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+		const raw = execFileSync(
+			'/bin/dash',
+			[fixtureRpcd, 'call', 'poll', '{"addresses":["50"]}'],
+			{ encoding: 'utf8', env }
+		);
+		const res = JSON.parse(raw);
+		assert.equal(res.error, undefined, 'summary value "error" must not create a filter error');
+		const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+		assert.notEqual(state.bucket, 'hot', 'healthy summary value must record adaptive state');
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function testResolveJshnMissing() {
 	// Isolated PATH: nslookup present (stub) so the resolver check passes,
 	// jshn absent so the JSON-dependency failure must carry an error.
@@ -490,6 +544,7 @@ testPollMessagesReceived();
 testPollUbusFailure();
 testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
+testSummaryErrorValueDoesNotFailHealthGate();
 testResolveJshnMissing();
 testLoggingStatusNeverSilent();
 testToggleNoWanZone();

@@ -39,7 +39,15 @@ fi
 # it must remain an error so rpcd does not record a fast healthy sample. Keep
 # jsonfilter output in a secure temporary file before classification so a
 # partial pipeline cannot produce malformed JSON on failure.
-_filter_tmp=$(mktemp "${TMPDIR:-/tmp}/fwlive-filter.XXXXXX") || {
+# This script runs from rpcd as root and reopens the path for classification.
+# Match _fwlive_mktemp: only use the verified, sticky system /tmp; honoring
+# TMPDIR would permit a non-sticky attacker-controlled directory here.
+# shellcheck disable=SC3065 # OpenWrt BusyBox test supports -k; match rpcd helper.
+if [ ! -d /tmp ] || [ -L /tmp ] || ! [ -k /tmp ]; then
+	printf '%s' '{"log":[],"error":"filter_tempfile_failed"}'
+	exit 1
+fi
+_filter_tmp=$(mktemp /tmp/fwlive-filter.XXXXXX) || {
 	printf '%s' '{"log":[],"error":"filter_tempfile_failed"}'
 	exit 1
 }
