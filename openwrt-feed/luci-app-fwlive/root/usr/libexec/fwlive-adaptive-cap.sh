@@ -239,7 +239,7 @@ fwlive_adaptive_with_lock() {
 		"$@"
 		return $?
 	fi
-	# Create lock at 0600 (logging.lock #167 — world-readable fd can take LOCK_EX).
+	# Create lock at 0600 (world-readable fd can take LOCK_EX).
 	if [ ! -e "$_lock" ]; then
 		if ! ( umask 077; : >"$_lock" ) 2>/dev/null; then
 			"$@"

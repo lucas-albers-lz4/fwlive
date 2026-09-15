@@ -1758,9 +1758,8 @@ return view.extend({
 		if (this.isTabHidden()) return Promise.resolve();
 
 		const waiter = {};
-		const promise = new Promise(function (resolve, reject) {
+		const promise = new Promise(function (resolve) {
 			waiter.resolve = resolve;
-			waiter.reject = reject;
 		});
 
 		if (this.pollRequestPromise) {
@@ -1791,23 +1790,24 @@ return view.extend({
 		this.pollRequestWaiters = waiters;
 		run.then(
 			function (value) {
-				this.finishPollRequest(run, null, value);
+				this.finishPollRequest(run, value);
 			}.bind(this),
-			function (error) {
-				this.finishPollRequest(run, error);
+			function () {
+				/* runPollRequest normally absorbs local failures so the poll loop
+				 * remains alive; settle waiters even if a future change rejects. */
+				this.finishPollRequest(run);
 			}.bind(this)
 		);
 	},
 
-	finishPollRequest(run, error, value) {
+	finishPollRequest(run, value) {
 		if (this.pollRequestPromise !== run) return;
 		const waiters = this.pollRequestWaiters;
 		this.pollRequestWaiters = [];
 		this.pollRequestPromise = null;
 		this.pollDataInFlight = false;
 		for (let i = 0; i < waiters.length; i++) {
-			if (error) waiters[i].reject(error);
-			else waiters[i].resolve(value);
+			waiters[i].resolve(value);
 		}
 
 		/* If visibility changed while the request was active, retain the
@@ -1833,6 +1833,9 @@ return view.extend({
 
 			if (epoch !== this.pollEpoch) return;
 
+			/* Pause freezes row rendering but polling remains active for health and
+			 * cadence state; summary mode can therefore appear while rows are paused
+			 * and stays behind the explicit Show rows control. */
 			if (this.paused) this.updateStatus();
 			else if (this.summaryMode) this.renderSummary();
 			else this.scheduleRenderRows(!!this.pendingForceRender);
