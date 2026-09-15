@@ -72,11 +72,15 @@ else
 	ok "cut awk-asset assertion deferred until new generated file is tracked"
 fi
 
-grep -q 'github.com/lucas-albers-lz4/fwlive/blob/master' "$CUT_WORK/cut/README.md" \
-	|| die "README links not rewritten to the blob URL"
+! grep -q 'lucas-albers-lz4/fwlive' "$CUT_WORK/cut/README.md" \
+	|| die "cut README still cites the out-of-tree GitHub repo"
+! grep -qE '^## (Maintenance|Documentation)$' "$CUT_WORK/cut/README.md" \
+	|| die "cut README still has Maintenance or Documentation sections"
 ! grep -q '\.\./\.\./docs' "$CUT_WORK/cut/README.md" \
 	|| die "monorepo-relative docs links remain in cut README"
-ok "cut README points at blob URLs, no monorepo-relative links"
+grep -q '^## Dependencies$' "$CUT_WORK/cut/README.md" \
+	|| die "cut README lost the Dependencies section"
+ok "cut README is layout/deps only, no out-of-tree GitHub links"
 
 [ -f "$CUT_WORK/cut/po/templates/luci-app-fwlive.pot" ] \
 	|| die "po/templates/luci-app-fwlive.pot missing from cut"

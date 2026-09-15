@@ -98,7 +98,7 @@ return view.extend({
 	sessionSeen: null,
 	pauseBufferLoading: false,
 	paused: false,
-	/* One-shot: first live poll after unpause merges instead of replacing (#43). */
+	/* One-shot: first live poll after unpause merges instead of replacing. */
 	resumeMerge: false,
 	pollFn: null,
 	pollDataInFlight: false,
@@ -1206,7 +1206,7 @@ return view.extend({
 
 		if (wasPaused && !this.paused) {
 			this.followLive = true;
-			/* Merge pause buffer with the first live poll — do not replace (#43). */
+			/* Merge pause buffer with the first live poll — do not replace. */
 			this.resumeMerge = true;
 			const epoch = this.pollEpoch;
 			this.fetchEntries()

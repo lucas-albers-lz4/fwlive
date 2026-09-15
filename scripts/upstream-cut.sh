@@ -26,7 +26,6 @@ cd "$ROOT"
 PKG=openwrt-feed/luci-app-fwlive
 OUT="${1:-out/upstream/luci-app-fwlive}"
 SPLIT_BRANCH="upstream/luci-app-fwlive"
-GITHUB_BLOB="https://github.com/lucas-albers-lz4/fwlive/blob/master"
 # Locale dirs kept in the feed for the binary release; first luci PR ships .pot only.
 DROP_PO_LANGS=(de ru zh_Hans)
 # Source for embed-fwlive-css.js; view loads css.js (styleText), not this asset.
@@ -80,12 +79,10 @@ if [ "$DROP_CSS" -eq 1 ]; then
 	rm -f "$OUT/htdocs/luci-static/resources/fwlive/fwlive.css"
 fi
 
-# Package README: GitHub docs links; no core/ citation; list proto.js.
-# shellcheck disable=SC2016  # '"$GITHUB_BLOB"' splice is deliberate
+# Package README: luci copy is layout + deps only. Drop Maintenance and
+# Documentation (those name an out-of-tree winner or link this GitHub).
+# Keep the core/ citation rewrite and proto.js row. Feed README is unchanged.
 sed -i \
-	-e 's|\[`\.\./\.\./docs/user/installation\.md`\](\.\./\.\./docs/user/installation\.md)|[installation guide]('"$GITHUB_BLOB"'/docs/user/installation.md)|' \
-	-e 's|\[`\.\./\.\./docs/developer/README\.md`\](\.\./\.\./docs/developer/README.md)|[developer documentation]('"$GITHUB_BLOB"'/docs/developer/README.md)|' \
-	-e 's|\[Maintenance model\](\.\./\.\./docs/developer/upstream-openwrt\.md#maintenance-model)|[Maintenance model]('"$GITHUB_BLOB"'/docs/developer/upstream-openwrt.md#maintenance-model)|' \
 	-e 's|Parser/filter module (mirror of repo `core/fwlive-log.js`)|Parser/filter module (`CLASSIFY_SPEC` + LuCI helpers)|' \
 	"$OUT/README.md"
 
@@ -95,6 +92,10 @@ if ! grep -q 'proto\.js' "$OUT/README.md"; then
 | `htdocs/luci-static/resources/fwlive/proto.js` | Protocol name/number helpers |' \
 		"$OUT/README.md"
 fi
+
+# Maintenance + Documentation are last; they name this GitHub as development
+# home. The luci tree should not advertise an out-of-tree winner.
+sed -i '/^## Maintenance$/,$d' "$OUT/README.md"
 
 # GENERATED / sync comments must not point at monorepo paths absent from luci.
 shell_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.sh"
@@ -172,6 +173,16 @@ if grep -rn '\.\./\.\./docs' "$OUT/README.md" >/dev/null 2>&1; then
 	fail=1
 fi
 
+if grep -q 'lucas-albers-lz4/fwlive' "$OUT/README.md"; then
+	echo "  FAIL: luci README still cites the out-of-tree GitHub repo" >&2
+	fail=1
+fi
+
+if grep -qE '^## (Maintenance|Documentation)$' "$OUT/README.md"; then
+	echo "  FAIL: luci README still has Maintenance or Documentation sections" >&2
+	fail=1
+fi
+
 if grep -q 'core/fwlive-log' "$OUT/README.md" >/dev/null 2>&1; then
 	echo "  FAIL: README still cites core/fwlive-log.js" >&2
 	fail=1
@@ -245,7 +256,7 @@ if [ "$fail" -ne 0 ]; then
 fi
 
 echo "  OK: $out_count files (source $src_count minus $drop_count); Makefile include rewritten;"
-echo "  OK: no monorepo-relative docs links; po template present; locale dirs dropped"
+echo "  OK: luci README has no out-of-tree GitHub links; po template present; locale dirs dropped"
 
 echo "== 5/5 next steps =="
 echo "  Copy $OUT into a luci fork at luci/applications/luci-app-fwlive/"

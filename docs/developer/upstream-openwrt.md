@@ -80,7 +80,9 @@ An in-tree snapshot with a clear “fwlive wins” rule fits LuCI practice bette
      `.po` files here for the binary feed)
    - Drops `fwlive.css` (view loads `css.js`)
    - Rewrites README / GENERATED / `constants.js` so they do not cite
-     monorepo-only paths (`core/`, `openwrt-feed/`, `./scripts/gen-all.sh`)
+     monorepo-only paths (`core/`, `openwrt-feed/`, `./scripts/gen-all.sh`).
+     Drops README Maintenance / Documentation (no out-of-tree GitHub winner
+     in the luci copy; feed README stays)
    - Keeps `PKG_VERSION` / `PKG_RELEASE` (lockstep with `APP_VERSION`)
    - Verifies file counts and absence of monorepo-only comment paths
 3. Run `FWLIVE_I18N_REQUIRE_SCAN=1 ./scripts/fwlive-test.sh` for upstream/release sign-off. Set `FWLIVE_I18N_SCAN` to the OpenWrt tree's `build/i18n-scan.pl` when it is not on `PATH`; missing scanner prerequisites fail this sign-off path.
@@ -218,7 +220,7 @@ Living tracker for the open wave: [fwlive #209](https://github.com/lucas-albers-
 | 3 | Round 3 | [#253](https://github.com/lucas-albers-lz4/fwlive/pull/253) | Non-sticky rules error, #239 staged-line helpers; timeout diagnostics (revised in wave 4) |
 | 4 | Round 4 | [#255](https://github.com/lucas-albers-lz4/fwlive/pull/255) | `timeout_missing` → non-gating `warnings` + backend span; staged-line selftests |
 | 5 | Round 5 | [#258](https://github.com/lucas-albers-lz4/fwlive/pull/258) | Document `warnings` expect key; warn-tint degraded backend span; drop inaccurate `classList.toggle` note |
-| 6+ | Round 6 … | *(see #209)* | Fold blockers in fwlive first; re-cut; push luci snapshot |
+| 6 | BKPepe (squash / README / `#43`) | *(this branch)* | Luci-safe README (no GitHub winner); drop `#43` from shipped comments; squash luci PR |
 
 Process docs for the agent gate live in [#212](https://github.com/lucas-albers-lz4/fwlive/pull/212)
 ([pr-cycle.md](pr-cycle.md) + this file). Umbrella issues [#216](https://github.com/lucas-albers-lz4/fwlive/issues/216) /
