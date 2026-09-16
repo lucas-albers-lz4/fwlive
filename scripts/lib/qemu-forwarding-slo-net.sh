@@ -28,7 +28,15 @@
 : "${FWLIVE_SLO_LAN_ENDPOINT_IP:=192.0.2.2}"
 : "${FWLIVE_SLO_WAN_GUEST_IP:=198.51.100.1}"
 : "${FWLIVE_SLO_WAN_ENDPOINT_IP:=198.51.100.2}"
+: "${FWLIVE_SLO_LAN_MAC:=52:54:00:30:77:01}"
+: "${FWLIVE_SLO_WAN_MAC:=52:54:00:30:77:02}"
+: "${FWLIVE_SLO_QEMU_NET_MODEL:=virtio-net-pci}"
 : "${FWLIVE_SLO_PREFIX:=fwlive-slo-}"
+
+case "$FWLIVE_SLO_QEMU_NET_MODEL" in
+	virtio-net-pci|e1000) ;;
+	*) echo "forwarding-slo-net: unsupported QEMU test NIC model: $FWLIVE_SLO_QEMU_NET_MODEL" >&2; exit 1 ;;
+esac
 
 fwlive_slo_net_die() {
 	echo "forwarding-slo-net: $*" >&2
@@ -46,7 +54,7 @@ fwlive_slo_net_require_tools() {
 fwlive_slo_net_validate_name() {
 	local name="$1"
 	case "$name" in
-		"${FWLIVE_SLO_PREFIX}"[A-Za-z0-9.-]*|"${FWLIVE_SLO_PREFIX}") ;;
+		"${FWLIVE_SLO_PREFIX}"[A-Za-z0-9.-]*) ;;
 		*) fwlive_slo_net_die "resource name is outside the owned prefix: $name" ;;
 	esac
 	[[ ${#name} -le 15 ]] || fwlive_slo_net_die "interface name is too long for Linux: $name"
@@ -83,6 +91,24 @@ fwlive_slo_net_expect_absent() {
 	fi
 }
 
+fwlive_slo_net_rollback() {
+	trap - ERR
+	local ns link
+	for ns in "$FWLIVE_SLO_LAN_NETNS" "$FWLIVE_SLO_WAN_NETNS"; do
+		if fwlive_slo_net_ns_exists "$ns"; then
+			ip netns del "$ns" 2>/dev/null || true
+		fi
+	done
+	for link in \
+		"$FWLIVE_SLO_LAN_TAP" "$FWLIVE_SLO_WAN_TAP" \
+		"$FWLIVE_SLO_LAN_VETH" "$FWLIVE_SLO_WAN_VETH" \
+		"$FWLIVE_SLO_LAN_BRIDGE" "$FWLIVE_SLO_WAN_BRIDGE"; do
+		if fwlive_slo_net_link_exists "$link"; then
+			ip link del "$link" 2>/dev/null || true
+		fi
+	done
+}
+
 fwlive_slo_net_setup() {
 	local qemu_user="${1:-${SUDO_USER:-${USER:-}}}"
 	fwlive_slo_net_require_root
@@ -92,9 +118,12 @@ fwlive_slo_net_setup() {
 	for name in \
 		"$FWLIVE_SLO_LAN_NETNS" "$FWLIVE_SLO_WAN_NETNS" \
 		"$FWLIVE_SLO_LAN_BRIDGE" "$FWLIVE_SLO_WAN_BRIDGE" \
-		"$FWLIVE_SLO_LAN_TAP" "$FWLIVE_SLO_WAN_TAP"; do
+		"$FWLIVE_SLO_LAN_TAP" "$FWLIVE_SLO_WAN_TAP" \
+		"$FWLIVE_SLO_LAN_VETH" "$FWLIVE_SLO_WAN_VETH" \
+		"$FWLIVE_SLO_LAN_PEER" "$FWLIVE_SLO_WAN_PEER"; do
 		fwlive_slo_net_expect_absent "$name"
 	done
+	trap fwlive_slo_net_rollback ERR
 
 	ip netns add "$FWLIVE_SLO_LAN_NETNS"
 	ip netns add "$FWLIVE_SLO_WAN_NETNS"
@@ -112,7 +141,7 @@ fwlive_slo_net_setup() {
 	ip link add "$FWLIVE_SLO_LAN_VETH" type veth peer name "$FWLIVE_SLO_LAN_PEER"
 	ip link add "$FWLIVE_SLO_WAN_VETH" type veth peer name "$FWLIVE_SLO_WAN_PEER"
 	ip link set dev "$FWLIVE_SLO_LAN_VETH" master "$FWLIVE_SLO_LAN_BRIDGE"
-	ip link set dev "$FWLIVE_SLO_WAN_VETH" up
+	ip link set dev "$FWLIVE_SLO_LAN_VETH" up
 	ip link set dev "$FWLIVE_SLO_LAN_PEER" netns "$FWLIVE_SLO_LAN_NETNS"
 	ip link set dev "$FWLIVE_SLO_WAN_VETH" master "$FWLIVE_SLO_WAN_BRIDGE"
 	ip link set dev "$FWLIVE_SLO_WAN_VETH" up
@@ -133,6 +162,7 @@ fwlive_slo_net_setup() {
 	# after namespace configuration so the TAP bridges are immediately usable.
 	ip link set dev "$FWLIVE_SLO_LAN_VETH" up
 	ip link set dev "$FWLIVE_SLO_WAN_VETH" up
+	trap - ERR
 
 	echo "forwarding-slo-net: topology ready"
 	fwlive_slo_net_status
@@ -181,9 +211,9 @@ fwlive_slo_net_status() {
 
 fwlive_slo_net_qemu_args() {
 	cat <<EOF
--netdev tap,id=fwlive-slo-lan,ifname=${FWLIVE_SLO_LAN_TAP},script=no,downscript=no
--device virtio-net-pci,netdev=fwlive-slo-lan,mac=52:54:00:30:77:01
--netdev tap,id=fwlive-slo-wan,ifname=${FWLIVE_SLO_WAN_TAP},script=no,downscript=no
--device virtio-net-pci,netdev=fwlive-slo-wan,mac=52:54:00:30:77:02
+	-netdev tap,id=fwlive-slo-lan,ifname=${FWLIVE_SLO_LAN_TAP},script=no,downscript=no
+-device ${FWLIVE_SLO_QEMU_NET_MODEL},netdev=fwlive-slo-lan,mac=${FWLIVE_SLO_LAN_MAC}
+	-netdev tap,id=fwlive-slo-wan,ifname=${FWLIVE_SLO_WAN_TAP},script=no,downscript=no
+-device ${FWLIVE_SLO_QEMU_NET_MODEL},netdev=fwlive-slo-wan,mac=${FWLIVE_SLO_WAN_MAC}
 EOF
 }

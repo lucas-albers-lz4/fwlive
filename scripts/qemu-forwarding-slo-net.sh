@@ -10,7 +10,7 @@
 #   ./scripts/qemu-forwarding-slo-net.sh qemu-args
 #   sudo ./scripts/qemu-forwarding-slo-net.sh status
 #   sudo ./scripts/qemu-forwarding-slo-net.sh teardown
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/qemu-forwarding-slo-net.sh

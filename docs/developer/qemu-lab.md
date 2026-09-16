@@ -518,6 +518,12 @@ mistaken for SLO evidence. The measurement harness will add the required
 `iperf3`/ping preflight, no-viewer versus active-viewer drain check, adaptive
 on/off split, and five-pair report in #344.
 
+The default routed NIC model is `virtio-net-pci`, which is appropriate for the
+armsr runner. For x86, use `OWRT_QEMU_NIC_MODEL=virtio-net-pci` on the stock
+runner and `FWLIVE_SLO_QEMU_NET_MODEL=e1000` when printing the routed TAP
+arguments. This keeps the management slirp NIC first in the guest's interface
+enumeration; the guest helper still identifies the two test links by MAC.
+
 Install `iperf3` in the armsr guest with its signed release feed when preparing
 the image (the router is useful for the package/tool preflight, but is not one
 of the two forwarded traffic endpoints):
@@ -539,8 +545,11 @@ turning an unrestricted packet log into a logger-only benchmark:
 ./scripts/qemu-forwarding-slo-guest.sh cleanup
 ```
 
-The guest helper only touches the two MAC-selected TAP interfaces, its two
-temporary `fwlive-slo-*` forwarding rules, and the IPv4-forwarding sysctl.
+The guest helper only touches the two uniquely MAC-selected TAP interfaces,
+its four temporary `fwlive-slo-*` forwarding/logging rules, the IPv4-forwarding
+sysctl, and its mode-0600 saved-state file under `/var/run`. Cleanup restores
+the prior interface/link and forwarding state and refuses to proceed without
+the saved state.
 
 Once both helpers report ready, one traffic sample can be collected with the
 same endpoint namespaces on every run:
@@ -565,11 +574,16 @@ FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-off.json \
 
 The default is five 10-second pairs with 20 pings per sample. The report
 contains all samples, pair deltas, median/spread, request drain results, and
-an optional `--enforce` decision for the `<10%` throughput and `<2x` ping
-standard-deviation criteria. A run is evidence only when all pairs complete;
+successful viewer-request results, and an optional `--enforce` decision for
+the `<10%` throughput and `<2x` ping standard-deviation criteria. The active
+viewer window is delimited by markers emitted immediately around the iperf3
+measurement, rather than by process startup/shutdown. A run is evidence only
+when all pairs complete;
 the short one-pair/short-duration settings are for harness smoke testing.
 For a load sweep, pass `--bitrate 1G` (or another iperf3 rate) to both the
-single-sample probe and paired runner; an omitted rate leaves TCP uncapped.
+single-sample probe and paired runner; an omitted rate leaves TCP uncapped. The
+ping interval is derived from `duration / ping_count` unless
+`FWLIVE_SLO_PING_INTERVAL_S` is set explicitly.
 
 #### Reusing the harness
 
@@ -582,7 +596,7 @@ workload:
 2. `qemu-forwarding-slo-guest.sh` resolves the guest links by MAC and applies
    temporary, comment-addressable forwarding/logging state.
 3. `qemu-forwarding-slo-traffic.sh` measures only routed network outcomes.
-4. `qemu-forwarding-slo-viewer.mjs` and `qemu-forwarding-slo-run.sh` provide
+4. `tests/fwlive-forwarding-slo-viewer.mjs` and `qemu-forwarding-slo-run.sh` provide
    marker-file synchronization, active-workload observation, drain checking,
    pairing, and statistics.
 

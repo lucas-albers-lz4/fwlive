@@ -39,13 +39,19 @@ qemu_lab_hostfwd_pair() {
 # For qemu -nic user,... (x86 runner).
 qemu_lab_nic_user() {
 	local http_port="$1" ssh_port="$2"
+	local model_arg=""
+	case "${OWRT_QEMU_NIC_MODEL:-}" in
+		'') ;;
+		e1000|virtio-net-pci) model_arg=",model=${OWRT_QEMU_NIC_MODEL}" ;;
+		*) echo "qemu-lab-net: unsupported QEMU management NIC model: ${OWRT_QEMU_NIC_MODEL}" >&2; return 1 ;;
+	esac
 	if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]]; then
-		printf 'user,%s' "$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")"
+		printf 'user,%s%s' "$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")" "$model_arg"
 	else
-		printf 'user,id=%s,net=%s,dhcpstart=%s,host=%s,%s' \
+		printf 'user,id=%s,net=%s,dhcpstart=%s,host=%s,%s%s' \
 			"$OWRT_LAB_NETDEV_ID" "$OWRT_LAB_SUBNET" \
 			"$(qemu_lab_dhcp_start "$OWRT_LAB_IP")" "$OWRT_LAB_HOST" \
-			"$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")"
+			"$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")" "$model_arg"
 	fi
 }
 

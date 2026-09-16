@@ -21,6 +21,9 @@ IPERF3="${FWLIVE_SLO_IPERF3:-}"
 BITRATE="${FWLIVE_SLO_IPERF_BITRATE:-}"
 DURATION="${FWLIVE_SLO_IPERF_DURATION:-10}"
 PING_COUNT="${FWLIVE_SLO_PING_COUNT:-20}"
+PING_INTERVAL="${FWLIVE_SLO_PING_INTERVAL_S:-}"
+START_MARKER="${FWLIVE_SLO_TRAFFIC_START_FILE:-}"
+STOP_MARKER="${FWLIVE_SLO_TRAFFIC_STOP_FILE:-}"
 LABEL=""
 
 die() { echo "forwarding-slo-traffic: $*" >&2; exit 1; }
@@ -56,8 +59,21 @@ case "$PING_COUNT" in
 esac
 (( DURATION > 0 )) || die "duration must be greater than zero"
 (( PING_COUNT > 0 )) || die "ping count must be greater than zero"
-if [[ -n "$BITRATE" ]] && [[ ! "$BITRATE" =~ ^[0-9]+([KMGkmg])?$ ]]; then
+if [[ -n "$BITRATE" ]] && [[ ! "$BITRATE" =~ ^[0-9]+([.][0-9]+)?([KMGkmg])?$ ]]; then
 	die "bitrate must be a decimal bit rate with optional K, M, or G suffix"
+fi
+if [[ -z "$PING_INTERVAL" ]]; then
+	PING_INTERVAL="$(awk -v duration="$DURATION" -v count="$PING_COUNT" 'BEGIN { printf "%.3f", duration / count }')"
+fi
+[[ "$PING_INTERVAL" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "ping interval must be a positive decimal"
+awk -v interval="$PING_INTERVAL" 'BEGIN { exit !(interval > 0) }' || die "ping interval must be greater than zero"
+for marker in "$START_MARKER" "$STOP_MARKER"; do
+	if [[ -n "$marker" && ( "$marker" == *$'\n'* || "$marker" == *$'\r'* ) ]]; then
+		die "traffic marker path contains a newline"
+	fi
+done
+if [[ -n "$START_MARKER" && -n "$STOP_MARKER" && "$START_MARKER" == "$STOP_MARKER" ]]; then
+	die "traffic start and stop marker paths must differ"
 fi
 
 ip netns list | awk '{print $1}' | grep -Fxq "$LAN_NS" || die "missing LAN namespace: $LAN_NS"
@@ -73,7 +89,11 @@ if [[ -z "$IPERF3" ]]; then
 fi
 [[ -x "$IPERF3" ]] || die "iperf3 not found; set FWLIVE_SLO_IPERF3 to its absolute path"
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-slo-traffic.XXXXXX")"
+TMP_ROOT="${TMPDIR:-/tmp}"
+[[ -d "$TMP_ROOT" ]] || die "temporary directory is missing: $TMP_ROOT"
+[[ -O "$TMP_ROOT" || -k "$TMP_ROOT" ]] || die "temporary directory must be owner-controlled or sticky: $TMP_ROOT"
+WORK="$(mktemp -d "$TMP_ROOT/fwlive-slo-traffic.XXXXXX")"
+chmod 700 "$WORK"
 cleanup() {
 	if [[ -n "${SERVER_PID:-}" ]]; then
 		kill "$SERVER_PID" 2>/dev/null || true
@@ -95,9 +115,13 @@ sleep 1
 # Keep the ping window inside the 10-second iperf window at the default
 # 20-count sample; the standard one-second ping interval would otherwise keep
 # the active viewer alive long after throughput measurement ended.
-LC_ALL=C ip netns exec "$LAN_NS" ping -I endpoint0 -c "$PING_COUNT" -i 0.5 -W 1 "$WAN_IP" \
+LC_ALL=C ip netns exec "$LAN_NS" ping -I endpoint0 -c "$PING_COUNT" -i "$PING_INTERVAL" -W 1 "$WAN_IP" \
 	>"$WORK/ping.out" 2>"$WORK/ping.err" &
 PING_PID=$!
+
+if [[ -n "$START_MARKER" ]]; then
+	touch "$START_MARKER"
+fi
 
 client_args=(-t "$DURATION" -J)
 if [[ -n "$BITRATE" ]]; then
@@ -105,8 +129,14 @@ if [[ -n "$BITRATE" ]]; then
 fi
 if ! LC_ALL=C ip netns exec "$LAN_NS" "$IPERF3" -c "$WAN_IP" -B "$LAN_IP" \
 	"${client_args[@]}" >"$WORK/client.json" 2>"$WORK/client.err"; then
+	if [[ -n "$STOP_MARKER" ]]; then
+		touch "$STOP_MARKER"
+	fi
 	cat "$WORK/client.err" "$WORK/server.err" "$WORK/ping.err" >&2 || true
 	die "iperf3 client failed"
+fi
+if [[ -n "$STOP_MARKER" ]]; then
+	touch "$STOP_MARKER"
 fi
 wait "$PING_PID" || true
 PING_PID=""

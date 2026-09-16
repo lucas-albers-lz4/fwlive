@@ -18,26 +18,36 @@ for script in \
 	bash -n "$script" || die "shell syntax failed: $script"
 done
 node --check "$ROOT/tests/fwlive-forwarding-slo-viewer.mjs"
+node --check "$ROOT/tests/lib/fwlive-forwarding-slo-report.mjs"
+node --check "$ROOT/tests/fwlive-forwarding-slo-report.test.mjs"
 shellcheck "$ROOT/scripts/qemu-forwarding-slo-guest.sh" \
 	"$ROOT/scripts/qemu-forwarding-slo-traffic.sh" \
-	"$ROOT/scripts/qemu-forwarding-slo-run.sh"
+	"$ROOT/scripts/qemu-forwarding-slo-run.sh" \
+	"$ROOT/scripts/lib/qemu-forwarding-slo-net.sh"
 
 "$ROOT/scripts/qemu-forwarding-slo-guest.sh" --help >/dev/null
 "$ROOT/scripts/qemu-forwarding-slo-traffic.sh" --help >/dev/null
 "$ROOT/scripts/qemu-forwarding-slo-run.sh" --help >/dev/null
 node "$ROOT/tests/fwlive-forwarding-slo-viewer.mjs" --help >/dev/null
+node "$ROOT/tests/fwlive-forwarding-slo-report.test.mjs"
+
+management_nic="$(OWRT_LAB_NET_MODE=dhcp OWRT_QEMU_NIC_MODEL=virtio-net-pci bash -c \
+	'source "$1"; qemu_lab_nic_user 8080 2222' bash \
+	"$ROOT/scripts/lib/qemu-lab-net.sh")"
+grep -Fq ',model=virtio-net-pci' <<<"$management_nic" ||
+	die "x86 management NIC model override is not wired"
 
 grep -Fq 'fwlive-slo-log-lan-to-wan' "$ROOT/scripts/qemu-forwarding-slo-guest.sh" ||
 	die "guest helper must install the LAN-to-WAN log rule"
 grep -Fq 'fwlive-slo-log-wan-to-lan' "$ROOT/scripts/qemu-forwarding-slo-guest.sh" ||
 	die "guest helper must install the WAN-to-LAN log rule"
-grep -Fq 'all_pairs_complete' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
-	die "runner must report incomplete pairs"
-grep -Fq 'active_viewer_poll_observed' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
-	die "runner must reject a window with no active viewer poll"
+grep -Fq 'all_pairs_complete' "$ROOT/tests/lib/fwlive-forwarding-slo-report.mjs" ||
+	die "report module must report incomplete pairs"
+grep -Fq 'active_viewer_poll_observed' "$ROOT/tests/lib/fwlive-forwarding-slo-report.mjs" ||
+	die "report module must reject a window with no active viewer poll"
 grep -Fq 'FWLIVE_SLO_IPERF_BITRATE' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
 	die "runner must pass through an optional iperf bitrate"
-grep -Fq "fwlive-forwarding-slo/v1" "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
-	die "runner must identify its report schema"
+grep -Fq "fwlive-forwarding-slo/v1" "$ROOT/tests/lib/fwlive-forwarding-slo-report.mjs" ||
+	die "report module must identify its report schema"
 
 echo "qemu-forwarding-slo harness checks passed"

@@ -7,7 +7,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fwliveMethodRequestIds } from './lib/fwlive-perf-rpc.mjs';
-import { launchLabBrowser, loginFwlive } from './lib/playwright-lab.mjs';
 
 const args = process.argv.slice(2);
 let readyFile = process.env.FWLIVE_SLO_VIEWER_READY_FILE || '';
@@ -123,17 +122,23 @@ function hasSummary(value) {
 }
 
 async function main() {
+	const { launchLabBrowser, loginFwlive } = await import('./lib/playwright-lab.mjs');
 	const { browser, page } = await launchLabBrowser();
 	const requestTimes = [];
 	const methodCounts = {};
-	const inFlight = new Set();
+	const measuredRequests = new Set();
+	const measuredInFlight = new Set();
+	const pollRequests = new Set();
 	let measureStarted = false;
 	let measureFinished = false;
 	let summarySeen = false;
 	let requestFailures = 0;
+	let firstPollSettled = false;
 	let firstPollResponseResolve;
-	const firstPollResponsePromise = new Promise((resolve) => {
+	let firstPollResponseReject;
+	const firstPollResponsePromise = new Promise((resolve, reject) => {
 		firstPollResponseResolve = resolve;
+		firstPollResponseReject = reject;
 	});
 
 	page.on('request', (request) => {
@@ -141,28 +146,50 @@ async function main() {
 		const methods = requestMethods(postData);
 		if (!methods.length) return;
 		for (const method of methods) methodCounts[method] = (methodCounts[method] || 0) + 1;
-		inFlight.add(request);
+		if (methods.includes('poll')) pollRequests.add(request);
 		if (measureStarted && !measureFinished) {
+			measuredRequests.add(request);
+			measuredInFlight.add(request);
 			for (const method of methods)
 				methodCounts[`window_${method}`] = (methodCounts[`window_${method}`] || 0) + 1;
 			if (methods.includes('poll')) requestTimes.push(Date.now());
 		}
 	});
+	page.on('requestfinished', (request) => {
+		measuredInFlight.delete(request);
+		pollRequests.delete(request);
+	});
 	page.on('requestfailed', (request) => {
-		if (inFlight.delete(request)) requestFailures++;
+		const wasPoll = pollRequests.has(request);
+		measuredInFlight.delete(request);
+		pollRequests.delete(request);
+		if (measuredRequests.has(request)) requestFailures++;
+		if (!firstPollSettled && wasPoll) {
+			firstPollSettled = true;
+			firstPollResponseReject(new Error('first fwlive poll request failed'));
+		}
 	});
 	page.on('response', async (response) => {
 		const postData = response.request().postData() || '';
-		if (!requestMethods(postData).length) return;
-		inFlight.delete(response.request());
-		if (fwliveMethodRequestIds(postData, 'poll').length) firstPollResponseResolve();
-		if (!measureStarted || measureFinished) return;
-		if (response.request().postData() && fwliveMethodRequestIds(postData, 'poll').length) {
+		const methods = requestMethods(postData);
+		if (!methods.length) return;
+		if (methods.includes('poll')) {
 			try {
+				if (!response.ok()) throw new Error(`HTTP ${response.status()}`);
 				const body = await response.json();
-				if (hasSummary(body)) summarySeen = true;
-			} catch (e) {
-				/* The request/cadence evidence remains useful if a reply is malformed. */
+				if (!body || typeof body !== 'object')
+					throw new Error('poll response was not a JSON object or array');
+				if (!firstPollSettled) {
+					firstPollSettled = true;
+					firstPollResponseResolve();
+				}
+				if (measureStarted && !measureFinished && hasSummary(body)) summarySeen = true;
+			} catch (error) {
+				if (measuredRequests.has(response.request())) requestFailures++;
+				if (!firstPollSettled) {
+					firstPollSettled = true;
+					firstPollResponseReject(error);
+				}
 			}
 		}
 	});
@@ -185,7 +212,10 @@ async function main() {
 		await waitForFile(stopFile, timeoutMs);
 		measureFinished = true;
 		const finishedAt = Date.now();
-		const requestsBeforeDrain = inFlight.size;
+		const requestsBeforeDrain = measuredInFlight.size;
+		// Stop the page's poll loop before draining. Requests started during the
+		// measurement remain tracked until requestfinished/requestfailed.
+		await page.goto('about:blank', { waitUntil: 'load', timeout: 10000 }).catch(() => {});
 		await new Promise((resolve) => setTimeout(resolve, drainMs));
 		const report = {
 			viewer: 'active',
@@ -199,7 +229,7 @@ async function main() {
 			poll_cadence_ms: intervalsSummary(requestTimes),
 			request_failures: requestFailures,
 			in_flight_at_window_end: requestsBeforeDrain,
-			in_flight_after_drain: inFlight.size,
+			in_flight_after_drain: measuredInFlight.size,
 			summary_mode_seen: summarySeen,
 			started_at: new Date(startedAt).toISOString(),
 			finished_at: new Date(finishedAt).toISOString()

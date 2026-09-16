@@ -25,6 +25,13 @@ done
 fwlive_slo_net_validate_names
 ok "default resource names are prefixed and Linux-safe"
 
+if FWLIVE_SLO_LAN_NETNS="$FWLIVE_SLO_PREFIX" bash -c \
+	'source "$1"; fwlive_slo_net_validate_names' bash \
+	"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
+	die "bare owned prefix must be rejected as a resource name"
+fi
+ok "bare owned prefix is rejected"
+
 if FWLIVE_SLO_WAN_TAP="$FWLIVE_SLO_LAN_TAP" bash -c \
 	'source "$1"; fwlive_slo_net_validate_names' bash \
 	"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
@@ -38,5 +45,22 @@ grep -Fq "ifname=${FWLIVE_SLO_WAN_TAP}" <<<"$args" || die "WAN TAP missing from 
 grep -Fq 'script=no,downscript=no' <<<"$args" || die "QEMU TAP scripts must be disabled"
 [[ "$(grep -Fc 'netdev tap' <<<"$args")" -eq 2 ]] || die "expected two TAP netdevs"
 ok "QEMU args expose two explicit TAP links"
+
+custom_args="$(FWLIVE_SLO_LAN_MAC=02:00:00:00:00:01 FWLIVE_SLO_WAN_MAC=02:00:00:00:00:02 \
+	bash -c 'source "$1"; fwlive_slo_net_qemu_args' bash \
+	"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh")"
+grep -Fq 'mac=02:00:00:00:00:01' <<<"$custom_args" || die "LAN MAC override missing from QEMU args"
+grep -Fq 'mac=02:00:00:00:00:02' <<<"$custom_args" || die "WAN MAC override missing from QEMU args"
+ok "QEMU args honor guest MAC overrides"
+
+if FWLIVE_SLO_QEMU_NET_MODEL=unsupported bash -c \
+	'source "$1"' bash "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
+	die "unsupported QEMU NIC model must be rejected"
+fi
+model_args="$(FWLIVE_SLO_QEMU_NET_MODEL=e1000 bash -c \
+	'source "$1"; fwlive_slo_net_qemu_args' bash \
+	"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh")"
+grep -Fq -- '-device e1000,' <<<"$model_args" || die "QEMU NIC model override missing"
+ok "QEMU NIC model is validated and configurable"
 
 echo "qemu-forwarding-slo-net tests passed"
