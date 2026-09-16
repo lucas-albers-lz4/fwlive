@@ -35,6 +35,28 @@ export function isFwliveFixtureRequest(payload) {
 	);
 }
 
+export function fwlivePollRequestedLines(payload) {
+	return parseRpcPayload(payload)
+		.filter((req) => {
+			const params = req && req.params;
+			return !!(
+				req &&
+				typeof req === 'object' &&
+				req.method === 'call' &&
+				Array.isArray(params) &&
+				params[1] === 'fwlive' &&
+				params[2] === 'poll'
+			);
+		})
+		.flatMap((req) => {
+			const params = req.params;
+			const args = params[3];
+			return args && Array.isArray(args.addresses) && args.addresses.length
+				? [String(args.addresses[0])]
+				: [];
+		});
+}
+
 export function fwliveRpcReplyForRequest(payload, requestIds) {
 	if (!Array.isArray(requestIds) || !requestIds.length) return null;
 	return parseRpcPayload(payload).find(

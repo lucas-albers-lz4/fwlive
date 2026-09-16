@@ -35,6 +35,7 @@ import { chromium } from 'playwright';
 import { labBaseUrl, labFwliveUrl } from './lib/playwright-lab.mjs';
 import {
 	fwliveMethodRequestIds,
+	fwlivePollRequestedLines,
 	fwliveRpcReplyForRequest,
 	isFwliveFixtureRequest
 } from './lib/fwlive-perf-rpc.mjs';
@@ -94,12 +95,40 @@ if (
 )
 	throw new Error(`FWLIVE_PERF_ROW_LIMIT must be a decimal integer: ${PERF_ROW_LIMIT_RAW}`);
 const PERF_ROW_LIMIT_OPTIONS = [25, 50, 100, 250, 500, 1000, 2000];
+const PERF_FETCH_MODE_RAW = process.env.FWLIVE_PERF_FETCH_MODE;
+const PERF_FETCH_MODE = PERF_FETCH_MODE_RAW === undefined || PERF_FETCH_MODE_RAW === ''
+	? null
+	: PERF_FETCH_MODE_RAW;
+if (PERF_FETCH_MODE !== null && !['auto', 'manual'].includes(PERF_FETCH_MODE))
+	throw new Error(`FWLIVE_PERF_FETCH_MODE must be auto or manual: ${PERF_FETCH_MODE_RAW}`);
+const PERF_MANUAL_LINES_RAW = process.env.FWLIVE_PERF_MANUAL_LINES;
+const PERF_MANUAL_LINES = PERF_MANUAL_LINES_RAW === undefined || PERF_MANUAL_LINES_RAW === ''
+	? null
+	: Number(PERF_MANUAL_LINES_RAW);
+if (
+	PERF_MANUAL_LINES_RAW !== undefined &&
+	PERF_MANUAL_LINES_RAW !== '' &&
+	(!/^[0-9]+$/.test(PERF_MANUAL_LINES_RAW) || !Number.isFinite(PERF_MANUAL_LINES))
+)
+	throw new Error(
+		`FWLIVE_PERF_MANUAL_LINES must be a decimal integer: ${PERF_MANUAL_LINES_RAW}`
+	);
+if (PERF_FETCH_MODE === 'manual' && PERF_MANUAL_LINES === null)
+	throw new Error('FWLIVE_PERF_MANUAL_LINES is required with manual fetch mode');
+if (PERF_FETCH_MODE !== 'manual' && PERF_MANUAL_LINES !== null)
+	throw new Error('FWLIVE_PERF_MANUAL_LINES requires manual fetch mode');
+const PERF_MANUAL_LINES_OPTIONS = [25, 50, 100, 250, 500, 1000, 2000];
 /* Keep in sync with constants.ROW_LIMIT_OPTIONS; LuCI modules are not loaded here. */
 /* Keep in sync with constants.WEAK_DEVICE_DISPLAY_ROW_CAP. */
 const WEAK_DEVICE_DISPLAY_ROW_CAP = 250;
 if (!Number.isInteger(PERF_ROW_LIMIT) || !PERF_ROW_LIMIT_OPTIONS.includes(PERF_ROW_LIMIT))
 	throw new Error(
 		`FWLIVE_PERF_ROW_LIMIT must be one of ${PERF_ROW_LIMIT_OPTIONS.join(', ')}: ${PERF_ROW_LIMIT_RAW}`
+	);
+if (PERF_MANUAL_LINES !== null &&
+	(!Number.isInteger(PERF_MANUAL_LINES) || !PERF_MANUAL_LINES_OPTIONS.includes(PERF_MANUAL_LINES)))
+	throw new Error(
+		`FWLIVE_PERF_MANUAL_LINES must be one of ${PERF_MANUAL_LINES_OPTIONS.join(', ')}: ${PERF_MANUAL_LINES_RAW}`
 	);
 
 function observedDisplayRowLimit(value) {
@@ -240,6 +269,29 @@ function summarize(values) {
 	};
 }
 
+function summarizeRequestedLines(values) {
+	const numeric = values
+		.map((value) => Number(value))
+		.filter((value) => Number.isInteger(value) && value >= 0);
+	return {
+		count: numeric.length,
+		unique: [...new Set(numeric)].sort((a, b) => a - b),
+		values: summarize(numeric)
+	};
+}
+
+function fwlivePerformanceUrl() {
+	const hash = [];
+	if (PERF_ROW_LIMIT_RAW !== undefined && PERF_ROW_LIMIT_RAW !== '')
+		hash.push(`limit=${encodeURIComponent(PERF_ROW_LIMIT)}`);
+	if (PERF_FETCH_MODE !== null) {
+		hash.push(`poll=${encodeURIComponent(PERF_FETCH_MODE)}`);
+		if (PERF_MANUAL_LINES !== null)
+			hash.push(`maxraw=${encodeURIComponent(PERF_MANUAL_LINES)}`);
+	}
+	return `${labFwliveUrl()}${hash.length ? `#${hash.join('&')}` : ''}`;
+}
+
 async function waitForPollCount(counts, target, timeoutMs) {
 	const deadline = Date.now() + timeoutMs;
 	while (counts.polls < target && Date.now() < deadline)
@@ -341,7 +393,7 @@ async function main() {
 		page = await context.newPage();
 	}
 	const cdp = await context.newCDPSession(page);
-	const counts = { polls: 0 };
+	const counts = { polls: 0, requestedLines: [] };
 	const pollStarts = new WeakMap();
 	const pollRtts = [];
 	let observedWeakDevice = REAL_POLL ? null : WEAK_DEVICE;
@@ -350,6 +402,7 @@ async function main() {
 	page.on('pageerror', (e) => console.error('pageerror:', e.message));
 	page.on('request', (request) => {
 		if (!isFwlivePoll(request.postData() || '')) return;
+		counts.requestedLines.push(...fwlivePollRequestedLines(request.postData() || ''));
 		pollStarts.set(request, Date.now());
 		if (REAL_POLL) counts.polls++;
 	});
@@ -402,7 +455,7 @@ async function main() {
 				body: JSON.stringify(batched ? replies : replies[0])
 			});
 		});
-		await page.goto(labFwliveUrl(), {
+		await page.goto(fwlivePerformanceUrl(), {
 			waitUntil: 'domcontentloaded',
 			timeout: 60000
 		});
@@ -410,6 +463,22 @@ async function main() {
 		let displayRowLimit = observedDisplayRowLimit(
 			await page.locator('#fwlive-limit').inputValue()
 		);
+		if (PERF_FETCH_MODE !== null) {
+			const mode = page.locator('#fwlive-fetch-mode');
+			const manual = page.locator('#fwlive-manual-lines');
+			if (!await mode.count() || !await manual.count())
+				throw new Error(
+					'fetch budget controls are unavailable; run against the #347 implementation'
+				);
+			await page.waitForFunction(
+				({ expectedMode, expectedManual }) =>
+					document.querySelector('#fwlive-fetch-mode')?.value === expectedMode &&
+					(expectedManual === null ||
+						document.querySelector('#fwlive-manual-lines')?.value === String(expectedManual)),
+				{ expectedMode: PERF_FETCH_MODE, expectedManual: PERF_MANUAL_LINES },
+				{ timeout: 30000 }
+			);
+		}
 		if (REAL_POLL && PERF_ROW_LIMIT_RAW !== undefined && PERF_ROW_LIMIT_RAW !== '') {
 			await page.locator('#fwlive-limit').selectOption(String(PERF_ROW_LIMIT));
 			displayRowLimit = observedDisplayRowLimit(
@@ -520,6 +589,16 @@ async function main() {
 			soak_ms: SOAK_MS,
 			polls: counts.polls,
 			poll_rtt_ms: summarize(pollRtts),
+			fetch_budget: {
+				mode: PERF_FETCH_MODE,
+				manual_lines: PERF_MANUAL_LINES,
+				expected_raw_lines: PERF_FETCH_MODE === 'manual'
+					? PERF_MANUAL_LINES
+					: displayRowLimit === null
+						? null
+						: Math.min(Math.max(displayRowLimit * 4, 100), 2000),
+				requested_raw_lines: summarizeRequestedLines(counts.requestedLines)
+			},
 			visibility: {
 				method: hiddenVisibilityMethod === visibleVisibilityMethod
 					? hiddenVisibilityMethod

@@ -463,6 +463,30 @@ ms are rejected. A short `FWLIVE_SOAK_MS` is also for harness development only;
 visibility is required; set `FWLIVE_ALLOW_EMULATION=1` only for an intentional
 development-only headless check.
 
+For the fetch-budget qualification on #339, set the display limit and explicitly
+select either Auto or Manual. The harness puts these values in the URL before the
+first poll, captures every `addresses[0]` raw-line request, and records the
+observed values under `fetch_budget` in the JSON report. Manual runs require an
+explicit value so a stale browser preference cannot change the workload:
+
+```sh
+# Auto derives the raw budget from the selected display limit.
+FWLIVE_PERF_ROW_LIMIT=500 FWLIVE_PERF_FETCH_MODE=auto \
+FWLIVE_CPU_THROTTLE=4 FWLIVE_SOAK_MS=10000 \
+./scripts/qemu-layer2-performance.sh
+
+# Manual holds the raw budget constant while the display limit stays 500.
+FWLIVE_PERF_ROW_LIMIT=500 FWLIVE_PERF_FETCH_MODE=manual \
+FWLIVE_PERF_MANUAL_LINES=500 FWLIVE_CPU_THROTTLE=4 FWLIVE_SOAK_MS=10000 \
+./scripts/qemu-layer2-performance.sh
+```
+
+The fetch-budget options are measurement controls for the browser gate; they do
+not change the shipped defaults or polling cadence. Runs using these options
+require the #347 controls to be installed in the guest. A qualification matrix
+should keep CPU throttle, fixture, visibility interval, and soak duration fixed
+while varying only the display limit and fetch mode/budget.
+
 On 2026-09-15, the development gate was rerun after the table renderer gained
 keyed row reuse and targeted insertion for unchanged poll rows. With the same
 4x CPU throttle, 2,000-entry fixture, 1,143 visible rows, and 6-second soak,

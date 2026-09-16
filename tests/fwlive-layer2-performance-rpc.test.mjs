@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import {
 	fwliveMethodRequestIds,
+	fwlivePollRequestedLines,
 	fwliveRpcReplyForRequest,
 	isFwliveFixtureRequest,
 	isSuccessfulFwliveRpcReply
@@ -33,6 +34,32 @@ assert.strictEqual(isFwliveFixtureRequest(JSON.stringify({
 	method: 'call',
 	params: ['session', 'fwlive', 'rules', {}]
 })), false);
+assert.deepStrictEqual(fwlivePollRequestedLines(JSON.stringify([
+	{
+		jsonrpc: '2.0',
+		id: 45,
+		method: 'call',
+		params: ['session', 'fwlive', 'poll', { addresses: ['500'] }]
+	},
+	{
+		jsonrpc: '2.0',
+		id: 46,
+		method: 'call',
+		params: ['session', 'fwlive', 'rules', {}]
+	},
+	{
+		jsonrpc: '2.0',
+		id: 47,
+		method: 'call',
+		params: ['session', 'fwlive', 'poll', { addresses: ['1000'] }]
+	},
+])), ['500', '1000']);
+assert.deepStrictEqual(fwlivePollRequestedLines(JSON.stringify({
+	jsonrpc: '2.0',
+	id: 48,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', {}]
+})), []);
 
 const singleReply = JSON.stringify({
 	jsonrpc: '2.0',
