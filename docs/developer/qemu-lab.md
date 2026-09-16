@@ -344,7 +344,7 @@ this calibration.
 - [x] Commit numeric Z from nofork; fill result tables
 - [x] armsr confirmation run against soft budget
 - [x] Degraded-mode adaptive-cap baseline — harness: [`scripts/qemu-adaptive-flood.sh`](../../scripts/qemu-adaptive-flood.sh); binding armsr C1 table filled (`ac_pass=1`, run `flood-armsr-20260912T174001`)
-- [ ] Degraded-mode visibility-pause baseline — Layer 2 client backoff landed (`feat/306-layer2-visibility-backoff`); host unit coverage in `tests/fwlive-view-layer2-backoff.test.js`; Playwright/CDP gate is tracked in [#339](https://github.com/lucas-albers-lz4/fwlive/issues/339)
+- [x] Degraded-mode visibility-pause baseline — Layer 2 client backoff landed (`feat/306-layer2-visibility-backoff`); host unit coverage in `tests/fwlive-view-layer2-backoff.test.js`; Playwright/CDP gate is tracked in [#339](https://github.com/lucas-albers-lz4/fwlive/issues/339)
 
 ### Adaptive flood evidence (#306 Layer 1)
 
@@ -408,7 +408,40 @@ then raised the retained warm limit from 500 to 1,000 after the warm cooldown.
 It did not return to a cold/full 2,000-line cap, and it is not forwarding-SLO
 evidence; those remain separate #306 acceptance items.
 
-The visibility-pause degraded baseline is still pending the Playwright/CDP timing measurement.
+The visibility-pause timing phase is measured by the Playwright harness. The
+current Chromium build does not expose `Emulation.setPageVisibilityState`.
+Headless runs therefore use `document-emulation`, which exercises the shipped
+`visibilitychange` handler but is not a claim of real background-tab behavior.
+For native visibility evidence, launch a fresh headed Chromium under a display
+server and attach with the harness's no-defaults CDP mode:
+
+```sh
+export CHROME_BIN="$(node --input-type=module -e 'import { chromium } from "playwright"; console.log(chromium.executablePath())')"
+xvfb-run -a sh -c '
+  profile=$(mktemp -d)
+  cleanup() { kill "$chrome_pid" 2>/dev/null || true; rm -rf "$profile"; }
+  trap cleanup EXIT
+  "$CHROME_BIN" --no-sandbox --disable-dev-shm-usage --ozone-platform=x11 \
+    --user-data-dir="$profile" --remote-debugging-address=127.0.0.1 \
+    --remote-debugging-port=9229 --no-first-run --no-default-browser-check \
+    about:blank >/tmp/fwlive-chrome-real.log 2>&1 &
+  chrome_pid=$!
+  until curl -fsS http://127.0.0.1:9229/json/version >/dev/null; do sleep 0.2; done
+  FWLIVE_PERF_REAL_VISIBILITY=1 \
+  FWLIVE_PERF_CDP_ENDPOINT=http://127.0.0.1:9229 \
+  FWLIVE_URL=http://127.0.0.1:8080 FWLIVE_CPU_THROTTLE=4 \
+  FWLIVE_PERF_WEAK_DEVICE=1 FWLIVE_PERF_ROW_LIMIT=2000 \
+  FWLIVE_SOAK_MS=1800000 FWLIVE_ENFORCE=1 \
+  ./scripts/qemu-layer2-performance.sh
+'
+```
+
+This mode uses `connectOverCDP(..., { noDefaults: true })`, keeps the LuCI page
+and an `about:blank` page in the externally created context, and switches tabs
+to cause Chromium-native visibility transitions. The harness requires a
+trusted event for each transition and reports those events. The external
+browser is intentionally separate from the headless default so the test does
+not confuse Playwright focus emulation with actual background-tab behavior.
 
 The repeatable browser gate uses the real LuCI page with only `fwlive.poll`
 replaced by the checked-in 2,000-entry fixture:
@@ -421,8 +454,14 @@ FWLIVE_SOAK_MS=1800000 \
 ```
 
 It reports visibility pause/resume, render-commit-to-paint samples, largest
-`longtask`, and Chromium heap growth. A short `FWLIVE_SOAK_MS` is for harness
-development only; #306 sign-off requires the 30-minute run.
+`longtask`, and Chromium heap growth. The visibility phase keeps the page hidden
+for 60 seconds by default, rejects hidden polls, and records the visible-to-next-
+poll latency against the 1-second recovery budget. Override that interval with
+`FWLIVE_VISIBILITY_HIDDEN_MS` only for harness development; values below 1,000
+ms are rejected. A short `FWLIVE_SOAK_MS` is also for harness development only;
+#306 sign-off requires the 30-minute run. With `FWLIVE_ENFORCE=1`, native
+visibility is required; set `FWLIVE_ALLOW_EMULATION=1` only for an intentional
+development-only headless check.
 
 On 2026-09-15, the development gate was rerun after the table renderer gained
 keyed row reuse and targeted insertion for unchanged poll rows. With the same
@@ -480,6 +519,31 @@ environment-specific example evidence; repeat the method above for current
 hardware/browser results. The weak-device toggle controls the synthetic
 `logging_status` response in fixture mode; production receives the boolean
 from the real `logging_status` response.
+
+On 2026-09-16, the required weak-device confirmation used the same fixture,
+2,000-row selection, 4x CPU throttle, and a 30-minute soak. The production cap
+rendered 250 rows; 1,807 polls completed, with zero hidden-interval polls and
+54 ms visible-to-next-poll recovery. Maximum commit-to-paint was 176.6 ms,
+largest main-thread task was 217 ms, zero tasks reached 250 ms, and retained
+heap growth was -0.87 MiB (1.91 MiB sampled peak). This satisfies the 4x
+weak-device performance and heap confirmation gates. A supplemental 6x /
+10-second run kept the 250-row cap but reached 273.5 ms maximum paint and a
+333 ms largest task; it is stress-boundary evidence, not a replacement for the
+4x acceptance run.
+
+The native visibility path was then validated on 2026-09-16 on OpenWrt 24.10.8
+x86_64 KVM with Chromium 148, using the same 2,000-row selection and 4x
+throttle, a 60-second hidden interval, and a 10-second post-resume soak. The
+report used `headed-tab-switch`, observed zero hidden-interval polls, resumed
+in 268 ms against the 1,000 ms budget, and
+recorded trusted native `visibilitychange` events for both transitions. It
+rendered 250 rows with 64.7 ms p95 / 158.9 ms maximum commit-to-paint, a
+209 ms largest task, zero tasks at or above 250 ms, and 0.05 MiB retained heap
+growth (0.07 MiB sampled peak). This closes the earlier document-emulation
+limitation for the visibility semantics; the longer 30-minute performance
+soak remains the controlled headless-run evidence above and must use the
+explicit emulation override unless it is repeated with the native browser
+mode.
 
 For a supplemental loaded-router check, leave the poll path real and run this
 mode while a guest load/traffic producer is active:

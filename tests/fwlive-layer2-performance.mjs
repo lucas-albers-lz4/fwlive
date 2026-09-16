@@ -13,9 +13,18 @@
  *   FWLIVE_PERF_ROW_LIMIT=500 \
  *   node tests/fwlive-layer2-performance.mjs
  *
+ * Set FWLIVE_PERF_REAL_VISIBILITY=1 with FWLIVE_PERF_CDP_ENDPOINT pointing at
+ * an externally launched headed Chromium. The harness attaches with
+ * connectOverCDP({ noDefaults: true }) so Playwright does not emulate focus.
+ *
+ * Set FWLIVE_VISIBILITY_HIDDEN_MS to override the 60-second hidden interval
+ * for harness development; values below 1000 ms are rejected.
+ *
  * Set FWLIVE_ENFORCE=1 to turn the visibility and performance targets into
- * process failures. Shorter soak values are useful for harness development;
- * only the default 30-minute run is suitable for #306 sign-off.
+ * process failures. Enforced runs require native visibility unless
+ * FWLIVE_ALLOW_EMULATION=1 is explicitly set for development-only checks.
+ * Shorter soak values are useful for harness development; only the default
+ * 30-minute run is suitable for #306 sign-off.
  * Set FWLIVE_PERF_REAL_POLL=1 for a supplemental run against the guest's real
  * log pipeline; that mode does not provide the 2,000-entry fixture workload.
  */
@@ -40,7 +49,37 @@ if (SOAK_MS_RAW !== undefined && !Number.isFinite(Number(SOAK_MS_RAW)))
 const SOAK_MS = SOAK_MS_RAW === undefined || SOAK_MS_RAW === ''
 	? 30 * 60 * 1000
 	: Math.max(1000, Number(SOAK_MS_RAW));
+const VISIBILITY_HIDDEN_MS_RAW = process.env.FWLIVE_VISIBILITY_HIDDEN_MS;
+if (
+	VISIBILITY_HIDDEN_MS_RAW !== undefined &&
+	VISIBILITY_HIDDEN_MS_RAW !== '' &&
+	(!/^[0-9]+$/.test(VISIBILITY_HIDDEN_MS_RAW) ||
+		!Number.isFinite(Number(VISIBILITY_HIDDEN_MS_RAW)))
+)
+	throw new Error(
+		`FWLIVE_VISIBILITY_HIDDEN_MS must be a decimal integer: ${VISIBILITY_HIDDEN_MS_RAW}`
+	);
+const VISIBILITY_HIDDEN_MS = VISIBILITY_HIDDEN_MS_RAW === undefined || VISIBILITY_HIDDEN_MS_RAW === ''
+	? 60 * 1000
+	: Number(VISIBILITY_HIDDEN_MS_RAW);
+if (VISIBILITY_HIDDEN_MS < 1000)
+	throw new Error('FWLIVE_VISIBILITY_HIDDEN_MS must be at least 1000 ms');
+const VISIBILITY_RESUME_BUDGET_MS = 1000;
+const MAIN_THREAD_TASK_BUDGET_MS = 250;
 const ENFORCE = process.env.FWLIVE_ENFORCE === '1';
+const ALLOW_EMULATION = process.env.FWLIVE_ALLOW_EMULATION === '1';
+const REAL_VISIBILITY = process.env.FWLIVE_PERF_REAL_VISIBILITY === '1';
+const CDP_ENDPOINT = process.env.FWLIVE_PERF_CDP_ENDPOINT || '';
+if (REAL_VISIBILITY && !CDP_ENDPOINT)
+	throw new Error('FWLIVE_PERF_CDP_ENDPOINT is required for real visibility mode');
+if (!REAL_VISIBILITY && CDP_ENDPOINT)
+	throw new Error('FWLIVE_PERF_REAL_VISIBILITY=1 is required with FWLIVE_PERF_CDP_ENDPOINT');
+if (REAL_VISIBILITY && ALLOW_EMULATION)
+	throw new Error('FWLIVE_ALLOW_EMULATION cannot be used with real visibility mode');
+if (ENFORCE && !REAL_VISIBILITY && !ALLOW_EMULATION)
+	throw new Error(
+		'FWLIVE_ENFORCE=1 requires native visibility; use FWLIVE_ALLOW_EMULATION=1 only for development'
+	);
 const REAL_POLL = process.env.FWLIVE_PERF_REAL_POLL === '1';
 const POLL_DELAY_MS = Math.max(0, Number(process.env.FWLIVE_PERF_POLL_DELAY_MS || 0));
 const WEAK_DEVICE = process.env.FWLIVE_PERF_WEAK_DEVICE === '1';
@@ -125,9 +164,16 @@ async function installBrowserMetrics(page) {
 			frameIntervals: [],
 			paintAfterMutation: [],
 			longTasks: [],
-			tableMutations: []
+			tableMutations: [],
+			visibilityEvents: []
 		};
 		window.__fwlivePerf = state;
+		document.addEventListener('visibilitychange', (event) => {
+			state.visibilityEvents.push({
+				state: document.visibilityState,
+				isTrusted: event.isTrusted
+			});
+		});
 
 		if (typeof PerformanceObserver === 'function') {
 			try {
@@ -222,7 +268,24 @@ async function sampleHeapUsage(cdp, samples, forceGc) {
 	}
 }
 
-async function setVisibilityState(page, cdp, state) {
+async function setVisibilityState(page, cdp, state, foregroundPage) {
+	if (foregroundPage) {
+		const eventCount = await page.evaluate(() =>
+			(window.__fwlivePerf?.visibilityEvents || []).length
+		);
+		if (state === 'hidden') await foregroundPage.bringToFront();
+		else await page.bringToFront();
+		await page.waitForFunction(
+			({ expected, previousEventCount }) =>
+				document.visibilityState === expected &&
+				(window.__fwlivePerf?.visibilityEvents || []).some((event, index) =>
+					index >= previousEventCount && event.state === expected && event.isTrusted
+				),
+			{ expected: state, previousEventCount: eventCount },
+			{ timeout: 5000 }
+		);
+		return 'headed-tab-switch';
+	}
 	try {
 		await cdp.send('Emulation.setPageVisibilityState', { visibilityState: state });
 		const observed = await page.evaluate(() => document.visibilityState);
@@ -261,9 +324,22 @@ async function loginWithoutOpeningLiveView(page) {
 
 async function main() {
 	const fixtureBase = { ...fixture, messages_received: fixture.log.length, adaptive: 1 };
-	const browser = await chromium.launch({ headless: true });
-	const context = await browser.newContext();
-	const page = await context.newPage();
+	let browser;
+	let context;
+	let page;
+	let foregroundPage = null;
+	if (REAL_VISIBILITY) {
+		browser = await chromium.connectOverCDP(CDP_ENDPOINT, { noDefaults: true });
+		const contexts = browser.contexts();
+		if (contexts.length !== 1)
+			throw new Error(`real visibility mode expected one browser context: ${contexts.length}`);
+		context = contexts[0];
+		page = context.pages()[0] || await context.newPage();
+	} else {
+		browser = await chromium.launch({ headless: true });
+		context = await browser.newContext();
+		page = await context.newPage();
+	}
 	const cdp = await context.newCDPSession(page);
 	const counts = { polls: 0 };
 	const pollStarts = new WeakMap();
@@ -364,6 +440,11 @@ async function main() {
 				{ timeout: 60000 }
 			);
 		}
+		if (REAL_VISIBILITY) {
+			foregroundPage = await context.newPage();
+			await foregroundPage.goto('about:blank');
+			await page.bringToFront();
+		}
 
 		const visibleRows = await page.locator('#fwlive-table tbody tr').count();
 		/* Let the poll that filled the table finish before taking the hidden-tab
@@ -372,12 +453,17 @@ async function main() {
 		const initialPolls = counts.polls;
 		if (!initialPolls) throw new Error('fixture poll was not observed');
 
-		/* CDP visibility emulation exercises the actual visibilitychange handler. */
-		const hiddenVisibilityMethod = await setVisibilityState(page, cdp, 'hidden');
-		await new Promise((resolve) => setTimeout(resolve, 2500));
+		/* Exercise the shipped visibilitychange handler, using native tab switching
+		 * when an externally launched headed browser is available. */
+		if (foregroundPage) await page.bringToFront();
+		const hiddenVisibilityMethod = await setVisibilityState(page, cdp, 'hidden', foregroundPage);
+		await new Promise((resolve) => setTimeout(resolve, VISIBILITY_HIDDEN_MS));
 		const hiddenPolls = counts.polls - initialPolls;
-		const visibleVisibilityMethod = await setVisibilityState(page, cdp, 'visible');
-		const resumed = await waitForPollCount(counts, counts.polls + 1, 10000);
+		const resumeTarget = counts.polls + 1;
+		const visibleAt = Date.now();
+		const visibleVisibilityMethod = await setVisibilityState(page, cdp, 'visible', foregroundPage);
+		const resumed = await waitForPollCount(counts, resumeTarget, 5000);
+		const resumeLatencyMs = resumed ? Date.now() - visibleAt : null;
 
 		const heapSamples = [];
 		await sampleHeapUsage(cdp, heapSamples, true);
@@ -402,7 +488,8 @@ async function main() {
 				},
 				paintAfterMutation: state.paintAfterMutation || [],
 				tableMutations: state.tableMutations || [],
-				longTasks: state.longTasks || []
+				longTasks: state.longTasks || [],
+				visibilityEvents: state.visibilityEvents || []
 			};
 		});
 
@@ -438,8 +525,12 @@ async function main() {
 					? hiddenVisibilityMethod
 					: `${hiddenVisibilityMethod}->${visibleVisibilityMethod}`,
 				initial_polls: initialPolls,
-				hidden_polls_during_2500ms: hiddenPolls,
-				resumed
+				hidden_duration_ms: VISIBILITY_HIDDEN_MS,
+				hidden_polls_during_interval: hiddenPolls,
+				resume_latency_ms: resumeLatencyMs,
+				resume_budget_ms: VISIBILITY_RESUME_BUDGET_MS,
+				resumed,
+				native_events: metrics.visibilityEvents
 			},
 			frame: metrics.frame,
 			render_commit_to_paint_ms: summarize(metrics.paintAfterMutation),
@@ -474,10 +565,28 @@ async function main() {
 		if (ENFORCE) {
 			const renderMax = report.render_commit_to_paint_ms.max;
 			const heapGrowth = report.heap.growth_mb;
-			if (!report.visibility.resumed || report.visibility.hidden_polls_during_2500ms > 0)
+			const nativeVisibility = report.visibility.method === 'cdp' ||
+				report.visibility.method === 'headed-tab-switch';
+			if (!nativeVisibility && !ALLOW_EMULATION)
+				throw new Error(`native visibility required for enforced run: ${report.visibility.method}`);
+			if (
+				!report.visibility.resumed ||
+				report.visibility.hidden_polls_during_interval > 0 ||
+				report.visibility.resume_latency_ms === null ||
+				report.visibility.resume_latency_ms > VISIBILITY_RESUME_BUDGET_MS
+			)
 				throw new Error(`visibility gate failed: ${JSON.stringify(report.visibility)}`);
 			if (renderMax !== null && renderMax >= 250)
 				throw new Error(`render commit-to-paint target failed: ${renderMax} ms`);
+			if (
+				(report.largest_main_thread_task_ms !== null &&
+					report.largest_main_thread_task_ms >= MAIN_THREAD_TASK_BUDGET_MS) ||
+				report.long_tasks_over_250ms > 0
+			)
+				throw new Error(
+					`main-thread task target failed: largest=${report.largest_main_thread_task_ms} ms, ` +
+					`over_${MAIN_THREAD_TASK_BUDGET_MS}ms=${report.long_tasks_over_250ms}`
+				);
 			if (heapGrowth !== null && heapGrowth >= 50)
 				throw new Error(`heap growth target failed: ${heapGrowth} MiB`);
 		}
