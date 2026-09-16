@@ -493,6 +493,39 @@ FWLIVE_SOAK_MS=120000 \
 This mode reports actual ubus poll RTTs and validates client cadence/backoff;
 it is separate from the controlled 2,000-entry browser-rendering gate.
 
+### Forwarding-SLO topology (#306 / #344)
+
+The forwarding SLO requires two traffic endpoints routed through the guest.
+The management slirp NIC and a viewer Pause state are not valid forwarding
+baselines. The host-side topology helper creates one endpoint namespace and
+one bridge/TAP pair on each side of the armsr guest; all resources use the
+`fwlive-slo-` prefix and are removed by the matching teardown command:
+
+```sh
+sudo ./scripts/qemu-forwarding-slo-net.sh setup
+./scripts/qemu-forwarding-slo-net.sh qemu-args
+sudo ./scripts/qemu-forwarding-slo-net.sh status
+sudo ./scripts/qemu-forwarding-slo-net.sh teardown
+```
+
+The printed TAP arguments are an addition to the QEMU management NIC, not a
+replacement for it. The guest must be configured with `192.0.2.1/24` on the
+LAN TAP-backed interface and `198.51.100.1/24` on the WAN TAP-backed
+interface, with IPv4 forwarding enabled; the namespaces use `.2` on each
+side and install host routes through the guest. The helper does not configure
+the guest, launch QEMU, or run traffic, so an incomplete topology cannot be
+mistaken for SLO evidence. The measurement harness will add the required
+`iperf3`/ping preflight, no-viewer versus active-viewer drain check, adaptive
+on/off split, and five-pair report in #344.
+
+Install `iperf3` in the armsr guest with its signed release feed when preparing
+the image (the router is useful for the package/tool preflight, but is not one
+of the two forwarded traffic endpoints):
+
+```sh
+ssh -p 2222 root@127.0.0.1 'opkg update && opkg install iperf3'
+```
+
 ### Sample invocation (memory census)
 
 ```sh

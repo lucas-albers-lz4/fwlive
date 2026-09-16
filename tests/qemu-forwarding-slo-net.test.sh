@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright 2026 Lucas Albers <lucas.b.albers@gmail.com>
+#
+# Static/unit checks for the host-side forwarding-SLO topology helper.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=../scripts/lib/qemu-forwarding-slo-net.sh
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh"
+
+die() { echo "qemu-forwarding-slo-net test FAIL: $*" >&2; exit 1; }
+ok() { echo "qemu-forwarding-slo-net test OK: $*"; }
+
+for name in \
+	"$FWLIVE_SLO_LAN_NETNS" "$FWLIVE_SLO_WAN_NETNS" \
+	"$FWLIVE_SLO_LAN_BRIDGE" "$FWLIVE_SLO_WAN_BRIDGE" \
+	"$FWLIVE_SLO_LAN_TAP" "$FWLIVE_SLO_WAN_TAP" \
+	"$FWLIVE_SLO_LAN_VETH" "$FWLIVE_SLO_WAN_VETH" \
+	"$FWLIVE_SLO_LAN_PEER" "$FWLIVE_SLO_WAN_PEER"; do
+	[[ "$name" == "${FWLIVE_SLO_PREFIX}"* ]] || die "resource outside owned prefix: $name"
+	[[ ${#name} -le 15 ]] || die "resource exceeds Linux IFNAMSIZ: $name"
+done
+fwlive_slo_net_validate_names
+ok "default resource names are prefixed and Linux-safe"
+
+if FWLIVE_SLO_WAN_TAP="$FWLIVE_SLO_LAN_TAP" bash -c \
+	'source "$1"; fwlive_slo_net_validate_names' bash \
+	"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
+	die "duplicate resource names must be rejected"
+fi
+ok "duplicate resource names are rejected before setup"
+
+args="$(fwlive_slo_net_qemu_args)"
+grep -Fq "ifname=${FWLIVE_SLO_LAN_TAP}" <<<"$args" || die "LAN TAP missing from QEMU args"
+grep -Fq "ifname=${FWLIVE_SLO_WAN_TAP}" <<<"$args" || die "WAN TAP missing from QEMU args"
+grep -Fq 'script=no,downscript=no' <<<"$args" || die "QEMU TAP scripts must be disabled"
+[[ "$(grep -Fc 'netdev tap' <<<"$args")" -eq 2 ]] || die "expected two TAP netdevs"
+ok "QEMU args expose two explicit TAP links"
+
+echo "qemu-forwarding-slo-net tests passed"
