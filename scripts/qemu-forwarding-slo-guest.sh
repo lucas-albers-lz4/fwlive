@@ -90,8 +90,8 @@ case "$action" in
 		remove_rules
 		nft insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" counter accept comment "fwlive-slo-lan-to-wan"
 		nft insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" counter accept comment "fwlive-slo-wan-to-lan"
-		nft insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-lan-to-wan"
-		nft insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-wan-to-lan"
+		nft insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" limit rate 25/second log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-lan-to-wan"
+		nft insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" limit rate 25/second log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-wan-to-lan"
 		echo "guest_configured lan=$lan_dev:$lan_ip wan=$wan_dev:$wan_ip forwarding=1"
 		;;
 	check)

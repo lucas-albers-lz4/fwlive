@@ -131,9 +131,9 @@ async function main() {
 	let measureFinished = false;
 	let summarySeen = false;
 	let requestFailures = 0;
-	let firstPollResolve;
-	const firstPollPromise = new Promise((resolve) => {
-		firstPollResolve = resolve;
+	let firstPollResponseResolve;
+	const firstPollResponsePromise = new Promise((resolve) => {
+		firstPollResponseResolve = resolve;
 	});
 
 	page.on('request', (request) => {
@@ -142,7 +142,6 @@ async function main() {
 		if (!methods.length) return;
 		for (const method of methods) methodCounts[method] = (methodCounts[method] || 0) + 1;
 		inFlight.add(request);
-		if (methods.includes('poll')) firstPollResolve();
 		if (measureStarted && !measureFinished) {
 			for (const method of methods)
 				methodCounts[`window_${method}`] = (methodCounts[`window_${method}`] || 0) + 1;
@@ -156,6 +155,7 @@ async function main() {
 		const postData = response.request().postData() || '';
 		if (!requestMethods(postData).length) return;
 		inFlight.delete(response.request());
+		if (fwliveMethodRequestIds(postData, 'poll').length) firstPollResponseResolve();
 		if (!measureStarted || measureFinished) return;
 		if (response.request().postData() && fwliveMethodRequestIds(postData, 'poll').length) {
 			try {
@@ -170,7 +170,7 @@ async function main() {
 	try {
 		await loginFwlive(page);
 		await Promise.race([
-			firstPollPromise,
+			firstPollResponsePromise,
 			new Promise((_, reject) =>
 				setTimeout(
 					() => reject(new Error('timed out waiting for the first fwlive poll')),

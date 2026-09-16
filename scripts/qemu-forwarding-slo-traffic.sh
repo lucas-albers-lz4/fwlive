@@ -86,7 +86,10 @@ LC_ALL=C ip netns exec "$WAN_NS" "$IPERF3" -s -1 -B "$WAN_IP" \
 SERVER_PID=$!
 sleep 1
 
-LC_ALL=C ip netns exec "$LAN_NS" ping -I endpoint0 -c "$PING_COUNT" -W 1 "$WAN_IP" \
+# Keep the ping window inside the 10-second iperf window at the default
+# 20-count sample; the standard one-second ping interval would otherwise keep
+# the active viewer alive long after throughput measurement ended.
+LC_ALL=C ip netns exec "$LAN_NS" ping -I endpoint0 -c "$PING_COUNT" -i 0.5 -W 1 "$WAN_IP" \
 	>"$WORK/ping.out" 2>"$WORK/ping.err" &
 PING_PID=$!
 

@@ -33,5 +33,7 @@ grep -Fq 'fwlive-slo-log-wan-to-lan' "$ROOT/scripts/qemu-forwarding-slo-guest.sh
 	die "guest helper must install the WAN-to-LAN log rule"
 grep -Fq 'all_pairs_complete' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
 	die "runner must report incomplete pairs"
+grep -Fq 'active_viewer_poll_observed' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
+	die "runner must reject a window with no active viewer poll"
 
 echo "qemu-forwarding-slo harness checks passed"

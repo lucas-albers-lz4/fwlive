@@ -241,6 +241,8 @@ const report = {
 	},
 	acceptance: {
 		all_pairs_complete: pairs.length === Number(expectedPairs) && pairs.every((row) => row.complete),
+		active_viewer_poll_observed: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.polls_in_window > 0),
+		viewer_requests_drained: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.in_flight_after_drain === 0),
 		median_throughput_degradation_lt_10_pct: median(degradation) !== null && median(degradation) < 10,
 		median_ping_stddev_ratio_lt_2: median(ratios) !== null && median(ratios) < 2
 	},

@@ -528,9 +528,10 @@ ssh -p 2222 root@127.0.0.1 'opkg update && opkg install iperf3'
 
 After adding the TAP arguments to the QEMU command, configure the guest links
 by MAC and install temporary forwarding/logging rules in the existing firewall.
-The two directional rules log the generated workload with the fixed
-`fwlive-slo ` prefix and accept it; logging is therefore identical for the
-no-viewer and active-viewer halves of every pair:
+The two directional rules log up to 25 messages per second with the fixed
+`fwlive-slo ` prefix and accept every packet; logging is therefore identical
+for the no-viewer and active-viewer halves of every pair while the test avoids
+turning an unrestricted packet log into a logger-only benchmark:
 
 ```sh
 ./scripts/qemu-forwarding-slo-guest.sh configure
