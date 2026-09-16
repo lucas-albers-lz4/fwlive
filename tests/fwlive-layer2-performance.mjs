@@ -26,7 +26,8 @@ import { chromium } from 'playwright';
 import { labBaseUrl, labFwliveUrl } from './lib/playwright-lab.mjs';
 import {
 	fwliveMethodRequestIds,
-	fwliveRpcReplyForRequest
+	fwliveRpcReplyForRequest,
+	isFwliveFixtureRequest
 } from './lib/fwlive-perf-rpc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -301,15 +302,17 @@ async function main() {
 		await loginWithoutOpeningLiveView(page);
 		if (!REAL_POLL) await page.route('**/ubus**', async (route) => {
 			const postData = route.request().postData() || '';
-			if (!isFwlivePoll(postData)) {
+			const pollRequest = isFwlivePoll(postData);
+			const loggingStatusIds = fwliveMethodRequestIds(postData, 'logging_status');
+			if (!isFwliveFixtureRequest(postData)) {
 				await route.continue();
 				return;
 			}
-			counts.polls++;
+			if (pollRequest) counts.polls++;
 			const parsed = JSON.parse(postData);
 			const batched = Array.isArray(parsed);
 			const requests = batched ? parsed : [parsed];
-			const payload = pollPayload(counts.polls);
+			const payload = pollRequest ? pollPayload(counts.polls) : fixtureBase;
 			const replies = requests.map((req) => ({
 				jsonrpc: '2.0',
 				id: req.id,

@@ -4,7 +4,8 @@
 import assert from 'node:assert/strict';
 import {
 	fwliveMethodRequestIds,
-	fwliveRpcReplyForRequest
+	fwliveRpcReplyForRequest,
+	isFwliveFixtureRequest
 } from './lib/fwlive-perf-rpc.mjs';
 
 const requests = JSON.stringify([
@@ -18,6 +19,19 @@ const requests = JSON.stringify([
 ]);
 const ids = fwliveMethodRequestIds(requests, 'logging_status');
 assert.deepStrictEqual(ids, [42]);
+assert.strictEqual(isFwliveFixtureRequest(JSON.stringify({
+	jsonrpc: '2.0',
+	id: 43,
+	method: 'call',
+	params: ['session', 'fwlive', 'logging_status', {}]
+})), true);
+assert.strictEqual(isFwliveFixtureRequest(requests), true);
+assert.strictEqual(isFwliveFixtureRequest(JSON.stringify({
+	jsonrpc: '2.0',
+	id: 44,
+	method: 'call',
+	params: ['session', 'fwlive', 'rules', {}]
+})), false);
 
 const singleReply = JSON.stringify({
 	jsonrpc: '2.0',

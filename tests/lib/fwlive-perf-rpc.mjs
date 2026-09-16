@@ -28,6 +28,13 @@ export function fwliveMethodRequestIds(payload, method) {
 		.map((req) => req.id);
 }
 
+export function isFwliveFixtureRequest(payload) {
+	return (
+		fwliveMethodRequestIds(payload, 'poll').length > 0 ||
+		fwliveMethodRequestIds(payload, 'logging_status').length > 0
+	);
+}
+
 export function fwliveRpcReplyForRequest(payload, requestIds) {
 	if (!Array.isArray(requestIds) || !requestIds.length) return null;
 	return parseRpcPayload(payload).find(
