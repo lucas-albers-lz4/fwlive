@@ -8,6 +8,7 @@
 #
 # Usage:
 #   sudo ./scripts/qemu-forwarding-slo-traffic.sh --label no-viewer
+#   sudo ./scripts/qemu-forwarding-slo-traffic.sh --label no-viewer --bitrate 1G
 #   sudo FWLIVE_SLO_IPERF3=/home/linuxbrew/.linuxbrew/bin/iperf3 \
 #     ./scripts/qemu-forwarding-slo-traffic.sh --label active-viewer
 set -euo pipefail
@@ -17,6 +18,7 @@ WAN_NS="${FWLIVE_SLO_WAN_NETNS:-fwlive-slo-wan}"
 LAN_IP="${FWLIVE_SLO_LAN_ENDPOINT_IP:-192.0.2.2}"
 WAN_IP="${FWLIVE_SLO_WAN_ENDPOINT_IP:-198.51.100.2}"
 IPERF3="${FWLIVE_SLO_IPERF3:-}"
+BITRATE="${FWLIVE_SLO_IPERF_BITRATE:-}"
 DURATION="${FWLIVE_SLO_IPERF_DURATION:-10}"
 PING_COUNT="${FWLIVE_SLO_PING_COUNT:-20}"
 LABEL=""
@@ -26,6 +28,7 @@ die() { echo "forwarding-slo-traffic: $*" >&2; exit 1; }
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--label) LABEL="${2:-}"; shift 2 ;;
+		--bitrate) BITRATE="${2:-}"; shift 2 ;;
 		--duration) DURATION="${2:-}"; shift 2 ;;
 		--ping-count) PING_COUNT="${2:-}"; shift 2 ;;
 		-h|--help)
@@ -53,6 +56,9 @@ case "$PING_COUNT" in
 esac
 (( DURATION > 0 )) || die "duration must be greater than zero"
 (( PING_COUNT > 0 )) || die "ping count must be greater than zero"
+if [[ -n "$BITRATE" ]] && [[ ! "$BITRATE" =~ ^[0-9]+([KMGkmg])?$ ]]; then
+	die "bitrate must be a decimal bit rate with optional K, M, or G suffix"
+fi
 
 ip netns list | awk '{print $1}' | grep -Fxq "$LAN_NS" || die "missing LAN namespace: $LAN_NS"
 ip netns list | awk '{print $1}' | grep -Fxq "$WAN_NS" || die "missing WAN namespace: $WAN_NS"
@@ -93,8 +99,12 @@ LC_ALL=C ip netns exec "$LAN_NS" ping -I endpoint0 -c "$PING_COUNT" -i 0.5 -W 1 
 	>"$WORK/ping.out" 2>"$WORK/ping.err" &
 PING_PID=$!
 
+client_args=(-t "$DURATION" -J)
+if [[ -n "$BITRATE" ]]; then
+	client_args=(-b "$BITRATE" "${client_args[@]}")
+fi
 if ! LC_ALL=C ip netns exec "$LAN_NS" "$IPERF3" -c "$WAN_IP" -B "$LAN_IP" \
-	-t "$DURATION" -J >"$WORK/client.json" 2>"$WORK/client.err"; then
+	"${client_args[@]}" >"$WORK/client.json" 2>"$WORK/client.err"; then
 	cat "$WORK/client.err" "$WORK/server.err" "$WORK/ping.err" >&2 || true
 	die "iperf3 client failed"
 fi
@@ -122,5 +132,5 @@ ping_stddev_ms="$(awk -F= '/^(rtt|round-trip)/ {
 grep -Eq ',[[:space:]]*0% packet loss' "$WORK/ping.out" \
 	|| die "ping sample lost one or more packets"
 
-printf 'SLO_SAMPLE label=%s duration_s=%s ping_count=%s throughput_bps=%s ping_rtt_stddev_ms=%s\n' \
-	"$LABEL" "$DURATION" "$PING_COUNT" "$throughput_bps" "$ping_stddev_ms"
+printf 'SLO_SAMPLE label=%s duration_s=%s ping_count=%s bitrate=%s throughput_bps=%s ping_rtt_stddev_ms=%s\n' \
+	"$LABEL" "$DURATION" "$PING_COUNT" "${BITRATE:-unlimited}" "$throughput_bps" "$ping_stddev_ms"

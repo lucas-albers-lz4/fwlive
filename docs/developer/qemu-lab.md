@@ -568,6 +568,8 @@ contains all samples, pair deltas, median/spread, request drain results, and
 an optional `--enforce` decision for the `<10%` throughput and `<2x` ping
 standard-deviation criteria. A run is evidence only when all pairs complete;
 the short one-pair/short-duration settings are for harness smoke testing.
+For a load sweep, pass `--bitrate 1G` (or another iperf3 rate) to both the
+single-sample probe and paired runner; an omitted rate leaves TCP uncapped.
 
 ### Sample invocation (memory census)
 

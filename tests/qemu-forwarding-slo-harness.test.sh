@@ -35,5 +35,7 @@ grep -Fq 'all_pairs_complete' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
 	die "runner must report incomplete pairs"
 grep -Fq 'active_viewer_poll_observed' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
 	die "runner must reject a window with no active viewer poll"
+grep -Fq 'FWLIVE_SLO_IPERF_BITRATE' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
+	die "runner must pass through an optional iperf bitrate"
 
 echo "qemu-forwarding-slo harness checks passed"

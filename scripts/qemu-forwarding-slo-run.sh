@@ -8,6 +8,7 @@
 #
 # Usage:
 #   ./scripts/qemu-forwarding-slo-run.sh --adaptive on
+#   ./scripts/qemu-forwarding-slo-run.sh --adaptive on --bitrate 1G
 #   ./scripts/qemu-forwarding-slo-run.sh --adaptive off --pairs 5 --duration 10
 set -euo pipefail
 
@@ -17,6 +18,7 @@ PORT="${OPENWRT_SSH_PORT:-2222}"
 USER="${OPENWRT_USER:-root}"
 KNOWN_HOSTS="${FWLIVE_KNOWN_HOSTS:-${ROOT}/lab/qemu-known_hosts}"
 IPERF3="${FWLIVE_SLO_IPERF3:-}"
+BITRATE="${FWLIVE_SLO_IPERF_BITRATE:-}"
 DURATION="${FWLIVE_SLO_IPERF_DURATION:-10}"
 PING_COUNT="${FWLIVE_SLO_PING_COUNT:-20}"
 PAIRS="${FWLIVE_SLO_PAIRS:-5}"
@@ -31,6 +33,7 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--adaptive) ADAPTIVE="${2:-}"; shift 2 ;;
 		--pairs) PAIRS="${2:-}"; shift 2 ;;
+		--bitrate) BITRATE="${2:-}"; shift 2 ;;
 		--duration) DURATION="${2:-}"; shift 2 ;;
 		--ping-count) PING_COUNT="${2:-}"; shift 2 ;;
 		--drain-ms) DRAIN_MS="${2:-}"; shift 2 ;;
@@ -137,6 +140,7 @@ run_traffic() {
 	local label=$1 output=$2
 	sudo env \
 		FWLIVE_SLO_IPERF3="$IPERF3" \
+		FWLIVE_SLO_IPERF_BITRATE="$BITRATE" \
 		FWLIVE_SLO_IPERF_DURATION="$DURATION" \
 		FWLIVE_SLO_PING_COUNT="$PING_COUNT" \
 		"$ROOT/scripts/qemu-forwarding-slo-traffic.sh" --label "$label" |
@@ -189,9 +193,9 @@ for (( pair = 1; pair <= PAIRS; pair++ )); do
 	record_sample "$pair" active-viewer "$active" "$viewer_result"
 done
 
-node - "$RECORDS" "$REPORT_FILE" "$ADAPTIVE" "$PAIRS" "$DURATION" "$PING_COUNT" "$ENFORCE" <<'NODE'
+node - "$RECORDS" "$REPORT_FILE" "$ADAPTIVE" "$PAIRS" "$DURATION" "$PING_COUNT" "$BITRATE" "$ENFORCE" <<'NODE'
 const fs = require('node:fs');
-const [recordsFile, reportFile, adaptive, expectedPairs, duration, pingCount, enforce] = process.argv.slice(2);
+const [recordsFile, reportFile, adaptive, expectedPairs, duration, pingCount, bitrate, enforce] = process.argv.slice(2);
 const records = fs.readFileSync(recordsFile, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
 const median = (values) => {
 	if (!values.length) return null;
@@ -235,6 +239,7 @@ const report = {
 		pairs_requested: Number(expectedPairs),
 		duration_s: Number(duration),
 		ping_count: Number(pingCount),
+		iperf_bitrate: bitrate || 'unlimited',
 		viewer_baseline: 'no-viewer',
 		viewer_comparison: 'active-viewer',
 		traffic: 'iperf3 receive throughput plus routed ping RTT standard deviation'
