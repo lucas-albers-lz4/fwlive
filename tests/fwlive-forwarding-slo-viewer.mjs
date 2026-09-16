@@ -220,6 +220,7 @@ async function main() {
 		const drainDeadline = Date.now() + drainMs;
 		while (measuredInFlight.size && Date.now() < drainDeadline)
 			await new Promise((resolve) => setTimeout(resolve, 25));
+		const inFlightAfterDrain = measuredInFlight.size;
 		for (const request of measuredInFlight) ignoredFailures.add(request);
 		const navigationTimeout = Math.max(1, drainDeadline - Date.now());
 		await page.goto('about:blank', { waitUntil: 'load', timeout: navigationTimeout }).catch(() => {});
@@ -237,7 +238,7 @@ async function main() {
 			poll_cadence_ms: intervalsSummary(requestTimes),
 			request_failures: requestFailures,
 			in_flight_at_window_end: requestsBeforeDrain,
-			in_flight_after_drain: measuredInFlight.size,
+			in_flight_after_drain: inFlightAfterDrain,
 			summary_mode_seen: summarySeen,
 			started_at: new Date(startedAt).toISOString(),
 			finished_at: new Date(finishedAt).toISOString()
