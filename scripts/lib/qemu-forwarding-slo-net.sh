@@ -129,6 +129,10 @@ fwlive_slo_net_setup() {
 	ip netns exec "$FWLIVE_SLO_WAN_NETNS" ip link set endpoint0 up
 	ip netns exec "$FWLIVE_SLO_WAN_NETNS" ip addr add "${FWLIVE_SLO_WAN_ENDPOINT_IP}/24" dev endpoint0
 	ip netns exec "$FWLIVE_SLO_WAN_NETNS" ip route add "$FWLIVE_SLO_LAN_ENDPOINT_IP/32" via "$FWLIVE_SLO_WAN_GUEST_IP"
+	# Moving a veth peer can reset the host-side carrier; restore both links
+	# after namespace configuration so the TAP bridges are immediately usable.
+	ip link set dev "$FWLIVE_SLO_LAN_VETH" up
+	ip link set dev "$FWLIVE_SLO_WAN_VETH" up
 
 	echo "forwarding-slo-net: topology ready"
 	fwlive_slo_net_status
