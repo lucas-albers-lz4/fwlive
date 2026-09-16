@@ -17,9 +17,14 @@
  * an externally launched headed Chromium. The harness attaches with
  * connectOverCDP({ noDefaults: true }) so Playwright does not emulate focus.
  *
+ * Set FWLIVE_VISIBILITY_HIDDEN_MS to override the 60-second hidden interval
+ * for harness development; values below 1000 ms are rejected.
+ *
  * Set FWLIVE_ENFORCE=1 to turn the visibility and performance targets into
- * process failures. Shorter soak values are useful for harness development;
- * only the default 30-minute run is suitable for #306 sign-off.
+ * process failures. Enforced runs require native visibility unless
+ * FWLIVE_ALLOW_EMULATION=1 is explicitly set for development-only checks.
+ * Shorter soak values are useful for harness development; only the default
+ * 30-minute run is suitable for #306 sign-off.
  * Set FWLIVE_PERF_REAL_POLL=1 for a supplemental run against the guest's real
  * log pipeline; that mode does not provide the 2,000-entry fixture workload.
  */
@@ -56,15 +61,25 @@ if (
 	);
 const VISIBILITY_HIDDEN_MS = VISIBILITY_HIDDEN_MS_RAW === undefined || VISIBILITY_HIDDEN_MS_RAW === ''
 	? 60 * 1000
-	: Math.max(1000, Number(VISIBILITY_HIDDEN_MS_RAW));
+	: Number(VISIBILITY_HIDDEN_MS_RAW);
+if (VISIBILITY_HIDDEN_MS < 1000)
+	throw new Error('FWLIVE_VISIBILITY_HIDDEN_MS must be at least 1000 ms');
 const VISIBILITY_RESUME_BUDGET_MS = 1000;
+const MAIN_THREAD_TASK_BUDGET_MS = 250;
 const ENFORCE = process.env.FWLIVE_ENFORCE === '1';
+const ALLOW_EMULATION = process.env.FWLIVE_ALLOW_EMULATION === '1';
 const REAL_VISIBILITY = process.env.FWLIVE_PERF_REAL_VISIBILITY === '1';
 const CDP_ENDPOINT = process.env.FWLIVE_PERF_CDP_ENDPOINT || '';
 if (REAL_VISIBILITY && !CDP_ENDPOINT)
 	throw new Error('FWLIVE_PERF_CDP_ENDPOINT is required for real visibility mode');
 if (!REAL_VISIBILITY && CDP_ENDPOINT)
 	throw new Error('FWLIVE_PERF_REAL_VISIBILITY=1 is required with FWLIVE_PERF_CDP_ENDPOINT');
+if (REAL_VISIBILITY && ALLOW_EMULATION)
+	throw new Error('FWLIVE_ALLOW_EMULATION cannot be used with real visibility mode');
+if (ENFORCE && !REAL_VISIBILITY && !ALLOW_EMULATION)
+	throw new Error(
+		'FWLIVE_ENFORCE=1 requires native visibility; use FWLIVE_ALLOW_EMULATION=1 only for development'
+	);
 const REAL_POLL = process.env.FWLIVE_PERF_REAL_POLL === '1';
 const POLL_DELAY_MS = Math.max(0, Number(process.env.FWLIVE_PERF_POLL_DELAY_MS || 0));
 const WEAK_DEVICE = process.env.FWLIVE_PERF_WEAK_DEVICE === '1';
@@ -444,9 +459,9 @@ async function main() {
 		const hiddenVisibilityMethod = await setVisibilityState(page, cdp, 'hidden', foregroundPage);
 		await new Promise((resolve) => setTimeout(resolve, VISIBILITY_HIDDEN_MS));
 		const hiddenPolls = counts.polls - initialPolls;
+		const resumeTarget = counts.polls + 1;
 		const visibleAt = Date.now();
 		const visibleVisibilityMethod = await setVisibilityState(page, cdp, 'visible', foregroundPage);
-		const resumeTarget = counts.polls + 1;
 		const resumed = await waitForPollCount(counts, resumeTarget, 5000);
 		const resumeLatencyMs = resumed ? Date.now() - visibleAt : null;
 
@@ -550,6 +565,10 @@ async function main() {
 		if (ENFORCE) {
 			const renderMax = report.render_commit_to_paint_ms.max;
 			const heapGrowth = report.heap.growth_mb;
+			const nativeVisibility = report.visibility.method === 'cdp' ||
+				report.visibility.method === 'headed-tab-switch';
+			if (!nativeVisibility && !ALLOW_EMULATION)
+				throw new Error(`native visibility required for enforced run: ${report.visibility.method}`);
 			if (
 				!report.visibility.resumed ||
 				report.visibility.hidden_polls_during_interval > 0 ||
@@ -559,6 +578,15 @@ async function main() {
 				throw new Error(`visibility gate failed: ${JSON.stringify(report.visibility)}`);
 			if (renderMax !== null && renderMax >= 250)
 				throw new Error(`render commit-to-paint target failed: ${renderMax} ms`);
+			if (
+				(report.largest_main_thread_task_ms !== null &&
+					report.largest_main_thread_task_ms >= MAIN_THREAD_TASK_BUDGET_MS) ||
+				report.long_tasks_over_250ms > 0
+			)
+				throw new Error(
+					`main-thread task target failed: largest=${report.largest_main_thread_task_ms} ms, ` +
+					`over_${MAIN_THREAD_TASK_BUDGET_MS}ms=${report.long_tasks_over_250ms}`
+				);
 			if (heapGrowth !== null && heapGrowth >= 50)
 				throw new Error(`heap growth target failed: ${heapGrowth} MiB`);
 		}

@@ -457,9 +457,11 @@ It reports visibility pause/resume, render-commit-to-paint samples, largest
 `longtask`, and Chromium heap growth. The visibility phase keeps the page hidden
 for 60 seconds by default, rejects hidden polls, and records the visible-to-next-
 poll latency against the 1-second recovery budget. Override that interval with
-`FWLIVE_VISIBILITY_HIDDEN_MS` only for harness development. A short
-`FWLIVE_SOAK_MS` is also for harness development only; #306 sign-off requires
-the 30-minute run.
+`FWLIVE_VISIBILITY_HIDDEN_MS` only for harness development; values below 1,000
+ms are rejected. A short `FWLIVE_SOAK_MS` is also for harness development only;
+#306 sign-off requires the 30-minute run. With `FWLIVE_ENFORCE=1`, native
+visibility is required; set `FWLIVE_ALLOW_EMULATION=1` only for an intentional
+development-only headless check.
 
 On 2026-09-15, the development gate was rerun after the table renderer gained
 keyed row reuse and targeted insertion for unchanged poll rows. With the same
@@ -529,16 +531,19 @@ weak-device performance and heap confirmation gates. A supplemental 6x /
 333 ms largest task; it is stress-boundary evidence, not a replacement for the
 4x acceptance run.
 
-The native visibility path was then validated on 2026-09-16 with the same
-2,000-row selection and 4x throttle, using a 60-second hidden interval and a
-10-second post-resume soak. The report used `headed-tab-switch`, observed zero
-hidden-interval polls, resumed in 268 ms against the 1,000 ms budget, and
+The native visibility path was then validated on 2026-09-16 on OpenWrt 24.10.8
+x86_64 KVM with Chromium 148, using the same 2,000-row selection and 4x
+throttle, a 60-second hidden interval, and a 10-second post-resume soak. The
+report used `headed-tab-switch`, observed zero hidden-interval polls, resumed
+in 268 ms against the 1,000 ms budget, and
 recorded trusted native `visibilitychange` events for both transitions. It
 rendered 250 rows with 64.7 ms p95 / 158.9 ms maximum commit-to-paint, a
 209 ms largest task, zero tasks at or above 250 ms, and 0.05 MiB retained heap
 growth (0.07 MiB sampled peak). This closes the earlier document-emulation
 limitation for the visibility semantics; the longer 30-minute performance
-soak remains the controlled headless-run evidence above.
+soak remains the controlled headless-run evidence above and must use the
+explicit emulation override unless it is repeated with the native browser
+mode.
 
 For a supplemental loaded-router check, leave the poll path real and run this
 mode while a guest load/traffic producer is active:
