@@ -283,8 +283,8 @@ return view.extend({
 			const key = entries[i].key;
 			const val = entries[i].val;
 			if (key === 'limit') {
-				const n = parseInt(val, 10);
-				if (isFinite(n) && constants.ROW_LIMIT_OPTIONS.indexOf(n) >= 0) hashLimit = n;
+				const n = Number(val);
+				if (String(n) === val && constants.ROW_LIMIT_OPTIONS.indexOf(n) >= 0) hashLimit = n;
 				continue;
 			}
 			if (key === 'poll') {

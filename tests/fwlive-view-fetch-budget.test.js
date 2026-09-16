@@ -118,6 +118,14 @@ async function testHashOrderAndAutoWriteThrough() {
 	assert.strictEqual(invalidPoll.view.fetchMode, 'manual');
 	assert.strictEqual(invalidPoll.view.readFetchMode(), 'manual');
 
+	const invalidLimit = loadFwliveView({
+		storage: { 'fwlive-row-limit': '100' },
+		location: { hash: '#limit=25junk' }
+	});
+	invalidLimit.view.resolveRpcPreferences();
+	assert.strictEqual(invalidLimit.view.rowLimit, 100);
+	assert.strictEqual(invalidLimit.view.readRowLimit(), 100);
+
 	h.view.fetchMode = 'manual';
 	h.view.manualFetchLines = 500;
 	h.view.rowLimit = 25;
