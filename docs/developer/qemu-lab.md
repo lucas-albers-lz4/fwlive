@@ -526,6 +526,18 @@ of the two forwarded traffic endpoints):
 ssh -p 2222 root@127.0.0.1 'opkg update && opkg install iperf3'
 ```
 
+After adding the TAP arguments to the QEMU command, configure the guest links
+by MAC and install temporary forwarding accepts in the existing firewall:
+
+```sh
+./scripts/qemu-forwarding-slo-guest.sh configure
+./scripts/qemu-forwarding-slo-guest.sh check
+./scripts/qemu-forwarding-slo-guest.sh cleanup
+```
+
+The guest helper only touches the two MAC-selected TAP interfaces, its two
+temporary `fwlive-slo-*` forwarding rules, and the IPv4-forwarding sysctl.
+
 ### Sample invocation (memory census)
 
 ```sh
