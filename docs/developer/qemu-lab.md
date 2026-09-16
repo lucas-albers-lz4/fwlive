@@ -493,6 +493,123 @@ FWLIVE_SOAK_MS=120000 \
 This mode reports actual ubus poll RTTs and validates client cadence/backoff;
 it is separate from the controlled 2,000-entry browser-rendering gate.
 
+### Forwarding-SLO topology (#306 / #344)
+
+The forwarding SLO requires two traffic endpoints routed through the guest.
+The management slirp NIC and a viewer Pause state are not valid forwarding
+baselines. The host-side topology helper creates one endpoint namespace and
+one bridge/TAP pair on each side of the armsr guest; all resources use the
+`fwlive-slo-` prefix and are removed by the matching teardown command:
+
+```sh
+sudo ./scripts/qemu-forwarding-slo-net.sh setup
+./scripts/qemu-forwarding-slo-net.sh qemu-args
+sudo ./scripts/qemu-forwarding-slo-net.sh status
+sudo ./scripts/qemu-forwarding-slo-net.sh teardown
+```
+
+The printed TAP arguments are an addition to the QEMU management NIC, not a
+replacement for it. The guest must be configured with `192.0.2.1/24` on the
+LAN TAP-backed interface and `198.51.100.1/24` on the WAN TAP-backed
+interface, with IPv4 forwarding enabled; the namespaces use `.2` on each
+side and install host routes through the guest. The helper does not configure
+the guest, launch QEMU, or run traffic, so an incomplete topology cannot be
+mistaken for SLO evidence. The measurement harness will add the required
+`iperf3`/ping preflight, no-viewer versus active-viewer drain check, adaptive
+on/off split, and five-pair report in #344.
+
+The default routed NIC model is `virtio-net-pci`, which is appropriate for the
+armsr runner. For x86, use `OWRT_QEMU_NIC_MODEL=virtio-net-pci` on the stock
+runner and `FWLIVE_SLO_QEMU_NET_MODEL=e1000` when printing the routed TAP
+arguments. This keeps the management slirp NIC first in the guest's interface
+enumeration; the guest helper still identifies the two test links by MAC.
+
+Install `iperf3` in the armsr guest with its signed release feed when preparing
+the image (the router is useful for the package/tool preflight, but is not one
+of the two forwarded traffic endpoints):
+
+```sh
+ssh -p 2222 root@127.0.0.1 'opkg update && opkg install iperf3'
+```
+
+After adding the TAP arguments to the QEMU command, configure the guest links
+by MAC and install temporary forwarding/logging rules in the existing firewall.
+The two directional rules log up to 25 messages per second with the fixed
+`fwlive-slo ` prefix and accept every packet; logging is therefore identical
+for the no-viewer and active-viewer halves of every pair while the test avoids
+turning an unrestricted packet log into a logger-only benchmark:
+
+```sh
+./scripts/qemu-forwarding-slo-guest.sh configure
+./scripts/qemu-forwarding-slo-guest.sh check
+./scripts/qemu-forwarding-slo-guest.sh cleanup
+```
+
+The guest helper only touches the two uniquely MAC-selected TAP interfaces,
+its four temporary `fwlive-slo-*` forwarding/logging rules, the IPv4-forwarding
+sysctl, and its mode-0600 saved-state file under `/var/run`. Cleanup restores
+the prior interface/link and forwarding state and refuses to proceed without
+the saved state.
+
+Once both helpers report ready, one traffic sample can be collected with the
+same endpoint namespaces on every run:
+
+```sh
+sudo FWLIVE_SLO_IPERF_DURATION=10 FWLIVE_SLO_PING_COUNT=20 \
+  ./scripts/qemu-forwarding-slo-traffic.sh --label no-viewer
+```
+
+The sample command reports raw receive throughput and ping RTT standard
+deviation only. It does not decide whether the SLO passes. Run the paired
+orchestrator separately for adaptive on and off; it keeps the guest boot and
+forwarding rules fixed, drains between samples, and records every viewer
+request/cadence plus the matching traffic metrics:
+
+```sh
+FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-on.json \
+  ./scripts/qemu-forwarding-slo-run.sh --adaptive on
+FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-off.json \
+  ./scripts/qemu-forwarding-slo-run.sh --adaptive off
+```
+
+The default is five 10-second pairs with 20 pings per sample. The report
+contains all samples, pair deltas, median/spread, request drain results, and
+successful viewer-request results, and an optional `--enforce` decision for
+the `<10%` throughput and `<2x` ping standard-deviation criteria. The active
+viewer window is delimited by markers emitted immediately around the iperf3
+measurement, rather than by process startup/shutdown. A run is evidence only
+when all pairs complete;
+the short one-pair/short-duration settings are for harness smoke testing.
+For a load sweep, pass `--bitrate 1G` (or another iperf3 rate) to both the
+single-sample probe and paired runner; an omitted rate leaves TCP uncapped. The
+ping interval is derived from `duration / ping_count` unless
+`FWLIVE_SLO_PING_INTERVAL_S` is set explicitly.
+
+#### Reusing the harness
+
+The forwarding-SLO tooling is reusable lab infrastructure, not a one-off
+`#306` test. Keep the phases separate when adapting it to another router or
+workload:
+
+1. `qemu-forwarding-slo-net.sh` owns only the two endpoint namespaces and
+   prints the additional QEMU TAP arguments.
+2. `qemu-forwarding-slo-guest.sh` resolves the guest links by MAC and applies
+   temporary, comment-addressable forwarding/logging state.
+3. `qemu-forwarding-slo-traffic.sh` measures only routed network outcomes.
+4. `tests/fwlive-forwarding-slo-viewer.mjs` and `qemu-forwarding-slo-run.sh` provide
+   marker-file synchronization, active-workload observation, drain checking,
+   pairing, and statistics.
+
+Future tests should preserve the `fwlive-forwarding-slo/v1` JSON report
+identity, include every raw sample, and retain the validity gates: the active
+workload must be observed during the measurement window and have zero
+in-flight requests after drain. Use environment overrides for names,
+addresses, MACs, SSH settings, duration, pair count, and traffic rate rather
+than editing the helpers. A new metric or acceptance rule should be added to
+the report and static harness test together. Keep the resulting report with
+the run's guest release, resources, source revision, and load configuration;
+otherwise it is a benchmark result, not reproducible evidence.
+
 ### Sample invocation (memory census)
 
 ```sh
