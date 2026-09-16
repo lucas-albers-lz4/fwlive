@@ -47,6 +47,8 @@ grep -Fq 'active_viewer_poll_observed' "$ROOT/tests/lib/fwlive-forwarding-slo-re
 	die "report module must reject a window with no active viewer poll"
 grep -Fq 'FWLIVE_SLO_IPERF_BITRATE' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
 	die "runner must pass through an optional iperf bitrate"
+grep -Fq '[[ -e "$stop" ]] || touch "$stop"' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
+	die "runner failure path may touch a root-owned stop marker"
 grep -Fq "fwlive-forwarding-slo/v1" "$ROOT/tests/lib/fwlive-forwarding-slo-report.mjs" ||
 	die "report module must identify its report schema"
 

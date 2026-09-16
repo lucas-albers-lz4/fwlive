@@ -210,7 +210,10 @@ for (( pair = 1; pair <= PAIRS; pair++ )); do
 	fi
 	active="$CURRENT_VIEWER_DIR/active-viewer.out"
 	if ! run_traffic "adaptive-${ADAPTIVE}-pair-${pair}-active-viewer" "$active" "$start" "$stop"; then
-		touch "$stop"
+		# The privileged traffic helper signals stop before it exits on a
+		# client failure. Only create the marker here when it is still absent;
+		# otherwise a root-owned marker can be unwritable by the runner user.
+		[[ -e "$stop" ]] || touch "$stop"
 		wait "$VIEWER_PID" 2>/dev/null || true
 		VIEWER_PID=""
 		cat "$active" "$viewer_log" >&2 || true
