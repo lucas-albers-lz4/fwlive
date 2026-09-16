@@ -90,6 +90,29 @@ function isFwlivePoll(postData) {
 	});
 }
 
+function isFwliveMethod(postData, method) {
+	if (!postData) return false;
+	let parsed;
+	try {
+		parsed = JSON.parse(postData);
+	} catch (e) {
+		return false;
+	}
+	const requests = Array.isArray(parsed) ? parsed : [parsed];
+	return requests.some((req) => {
+		const params = req && req.params;
+		return !!(
+			req &&
+			typeof req === 'object' &&
+			req.method === 'call' &&
+			Array.isArray(params) &&
+			params[1] === 'fwlive' &&
+			params[2] === method &&
+			typeof req.id !== 'undefined'
+		);
+	});
+}
+
 function pollPayload(pollNo) {
 	/* One new firewall row per poll keeps the table hot without an artificial
 	 * 2,000-new-rows-per-second flood. Change the newest raw entry so it stays
@@ -280,6 +303,7 @@ async function main() {
 	const counts = { polls: 0 };
 	const pollStarts = new WeakMap();
 	const pollRtts = [];
+	let observedWeakDevice = REAL_POLL ? null : WEAK_DEVICE;
 	const started = Date.now();
 
 	page.on('pageerror', (e) => console.error('pageerror:', e.message));
@@ -290,9 +314,22 @@ async function main() {
 	});
 	page.on('response', (response) => {
 		const request = response.request();
-		if (!isFwlivePoll(request.postData() || '')) return;
-		const t0 = pollStarts.get(request);
-		if (t0 !== undefined) pollRtts.push(Date.now() - t0);
+		const postData = request.postData() || '';
+		if (isFwlivePoll(postData)) {
+			const t0 = pollStarts.get(request);
+			if (t0 !== undefined) pollRtts.push(Date.now() - t0);
+		}
+		if (!isFwliveMethod(postData, 'logging_status')) return;
+		response
+			.json()
+			.then((body) => {
+				const replies = Array.isArray(body) ? body : [body];
+				const reply = replies.find((item) => item && Array.isArray(item.result));
+				const status = reply && reply.result[1];
+				if (status && typeof status.weak_device === 'boolean')
+					observedWeakDevice = status.weak_device;
+			})
+			.catch(() => {});
 	});
 	await installBrowserMetrics(page);
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU_THROTTLE });
@@ -424,7 +461,7 @@ async function main() {
 			raw_payload_rows: REAL_POLL ? null : fixtureBase.log.length,
 			display_row_limit: displayRowLimit,
 			visible_rows: visibleRows,
-			weak_device: WEAK_DEVICE,
+			weak_device: observedWeakDevice,
 			cpu_throttle_rate: CPU_THROTTLE,
 			soak_ms: SOAK_MS,
 			polls: counts.polls,

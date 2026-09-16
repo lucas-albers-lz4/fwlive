@@ -37,9 +37,11 @@ async function testRttKindHelpers() {
 }
 
 async function testWeakDeviceDisplayCap() {
+	let rejectStatus = false;
 	const h = loadFwliveView({
 		rpcMocks: {
 			'fwlive.logging_status': async function () {
+				if (rejectStatus) throw new Error('logging status unavailable');
 				return { weak_device: true, ready: true, blockers: [], warnings: [] };
 			}
 		}
@@ -58,9 +60,11 @@ async function testWeakDeviceDisplayCap() {
 	assert.strictEqual(v.filteredRows().length, 250);
 	assert.match(v.statusSuffix(), /Display limited to 250 rows on this device/);
 
-	v.weakDevice = false;
-	assert.strictEqual(v.displayRowCap(), 2000);
-	assert.strictEqual(v.filteredRows().length, 1000);
+	rejectStatus = true;
+	await v.loadLoggingStatus();
+	assert.strictEqual(v.weakDevice, true, 'status failure must preserve weak-device state');
+	assert.strictEqual(v.displayRowCap(), 250, 'status failure must preserve the display cap');
+	assert.strictEqual(v.filteredRows().length, 250);
 	console.log('fwlive-view layer2: weak-device display cap OK');
 }
 

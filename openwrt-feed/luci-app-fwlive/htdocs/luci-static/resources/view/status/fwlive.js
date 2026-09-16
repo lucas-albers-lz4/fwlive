@@ -533,13 +533,13 @@ return view.extend({
 	},
 
 	async loadLoggingStatus() {
+		const wasWeakDevice = this.weakDevice;
 		try {
 			this.loggingStatus = await callFwliveLoggingStatus();
+			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		} catch (e) {
 			this.loggingStatus = null;
 		}
-		const wasWeakDevice = this.weakDevice;
-		this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		this.updateBackendUi();
 		this.updateLoggingToolbarUi();
 		this.updateEmptyStateUi();
