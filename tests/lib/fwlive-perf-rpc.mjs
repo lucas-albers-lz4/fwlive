@@ -38,6 +38,6 @@ export function isFwliveFixtureRequest(payload) {
 export function fwliveRpcReplyForRequest(payload, requestIds) {
 	if (!Array.isArray(requestIds) || !requestIds.length) return null;
 	return parseRpcPayload(payload).find(
-		(reply) => reply && requestIds.some((id) => id === reply.id)
+		(reply) => reply && requestIds.some((id) => String(id) === String(reply.id))
 	) || null;
 }

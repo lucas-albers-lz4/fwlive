@@ -35,7 +35,7 @@ assert.strictEqual(isFwliveFixtureRequest(JSON.stringify({
 
 const singleReply = JSON.stringify({
 	jsonrpc: '2.0',
-	id: 42,
+	id: '42',
 	result: [0, { weak_device: true }]
 });
 assert.deepStrictEqual(fwliveRpcReplyForRequest(singleReply, ids).result[1], {

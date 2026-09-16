@@ -467,16 +467,19 @@ DOM rendering at 250 rows when `logging_status.weak_device` is the strict
 boolean `true`; the cap is reported in the status line and does not discard
 buffered rows.
 
-The 2026-09-15 comparison used the shipped 100-row baseline plus 250, 500,
-1000, and 2000 selected rows. On Chromium 148 / x86_64 KVM at 4x throttle it
-found that 250 visible rows stayed below the 250 ms render/task target, while
-500 rows crossed it. A 30-second 250-row confirmation measured 50.9 ms p95 paint,
-175.7 ms maximum paint, a 217 ms largest task, and zero long tasks at or above
-250 ms. With `FWLIVE_PERF_WEAK_DEVICE=1`, a 2,000-row selected Limit was
-clamped to 250 rendered rows and measured 50.0 ms p95 / 182.4 ms maximum paint,
-223 ms largest task, and zero long tasks at or above 250 ms. The weak-device
-toggle controls the synthetic `logging_status` response in fixture mode;
-production receives the boolean from the real `logging_status` response.
+As a dated example run (2026-09-15), the comparison used the shipped 100-row
+baseline plus 250, 500, 1000, and 2000 selected rows. On Chromium 148 /
+x86_64 KVM at 4x throttle it found that 250 visible rows stayed below the
+250 ms render/task target, while 500 rows crossed it. A 30-second 250-row
+confirmation measured 50.9 ms p95 paint, 175.7 ms maximum paint, a 217 ms
+largest task, and zero long tasks at or above 250 ms. With
+`FWLIVE_PERF_WEAK_DEVICE=1`, a 2,000-row selected Limit was clamped to 250
+rendered rows and measured 50.0 ms p95 / 182.4 ms maximum paint, 223 ms
+largest task, and zero long tasks at or above 250 ms. These numbers are
+environment-specific example evidence; repeat the method above for current
+hardware/browser results. The weak-device toggle controls the synthetic
+`logging_status` response in fixture mode; production receives the boolean
+from the real `logging_status` response.
 
 For a supplemental loaded-router check, leave the poll path real and run this
 mode while a guest load/traffic producer is active:
