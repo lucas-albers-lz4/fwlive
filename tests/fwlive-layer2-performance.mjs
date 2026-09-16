@@ -24,6 +24,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { labBaseUrl, labFwliveUrl } from './lib/playwright-lab.mjs';
+import {
+	fwliveMethodRequestIds,
+	fwliveRpcReplyForRequest
+} from './lib/fwlive-perf-rpc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIXTURE_PATH = process.env.FWLIVE_PERF_FIXTURE ||
@@ -68,49 +72,7 @@ if (!fixture || !Array.isArray(fixture.log) || fixture.log.length !== 2000)
 	throw new Error(`performance fixture must contain exactly 2000 log entries: ${FIXTURE_PATH}`);
 
 function isFwlivePoll(postData) {
-	if (!postData) return false;
-	let parsed;
-	try {
-		parsed = JSON.parse(postData);
-	} catch (e) {
-		return false;
-	}
-	const requests = Array.isArray(parsed) ? parsed : [parsed];
-	return requests.some((req) => {
-		const params = req && req.params;
-		return !!(
-			req &&
-			typeof req === 'object' &&
-			req.method === 'call' &&
-			Array.isArray(params) &&
-			params[1] === 'fwlive' &&
-			params[2] === 'poll' &&
-			typeof req.id !== 'undefined'
-		);
-	});
-}
-
-function isFwliveMethod(postData, method) {
-	if (!postData) return false;
-	let parsed;
-	try {
-		parsed = JSON.parse(postData);
-	} catch (e) {
-		return false;
-	}
-	const requests = Array.isArray(parsed) ? parsed : [parsed];
-	return requests.some((req) => {
-		const params = req && req.params;
-		return !!(
-			req &&
-			typeof req === 'object' &&
-			req.method === 'call' &&
-			Array.isArray(params) &&
-			params[1] === 'fwlive' &&
-			params[2] === method &&
-			typeof req.id !== 'undefined'
-		);
-	});
+	return fwliveMethodRequestIds(postData, 'poll').length > 0;
 }
 
 function pollPayload(pollNo) {
@@ -319,13 +281,14 @@ async function main() {
 			const t0 = pollStarts.get(request);
 			if (t0 !== undefined) pollRtts.push(Date.now() - t0);
 		}
-		if (!isFwliveMethod(postData, 'logging_status')) return;
+		const loggingStatusIds = fwliveMethodRequestIds(postData, 'logging_status');
+		if (!loggingStatusIds.length) return;
 		response
 			.json()
 			.then((body) => {
-				const replies = Array.isArray(body) ? body : [body];
-				const reply = replies.find((item) => item && Array.isArray(item.result));
-				const status = reply && reply.result[1];
+				const reply = fwliveRpcReplyForRequest(body, loggingStatusIds);
+				if (!reply || !Array.isArray(reply.result) || reply.result[0] !== 0) return;
+				const status = reply.result[1];
 				if (status && typeof status.weak_device === 'boolean')
 					observedWeakDevice = status.weak_device;
 			})
