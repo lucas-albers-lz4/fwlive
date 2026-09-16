@@ -416,7 +416,7 @@ For native visibility evidence, launch a fresh headed Chromium under a display
 server and attach with the harness's no-defaults CDP mode:
 
 ```sh
-export CHROME_BIN=/home/lalbers/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome
+export CHROME_BIN="$(node --input-type=module -e 'import { chromium } from "playwright"; console.log(chromium.executablePath())')"
 xvfb-run -a sh -c '
   profile=$(mktemp -d)
   cleanup() { kill "$chrome_pid" 2>/dev/null || true; rm -rf "$profile"; }
