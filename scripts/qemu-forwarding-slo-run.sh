@@ -232,6 +232,7 @@ const actives = records.filter((row) => row.mode === 'active-viewer');
 const degradation = pairs.filter((row) => row.complete).map((row) => row.throughput_degradation_pct);
 const ratios = pairs.filter((row) => row.complete && row.ping_stddev_ratio !== null).map((row) => row.ping_stddev_ratio);
 const report = {
+	schema: 'fwlive-forwarding-slo/v1',
 	issue: 306,
 	child_issue: 344,
 	adaptive,

@@ -37,5 +37,7 @@ grep -Fq 'active_viewer_poll_observed' "$ROOT/scripts/qemu-forwarding-slo-run.sh
 	die "runner must reject a window with no active viewer poll"
 grep -Fq 'FWLIVE_SLO_IPERF_BITRATE' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
 	die "runner must pass through an optional iperf bitrate"
+grep -Fq "fwlive-forwarding-slo/v1" "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
+	die "runner must identify its report schema"
 
 echo "qemu-forwarding-slo harness checks passed"

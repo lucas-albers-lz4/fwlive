@@ -571,6 +571,31 @@ the short one-pair/short-duration settings are for harness smoke testing.
 For a load sweep, pass `--bitrate 1G` (or another iperf3 rate) to both the
 single-sample probe and paired runner; an omitted rate leaves TCP uncapped.
 
+#### Reusing the harness
+
+The forwarding-SLO tooling is reusable lab infrastructure, not a one-off
+`#306` test. Keep the phases separate when adapting it to another router or
+workload:
+
+1. `qemu-forwarding-slo-net.sh` owns only the two endpoint namespaces and
+   prints the additional QEMU TAP arguments.
+2. `qemu-forwarding-slo-guest.sh` resolves the guest links by MAC and applies
+   temporary, comment-addressable forwarding/logging state.
+3. `qemu-forwarding-slo-traffic.sh` measures only routed network outcomes.
+4. `qemu-forwarding-slo-viewer.mjs` and `qemu-forwarding-slo-run.sh` provide
+   marker-file synchronization, active-workload observation, drain checking,
+   pairing, and statistics.
+
+Future tests should preserve the `fwlive-forwarding-slo/v1` JSON report
+identity, include every raw sample, and retain the validity gates: the active
+workload must be observed during the measurement window and have zero
+in-flight requests after drain. Use environment overrides for names,
+addresses, MACs, SSH settings, duration, pair count, and traffic rate rather
+than editing the helpers. A new metric or acceptance rule should be added to
+the report and static harness test together. Keep the resulting report with
+the run's guest release, resources, source revision, and load configuration;
+otherwise it is a benchmark result, not reproducible evidence.
+
 ### Sample invocation (memory census)
 
 ```sh
