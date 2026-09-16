@@ -349,6 +349,10 @@ function testAdaptiveHotSurvivesFilterFailures() {
 				body: '#!/bin/sh\nprintf \'{"log":[],"error":"filter_failed"}\'\nexit 1\n'
 			},
 			{
+				name: 'temporary-file failure body',
+				body: '#!/bin/sh\nprintf \'{"log":[],"error":"filter_tempfile_failed"}\'\nexit 1\n'
+			},
+			{
 				name: 'nonzero without output',
 				body: '#!/bin/sh\nexit 1\n'
 			},

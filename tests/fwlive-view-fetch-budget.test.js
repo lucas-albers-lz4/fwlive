@@ -190,6 +190,57 @@ async function testBudgetControlsAndMetadata() {
 	console.log('fwlive-view fetch-budget: controls and metadata validation OK');
 }
 
+async function testPausedBudgetChangesDoNotFetch() {
+	const h = loadFwliveView({
+		storage: {
+			'fwlive-poll-mode': 'auto',
+			'fwlive-manual-lines': '100'
+		}
+	});
+	const v = h.view;
+	let calls = 0;
+	v.updateStreamControlsUi = function () {};
+	v.paused = true;
+	v.rpcPreferencesResolved = true;
+	v.requestPoll = function () {
+		calls++;
+		return Promise.resolve();
+	};
+	v.onFetchModeChange({ target: { value: 'manual' } });
+	v.onManualFetchLinesChange({ target: { value: '500' } });
+	assert.strictEqual(v.fetchMode, 'manual');
+	assert.strictEqual(v.manualFetchLines, 500);
+	assert.strictEqual(calls, 0, 'paused budget changes must not fetch');
+	assert.match(h.location.hash, /poll=manual/);
+	assert.match(h.location.hash, /maxraw=500/);
+	console.log('fwlive-view fetch-budget: paused changes defer fetch OK');
+}
+
+async function testLimitChangeWhileHiddenUsesVisibleCatchup() {
+	let calls = 0;
+	let requested = null;
+	const h = loadFwliveView({
+		rpcMocks: {
+		'fwlive.poll': async function (args) {
+			calls++;
+			requested = args.addresses[0];
+			return { log: [], adaptive: 1 };
+		}
+	}
+	});
+	const v = h.view;
+	v.bindVisibility();
+	v.rpcPreferencesResolved = true;
+	h.setHidden(true);
+	v.onRowLimitChange({ target: { value: '25' } });
+	assert.strictEqual(calls, 0, 'hidden Limit change must not fetch immediately');
+	h.setHidden(false);
+	await sleep(20);
+	assert.strictEqual(calls, 1, 'visible catch-up must fetch once');
+	assert.strictEqual(requested, '100', 'catch-up must use the new Auto budget');
+	console.log('fwlive-view fetch-budget: hidden Limit change catch-up OK');
+}
+
 async function testFillingStopRules() {
 	const row = {
 		id: 901,
@@ -273,6 +324,8 @@ async function main() {
 	await testHashOrderAndAutoWriteThrough();
 	await testFirstRpcUsesResolvedPreferences();
 	await testBudgetControlsAndMetadata();
+	await testPausedBudgetChangesDoNotFetch();
+	await testLimitChangeWhileHiddenUsesVisibleCatchup();
 	await testFillingStopRules();
 	await testPagehideDisposesCoordinator();
 	console.log('fwlive-view fetch-budget tests passed');
