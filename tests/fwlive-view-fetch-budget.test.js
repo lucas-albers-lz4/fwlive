@@ -254,6 +254,11 @@ async function testBudgetChangesRespectCadence() {
 	idleView.onFetchModeChange({ target: { value: 'manual' } });
 	idleView.onManualFetchLinesChange({ target: { value: '500' } });
 	assert.strictEqual(idleCalls, 0, 'idle budget changes must wait for the poll schedule');
+	assert.strictEqual(idleView.fetchMode, 'manual');
+	assert.strictEqual(idleView.manualFetchLines, 500);
+	assert.strictEqual(idleView.readFetchMode(), 'manual');
+	assert.match(idle.location.hash, /poll=manual/);
+	assert.match(idle.location.hash, /maxraw=500/);
 
 	let release;
 	let inFlightCalls = 0;
@@ -278,6 +283,11 @@ async function testBudgetChangesRespectCadence() {
 	inFlightView.onFetchModeChange({ target: { value: 'manual' } });
 	inFlightView.onManualFetchLinesChange({ target: { value: '500' } });
 	assert.strictEqual(inFlightCalls, 1, 'in-flight budget changes must not queue a fetch');
+	assert.strictEqual(inFlightView.fetchMode, 'manual');
+	assert.strictEqual(inFlightView.manualFetchLines, 500);
+	assert.strictEqual(inFlightView.readFetchMode(), 'manual');
+	assert.match(inFlight.location.hash, /poll=manual/);
+	assert.match(inFlight.location.hash, /maxraw=500/);
 	release();
 	await current;
 	assert.strictEqual(inFlightCalls, 1, 'accepted in-flight reply must remain the only request');
