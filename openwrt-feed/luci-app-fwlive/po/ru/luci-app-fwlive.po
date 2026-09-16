@@ -830,3 +830,6 @@ msgstr "Fetch budget controls raw log lines per poll. Auto derives from Limit; M
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2255
 msgid "Manual still uses server protection and poll cadence; it changes the fetch budget, not the polling interval."
 msgstr "Manual still uses server protection and poll cadence; it changes the fetch budget, not the polling interval."
+
+msgid "buffer filling"
+msgstr "buffer filling"

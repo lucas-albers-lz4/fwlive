@@ -149,6 +149,9 @@ The status banner can distinguish the requested raw-line budget, a successful
 server-applied limit, and the number of classified firewall messages returned.
 Fewer returned messages do not by themselves prove shedding: filtering, sparse
 logs, deduplication, and finite router log retention can all reduce the result.
+While paused in Manual mode, the status line says **buffer filling** when
+successive full or growing snapshots are still adding rows; it clears on a
+short read, an unchanged snapshot, an error, or Resume.
 
 ## Related reading
 

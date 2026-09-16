@@ -188,8 +188,12 @@ function loadFwliveView(options) {
 		}
 	};
 
+	const windowListeners = Object.create(null);
 	const win = {
-		addEventListener: function() {},
+		addEventListener: function(type, fn) {
+			if (!windowListeners[type]) windowListeners[type] = [];
+			windowListeners[type].push(fn);
+		},
 		requestAnimationFrame: requestAnimationFrame
 	};
 
@@ -223,6 +227,7 @@ function loadFwliveView(options) {
 	return {
 		view: viewDesc,
 		document: document,
+		location: location,
 		poll: poll,
 		rpcMocks: rpcMocks,
 		setRpcMock: function(key, fn) {
@@ -231,6 +236,10 @@ function loadFwliveView(options) {
 		setHidden: function(hidden) {
 			document.hidden = !!hidden;
 			document.dispatchVisibility();
+		},
+		dispatchPagehide: function() {
+			const listeners = windowListeners.pagehide || [];
+			for (let i = 0; i < listeners.length; i++) listeners[i]();
 		}
 	};
 }

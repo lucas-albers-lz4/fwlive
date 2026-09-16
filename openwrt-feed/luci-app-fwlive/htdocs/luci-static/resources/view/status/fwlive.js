@@ -111,6 +111,7 @@ return view.extend({
 	pollRequestQueued: false,
 	pollRequestWaiters: [],
 	pollRequestQueuedWaiters: [],
+	coordinatorDisposed: false,
 	/* Layer 2 — visibility / RTT cadence / shed surfacing. */
 	pollEpoch: 0,
 	pollCadenceSec: 1,
@@ -122,6 +123,7 @@ return view.extend({
 	lastPollRequestedLines: null,
 	lastPollEffectiveLimit: null,
 	lastPollReturnedMessages: null,
+	fillingBuffer: false,
 	weakDevice: false,
 	degradedSampling: false,
 	/* Layer 2 summary fallback — rows remain available behind an explicit toggle. */
@@ -239,8 +241,9 @@ return view.extend({
 	},
 
 	readManualFetchLines() {
-		const n = parseInt(storedValue('fwlive-manual-lines', ''), 10);
-		return constants.MANUAL_FETCH_LINES_OPTIONS.indexOf(n) >= 0 ? n : null;
+		const raw = storedValue('fwlive-manual-lines', '');
+		const n = Number(raw);
+		return String(n) === raw && constants.MANUAL_FETCH_LINES_OPTIONS.indexOf(n) >= 0 ? n : null;
 	},
 
 	saveManualFetchLines() {
@@ -287,8 +290,8 @@ return view.extend({
 				continue;
 			}
 			if (key === 'maxraw') {
-				const n = parseInt(val, 10);
-				if (isFinite(n) && constants.MANUAL_FETCH_LINES_OPTIONS.indexOf(n) >= 0)
+				const n = Number(val);
+				if (String(n) === val && constants.MANUAL_FETCH_LINES_OPTIONS.indexOf(n) >= 0)
 					hashManual = n;
 			}
 		}
@@ -317,6 +320,33 @@ return view.extend({
 		if (this.paused)
 			return this.fetchMode === 'manual' ? this.manualFetchLines : constants.FETCH_LINES_MAX;
 		return this.fetchMode === 'manual' ? this.manualFetchLines : this.autoFetchLines();
+	},
+
+	updateFillingState(beforeLength, reply, requestedLines) {
+		if (!this.paused || this.resumeMerge) {
+			this.fillingBuffer = false;
+			return;
+		}
+
+		const cap = this.ingestCap();
+		const grew = this.entries.length > beforeLength;
+		if (this.entries.length >= cap || !grew) {
+			this.fillingBuffer = false;
+			return;
+		}
+
+		const rawCount =
+			reply &&
+			typeof reply.messages_received === 'number' &&
+			isFinite(reply.messages_received) &&
+			Math.floor(reply.messages_received) === reply.messages_received &&
+			reply.messages_received >= 0
+				? reply.messages_received
+				: null;
+		const effective =
+			this.lastPollEffectiveLimit !== null ? this.lastPollEffectiveLimit : requestedLines;
+		const shortRead = rawCount !== null && rawCount < effective;
+		this.fillingBuffer = !shortRead && (rawCount === null || rawCount >= effective || grew);
 	},
 
 	applyHash() {
@@ -845,6 +875,7 @@ return view.extend({
 		const epoch = this.pollEpoch;
 		const resumeMerge = !!this.resumeMerge;
 		const fetchLines = this.requestedFetchLines();
+		const beforeLength = this.entries.length;
 		this.lastPollRequestedLines = fetchLines;
 		this.lastPollReturnedMessages = null;
 		this.lastPollEffectiveLimit = null;
@@ -869,12 +900,14 @@ return view.extend({
 
 		if (!reply || typeof reply !== 'object' || Array.isArray(reply)) {
 			this.lastPollError = true;
+			this.fillingBuffer = false;
 			this.notePollRtt(rtt, true);
 			this.updateAdaptiveBanner();
 			return;
 		}
 		if (reply.error) {
 			this.lastPollError = true;
+			this.fillingBuffer = false;
 			this.notePollRtt(rtt, true);
 			this.updateAdaptiveBanner();
 			return;
@@ -882,6 +915,7 @@ return view.extend({
 		const raw = reply.log;
 		if (!Array.isArray(raw)) {
 			this.lastPollError = true;
+			this.fillingBuffer = false;
 			this.notePollRtt(rtt, true);
 			this.updateAdaptiveBanner();
 			return;
@@ -929,6 +963,7 @@ return view.extend({
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});
+		this.updateFillingState(beforeLength, reply, fetchLines);
 		/* A stale request returns above. Keep this obligation until a current
 		 * request has actually applied the merged batch. */
 		if (resumeMerge) this.resumeMerge = false;
@@ -961,6 +996,7 @@ return view.extend({
 		const bits = [];
 		if (this.paused) {
 			if (this.pauseBufferLoading) bits.push(_('loading buffer'));
+			if (this.fillingBuffer) bits.push(_('buffer filling'));
 		}
 
 		const cap = this.ingestCap();
@@ -1080,6 +1116,7 @@ return view.extend({
 	},
 
 	resumePollingAfterVisible() {
+		if (this.coordinatorDisposed) return;
 		this.bumpPollEpoch();
 		this.resetRttHistory();
 		if (!this.pollFn) this.pollFn = this.pollData.bind(this);
@@ -1123,6 +1160,19 @@ return view.extend({
 		}
 		this.visibilityHandler = null;
 		this.visibilityBound = false;
+	},
+
+	disposeCoordinator() {
+		if (this.coordinatorDisposed) return;
+		this.coordinatorDisposed = true;
+		this.bumpPollEpoch();
+		this.stopPollingForHidden();
+		this.unbindVisibility();
+		this.pollFn = null;
+		this.pollRequestQueued = false;
+		const queued = this.pollRequestQueuedWaiters;
+		this.pollRequestQueuedWaiters = [];
+		for (let i = 0; i < queued.length; i++) queued[i].resolve();
 	},
 
 	updateAdaptiveBanner() {
@@ -1527,6 +1577,7 @@ return view.extend({
 		}
 
 		if (wasPaused && !this.paused) {
+			this.fillingBuffer = false;
 			this.followLive = true;
 			/* Merge pause buffer with the first live poll — do not replace. */
 			this.resumeMerge = true;
@@ -1981,7 +2032,7 @@ return view.extend({
 	},
 
 	requestPoll() {
-		if (this.isTabHidden()) return Promise.resolve();
+		if (this.coordinatorDisposed || this.isTabHidden()) return Promise.resolve();
 
 		const waiter = {};
 		const promise = new Promise(function (resolve) {
@@ -2038,7 +2089,7 @@ return view.extend({
 
 		/* If visibility changed while the request was active, retain the
 		 * queued intent until the visible catch-up can start it. */
-		if (this.pollRequestQueued && !this.isTabHidden()) {
+		if (this.pollRequestQueued && !this.coordinatorDisposed && !this.isTabHidden()) {
 			const queued = this.pollRequestQueuedWaiters;
 			this.pollRequestQueuedWaiters = [];
 			this.pollRequestQueued = false;
@@ -2092,15 +2143,7 @@ return view.extend({
 				window.addEventListener(
 					'pagehide',
 					function () {
-						this.unbindVisibility();
-						if (this.pollFn) {
-							try {
-								poll.remove(this.pollFn);
-							} catch (e) {
-								/* poll gone */
-							}
-							this.pollFn = null;
-						}
+						this.disposeCoordinator();
 						if (this.filterInputTimer) {
 							clearTimeout(this.filterInputTimer);
 							this.filterInputTimer = null;

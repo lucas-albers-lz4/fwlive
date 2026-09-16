@@ -138,6 +138,8 @@ echo "== fwlive view poll contract (#233 / #240) =="
 echo "== fwlive view poll guard (#240) =="
 "$NODE" tests/fwlive-view-poll-guard.test.js
 "$NODE" tests/fwlive-view-layer2-backoff.test.js
+echo "== fwlive view fetch budget (#347) ==" >&2
+"$NODE" tests/fwlive-view-fetch-budget.test.js
 "$NODE" tests/fwlive-layer2-performance-rpc.test.mjs
 bash tests/qemu-forwarding-slo-net.test.sh
 bash tests/qemu-forwarding-slo-harness.test.sh

@@ -6,6 +6,12 @@
 const assert = require('node:assert/strict');
 const { loadFwliveView } = require('./lib/load-fwlive-view');
 
+function sleep(ms) {
+	return new Promise(function (resolve) {
+		setTimeout(resolve, ms);
+	});
+}
+
 function pollReply() {
 	return { log: [], adaptive: 1 };
 }
@@ -52,6 +58,16 @@ async function testManualSeeding() {
 		assert.strictEqual(h.view.fetchMode, 'auto');
 		assert.strictEqual(h.view.manualFetchLines, expected, 'seed for Limit=' + limit);
 	}
+	const malformed = loadFwliveView({
+		storage: { 'fwlive-poll-mode': 'manual', 'fwlive-manual-lines': '250junk' },
+		location: { hash: '#poll=manual&maxraw=250junk' }
+	});
+	malformed.view.resolveRpcPreferences();
+	assert.strictEqual(
+		malformed.view.manualFetchLines,
+		250,
+		'malformed Manual value must seed safely'
+	);
 	console.log('fwlive-view fetch-budget: Manual seeding snaps down OK');
 }
 
@@ -83,6 +99,11 @@ async function testHashOrderAndAutoWriteThrough() {
 	h.view.resolveRpcPreferences();
 	assert.strictEqual(h.view.fetchMode, 'auto');
 	assert.strictEqual(h.view.manualFetchLines, 250, 'Auto must not overwrite stored Manual');
+	h.view.fetchMode = 'manual';
+	h.view.manualFetchLines = 500;
+	h.view.rowLimit = 25;
+	h.view.updateHash({ q: '' });
+	assert.match(h.location ? h.location.hash : '', /poll=manual/);
 	console.log('fwlive-view fetch-budget: hash precedence and Auto write-through OK');
 }
 
@@ -169,12 +190,91 @@ async function testBudgetControlsAndMetadata() {
 	console.log('fwlive-view fetch-budget: controls and metadata validation OK');
 }
 
+async function testFillingStopRules() {
+	const row = {
+		id: 901,
+		time: 1717675742,
+		msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP SPT=49210 DPT=443'
+	};
+	let reply = { log: [row], adaptive: 1, effective_limit: 250, messages_received: 250 };
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return reply;
+			}
+		}
+	});
+	const v = h.view;
+	v.paused = true;
+	v.fetchMode = 'manual';
+	v.manualFetchLines = 250;
+	v.rpcPreferencesResolved = true;
+	await v.fetchEntries();
+	assert.strictEqual(v.fillingBuffer, true, 'full page that grows the buffer keeps filling');
+
+	await v.fetchEntries();
+	assert.strictEqual(v.fillingBuffer, false, 'zero growth relative to buffer stops filling');
+
+	reply = {
+		log: [{ ...row, id: 902, time: row.time + 1 }],
+		adaptive: 1,
+		effective_limit: 250,
+		messages_received: 100
+	};
+	await v.fetchEntries();
+	assert.strictEqual(v.fillingBuffer, false, 'short raw page stops filling');
+
+	v.fillingBuffer = true;
+	v.resumeMerge = true;
+	await v.fetchEntries();
+	assert.strictEqual(v.fillingBuffer, false, 'resume merge stops filling');
+	console.log('fwlive-view fetch-budget: filling stop rules OK');
+}
+
+async function testPagehideDisposesCoordinator() {
+	let release;
+	let calls = 0;
+	const gate = new Promise(function (resolve) {
+		release = resolve;
+	});
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				calls++;
+				await gate;
+				return { log: [], adaptive: 1 };
+			}
+		}
+	});
+	const v = h.view;
+	v.loadRulesMap = function () {
+		return Promise.resolve();
+	};
+	v.loadLoggingStatus = function () {
+		return Promise.resolve();
+	};
+	const loading = v.load();
+	await sleep(10);
+	assert.strictEqual(calls, 1, 'load must have one active request');
+	h.dispatchPagehide();
+	release();
+	await loading;
+	assert.strictEqual(v.entries.length, 0, 'pagehide must discard active reply');
+	assert.strictEqual(v.pollDataInFlight, false, 'pagehide request must settle');
+	assert.strictEqual(calls, 1, 'pagehide must not start a queued request');
+	await v.requestPoll();
+	assert.strictEqual(calls, 1, 'disposed coordinator must ignore later poll requests');
+	console.log('fwlive-view fetch-budget: pagehide disposal contract OK');
+}
+
 async function main() {
 	await testAutoAndManualBudgets();
 	await testManualSeeding();
 	await testHashOrderAndAutoWriteThrough();
 	await testFirstRpcUsesResolvedPreferences();
 	await testBudgetControlsAndMetadata();
+	await testFillingStopRules();
+	await testPagehideDisposesCoordinator();
 	console.log('fwlive-view fetch-budget tests passed');
 }
 
