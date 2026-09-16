@@ -578,9 +578,11 @@ LAN TAP-backed interface and `198.51.100.1/24` on the WAN TAP-backed
 interface, with IPv4 forwarding enabled; the namespaces use `.2` on each
 side and install host routes through the guest. The helper does not configure
 the guest, launch QEMU, or run traffic, so an incomplete topology cannot be
-mistaken for SLO evidence. The measurement harness will add the required
+mistaken for SLO evidence. The measurement harness now provides the required
 `iperf3`/ping preflight, no-viewer versus active-viewer drain check, adaptive
-on/off split, and five-pair report in #344.
+on/off split, and five-pair report. Durable raw reports and the summarized
+qualification result are kept in [`lab/forwarding-slo/`](../../lab/forwarding-slo/)
+and tracked in [#344](https://github.com/lucas-albers-lz4/fwlive/issues/344).
 
 The default routed NIC model is `virtio-net-pci`, which is appropriate for the
 armsr runner. For x86, use `OWRT_QEMU_NIC_MODEL=virtio-net-pci` on the stock
@@ -648,6 +650,27 @@ For a load sweep, pass `--bitrate 1G` (or another iperf3 rate) to both the
 single-sample probe and paired runner; an omitted rate leaves TCP uncapped. The
 ping interval is derived from `duration / ping_count` unless
 `FWLIVE_SLO_PING_INTERVAL_S` is set explicitly.
+
+#### Recorded x86 result
+
+The durable qualification record uses the canonical OpenWrt 24.10.8 x86_64
+KVM guest (2 vCPU / 1024 MiB), e1000 routed TAP links, 100M iperf3, 25 logged
+firewall messages per second per direction, five 10-second pairs, and 20 pings
+per sample. Both modes used the no-viewer versus active-viewer comparison and
+passed the harness validity and SLO gates:
+
+| adaptive | observed poll cadence | throughput degradation (median / spread) | ping-stddev ratio (median / spread) | enforce |
+|---|---|---:|---:|---|
+| on | 1,000 ms | 0.022% / 0.118 percentage points | 1.068x / 0.564x | pass |
+| off | 1,000 ms | 0.042% / 0.138 percentage points | 1.085x / 1.836x | pass |
+
+Every pair and raw sample is preserved in the two JSON reports under
+[`lab/forwarding-slo/`](../../lab/forwarding-slo/). This is a controlled 100M
+forwarding-impact result, not a line-rate capacity claim. A one-pair 125M
+smoke report is retained separately; the five-pair 125M extension was unstable
+after two completed pairs, and the x86 1G probe failed closed after exceeding
+the emulated forwarding path. Neither boundary result is used as qualification
+evidence.
 
 #### Reusing the harness
 
