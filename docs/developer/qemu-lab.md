@@ -538,6 +538,18 @@ by MAC and install temporary forwarding accepts in the existing firewall:
 The guest helper only touches the two MAC-selected TAP interfaces, its two
 temporary `fwlive-slo-*` forwarding rules, and the IPv4-forwarding sysctl.
 
+Once both helpers report ready, one traffic sample can be collected with the
+same endpoint namespaces on every run:
+
+```sh
+sudo FWLIVE_SLO_IPERF_DURATION=10 FWLIVE_SLO_PING_COUNT=20 \
+  ./scripts/qemu-forwarding-slo-traffic.sh --label no-viewer
+```
+
+The sample command reports raw receive throughput and ping RTT standard
+deviation only. It does not decide whether the SLO passes; the paired-run
+orchestrator in #344 will compare these values against the matching baseline.
+
 ### Sample invocation (memory census)
 
 ```sh
