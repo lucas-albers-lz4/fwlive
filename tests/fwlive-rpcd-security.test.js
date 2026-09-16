@@ -353,6 +353,10 @@ function testAdaptiveHotSurvivesFilterFailures() {
 				body: '#!/bin/sh\nprintf \'{"log":[],"error":"filter_tempfile_failed"}\'\nexit 1\n'
 			},
 			{
+				name: 'jsonfilter missing body',
+				body: '#!/bin/sh\nprintf \'{"log":[],"error":"jsonfilter_missing"}\'\nexit 1\n'
+			},
+			{
 				name: 'nonzero without output',
 				body: '#!/bin/sh\nexit 1\n'
 			},
@@ -385,6 +389,11 @@ function testAdaptiveHotSurvivesFilterFailures() {
 			);
 			const res = JSON.parse(raw);
 			assert.ok(res.error, `${test.name} must preserve its error reply`);
+			assert.equal(
+				res.effective_limit,
+				undefined,
+				`${test.name} must omit effective_limit on errors`
+			);
 			const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
 			assert.equal(state.bucket, 'hot', `${test.name} must preserve hot bucket`);
 			assert.equal(state.shed, 1, `${test.name} must preserve shed state`);

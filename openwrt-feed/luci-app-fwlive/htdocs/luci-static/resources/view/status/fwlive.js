@@ -96,6 +96,7 @@ return view.extend({
 	rowLimit: constants.DEFAULT_ROW_LIMIT,
 	fetchMode: constants.DEFAULT_FETCH_MODE,
 	manualFetchLines: constants.DEFAULT_MANUAL_FETCH_LINES,
+	manualFetchLinesExplicit: false,
 	rpcPreferencesResolved: false,
 	entries: [],
 	sessionSeen: null,
@@ -270,6 +271,7 @@ return view.extend({
 		this.applyRowLimit(this.readRowLimit());
 		this.fetchMode = this.readFetchMode();
 		const storedManual = this.readManualFetchLines();
+		this.manualFetchLinesExplicit = storedManual !== null;
 		this.manualFetchLines =
 			storedManual === null ? this.snapManualFetchLines(this.autoFetchLines()) : storedManual;
 
@@ -286,7 +288,7 @@ return view.extend({
 				continue;
 			}
 			if (key === 'poll') {
-				hashMode = constants.FETCH_MODE_OPTIONS.indexOf(val) >= 0 ? val : 'auto';
+				if (constants.FETCH_MODE_OPTIONS.indexOf(val) >= 0) hashMode = val;
 				continue;
 			}
 			if (key === 'maxraw') {
@@ -306,6 +308,7 @@ return view.extend({
 		}
 		if (hashManual !== null && this.fetchMode === 'manual') {
 			this.manualFetchLines = hashManual;
+			this.manualFetchLinesExplicit = true;
 			this.saveManualFetchLines();
 		}
 		if (storedManual === null && !(hashManual !== null && this.fetchMode === 'manual')) {
@@ -1539,22 +1542,23 @@ return view.extend({
 		const mode = ev && ev.target ? ev.target.value : '';
 		if (constants.FETCH_MODE_OPTIONS.indexOf(mode) < 0) return;
 		this.fetchMode = mode;
-		if (mode === 'manual' && !this.manualFetchLines)
+		if (mode === 'manual' && !this.manualFetchLinesExplicit) {
 			this.manualFetchLines = this.snapManualFetchLines(this.autoFetchLines());
+			this.manualFetchLinesExplicit = true;
+		}
 		this.saveFetchMode();
 		if (mode === 'manual') this.saveManualFetchLines();
 		this.updateStreamControlsUi();
 		this.updateHash(this.readFilters());
-		if (!this.paused) this.requestPoll().catch(function () {});
 	},
 
 	onManualFetchLinesChange(ev) {
 		const n = parseInt(ev && ev.target ? ev.target.value : '', 10);
 		if (constants.MANUAL_FETCH_LINES_OPTIONS.indexOf(n) < 0) return;
 		this.manualFetchLines = n;
+		this.manualFetchLinesExplicit = true;
 		this.saveManualFetchLines();
 		this.updateHash(this.readFilters());
-		if (!this.paused) this.requestPoll().catch(function () {});
 	},
 
 	onPauseClick() {

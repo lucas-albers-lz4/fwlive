@@ -68,6 +68,16 @@ async function testManualSeeding() {
 		250,
 		'malformed Manual value must seed safely'
 	);
+	const firstEntry = loadFwliveView({ storage: { 'fwlive-row-limit': '100' } });
+	firstEntry.view.updateStreamControlsUi = function () {};
+	firstEntry.view.resolveRpcPreferences();
+	firstEntry.view.applyRowLimit(25);
+	firstEntry.view.onFetchModeChange({ target: { value: 'manual' } });
+	assert.strictEqual(
+		firstEntry.view.manualFetchLines,
+		100,
+		'first Manual entry must use the current Auto budget'
+	);
 	console.log('fwlive-view fetch-budget: Manual seeding snaps down OK');
 }
 
@@ -99,6 +109,15 @@ async function testHashOrderAndAutoWriteThrough() {
 	h.view.resolveRpcPreferences();
 	assert.strictEqual(h.view.fetchMode, 'auto');
 	assert.strictEqual(h.view.manualFetchLines, 250, 'Auto must not overwrite stored Manual');
+
+	const invalidPoll = loadFwliveView({
+		storage: { 'fwlive-poll-mode': 'manual', 'fwlive-manual-lines': '250' },
+		location: { hash: '#poll=foo' }
+	});
+	invalidPoll.view.resolveRpcPreferences();
+	assert.strictEqual(invalidPoll.view.fetchMode, 'manual');
+	assert.strictEqual(invalidPoll.view.readFetchMode(), 'manual');
+
 	h.view.fetchMode = 'manual';
 	h.view.manualFetchLines = 500;
 	h.view.rowLimit = 25;
@@ -188,6 +207,73 @@ async function testBudgetControlsAndMetadata() {
 	v.updateStreamControlsUi();
 	assert.strictEqual(manual.disabled, false, 'Manual maximum is enabled in Manual');
 	console.log('fwlive-view fetch-budget: controls and metadata validation OK');
+}
+
+async function testMalformedEffectiveLimits() {
+	const values = [0, 2001, 250.5, '250.5', '250junk'];
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1, effective_limit: values.shift() };
+			}
+		}
+	});
+	const v = h.view;
+	v.rpcPreferencesResolved = true;
+	const count = values.length;
+	for (let i = 0; i < count; i++) {
+		await v.fetchEntries();
+		assert.doesNotMatch(
+			h.document.getElementById('fwlive-adaptive').textContent,
+			/server limited fetch/,
+			'invalid effective_limit must not claim a server limit'
+		);
+	}
+	console.log('fwlive-view fetch-budget: malformed effective_limit values rejected OK');
+}
+
+async function testBudgetChangesRespectCadence() {
+	const idle = loadFwliveView();
+	const idleView = idle.view;
+	let idleCalls = 0;
+	idleView.updateStreamControlsUi = function () {};
+	idleView.rpcPreferencesResolved = true;
+	idleView.pollCadenceSec = 5;
+	idleView.requestPoll = function () {
+		idleCalls++;
+		return Promise.resolve();
+	};
+	idleView.onFetchModeChange({ target: { value: 'manual' } });
+	idleView.onManualFetchLinesChange({ target: { value: '500' } });
+	assert.strictEqual(idleCalls, 0, 'idle budget changes must wait for the poll schedule');
+
+	let release;
+	let inFlightCalls = 0;
+	const gate = new Promise(function (resolve) {
+		release = resolve;
+	});
+	const inFlight = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				inFlightCalls++;
+				await gate;
+				return { log: [], adaptive: 1 };
+			}
+		}
+	});
+	const inFlightView = inFlight.view;
+	inFlightView.updateStreamControlsUi = function () {};
+	inFlightView.rpcPreferencesResolved = true;
+	inFlightView.pollCadenceSec = 5;
+	const current = inFlightView.requestPoll();
+	await sleep(10);
+	inFlightView.onFetchModeChange({ target: { value: 'manual' } });
+	inFlightView.onManualFetchLinesChange({ target: { value: '500' } });
+	assert.strictEqual(inFlightCalls, 1, 'in-flight budget changes must not queue a fetch');
+	release();
+	await current;
+	assert.strictEqual(inFlightCalls, 1, 'accepted in-flight reply must remain the only request');
+	console.log('fwlive-view fetch-budget: budget changes respect cadence OK');
 }
 
 async function testPausedBudgetChangesDoNotFetch() {
@@ -324,6 +410,8 @@ async function main() {
 	await testHashOrderAndAutoWriteThrough();
 	await testFirstRpcUsesResolvedPreferences();
 	await testBudgetControlsAndMetadata();
+	await testMalformedEffectiveLimits();
+	await testBudgetChangesRespectCadence();
 	await testPausedBudgetChangesDoNotFetch();
 	await testLimitChangeWhileHiddenUsesVisibleCatchup();
 	await testFillingStopRules();
