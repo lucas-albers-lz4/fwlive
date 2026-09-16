@@ -92,6 +92,8 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | **Wrap / One line** | Segmented pair next to Simple / Detail. Visible in Detailed view only. |
 | **Display options** | Inline bar below the watch strip: **Limit**, **Row tint** (checkbox + palette), and **Show hostnames**. |
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. On a router reported as a weak device, the browser renders at most 250 rows and explains the cap in the status line; the larger limit remains available for buffering and stronger devices. |
+| **Fetch budget** | **Auto** requests `min(max(Limit × 4, 100), 2000)` raw log lines for live polls. **Manual** selects a bounded maximum from 25, 50, 100, 250, 500, 1000, or 2000. Both modes retain server protection and adaptive polling cadence. |
+| **Maximum raw lines** | Enabled in **Manual** mode. It is a raw-line fetch budget, not a number of firewall rows displayed. Paused Manual fetches use this maximum; paused Auto keeps the compatibility 2000-line request. |
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns. Hover shows the IP. Click still filters by IP. |
 | **Quick search** | Matches across all normalized fields. |
 
@@ -142,6 +144,11 @@ If logging is already on but the table is still empty, wait for inbound WAN traf
 ## High traffic rate
 
 If more than ~250 **new** events arrive per second, a banner may appear and rendering throttles briefly.
+
+The status banner can distinguish the requested raw-line budget, a successful
+server-applied limit, and the number of classified firewall messages returned.
+Fewer returned messages do not by themselves prove shedding: filtering, sparse
+logs, deduplication, and finite router log retention can all reduce the result.
 
 ## Related reading
 

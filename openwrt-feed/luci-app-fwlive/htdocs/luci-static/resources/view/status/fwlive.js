@@ -94,6 +94,9 @@ function optionNodes(pairs) {
 
 return view.extend({
 	rowLimit: constants.DEFAULT_ROW_LIMIT,
+	fetchMode: constants.DEFAULT_FETCH_MODE,
+	manualFetchLines: constants.DEFAULT_MANUAL_FETCH_LINES,
+	rpcPreferencesResolved: false,
 	entries: [],
 	sessionSeen: null,
 	pauseBufferLoading: false,
@@ -113,9 +116,12 @@ return view.extend({
 	pollCadenceSec: 1,
 	rttStreakKind: null,
 	rttStreakCount: 0,
-	serverAdaptive: 1,
+	serverAdaptive: undefined,
 	serverTruncated: 0,
 	serverShed: null,
+	lastPollRequestedLines: null,
+	lastPollEffectiveLimit: null,
+	lastPollReturnedMessages: null,
 	weakDevice: false,
 	degradedSampling: false,
 	/* Layer 2 summary fallback — rows remain available behind an explicit toggle. */
@@ -194,27 +200,133 @@ return view.extend({
 			.map((k) => '%s=%s'.format(encodeURIComponent(k), encodeURIComponent(filters[k])));
 		if (this.rowLimit !== constants.DEFAULT_ROW_LIMIT)
 			parts.push('limit=%s'.format(encodeURIComponent(this.rowLimit)));
+		if (this.fetchMode === 'manual') {
+			parts.push('poll=manual');
+			parts.push('maxraw=%s'.format(encodeURIComponent(this.manualFetchLines)));
+		}
 		if (this.viewMode === 'detailed') parts.push('view=detailed');
 		location.hash = parts.join('&');
 	},
 
-	applyHash() {
-		if (!location.hash || location.hash.length < 2) return;
+	hashEntries() {
+		if (!location.hash || location.hash.length < 2) return [];
 
 		const entries = location.hash.substring(1).split('&');
+		const result = [];
 		for (let i = 0; i < entries.length; i++) {
 			const kv = entries[i].split('=');
 			if (kv.length !== 2) continue;
-			const key = decodeURIComponent(kv[0]);
-			const val = decodeURIComponent(kv[1]);
-			if (key === 'limit') {
-				const n = parseInt(val, 10);
-				if (isFinite(n) && constants.ROW_LIMIT_OPTIONS.indexOf(n) >= 0) {
-					this.applyRowLimit(n);
-					this.saveRowLimit();
-				}
+			let key;
+			let val;
+			try {
+				key = decodeURIComponent(kv[0]);
+				val = decodeURIComponent(kv[1]);
+			} catch (e) {
 				continue;
 			}
+			result.push({ key: key, val: val });
+		}
+		return result;
+	},
+
+	readFetchMode() {
+		const v = storedValue('fwlive-poll-mode', constants.DEFAULT_FETCH_MODE);
+		return constants.FETCH_MODE_OPTIONS.indexOf(v) >= 0 ? v : constants.DEFAULT_FETCH_MODE;
+	},
+
+	saveFetchMode() {
+		storeValue('fwlive-poll-mode', this.fetchMode);
+	},
+
+	readManualFetchLines() {
+		const n = parseInt(storedValue('fwlive-manual-lines', ''), 10);
+		return constants.MANUAL_FETCH_LINES_OPTIONS.indexOf(n) >= 0 ? n : null;
+	},
+
+	saveManualFetchLines() {
+		storeValue('fwlive-manual-lines', String(this.manualFetchLines));
+	},
+
+	autoFetchLines() {
+		return Math.min(Math.max(this.rowLimit * 4, 100), constants.FETCH_LINES_MAX);
+	},
+
+	snapManualFetchLines(lines) {
+		const options = constants.MANUAL_FETCH_LINES_OPTIONS;
+		let snapped = options[0];
+		for (let i = 0; i < options.length; i++) {
+			if (options[i] > lines) break;
+			snapped = options[i];
+		}
+		return snapped;
+	},
+
+	resolveRpcPreferences() {
+		if (this.rpcPreferencesResolved) return;
+
+		this.applyRowLimit(this.readRowLimit());
+		this.fetchMode = this.readFetchMode();
+		const storedManual = this.readManualFetchLines();
+		this.manualFetchLines =
+			storedManual === null ? this.snapManualFetchLines(this.autoFetchLines()) : storedManual;
+
+		let hashLimit = null;
+		let hashMode = null;
+		let hashManual = null;
+		const entries = this.hashEntries();
+		for (let i = 0; i < entries.length; i++) {
+			const key = entries[i].key;
+			const val = entries[i].val;
+			if (key === 'limit') {
+				const n = parseInt(val, 10);
+				if (isFinite(n) && constants.ROW_LIMIT_OPTIONS.indexOf(n) >= 0) hashLimit = n;
+				continue;
+			}
+			if (key === 'poll') {
+				hashMode = constants.FETCH_MODE_OPTIONS.indexOf(val) >= 0 ? val : 'auto';
+				continue;
+			}
+			if (key === 'maxraw') {
+				const n = parseInt(val, 10);
+				if (isFinite(n) && constants.MANUAL_FETCH_LINES_OPTIONS.indexOf(n) >= 0)
+					hashManual = n;
+			}
+		}
+
+		if (hashLimit !== null) {
+			this.applyRowLimit(hashLimit);
+			this.saveRowLimit();
+		}
+		if (hashMode !== null) {
+			this.fetchMode = hashMode;
+			this.saveFetchMode();
+		}
+		if (hashManual !== null && this.fetchMode === 'manual') {
+			this.manualFetchLines = hashManual;
+			this.saveManualFetchLines();
+		}
+		if (storedManual === null && !(hashManual !== null && this.fetchMode === 'manual')) {
+			this.manualFetchLines = this.snapManualFetchLines(this.autoFetchLines());
+		}
+
+		this.rpcPreferencesResolved = true;
+	},
+
+	requestedFetchLines() {
+		this.resolveRpcPreferences();
+		if (this.paused)
+			return this.fetchMode === 'manual' ? this.manualFetchLines : constants.FETCH_LINES_MAX;
+		return this.fetchMode === 'manual' ? this.manualFetchLines : this.autoFetchLines();
+	},
+
+	applyHash() {
+		this.resolveRpcPreferences();
+
+		const entries = this.hashEntries();
+		for (let i = 0; i < entries.length; i++) {
+			const key = entries[i].key;
+			const val = entries[i].val;
+			if (key === 'limit' || key === 'poll' || key === 'maxraw') continue;
 			if (key === 'view') {
 				if (val === 'advanced' || val === 'detailed') this.viewMode = 'detailed';
 				else if (val === 'simple') this.viewMode = 'simple';
@@ -732,6 +844,10 @@ return view.extend({
 
 		const epoch = this.pollEpoch;
 		const resumeMerge = !!this.resumeMerge;
+		const fetchLines = this.requestedFetchLines();
+		this.lastPollRequestedLines = fetchLines;
+		this.lastPollReturnedMessages = null;
+		this.lastPollEffectiveLimit = null;
 		const t0 = this.nowMs();
 		let reply;
 		let errored = false;
@@ -739,9 +855,6 @@ return view.extend({
 			/* Raw logd lines, not post-filter rows. Fetch a multiple of the
 			 * display limit so mixed syslog still fills the table; pause
 			 * reads the ring cap so the buffer can catch up. */
-			const fetchLines = this.paused
-				? constants.FETCH_LINES_MAX
-				: Math.min(Math.max(this.rowLimit * 4, 100), constants.FETCH_LINES_MAX);
 			reply = await callFwlivePoll({
 				addresses: [String(fetchLines)]
 			});
@@ -775,12 +888,25 @@ return view.extend({
 		}
 
 		this.lastPollError = false;
-		this.serverAdaptive = reply.adaptive === 0 || reply.adaptive === false ? 0 : 1;
+		if (reply.adaptive === 0 || reply.adaptive === false) this.serverAdaptive = 0;
+		else if (reply.adaptive === 1 || reply.adaptive === true) this.serverAdaptive = 1;
+		else this.serverAdaptive = undefined;
 		this.serverTruncated = reply.truncated ? 1 : 0;
 		this.serverShed =
 			reply.shed && typeof reply.shed === 'object' && !Array.isArray(reply.shed)
 				? reply.shed
 				: null;
+		this.lastPollReturnedMessages = raw.length;
+		if (
+			this.serverAdaptive === 1 &&
+			typeof reply.effective_limit === 'number' &&
+			isFinite(reply.effective_limit) &&
+			Math.floor(reply.effective_limit) === reply.effective_limit &&
+			reply.effective_limit >= 1 &&
+			reply.effective_limit <= constants.FETCH_LINES_MAX
+		) {
+			this.lastPollEffectiveLimit = reply.effective_limit;
+		}
 
 		this.notePollRtt(rtt, errored);
 		this.updateAdaptiveBanner();
@@ -1004,13 +1130,37 @@ return view.extend({
 		if (!el) return;
 		if (!el.style) el.style = { display: '' };
 
-		if (!this.clientBackoffEnabled()) {
-			el.style.display = 'none';
-			el.textContent = '';
-			return;
-		}
-
 		const parts = [];
+		const mode = this.fetchMode === 'manual' ? _('Manual') : _('Auto');
+		if (this.lastPollRequestedLines !== null && this.lastPollReturnedMessages !== null) {
+			if (
+				this.serverAdaptive === 1 &&
+				this.lastPollEffectiveLimit !== null &&
+				this.lastPollEffectiveLimit < this.lastPollRequestedLines
+			) {
+				parts.push(
+					_(
+						'%s · requested up to %d raw lines · server limited fetch to %d · %d firewall messages returned'
+					).format(
+						mode,
+						this.lastPollRequestedLines,
+						this.lastPollEffectiveLimit,
+						this.lastPollReturnedMessages
+					)
+				);
+			} else {
+				parts.push(
+					_('%s · requested up to %d raw lines · %d firewall messages returned').format(
+						mode,
+						this.lastPollRequestedLines,
+						this.lastPollReturnedMessages
+					)
+				);
+			}
+		}
+		if (this.serverAdaptive === undefined) parts.push(_('Server protection state is unknown.'));
+		else if (this.serverAdaptive === 0)
+			parts.push(_('Server adaptive protection is disabled.'));
 		if (this.degradedSampling)
 			parts.push(_('Degraded — sampling (slow poll RTT; cadence reduced).'));
 		if (this.serverShed && this.serverShed.limit)
@@ -1028,6 +1178,22 @@ return view.extend({
 			el.style.display = 'none';
 			el.textContent = '';
 		}
+	},
+
+	fetchModeOptions() {
+		return optionNodes([
+			['auto', _('Auto')],
+			['manual', _('Manual')]
+		]);
+	},
+
+	manualFetchLinesOptions() {
+		const pairs = [];
+		for (let i = 0; i < constants.MANUAL_FETCH_LINES_OPTIONS.length; i++) {
+			const n = constants.MANUAL_FETCH_LINES_OPTIONS[i];
+			pairs.push([String(n), String(n)]);
+		}
+		return optionNodes(pairs);
 	},
 
 	summaryListText(label, values) {
@@ -1284,6 +1450,8 @@ return view.extend({
 		const label = document.getElementById('fwlive-watch-label');
 		const pauseBtn = document.getElementById('fwlive-pause');
 		const sel = document.getElementById('fwlive-limit');
+		const modeSel = document.getElementById('fwlive-fetch-mode');
+		const manualSel = document.getElementById('fwlive-manual-lines');
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 
 		if (map) {
@@ -1297,6 +1465,11 @@ return view.extend({
 		if (label) label.textContent = this.paused ? _('Paused') : _('Watching');
 		if (pauseBtn) pauseBtn.textContent = this.paused ? _('Resume') : _('Pause');
 		if (sel) sel.value = String(this.rowLimit);
+		if (modeSel) modeSel.value = this.fetchMode;
+		if (manualSel) {
+			manualSel.value = String(this.manualFetchLines);
+			manualSel.disabled = this.fetchMode !== 'manual';
+		}
 		if (hostCb) hostCb.checked = !!this.showHostnames;
 		this.updateRowTintUi();
 	},
@@ -1310,6 +1483,28 @@ return view.extend({
 
 		if (this.showHostnames) this.resolveHostnamesForEntries(this.filteredRows());
 		else this.renderRows(true);
+	},
+
+	onFetchModeChange(ev) {
+		const mode = ev && ev.target ? ev.target.value : '';
+		if (constants.FETCH_MODE_OPTIONS.indexOf(mode) < 0) return;
+		this.fetchMode = mode;
+		if (mode === 'manual' && !this.manualFetchLines)
+			this.manualFetchLines = this.snapManualFetchLines(this.autoFetchLines());
+		this.saveFetchMode();
+		if (mode === 'manual') this.saveManualFetchLines();
+		this.updateStreamControlsUi();
+		this.updateHash(this.readFilters());
+		if (!this.paused) this.requestPoll().catch(function () {});
+	},
+
+	onManualFetchLinesChange(ev) {
+		const n = parseInt(ev && ev.target ? ev.target.value : '', 10);
+		if (constants.MANUAL_FETCH_LINES_OPTIONS.indexOf(n) < 0) return;
+		this.manualFetchLines = n;
+		this.saveManualFetchLines();
+		this.updateHash(this.readFilters());
+		if (!this.paused) this.requestPoll().catch(function () {});
 	},
 
 	onPauseClick() {
@@ -1761,6 +1956,13 @@ return view.extend({
 		const limitSel = document.getElementById('fwlive-limit');
 		if (limitSel) limitSel.addEventListener('change', this.onRowLimitChange.bind(this));
 
+		const modeSel = document.getElementById('fwlive-fetch-mode');
+		if (modeSel) modeSel.addEventListener('change', this.onFetchModeChange.bind(this));
+
+		const manualSel = document.getElementById('fwlive-manual-lines');
+		if (manualSel)
+			manualSel.addEventListener('change', this.onManualFetchLinesChange.bind(this));
+
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 		if (hostCb) hostCb.addEventListener('change', this.onShowHostnamesChange.bind(this));
 
@@ -1877,6 +2079,9 @@ return view.extend({
 	},
 
 	load() {
+		/* RPC-affecting preferences must precede poll registration and the first
+		 * request; filter widgets still restore in addFooter after render. */
+		this.resolveRpcPreferences();
 		this.bindVisibility();
 		if (!this.pollFn) {
 			this.pollFn = this.pollData.bind(this);
@@ -2077,6 +2282,36 @@ return view.extend({
 								this.limitSelectOptions()
 							)
 						]),
+						E('label', { 'class': 'fwlive-display-ctl', 'for': 'fwlive-fetch-mode' }, [
+							_('Fetch budget'),
+							E(
+								'select',
+								{
+									'id': 'fwlive-fetch-mode',
+									'class': 'cbi-input-select',
+									'aria-controls': 'fwlive-manual-lines'
+								},
+								this.fetchModeOptions()
+							)
+						]),
+						E(
+							'label',
+							{ 'class': 'fwlive-display-ctl', 'for': 'fwlive-manual-lines' },
+							[
+								_('Maximum raw lines'),
+								E(
+									'select',
+									{
+										'id': 'fwlive-manual-lines',
+										'class': 'cbi-input-select',
+										'title': _(
+											'Manual still uses server protection and poll cadence'
+										)
+									},
+									this.manualFetchLinesOptions()
+								)
+							]
+						),
 						E('label', { 'class': 'fwlive-display-ctl' }, [
 							E('input', {
 								'id': 'fwlive-row-tint-toggle',
@@ -2238,6 +2473,16 @@ return view.extend({
 							]),
 							E('li', {}, [
 								_(
+									'Fetch budget controls raw log lines per poll. Auto derives from Limit; Manual selects a bounded maximum.'
+								)
+							]),
+							E('li', {}, [
+								_(
+									'Manual still uses server protection and poll cadence; it changes the fetch budget, not the polling interval.'
+								)
+							]),
+							E('li', {}, [
+								_(
 									'For a responsive table on a weak device, keep Limit at 250 rows or below. The weak-device cap affects rendered rows; the buffer can still retain more.'
 								)
 							]),
@@ -2306,7 +2551,6 @@ return view.extend({
 		this.hostnameFailed = new Map();
 		this.resolveGeneration = 0;
 		this.lastPollError = false;
-		this.applyRowLimit(this.readRowLimit());
 		this.applyHash();
 		this.attachHandlers();
 		this.applyRowTintMode();

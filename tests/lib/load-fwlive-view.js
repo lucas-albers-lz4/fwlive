@@ -111,6 +111,7 @@ function loadFwliveView(options) {
 	options = options || {};
 	const rpcMocks = Object.assign(Object.create(null), options.rpcMocks || {});
 	const storage = Object.assign(Object.create(null), options.storage || {});
+	const location = options.location || { hash: '' };
 
 	const harness = options.document
 		? { document: options.document, idMap: Object.create(null) }
@@ -201,7 +202,7 @@ function loadFwliveView(options) {
 	const fn = new Function(
 		'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
 		'table', 'buffer', 'hostname', 'proto', 'E', '_', 'document', 'window', 'localStorage',
-		'performance', 'requestAnimationFrame',
+		'performance', 'requestAnimationFrame', 'location',
 		body
 	);
 
@@ -209,7 +210,7 @@ function loadFwliveView(options) {
 		view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
 		luciE.E, fakeGettext, document, win, localStorage,
 		{ now: function() { return Date.now(); } },
-		requestAnimationFrame
+		requestAnimationFrame, location
 	);
 
 	if (viewDesc.render) {

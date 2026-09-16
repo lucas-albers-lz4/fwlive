@@ -375,7 +375,8 @@ async function testAdaptiveOffDisablesBackoff() {
 	v.updateAdaptiveBanner();
 	const el = h.document.getElementById('fwlive-adaptive');
 	assert.ok(el);
-	assert.strictEqual(el.style.display, 'none', 'adaptive:0 hides banner');
+	assert.strictEqual(el.style.display, 'block', 'adaptive:0 states protection is disabled');
+	assert.match(el.textContent, /protection is disabled/i);
 	console.log('fwlive-view layer2: adaptive:0 gate OK');
 }
 

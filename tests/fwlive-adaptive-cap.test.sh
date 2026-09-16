@@ -193,6 +193,16 @@ case "$got" in
 	*'"shed":{"level":"hot","limit":250}'*) ;;
 	*) die "merge missing shed: $got" ;;
 esac
+got=$(fwlive_adaptive_merge_reply '{"log":[]}' 1 250 1 3 1)
+case "$got" in
+	*'"effective_limit":250'*) ;;
+	*) die "successful adaptive merge missing effective_limit: $got" ;;
+esac
+got=$(fwlive_adaptive_merge_reply '{"log":[]}' 1 250 1 3 0)
+case "$got" in
+	*'"effective_limit":'*) die "error adaptive merge must omit effective_limit: $got" ;;
+	*) ;;
+esac
 got=$(fwlive_adaptive_merge_reply '{"log":[],"messages_received":7}' 0 50 0 0)
 case "$got" in
 	*'"messages_received":7'*'"adaptive":1'*) ;;
