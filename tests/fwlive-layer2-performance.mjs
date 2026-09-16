@@ -56,6 +56,8 @@ if (
 	throw new Error(`FWLIVE_PERF_ROW_LIMIT must be a decimal integer: ${PERF_ROW_LIMIT_RAW}`);
 const PERF_ROW_LIMIT_OPTIONS = [25, 50, 100, 250, 500, 1000, 2000];
 /* Keep in sync with constants.ROW_LIMIT_OPTIONS; LuCI modules are not loaded here. */
+/* Keep in sync with constants.WEAK_DEVICE_DISPLAY_ROW_CAP. */
+const WEAK_DEVICE_DISPLAY_ROW_CAP = 250;
 if (!Number.isInteger(PERF_ROW_LIMIT) || !PERF_ROW_LIMIT_OPTIONS.includes(PERF_ROW_LIMIT))
 	throw new Error(
 		`FWLIVE_PERF_ROW_LIMIT must be one of ${PERF_ROW_LIMIT_OPTIONS.join(', ')}: ${PERF_ROW_LIMIT_RAW}`
@@ -303,7 +305,6 @@ async function main() {
 		if (!REAL_POLL) await page.route('**/ubus**', async (route) => {
 			const postData = route.request().postData() || '';
 			const pollRequest = isFwlivePoll(postData);
-			const loggingStatusIds = fwliveMethodRequestIds(postData, 'logging_status');
 			if (!isFwliveFixtureRequest(postData)) {
 				await route.continue();
 				return;
@@ -351,7 +352,7 @@ async function main() {
 			if (displayRowLimit === null)
 				throw new Error('Limit select did not expose a valid shipped option');
 			const expectedVisibleRows = WEAK_DEVICE
-				? Math.min(PERF_ROW_LIMIT, 250)
+				? Math.min(PERF_ROW_LIMIT, WEAK_DEVICE_DISPLAY_ROW_CAP)
 				: PERF_ROW_LIMIT >= 1000
 					? 1000
 					: PERF_ROW_LIMIT;

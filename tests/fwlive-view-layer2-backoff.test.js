@@ -38,11 +38,12 @@ async function testRttKindHelpers() {
 
 async function testWeakDeviceDisplayCap() {
 	let rejectStatus = false;
+	let status = { weak_device: true, ready: true, blockers: [], warnings: [] };
 	const h = loadFwliveView({
 		rpcMocks: {
 			'fwlive.logging_status': async function () {
 				if (rejectStatus) throw new Error('logging status unavailable');
-				return { weak_device: true, ready: true, blockers: [], warnings: [] };
+				return status;
 			}
 		}
 	});
@@ -59,6 +60,27 @@ async function testWeakDeviceDisplayCap() {
 	assert.strictEqual(v.displayRowCap(), 250);
 	assert.strictEqual(v.filteredRows().length, 250);
 	assert.match(v.statusSuffix(), /Display limited to 250 rows on this device/);
+
+	status = { weak_device: false, ready: true, blockers: [], warnings: [] };
+	await v.loadLoggingStatus();
+	assert.strictEqual(v.weakDevice, false);
+	assert.strictEqual(v.displayRowCap(), 2000);
+	assert.strictEqual(v.filteredRows().length, 1000);
+
+	status = { ready: true, blockers: [], warnings: [] };
+	await v.loadLoggingStatus();
+	assert.strictEqual(v.weakDevice, false, 'missing weak-device flag must not enable the cap');
+	assert.strictEqual(v.displayRowCap(), 2000);
+
+	status = { weak_device: 'true', ready: true, blockers: [], warnings: [] };
+	await v.loadLoggingStatus();
+	assert.strictEqual(v.weakDevice, false, 'string weak-device flag must not enable the cap');
+	assert.strictEqual(v.displayRowCap(), 2000);
+
+	status = { weak_device: true, ready: true, blockers: [], warnings: [] };
+	await v.loadLoggingStatus();
+	assert.strictEqual(v.weakDevice, true);
+	assert.strictEqual(v.displayRowCap(), 250);
 
 	rejectStatus = true;
 	await v.loadLoggingStatus();
