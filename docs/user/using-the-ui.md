@@ -95,6 +95,24 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns. Hover shows the IP. Click still filters by IP. |
 | **Quick search** | Matches across all normalized fields. |
 
+## Performance on small devices
+
+For a responsive display on a weak router or an older client, keep **Limit** at
+250 rows or below. A router-reported weak-device cap limits how many rows the
+browser renders; the selected limit can still allow the in-memory buffer to
+retain more rows for filtering and stronger devices.
+
+Switching to another browser tab pauses polling. Returning to fwlive performs
+one catch-up poll, then resumes the normal cadence. **Show hostnames** is off by
+default because reverse-DNS lookups add work; leave it off when the router or
+browser is busy.
+
+The router's log ring is finite and may evict older events before fwlive reads
+them. fwlive cannot recover evicted entries and does not change forwarding
+behavior. If events arrive faster than the UI can display them, use a lower
+**Limit**, keep hostname lookup disabled, and rely on the high-rate banner as a
+signal to reduce the workload.
+
 ## Filtering
 
 - **Click any cell** (action, IP, protocol, interface, flow endpoint) to filter.
