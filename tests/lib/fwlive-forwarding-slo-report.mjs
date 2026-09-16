@@ -79,7 +79,7 @@ export function buildReport({
 			viewer_requests_drained: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.in_flight_after_drain === 0),
 			viewer_requests_succeeded: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.request_failures === 0),
 			median_throughput_degradation_lt_10_pct: median(degradation) !== null && median(degradation) < 10,
-			median_ping_stddev_ratio_lt_2: median(ratios) !== null && median(ratios) < 2
+			median_ping_stddev_ratio_lt_2: ratios.length === Number(expectedPairs) && median(ratios) !== null && median(ratios) < 2
 		},
 		throughput_degradation_pct: stats(degradation),
 		ping_stddev_ratio: stats(ratios),
@@ -100,23 +100,30 @@ export function buildReport({
 	return report;
 }
 
-export function writeReport(reportFile, report, stagingDirectory) {
+export function writeReport(reportFile, report) {
 	if (!reportFile) return;
-	const staged = path.join(stagingDirectory, 'report.json.tmp');
+	const reportPath = path.resolve(reportFile);
+	const reportDirectory = path.dirname(reportPath);
+	const staged = path.join(reportDirectory, `.${path.basename(reportPath)}.${process.pid}.${Date.now()}.tmp`);
 	const descriptor = fs.openSync(staged, 'wx', 0o600);
 	try {
 		fs.writeFileSync(descriptor, `${JSON.stringify(report, null, 2)}\n`);
 	} finally {
 		fs.closeSync(descriptor);
 	}
-	fs.renameSync(staged, reportFile);
+	try {
+		fs.renameSync(staged, reportPath);
+	} catch (error) {
+		fs.rmSync(staged, { force: true });
+		throw error;
+	}
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
 	const [recordsFile, reportFile, adaptive, expectedPairs, duration, pingCount, bitrate, enforce, startedAt] = process.argv.slice(2);
 	const records = fs.readFileSync(recordsFile, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
 	const report = buildReport({ records, adaptive, expectedPairs, duration, pingCount, bitrate, startedAt });
-	writeReport(reportFile, report, path.dirname(recordsFile));
+	writeReport(reportFile, report);
 	console.log(JSON.stringify(report, null, 2));
 	if (enforce === '1' && !report.pass) process.exit(1);
 }

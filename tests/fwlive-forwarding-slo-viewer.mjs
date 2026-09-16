@@ -128,6 +128,7 @@ async function main() {
 	const methodCounts = {};
 	const measuredRequests = new Set();
 	const measuredInFlight = new Set();
+	const ignoredFailures = new Set();
 	const pollRequests = new Set();
 	let measureStarted = false;
 	let measureFinished = false;
@@ -163,7 +164,7 @@ async function main() {
 		const wasPoll = pollRequests.has(request);
 		measuredInFlight.delete(request);
 		pollRequests.delete(request);
-		if (measuredRequests.has(request)) requestFailures++;
+		if (measuredRequests.has(request) && !ignoredFailures.has(request)) requestFailures++;
 		if (!firstPollSettled && wasPoll) {
 			firstPollSettled = true;
 			firstPollResponseReject(new Error('first fwlive poll request failed'));
@@ -185,7 +186,7 @@ async function main() {
 				}
 				if (measureStarted && !measureFinished && hasSummary(body)) summarySeen = true;
 			} catch (error) {
-				if (measuredRequests.has(response.request())) requestFailures++;
+				if (measuredRequests.has(response.request()) && !ignoredFailures.has(response.request())) requestFailures++;
 				if (!firstPollSettled) {
 					firstPollSettled = true;
 					firstPollResponseReject(error);
@@ -213,10 +214,17 @@ async function main() {
 		measureFinished = true;
 		const finishedAt = Date.now();
 		const requestsBeforeDrain = measuredInFlight.size;
-		// Stop the page's poll loop before draining. Requests started during the
-		// measurement remain tracked until requestfinished/requestfailed.
-		await page.goto('about:blank', { waitUntil: 'load', timeout: 10000 }).catch(() => {});
-		await new Promise((resolve) => setTimeout(resolve, drainMs));
+		// Let measured requests settle before navigating away. If a request is
+		// still in flight at the bounded drain deadline, navigation may cancel it;
+		// exclude that teardown cancellation from the request-failure metric.
+		const drainDeadline = Date.now() + drainMs;
+		while (measuredInFlight.size && Date.now() < drainDeadline)
+			await new Promise((resolve) => setTimeout(resolve, 25));
+		for (const request of measuredInFlight) ignoredFailures.add(request);
+		const navigationTimeout = Math.max(1, drainDeadline - Date.now());
+		await page.goto('about:blank', { waitUntil: 'load', timeout: navigationTimeout }).catch(() => {});
+		while (measuredInFlight.size && Date.now() < drainDeadline)
+			await new Promise((resolve) => setTimeout(resolve, 25));
 		const report = {
 			viewer: 'active',
 			duration_ms: finishedAt - startedAt,

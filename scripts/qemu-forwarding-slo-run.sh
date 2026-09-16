@@ -109,15 +109,24 @@ VIEWER_PID=""
 CURRENT_VIEWER_DIR=""
 
 cleanup() {
+	local status=$?
+	trap - EXIT HUP INT TERM
 	if [[ -n "$VIEWER_PID" ]]; then
 		kill "$VIEWER_PID" 2>/dev/null || true
 		wait "$VIEWER_PID" 2>/dev/null || true
 		VIEWER_PID=""
 	fi
 	if [[ -n "$ORIGINAL_ADAPTIVE_OFF_STATE" ]]; then
-		restore_adaptive_state 2>/dev/null || true
+		if ! restore_adaptive_state; then
+			echo "forwarding-slo-run: failed to restore adaptive sentinel state" >&2
+			(( status == 0 )) && status=1
+		fi
 	fi
-	rm -rf "$WORK"
+	if ! rm -rf "$WORK"; then
+		echo "forwarding-slo-run: failed to remove temporary work directory: $WORK" >&2
+		(( status == 0 )) && status=1
+	fi
+	exit "$status"
 }
 trap cleanup EXIT HUP INT TERM
 

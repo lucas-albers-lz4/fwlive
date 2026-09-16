@@ -141,9 +141,13 @@ restore_saved_state() {
 
 rollback() {
 	[ "$rollback_enabled" = 1 ] || return 0
-	remove_rules || true
-	restore_saved_state || true
-	rm -f "$state_file"
+	rules_ok=0
+	state_ok=0
+	remove_rules && rules_ok=1
+	restore_saved_state && state_ok=1
+	if [ "$rules_ok" = 1 ] && [ "$state_ok" = 1 ]; then
+		rm -f "$state_file"
+	fi
 }
 trap rollback EXIT
 
@@ -217,7 +221,7 @@ EOF
 				index($0, "iifname \"" iif "\"") &&
 				index($0, "oifname \"" oif "\"") &&
 				index($0, "counter") && index($0, "accept") &&
-				(!logging || (index($0, "limit rate 25/second") && index($0, "log prefix \"fwlive-slo\""))) { found=1 }
+				(!logging || (index($0, "limit rate 25/second") && index($0, "log prefix \"fwlive-slo \""))) { found=1 }
 				END { exit !found }' || { echo "required rule is missing or incorrect: $comment" >&2; exit 1; }
 		done
 		;;

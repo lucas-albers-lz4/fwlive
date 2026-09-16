@@ -30,13 +30,8 @@
 : "${FWLIVE_SLO_WAN_ENDPOINT_IP:=198.51.100.2}"
 : "${FWLIVE_SLO_LAN_MAC:=52:54:00:30:77:01}"
 : "${FWLIVE_SLO_WAN_MAC:=52:54:00:30:77:02}"
-: "${FWLIVE_SLO_QEMU_NET_MODEL:=virtio-net-pci}"
 : "${FWLIVE_SLO_PREFIX:=fwlive-slo-}"
-
-case "$FWLIVE_SLO_QEMU_NET_MODEL" in
-	virtio-net-pci|e1000) ;;
-	*) echo "forwarding-slo-net: unsupported QEMU test NIC model: $FWLIVE_SLO_QEMU_NET_MODEL" >&2; exit 1 ;;
-esac
+: "${FWLIVE_SLO_QEMU_NET_MODEL:=virtio-net-pci}"
 
 fwlive_slo_net_die() {
 	echo "forwarding-slo-net: $*" >&2
@@ -52,10 +47,15 @@ fwlive_slo_net_require_tools() {
 }
 
 fwlive_slo_net_validate_name() {
-	local name="$1"
+	local name="$1" suffix
 	case "$name" in
-		"${FWLIVE_SLO_PREFIX}"[A-Za-z0-9.-]*) ;;
+		"${FWLIVE_SLO_PREFIX}"*) ;;
 		*) fwlive_slo_net_die "resource name is outside the owned prefix: $name" ;;
+	esac
+	suffix="${name#"$FWLIVE_SLO_PREFIX"}"
+	[[ -n "$suffix" ]] || fwlive_slo_net_die "resource name must include a suffix: $name"
+	case "$suffix" in
+		*[!A-Za-z0-9.-]*) fwlive_slo_net_die "resource name contains unsupported characters: $name" ;;
 	esac
 	[[ ${#name} -le 15 ]] || fwlive_slo_net_die "interface name is too long for Linux: $name"
 }
@@ -92,7 +92,7 @@ fwlive_slo_net_expect_absent() {
 }
 
 fwlive_slo_net_rollback() {
-	trap - ERR
+	trap - ERR EXIT
 	local ns link
 	for ns in "$FWLIVE_SLO_LAN_NETNS" "$FWLIVE_SLO_WAN_NETNS"; do
 		if fwlive_slo_net_ns_exists "$ns"; then
@@ -123,7 +123,7 @@ fwlive_slo_net_setup() {
 		"$FWLIVE_SLO_LAN_PEER" "$FWLIVE_SLO_WAN_PEER"; do
 		fwlive_slo_net_expect_absent "$name"
 	done
-	trap fwlive_slo_net_rollback ERR
+	trap fwlive_slo_net_rollback ERR EXIT
 
 	ip netns add "$FWLIVE_SLO_LAN_NETNS"
 	ip netns add "$FWLIVE_SLO_WAN_NETNS"
@@ -162,7 +162,7 @@ fwlive_slo_net_setup() {
 	# after namespace configuration so the TAP bridges are immediately usable.
 	ip link set dev "$FWLIVE_SLO_LAN_VETH" up
 	ip link set dev "$FWLIVE_SLO_WAN_VETH" up
-	trap - ERR
+	trap - ERR EXIT
 
 	echo "forwarding-slo-net: topology ready"
 	fwlive_slo_net_status
@@ -210,6 +210,10 @@ fwlive_slo_net_status() {
 }
 
 fwlive_slo_net_qemu_args() {
+	case "$FWLIVE_SLO_QEMU_NET_MODEL" in
+		virtio-net-pci|e1000) ;;
+		*) echo "forwarding-slo-net: unsupported QEMU test NIC model: $FWLIVE_SLO_QEMU_NET_MODEL" >&2; return 1 ;;
+	esac
 	cat <<EOF
 	-netdev tap,id=fwlive-slo-lan,ifname=${FWLIVE_SLO_LAN_TAP},script=no,downscript=no
 -device ${FWLIVE_SLO_QEMU_NET_MODEL},netdev=fwlive-slo-lan,mac=${FWLIVE_SLO_LAN_MAC}

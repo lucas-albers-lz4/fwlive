@@ -32,6 +32,13 @@ if FWLIVE_SLO_LAN_NETNS="$FWLIVE_SLO_PREFIX" bash -c \
 fi
 ok "bare owned prefix is rejected"
 
+if FWLIVE_SLO_LAN_NETNS="${FWLIVE_SLO_PREFIX}valid/bad" bash -c \
+	'source "$1"; fwlive_slo_net_validate_names' bash \
+	"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
+	die "resource suffix must reject characters outside the allowlist"
+fi
+ok "resource suffix is fully restricted"
+
 if FWLIVE_SLO_WAN_TAP="$FWLIVE_SLO_LAN_TAP" bash -c \
 	'source "$1"; fwlive_slo_net_validate_names' bash \
 	"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
@@ -53,9 +60,12 @@ grep -Fq 'mac=02:00:00:00:00:01' <<<"$custom_args" || die "LAN MAC override miss
 grep -Fq 'mac=02:00:00:00:00:02' <<<"$custom_args" || die "WAN MAC override missing from QEMU args"
 ok "QEMU args honor guest MAC overrides"
 
+FWLIVE_SLO_QEMU_NET_MODEL=unsupported bash -c \
+	'source "$1"' bash "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null ||
+	die "unsupported QEMU NIC model must not fail library loading"
 if FWLIVE_SLO_QEMU_NET_MODEL=unsupported bash -c \
-	'source "$1"' bash "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
-	die "unsupported QEMU NIC model must be rejected"
+	'source "$1"; fwlive_slo_net_qemu_args' bash "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
+	die "unsupported QEMU NIC model must be rejected when emitting QEMU args"
 fi
 model_args="$(FWLIVE_SLO_QEMU_NET_MODEL=e1000 bash -c \
 	'source "$1"; fwlive_slo_net_qemu_args' bash \

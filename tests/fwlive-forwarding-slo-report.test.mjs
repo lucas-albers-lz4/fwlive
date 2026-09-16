@@ -62,16 +62,15 @@ const incomplete = buildReport({
 	startedAt: 'now'
 });
 assert.equal(incomplete.acceptance.all_pairs_complete, false);
+assert.equal(incomplete.acceptance.median_ping_stddev_ratio_lt_2, false);
 assert.equal(incomplete.pass, false);
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-slo-report-test.'));
 const victim = path.join(tempDir, 'victim');
 const reportPath = path.join(tempDir, 'report.json');
-const stagingDir = path.join(tempDir, 'staging');
-fs.mkdirSync(stagingDir, { mode: 0o700 });
 fs.writeFileSync(victim, 'unchanged\n');
 fs.symlinkSync(victim, reportPath);
-writeReport(reportPath, report, stagingDir);
+writeReport(reportPath, report);
 assert.equal(fs.readFileSync(victim, 'utf8'), 'unchanged\n');
 assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).schema, REPORT_SCHEMA);
 assert.equal(fs.statSync(reportPath).mode & 0o777, 0o600);
