@@ -408,7 +408,11 @@ then raised the retained warm limit from 500 to 1,000 after the warm cooldown.
 It did not return to a cold/full 2,000-line cap, and it is not forwarding-SLO
 evidence; those remain separate #306 acceptance items.
 
-The visibility-pause degraded baseline is still pending the Playwright/CDP timing measurement.
+The visibility-pause timing phase is now measured by the Playwright harness. The
+current Chromium build does not expose `Emulation.setPageVisibilityState`, so
+the report labels this run `document-emulation`; that exercises the shipped
+`visibilitychange` handler but is not a claim of real background-tab behavior.
+The real-CDP visibility variant remains pending.
 
 The repeatable browser gate uses the real LuCI page with only `fwlive.poll`
 replaced by the checked-in 2,000-entry fixture:
@@ -484,6 +488,17 @@ environment-specific example evidence; repeat the method above for current
 hardware/browser results. The weak-device toggle controls the synthetic
 `logging_status` response in fixture mode; production receives the boolean
 from the real `logging_status` response.
+
+On 2026-09-16, the required weak-device confirmation used the same fixture,
+2,000-row selection, 4x CPU throttle, and a 30-minute soak. The production cap
+rendered 250 rows; 1,807 polls completed, with zero hidden-interval polls and
+54 ms visible-to-next-poll recovery. Maximum commit-to-paint was 176.6 ms,
+largest main-thread task was 217 ms, zero tasks reached 250 ms, and retained
+heap growth was -0.87 MiB (1.91 MiB sampled peak). This satisfies the 4x
+weak-device confirmation gates, subject to the visibility-method limitation
+above. A supplemental 6x / 10-second run kept the 250-row cap but reached
+273.5 ms maximum paint and a 333 ms largest task; it is stress-boundary
+evidence, not a replacement for the 4x acceptance run.
 
 For a supplemental loaded-router check, leave the poll path real and run this
 mode while a guest load/traffic producer is active:
