@@ -10,6 +10,7 @@
  *   FWLIVE_URL=http://127.0.0.1:8080 \
  *   FWLIVE_CPU_THROTTLE=4 \
  *   FWLIVE_SOAK_MS=1800000 \
+ *   FWLIVE_PERF_ROW_LIMIT=500 \
  *   node tests/fwlive-layer2-performance.mjs
  *
  * Set FWLIVE_ENFORCE=1 to turn the visibility and performance targets into
@@ -23,6 +24,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { labBaseUrl, labFwliveUrl } from './lib/playwright-lab.mjs';
+import {
+	fwliveMethodRequestIds,
+	fwliveRpcReplyForRequest,
+	isFwliveFixtureRequest
+} from './lib/fwlive-perf-rpc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIXTURE_PATH = process.env.FWLIVE_PERF_FIXTURE ||
@@ -37,32 +43,39 @@ const SOAK_MS = SOAK_MS_RAW === undefined || SOAK_MS_RAW === ''
 const ENFORCE = process.env.FWLIVE_ENFORCE === '1';
 const REAL_POLL = process.env.FWLIVE_PERF_REAL_POLL === '1';
 const POLL_DELAY_MS = Math.max(0, Number(process.env.FWLIVE_PERF_POLL_DELAY_MS || 0));
+const WEAK_DEVICE = process.env.FWLIVE_PERF_WEAK_DEVICE === '1';
+const PERF_ROW_LIMIT_RAW = process.env.FWLIVE_PERF_ROW_LIMIT;
+const PERF_ROW_LIMIT = PERF_ROW_LIMIT_RAW === undefined || PERF_ROW_LIMIT_RAW === ''
+	? 2000
+	: Number(PERF_ROW_LIMIT_RAW);
+if (
+	PERF_ROW_LIMIT_RAW !== undefined &&
+	PERF_ROW_LIMIT_RAW !== '' &&
+	!/^[0-9]+$/.test(PERF_ROW_LIMIT_RAW)
+)
+	throw new Error(`FWLIVE_PERF_ROW_LIMIT must be a decimal integer: ${PERF_ROW_LIMIT_RAW}`);
+const PERF_ROW_LIMIT_OPTIONS = [25, 50, 100, 250, 500, 1000, 2000];
+/* Keep in sync with constants.ROW_LIMIT_OPTIONS; LuCI modules are not loaded here. */
+/* Keep in sync with constants.WEAK_DEVICE_DISPLAY_ROW_CAP. */
+const WEAK_DEVICE_DISPLAY_ROW_CAP = 250;
+if (!Number.isInteger(PERF_ROW_LIMIT) || !PERF_ROW_LIMIT_OPTIONS.includes(PERF_ROW_LIMIT))
+	throw new Error(
+		`FWLIVE_PERF_ROW_LIMIT must be one of ${PERF_ROW_LIMIT_OPTIONS.join(', ')}: ${PERF_ROW_LIMIT_RAW}`
+	);
+
+function observedDisplayRowLimit(value) {
+	const parsed = Number(value);
+	return Number.isInteger(parsed) && PERF_ROW_LIMIT_OPTIONS.includes(parsed)
+		? parsed
+		: null;
+}
 
 const fixture = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'));
 if (!fixture || !Array.isArray(fixture.log) || fixture.log.length !== 2000)
 	throw new Error(`performance fixture must contain exactly 2000 log entries: ${FIXTURE_PATH}`);
 
 function isFwlivePoll(postData) {
-	if (!postData) return false;
-	let parsed;
-	try {
-		parsed = JSON.parse(postData);
-	} catch (e) {
-		return false;
-	}
-	const requests = Array.isArray(parsed) ? parsed : [parsed];
-	return requests.some((req) => {
-		const params = req && req.params;
-		return !!(
-			req &&
-			typeof req === 'object' &&
-			req.method === 'call' &&
-			Array.isArray(params) &&
-			params[1] === 'fwlive' &&
-			params[2] === 'poll' &&
-			typeof req.id !== 'undefined'
-		);
-	});
+	return fwliveMethodRequestIds(postData, 'poll').length > 0;
 }
 
 function pollPayload(pollNo) {
@@ -99,7 +112,7 @@ function syntheticResult(req, payload) {
 			ready: true,
 			blockers: [],
 			warnings: [],
-			weak_device: false
+			weak_device: WEAK_DEVICE
 		};
 	}
 	if (object === 'uci' && method === 'changes') return {};
@@ -255,6 +268,7 @@ async function main() {
 	const counts = { polls: 0 };
 	const pollStarts = new WeakMap();
 	const pollRtts = [];
+	let observedWeakDevice = REAL_POLL ? null : WEAK_DEVICE;
 	const started = Date.now();
 
 	page.on('pageerror', (e) => console.error('pageerror:', e.message));
@@ -265,9 +279,23 @@ async function main() {
 	});
 	page.on('response', (response) => {
 		const request = response.request();
-		if (!isFwlivePoll(request.postData() || '')) return;
-		const t0 = pollStarts.get(request);
-		if (t0 !== undefined) pollRtts.push(Date.now() - t0);
+		const postData = request.postData() || '';
+		if (isFwlivePoll(postData)) {
+			const t0 = pollStarts.get(request);
+			if (t0 !== undefined) pollRtts.push(Date.now() - t0);
+		}
+		const loggingStatusIds = fwliveMethodRequestIds(postData, 'logging_status');
+		if (!loggingStatusIds.length) return;
+		response
+			.json()
+			.then((body) => {
+				const reply = fwliveRpcReplyForRequest(body, loggingStatusIds);
+				if (!reply || !Array.isArray(reply.result) || reply.result[0] !== 0) return;
+				const status = reply.result[1];
+				if (status && typeof status.weak_device === 'boolean')
+					observedWeakDevice = status.weak_device;
+			})
+			.catch(() => {});
 	});
 	await installBrowserMetrics(page);
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU_THROTTLE });
@@ -276,15 +304,16 @@ async function main() {
 		await loginWithoutOpeningLiveView(page);
 		if (!REAL_POLL) await page.route('**/ubus**', async (route) => {
 			const postData = route.request().postData() || '';
-			if (!isFwlivePoll(postData)) {
+			const pollRequest = isFwlivePoll(postData);
+			if (!isFwliveFixtureRequest(postData)) {
 				await route.continue();
 				return;
 			}
-			counts.polls++;
+			if (pollRequest) counts.polls++;
 			const parsed = JSON.parse(postData);
 			const batched = Array.isArray(parsed);
 			const requests = batched ? parsed : [parsed];
-			const payload = pollPayload(counts.polls);
+			const payload = pollRequest ? pollPayload(counts.polls) : fixtureBase;
 			const replies = requests.map((req) => ({
 				jsonrpc: '2.0',
 				id: req.id,
@@ -302,14 +331,36 @@ async function main() {
 			timeout: 60000
 		});
 		await page.waitForSelector('.fwlive-map', { timeout: 30000 });
+		let displayRowLimit = observedDisplayRowLimit(
+			await page.locator('#fwlive-limit').inputValue()
+		);
+		if (REAL_POLL && PERF_ROW_LIMIT_RAW !== undefined && PERF_ROW_LIMIT_RAW !== '') {
+			await page.locator('#fwlive-limit').selectOption(String(PERF_ROW_LIMIT));
+			displayRowLimit = observedDisplayRowLimit(
+				await page.locator('#fwlive-limit').inputValue()
+			);
+			if (displayRowLimit === null)
+				throw new Error('Limit select did not expose a valid shipped option');
+		}
 		if (REAL_POLL) {
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		} else {
-			await page.locator('#fwlive-limit').selectOption('2000');
+			await page.locator('#fwlive-limit').selectOption(String(PERF_ROW_LIMIT));
+			displayRowLimit = observedDisplayRowLimit(
+				await page.locator('#fwlive-limit').inputValue()
+			);
+			if (displayRowLimit === null)
+				throw new Error('Limit select did not expose a valid shipped option');
+			const expectedVisibleRows = WEAK_DEVICE
+				? Math.min(PERF_ROW_LIMIT, WEAK_DEVICE_DISPLAY_ROW_CAP)
+				: PERF_ROW_LIMIT >= 1000
+					? 1000
+					: PERF_ROW_LIMIT;
 			await page.waitForFunction(
-				() =>
-					document.querySelector('#fwlive-limit')?.value === '2000' &&
-					document.querySelectorAll('#fwlive-table tbody tr').length > 1000,
+				({ limit, expected }) =>
+					document.querySelector('#fwlive-limit')?.value === String(limit) &&
+					document.querySelectorAll('#fwlive-table tbody tr').length >= expected,
+				{ limit: PERF_ROW_LIMIT, expected: expectedVisibleRows },
 				{ timeout: 60000 }
 			);
 		}
@@ -375,7 +426,9 @@ async function main() {
 			fixture: path.relative(ROOT, FIXTURE_PATH),
 			poll_mode: REAL_POLL ? 'real-guest-log-pipeline' : 'fixture-intercepted',
 			raw_payload_rows: REAL_POLL ? null : fixtureBase.log.length,
+			display_row_limit: displayRowLimit,
 			visible_rows: visibleRows,
+			weak_device: observedWeakDevice,
 			cpu_throttle_rate: CPU_THROTTLE,
 			soak_ms: SOAK_MS,
 			polls: counts.polls,
