@@ -41,3 +41,7 @@ export function fwliveRpcReplyForRequest(payload, requestIds) {
 		(reply) => reply && requestIds.some((id) => String(id) === String(reply.id))
 	) || null;
 }
+
+export function isSuccessfulFwliveRpcReply(reply) {
+	return !!reply && Array.isArray(reply.result) && reply.result[0] === 0;
+}

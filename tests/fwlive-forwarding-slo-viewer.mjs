@@ -6,7 +6,11 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fwliveMethodRequestIds } from './lib/fwlive-perf-rpc.mjs';
+import {
+	fwliveMethodRequestIds,
+	fwliveRpcReplyForRequest,
+	isSuccessfulFwliveRpcReply
+} from './lib/fwlive-perf-rpc.mjs';
 
 const args = process.argv.slice(2);
 let readyFile = process.env.FWLIVE_SLO_VIEWER_READY_FILE || '';
@@ -178,8 +182,12 @@ async function main() {
 			try {
 				if (!response.ok()) throw new Error(`HTTP ${response.status()}`);
 				const body = await response.json();
-				if (!body || typeof body !== 'object')
-					throw new Error('poll response was not a JSON object or array');
+				const pollIds = fwliveMethodRequestIds(postData, 'poll');
+				const pollReply = fwliveRpcReplyForRequest(body, pollIds);
+				if (!isSuccessfulFwliveRpcReply(pollReply))
+					throw new Error('poll RPC reply was missing or unsuccessful');
+				if (!pollReply.result[1] || typeof pollReply.result[1] !== 'object')
+					throw new Error('poll RPC result payload was missing or invalid');
 				if (!firstPollSettled) {
 					firstPollSettled = true;
 					firstPollResponseResolve();

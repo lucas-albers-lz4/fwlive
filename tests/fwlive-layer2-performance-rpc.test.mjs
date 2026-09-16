@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import {
 	fwliveMethodRequestIds,
 	fwliveRpcReplyForRequest,
-	isFwliveFixtureRequest
+	isFwliveFixtureRequest,
+	isSuccessfulFwliveRpcReply
 } from './lib/fwlive-perf-rpc.mjs';
 
 const requests = JSON.stringify([
@@ -49,6 +50,12 @@ const reorderedReplies = JSON.stringify([
 assert.deepStrictEqual(fwliveRpcReplyForRequest(reorderedReplies, ids).result[1], {
 	weak_device: true
 });
+assert.equal(isSuccessfulFwliveRpcReply(fwliveRpcReplyForRequest(
+	JSON.stringify({ jsonrpc: '2.0', id: 42, result: [0, { log: [] }] }), ids
+)), true);
+assert.equal(isSuccessfulFwliveRpcReply(fwliveRpcReplyForRequest(
+	JSON.stringify({ jsonrpc: '2.0', id: 42, result: [6, { error: 'denied' }] }), ids
+)), false);
 
 const wrongReply = JSON.stringify([
 	{ jsonrpc: '2.0', id: 41, result: [0, { backend: 'nft' }] }

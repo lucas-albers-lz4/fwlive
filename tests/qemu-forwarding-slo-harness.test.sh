@@ -47,6 +47,11 @@ grep -Fq 'active_viewer_poll_observed' "$ROOT/tests/lib/fwlive-forwarding-slo-re
 	die "report module must reject a window with no active viewer poll"
 grep -Fq 'FWLIVE_SLO_IPERF_BITRATE' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
 	die "runner must pass through an optional iperf bitrate"
+for override in FWLIVE_SLO_LAN_NETNS FWLIVE_SLO_WAN_NETNS \
+	FWLIVE_SLO_LAN_ENDPOINT_IP FWLIVE_SLO_WAN_ENDPOINT_IP; do
+	grep -Fq "$override" "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
+		die "runner must pass through $override to the traffic probe"
+done
 grep -Fq '[[ -e "$stop" ]] || touch "$stop"' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
 	die "runner failure path may touch a root-owned stop marker"
 grep -Fq "fwlive-forwarding-slo/v1" "$ROOT/tests/lib/fwlive-forwarding-slo-report.mjs" ||
