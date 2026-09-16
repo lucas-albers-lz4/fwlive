@@ -527,7 +527,10 @@ ssh -p 2222 root@127.0.0.1 'opkg update && opkg install iperf3'
 ```
 
 After adding the TAP arguments to the QEMU command, configure the guest links
-by MAC and install temporary forwarding accepts in the existing firewall:
+by MAC and install temporary forwarding/logging rules in the existing firewall.
+The two directional rules log the generated workload with the fixed
+`fwlive-slo ` prefix and accept it; logging is therefore identical for the
+no-viewer and active-viewer halves of every pair:
 
 ```sh
 ./scripts/qemu-forwarding-slo-guest.sh configure
@@ -547,8 +550,23 @@ sudo FWLIVE_SLO_IPERF_DURATION=10 FWLIVE_SLO_PING_COUNT=20 \
 ```
 
 The sample command reports raw receive throughput and ping RTT standard
-deviation only. It does not decide whether the SLO passes; the paired-run
-orchestrator in #344 will compare these values against the matching baseline.
+deviation only. It does not decide whether the SLO passes. Run the paired
+orchestrator separately for adaptive on and off; it keeps the guest boot and
+forwarding rules fixed, drains between samples, and records every viewer
+request/cadence plus the matching traffic metrics:
+
+```sh
+FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-on.json \
+  ./scripts/qemu-forwarding-slo-run.sh --adaptive on
+FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-off.json \
+  ./scripts/qemu-forwarding-slo-run.sh --adaptive off
+```
+
+The default is five 10-second pairs with 20 pings per sample. The report
+contains all samples, pair deltas, median/spread, request drain results, and
+an optional `--enforce` decision for the `<10%` throughput and `<2x` ping
+standard-deviation criteria. A run is evidence only when all pairs complete;
+the short one-pair/short-duration settings are for harness smoke testing.
 
 ### Sample invocation (memory census)
 

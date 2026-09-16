@@ -140,6 +140,7 @@ echo "== fwlive view poll guard (#240) =="
 "$NODE" tests/fwlive-view-layer2-backoff.test.js
 "$NODE" tests/fwlive-layer2-performance-rpc.test.mjs
 bash tests/qemu-forwarding-slo-net.test.sh
+bash tests/qemu-forwarding-slo-harness.test.sh
 
 echo "== fwlive LuCI-accurate E() harness (#149) ==" >&2
 "$NODE" tests/fwlive-e-harness.test.js

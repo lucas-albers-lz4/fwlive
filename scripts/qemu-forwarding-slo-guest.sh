@@ -72,7 +72,7 @@ wan_dev=$(find_dev "$wan_mac") || { echo "WAN TAP MAC not found: $wan_mac" >&2; 
 remove_rules() {
 	chain_rules=$(nft -a list chain inet fw4 forward 2>/dev/null || true)
 	printf '%s\n' "$chain_rules" | awk '
-		/comment "fwlive-slo-(lan-to-wan|wan-to-lan)"/ {
+		/comment "fwlive-slo-(lan-to-wan|wan-to-lan|log-lan-to-wan|log-wan-to-lan)"/ {
 			for (i = 1; i <= NF; i++) if ($i == "handle" && $(i + 1) ~ /^[0-9]+$/) print $(i + 1)
 		}' | while read -r handle; do
 		nft delete rule inet fw4 forward handle "$handle"
@@ -90,6 +90,8 @@ case "$action" in
 		remove_rules
 		nft insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" counter accept comment "fwlive-slo-lan-to-wan"
 		nft insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" counter accept comment "fwlive-slo-wan-to-lan"
+		nft insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-lan-to-wan"
+		nft insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-wan-to-lan"
 		echo "guest_configured lan=$lan_dev:$lan_ip wan=$wan_dev:$wan_ip forwarding=1"
 		;;
 	check)
@@ -108,8 +110,8 @@ case "$action" in
 			echo "IPv4 forwarding is disabled" >&2
 			exit 1
 		}
-		nft -a list chain inet fw4 forward | grep -E 'fwlive-slo-(lan-to-wan|wan-to-lan)' || {
-			echo "fwlive-slo forwarding rules are missing" >&2
+		nft -a list chain inet fw4 forward | grep -E 'fwlive-slo-(lan-to-wan|wan-to-lan|log-lan-to-wan|log-wan-to-lan)' || {
+			echo "fwlive-slo forwarding or logging rules are missing" >&2
 			exit 1
 		}
 		;;
