@@ -43,10 +43,14 @@ const viewSrc = fs.readFileSync(
 	'utf8'
 );
 assert.ok(
-	/const fetchLines = this\.paused\s*\?\s*constants\.FETCH_LINES_MAX\s*:\s*Math\.min\(\s*Math\.max\(\s*this\.rowLimit \* 4/.test(
+	/autoFetchLines\(\)[\s\S]*?Math\.min\(Math\.max\(this\.rowLimit \* 4, 100\), constants\.FETCH_LINES_MAX\)/.test(
 		viewSrc
 	),
-	'poll must scale raw fetch with rowLimit and use FETCH_LINES_MAX when paused'
+	'Auto poll must scale raw fetch with rowLimit and use FETCH_LINES_MAX as its paused compatibility budget'
+);
+assert.ok(
+	/requestedFetchLines\(\)[\s\S]*?this\.paused[\s\S]*?constants\.FETCH_LINES_MAX/.test(viewSrc),
+	'poll must route fetch sizing through the budget decision helper'
 );
 assert.ok(
 	!/expect:\s*\{\s*log:\s*\[\]\s*\}/.test(viewSrc),
