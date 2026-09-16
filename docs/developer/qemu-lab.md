@@ -421,8 +421,12 @@ FWLIVE_SOAK_MS=1800000 \
 ```
 
 It reports visibility pause/resume, render-commit-to-paint samples, largest
-`longtask`, and Chromium heap growth. A short `FWLIVE_SOAK_MS` is for harness
-development only; #306 sign-off requires the 30-minute run.
+`longtask`, and Chromium heap growth. The visibility phase keeps the page hidden
+for 60 seconds by default, rejects hidden polls, and records the visible-to-next-
+poll latency against the 1-second recovery budget. Override that interval with
+`FWLIVE_VISIBILITY_HIDDEN_MS` only for harness development. A short
+`FWLIVE_SOAK_MS` is also for harness development only; #306 sign-off requires
+the 30-minute run.
 
 On 2026-09-15, the development gate was rerun after the table renderer gained
 keyed row reuse and targeted insertion for unchanged poll rows. With the same

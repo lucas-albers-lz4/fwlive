@@ -40,6 +40,20 @@ if (SOAK_MS_RAW !== undefined && !Number.isFinite(Number(SOAK_MS_RAW)))
 const SOAK_MS = SOAK_MS_RAW === undefined || SOAK_MS_RAW === ''
 	? 30 * 60 * 1000
 	: Math.max(1000, Number(SOAK_MS_RAW));
+const VISIBILITY_HIDDEN_MS_RAW = process.env.FWLIVE_VISIBILITY_HIDDEN_MS;
+if (
+	VISIBILITY_HIDDEN_MS_RAW !== undefined &&
+	VISIBILITY_HIDDEN_MS_RAW !== '' &&
+	(!/^[0-9]+$/.test(VISIBILITY_HIDDEN_MS_RAW) ||
+		!Number.isFinite(Number(VISIBILITY_HIDDEN_MS_RAW)))
+)
+	throw new Error(
+		`FWLIVE_VISIBILITY_HIDDEN_MS must be a decimal integer: ${VISIBILITY_HIDDEN_MS_RAW}`
+	);
+const VISIBILITY_HIDDEN_MS = VISIBILITY_HIDDEN_MS_RAW === undefined || VISIBILITY_HIDDEN_MS_RAW === ''
+	? 60 * 1000
+	: Math.max(1000, Number(VISIBILITY_HIDDEN_MS_RAW));
+const VISIBILITY_RESUME_BUDGET_MS = 1000;
 const ENFORCE = process.env.FWLIVE_ENFORCE === '1';
 const REAL_POLL = process.env.FWLIVE_PERF_REAL_POLL === '1';
 const POLL_DELAY_MS = Math.max(0, Number(process.env.FWLIVE_PERF_POLL_DELAY_MS || 0));
@@ -374,10 +388,13 @@ async function main() {
 
 		/* CDP visibility emulation exercises the actual visibilitychange handler. */
 		const hiddenVisibilityMethod = await setVisibilityState(page, cdp, 'hidden');
-		await new Promise((resolve) => setTimeout(resolve, 2500));
+		await new Promise((resolve) => setTimeout(resolve, VISIBILITY_HIDDEN_MS));
 		const hiddenPolls = counts.polls - initialPolls;
+		const visibleAt = Date.now();
 		const visibleVisibilityMethod = await setVisibilityState(page, cdp, 'visible');
-		const resumed = await waitForPollCount(counts, counts.polls + 1, 10000);
+		const resumeTarget = counts.polls + 1;
+		const resumed = await waitForPollCount(counts, resumeTarget, 5000);
+		const resumeLatencyMs = resumed ? Date.now() - visibleAt : null;
 
 		const heapSamples = [];
 		await sampleHeapUsage(cdp, heapSamples, true);
@@ -438,7 +455,10 @@ async function main() {
 					? hiddenVisibilityMethod
 					: `${hiddenVisibilityMethod}->${visibleVisibilityMethod}`,
 				initial_polls: initialPolls,
-				hidden_polls_during_2500ms: hiddenPolls,
+				hidden_duration_ms: VISIBILITY_HIDDEN_MS,
+				hidden_polls_during_interval: hiddenPolls,
+				resume_latency_ms: resumeLatencyMs,
+				resume_budget_ms: VISIBILITY_RESUME_BUDGET_MS,
 				resumed
 			},
 			frame: metrics.frame,
@@ -474,7 +494,12 @@ async function main() {
 		if (ENFORCE) {
 			const renderMax = report.render_commit_to_paint_ms.max;
 			const heapGrowth = report.heap.growth_mb;
-			if (!report.visibility.resumed || report.visibility.hidden_polls_during_2500ms > 0)
+			if (
+				!report.visibility.resumed ||
+				report.visibility.hidden_polls_during_interval > 0 ||
+				report.visibility.resume_latency_ms === null ||
+				report.visibility.resume_latency_ms > VISIBILITY_RESUME_BUDGET_MS
+			)
 				throw new Error(`visibility gate failed: ${JSON.stringify(report.visibility)}`);
 			if (renderMax !== null && renderMax >= 250)
 				throw new Error(`render commit-to-paint target failed: ${renderMax} ms`);
