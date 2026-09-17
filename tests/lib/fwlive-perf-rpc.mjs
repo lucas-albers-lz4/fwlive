@@ -35,6 +35,10 @@ export function isFwliveFixtureRequest(payload) {
 	);
 }
 
+export function fwlivePollRequestCount(payload) {
+	return fwliveMethodRequestIds(payload, 'poll').length;
+}
+
 export function fwlivePollRequestedLines(payload) {
 	return parseRpcPayload(payload)
 		.filter((req) => {

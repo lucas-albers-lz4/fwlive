@@ -37,6 +37,7 @@ import {
 	fwliveAutoFetchLines,
 	fwliveMethodRequestIds,
 	fwlivePollBudgetMatches,
+	fwlivePollRequestCount,
 	fwlivePollRequestedLines,
 	fwlivePerformanceHash,
 	fwliveRpcReplyForRequest,
@@ -148,7 +149,7 @@ if (!fixture || !Array.isArray(fixture.log) || fixture.log.length !== 2000)
 	throw new Error(`performance fixture must contain exactly 2000 log entries: ${FIXTURE_PATH}`);
 
 function isFwlivePoll(postData) {
-	return fwliveMethodRequestIds(postData, 'poll').length > 0;
+	return fwlivePollRequestCount(postData) > 0;
 }
 
 function pollPayload(pollNo) {
@@ -275,13 +276,18 @@ function summarize(values) {
 }
 
 function summarizeRequestedLines(values) {
-	const numeric = values
-		.map((value) => Number(value))
-		.filter((value) => Number.isInteger(value) && value >= 0);
+	const numeric = [];
+	const invalid = [];
+	for (const value of values) {
+		const parsed = Number(value);
+		if (Number.isInteger(parsed) && parsed >= 0) numeric.push(parsed);
+		else invalid.push(String(value));
+	}
 	return {
 		count: numeric.length,
 		unique: [...new Set(numeric)].sort((a, b) => a - b),
-		values: summarize(numeric)
+		values: summarize(numeric),
+		invalid_requested_raw_lines: invalid
 	};
 }
 
@@ -402,10 +408,12 @@ async function main() {
 
 	page.on('pageerror', (e) => console.error('pageerror:', e.message));
 	page.on('request', (request) => {
-		if (!isFwlivePoll(request.postData() || '')) return;
-		counts.requestedLines.push(...fwlivePollRequestedLines(request.postData() || ''));
+		const postData = request.postData() || '';
+		const pollCount = fwlivePollRequestCount(postData);
+		if (!pollCount) return;
+		counts.requestedLines.push(...fwlivePollRequestedLines(postData));
 		pollStarts.set(request, Date.now());
-		if (REAL_POLL) counts.polls++;
+		if (REAL_POLL) counts.polls += pollCount;
 	});
 	page.on('response', (response) => {
 		const request = response.request();
@@ -434,12 +442,13 @@ async function main() {
 		await loginWithoutOpeningLiveView(page);
 		if (!REAL_POLL) await page.route('**/ubus**', async (route) => {
 			const postData = route.request().postData() || '';
-			const pollRequest = isFwlivePoll(postData);
+			const pollCount = fwlivePollRequestCount(postData);
+			const pollRequest = pollCount > 0;
 			if (!isFwliveFixtureRequest(postData)) {
 				await route.continue();
 				return;
 			}
-			if (pollRequest) counts.polls++;
+			if (pollRequest) counts.polls += pollCount;
 			const parsed = JSON.parse(postData);
 			const batched = Array.isArray(parsed);
 			const requests = batched ? parsed : [parsed];

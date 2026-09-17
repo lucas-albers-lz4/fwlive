@@ -6,6 +6,7 @@ import {
 	fwliveAutoFetchLines,
 	fwliveMethodRequestIds,
 	fwlivePollBudgetMatches,
+	fwlivePollRequestCount,
 	fwlivePollRequestedLines,
 	fwlivePerformanceHash,
 	fwliveRpcReplyForRequest,
@@ -37,6 +38,20 @@ assert.strictEqual(isFwliveFixtureRequest(JSON.stringify({
 	method: 'call',
 	params: ['session', 'fwlive', 'rules', {}]
 })), false);
+assert.equal(fwlivePollRequestCount(JSON.stringify([
+	{
+		jsonrpc: '2.0',
+		id: 51,
+		method: 'call',
+		params: ['session', 'fwlive', 'poll', {}]
+	},
+	{
+		jsonrpc: '2.0',
+		id: 52,
+		method: 'call',
+		params: ['session', 'fwlive', 'poll']
+	}
+])), 2);
 assert.deepStrictEqual(fwlivePollRequestedLines(JSON.stringify([
 	{
 		jsonrpc: '2.0',
@@ -75,6 +90,18 @@ assert.deepStrictEqual(fwlivePollRequestedLines({
 	method: 'call',
 	params: ['session', 'fwlive', 'poll', { addresses: [500] }]
 }), ['500']);
+assert.deepStrictEqual(fwlivePollRequestedLines({
+	jsonrpc: '2.0',
+	id: 53,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', { addresses: ['malformed'] }]
+}), ['malformed']);
+assert.deepStrictEqual(fwlivePollRequestedLines({
+	jsonrpc: '2.0',
+	id: 54,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', { addresses: [-1] }]
+}), ['-1']);
 assert.deepStrictEqual(fwlivePollRequestedLines('{not-json'), []);
 assert.equal(fwliveAutoFetchLines(25), 100);
 assert.equal(fwliveAutoFetchLines(500), 2000);
