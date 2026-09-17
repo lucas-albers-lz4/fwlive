@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.43] — 2026-09-17
+
+### Changed
+- Isolate render scheduling ownership in a dedicated module while preserving epoch-safe frame coalescing, token-bucket throttling, forced paints, and disposal (#359, refs #340)
+
+### Added
+- Regression coverage for stale frames, force reservations, scheduler lifecycle, and browser animation-frame adapter binding (#359)
+
+Supported OpenWrt: **21.02**, **22.03**, **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
+
 ## [v0.1.42] — 2026-09-16
 
 ### Changed
@@ -475,6 +491,7 @@ Manual install: [installation.md](docs/user/installation.md)
 
 ---
 
+[v0.1.43]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.42...v0.1.43
 [v0.1.42]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.41...v0.1.42
 [v0.1.41]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.40...v0.1.41
 [v0.1.40]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.39...v0.1.40
