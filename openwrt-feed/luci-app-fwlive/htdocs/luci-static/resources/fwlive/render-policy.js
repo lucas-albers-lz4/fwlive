@@ -14,14 +14,25 @@
  * @param {number} opts.rowLimit - User-selected stored-row limit.
  * @param {boolean} opts.weakDevice - Whether the weak-device cap is active.
  * @param {number} opts.weakDeviceDisplayRowCap - Maximum visible rows when capped.
+ * @returns {number} Maximum rows to render.
+ */
+function displayRowCap(opts) {
+	opts = opts || {};
+	return opts.weakDevice ? Math.min(opts.rowLimit, opts.weakDeviceDisplayRowCap) : opts.rowLimit;
+}
+
+/**
+ * Calculate the token cost for the next render.
+ *
+ * @param {object} opts
  * @param {number} opts.visibleRowCount - Number of candidate visible rows.
  * @param {*} opts.visibleHeadId - First candidate row identity.
  * @param {number} opts.lastRenderedRowCount - Count from the previous render.
  * @param {*} opts.lastRenderedHeadId - First row identity from the previous render.
  * @param {number} opts.lastBatchNewIdCount - Session-new IDs in the last batch.
- * @returns {{ visibleRowCap: number, renderCost: number }}
+ * @returns {number} Token cost for the next render.
  */
-function decide(opts) {
+function renderCost(opts) {
 	opts = opts || {};
 
 	const count = opts.visibleRowCount || 0;
@@ -30,19 +41,18 @@ function decide(opts) {
 	const lastRenderedHeadId = opts.lastRenderedHeadId || '';
 	let renderCost;
 
-	if (!count && !lastRenderedRowCount) renderCost = 0;
-	else if (count === lastRenderedRowCount && headId === lastRenderedHeadId) renderCost = 0;
-	else if (count !== lastRenderedRowCount) renderCost = 1;
+	/* This cheap identity check intentionally does not compare full row content. */
+	if (!count && !lastRenderedRowCount) return 0;
+	if (count === lastRenderedRowCount && headId === lastRenderedHeadId) return 0;
+
+	/* Count changes must stay cheap so Limit/filter/trim updates remain paintable. */
+	if (count !== lastRenderedRowCount) renderCost = 1;
 	else renderCost = Math.max(1, opts.lastBatchNewIdCount || 1);
 
-	return {
-		visibleRowCap: opts.weakDevice
-			? Math.min(opts.rowLimit, opts.weakDeviceDisplayRowCap)
-			: opts.rowLimit,
-		renderCost: renderCost
-	};
+	return renderCost;
 }
 
 return baseclass.extend({
-	decide: decide
+	displayRowCap: displayRowCap,
+	renderCost: renderCost
 });

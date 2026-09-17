@@ -13,13 +13,19 @@ function rows(ids) {
 	});
 }
 
-function decide(overrides) {
-	return policy.decide(
+function displayRowCap(overrides) {
+	return policy.displayRowCap(
+		Object.assign(
+			{ rowLimit: 2000, weakDevice: false, weakDeviceDisplayRowCap: 250 },
+			overrides
+		)
+	);
+}
+
+function renderCost(overrides) {
+	return policy.renderCost(
 		Object.assign(
 			{
-				rowLimit: 2000,
-				weakDevice: false,
-				weakDeviceDisplayRowCap: 250,
 				visibleRowCount: 0,
 				visibleHeadId: '',
 				lastRenderedRowCount: 0,
@@ -31,58 +37,81 @@ function decide(overrides) {
 	);
 }
 
-assert.deepStrictEqual(decide(), { visibleRowCap: 2000, renderCost: 0 });
-assert.deepStrictEqual(decide({ weakDevice: true }), { visibleRowCap: 250, renderCost: 0 });
+assert.strictEqual(displayRowCap(), 2000);
+assert.strictEqual(displayRowCap({ weakDevice: true }), 250);
 assert.deepStrictEqual(
-	decide({ rowLimit: 100, weakDevice: true }),
-	{ visibleRowCap: 100, renderCost: 0 },
+	displayRowCap({ rowLimit: 100, weakDevice: true }),
+	100,
 	'weak-device cap must not raise a lower user limit'
 );
 
 assert.strictEqual(
-	decide({ visibleRowCount: 1, visibleHeadId: 'a' }).renderCost,
+	renderCost({ visibleRowCount: 1, visibleHeadId: 'a' }),
 	1,
 	'first non-empty render has unit cost'
 );
 assert.strictEqual(
-	decide({
+	renderCost({
 		visibleRowCount: 1,
 		visibleHeadId: 'a',
 		lastRenderedRowCount: 1,
 		lastRenderedHeadId: 'a'
-	}).renderCost,
+	}),
 	0,
 	'unchanged rows cost nothing'
 );
 assert.strictEqual(
-	decide({
+	renderCost({
 		visibleRowCount: 2,
 		visibleHeadId: 'a',
 		lastRenderedRowCount: 1,
-		lastRenderedHeadId: 'a'
-	}).renderCost,
+		lastRenderedHeadId: 'a',
+		lastBatchNewIdCount: 7
+	}),
 	1,
-	'visible-count changes use unit cost'
+	'growing visible count uses unit cost'
 );
 assert.strictEqual(
-	decide({
+	renderCost({
+		visibleRowCount: 0,
+		visibleHeadId: '',
+		lastRenderedRowCount: 1,
+		lastRenderedHeadId: 'a',
+		lastBatchNewIdCount: 7
+	}),
+	1,
+	'clearing visible rows uses unit cost'
+);
+assert.strictEqual(
+	renderCost({
+		visibleRowCount: 1,
+		visibleHeadId: 'a',
+		lastRenderedRowCount: 2,
+		lastRenderedHeadId: 'a',
+		lastBatchNewIdCount: 7
+	}),
+	1,
+	'shrinking visible count uses unit cost'
+);
+assert.strictEqual(
+	renderCost({
 		visibleRowCount: 1,
 		visibleHeadId: 'b',
 		lastRenderedRowCount: 1,
 		lastRenderedHeadId: 'a',
 		lastBatchNewIdCount: 7
-	}).renderCost,
+	}),
 	7,
 	'new head with unchanged visible count charges the last batch count'
 );
 assert.strictEqual(
-	decide({
+	renderCost({
 		visibleRowCount: 1,
 		visibleHeadId: 'b',
 		lastRenderedRowCount: 1,
 		lastRenderedHeadId: 'a',
 		lastBatchNewIdCount: 0
-	}).renderCost,
+	}),
 	1,
 	'new head always has a minimum cost of one'
 );

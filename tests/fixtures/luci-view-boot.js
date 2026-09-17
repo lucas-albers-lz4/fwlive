@@ -162,6 +162,7 @@
 		const buffer = await loadModule(RES + '/fwlive/buffer.js', [], []);
 		const hostname = await loadModule(RES + '/fwlive/hostname.js', [], []);
 		const pollCoordinator = await loadModule(RES + '/fwlive/poll-coordinator.js', [], []);
+		const renderPolicy = await loadModule(RES + '/fwlive/render-policy.js', [], []);
 		const chips = await loadModule(RES + '/fwlive/chips.js', ['log'], [log]);
 		const proto = await loadModule(RES + '/fwlive/proto.js', ['document'], [document]);
 		const table = await loadModule(RES + '/fwlive/table.js', ['log', 'links'], [log, links]);
@@ -176,12 +177,12 @@
 			.replace(/^'require [^']+';[^\n]*\n/gm, '');
 		const viewFn = new Function(
 			'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
-			'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'E', '_', 'document', 'window', 'localStorage',
+			'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'E', '_', 'document', 'window', 'localStorage',
 			viewBody
 		);
 		const viewDesc = viewFn(
 			view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
-			pollCoordinator, E, gettext, document, window, localStorage
+			pollCoordinator, renderPolicy, E, gettext, document, window, localStorage
 		);
 
 		const mount = document.getElementById('fwlive-app');

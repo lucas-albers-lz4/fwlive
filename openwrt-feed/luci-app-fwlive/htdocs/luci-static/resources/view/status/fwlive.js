@@ -986,13 +986,11 @@ return view.extend({
 	},
 
 	displayRowCap() {
-		return renderPolicy.decide({
+		return renderPolicy.displayRowCap({
 			rowLimit: this.rowLimit,
 			weakDevice: this.weakDevice,
-			weakDeviceDisplayRowCap: constants.WEAK_DEVICE_DISPLAY_ROW_CAP,
-			visibleRowCount: 0,
-			visibleHeadId: ''
-		}).visibleRowCap;
+			weakDeviceDisplayRowCap: constants.WEAK_DEVICE_DISPLAY_ROW_CAP
+		});
 	},
 
 	statusSuffix() {
@@ -1348,13 +1346,13 @@ return view.extend({
 		const count = rows ? rows.length : 0;
 		const headId = count ? rows[0].id : '';
 
-		return renderPolicy.decide({
+		return renderPolicy.renderCost({
 			visibleRowCount: count,
 			visibleHeadId: headId,
 			lastRenderedRowCount: this.lastRenderedRowCount,
 			lastRenderedHeadId: this.lastRenderedHeadId,
 			lastBatchNewIdCount: this.lastBatchNewIdCount
-		}).renderCost;
+		});
 	},
 
 	updateFloodBanner() {
