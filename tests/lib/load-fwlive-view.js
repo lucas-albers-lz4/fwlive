@@ -244,9 +244,9 @@ function loadFwliveView(options) {
 			document.hidden = !!hidden;
 			document.dispatchVisibility();
 		},
-		dispatchPagehide: function() {
+		dispatchPagehide: function(event) {
 			const listeners = (windowListeners.pagehide || []).slice();
-			for (let i = 0; i < listeners.length; i++) listeners[i]();
+			for (let i = 0; i < listeners.length; i++) listeners[i](event);
 		}
 	};
 }

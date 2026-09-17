@@ -491,6 +491,27 @@ async function testPagehideDisposesCoordinator() {
 	console.log('fwlive-view fetch-budget: pagehide disposal contract OK');
 }
 
+async function testPersistedPagehideKeepsCoordinator() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.loadRulesMap = function () { return Promise.resolve(); };
+	v.loadLoggingStatus = function () { return Promise.resolve(); };
+	await v.load();
+	const handler = v.pagehideHandler;
+	assert.ok(handler, 'load must bind pagehide');
+	h.dispatchPagehide({ persisted: true });
+	assert.strictEqual(v.pagehideHandler, handler, 'BFCache pagehide keeps the listener');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().disposed,
+		false,
+		'BFCache pagehide must not dispose the coordinator'
+	);
+	h.dispatchPagehide({ persisted: false });
+	assert.strictEqual(v.pagehideHandler, null, 'ordinary pagehide still disposes the view');
+	assert.strictEqual(v.ensurePollCoordinator().getState().disposed, true);
+	console.log('fwlive-view fetch-budget: persisted pagehide keeps coordinator OK');
+}
+
 async function testPagehideDuringHostnameResolution() {
 	let release;
 	const gate = new Promise(resolve => { release = resolve; });
@@ -531,6 +552,7 @@ async function main() {
 	await testLimitAndVisibilityDuringInFlightRequest();
 	await testFillingStopRules();
 	await testPagehideDisposesCoordinator();
+	await testPersistedPagehideKeepsCoordinator();
 	await testPagehideDuringHostnameResolution();
 	console.log('fwlive-view fetch-budget tests passed');
 }

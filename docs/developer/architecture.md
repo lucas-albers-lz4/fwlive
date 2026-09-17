@@ -64,15 +64,17 @@ frames. RTT classification stays with the view's transport health handling;
 it requests cadence changes through `setCadence()`, which only updates timer
 registration. Repeated startup and unchanged cadence are idempotent.
 
-The view owns the `pagehide` listener and calls `disposeView()` to remove it,
-clear its filter timer, invalidate hostname work, and dispose the coordinator.
+The view owns the `pagehide` listener. A persisted `pagehide` enters the
+browser back/forward cache, so the listener leaves the coordinator attached;
+the browser suspends the page and the existing visibility subscription resumes
+normal polling when the page returns. A non-persisted `pagehide` calls
+`disposeView()` to remove the listener, clear its filter timer, invalidate
+hostname work, and dispose the coordinator.
+
 Disposal is terminal: it invalidates the epoch, removes polling and visibility
 subscriptions, and settles both batches without aborting the RPC. Late replies
 and callbacks cannot revive it. Keep the disposed instance attached to the
-departing view so old epochs cannot become current again. Reusing that same
-view after a browser back/forward-cache restore is not implemented by this
-contract; a future restore path needs an explicit lifecycle design and browser
-coverage.
+departing view so old epochs cannot become current again.
 
 ## Design choices
 

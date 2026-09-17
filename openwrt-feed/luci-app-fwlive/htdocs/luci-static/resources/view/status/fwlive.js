@@ -2015,7 +2015,11 @@ return view.extend({
 		const coordinator = this.ensurePollCoordinator();
 		if (coordinator.getState().disposed) return Promise.resolve();
 		if (!this.pagehideHandler && typeof window !== 'undefined' && window.addEventListener) {
-			this.pagehideHandler = this.disposeView.bind(this);
+			this.pagehideHandler = function (ev) {
+				/* A persisted pagehide enters BFCache; keep this view resumable. */
+				if (ev && ev.persisted) return;
+				this.disposeView();
+			}.bind(this);
 			window.addEventListener('pagehide', this.pagehideHandler);
 		}
 		coordinator.startPolling();
