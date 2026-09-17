@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.42] — 2026-09-16
+
+### Changed
+- Add always-on adaptive poll shedding, client visibility pause/RTT backoff, and a weak-device display cap so the live view degrades predictably under sustained load (#306, #331, #339, #341, #343)
+- Add Auto/Manual fetch-budget controls and restore preferences before the first poll; extract polling lifecycle and render-policy decisions into focused modules (#347, #348, #352, #353, #356, #357)
+- Extract parser/filter responsibilities while preserving the core/LuCI mirror and generated-classifier contracts; add fail-closed source-to-POT drift checks (#323, #333, #334)
+
+### Added
+- Reusable QEMU routed-forwarding SLO, adaptive-flood, memory-census, and fetch-budget qualification harnesses with recorded x86 and armsr evidence (#306, #308, #319, #339, #344, #345, #349)
+- Coverage for weak-device rendering, native visibility behavior, coordinator disposal, fetch budgets, and pure render-policy decisions (#339, #350, #351, #352, #356)
+
+### Fixed
+- Keep adaptive state updates fail-safe under lock, filesystem, and concurrent-update failures, with expanded shell and rpcd regression coverage (#306)
+
+Supported OpenWrt: **21.02**, **22.03**, **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
+
 ## [v0.1.41] — 2026-09-11
 
 ### Fixed
@@ -453,6 +475,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.42]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.41...v0.1.42
 [v0.1.41]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.40...v0.1.41
 [v0.1.40]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.39...v0.1.40
 [v0.1.39]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.38...v0.1.39
