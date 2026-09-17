@@ -3,7 +3,12 @@
 
 import assert from 'node:assert/strict';
 import {
+	fwliveAutoFetchLines,
 	fwliveMethodRequestIds,
+	fwlivePollBudgetMatches,
+	fwlivePollRequestCount,
+	fwlivePollRequestedLines,
+	fwlivePerformanceHash,
 	fwliveRpcReplyForRequest,
 	isFwliveFixtureRequest,
 	isSuccessfulFwliveRpcReply
@@ -33,6 +38,87 @@ assert.strictEqual(isFwliveFixtureRequest(JSON.stringify({
 	method: 'call',
 	params: ['session', 'fwlive', 'rules', {}]
 })), false);
+assert.equal(fwlivePollRequestCount(JSON.stringify([
+	{
+		jsonrpc: '2.0',
+		id: 51,
+		method: 'call',
+		params: ['session', 'fwlive', 'poll', {}]
+	},
+	{
+		jsonrpc: '2.0',
+		id: 52,
+		method: 'call',
+		params: ['session', 'fwlive', 'poll']
+	}
+])), 2);
+assert.deepStrictEqual(fwlivePollRequestedLines(JSON.stringify([
+	{
+		jsonrpc: '2.0',
+		id: 45,
+		method: 'call',
+		params: ['session', 'fwlive', 'poll', { addresses: ['500'] }]
+	},
+	{
+		jsonrpc: '2.0',
+		id: 46,
+		method: 'call',
+		params: ['session', 'fwlive', 'rules', {}]
+	},
+	{
+		jsonrpc: '2.0',
+		id: 47,
+		method: 'call',
+		params: ['session', 'fwlive', 'poll', { addresses: ['1000'] }]
+	},
+])), ['500', '1000']);
+assert.deepStrictEqual(fwlivePollRequestedLines(JSON.stringify({
+	jsonrpc: '2.0',
+	id: 48,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', {}]
+})), []);
+assert.deepStrictEqual(fwlivePollRequestedLines(JSON.stringify({
+	jsonrpc: '2.0',
+	id: 49,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', { addresses: [] }]
+})), []);
+assert.deepStrictEqual(fwlivePollRequestedLines({
+	jsonrpc: '2.0',
+	id: 50,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', { addresses: [500] }]
+}), ['500']);
+assert.deepStrictEqual(fwlivePollRequestedLines({
+	jsonrpc: '2.0',
+	id: 53,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', { addresses: ['malformed'] }]
+}), ['malformed']);
+assert.deepStrictEqual(fwlivePollRequestedLines({
+	jsonrpc: '2.0',
+	id: 54,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', { addresses: [-1] }]
+}), ['-1']);
+assert.deepStrictEqual(fwlivePollRequestedLines('{not-json'), []);
+assert.equal(fwliveAutoFetchLines(25), 100);
+assert.equal(fwliveAutoFetchLines(500), 2000);
+assert.equal(fwliveAutoFetchLines(100, 500), 400);
+assert.equal(fwlivePerformanceHash(2000), 'limit=2000');
+assert.equal(
+	fwlivePerformanceHash(500, 'auto'),
+	'limit=500&poll=auto'
+);
+assert.equal(
+	fwlivePerformanceHash(500, 'manual', 250),
+	'limit=500&poll=manual&maxraw=250'
+);
+assert.equal(fwlivePollBudgetMatches(['500', '500'], 500, 2), true);
+assert.equal(fwlivePollBudgetMatches(['500', '1000'], 500, 2), false);
+assert.equal(fwlivePollBudgetMatches(['500'], 500, 2), false);
+assert.equal(fwlivePollBudgetMatches(['bad'], 500, 1), false);
 
 const singleReply = JSON.stringify({
 	jsonrpc: '2.0',
