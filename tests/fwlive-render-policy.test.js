@@ -3,7 +3,6 @@
 
 const assert = require('node:assert/strict');
 const { loadFwliveModule } = require('./lib/load-fwlive-module');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
 
 const policy = loadFwliveModule('render-policy');
 
@@ -127,14 +126,5 @@ assert.strictEqual(
 	1,
 	'new head always has a minimum cost of one'
 );
-
-const view = loadFwliveView().view;
-view.rowLimit = 2000;
-view.weakDevice = true;
-assert.strictEqual(view.displayRowCap(), 250, 'view delegates the weak-device cap');
-view.lastRenderedRowCount = 1;
-view.lastRenderedHeadId = 'a';
-view.lastBatchNewIdCount = 3;
-assert.strictEqual(view.renderBudgetCost(rows(['b'])), 3, 'view delegates per-batch render cost');
 
 console.log('fwlive render-policy tests passed');

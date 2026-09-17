@@ -726,7 +726,70 @@ async function testStaleAnimationFrameIsDropped() {
 	assert.strictEqual(frames.length, 1, 'current request must be requeued');
 	frames.shift()();
 	assert.strictEqual(renders, 2);
+	v.scheduleRenderRows(true);
+	v.disposeView();
+	frames.shift()();
+	assert.strictEqual(renders, 2, 'disposed view must drop pending paint');
 	console.log('fwlive-view layer2: stale animation frame guard OK');
+}
+
+async function testLimitRefreshPreservesQueuedForce() {
+	const frames = [];
+	const h = loadFwliveView({ requestAnimationFrame: (fn) => {
+		frames.push(fn);
+		return frames.length;
+	} });
+	const v = h.view;
+	const renders = [];
+	v.renderRows = (force) => renders.push(force);
+	v.requestPoll = () => Promise.resolve();
+
+	v.scheduleRenderRows(false);
+	v.onRowLimitChange({ target: { value: '500' } });
+	assert.deepStrictEqual(renders, [true], 'Limit paints the current buffer immediately');
+	await Promise.resolve();
+	assert.deepStrictEqual(renders, [true, true], 'Limit paints again after refresh');
+	/* A hostname reply can request a forced repaint between poll completion
+	 * and the Limit promise settling. Its intent belongs to the pending frame. */
+	v.scheduleRenderRows(true);
+	await Promise.resolve();
+	frames.shift()();
+	assert.deepStrictEqual(renders, [true, true, true], 'Limit cleanup cannot erase queued force');
+	console.log('fwlive-view layer2: Limit preserves queued force OK');
+}
+
+async function testLimitPaintDoesNotWaitForHostnames() {
+	const frames = [];
+	const h = loadFwliveView({ requestAnimationFrame: (fn) => {
+		frames.push(fn);
+		return frames.length;
+	} });
+	const v = h.view;
+	const renders = [];
+	let releaseNames;
+	let resolving = false;
+	const names = new Promise(resolve => { releaseNames = resolve; });
+	v.fetchEntries = async () => {};
+	v.resolveHostnamesForEntries = () => {
+		resolving = true;
+		return names;
+	};
+	v.renderRows = (force) => renders.push(force);
+	const requestPoll = v.requestPoll.bind(v);
+	let refresh;
+	v.requestPoll = () => { refresh = requestPoll(); return refresh; };
+
+	v.onRowLimitChange({ target: { value: '500' } });
+	await Promise.resolve();
+	assert.strictEqual(resolving, true, 'poll must be waiting for hostname resolution');
+	assert.strictEqual(frames.length, 1, 'fresh rows have a frame before names return');
+	frames.shift()();
+	assert.deepStrictEqual(renders, [true, true], 'Limit refresh bypasses throttle before names return');
+	releaseNames();
+	await refresh;
+	await Promise.resolve();
+	assert.deepStrictEqual(renders, [true, true, true], 'completion preserves the final forced paint');
+	console.log('fwlive-view layer2: Limit paints before hostname completion OK');
 }
 
 (async function main() {
@@ -748,6 +811,8 @@ async function testStaleAnimationFrameIsDropped() {
 		await testResumeStaleSkipsRender();
 		await testResumeMergeSurvivesVisibilityRace();
 		await testStaleAnimationFrameIsDropped();
+		await testLimitRefreshPreservesQueuedForce();
+		await testLimitPaintDoesNotWaitForHostnames();
 		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {

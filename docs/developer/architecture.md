@@ -36,6 +36,7 @@ flowchart TB
 | **View shell** | `htdocs/.../view/status/fwlive.js` | Layout, fetch/render handlers, pause/limit, DOM, click-to-filter |
 | **Poll coordinator** | `htdocs/.../fwlive/poll-coordinator.js` | Request serialization, epochs, visibility subscription, cadence registration, and terminal disposal |
 | **Render policy** | `htdocs/.../fwlive/render-policy.js` | Pure weak-device display-cap and render-cost decisions |
+| **Render scheduler** | `htdocs/.../fwlive/render-scheduler.js` | Epoch-safe frame coalescing and render token-bucket state; invokes the view's paint callback |
 | **Log brain** | `htdocs/.../fwlive/log.js` | `isFirewallEvent`, `normalizeEntry`, filters, display helpers (classify from `CLASSIFY_SPEC`) |
 | **Test twin / SoT** | `core/fwlive-log.js` | Editable source of truth + CLI; `CLASSIFY_SPEC` drives classify |
 | **Shell classifier** | `root/usr/libexec/fwlive-is-firewall-event.sh` | **Generated** from `CLASSIFY_SPEC` via `gen-shell-classifier.js` (committed; SDK does not run Node) |
@@ -76,6 +77,21 @@ Disposal is terminal: it invalidates the epoch, removes polling and visibility
 subscriptions, and settles both batches without aborting the RPC. Late replies
 and callbacks cannot revive it. Keep the disposed instance attached to the
 departing view so old epochs cannot become current again.
+
+The render scheduler owns queued frame intent, its token bucket, and the last
+painted row count/head identity. `schedule(force)` coalesces requests within a
+poll epoch; a newer request behind a stale frame gets a fresh frame. Coalesced
+force survives requeue so display changes such as resolved names still paint; it
+expires when the request paints or is discarded. `shouldRender()` reserves
+budget using the pure render-cost policy, and the view calls `markRendered()`
+only after painting.
+The buffer application produces `lastBatchNewIdCount`; the view passes it to
+the scheduler as the budget input. The scheduler neither fetches nor owns rows.
+Limit changes reset the budget and reserve force for the next scheduled paint,
+so new rows need not wait for hostname resolution. `forceNextRender()` returns
+a cancellation function for that reservation alone; refresh completion cannot
+clear force already queued or a newer reservation. Disposal cancels queued work
+and rejects later paints. DOM construction, scroll position, and banner text stay in the view.
 
 ## Design choices
 
