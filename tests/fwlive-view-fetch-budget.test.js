@@ -381,6 +381,8 @@ async function testLimitAndVisibilityDuringInFlightRequest() {
 
 	v.onRowLimitChange({ target: { value: '500' } });
 	h.setHidden(true);
+	assert.strictEqual(v.coordinatorDisposed, false, 'visibility hide must not dispose coordinator');
+	assert.strictEqual(v.pollRequestQueued, true, 'Limit refresh must remain queued while hidden');
 	release();
 	await first;
 	await sleep(10);

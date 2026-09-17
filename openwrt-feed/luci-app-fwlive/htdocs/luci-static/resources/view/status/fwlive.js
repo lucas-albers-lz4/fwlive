@@ -1174,7 +1174,8 @@ return view.extend({
 		this.pollFn = null;
 		/* A departing view must not leave callers waiting on work that can no
 		 * longer apply.  The RPC may still settle later; the bumped epoch makes
-		 * its result stale and finishPollRequest ignores the detached run. */
+		 * its result stale, while the cleared promise makes finishPollRequest
+		 * ignore the detached run by identity. */
 		const active = this.pollRequestWaiters;
 		this.pollRequestWaiters = [];
 		this.pollRequestPromise = null;
