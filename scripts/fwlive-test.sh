@@ -139,6 +139,7 @@ echo "== fwlive view poll guard (#240) =="
 "$NODE" tests/fwlive-view-poll-guard.test.js
 echo "== fwlive poll coordinator (#352) =="
 "$NODE" tests/fwlive-poll-coordinator.test.js
+echo "== fwlive view Layer 2 backoff =="
 "$NODE" tests/fwlive-view-layer2-backoff.test.js
 echo "== fwlive view fetch budget (#347) ==" >&2
 "$NODE" tests/fwlive-view-fetch-budget.test.js

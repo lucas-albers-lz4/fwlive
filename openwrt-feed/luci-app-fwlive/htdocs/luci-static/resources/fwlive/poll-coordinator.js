@@ -4,254 +4,143 @@
 
 'require baseclass';
 
-function settle(waiters, value) {
-	for (let i = 0; i < waiters.length; i++) waiters[i].resolve(value);
+function createBatch() {
+	const batch = {};
+	batch.promise = new Promise(function (resolve) {
+		batch.resolve = resolve;
+	});
+	return batch;
 }
 
+/* Own request serialization and scheduling. The runner owns result application
+ * and must check its epoch before applying asynchronous results. Adapters supply
+ * poll.add/remove, visibility.add/remove, isHidden, run, and initialCadence. */
 function createCoordinator(options) {
-	options = options || {};
+	const { poll, visibility, isHidden, run, initialCadence } = options;
+	if (!Number.isFinite(initialCadence) || initialCadence <= 0)
+		throw new TypeError('initialCadence must be a positive number');
 
-	const poll = options.poll || {};
-	const visibility = options.visibility || {};
-	const isHidden =
-		options.isHidden ||
-		function () {
-			return false;
-		};
-	const runRequest =
-		options.run ||
-		function () {
-			return Promise.resolve();
-		};
-	const state = {
-		epoch: 0,
-		cadenceSec: options.initialCadence || 1,
-		inFlight: false,
-		disposed: false,
-		queued: false
-	};
-	let pollFn = null;
-	let currentRun = null;
-	let activeWaiters = [];
-	let queuedWaiters = [];
-	let visibilityHandler = null;
-
-	function publish() {
-		if (typeof options.onStateChange !== 'function') return;
-		options.onStateChange({
-			epoch: state.epoch,
-			cadenceSec: state.cadenceSec,
-			inFlight: state.inFlight,
-			disposed: state.disposed,
-			queued: state.queued,
-			pollFn: pollFn,
-			promise: currentRun,
-			waiters: activeWaiters.slice(),
-			queuedWaiters: queuedWaiters.slice()
-		});
-	}
-
-	function bumpEpoch() {
-		state.epoch++;
-		if (typeof options.onEpochChange === 'function') options.onEpochChange(state.epoch);
-	}
+	let epoch = 0;
+	let cadenceSec = initialCadence;
+	let active = null;
+	let pending = null;
+	let started = false;
+	let registered = false;
+	let disposed = false;
+	let hidden = isHidden();
 
 	function removePoll() {
-		if (!pollFn || typeof poll.remove !== 'function') return;
-		try {
-			poll.remove(pollFn);
-		} catch (e) {
-			/* poll gone */
-		}
+		if (!registered) return;
+		poll.remove(requestPoll);
+		registered = false;
 	}
 
 	function addPoll() {
-		if (!pollFn || typeof poll.add !== 'function' || isHidden()) return;
-		try {
-			poll.add(pollFn, state.cadenceSec);
-		} catch (e) {
-			/* poll gone */
-		}
+		if (!started || registered || disposed || isHidden()) return;
+		poll.add(requestPoll, cadenceSec);
+		registered = true;
 	}
 
-	function finish(run, value) {
-		if (currentRun !== run) return;
-
-		const waiters = activeWaiters;
-		activeWaiters = [];
-		currentRun = null;
-		state.inFlight = false;
-		publish();
-		settle(waiters, value);
-
-		if (state.queued && !state.disposed && !isHidden()) {
-			const queued = queuedWaiters;
-			queuedWaiters = [];
-			state.queued = false;
-			start(queued);
-		}
+	function finish(batch, value) {
+		/* Disposal detaches the batch; its eventual completion has no effect. */
+		if (active !== batch) return;
+		active = null;
+		batch.resolve(value);
+		if (pending && !isHidden()) startPending();
 	}
 
-	function start(waiters) {
-		const epoch = state.epoch;
-		state.inFlight = true;
-		let run;
+	function startPending() {
+		const batch = pending;
+		pending = null;
+		/* Claim ownership before invoking user code, including synchronous runs. */
+		active = batch;
+		let result;
 		try {
-			run = Promise.resolve(runRequest(epoch));
+			result = Promise.resolve(run(epoch));
 		} catch (e) {
-			run = Promise.reject(e);
+			result = Promise.reject(e);
 		}
-		currentRun = run;
-		activeWaiters = waiters;
-		publish();
-		run.then(
+		result.then(
 			function (value) {
-				finish(run, value);
+				finish(batch, value);
 			},
 			function () {
-				finish(run);
+				/* A failed runner must still release callers and the queued batch. */
+				finish(batch);
 			}
 		);
 	}
 
 	function requestPoll() {
-		if (state.disposed || isHidden()) return Promise.resolve();
-
-		const waiter = {};
-		const promise = new Promise(function (resolve) {
-			waiter.resolve = resolve;
-		});
-
-		if (currentRun) {
-			state.queued = true;
-			queuedWaiters.push(waiter);
-			publish();
-			return promise;
-		}
-
-		if (state.queued) {
-			queuedWaiters.push(waiter);
-			const queued = queuedWaiters;
-			queuedWaiters = [];
-			state.queued = false;
-			start(queued);
-			return promise;
-		}
-
-		start([waiter]);
+		if (disposed || isHidden()) return Promise.resolve();
+		/* All callers waiting for the follow-up share one promise. Read the
+		 * latest view preferences only when that batch starts. */
+		if (!pending) pending = createBatch();
+		const promise = pending.promise;
+		if (!active) startPending();
 		return promise;
 	}
 
 	function setCadence(sec) {
-		state.cadenceSec = sec > 0 ? sec : 1;
-		if (!pollFn || isHidden()) {
-			publish();
-			return;
-		}
+		if (disposed) return;
+		const next = Number.isFinite(sec) && sec > 0 ? sec : initialCadence;
+		if (next === cadenceSec) return;
+		cadenceSec = next;
 		removePoll();
 		addPoll();
-		publish();
-	}
-
-	function stopPolling() {
-		removePoll();
-		publish();
-	}
-
-	function bumpEpochForOwner() {
-		bumpEpoch();
-		publish();
-		return state.epoch;
 	}
 
 	function onVisibilityChange() {
-		if (isHidden()) {
+		if (disposed || hidden === isHidden()) return;
+		hidden = isHidden();
+		epoch++;
+		if (hidden) {
 			removePoll();
-			bumpEpoch();
-			publish();
 			return;
 		}
-		if (state.disposed) return;
-
-		bumpEpoch();
-		if (typeof options.onVisible === 'function') options.onVisible();
-		setCadence(state.cadenceSec);
+		if (options.onVisible) options.onVisible();
+		addPoll();
+		/* A stale request may still be on the wire. Catch up only after it
+		 * settles, retaining any refresh requested before the tab was hidden. */
 		requestPoll();
 	}
 
-	function bind() {
-		if (visibilityHandler || typeof visibility.add !== 'function') return;
-		visibilityHandler = onVisibilityChange;
-		visibility.add(visibilityHandler);
-	}
-
-	function unbind() {
-		if (!visibilityHandler || typeof visibility.remove !== 'function') return;
-		try {
-			visibility.remove(visibilityHandler);
-		} catch (e) {
-			/* document gone */
-		}
-		visibilityHandler = null;
-	}
-
 	function startPolling() {
-		if (state.disposed) return;
-		if (!pollFn) {
-			pollFn = requestPoll;
-			if (typeof options.onPollFunction === 'function') options.onPollFunction(pollFn);
-		}
+		if (disposed || started) return;
+		started = true;
+		hidden = isHidden();
+		visibility.add(onVisibilityChange);
 		addPoll();
-		publish();
-	}
-
-	function adoptPollFunction(fn) {
-		if (pollFn || typeof fn !== 'function') return;
-		pollFn = fn;
-		publish();
 	}
 
 	function dispose() {
-		if (state.disposed) return;
-		state.disposed = true;
-		bumpEpoch();
+		if (disposed) return;
+		disposed = true;
+		epoch++;
 		removePoll();
-		unbind();
-		pollFn = null;
-
-		const active = activeWaiters;
-		activeWaiters = [];
-		currentRun = null;
-		state.inFlight = false;
-		state.queued = false;
-		const queued = queuedWaiters;
-		queuedWaiters = [];
-		publish();
-		settle(active);
-		settle(queued);
+		if (started) visibility.remove(onVisibilityChange);
+		/* Terminal for this view: settle callers without waiting for the RPC.
+		 * Retain the invalidated epoch so late view work remains stale. */
+		if (active) active.resolve();
+		if (pending) pending.resolve();
+		active = null;
+		pending = null;
 	}
 
 	return {
-		bind: bind,
+		requestPoll: requestPoll,
+		startPolling: startPolling,
+		setCadence: setCadence,
 		dispose: dispose,
 		getState: function () {
 			return {
-				epoch: state.epoch,
-				cadenceSec: state.cadenceSec,
-				inFlight: state.inFlight,
-				disposed: state.disposed,
-				queued: state.queued,
-				pollFn: pollFn
+				epoch: epoch,
+				cadenceSec: cadenceSec,
+				inFlight: active !== null,
+				queued: pending !== null,
+				disposed: disposed
 			};
-		},
-		onVisibilityChange: onVisibilityChange,
-		adoptPollFunction: adoptPollFunction,
-		bumpEpoch: bumpEpochForOwner,
-		setCadence: setCadence,
-		stopPolling: stopPolling,
-		startPolling: startPolling,
-		unbind: unbind,
-		requestPoll: requestPoll
+		}
 	};
 }
 

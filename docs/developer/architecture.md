@@ -34,7 +34,7 @@ flowchart TB
 | Module | Location | Responsibility |
 |--------|----------|----------------|
 | **View shell** | `htdocs/.../view/status/fwlive.js` | Layout, fetch/render handlers, pause/limit, DOM, click-to-filter |
-| **Poll coordinator** | `htdocs/.../fwlive/poll-coordinator.js` | One active request, one coalesced follow-up, epoch/visibility lifecycle, cadence, and pagehide disposal |
+| **Poll coordinator** | `htdocs/.../fwlive/poll-coordinator.js` | Request serialization, epochs, visibility subscription, cadence registration, and terminal disposal |
 | **Log brain** | `htdocs/.../fwlive/log.js` | `isFirewallEvent`, `normalizeEntry`, filters, display helpers (classify from `CLASSIFY_SPEC`) |
 | **Test twin / SoT** | `core/fwlive-log.js` | Editable source of truth + CLI; `CLASSIFY_SPEC` drives classify |
 | **Shell classifier** | `root/usr/libexec/fwlive-is-firewall-event.sh` | **Generated** from `CLASSIFY_SPEC` via `gen-shell-classifier.js` (committed; SDK does not run Node) |
@@ -42,6 +42,37 @@ flowchart TB
 | **WAN logging** | `root/usr/libexec/fwlive-logging.sh` | WAN zone `log=1` helpers (sourced by rpcd) |
 | **Log filter** | `root/usr/libexec/fwlive-log-filter.sh` | Shell `isFirewallEvent` parity before JSON leaves router |
 | **Menu / ACL** | `root/usr/share/luci/menu.d`, `rpcd/acl.d` | `admin/status/fwlive`, read `fwlive.*` only (no session `log.read`) + write enable/disable |
+
+### Poll lifecycle ownership
+
+The view creates one coordinator with a request runner, poll and visibility
+adapters, a visibility reader, and the initial cadence from `constants.js`.
+`startPolling()` subscribes to visibility and registers the timer once; it does
+not fetch. The view resolves RPC preferences before starting the coordinator
+and requesting the first batch. Filter widgets still restore in `addFooter`.
+
+`requestPoll()` returns a promise for the requested batch. Calls during an
+active batch share one pending batch, which reads current preferences when it
+starts. Hidden calls are no-ops; a pending batch survives hidden completion
+until the visible catch-up. The active batch remains owned until the runner
+settles, even when its epoch has become stale.
+
+The coordinator owns all mutable scheduling state. `getState()` returns a
+snapshot without exposing promises, resolvers, or timer callbacks. The view
+reads the epoch through `currentPollEpoch()` before applying replies or queued
+frames. RTT classification stays with the view's transport health handling;
+it requests cadence changes through `setCadence()`, which only updates timer
+registration. Repeated startup and unchanged cadence are idempotent.
+
+The view owns the `pagehide` listener and calls `disposeView()` to remove it,
+clear its filter timer, invalidate hostname work, and dispose the coordinator.
+Disposal is terminal: it invalidates the epoch, removes polling and visibility
+subscriptions, and settles both batches without aborting the RPC. Late replies
+and callbacks cannot revive it. Keep the disposed instance attached to the
+departing view so old epochs cannot become current again. Reusing that same
+view after a browser back/forward-cache restore is not implemented by this
+contract; a future restore path needs an explicit lifecycle design and browser
+coverage.
 
 ## Design choices
 

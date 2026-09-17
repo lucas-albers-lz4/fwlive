@@ -195,6 +195,11 @@ function loadFwliveView(options) {
 			if (!windowListeners[type]) windowListeners[type] = [];
 			windowListeners[type].push(fn);
 		},
+		removeEventListener: function(type, fn) {
+			const listeners = windowListeners[type] || [];
+			const index = listeners.indexOf(fn);
+			if (index !== -1) listeners.splice(index, 1);
+		},
 		requestAnimationFrame: requestAnimationFrame
 	};
 
@@ -240,7 +245,7 @@ function loadFwliveView(options) {
 			document.dispatchVisibility();
 		},
 		dispatchPagehide: function() {
-			const listeners = windowListeners.pagehide || [];
+			const listeners = (windowListeners.pagehide || []).slice();
 			for (let i = 0; i < listeners.length; i++) listeners[i]();
 		}
 	};
