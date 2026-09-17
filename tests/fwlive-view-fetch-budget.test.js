@@ -439,6 +439,11 @@ async function testFillingStopRules() {
 async function testPagehideDisposesCoordinator() {
 	let release;
 	let calls = 0;
+	const row = {
+		id: 913,
+		time: 1717675742,
+		msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP SPT=49210 DPT=443'
+	};
 	const gate = new Promise(function (resolve) {
 		release = resolve;
 	});
@@ -447,7 +452,7 @@ async function testPagehideDisposesCoordinator() {
 			'fwlive.poll': async function () {
 				calls++;
 				await gate;
-				return { log: [], adaptive: 1 };
+				return { log: [row], adaptive: 1 };
 			}
 		}
 	});
@@ -469,7 +474,7 @@ async function testPagehideDisposesCoordinator() {
 	assert.strictEqual(v.pollDataInFlight, false, 'pagehide must settle active waiters');
 	release();
 	await sleep(10);
-	assert.strictEqual(v.entries.length, 0, 'pagehide must discard active reply');
+	assert.strictEqual(v.entries.length, 0, 'pagehide must discard a real active reply');
 	assert.strictEqual(calls, 1, 'pagehide must not start a queued request');
 	await v.requestPoll();
 	assert.strictEqual(calls, 1, 'disposed coordinator must ignore later poll requests');
