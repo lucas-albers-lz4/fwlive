@@ -39,7 +39,7 @@ function renderCost(overrides) {
 
 assert.strictEqual(displayRowCap(), 2000);
 assert.strictEqual(displayRowCap({ weakDevice: true }), 250);
-assert.deepStrictEqual(
+assert.strictEqual(
 	displayRowCap({ rowLimit: 100, weakDevice: true }),
 	100,
 	'weak-device cap must not raise a lower user limit'
@@ -55,10 +55,11 @@ assert.strictEqual(
 		visibleRowCount: 1,
 		visibleHeadId: 'a',
 		lastRenderedRowCount: 1,
-		lastRenderedHeadId: 'a'
+		lastRenderedHeadId: 'a',
+		lastBatchNewIdCount: 7
 	}),
 	0,
-	'unchanged rows cost nothing'
+	'unchanged rows cost nothing even with new batch IDs'
 );
 assert.strictEqual(
 	renderCost({
@@ -92,6 +93,17 @@ assert.strictEqual(
 	}),
 	1,
 	'shrinking visible count uses unit cost'
+);
+assert.strictEqual(
+	renderCost({
+		visibleRowCount: 2,
+		visibleHeadId: 'b',
+		lastRenderedRowCount: 1,
+		lastRenderedHeadId: 'a',
+		lastBatchNewIdCount: 7
+	}),
+	1,
+	'count change must beat batch cost when the head also moves'
 );
 assert.strictEqual(
 	renderCost({

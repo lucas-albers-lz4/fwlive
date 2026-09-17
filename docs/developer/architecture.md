@@ -35,6 +35,7 @@ flowchart TB
 |--------|----------|----------------|
 | **View shell** | `htdocs/.../view/status/fwlive.js` | Layout, fetch/render handlers, pause/limit, DOM, click-to-filter |
 | **Poll coordinator** | `htdocs/.../fwlive/poll-coordinator.js` | Request serialization, epochs, visibility subscription, cadence registration, and terminal disposal |
+| **Render policy** | `htdocs/.../fwlive/render-policy.js` | Pure weak-device display-cap and render-cost decisions |
 | **Log brain** | `htdocs/.../fwlive/log.js` | `isFirewallEvent`, `normalizeEntry`, filters, display helpers (classify from `CLASSIFY_SPEC`) |
 | **Test twin / SoT** | `core/fwlive-log.js` | Editable source of truth + CLI; `CLASSIFY_SPEC` drives classify |
 | **Shell classifier** | `root/usr/libexec/fwlive-is-firewall-event.sh` | **Generated** from `CLASSIFY_SPEC` via `gen-shell-classifier.js` (committed; SDK does not run Node) |

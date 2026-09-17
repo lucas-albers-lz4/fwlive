@@ -131,6 +131,7 @@ echo "== fwlive theme tint helpers ==" >&2
 
 echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js
+
 echo "== fwlive render policy ==" >&2
 "$NODE" tests/fwlive-render-policy.test.js
 
