@@ -102,6 +102,7 @@ return view.extend({
 	entries: [],
 	sessionSeen: null,
 	pauseBufferLoading: false,
+	/* Freezes row rendering while polling, health, and cadence updates continue. */
 	tablePaused: false,
 	/* One-shot: first live poll after unpause merges instead of replacing. */
 	resumeMerge: false,
@@ -1386,7 +1387,7 @@ return view.extend({
 		 * device's rendered-row cap is called out separately in statusSuffix(). */
 		const limit = this.rowLimit;
 		const suffix = this.statusSuffix();
-		/* While paused the buffer can grow past the display limit — count matches
+		/* While the table is paused the buffer can grow past the display limit — count matches
 		 * over the full buffer so "matching" is not capped at visibleRows. */
 		let shown = matchCount;
 		if (this.tablePaused) {
