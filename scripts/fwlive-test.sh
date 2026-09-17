@@ -135,6 +135,9 @@ echo "== fwlive extracted modules smoke ==" >&2
 echo "== fwlive render policy ==" >&2
 "$NODE" tests/fwlive-render-policy.test.js
 
+echo "== fwlive render scheduler ==" >&2
+"$NODE" tests/fwlive-render-scheduler.test.js
+
 echo "== fwlive view poll contract (#233 / #240) =="
 "$NODE" tests/fwlive-view-poll-error.test.js
 

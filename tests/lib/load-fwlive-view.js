@@ -136,12 +136,15 @@ function loadFwliveView(options) {
 	const pollCoordinator = loadFwliveModule('poll-coordinator');
 	const proto = loadFwliveModule('proto', { document: document });
 	const renderPolicy = loadFwliveModule('render-policy');
+	const renderScheduler = loadFwliveModule('render-scheduler');
 
 	const pollOps = [];
 	const requestAnimationFrame =
 		typeof options.requestAnimationFrame === 'function'
 			? options.requestAnimationFrame
 			: function() { return 0; };
+	const cancelAnimationFrame =
+		typeof options.cancelAnimationFrame === 'function' ? options.cancelAnimationFrame : null;
 	const poll = {
 		add: function(fn, interval) {
 			pollOps.push({ op: 'add', interval: interval });
@@ -201,7 +204,8 @@ function loadFwliveView(options) {
 			const index = listeners.indexOf(fn);
 			if (index !== -1) listeners.splice(index, 1);
 		},
-		requestAnimationFrame: requestAnimationFrame
+		requestAnimationFrame: requestAnimationFrame,
+		cancelAnimationFrame: cancelAnimationFrame
 	};
 
 	const src = fs.readFileSync(VIEW_PATH, 'utf8');
@@ -212,14 +216,14 @@ function loadFwliveView(options) {
 
 	const fn = new Function(
 		'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
-		'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'E', '_', 'document', 'window', 'localStorage',
+		'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'renderScheduler', 'E', '_', 'document', 'window', 'localStorage',
 		'performance', 'requestAnimationFrame', 'location',
 		body
 	);
 
 	const viewDesc = fn(
 		view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
-		pollCoordinator, renderPolicy,
+		pollCoordinator, renderPolicy, renderScheduler,
 		luciE.E, fakeGettext, document, win, localStorage,
 		{ now: function() { return Date.now(); } },
 		requestAnimationFrame, location
@@ -235,6 +239,7 @@ function loadFwliveView(options) {
 	return {
 		view: viewDesc,
 		document: document,
+		window: win,
 		location: location,
 		poll: poll,
 		rpcMocks: rpcMocks,

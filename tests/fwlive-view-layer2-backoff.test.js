@@ -726,7 +726,107 @@ async function testStaleAnimationFrameIsDropped() {
 	assert.strictEqual(frames.length, 1, 'current request must be requeued');
 	frames.shift()();
 	assert.strictEqual(renders, 2);
+	v.scheduleRenderRows(true);
+	v.disposeView();
+	frames.shift()();
+	assert.strictEqual(renders, 2, 'disposed view must drop pending paint');
 	console.log('fwlive-view layer2: stale animation frame guard OK');
+}
+
+async function testAnimationFrameAdaptersPreserveWindowReceiver() {
+	const frames = [];
+	let requestReceiver = null;
+	let cancelReceiver = null;
+	const h = loadFwliveView({
+		requestAnimationFrame: function (fn) {
+			requestReceiver = this;
+			frames.push(fn);
+			return 42;
+		},
+		cancelAnimationFrame: function (id) {
+			cancelReceiver = this;
+			assert.strictEqual(id, 42);
+		}
+	});
+
+	h.view.scheduleRenderRows(true);
+	h.view.disposeView();
+	assert.strictEqual(
+		requestReceiver,
+		h.window,
+		'requestAnimationFrame must keep window as receiver'
+	);
+	assert.strictEqual(
+		cancelReceiver,
+		h.window,
+		'cancelAnimationFrame must keep window as receiver'
+	);
+	assert.strictEqual(frames.length, 1);
+	console.log('fwlive-view layer2: animation-frame adapters preserve window receiver OK');
+}
+
+async function testLimitRefreshPreservesQueuedForce() {
+	const frames = [];
+	const h = loadFwliveView({ requestAnimationFrame: (fn) => {
+		frames.push(fn);
+		return frames.length;
+	} });
+	const v = h.view;
+	const renders = [];
+	v.renderRows = (force) => renders.push(force);
+	v.requestPoll = () =>
+		Promise.resolve().then(() => {
+			/* Model hostname resolution queuing a forced repaint before the
+			 * refresh completion cleanup runs. */
+			v.scheduleRenderRows(true);
+		});
+
+	v.scheduleRenderRows(false);
+	v.onRowLimitChange({ target: { value: '500' } });
+	assert.deepStrictEqual(renders, [true], 'Limit paints the current buffer immediately');
+	await sleep(0);
+	assert.deepStrictEqual(renders, [true, true], 'Limit paints again after refresh');
+	frames.shift()();
+	assert.deepStrictEqual(
+		renders,
+		[true, true, true],
+		'Limit cleanup cannot erase a force queued before cleanup'
+	);
+	console.log('fwlive-view layer2: Limit preserves queued force OK');
+}
+
+async function testLimitPaintDoesNotWaitForHostnames() {
+	const frames = [];
+	const h = loadFwliveView({ requestAnimationFrame: (fn) => {
+		frames.push(fn);
+		return frames.length;
+	} });
+	const v = h.view;
+	const renders = [];
+	let releaseNames;
+	let resolving = false;
+	const names = new Promise(resolve => { releaseNames = resolve; });
+	v.fetchEntries = async () => {};
+	v.resolveHostnamesForEntries = () => {
+		resolving = true;
+		return names;
+	};
+	v.renderRows = (force) => renders.push(force);
+	const requestPoll = v.requestPoll.bind(v);
+	let refresh;
+	v.requestPoll = () => { refresh = requestPoll(); return refresh; };
+
+	v.onRowLimitChange({ target: { value: '500' } });
+	await Promise.resolve();
+	assert.strictEqual(resolving, true, 'poll must be waiting for hostname resolution');
+	assert.strictEqual(frames.length, 1, 'fresh rows have a frame before names return');
+	frames.shift()();
+	assert.deepStrictEqual(renders, [true, true], 'Limit refresh bypasses throttle before names return');
+	releaseNames();
+	await refresh;
+	await Promise.resolve();
+	assert.deepStrictEqual(renders, [true, true, true], 'completion preserves the final forced paint');
+	console.log('fwlive-view layer2: Limit paints before hostname completion OK');
 }
 
 (async function main() {
@@ -748,6 +848,9 @@ async function testStaleAnimationFrameIsDropped() {
 		await testResumeStaleSkipsRender();
 		await testResumeMergeSurvivesVisibilityRace();
 		await testStaleAnimationFrameIsDropped();
+		await testAnimationFrameAdaptersPreserveWindowReceiver();
+		await testLimitRefreshPreservesQueuedForce();
+		await testLimitPaintDoesNotWaitForHostnames();
 		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {
