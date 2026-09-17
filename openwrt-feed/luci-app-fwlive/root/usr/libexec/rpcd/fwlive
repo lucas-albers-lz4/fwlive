@@ -545,8 +545,8 @@ is_resolvable_address() {
 	# Reject anything outside the address alphabet BEFORE awk, so embedded
 	# newlines/whitespace (which awk would treat as record separators) can
 	# never let a valid first record mask trailing garbage that still reaches
-	# nslookup only ever sees a single
-	# token. Note the check intentionally allows only hex/colon/dot.
+	# nslookup. It must see a single token. Note the check intentionally allows
+	# only hex/colon/dot.
 	case "$addr" in
 		*[!0-9a-fA-F:.]*) return 1 ;;
 	esac

@@ -82,43 +82,17 @@ grep -q '^## Dependencies$' "$CUT_WORK/cut/README.md" \
 	|| die "cut README lost the Dependencies section"
 ok "cut README is layout/deps only, no out-of-tree GitHub links"
 
-# Keep the feed source in the same comment shape as the luci-shaped cut. The
-# generated awk classifier is exempt because it is regenerated from the core
-# source; css.js and tint.js are exempt because their comment-like content can
-# contain CSS color values. Tests, changelog, and repo docs keep tracker ids.
-python3 - "$ROOT/openwrt-feed" <<'PY' || die "feed comments contain tracker ids"
+check_comment_policy() {
+	local root="$1"
+	local reject_repo="$2"
+	python3 - "$root" "$reject_repo" <<'PY'
 import re, sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-pat = re.compile(r'(?i)(?:issue\s+|Grok\s+)?#\d{2,}')
-skip_names = {'css.js', 'tint.js', 'fwlive-is-firewall-event.awk'}
-hits = []
-for path in root.rglob('*'):
-    if not path.is_file() or path.suffix == '.pot' or path.name in skip_names:
-        continue
-    text = path.read_text(encoding='utf-8')
-    for i, line in enumerate(text.splitlines(), 1):
-        stripped = line.lstrip()
-        if not (stripped.startswith('#') or stripped.startswith('//')
-                or stripped.startswith('/*') or stripped.startswith('* ')):
-            continue
-        for m in pat.finditer(line):
-            raw = line[m.start():]
-            if re.match(r'#[0-9a-fA-F]*[a-fA-F]', raw) or re.match(r'#[0-9a-fA-F]{6}\b', raw):
-                continue
-            hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
-if hits:
-    print('\n'.join(hits[:20]))
-    sys.exit(1)
-PY
-ok "feed comments have no tracker ids"
-
-# Tracker ids in comments auto-link to the luci issue tracker (openwrt/luci#8992).
-python3 - "$CUT_WORK/cut" <<'PY' || die "cut comments still contain tracker ids or GitHub org"
-import re, sys
-from pathlib import Path
-root = Path(sys.argv[1])
+reject_repo = sys.argv[2] == '1'
+# Keep \d{2,}: single-digit #N prose references are intentionally outside
+# this gate, avoiding false positives such as "option #1".
 pat = re.compile(r'(?i)(?:issue\s+|Grok\s+)?#\d{2,}')
 hits = []
 for path in root.rglob('*'):
@@ -130,7 +104,7 @@ for path in root.rglob('*'):
         if not (stripped.startswith('#') or stripped.startswith('//')
                 or stripped.startswith('/*') or stripped.startswith('* ')):
             continue
-        if 'lucas-albers' in line:
+        if reject_repo and 'lucas-albers' in line:
             hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
             continue
         for m in pat.finditer(line):
@@ -142,6 +116,17 @@ if hits:
     print('\n'.join(hits[:20]))
     sys.exit(1)
 PY
+}
+
+# Keep the feed source and luci-shaped cut in the same comment shape. Tests,
+# changelog, and repo docs keep tracker ids because they are outside the feed.
+check_comment_policy "$ROOT/openwrt-feed" 0 \
+    || die "feed comments contain tracker ids"
+ok "feed comments have no tracker ids"
+
+# Tracker ids in comments auto-link to the luci issue tracker (openwrt/luci#8992).
+check_comment_policy "$CUT_WORK/cut" 1 \
+    || die "cut comments still contain tracker ids or GitHub org"
 ok "cut comments have no tracker ids or GitHub org"
 
 [ -f "$CUT_WORK/cut/po/templates/luci-app-fwlive.pot" ] \
