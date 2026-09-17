@@ -246,7 +246,7 @@ async function testBudgetChangesRespectCadence() {
 	let idleCalls = 0;
 	idleView.updateStreamControlsUi = function () {};
 	idleView.rpcPreferencesResolved = true;
-	idleView.pollCadenceSec = 5;
+	idleView.setPollCadence(5);
 	idleView.requestPoll = function () {
 		idleCalls++;
 		return Promise.resolve();
@@ -277,7 +277,7 @@ async function testBudgetChangesRespectCadence() {
 	const inFlightView = inFlight.view;
 	inFlightView.updateStreamControlsUi = function () {};
 	inFlightView.rpcPreferencesResolved = true;
-	inFlightView.pollCadenceSec = 5;
+	inFlightView.setPollCadence(5);
 	const current = inFlightView.requestPoll();
 	await sleep(10);
 	inFlightView.onFetchModeChange({ target: { value: 'manual' } });
@@ -333,7 +333,7 @@ async function testLimitChangeWhileHiddenUsesVisibleCatchup() {
 	}
 	});
 	const v = h.view;
-	v.bindVisibility();
+	v.ensurePollCoordinator().startPolling();
 	v.rpcPreferencesResolved = true;
 	h.setHidden(true);
 	v.onRowLimitChange({ target: { value: '25' } });
@@ -372,7 +372,7 @@ async function testLimitAndVisibilityDuringInFlightRequest() {
 	v.rowLimit = 25;
 	v.fetchMode = 'auto';
 	v.rpcPreferencesResolved = true;
-	v.bindVisibility();
+	v.ensurePollCoordinator().startPolling();
 
 	const first = v.requestPoll();
 	await sleep(10);
@@ -381,8 +381,8 @@ async function testLimitAndVisibilityDuringInFlightRequest() {
 
 	v.onRowLimitChange({ target: { value: '500' } });
 	h.setHidden(true);
-	assert.strictEqual(v.coordinatorDisposed, false, 'visibility hide must not dispose coordinator');
-	assert.strictEqual(v.pollRequestQueued, true, 'Limit refresh must remain queued while hidden');
+	assert.strictEqual(v.ensurePollCoordinator().getState().disposed, false, 'visibility hide must not dispose coordinator');
+	assert.strictEqual(v.ensurePollCoordinator().getState().queued, true, 'Limit refresh must remain queued while hidden');
 	release();
 	await first;
 	await sleep(10);
@@ -470,17 +470,73 @@ async function testPagehideDisposesCoordinator() {
 	assert.strictEqual(calls, 1, 'load must have one active request');
 	const queued = v.requestPoll();
 	assert.strictEqual(calls, 1, 'second request must be queued before pagehide');
+	v.updateStreamControlsUi = function () {};
+	v.onPauseClick();
+	let statusUpdates = 0;
+	v.updateStatus = function () { statusUpdates++; };
 	h.dispatchPagehide();
 	await queued;
 	await loading;
-	assert.strictEqual(v.pollDataInFlight, false, 'pagehide must settle active waiters');
+	await sleep(0);
+	assert.strictEqual(statusUpdates, 0, 'settled Pause callback must not update the departed view');
+	assert.strictEqual(v.pagehideHandler, null, 'pagehide must remove its listener');
+	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'pagehide must settle active waiters');
 	release();
 	await sleep(10);
 	assert.strictEqual(v.entries.length, 0, 'pagehide must discard a real active reply');
 	assert.strictEqual(calls, 1, 'pagehide must not start a queued request');
 	await v.requestPoll();
+	await v.load();
 	assert.strictEqual(calls, 1, 'disposed coordinator must ignore later poll requests');
 	console.log('fwlive-view fetch-budget: pagehide disposal contract OK');
+}
+
+async function testPersistedPagehideKeepsCoordinator() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.loadRulesMap = function () { return Promise.resolve(); };
+	v.loadLoggingStatus = function () { return Promise.resolve(); };
+	await v.load();
+	const handler = v.pagehideHandler;
+	assert.ok(handler, 'load must bind pagehide');
+	h.dispatchPagehide({ persisted: true });
+	assert.strictEqual(v.pagehideHandler, handler, 'BFCache pagehide keeps the listener');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().disposed,
+		false,
+		'BFCache pagehide must not dispose the coordinator'
+	);
+	h.dispatchPagehide({ persisted: false });
+	assert.strictEqual(v.pagehideHandler, null, 'ordinary pagehide still disposes the view');
+	assert.strictEqual(v.ensurePollCoordinator().getState().disposed, true);
+	console.log('fwlive-view fetch-budget: persisted pagehide keeps coordinator OK');
+}
+
+async function testPagehideDuringHostnameResolution() {
+	let release;
+	const gate = new Promise(resolve => { release = resolve; });
+	const h = loadFwliveView({ rpcMocks: {
+		'fwlive.poll': async function () {
+			return { log: [{ id: 914, time: 1717675742,
+				msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP SPT=49210 DPT=443' }] };
+		},
+		'fwlive.resolve': async function () { return gate; }
+	} });
+	const v = h.view;
+	v.showHostnames = true;
+	v.loadRulesMap = v.loadLoggingStatus = () => Promise.resolve();
+	const loading = v.load();
+	await sleep(10);
+	assert.strictEqual(v.resolveInFlight, true, 'hostname work must be active before disposal');
+	let updates = 0;
+	v.scheduleRenderRows = v.updateAdaptiveBanner = () => { updates++; };
+	h.dispatchPagehide();
+	await loading;
+	release({ names: { '192.0.2.1': 'late.example' } });
+	await sleep(10);
+	assert.strictEqual(v.hostnameCache.size, 0, 'late hostname result must not enter the cache');
+	assert.strictEqual(updates, 0, 'late hostname result must not update the departed view');
+	console.log('fwlive-view fetch-budget: pagehide during hostname resolution OK');
 }
 
 async function main() {
@@ -496,6 +552,8 @@ async function main() {
 	await testLimitAndVisibilityDuringInFlightRequest();
 	await testFillingStopRules();
 	await testPagehideDisposesCoordinator();
+	await testPersistedPagehideKeepsCoordinator();
+	await testPagehideDuringHostnameResolution();
 	console.log('fwlive-view fetch-budget tests passed');
 }
 

@@ -2,7 +2,8 @@
 'use strict';
 
 /**
- * Smoke-load extracted fwlive modules (constants, links, chips, logging, table).
+ * Smoke-load extracted fwlive modules (constants, links, chips, logging, table,
+ * poll coordinator).
  * Stubs LuCI globals; exercises public APIs enough to catch extract regressions.
  */
 
@@ -71,6 +72,11 @@ assert.ok(
 	'fetchEntries must read log array from the full poll reply object'
 );
 console.log('fwlive-modules smoke: constants OK');
+
+/* --- poll coordinator --- */
+const pollCoordinator = loadFwliveModule('poll-coordinator');
+assert.strictEqual(typeof pollCoordinator.create, 'function');
+console.log('fwlive-modules smoke: poll coordinator OK');
 
 /* --- log (needed by links/chips/table) --- */
 const log = loadFwliveModule('log');

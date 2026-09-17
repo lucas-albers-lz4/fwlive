@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * pollDataInFlight guard (#240 Tier 1.7): overlapping pollData() is a no-op.
+ * Request guard (#240 Tier 1.7): refreshes coalesce behind the active request.
  */
 
 const assert = require('node:assert/strict');
@@ -33,7 +33,7 @@ function deferredPoll(reply) {
 	return mock;
 }
 
-async function testPollDataInFlightGuard() {
+async function testRequestCoalescing() {
 	const pollMock = deferredPoll({ log: [] });
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -46,11 +46,11 @@ async function testPollDataInFlightGuard() {
 	const view = h.view;
 	view.paused = true;
 
-	const first = view.pollData();
-	assert.strictEqual(pollMock.calls(), 1, 'first pollData must invoke poll once');
+	const first = view.requestPoll();
+	assert.strictEqual(pollMock.calls(), 1, 'first request must invoke poll once');
 
-	const queued = view.pollData();
-	assert.strictEqual(pollMock.calls(), 1, 'second pollData while in-flight must not overlap');
+	const queued = view.requestPoll();
+	assert.strictEqual(pollMock.calls(), 1, 'second request while in-flight must not overlap');
 
 	pollMock.release();
 	await first;
@@ -58,7 +58,7 @@ async function testPollDataInFlightGuard() {
 	pollMock.release();
 	await queued;
 
-	view.pollData();
+	view.requestPoll();
 	await new Promise(function (r) {
 		setTimeout(r, 10);
 	});
@@ -68,7 +68,7 @@ async function testPollDataInFlightGuard() {
 
 (async function main() {
 	try {
-		await testPollDataInFlightGuard();
+		await testRequestCoalescing();
 		console.log('fwlive-view poll-guard tests passed');
 	} catch (e) {
 		fail(e && e.stack ? e.stack : String(e));

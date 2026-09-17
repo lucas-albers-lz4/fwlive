@@ -102,8 +102,7 @@ async function testVisibilityStopsPoll() {
 		}
 	});
 	const v = h.view;
-	v.bindVisibility();
-	v.pollFn = v.pollData.bind(v);
+	v.ensurePollCoordinator().startPolling();
 	v.setPollCadence(1);
 	h.poll.clearOps();
 
@@ -116,8 +115,8 @@ async function testVisibilityStopsPoll() {
 		'hidden must remove poll'
 	);
 
-	await v.pollData();
-	assert.strictEqual(v.pollDataInFlight, false, 'hidden pollData is a no-op');
+	await v.requestPoll();
+	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'hidden request is a no-op');
 
 	h.poll.clearOps();
 	h.setHidden(false);
@@ -156,23 +155,24 @@ async function testEpochDiscardsStale() {
 	});
 	const v = h.view;
 	v.paused = true;
-	const p = v.pollData();
+	const p = v.requestPoll();
 	assert.strictEqual(calls, 1);
-	const epochAtStart = v.pollEpoch;
-	v.bumpPollEpoch();
-	assert.notStrictEqual(v.pollEpoch, epochAtStart);
+	const epochAtStart = v.currentPollEpoch();
+	v.ensurePollCoordinator().startPolling();
+	h.setHidden(true);
+	assert.notStrictEqual(v.currentPollEpoch(), epochAtStart);
 	release();
 	await p;
 	assert.strictEqual(v.entries.length, 0, 'stale epoch must not apply rows');
 	/* The stale request is still the only request, so its completion releases
 	 * the coordinator. A later visible catch-up can then start normally. */
-	assert.strictEqual(v.pollDataInFlight, false, 'completed stale poll must release the guard');
+	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'completed stale poll must release the guard');
 
 	/* Control: visible catch-up ingests. */
 	h.setRpcMock('fwlive.poll', async function () {
 		return { log: [row], adaptive: 1 };
 	});
-	v.resumePollingAfterVisible();
+	h.setHidden(false);
 	await sleep(30);
 	assert.ok(v.entries.length >= 1, 'fresh epoch must apply rows');
 	console.log('fwlive-view layer2: epoch discard OK');
@@ -207,33 +207,32 @@ async function testHideShowWhileInFlightNoOverlap() {
 		}
 	});
 	const v = h.view;
-	v.bindVisibility();
-	v.pollFn = v.pollData.bind(v);
+	v.ensurePollCoordinator().startPolling();
 	v.paused = true;
 
-	const first = v.pollData();
+	const first = v.requestPoll();
 	assert.strictEqual(calls, 1);
-	assert.strictEqual(v.pollDataInFlight, true);
+	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, true);
 
 	/* Hide while RPC outstanding — bumps epoch; stale must not clear catch-up guard. */
 	h.setHidden(true);
-	assert.ok(v.pollEpoch >= 1);
+	assert.ok(v.currentPollEpoch() >= 1);
 
 	/* Show queues catch-up while the first request is still gated. */
 	h.setHidden(false);
 	await sleep(10);
 	assert.strictEqual(calls, 1, 'resume catch-up must not overlap the hidden request');
-	assert.strictEqual(v.pollDataInFlight, true, 'hidden request retains the in-flight guard');
+	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, true, 'hidden request retains the in-flight guard');
 
 	/* Stale first completes — the queued catch-up may now start. */
 	release1();
 	await first;
-	assert.strictEqual(v.pollDataInFlight, true, 'queued catch-up owns the in-flight guard');
+	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, true, 'queued catch-up owns the in-flight guard');
 	assert.strictEqual(calls, 2, 'stale completion must start the queued catch-up');
 
 	release2();
 	await sleep(30);
-	assert.strictEqual(v.pollDataInFlight, false, 'catch-up finally clears its own guard');
+	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'catch-up finally clears its own guard');
 	assert.ok(v.entries.length >= 1);
 	const ids = {};
 	for (let i = 0; i < v.entries.length; i++) ids[v.entries[i].id] = true;
@@ -276,7 +275,7 @@ async function testRefreshTriggersSerialize() {
 	v.saveRowLimit = function () {};
 	v.paused = false;
 
-	const first = v.pollData();
+	const first = v.requestPoll();
 	v.onPauseClick();
 	v.onRowLimitChange({ target: { value: '50' } });
 	assert.strictEqual(calls, 1, 'Pause and Limit must not overlap the active request');
@@ -294,7 +293,7 @@ async function testRefreshTriggersSerialize() {
 	assert.strictEqual(calls, 3, 'Resume must start only after the prior request completes');
 	releases[2]();
 	await sleep(20);
-	assert.strictEqual(v.pollDataInFlight, false, 'all serialized requests must settle');
+	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'all serialized requests must settle');
 
 	/* Startup uses the same coordinator entry point. */
 	const h2 = loadFwliveView();
@@ -328,14 +327,14 @@ async function testCadenceHysteresis() {
 	});
 	const v = h.view;
 	const c = loadFwliveModule('constants');
-	v.pollFn = v.pollData.bind(v);
+	v.ensurePollCoordinator().startPolling();
 	v.serverAdaptive = 1;
 	v.setPollCadence(c.POLL_CADENCE_FAST_S);
 	h.poll.clearOps();
 
 	for (let i = 0; i < c.POLL_RTT_STREAK; i++) v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
 
-	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_SLOW_S);
+	assert.strictEqual(v.ensurePollCoordinator().getState().cadenceSec, c.POLL_CADENCE_SLOW_S);
 	assert.strictEqual(v.degradedSampling, true);
 	assert.ok(
 		h.poll.ops().some(function (o) {
@@ -345,7 +344,7 @@ async function testCadenceHysteresis() {
 
 	v.resetRttHistory();
 	for (let i = 0; i < c.POLL_RTT_STREAK; i++) v.notePollRtt(50, false);
-	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_FAST_S);
+	assert.strictEqual(v.ensurePollCoordinator().getState().cadenceSec, c.POLL_CADENCE_FAST_S);
 	assert.strictEqual(v.degradedSampling, false);
 	console.log('fwlive-view layer2: cadence hysteresis OK');
 }
@@ -363,14 +362,14 @@ async function testAdaptiveOffDisablesBackoff() {
 	});
 	const v = h.view;
 	const c = loadFwliveModule('constants');
-	v.pollFn = v.pollData.bind(v);
+	v.ensurePollCoordinator().startPolling();
 	await v.fetchEntries();
 	assert.strictEqual(v.serverAdaptive, 0);
 	assert.strictEqual(v.serverTruncated, 1);
 	v.notePollRtt(5000, false);
 	v.notePollRtt(5000, false);
 	v.notePollRtt(5000, false);
-	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_FAST_S, 'adaptive:0 keeps 1s');
+	assert.strictEqual(v.ensurePollCoordinator().getState().cadenceSec, c.POLL_CADENCE_FAST_S, 'adaptive:0 keeps 1s');
 	assert.strictEqual(v.degradedSampling, false);
 	v.updateAdaptiveBanner();
 	const el = h.document.getElementById('fwlive-adaptive');
@@ -483,7 +482,7 @@ async function testStreakResetOnAdaptiveOff() {
 	});
 	const v = h.view;
 	const c = loadFwliveModule('constants');
-	v.pollFn = v.pollData.bind(v);
+	v.ensurePollCoordinator().startPolling();
 	v.serverAdaptive = 1;
 	v.setPollCadence(c.POLL_CADENCE_FAST_S);
 	h.poll.clearOps();
@@ -491,7 +490,7 @@ async function testStreakResetOnAdaptiveOff() {
 	/* Two slow samples: below the N=3 streak, no trip. */
 	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
 	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
-	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_FAST_S);
+	assert.strictEqual(v.ensurePollCoordinator().getState().cadenceSec, c.POLL_CADENCE_FAST_S);
 
 	/* adaptive:0 window must drop the partial streak. */
 	v.serverAdaptive = 0;
@@ -502,9 +501,9 @@ async function testStreakResetOnAdaptiveOff() {
 	v.serverAdaptive = 1;
 	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
 	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
-	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_FAST_S);
+	assert.strictEqual(v.ensurePollCoordinator().getState().cadenceSec, c.POLL_CADENCE_FAST_S);
 	v.notePollRtt(c.POLL_RTT_SLOW_MS + 50, false);
-	assert.strictEqual(v.pollCadenceSec, c.POLL_CADENCE_SLOW_S);
+	assert.strictEqual(v.ensurePollCoordinator().getState().cadenceSec, c.POLL_CADENCE_SLOW_S);
 	console.log('fwlive-view layer2: adaptive:0 streak reset OK');
 }
 
@@ -597,7 +596,8 @@ async function testResumeStaleSkipsRender() {
 		};
 		v.paused = true;
 		v.onPauseClick();
-		if (stale) v.bumpPollEpoch();
+		v.ensurePollCoordinator().startPolling();
+		if (stale) h.setHidden(true);
 		release();
 		await sleep(20);
 		return renders;
@@ -644,8 +644,7 @@ async function testResumeMergeSurvivesVisibilityRace() {
 		v.updateStreamControlsUi = function () {};
 		v.entries = [{ id: 'pause-only', log_id: 0, timestamp: 1 }];
 		v.paused = true;
-		v.bindVisibility();
-		v.pollFn = v.pollData.bind(v);
+		v.ensurePollCoordinator().startPolling();
 
 		/* Resume starts the first request with the pause-buffer merge obligation. */
 		v.onPauseClick();
@@ -707,7 +706,8 @@ async function testStaleAnimationFrameIsDropped() {
 
 	v.scheduleRenderRows(true);
 	assert.strictEqual(frames.length, 1);
-	v.bumpPollEpoch();
+	v.ensurePollCoordinator().startPolling();
+	h.setHidden(true);
 	frames.shift()();
 	assert.strictEqual(renders, 0, 'old visibility epoch must not paint');
 
@@ -719,7 +719,7 @@ async function testStaleAnimationFrameIsDropped() {
 
 	/* If the new request arrives before the old callback, requeue it. */
 	v.scheduleRenderRows(true);
-	v.bumpPollEpoch();
+	h.setHidden(false);
 	v.scheduleRenderRows(false);
 	frames.shift()();
 	assert.strictEqual(renders, 1, 'stale callback must not paint queued rows');

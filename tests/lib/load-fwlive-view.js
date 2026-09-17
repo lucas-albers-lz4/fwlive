@@ -133,6 +133,7 @@ function loadFwliveView(options) {
 	const table = loadFwliveModule('table', { log: log, links: links });
 	const buffer = loadFwliveModule('buffer');
 	const hostname = loadFwliveModule('hostname');
+	const pollCoordinator = loadFwliveModule('poll-coordinator');
 	const proto = loadFwliveModule('proto', { document: document });
 
 	const pollOps = [];
@@ -194,6 +195,11 @@ function loadFwliveView(options) {
 			if (!windowListeners[type]) windowListeners[type] = [];
 			windowListeners[type].push(fn);
 		},
+		removeEventListener: function(type, fn) {
+			const listeners = windowListeners[type] || [];
+			const index = listeners.indexOf(fn);
+			if (index !== -1) listeners.splice(index, 1);
+		},
 		requestAnimationFrame: requestAnimationFrame
 	};
 
@@ -205,13 +211,14 @@ function loadFwliveView(options) {
 
 	const fn = new Function(
 		'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
-		'table', 'buffer', 'hostname', 'proto', 'E', '_', 'document', 'window', 'localStorage',
+		'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'E', '_', 'document', 'window', 'localStorage',
 		'performance', 'requestAnimationFrame', 'location',
 		body
 	);
 
 	const viewDesc = fn(
 		view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
+		pollCoordinator,
 		luciE.E, fakeGettext, document, win, localStorage,
 		{ now: function() { return Date.now(); } },
 		requestAnimationFrame, location
@@ -237,9 +244,9 @@ function loadFwliveView(options) {
 			document.hidden = !!hidden;
 			document.dispatchVisibility();
 		},
-		dispatchPagehide: function() {
-			const listeners = windowListeners.pagehide || [];
-			for (let i = 0; i < listeners.length; i++) listeners[i]();
+		dispatchPagehide: function(event) {
+			const listeners = (windowListeners.pagehide || []).slice();
+			for (let i = 0; i < listeners.length; i++) listeners[i](event);
 		}
 	};
 }
