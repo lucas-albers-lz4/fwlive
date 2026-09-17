@@ -733,6 +733,38 @@ async function testStaleAnimationFrameIsDropped() {
 	console.log('fwlive-view layer2: stale animation frame guard OK');
 }
 
+async function testAnimationFrameAdaptersPreserveWindowReceiver() {
+	const frames = [];
+	let requestReceiver = null;
+	let cancelReceiver = null;
+	const h = loadFwliveView({
+		requestAnimationFrame: function (fn) {
+			requestReceiver = this;
+			frames.push(fn);
+			return 42;
+		},
+		cancelAnimationFrame: function (id) {
+			cancelReceiver = this;
+			assert.strictEqual(id, 42);
+		}
+	});
+
+	h.view.scheduleRenderRows(true);
+	h.view.disposeView();
+	assert.strictEqual(
+		requestReceiver,
+		h.window,
+		'requestAnimationFrame must keep window as receiver'
+	);
+	assert.strictEqual(
+		cancelReceiver,
+		h.window,
+		'cancelAnimationFrame must keep window as receiver'
+	);
+	assert.strictEqual(frames.length, 1);
+	console.log('fwlive-view layer2: animation-frame adapters preserve window receiver OK');
+}
+
 async function testLimitRefreshPreservesQueuedForce() {
 	const frames = [];
 	const h = loadFwliveView({ requestAnimationFrame: (fn) => {
@@ -742,19 +774,24 @@ async function testLimitRefreshPreservesQueuedForce() {
 	const v = h.view;
 	const renders = [];
 	v.renderRows = (force) => renders.push(force);
-	v.requestPoll = () => Promise.resolve();
+	v.requestPoll = () =>
+		Promise.resolve().then(() => {
+			/* Model hostname resolution queuing a forced repaint before the
+			 * refresh completion cleanup runs. */
+			v.scheduleRenderRows(true);
+		});
 
 	v.scheduleRenderRows(false);
 	v.onRowLimitChange({ target: { value: '500' } });
 	assert.deepStrictEqual(renders, [true], 'Limit paints the current buffer immediately');
-	await Promise.resolve();
+	await sleep(0);
 	assert.deepStrictEqual(renders, [true, true], 'Limit paints again after refresh');
-	/* A hostname reply can request a forced repaint between poll completion
-	 * and the Limit promise settling. Its intent belongs to the pending frame. */
-	v.scheduleRenderRows(true);
-	await Promise.resolve();
 	frames.shift()();
-	assert.deepStrictEqual(renders, [true, true, true], 'Limit cleanup cannot erase queued force');
+	assert.deepStrictEqual(
+		renders,
+		[true, true, true],
+		'Limit cleanup cannot erase a force queued before cleanup'
+	);
 	console.log('fwlive-view layer2: Limit preserves queued force OK');
 }
 
@@ -811,6 +848,7 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 		await testResumeStaleSkipsRender();
 		await testResumeMergeSurvivesVisibilityRace();
 		await testStaleAnimationFrameIsDropped();
+		await testAnimationFrameAdaptersPreserveWindowReceiver();
 		await testLimitRefreshPreservesQueuedForce();
 		await testLimitPaintDoesNotWaitForHostnames();
 		await sleep(20);

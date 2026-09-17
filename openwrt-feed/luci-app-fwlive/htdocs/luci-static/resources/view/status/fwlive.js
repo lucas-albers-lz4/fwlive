@@ -1076,8 +1076,13 @@ return view.extend({
 			now: () => this.nowMs(),
 			capacity: constants.RENDER_CAP_PER_SEC,
 			requestFrame:
-				typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null,
-			cancelFrame: typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : null
+				typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+					? (cb) => window.requestAnimationFrame(cb)
+					: null,
+			cancelFrame:
+				typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function'
+					? (id) => window.cancelAnimationFrame(id)
+					: null
 		});
 		return this.renderScheduler;
 	},
@@ -1817,8 +1822,8 @@ return view.extend({
 			const runProbe = () => {
 				if (!this.tintProbeDone) this.probeRowTintPaint();
 			};
-			if (typeof requestAnimationFrame === 'function')
-				requestAnimationFrame(() => requestAnimationFrame(runProbe));
+			if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function')
+				window.requestAnimationFrame(() => window.requestAnimationFrame(runProbe));
 			else setTimeout(runProbe, 0);
 		} else if (!this.rowTintEnabled() && this.tintFallbackActive) {
 			this.clearTintFallback(document.querySelector('.fwlive-map'));

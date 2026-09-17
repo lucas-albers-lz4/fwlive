@@ -143,6 +143,8 @@ function loadFwliveView(options) {
 		typeof options.requestAnimationFrame === 'function'
 			? options.requestAnimationFrame
 			: function() { return 0; };
+	const cancelAnimationFrame =
+		typeof options.cancelAnimationFrame === 'function' ? options.cancelAnimationFrame : null;
 	const poll = {
 		add: function(fn, interval) {
 			pollOps.push({ op: 'add', interval: interval });
@@ -202,7 +204,8 @@ function loadFwliveView(options) {
 			const index = listeners.indexOf(fn);
 			if (index !== -1) listeners.splice(index, 1);
 		},
-		requestAnimationFrame: requestAnimationFrame
+		requestAnimationFrame: requestAnimationFrame,
+		cancelAnimationFrame: cancelAnimationFrame
 	};
 
 	const src = fs.readFileSync(VIEW_PATH, 'utf8');
@@ -236,6 +239,7 @@ function loadFwliveView(options) {
 	return {
 		view: viewDesc,
 		document: document,
+		window: win,
 		location: location,
 		poll: poll,
 		rpcMocks: rpcMocks,

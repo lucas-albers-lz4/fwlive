@@ -71,7 +71,7 @@ browser back/forward cache, so the listener leaves the coordinator attached;
 the browser suspends the page and the existing visibility subscription resumes
 normal polling when the page returns. A non-persisted `pagehide` calls
 `disposeView()` to remove the listener, clear its filter timer, invalidate
-hostname work, and dispose the coordinator.
+hostname work, and dispose the poll coordinator and render scheduler.
 
 Disposal is terminal: it invalidates the epoch, removes polling and visibility
 subscriptions, and settles both batches without aborting the RPC. Late replies
@@ -85,6 +85,7 @@ force survives requeue so display changes such as resolved names still paint; it
 expires when the request paints or is discarded. `shouldRender()` reserves
 budget using the pure render-cost policy, and the view calls `markRendered()`
 only after painting.
+
 The buffer application produces `lastBatchNewIdCount`; the view passes it to
 the scheduler as the budget input. The scheduler neither fetches nor owns rows.
 Limit changes reset the budget and reserve force for the next scheduled paint,
