@@ -491,6 +491,128 @@ async function testPagehideDisposesCoordinator() {
 	console.log('fwlive-view fetch-budget: pagehide disposal contract OK');
 }
 
+async function testPagehideDropsLateStartupUi() {
+	let releaseRules;
+	let releaseStatus;
+	const rulesGate = new Promise(function (resolve) {
+		releaseRules = resolve;
+	});
+	const statusGate = new Promise(function (resolve) {
+		releaseStatus = resolve;
+	});
+	let pollCalls = 0;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.rules': async function () {
+				await rulesGate;
+				return { rules: {}, backend: 'nft' };
+			},
+			'fwlive.logging_status': async function () {
+				await statusGate;
+				return { ready: true, blockers: [], warnings: [] };
+			},
+			'fwlive.poll': async function () {
+				pollCalls++;
+				return { log: [], adaptive: 1 };
+			}
+		}
+	});
+	const v = h.view;
+	v.rulesMap = { sentinel: 'keep' };
+	v.firewallBackend = 'iptables';
+	v.lastRulesError = 'keep';
+	v.loggingStatus = { sentinel: 'keep' };
+	v.weakDevice = true;
+	v.resolveGeneration = 7;
+	let backendUpdates = 0;
+	let toolbarUpdates = 0;
+	let emptyUpdates = 0;
+	v.updateBackendUi = function () { backendUpdates++; };
+	v.updateLoggingToolbarUi = function () { toolbarUpdates++; };
+	v.updateEmptyStateUi = function () { emptyUpdates++; };
+	const loading = v.load();
+	await sleep(10);
+	h.dispatchPagehide();
+	releaseRules();
+	releaseStatus();
+	await loading;
+	const inertRoot = v.render();
+	v.addFooter();
+
+	assert.strictEqual(inertRoot.childNodes.length, 0, 'disposed render must be inert');
+	assert.deepStrictEqual(v.rulesMap, { sentinel: 'keep' }, 'late rules reply must be ignored');
+	assert.strictEqual(v.firewallBackend, 'iptables', 'late rules reply must not change state');
+	assert.strictEqual(v.lastRulesError, 'keep', 'late rules error must not change state');
+	assert.deepStrictEqual(v.loggingStatus, { sentinel: 'keep' }, 'late status must be ignored');
+	assert.strictEqual(v.weakDevice, true, 'late status must not change device state');
+	assert.strictEqual(v.resolveGeneration, 8, 'late addFooter must not reset lifecycle state');
+	assert.strictEqual(backendUpdates, 0, 'late rules reply must not update backend UI');
+	assert.strictEqual(toolbarUpdates, 0, 'late status reply must not update logging UI');
+	assert.strictEqual(emptyUpdates, 0, 'late startup replies must not update empty state');
+	assert.strictEqual(pollCalls, 0, 'disposed startup must not start a poll');
+	console.log('fwlive-view fetch-budget: pagehide drops late startup UI OK');
+}
+
+async function testPagehideDropsLateStartupFailures() {
+	let rejectRules;
+	let rejectStatus;
+	const rulesGate = new Promise(function (_, reject) {
+		rejectRules = reject;
+	});
+	const statusGate = new Promise(function (_, reject) {
+		rejectStatus = reject;
+	});
+	let pollCalls = 0;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.rules': async function () {
+				await rulesGate;
+				return { rules: {} };
+			},
+			'fwlive.logging_status': async function () {
+				await statusGate;
+				return { ready: true };
+			},
+			'fwlive.poll': async function () {
+				pollCalls++;
+				return { log: [], adaptive: 1 };
+			}
+		}
+	});
+	const v = h.view;
+	v.rulesMap = { sentinel: 'keep' };
+	v.loggingStatus = { sentinel: 'keep' };
+	v.weakDevice = true;
+	let updates = 0;
+	v.updateBackendUi = function () {
+		updates++;
+	};
+	v.updateLoggingToolbarUi = function () {
+		updates++;
+	};
+	v.updateEmptyStateUi = function () {
+		updates++;
+	};
+
+	const loading = v.load();
+	await sleep(10);
+	h.dispatchPagehide();
+	rejectRules(new Error('late rules failure'));
+	rejectStatus(new Error('late status failure'));
+	await loading;
+
+	assert.deepStrictEqual(v.rulesMap, { sentinel: 'keep' }, 'late rules failure must be ignored');
+	assert.deepStrictEqual(
+		v.loggingStatus,
+		{ sentinel: 'keep' },
+		'late status failure must be ignored'
+	);
+	assert.strictEqual(v.weakDevice, true, 'late status failure must preserve state');
+	assert.strictEqual(updates, 0, 'late startup failures must not update UI');
+	assert.strictEqual(pollCalls, 0, 'failed disposed startup must not poll');
+	console.log('fwlive-view fetch-budget: pagehide drops late startup failures OK');
+}
+
 async function testPersistedPagehideKeepsCoordinator() {
 	const h = loadFwliveView();
 	const v = h.view;
@@ -552,6 +674,8 @@ async function main() {
 	await testLimitAndVisibilityDuringInFlightRequest();
 	await testFillingStopRules();
 	await testPagehideDisposesCoordinator();
+	await testPagehideDropsLateStartupUi();
+	await testPagehideDropsLateStartupFailures();
 	await testPersistedPagehideKeepsCoordinator();
 	await testPagehideDuringHostnameResolution();
 	console.log('fwlive-view fetch-budget tests passed');
