@@ -16,7 +16,7 @@ function pollReply() {
 	return { log: [], adaptive: 1 };
 }
 
-async function requestedLines(limit, mode, manual, paused) {
+async function requestedLines(limit, mode, manual, tablePaused) {
 	let got = null;
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -30,7 +30,7 @@ async function requestedLines(limit, mode, manual, paused) {
 	v.applyRowLimit(limit);
 	v.fetchMode = mode;
 	v.manualFetchLines = manual;
-	v.paused = !!paused;
+	v.tablePaused = !!tablePaused;
 	v.rpcPreferencesResolved = true;
 	await v.fetchEntries();
 	return got;
@@ -304,7 +304,7 @@ async function testPausedBudgetChangesDoNotFetch() {
 	const v = h.view;
 	let calls = 0;
 	v.updateStreamControlsUi = function () {};
-	v.paused = true;
+	v.tablePaused = true;
 	v.rpcPreferencesResolved = true;
 	v.requestPoll = function () {
 		calls++;
@@ -412,7 +412,7 @@ async function testFillingStopRules() {
 		}
 	});
 	const v = h.view;
-	v.paused = true;
+	v.tablePaused = true;
 	v.fetchMode = 'manual';
 	v.manualFetchLines = 250;
 	v.rpcPreferencesResolved = true;

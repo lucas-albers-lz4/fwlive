@@ -154,7 +154,7 @@ async function testEpochDiscardsStale() {
 		}
 	});
 	const v = h.view;
-	v.paused = true;
+	v.tablePaused = true;
 	const p = v.requestPoll();
 	assert.strictEqual(calls, 1);
 	const epochAtStart = v.currentPollEpoch();
@@ -208,7 +208,7 @@ async function testHideShowWhileInFlightNoOverlap() {
 	});
 	const v = h.view;
 	v.ensurePollCoordinator().startPolling();
-	v.paused = true;
+	v.tablePaused = true;
 
 	const first = v.requestPoll();
 	assert.strictEqual(calls, 1);
@@ -273,7 +273,7 @@ async function testRefreshTriggersSerialize() {
 	v.renderRows = function () {};
 	v.updateHash = function () {};
 	v.saveRowLimit = function () {};
-	v.paused = false;
+	v.tablePaused = false;
 
 	const first = v.requestPoll();
 	v.onPauseClick();
@@ -594,7 +594,7 @@ async function testResumeStaleSkipsRender() {
 		v.renderRows = function () {
 			renders++;
 		};
-		v.paused = true;
+		v.tablePaused = true;
 		v.onPauseClick();
 		v.ensurePollCoordinator().startPolling();
 		if (stale) h.setHidden(true);
@@ -643,7 +643,7 @@ async function testResumeMergeSurvivesVisibilityRace() {
 		const v = h.view;
 		v.updateStreamControlsUi = function () {};
 		v.entries = [{ id: 'pause-only', log_id: 0, timestamp: 1 }];
-		v.paused = true;
+		v.tablePaused = true;
 		v.ensurePollCoordinator().startPolling();
 
 		/* Resume starts the first request with the pause-buffer merge obligation. */
