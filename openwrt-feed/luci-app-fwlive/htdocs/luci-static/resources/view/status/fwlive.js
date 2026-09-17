@@ -102,7 +102,8 @@ return view.extend({
 	entries: [],
 	sessionSeen: null,
 	pauseBufferLoading: false,
-	paused: false,
+	/* Freezes row rendering while polling, health, and cadence updates continue. */
+	tablePaused: false,
 	/* One-shot: first live poll after unpause merges instead of replacing. */
 	resumeMerge: false,
 	pollCoordinator: null,
@@ -132,7 +133,8 @@ return view.extend({
 	floodSuppressed: false,
 	pendingForceRender: false,
 	pendingRenderEpoch: null,
-	lastPollNewEvents: 0,
+	/* Session-new IDs from the last applied batch; this is not buffer growth. */
+	lastBatchNewIdCount: 0,
 	showHostnames: false,
 	rowTint: constants.DEFAULT_ROW_TINT,
 	/* Last non-off palette so toggling tint back on restores Classic/Accessible. */
@@ -311,13 +313,13 @@ return view.extend({
 
 	requestedFetchLines() {
 		this.resolveRpcPreferences();
-		if (this.paused)
+		if (this.tablePaused)
 			return this.fetchMode === 'manual' ? this.manualFetchLines : constants.FETCH_LINES_MAX;
 		return this.fetchMode === 'manual' ? this.manualFetchLines : this.autoFetchLines();
 	},
 
 	updateFillingState(beforeLength, reply, requestedLines) {
-		if (!this.paused || this.resumeMerge) {
+		if (!this.tablePaused || this.resumeMerge) {
 			this.fillingBuffer = false;
 			return;
 		}
@@ -949,11 +951,12 @@ return view.extend({
 		}
 
 		const batch = this.normalizePollBatch(raw);
-		this.lastPollNewEvents = batch.pollNew;
+		this.lastBatchNewIdCount = batch.pollNew;
 
 		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
-			paused: this.paused,
+			/* buffer.js retains its public paused option; this is the view's table state. */
+			paused: this.tablePaused,
 			resumeMerge: resumeMerge,
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
@@ -978,7 +981,7 @@ return view.extend({
 	},
 
 	ingestCap() {
-		return buffer.ingestCap(this.paused, this.rowLimit, constants.FETCH_LINES_MAX);
+		return buffer.ingestCap(this.tablePaused, this.rowLimit, constants.FETCH_LINES_MAX);
 	},
 
 	displayRowCap() {
@@ -989,7 +992,7 @@ return view.extend({
 
 	statusSuffix() {
 		const bits = [];
-		if (this.paused) {
+		if (this.tablePaused) {
 			if (this.pauseBufferLoading) bits.push(_('loading buffer'));
 			if (this.fillingBuffer) bits.push(_('buffer filling'));
 		}
@@ -1007,7 +1010,7 @@ return view.extend({
 		if (this.serverTruncated && this.serverAdaptive !== 0) bits.push(_('truncated'));
 		if (this.resolveLoadShed && this.serverAdaptive !== 0)
 			bits.push(_('resolve paused (load)'));
-		if (!this.paused && !this.followLive)
+		if (!this.tablePaused && !this.followLive)
 			bits.push(_('scroll frozen — scroll to top to follow live'));
 		return bits.length ? ' — ' + bits.join(', ') : '';
 	},
@@ -1351,7 +1354,7 @@ return view.extend({
 		 */
 		if (count !== this.lastRenderedRowCount) return 1;
 
-		return Math.max(1, this.lastPollNewEvents || 1);
+		return Math.max(1, this.lastBatchNewIdCount || 1);
 	},
 
 	updateFloodBanner() {
@@ -1384,10 +1387,10 @@ return view.extend({
 		 * device's rendered-row cap is called out separately in statusSuffix(). */
 		const limit = this.rowLimit;
 		const suffix = this.statusSuffix();
-		/* While paused the buffer can grow past the display limit — count matches
+		/* While the table is paused the buffer can grow past the display limit — count matches
 		 * over the full buffer so "matching" is not capped at visibleRows. */
 		let shown = matchCount;
-		if (this.paused) {
+		if (this.tablePaused) {
 			const filters = this.readFilters();
 			shown = this.entries.filter((row) => log.matchesFilter(row, filters)).length;
 		}
@@ -1415,7 +1418,9 @@ return view.extend({
 			return;
 		}
 
-		status.className = this.paused ? 'fwlive-status fwlive-status-paused' : 'fwlive-status';
+		status.className = this.tablePaused
+			? 'fwlive-status fwlive-status-paused'
+			: 'fwlive-status';
 		status.textContent = this.compactCountText(matchCount);
 		this.updateAdaptiveBanner();
 	},
@@ -1434,7 +1439,7 @@ return view.extend({
 		const n =
 			constants.ROW_LIMIT_OPTIONS.indexOf(limit) >= 0 ? limit : constants.DEFAULT_ROW_LIMIT;
 		this.rowLimit = n;
-		if (!this.paused && this.entries.length > n) this.entries = this.entries.slice(-n);
+		if (!this.tablePaused && this.entries.length > n) this.entries = this.entries.slice(-n);
 	},
 
 	updateStreamControlsUi() {
@@ -1448,15 +1453,15 @@ return view.extend({
 		const hostCb = document.getElementById('fwlive-show-hostnames');
 
 		if (map) {
-			if (this.paused) map.classList.add('fwlive-watch-paused');
+			if (this.tablePaused) map.classList.add('fwlive-watch-paused');
 			else map.classList.remove('fwlive-watch-paused');
 		}
 		if (dot) {
-			if (this.paused) dot.classList.remove('fwlive-dot-on');
+			if (this.tablePaused) dot.classList.remove('fwlive-dot-on');
 			else dot.classList.add('fwlive-dot-on');
 		}
-		if (label) label.textContent = this.paused ? _('Paused') : _('Watching');
-		if (pauseBtn) pauseBtn.textContent = this.paused ? _('Resume') : _('Pause');
+		if (label) label.textContent = this.tablePaused ? _('Paused') : _('Watching');
+		if (pauseBtn) pauseBtn.textContent = this.tablePaused ? _('Resume') : _('Pause');
 		if (sel) sel.value = String(this.rowLimit);
 		if (modeSel) modeSel.value = this.fetchMode;
 		if (manualSel) {
@@ -1502,11 +1507,11 @@ return view.extend({
 	},
 
 	onPauseClick() {
-		const wasPaused = this.paused;
-		this.paused = !this.paused;
+		const wasPaused = this.tablePaused;
+		this.tablePaused = !this.tablePaused;
 		this.updateStreamControlsUi();
 
-		if (!wasPaused && this.paused) {
+		if (!wasPaused && this.tablePaused) {
 			this.pauseBufferLoading = true;
 			this.updateStatus();
 			this.requestPoll()
@@ -1521,7 +1526,7 @@ return view.extend({
 			return;
 		}
 
-		if (wasPaused && !this.paused) {
+		if (wasPaused && !this.tablePaused) {
 			this.fillingBuffer = false;
 			this.followLive = true;
 			/* Merge pause buffer with the first live poll — do not replace. */
@@ -1547,14 +1552,14 @@ return view.extend({
 		this.renderBucket = constants.RENDER_CAP_PER_SEC;
 		this.floodSuppressed = false;
 		this.pendingForceRender = true;
-		if (!this.paused) this.renderRows(true);
+		if (!this.tablePaused) this.renderRows(true);
 		else this.updateStatus();
 		const epoch = this.currentPollEpoch();
 		this.requestPoll()
 			.then(() => {
 				/* A hide/show bump abandons this epoch; the catch-up poll paints. */
 				if (epoch !== this.currentPollEpoch()) return;
-				if (this.paused) this.updateStatus();
+				if (this.tablePaused) this.updateStatus();
 				else this.renderRows(true);
 			})
 			.finally(() => {
@@ -1808,7 +1813,7 @@ return view.extend({
 		this.messageLayout = next;
 		this.saveMessageLayout();
 		this.updateMessageLayoutUi();
-		if (this.paused) this.updateStatus();
+		if (this.tablePaused) this.updateStatus();
 		else this.renderRows(true);
 	},
 
@@ -1868,7 +1873,7 @@ return view.extend({
 		);
 
 		if (scroll) {
-			if (!this.paused && this.followLive) scroll.scrollTop = 0;
+			if (!this.tablePaused && this.followLive) scroll.scrollTop = 0;
 			else scroll.scrollTop = prevScroll;
 		}
 
@@ -1905,7 +1910,7 @@ return view.extend({
 
 	onScrollArea(ev) {
 		const scroll = ev && ev.target;
-		if (!scroll || this.paused) return;
+		if (!scroll || this.tablePaused) return;
 
 		this.followLive = scroll.scrollTop < 8;
 		this.updateStatus();
@@ -1992,7 +1997,7 @@ return view.extend({
 			/* Pause freezes row rendering but polling remains active for health and
 			 * cadence state; summary mode can therefore appear while rows are paused
 			 * and stays behind the explicit Show rows control. */
-			if (this.paused) this.updateStatus();
+			if (this.tablePaused) this.updateStatus();
 			else if (this.summaryMode) this.renderSummary();
 			else this.scheduleRenderRows(!!this.pendingForceRender);
 

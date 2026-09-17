@@ -29,9 +29,10 @@ We **do not** use legacy Lua CBI views (`luasrc/controller`, `cbi.Map`). We **do
 ### `fwlive.js` — UI shell
 
 - **`render()`** — static chrome: filter bar, pause control, scroll region, sticky table header (via `E()`).
-- **`load()` / `pollData()`** — 1s poll; respect `paused` (stage 4).
+- **`load()` / poll coordinator / `runPollRequest()`** — schedule polls; `tablePaused`
+  freezes row rendering while polling, health, and cadence updates continue.
 - **`renderRows()`** — map normalized rows → table cells; action styling; click-to-filter anchors (stage 5).
-- **State:** `entries[]` ring buffer, `activeFilters[]` or form/hash filters, `paused`, scroll preservation.
+- **State:** `entries[]` ring buffer, `activeFilters[]` or form/hash filters, `tablePaused`, scroll preservation.
 
 ### `fwlive/log.js` — log brain
 

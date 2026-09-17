@@ -44,7 +44,7 @@ async function testRequestCoalescing() {
 		}
 	});
 	const view = h.view;
-	view.paused = true;
+	view.tablePaused = true;
 
 	const first = view.requestPoll();
 	assert.strictEqual(pollMock.calls(), 1, 'first request must invoke poll once');

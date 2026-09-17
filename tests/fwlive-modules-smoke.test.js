@@ -50,8 +50,20 @@ assert.ok(
 	'Auto poll must scale raw fetch with rowLimit and use FETCH_LINES_MAX as its paused compatibility budget'
 );
 assert.ok(
-	/requestedFetchLines\(\)[\s\S]*?this\.paused[\s\S]*?constants\.FETCH_LINES_MAX/.test(viewSrc),
+	/requestedFetchLines\(\)[\s\S]*?this\.tablePaused[\s\S]*?constants\.FETCH_LINES_MAX/.test(viewSrc),
 	'poll must route fetch sizing through the budget decision helper'
+);
+assert.match(viewSrc, /\btablePaused\b/, 'view state must name the table rendering pause');
+assert.doesNotMatch(viewSrc, /\bthis\.paused\b/, 'view must not use the ambiguous paused state name');
+assert.match(
+	viewSrc,
+	/\blastBatchNewIdCount\b/,
+	'view must name the per-batch session-new ID count'
+);
+assert.doesNotMatch(
+	viewSrc,
+	/\blastPollNewEvents\b/,
+	'view must not use the ambiguous poll-new-events state name'
 );
 assert.ok(
 	!/expect:\s*\{\s*log:\s*\[\]\s*\}/.test(viewSrc),
