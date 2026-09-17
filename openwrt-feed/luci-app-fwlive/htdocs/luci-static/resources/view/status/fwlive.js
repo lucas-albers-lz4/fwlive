@@ -20,6 +20,7 @@
 'require fwlive.hostname as hostname';
 'require fwlive.proto as proto';
 'require fwlive.poll-coordinator as pollCoordinator';
+'require fwlive.render-policy as renderPolicy';
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -985,9 +986,13 @@ return view.extend({
 	},
 
 	displayRowCap() {
-		return this.weakDevice
-			? Math.min(this.rowLimit, constants.WEAK_DEVICE_DISPLAY_ROW_CAP)
-			: this.rowLimit;
+		return renderPolicy.decide({
+			rowLimit: this.rowLimit,
+			weakDevice: this.weakDevice,
+			weakDeviceDisplayRowCap: constants.WEAK_DEVICE_DISPLAY_ROW_CAP,
+			visibleRowCount: 0,
+			visibleHeadId: ''
+		}).visibleRowCap;
 	},
 
 	statusSuffix() {
@@ -1343,18 +1348,13 @@ return view.extend({
 		const count = rows ? rows.length : 0;
 		const headId = count ? rows[0].id : '';
 
-		if (!count && !this.lastRenderedRowCount) return 0;
-
-		if (count === this.lastRenderedRowCount && headId === this.lastRenderedHeadId) return 0;
-
-		/*
-		 * Visible row-count changes (Limit up/down, trim) must not be skipped by
-		 * the flood throttle — otherwise status can show N/limit while the table
-		 * still paints the previous size under ping -A.
-		 */
-		if (count !== this.lastRenderedRowCount) return 1;
-
-		return Math.max(1, this.lastBatchNewIdCount || 1);
+		return renderPolicy.decide({
+			visibleRowCount: count,
+			visibleHeadId: headId,
+			lastRenderedRowCount: this.lastRenderedRowCount,
+			lastRenderedHeadId: this.lastRenderedHeadId,
+			lastBatchNewIdCount: this.lastBatchNewIdCount
+		}).renderCost;
 	},
 
 	updateFloodBanner() {

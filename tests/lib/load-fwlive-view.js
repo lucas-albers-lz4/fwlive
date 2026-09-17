@@ -135,6 +135,7 @@ function loadFwliveView(options) {
 	const hostname = loadFwliveModule('hostname');
 	const pollCoordinator = loadFwliveModule('poll-coordinator');
 	const proto = loadFwliveModule('proto', { document: document });
+	const renderPolicy = loadFwliveModule('render-policy');
 
 	const pollOps = [];
 	const requestAnimationFrame =
@@ -211,14 +212,14 @@ function loadFwliveView(options) {
 
 	const fn = new Function(
 		'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
-		'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'E', '_', 'document', 'window', 'localStorage',
+		'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'E', '_', 'document', 'window', 'localStorage',
 		'performance', 'requestAnimationFrame', 'location',
 		body
 	);
 
 	const viewDesc = fn(
 		view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
-		pollCoordinator,
+		pollCoordinator, renderPolicy,
 		luciE.E, fakeGettext, document, win, localStorage,
 		{ now: function() { return Date.now(); } },
 		requestAnimationFrame, location
