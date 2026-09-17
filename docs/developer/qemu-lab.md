@@ -431,6 +431,7 @@ xvfb-run -a sh -c '
   FWLIVE_PERF_CDP_ENDPOINT=http://127.0.0.1:9229 \
   FWLIVE_URL=http://127.0.0.1:8080 FWLIVE_CPU_THROTTLE=4 \
   FWLIVE_PERF_WEAK_DEVICE=1 FWLIVE_PERF_ROW_LIMIT=2000 \
+  FWLIVE_PERF_FETCH_MODE=auto \
   FWLIVE_SOAK_MS=1800000 FWLIVE_ENFORCE=1 \
   ./scripts/qemu-layer2-performance.sh
 '
@@ -486,6 +487,18 @@ not change the shipped defaults or polling cadence. Runs using these options
 require the #347 controls to be installed in the guest. A qualification matrix
 should keep CPU throttle, fixture, visibility interval, and soak duration fixed
 while varying only the display limit and fetch mode/budget.
+
+When `FWLIVE_PERF_FETCH_MODE` is set, the harness fails if the captured poll
+requests contain anything other than the one expected raw-line budget. When it
+is unset, the report deliberately leaves `expected_raw_lines` and
+`matches_expected` null because a stored browser preference may select Manual;
+such a run is diagnostic only, not qualification evidence. Real-visibility mode
+requires an explicit fetch mode for this reason.
+
+The budget assertion covers the running phase. This gate does not click the
+Pause control, so it does not exercise the separate paused buffer-fill phase
+where the view intentionally requests the full raw-line cap; the hidden-tab
+interval stops polling and is reported separately under `visibility`.
 
 On 2026-09-15, the development gate was rerun after the table renderer gained
 keyed row reuse and targeted insertion for unchanged poll rows. With the same

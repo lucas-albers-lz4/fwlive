@@ -3,8 +3,11 @@
 
 import assert from 'node:assert/strict';
 import {
+	fwliveAutoFetchLines,
 	fwliveMethodRequestIds,
+	fwlivePollBudgetMatches,
 	fwlivePollRequestedLines,
+	fwlivePerformanceHash,
 	fwliveRpcReplyForRequest,
 	isFwliveFixtureRequest,
 	isSuccessfulFwliveRpcReply
@@ -60,6 +63,35 @@ assert.deepStrictEqual(fwlivePollRequestedLines(JSON.stringify({
 	method: 'call',
 	params: ['session', 'fwlive', 'poll', {}]
 })), []);
+assert.deepStrictEqual(fwlivePollRequestedLines(JSON.stringify({
+	jsonrpc: '2.0',
+	id: 49,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', { addresses: [] }]
+})), []);
+assert.deepStrictEqual(fwlivePollRequestedLines({
+	jsonrpc: '2.0',
+	id: 50,
+	method: 'call',
+	params: ['session', 'fwlive', 'poll', { addresses: [500] }]
+}), ['500']);
+assert.deepStrictEqual(fwlivePollRequestedLines('{not-json'), []);
+assert.equal(fwliveAutoFetchLines(25), 100);
+assert.equal(fwliveAutoFetchLines(500), 2000);
+assert.equal(fwliveAutoFetchLines(100, 500), 400);
+assert.equal(fwlivePerformanceHash(2000), 'limit=2000');
+assert.equal(
+	fwlivePerformanceHash(500, 'auto'),
+	'limit=500&poll=auto'
+);
+assert.equal(
+	fwlivePerformanceHash(500, 'manual', 250),
+	'limit=500&poll=manual&maxraw=250'
+);
+assert.equal(fwlivePollBudgetMatches(['500', '500'], 500, 2), true);
+assert.equal(fwlivePollBudgetMatches(['500', '1000'], 500, 2), false);
+assert.equal(fwlivePollBudgetMatches(['500'], 500, 2), false);
+assert.equal(fwlivePollBudgetMatches(['bad'], 500, 1), false);
 
 const singleReply = JSON.stringify({
 	jsonrpc: '2.0',

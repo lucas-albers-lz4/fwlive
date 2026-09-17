@@ -57,6 +57,28 @@ export function fwlivePollRequestedLines(payload) {
 		});
 }
 
+export function fwliveAutoFetchLines(rowLimit, fetchLinesMax = 2000) {
+	return Math.min(Math.max(rowLimit * 4, 100), fetchLinesMax);
+}
+
+export function fwlivePerformanceHash(rowLimit, fetchMode = null, manualLines = null) {
+	const hash = [`limit=${encodeURIComponent(String(rowLimit))}`];
+	if (fetchMode !== null) {
+		hash.push(`poll=${encodeURIComponent(String(fetchMode))}`);
+		if (manualLines !== null)
+			hash.push(`maxraw=${encodeURIComponent(String(manualLines))}`);
+	}
+	return hash.join('&');
+}
+
+export function fwlivePollBudgetMatches(values, expected, pollCount) {
+	if (!Number.isInteger(expected) || !Number.isInteger(pollCount)) return false;
+	const numeric = values
+		.map((value) => Number(value))
+		.filter((value) => Number.isInteger(value));
+	return numeric.length === pollCount && numeric.every((value) => value === expected);
+}
+
 export function fwliveRpcReplyForRequest(payload, requestIds) {
 	if (!Array.isArray(requestIds) || !requestIds.length) return null;
 	return parseRpcPayload(payload).find(

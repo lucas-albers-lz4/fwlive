@@ -34,8 +34,11 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { labBaseUrl, labFwliveUrl } from './lib/playwright-lab.mjs';
 import {
+	fwliveAutoFetchLines,
 	fwliveMethodRequestIds,
+	fwlivePollBudgetMatches,
 	fwlivePollRequestedLines,
+	fwlivePerformanceHash,
 	fwliveRpcReplyForRequest,
 	isFwliveFixtureRequest
 } from './lib/fwlive-perf-rpc.mjs';
@@ -116,9 +119,9 @@ if (
 if (PERF_FETCH_MODE === 'manual' && PERF_MANUAL_LINES === null)
 	throw new Error('FWLIVE_PERF_MANUAL_LINES is required with manual fetch mode');
 if (PERF_FETCH_MODE !== 'manual' && PERF_MANUAL_LINES !== null)
-	throw new Error('FWLIVE_PERF_MANUAL_LINES requires manual fetch mode');
-const PERF_MANUAL_LINES_OPTIONS = [25, 50, 100, 250, 500, 1000, 2000];
-/* Keep in sync with constants.ROW_LIMIT_OPTIONS; LuCI modules are not loaded here. */
+	throw new Error('FWLIVE_PERF_MANUAL_LINES requires FWLIVE_PERF_FETCH_MODE=manual');
+/* Keep in sync with constants.ROW_LIMIT_OPTIONS and
+ * constants.MANUAL_FETCH_LINES_OPTIONS; LuCI modules are not loaded here. */
 /* Keep in sync with constants.WEAK_DEVICE_DISPLAY_ROW_CAP. */
 const WEAK_DEVICE_DISPLAY_ROW_CAP = 250;
 if (!Number.isInteger(PERF_ROW_LIMIT) || !PERF_ROW_LIMIT_OPTIONS.includes(PERF_ROW_LIMIT))
@@ -126,10 +129,12 @@ if (!Number.isInteger(PERF_ROW_LIMIT) || !PERF_ROW_LIMIT_OPTIONS.includes(PERF_R
 		`FWLIVE_PERF_ROW_LIMIT must be one of ${PERF_ROW_LIMIT_OPTIONS.join(', ')}: ${PERF_ROW_LIMIT_RAW}`
 	);
 if (PERF_MANUAL_LINES !== null &&
-	(!Number.isInteger(PERF_MANUAL_LINES) || !PERF_MANUAL_LINES_OPTIONS.includes(PERF_MANUAL_LINES)))
+	(!Number.isInteger(PERF_MANUAL_LINES) || !PERF_ROW_LIMIT_OPTIONS.includes(PERF_MANUAL_LINES)))
 	throw new Error(
-		`FWLIVE_PERF_MANUAL_LINES must be one of ${PERF_MANUAL_LINES_OPTIONS.join(', ')}: ${PERF_MANUAL_LINES_RAW}`
+		`FWLIVE_PERF_MANUAL_LINES must be one of ${PERF_ROW_LIMIT_OPTIONS.join(', ')}: ${PERF_MANUAL_LINES_RAW}`
 	);
+if (REAL_VISIBILITY && PERF_FETCH_MODE === null)
+	throw new Error('FWLIVE_PERF_FETCH_MODE is required with real visibility mode');
 
 function observedDisplayRowLimit(value) {
 	const parsed = Number(value);
@@ -281,15 +286,11 @@ function summarizeRequestedLines(values) {
 }
 
 function fwlivePerformanceUrl() {
-	const hash = [];
-	if (PERF_ROW_LIMIT_RAW !== undefined && PERF_ROW_LIMIT_RAW !== '')
-		hash.push(`limit=${encodeURIComponent(PERF_ROW_LIMIT)}`);
-	if (PERF_FETCH_MODE !== null) {
-		hash.push(`poll=${encodeURIComponent(PERF_FETCH_MODE)}`);
-		if (PERF_MANUAL_LINES !== null)
-			hash.push(`maxraw=${encodeURIComponent(PERF_MANUAL_LINES)}`);
-	}
-	return `${labFwliveUrl()}${hash.length ? `#${hash.join('&')}` : ''}`;
+	return `${labFwliveUrl()}#${fwlivePerformanceHash(
+		PERF_ROW_LIMIT,
+		PERF_FETCH_MODE,
+		PERF_MANUAL_LINES
+	)}`;
 }
 
 async function waitForPollCount(counts, target, timeoutMs) {
@@ -460,9 +461,14 @@ async function main() {
 			timeout: 60000
 		});
 		await page.waitForSelector('.fwlive-map', { timeout: 30000 });
-		let displayRowLimit = observedDisplayRowLimit(
-			await page.locator('#fwlive-limit').inputValue()
-		);
+		const limit = page.locator('#fwlive-limit');
+		let displayRowLimit = observedDisplayRowLimit(await limit.inputValue());
+		if (displayRowLimit !== PERF_ROW_LIMIT) {
+			await limit.selectOption(String(PERF_ROW_LIMIT));
+			displayRowLimit = observedDisplayRowLimit(await limit.inputValue());
+		}
+		if (displayRowLimit === null)
+			throw new Error('Limit select did not expose a valid shipped option');
 		if (PERF_FETCH_MODE !== null) {
 			const mode = page.locator('#fwlive-fetch-mode');
 			const manual = page.locator('#fwlive-manual-lines');
@@ -479,23 +485,9 @@ async function main() {
 				{ timeout: 30000 }
 			);
 		}
-		if (REAL_POLL && PERF_ROW_LIMIT_RAW !== undefined && PERF_ROW_LIMIT_RAW !== '') {
-			await page.locator('#fwlive-limit').selectOption(String(PERF_ROW_LIMIT));
-			displayRowLimit = observedDisplayRowLimit(
-				await page.locator('#fwlive-limit').inputValue()
-			);
-			if (displayRowLimit === null)
-				throw new Error('Limit select did not expose a valid shipped option');
-		}
 		if (REAL_POLL) {
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		} else {
-			await page.locator('#fwlive-limit').selectOption(String(PERF_ROW_LIMIT));
-			displayRowLimit = observedDisplayRowLimit(
-				await page.locator('#fwlive-limit').inputValue()
-			);
-			if (displayRowLimit === null)
-				throw new Error('Limit select did not expose a valid shipped option');
 			const expectedVisibleRows = WEAK_DEVICE
 				? Math.min(PERF_ROW_LIMIT, WEAK_DEVICE_DISPLAY_ROW_CAP)
 				: PERF_ROW_LIMIT >= 1000
@@ -574,6 +566,18 @@ async function main() {
 		const heapPeakGrowthBytes = heapMax === null || heapBaseline === null
 			? null
 			: heapMax - heapBaseline;
+		const expectedRawLines = PERF_FETCH_MODE === null
+			? null
+			: PERF_FETCH_MODE === 'manual'
+				? PERF_MANUAL_LINES
+				: fwliveAutoFetchLines(displayRowLimit);
+		const requestedRawLines = summarizeRequestedLines(counts.requestedLines);
+		/* The gate never clicks Pause. Hidden-tab handling stops polling; it does
+		 * not enter the paused buffer-fill path, so this is the running-phase
+		 * budget expected for every captured request. */
+		const fetchBudgetMatches = expectedRawLines === null
+			? null
+			: fwlivePollBudgetMatches(counts.requestedLines, expectedRawLines, counts.polls);
 		const report = {
 			issue: 339,
 			parent_issue: 306,
@@ -592,12 +596,9 @@ async function main() {
 			fetch_budget: {
 				mode: PERF_FETCH_MODE,
 				manual_lines: PERF_MANUAL_LINES,
-				expected_raw_lines: PERF_FETCH_MODE === 'manual'
-					? PERF_MANUAL_LINES
-					: displayRowLimit === null
-						? null
-						: Math.min(Math.max(displayRowLimit * 4, 100), 2000),
-				requested_raw_lines: summarizeRequestedLines(counts.requestedLines)
+				expected_raw_lines: expectedRawLines,
+				requested_raw_lines: requestedRawLines,
+				matches_expected: fetchBudgetMatches
 			},
 			visibility: {
 				method: hiddenVisibilityMethod === visibleVisibilityMethod
@@ -641,6 +642,8 @@ async function main() {
 		};
 
 		console.log(JSON.stringify(report, null, 2));
+		if (PERF_FETCH_MODE !== null && !fetchBudgetMatches)
+			throw new Error(`fetch budget gate failed: ${JSON.stringify(report.fetch_budget)}`);
 		if (ENFORCE) {
 			const renderMax = report.render_commit_to_paint_ms.max;
 			const heapGrowth = report.heap.growth_mb;
