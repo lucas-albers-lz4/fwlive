@@ -82,11 +82,17 @@ grep -q '^## Dependencies$' "$CUT_WORK/cut/README.md" \
 	|| die "cut README lost the Dependencies section"
 ok "cut README is layout/deps only, no out-of-tree GitHub links"
 
-# Tracker ids in comments auto-link to the luci issue tracker (openwrt/luci#8992).
-python3 - "$CUT_WORK/cut" <<'PY' || die "cut comments still contain tracker ids or GitHub org"
+check_comment_policy() {
+	local root="$1"
+	local reject_repo="$2"
+	python3 - "$root" "$reject_repo" <<'PY'
 import re, sys
 from pathlib import Path
+
 root = Path(sys.argv[1])
+reject_repo = sys.argv[2] == '1'
+# Keep \d{2,}: single-digit #N prose references are intentionally outside
+# this gate, avoiding false positives such as "option #1".
 pat = re.compile(r'(?i)(?:issue\s+|Grok\s+)?#\d{2,}')
 hits = []
 for path in root.rglob('*'):
@@ -98,7 +104,7 @@ for path in root.rglob('*'):
         if not (stripped.startswith('#') or stripped.startswith('//')
                 or stripped.startswith('/*') or stripped.startswith('* ')):
             continue
-        if 'lucas-albers' in line:
+        if reject_repo and 'lucas-albers' in line:
             hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
             continue
         for m in pat.finditer(line):
@@ -110,6 +116,17 @@ if hits:
     print('\n'.join(hits[:20]))
     sys.exit(1)
 PY
+}
+
+# Keep the feed source and luci-shaped cut in the same comment shape. Tests,
+# changelog, and repo docs keep tracker ids because they are outside the feed.
+check_comment_policy "$ROOT/openwrt-feed" 0 \
+    || die "feed comments contain tracker ids"
+ok "feed comments have no tracker ids"
+
+# Tracker ids in comments auto-link to the luci issue tracker (openwrt/luci#8992).
+check_comment_policy "$CUT_WORK/cut" 1 \
+    || die "cut comments still contain tracker ids or GitHub org"
 ok "cut comments have no tracker ids or GitHub org"
 
 [ -f "$CUT_WORK/cut/po/templates/luci-app-fwlive.pot" ] \
@@ -130,6 +147,16 @@ ok "cut .pot has repo-relative #: refs"
 SCAN="${FWLIVE_I18N_SCAN:-}"
 if [ -z "$SCAN" ] && command -v i18n-scan.pl >/dev/null 2>&1; then
 	SCAN=$(command -v i18n-scan.pl)
+fi
+# In the usual workspace layout, fwlive and luci are sibling checkouts. Find
+# the scanner there without requiring PATH or a user-specific absolute path.
+if [ -z "$SCAN" ]; then
+	for candidate in "$ROOT"/../*/build/i18n-scan.pl; do
+		if [ -f "$candidate" ]; then
+			SCAN="$candidate"
+			break
+		fi
+	done
 fi
 if [ -z "$SCAN" ] || [ ! -f "$SCAN" ]; then
 	skip_parity "no i18n-scan.pl; set FWLIVE_I18N_SCAN"
