@@ -82,6 +82,38 @@ grep -q '^## Dependencies$' "$CUT_WORK/cut/README.md" \
 	|| die "cut README lost the Dependencies section"
 ok "cut README is layout/deps only, no out-of-tree GitHub links"
 
+# Keep the feed source in the same comment shape as the luci-shaped cut. The
+# generated awk classifier is exempt because it is regenerated from the core
+# source; css.js and tint.js are exempt because their comment-like content can
+# contain CSS color values. Tests, changelog, and repo docs keep tracker ids.
+python3 - "$ROOT/openwrt-feed" <<'PY' || die "feed comments contain tracker ids"
+import re, sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+pat = re.compile(r'(?i)(?:issue\s+|Grok\s+)?#\d{2,}')
+skip_names = {'css.js', 'tint.js', 'fwlive-is-firewall-event.awk'}
+hits = []
+for path in root.rglob('*'):
+    if not path.is_file() or path.suffix == '.pot' or path.name in skip_names:
+        continue
+    text = path.read_text(encoding='utf-8')
+    for i, line in enumerate(text.splitlines(), 1):
+        stripped = line.lstrip()
+        if not (stripped.startswith('#') or stripped.startswith('//')
+                or stripped.startswith('/*') or stripped.startswith('* ')):
+            continue
+        for m in pat.finditer(line):
+            raw = line[m.start():]
+            if re.match(r'#[0-9a-fA-F]*[a-fA-F]', raw) or re.match(r'#[0-9a-fA-F]{6}\b', raw):
+                continue
+            hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
+if hits:
+    print('\n'.join(hits[:20]))
+    sys.exit(1)
+PY
+ok "feed comments have no tracker ids"
+
 # Tracker ids in comments auto-link to the luci issue tracker (openwrt/luci#8992).
 python3 - "$CUT_WORK/cut" <<'PY' || die "cut comments still contain tracker ids or GitHub org"
 import re, sys
