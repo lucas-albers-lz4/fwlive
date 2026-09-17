@@ -345,6 +345,56 @@ async function testLimitChangeWhileHiddenUsesVisibleCatchup() {
 	console.log('fwlive-view fetch-budget: hidden Limit change catch-up OK');
 }
 
+async function testLimitAndVisibilityDuringInFlightRequest() {
+	let release;
+	let calls = 0;
+	const requested = [];
+	const gate = new Promise(function (resolve) {
+		release = resolve;
+	});
+	const oldRow = {
+		id: 911,
+		time: 1717675742,
+		msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP SPT=49210 DPT=443'
+	};
+	const newRow = { ...oldRow, id: 912, time: oldRow.time + 1 };
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function (args) {
+				calls++;
+				requested.push(args.addresses[0]);
+				if (calls === 1) await gate;
+				return { log: [calls === 1 ? oldRow : newRow], adaptive: 1 };
+			}
+		}
+	});
+	const v = h.view;
+	v.rowLimit = 25;
+	v.fetchMode = 'auto';
+	v.rpcPreferencesResolved = true;
+	v.bindVisibility();
+
+	const first = v.requestPoll();
+	await sleep(10);
+	assert.strictEqual(calls, 1, 'initial request must be active');
+	assert.strictEqual(requested[0], '100', 'initial request must use the old Auto budget');
+
+	v.onRowLimitChange({ target: { value: '500' } });
+	h.setHidden(true);
+	release();
+	await first;
+	await sleep(10);
+	assert.strictEqual(calls, 1, 'hidden transition must not start a queued request');
+	assert.strictEqual(v.entries.length, 0, 'stale hidden reply must not apply');
+
+	h.setHidden(false);
+	await sleep(20);
+	assert.strictEqual(calls, 2, 'visible transition must perform one catch-up request');
+	assert.strictEqual(requested[1], '2000', 'catch-up must use the current Auto budget');
+	assert.deepStrictEqual(v.entries.map((row) => row.id), ['log:' + newRow.id]);
+	console.log('fwlive-view fetch-budget: Limit plus visibility in-flight lifecycle OK');
+}
+
 async function testFillingStopRules() {
 	const row = {
 		id: 901,
@@ -411,11 +461,15 @@ async function testPagehideDisposesCoordinator() {
 	const loading = v.load();
 	await sleep(10);
 	assert.strictEqual(calls, 1, 'load must have one active request');
+	const queued = v.requestPoll();
+	assert.strictEqual(calls, 1, 'second request must be queued before pagehide');
 	h.dispatchPagehide();
-	release();
+	await queued;
 	await loading;
+	assert.strictEqual(v.pollDataInFlight, false, 'pagehide must settle active waiters');
+	release();
+	await sleep(10);
 	assert.strictEqual(v.entries.length, 0, 'pagehide must discard active reply');
-	assert.strictEqual(v.pollDataInFlight, false, 'pagehide request must settle');
 	assert.strictEqual(calls, 1, 'pagehide must not start a queued request');
 	await v.requestPoll();
 	assert.strictEqual(calls, 1, 'disposed coordinator must ignore later poll requests');
@@ -432,6 +486,7 @@ async function main() {
 	await testBudgetChangesRespectCadence();
 	await testPausedBudgetChangesDoNotFetch();
 	await testLimitChangeWhileHiddenUsesVisibleCatchup();
+	await testLimitAndVisibilityDuringInFlightRequest();
 	await testFillingStopRules();
 	await testPagehideDisposesCoordinator();
 	console.log('fwlive-view fetch-budget tests passed');

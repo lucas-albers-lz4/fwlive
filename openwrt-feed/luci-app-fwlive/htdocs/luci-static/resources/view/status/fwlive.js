@@ -1172,6 +1172,14 @@ return view.extend({
 		this.stopPollingForHidden();
 		this.unbindVisibility();
 		this.pollFn = null;
+		/* A departing view must not leave callers waiting on work that can no
+		 * longer apply.  The RPC may still settle later; the bumped epoch makes
+		 * its result stale and finishPollRequest ignores the detached run. */
+		const active = this.pollRequestWaiters;
+		this.pollRequestWaiters = [];
+		this.pollRequestPromise = null;
+		this.pollDataInFlight = false;
+		for (let i = 0; i < active.length; i++) active[i].resolve();
 		this.pollRequestQueued = false;
 		const queued = this.pollRequestQueuedWaiters;
 		this.pollRequestQueuedWaiters = [];
