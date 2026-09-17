@@ -148,6 +148,16 @@ SCAN="${FWLIVE_I18N_SCAN:-}"
 if [ -z "$SCAN" ] && command -v i18n-scan.pl >/dev/null 2>&1; then
 	SCAN=$(command -v i18n-scan.pl)
 fi
+# In the usual workspace layout, fwlive and luci are sibling checkouts. Find
+# the scanner there without requiring PATH or a user-specific absolute path.
+if [ -z "$SCAN" ]; then
+	for candidate in "$ROOT"/../*/build/i18n-scan.pl; do
+		if [ -f "$candidate" ]; then
+			SCAN="$candidate"
+			break
+		fi
+	done
+fi
 if [ -z "$SCAN" ] || [ ! -f "$SCAN" ]; then
 	skip_parity "no i18n-scan.pl; set FWLIVE_I18N_SCAN"
 fi
