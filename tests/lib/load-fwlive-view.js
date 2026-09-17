@@ -133,6 +133,7 @@ function loadFwliveView(options) {
 	const table = loadFwliveModule('table', { log: log, links: links });
 	const buffer = loadFwliveModule('buffer');
 	const hostname = loadFwliveModule('hostname');
+	const pollCoordinator = loadFwliveModule('poll-coordinator');
 	const proto = loadFwliveModule('proto', { document: document });
 
 	const pollOps = [];
@@ -205,13 +206,14 @@ function loadFwliveView(options) {
 
 	const fn = new Function(
 		'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
-		'table', 'buffer', 'hostname', 'proto', 'E', '_', 'document', 'window', 'localStorage',
+		'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'E', '_', 'document', 'window', 'localStorage',
 		'performance', 'requestAnimationFrame', 'location',
 		body
 	);
 
 	const viewDesc = fn(
 		view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
+		pollCoordinator,
 		luciE.E, fakeGettext, document, win, localStorage,
 		{ now: function() { return Date.now(); } },
 		requestAnimationFrame, location

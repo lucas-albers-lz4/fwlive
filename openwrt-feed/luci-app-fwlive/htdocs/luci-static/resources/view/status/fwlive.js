@@ -19,6 +19,7 @@
 'require fwlive.buffer as buffer';
 'require fwlive.hostname as hostname';
 'require fwlive.proto as proto';
+'require fwlive.poll-coordinator as pollCoordinator';
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -113,6 +114,7 @@ return view.extend({
 	pollRequestWaiters: [],
 	pollRequestQueuedWaiters: [],
 	coordinatorDisposed: false,
+	pagehideBound: false,
 	/* Layer 2 — visibility / RTT cadence / shed surfacing. */
 	pollEpoch: 0,
 	pollCadenceSec: 1,
@@ -123,6 +125,7 @@ return view.extend({
 	serverShed: null,
 	lastPollRequestedLines: null,
 	lastPollEffectiveLimit: null,
+	pollCoordinator: null,
 	lastPollReturnedMessages: null,
 	fillingBuffer: false,
 	weakDevice: false,
@@ -1050,9 +1053,50 @@ return view.extend({
 		this.rttStreakCount = 0;
 	},
 
+	ensurePollCoordinator() {
+		if (this.pollCoordinator) return this.pollCoordinator;
+
+		const visibility = {
+			add: function (handler) {
+				if (typeof document !== 'undefined' && document.addEventListener)
+					document.addEventListener('visibilitychange', handler);
+			},
+			remove: function (handler) {
+				if (typeof document !== 'undefined' && document.removeEventListener)
+					document.removeEventListener('visibilitychange', handler);
+			}
+		};
+		this.pollCoordinator = pollCoordinator.create({
+			poll: poll,
+			visibility: visibility,
+			isHidden: this.isTabHidden.bind(this),
+			run: this.runPollRequest.bind(this),
+			initialCadence: this.pollCadenceSec,
+			onEpochChange: function (epoch) {
+				this.pollEpoch = epoch;
+			}.bind(this),
+			onPollFunction: function (fn) {
+				this.pollFn = fn;
+			}.bind(this),
+			onStateChange: function (state) {
+				this.pollDataInFlight = state.inFlight;
+				this.pollRequestPromise = state.promise;
+				this.pollRequestQueued = state.queued;
+				this.pollRequestWaiters = state.waiters;
+				this.pollRequestQueuedWaiters = state.queuedWaiters;
+				this.coordinatorDisposed = state.disposed;
+				this.pollFn = state.pollFn;
+				this.pollCadenceSec = state.cadenceSec;
+			}.bind(this),
+			onVisible: function () {
+				this.resetRttHistory();
+			}.bind(this)
+		});
+		return this.pollCoordinator;
+	},
+
 	bumpPollEpoch() {
-		this.pollEpoch = (this.pollEpoch || 0) + 1;
-		return this.pollEpoch;
+		return this.ensurePollCoordinator().bumpEpoch();
 	},
 
 	clientBackoffEnabled() {
@@ -1060,26 +1104,10 @@ return view.extend({
 	},
 
 	setPollCadence(sec) {
-		const next = sec > 0 ? sec : constants.POLL_CADENCE_FAST_S;
-		if (!this.pollFn) {
-			this.pollCadenceSec = next;
-			return;
-		}
-		if (this.isTabHidden()) {
-			this.pollCadenceSec = next;
-			return;
-		}
-		try {
-			poll.remove(this.pollFn);
-		} catch (e) {
-			/* poll gone */
-		}
-		this.pollCadenceSec = next;
-		try {
-			poll.add(this.pollFn, next);
-		} catch (e) {
-			/* poll gone */
-		}
+		const coordinator = this.ensurePollCoordinator();
+		if (!coordinator.getState().pollFn && this.pollFn)
+			coordinator.adoptPollFunction(this.pollFn);
+		coordinator.setCadence(sec);
 	},
 
 	notePollRtt(ms, errored) {
@@ -1110,81 +1138,30 @@ return view.extend({
 	},
 
 	stopPollingForHidden() {
-		if (!this.pollFn) return;
-		try {
-			poll.remove(this.pollFn);
-		} catch (e) {
-			/* poll gone */
-		}
+		this.ensurePollCoordinator().stopPolling();
 	},
 
 	resumePollingAfterVisible() {
-		if (this.coordinatorDisposed) return;
-		this.bumpPollEpoch();
-		this.resetRttHistory();
-		if (!this.pollFn) this.pollFn = this.pollData.bind(this);
-		this.setPollCadence(this.pollCadenceSec || constants.POLL_CADENCE_FAST_S);
-		/* An old hidden-epoch request may still be on the wire.  Queue the
-		 * catch-up behind it; stale-reply checks discard its application, while
-		 * the coordinator prevents a second server request from overlapping. */
-		this.requestPoll();
+		this.ensurePollCoordinator().onVisibilityChange();
 	},
 
 	onVisibilityChange() {
-		if (this.isTabHidden()) {
-			this.stopPollingForHidden();
-			this.bumpPollEpoch();
-			return;
-		}
-		this.resumePollingAfterVisible();
+		this.ensurePollCoordinator().onVisibilityChange();
 	},
 
 	bindVisibility() {
-		if (this.visibilityBound) return;
-		if (typeof document === 'undefined' || !document.addEventListener) return;
+		this.ensurePollCoordinator().bind();
 		this.visibilityBound = true;
-		this.visibilityHandler = function () {
-			this.onVisibilityChange();
-		}.bind(this);
-		document.addEventListener('visibilitychange', this.visibilityHandler);
 	},
 
 	unbindVisibility() {
-		if (
-			typeof document !== 'undefined' &&
-			document.removeEventListener &&
-			this.visibilityHandler
-		) {
-			try {
-				document.removeEventListener('visibilitychange', this.visibilityHandler);
-			} catch (e) {
-				/* document gone */
-			}
-		}
+		if (this.pollCoordinator) this.pollCoordinator.unbind();
 		this.visibilityHandler = null;
 		this.visibilityBound = false;
 	},
 
 	disposeCoordinator() {
-		if (this.coordinatorDisposed) return;
-		this.coordinatorDisposed = true;
-		this.bumpPollEpoch();
-		this.stopPollingForHidden();
-		this.unbindVisibility();
-		this.pollFn = null;
-		/* A departing view must not leave callers waiting on work that can no
-		 * longer apply.  The RPC may still settle later; the bumped epoch makes
-		 * its result stale, while the cleared promise makes finishPollRequest
-		 * ignore the detached run by identity. */
-		const active = this.pollRequestWaiters;
-		this.pollRequestWaiters = [];
-		this.pollRequestPromise = null;
-		this.pollDataInFlight = false;
-		for (let i = 0; i < active.length; i++) active[i].resolve();
-		this.pollRequestQueued = false;
-		const queued = this.pollRequestQueuedWaiters;
-		this.pollRequestQueuedWaiters = [];
-		for (let i = 0; i < queued.length; i++) queued[i].resolve();
+		this.ensurePollCoordinator().dispose();
 	},
 
 	updateAdaptiveBanner() {
@@ -2045,69 +2022,7 @@ return view.extend({
 	},
 
 	requestPoll() {
-		if (this.coordinatorDisposed || this.isTabHidden()) return Promise.resolve();
-
-		const waiter = {};
-		const promise = new Promise(function (resolve) {
-			waiter.resolve = resolve;
-		});
-
-		if (this.pollRequestPromise) {
-			/* Keep one pending refresh intent.  The latest view state is read when
-			 * that follow-up begins, so Pause/Resume/Limit changes coalesce safely. */
-			this.pollRequestQueued = true;
-			this.pollRequestQueuedWaiters.push(waiter);
-			return promise;
-		}
-
-		if (this.pollRequestQueued) {
-			this.pollRequestQueuedWaiters.push(waiter);
-			this.startPollRequest(this.pollRequestQueuedWaiters);
-			this.pollRequestQueuedWaiters = [];
-			this.pollRequestQueued = false;
-			return promise;
-		}
-
-		this.startPollRequest([waiter]);
-		return promise;
-	},
-
-	startPollRequest(waiters) {
-		const epoch = this.pollEpoch;
-		this.pollDataInFlight = true;
-		const run = this.runPollRequest(epoch);
-		this.pollRequestPromise = run;
-		this.pollRequestWaiters = waiters;
-		run.then(
-			function (value) {
-				this.finishPollRequest(run, value);
-			}.bind(this),
-			function () {
-				/* runPollRequest normally absorbs local failures so the poll loop
-				 * remains alive; settle waiters even if a future change rejects. */
-				this.finishPollRequest(run);
-			}.bind(this)
-		);
-	},
-
-	finishPollRequest(run, value) {
-		if (this.pollRequestPromise !== run) return;
-		const waiters = this.pollRequestWaiters;
-		this.pollRequestWaiters = [];
-		this.pollRequestPromise = null;
-		this.pollDataInFlight = false;
-		for (let i = 0; i < waiters.length; i++) {
-			waiters[i].resolve(value);
-		}
-
-		/* If visibility changed while the request was active, retain the
-		 * queued intent until the visible catch-up can start it. */
-		if (this.pollRequestQueued && !this.coordinatorDisposed && !this.isTabHidden()) {
-			const queued = this.pollRequestQueuedWaiters;
-			this.pollRequestQueuedWaiters = [];
-			this.pollRequestQueued = false;
-			this.startPollRequest(queued);
-		}
+		return this.ensurePollCoordinator().requestPoll();
 	},
 
 	async runPollRequest(epoch) {
@@ -2147,10 +2062,7 @@ return view.extend({
 		 * request; filter widgets still restore in addFooter after render. */
 		this.resolveRpcPreferences();
 		this.bindVisibility();
-		if (!this.pollFn) {
-			this.pollFn = this.pollData.bind(this);
-			this.pollCadenceSec = constants.POLL_CADENCE_FAST_S;
-			if (!this.isTabHidden()) poll.add(this.pollFn, this.pollCadenceSec);
+		if (!this.pagehideBound) {
 			/* Best-effort teardown when leaving the page (LuCI SPA may full-reload). */
 			if (typeof window !== 'undefined' && window.addEventListener) {
 				window.addEventListener(
@@ -2163,8 +2075,11 @@ return view.extend({
 						}
 					}.bind(this)
 				);
+				this.pagehideBound = true;
 			}
 		}
+		this.pollCadenceSec = constants.POLL_CADENCE_FAST_S;
+		this.ensurePollCoordinator().startPolling();
 		return Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]).then(() =>
 			this.requestPoll()
 		);
