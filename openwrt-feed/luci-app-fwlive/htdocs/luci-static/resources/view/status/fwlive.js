@@ -867,16 +867,8 @@ return view.extend({
 		return { rows: normalized, pollNew: pollNew };
 	},
 
-	async fetchEntries() {
-		if (!this.sessionSeen) this.sessionSeen = new Set();
-
-		const epoch = this.currentPollEpoch();
-		const resumeMerge = !!this.resumeMerge;
-		const fetchLines = this.requestedFetchLines();
-		const beforeLength = this.entries.length;
-		this.lastPollRequestedLines = fetchLines;
-		this.lastPollReturnedMessages = null;
-		this.lastPollEffectiveLimit = null;
+	/* Keep RPC timing and reply acquisition separate from view-state mutation. */
+	async fetchPollReply(fetchLines) {
 		const t0 = this.nowMs();
 		let reply;
 		let errored = false;
@@ -891,11 +883,21 @@ return view.extend({
 			errored = true;
 			reply = null;
 		}
+		return {
+			reply: reply,
+			errored: errored,
+			rtt: this.nowMs() - t0
+		};
+	},
 
-		/* Visibility changes and disposal invalidate all application of this reply. */
-		if (epoch !== this.currentPollEpoch()) return;
-
-		const rtt = this.nowMs() - t0;
+	/* Apply one current-epoch reply to transport state, normalized rows, and buffer. */
+	applyPollReply(poll, context) {
+		const reply = poll.reply;
+		const rtt = poll.rtt;
+		const errored = poll.errored;
+		const resumeMerge = context.resumeMerge;
+		const fetchLines = context.fetchLines;
+		const beforeLength = context.beforeLength;
 
 		if (!reply || typeof reply !== 'object' || Array.isArray(reply)) {
 			this.lastPollError = true;
@@ -967,6 +969,29 @@ return view.extend({
 		/* A stale request returns above. Keep this obligation until a current
 		 * request has actually applied the merged batch. */
 		if (resumeMerge) this.resumeMerge = false;
+	},
+
+	async fetchEntries() {
+		if (!this.sessionSeen) this.sessionSeen = new Set();
+
+		const epoch = this.currentPollEpoch();
+		const resumeMerge = !!this.resumeMerge;
+		const fetchLines = this.requestedFetchLines();
+		const beforeLength = this.entries.length;
+		this.lastPollRequestedLines = fetchLines;
+		this.lastPollReturnedMessages = null;
+		this.lastPollEffectiveLimit = null;
+
+		const poll = await this.fetchPollReply(fetchLines);
+
+		/* Visibility changes and disposal invalidate all application of this reply. */
+		if (epoch !== this.currentPollEpoch()) return;
+
+		this.applyPollReply(poll, {
+			beforeLength: beforeLength,
+			fetchLines: fetchLines,
+			resumeMerge: resumeMerge
+		});
 	},
 
 	rememberSessionId(id) {
