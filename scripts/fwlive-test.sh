@@ -141,6 +141,9 @@ echo "== fwlive render scheduler ==" >&2
 echo "== fwlive view poll contract (#233 / #240) =="
 "$NODE" tests/fwlive-view-poll-error.test.js
 
+echo "== fwlive view logging toggles (#365 A2) =="
+"$NODE" tests/fwlive-view-logging-toggle.test.js
+
 echo "== fwlive view poll guard (#240) =="
 "$NODE" tests/fwlive-view-poll-guard.test.js
 echo "== fwlive poll coordinator (#352) =="

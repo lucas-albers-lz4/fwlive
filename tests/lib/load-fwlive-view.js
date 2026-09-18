@@ -110,6 +110,7 @@ function defaultRpcReply(key) {
 function loadFwliveView(options) {
 	options = options || {};
 	const rpcMocks = Object.assign(Object.create(null), options.rpcMocks || {});
+	const rawRpcKeys = options.rawRpcKeys || Object.create(null);
 	const storage = Object.assign(Object.create(null), options.storage || {});
 	const location = options.location || { hash: '' };
 
@@ -117,6 +118,17 @@ function loadFwliveView(options) {
 		? { document: options.document, idMap: Object.create(null) }
 		: createHarnessDocument();
 	const document = harness.document;
+	const localStorage = {
+		getItem: function (k) {
+			return Object.prototype.hasOwnProperty.call(storage, k) ? storage[k] : null;
+		},
+		setItem: function (k, v) {
+			storage[k] = String(v);
+		},
+		removeItem: function (k) {
+			delete storage[k];
+		}
+	};
 
 	const log = loadFwliveModule('log');
 	const constants = loadFwliveModule('constants');
@@ -128,7 +140,8 @@ function loadFwliveView(options) {
 		log: log,
 		links: links,
 		E: luciE.E,
-		_: fakeGettext
+		_: fakeGettext,
+		localStorage: localStorage
 	});
 	const table = loadFwliveModule('table', { log: log, links: links });
 	const buffer = loadFwliveModule('buffer');
@@ -176,20 +189,9 @@ function loadFwliveView(options) {
 					raw = await options.defaultRpc(key, arguments);
 				else
 					raw = defaultRpcReply(key);
+				if (Object.prototype.hasOwnProperty.call(rawRpcKeys, key)) return raw;
 				return applyExpect(raw, expect);
 			};
-		}
-	};
-
-	const localStorage = {
-		getItem: function(k) {
-			return Object.prototype.hasOwnProperty.call(storage, k) ? storage[k] : null;
-		},
-		setItem: function(k, v) {
-			storage[k] = String(v);
-		},
-		removeItem: function(k) {
-			delete storage[k];
 		}
 	};
 
@@ -240,6 +242,7 @@ function loadFwliveView(options) {
 		view: viewDesc,
 		document: document,
 		window: win,
+		localStorage: localStorage,
 		location: location,
 		poll: poll,
 		rpcMocks: rpcMocks,
