@@ -895,6 +895,8 @@ return view.extend({
 		const resumeMerge = context.resumeMerge;
 		const fetchLines = context.fetchLines;
 		const beforeLength = context.beforeLength;
+		this.lastPollReturnedMessages = null;
+		this.lastPollEffectiveLimit = null;
 
 		if (!reply || typeof reply !== 'object' || Array.isArray(reply)) {
 			this.lastPollError = true;
@@ -957,8 +959,8 @@ return view.extend({
 		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
 			/* buffer.js retains its public paused option; this is the view's table state. */
-			paused: this.tablePaused || context.pausedAtStart,
-			resumeMerge: resumeMerge,
+			paused: this.tablePaused,
+			resumeMerge: resumeMerge || context.pausedAtStart,
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});

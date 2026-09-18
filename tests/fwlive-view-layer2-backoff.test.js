@@ -716,7 +716,11 @@ async function testUnpauseDuringPausedPollRetainsBuffer() {
 	});
 	const v = h.view;
 	v.updateStreamControlsUi = function () {};
-	v.entries = [{ id: 'pause-only', log_id: 0, timestamp: 1 }];
+	v.rowLimit = 2;
+	v.entries = [
+		{ id: 'pause-only-old', log_id: 0, timestamp: 1 },
+		{ id: 'pause-only-new', log_id: 1, timestamp: 2 }
+	];
 	v.tablePaused = true;
 	v.ensurePollCoordinator().startPolling();
 
@@ -732,13 +736,21 @@ async function testUnpauseDuringPausedPollRetainsBuffer() {
 	assert.strictEqual(calls, 2, 'unpause must leave one queued catch-up poll');
 	assert.ok(
 		v.entries.some(function (e) {
-			return e.id === 'pause-only';
+			return e.id === 'pause-only-new';
 		}),
 		'poll started while paused must retain its buffer rows after unpause'
 	);
+	assert.ok(v.entries.length <= v.rowLimit, 'live row limit must apply after unpause');
 
 	releaseCatchup();
 	await sleep(20);
+	assert.strictEqual(v.resumeMerge, false, 'catch-up poll must clear resumeMerge');
+	assert.ok(
+		v.entries.some(function (e) {
+			return e.id === 'log:2';
+		}),
+		'catch-up poll must apply its live rows'
+	);
 	console.log('fwlive-view layer2: unpause during paused poll retains buffer OK');
 }
 
