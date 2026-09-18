@@ -259,7 +259,7 @@ if grep -qE 'openwrt-feed/|\./scripts/gen-all|core/fwlive-log|embed-fwlive-css' 
 	fail=1
 fi
 
-if grep -rqE 'Do not edit by hand|regenerate(d)? upstream of this tree|Snapshot from the fwlive monorepo' \
+if grep -rqE '[Dd]o not edit|regenerate(d)? upstream of this tree|Snapshot from the fwlive monorepo' \
 	"$OUT" 2>/dev/null; then
 	echo "  FAIL: luci cut still tells maintainers not to edit, or names the fwlive repo" >&2
 	fail=1
