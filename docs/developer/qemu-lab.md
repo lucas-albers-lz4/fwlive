@@ -336,6 +336,37 @@ Both substrates satisfy X/Y/Z. C2 peaks ≈ idle because the stock ring had no
 firewall lines (`lines=0`); C1 fixture is the authoritative max-poll peak for
 this calibration.
 
+### OpenWrt 25.12 rerun (#363)
+
+Measured 2026-09-17/18 on OpenWrt 25.12.0 (`r32713-f919e7899d`) with package
+0.1.43-r1 and fixture `tests/fixtures/logread-2000.json` (224,365 bytes / 2,000
+entries). Both guests reported `primitive=vmrss`; PSS was not available in
+these images. The x86 guest used `OWRT_QEMU_MEM=160` (guest MemTotal 129 MiB,
+2 vCPUs); armsr used `OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256` (guest MemTotal 231
+MiB, 1 vCPU). The runs used source `4a9e7c7`, kernel `6.12.71`, QEMU 8.2.2,
+and image SHA-256 prefixes `088bdaf1` (x86) and `2541153d` (armsr). Values
+below are medians of the five harness samples.
+
+| substrate | rpcd parse (20) | log capture (5) | input capture (20) | jsonfilter (5) | classifier file (5) | awk classify (5) | fixture filter | real poll |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| x86_64 KVM | 1 ms | 2 ms | 3 ms | 6 ms | 2 ms | 2 ms | 1,370 ms | 40 ms |
+| armsr TCG | 43 ms | 96 ms | 153 ms | 250 ms | 76 ms | 122 ms | 31,620 ms | 1,440 ms |
+
+The TCG slowdown is expected from the one-vCPU emulation and is not a native
+ARM performance claim. The process profile completed all stages on both
+substrates; the guest clock was `/proc/uptime` with centisecond resolution.
+
+| substrate | idle rpcd RSS | C1 fixture peak (n=5) | retention Δ RSS | C1 lines |
+|---|---:|---:|---:|---:|
+| x86_64 KVM | 1,900 kB | 5,248 kB | 0 kB | 1,143 |
+| armsr TCG | 2,424 kB | 5,436 kB | 0 kB | 1,143 |
+
+Both targets remain below the committed X/Y/Z soft budgets. The occasional
+`/proc/<pid>/stat` race emitted by the sampler did not invalidate a sample; all
+five C1 samples completed on each guest. Adaptive-cap flood runs also passed on
+both substrates (`ac_pass=1`): hot-state detection, capped follow-up polls,
+recovery, and the uncapped control path all matched the harness verdict.
+
 ### Checklist
 
 - [x] Harness + this stub
