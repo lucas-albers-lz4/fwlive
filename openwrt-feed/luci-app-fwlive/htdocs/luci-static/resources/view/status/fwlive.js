@@ -111,6 +111,8 @@ return view.extend({
 	pollCoordinator: null,
 	renderScheduler: null,
 	pagehideHandler: null,
+	/* Terminal after a non-persisted pagehide; late startup RPCs must not paint. */
+	viewDisposed: false,
 	/* Layer 2 — visibility / RTT cadence / shed surfacing. */
 	rttStreakKind: null,
 	rttStreakCount: 0,
@@ -615,12 +617,14 @@ return view.extend({
 	async loadRulesMap() {
 		try {
 			const res = await callFwliveRules();
+			if (this.viewDisposed) return;
 			this.rulesMap = (res && res.rules) || {};
 			this.firewallBackend = (res && res.backend) || 'nft';
 			/* Bounds / mktemp failures are reply.error — same idea as poll. */
 			this.lastRulesError = (res && res.error) || null;
 			if (this.lastRulesError) console.warn('fwlive rules map error:', this.lastRulesError);
 		} catch (e) {
+			if (this.viewDisposed) return;
 			this.rulesMap = {};
 			this.firewallBackend = 'nft';
 			this.lastRulesError = 'rules_unavailable';
@@ -668,9 +672,12 @@ return view.extend({
 	async loadLoggingStatus() {
 		const wasWeakDevice = this.weakDevice;
 		try {
-			this.loggingStatus = await callFwliveLoggingStatus();
+			const status = await callFwliveLoggingStatus();
+			if (this.viewDisposed) return;
+			this.loggingStatus = status;
 			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		} catch (e) {
+			if (this.viewDisposed) return;
 			this.loggingStatus = null;
 		}
 		this.updateBackendUi();
@@ -1126,6 +1133,7 @@ return view.extend({
 	},
 
 	disposeView() {
+		this.viewDisposed = true;
 		if (this.pollCoordinator) this.pollCoordinator.dispose();
 		if (this.renderScheduler) this.renderScheduler.dispose();
 		this.resolveGeneration = (this.resolveGeneration || 0) + 1;
@@ -1952,6 +1960,9 @@ return view.extend({
 	},
 
 	load() {
+		/* A late LuCI lifecycle callback may re-enter load() after pagehide has
+		 * made disposal terminal; do not restore state or re-register polling. */
+		if (this.viewDisposed) return Promise.resolve();
 		/* RPC-affecting preferences must precede poll registration and the first
 		 * request; filter widgets still restore in addFooter after render. */
 		this.resolveRpcPreferences();
@@ -1966,12 +1977,15 @@ return view.extend({
 			window.addEventListener('pagehide', this.pagehideHandler);
 		}
 		coordinator.startPolling();
-		return Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]).then(() =>
-			this.requestPoll()
-		);
+		return Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]).then(() => {
+			if (this.viewDisposed) return;
+			return this.requestPoll();
+		});
 	},
 
 	render() {
+		/* LuCI may finish the load/render/addFooter sequence after pagehide. */
+		if (this.viewDisposed) return E('div', { 'class': 'cbi-map' });
 		return E(
 			'div',
 			{ 'class': 'cbi-map fwlive-map', 'data-view': 'simple', 'data-row-tint': 'classic' },
@@ -2399,6 +2413,7 @@ return view.extend({
 	},
 
 	addFooter() {
+		if (this.viewDisposed) return;
 		this.viewMode = this.readViewMode();
 		this.messageLayout = this.readMessageLayout();
 		this.showHostnames = this.readShowHostnames();
