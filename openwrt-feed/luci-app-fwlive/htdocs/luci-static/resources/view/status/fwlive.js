@@ -871,7 +871,6 @@ return view.extend({
 	async fetchPollReply(fetchLines) {
 		const t0 = this.nowMs();
 		let reply;
-		let errored = false;
 		try {
 			/* Raw logd lines, not post-filter rows. Fetch a multiple of the
 			 * display limit so mixed syslog still fills the table; pause
@@ -880,21 +879,19 @@ return view.extend({
 				addresses: [String(fetchLines)]
 			});
 		} catch (e) {
-			errored = true;
 			reply = null;
 		}
 		return {
 			reply: reply,
-			errored: errored,
 			rtt: this.nowMs() - t0
 		};
 	},
 
-	/* Apply one current-epoch reply to transport state, normalized rows, and buffer. */
+	/* Caller must discard stale epochs before this synchronous application.
+	 * This updates transport/adaptive state, summary/banner UI, rows, and buffer. */
 	applyPollReply(poll, context) {
 		const reply = poll.reply;
 		const rtt = poll.rtt;
-		const errored = poll.errored;
 		const resumeMerge = context.resumeMerge;
 		const fetchLines = context.fetchLines;
 		const beforeLength = context.beforeLength;
@@ -943,7 +940,7 @@ return view.extend({
 			this.lastPollEffectiveLimit = reply.effective_limit;
 		}
 
-		this.notePollRtt(rtt, errored);
+		this.notePollRtt(rtt, false);
 		this.updateAdaptiveBanner();
 		if (this.clientBackoffEnabled() && rtt > constants.POLL_RTT_SLOW_MS) {
 			if (!this.summaryMode) this.enterSummaryMode(reply.summary);
@@ -966,8 +963,7 @@ return view.extend({
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});
 		this.updateFillingState(beforeLength, reply, fetchLines);
-		/* A stale request returns above. Keep this obligation until a current
-		 * request has actually applied the merged batch. */
+		/* Clear the merge obligation only after the current batch is applied. */
 		if (resumeMerge) this.resumeMerge = false;
 	},
 
