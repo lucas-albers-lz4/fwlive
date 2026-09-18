@@ -401,6 +401,22 @@ async function testResolveLoadShed() {
 	console.log('fwlive-view layer2: resolve disabled:load OK');
 }
 
+async function testResolveReplyShapes() {
+	const h = loadFwliveView();
+	const v = h.view;
+	assert.deepStrictEqual(
+		v.resolveNamesFromReply({ names: { '192.0.2.1': 'router.example' } }),
+		{ '192.0.2.1': 'router.example' }
+	);
+	assert.deepStrictEqual(
+		v.resolveNamesFromReply({ '198.51.100.1': 'host.example' }),
+		{ '198.51.100.1': 'host.example' }
+	);
+	assert.deepStrictEqual(v.resolveNamesFromReply(null), {});
+	assert.deepStrictEqual(v.resolveNamesFromReply([]), {});
+	console.log('fwlive-view layer2: resolve reply shapes OK');
+}
+
 async function testShedSurfacing() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -978,6 +994,7 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 		await testCadenceHysteresis();
 		await testAdaptiveOffDisablesBackoff();
 		await testResolveLoadShed();
+		await testResolveReplyShapes();
 		await testShedSurfacing();
 		await testSummaryFallbackAndRecovery();
 		await testStreakResetOnAdaptiveOff();

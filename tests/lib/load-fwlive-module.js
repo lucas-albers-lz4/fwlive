@@ -49,7 +49,7 @@ function loadFwliveModule(name, deps) {
 		.replace(/^'require [^']+';[^\n]*\n/gm, '');
 	const baseclass = { extend: function(desc) { return desc; } };
 	const fn = new Function(
-		'baseclass', 'log', 'links', 'E', '_', 'document', 'window',
+		'baseclass', 'log', 'links', 'E', '_', 'document', 'window', 'localStorage',
 		body
 	);
 	return fn(
@@ -62,7 +62,8 @@ function loadFwliveModule(name, deps) {
 			createTextNode: function(t) { return { text: t }; },
 			createElement: function(tag) { return fakeE(tag, {}, []); }
 		},
-		deps.window || {}
+		deps.window || {},
+		deps.localStorage || {}
 	);
 }
 

@@ -175,6 +175,54 @@ function testRealRendererIntegration() {
 			'host children must all be element nodes after the text-node sweep');
 }
 
+function findButton(node) {
+	if (!node) return null;
+	if (node.tagName === 'button') return node;
+	const children = node.childNodes || [];
+	for (let i = 0; i < children.length; i++) {
+		const button = findButton(children[i]);
+		if (button) return button;
+	}
+	return null;
+}
+
+/* Consent is only persistent after the view's enable RPC succeeds. */
+function testEnableButtonDoesNotPersistEarly() {
+	const storage = {};
+	const localStorage = {
+		getItem: function (key) {
+			return Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null;
+		},
+		setItem: function (key, value) {
+			storage[key] = String(value);
+		}
+	};
+	const log = loadFwliveModule('log');
+	const links = loadFwliveModule('links', { log: log });
+	const logging = loadFwliveModule('logging', {
+		links: links,
+		E: luciE.E,
+		document: luciE.document,
+		localStorage: localStorage
+	});
+	let enableCalls = 0;
+
+	[true, false].forEach(function (showConsent) {
+		const nodes = logging.buildEmptyStateNodes(
+			{ loggingStatus: { wan_log: false, blockers: [] }, loggingBusy: false, showConsent: showConsent },
+			{ onEnable: function () { enableCalls++; }, onDismissConsent: function () {} }
+		);
+		const button = findButton({ childNodes: nodes });
+		assert.ok(button, 'enable button must render for both empty-state variants');
+		assert.ok(button._listeners.click && button._listeners.click.length === 1);
+		button._listeners.click[0]();
+		assert.equal(localStorage.getItem('fwlive-logging-consent-v1'), null,
+			'enable click must not persist consent before RPC success');
+	});
+
+	assert.equal(enableCalls, 2, 'both empty-state enable buttons must invoke the callback');
+}
+
 /* --- document shim fidelity for E('a', ..., [...]) --- */
 function testDocumentShim() {
 	assert.ok(document.createElement('div') instanceof Element);
@@ -191,6 +239,7 @@ testAttrsAndNodeChildren();
 testNestedArrayChildren();
 testHarnessIsNotFakeE();
 testRealRendererIntegration();
+testEnableButtonDoesNotPersistEarly();
 testDocumentShim();
 
 console.log('fwlive E() harness tests passed');
