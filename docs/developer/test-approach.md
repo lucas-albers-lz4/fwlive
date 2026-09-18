@@ -184,15 +184,81 @@ necessary history.
 The review ledger has at least:
 
 ```text
-risk or contract | consequence | production surface | existing assertion
-artifact and fidelity | execution/enforcement state | proposed outcome
-maintenance cost | revisit trigger
+risk or contract | owner | consequence | production surface | existing assertion
+artifact and fidelity | fault injection | oracle | execution/enforcement state
+proposed outcome | acceptance artifact | maintenance cost | revisit trigger
 ```
 
 Before you stop an audit pass, give every high-impact contract credible
 evidence or an explicit disposition. When the remaining candidates add low
 value, stop the pass.
 “More tests” is not itself a completion criterion.
+
+## Plan refinement from #370
+
+Issue [#370](https://github.com/lucas-albers-lz4/fwlive/issues/370) is a useful
+coverage inventory, but its ranked list is not by itself an executable design
+plan. Use the following refinements when closing that review or repeating the
+same audit:
+
+1. Freeze the evidence boundary. Record the reviewed commit, escaped-defect
+   baseline, current HEAD if different, host/runtime versions, exact commands,
+   and every skipped prerequisite. Run the relevant gates against the reviewed
+   revision; do not mix a result from a follow-up branch into its evidence
+   record. A passing suite with a skipped branch is still useful, but the
+   skipped branch is not Executed or Enforced.
+2. Give each selected gap a complete design tuple: contract and consequence,
+   production artifact and boundary, smallest representative fault, oracle
+   independent of the implementation, fidelity and frequency, owner, expected
+   cost, acceptance artifact, and revisit trigger. The ledger's existing
+   `maintenance cost` and `revisit trigger` fields are not a substitute for an
+   owner or an acceptance condition.
+3. Resolve behavior decisions before writing assertions. In particular, the
+   renamed-WAN case (L3) must first choose the supported contract: preserve
+   exact `name='wan'` matching and test an explicit `no_wan_zone` disposition,
+   or broaden the implementation and test the supported name set. Do not let a
+   test silently choose a product contract. For the release/architecture list
+   (L6), select cells by distinct seams—install format, firewall backend,
+   architecture, and installed LuCI/rpcd path—instead of promising the full
+   Cartesian matrix.
+4. Design every new check to fail for a small, known fault. Host and e-harness
+   tests should invoke the shipped entry point or module and inject dependency
+   failures through PATH, fixture, or seam controls; they must not reimplement
+   the branch under test with an extracted function or a stubbed copy of the
+   production filter. Assertions must name the externally visible result and
+   preserve unrelated state where rollback or configuration is involved.
+5. Treat installed-session and DOM claims as boundary tests. The ACL item (L1)
+   needs a real LuCI/uhttpd `/ubus` session login for a role with the read ACL
+   and a role without it; a root `ubus call` is not ACL evidence. The renderer
+   item (L4) should use the LuCI-accurate `E()` harness with hostile message
+   content, allow only intentional empty-container clearing, and assert that
+   the hostile value never appears in an `innerHTML` write while appearing as
+   text. The browser fixture item (L5) needs assertions for the changed
+   backend, adaptive/degradation metadata, IPv6 row, and hostile row—not only
+   fields copied into a mock reply.
+
+Apply the #370 candidates in three bounded stages:
+
+| Stage | Scope | Exit condition |
+| --- | --- | --- |
+| Contract and host evidence | L2 nf_log fixtures, the L3 zone-name decision, L4 DOM sink proof, L5 reply-shape/fixture contract, L7 hash restoration, plus the normal empty-ring and highest-value L8 fail-closed cases | Each item has a fault, oracle, shipped-artifact boundary, and a passing required-host assertion, or an explicit deferred disposition. |
+| Installed seams | L1 session ACL and the selected L6 matrix cells | The QEMU/manual artifact records image and package/feed revision, install format, architecture, backend, session identity, command/output, date, and cleanup; direct root calls do not count. |
+| Follow-up state coverage | The remaining L8 rollback injections and L9 backend/IPv6/degradation/storage/resolve cases | Each case is split into an independent assertion with an owner and revisit trigger; grouping is allowed for implementation, not for hiding an unverified branch. |
+
+The upstream-cut readiness decision should be made from those exit conditions,
+not from the count of L1–L9 tests. At minimum, L1, L2, L4, L5, and every
+security/configuration branch in L8 need executed evidence or an explicit
+residual; L3 needs a documented contract decision; and L6 needs dated evidence
+for every selected seam cell. A manual result becomes `Manually verified` only
+when its artifact is retained with the review record.
+
+Evidence snapshot for the follow-up branch used while refining #370
+(`17b9c5de774c`): `./scripts/fwlive-test.sh` passed, `npm run test:view`
+passed, and the five-release `fwlive-jshn-compat` checks passed. The rpcd
+self-test also reported its expected `jshn not available` skip, so that branch
+is not counted as executed there; the separate compatibility gate is the
+evidence for real-jshn semantics. This is the evidence distinction the review
+record must preserve when the reviewed revision and the current branch differ.
 
 ## Calibration examples
 
