@@ -682,6 +682,66 @@ async function testResumeMergeSurvivesVisibilityRace() {
 	console.log('fwlive-view layer2: resume merge visibility race OK');
 }
 
+async function testUnpauseDuringPausedPollRetainsBuffer() {
+	let releaseFirst;
+	let releaseCatchup;
+	const firstGate = new Promise(function (r) {
+		releaseFirst = r;
+	});
+	const catchupGate = new Promise(function (r) {
+		releaseCatchup = r;
+	});
+	let calls = 0;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				calls++;
+				if (calls === 1) await firstGate;
+				if (calls === 2) await catchupGate;
+				return {
+					log: [
+						{
+							id: calls,
+							time: 1717675742 + calls,
+							msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.168.1.150 DST=8.8.8.8 PROTO=TCP SPT=49210 DPT=443'
+						}
+					],
+					adaptive: 1
+				};
+			},
+			'fwlive.resolve': async function () {
+				return { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	v.updateStreamControlsUi = function () {};
+	v.entries = [{ id: 'pause-only', log_id: 0, timestamp: 1 }];
+	v.tablePaused = true;
+	v.ensurePollCoordinator().startPolling();
+
+	const first = v.requestPoll();
+	await sleep(10);
+	assert.strictEqual(calls, 1, 'paused poll must be active before unpause');
+
+	v.onPauseClick();
+	assert.strictEqual(v.tablePaused, false, 'unpause must change the table state immediately');
+	releaseFirst();
+	await first;
+	await sleep(20);
+	assert.strictEqual(calls, 2, 'unpause must leave one queued catch-up poll');
+	assert.ok(
+		v.entries.some(function (e) {
+			return e.id === 'pause-only';
+		}),
+		'poll started while paused must retain its buffer rows after unpause'
+	);
+
+	releaseCatchup();
+	await sleep(20);
+	console.log('fwlive-view layer2: unpause during paused poll retains buffer OK');
+}
+
 async function testStaleAnimationFrameIsDropped() {
 	const frames = [];
 	const h = loadFwliveView({
@@ -847,6 +907,7 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 		await testResolveRpcErrorNoFailMark();
 		await testResumeStaleSkipsRender();
 		await testResumeMergeSurvivesVisibilityRace();
+		await testUnpauseDuringPausedPollRetainsBuffer();
 		await testStaleAnimationFrameIsDropped();
 		await testAnimationFrameAdaptersPreserveWindowReceiver();
 		await testLimitRefreshPreservesQueuedForce();

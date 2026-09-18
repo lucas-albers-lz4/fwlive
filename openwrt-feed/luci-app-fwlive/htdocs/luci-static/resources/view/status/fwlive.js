@@ -957,7 +957,7 @@ return view.extend({
 		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
 			/* buffer.js retains its public paused option; this is the view's table state. */
-			paused: this.tablePaused,
+			paused: this.tablePaused || context.pausedAtStart,
 			resumeMerge: resumeMerge,
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
@@ -971,6 +971,7 @@ return view.extend({
 		if (!this.sessionSeen) this.sessionSeen = new Set();
 
 		const epoch = this.currentPollEpoch();
+		const pausedAtStart = !!this.tablePaused;
 		const resumeMerge = !!this.resumeMerge;
 		const fetchLines = this.requestedFetchLines();
 		const beforeLength = this.entries.length;
@@ -986,6 +987,7 @@ return view.extend({
 		this.applyPollReply(poll, {
 			beforeLength: beforeLength,
 			fetchLines: fetchLines,
+			pausedAtStart: pausedAtStart,
 			resumeMerge: resumeMerge
 		});
 	},
