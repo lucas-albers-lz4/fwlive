@@ -28,11 +28,13 @@ Do not use the luci tree as a second place to develop the app.
 
 ### Generated / snapshot files
 
-Some shipped files are **snapshots**. They are not hand-edited LuCI sources.
-After the cut, their headers say this (for example `fwlive-is-firewall-event.sh` and `css.js`).
+Some shipped files are **snapshots** generated here (`CLASSIFY_SPEC` →
+`./scripts/gen-all.sh`). The luci copy is those bytes. Cut headers may
+label them as generated; they must not name this GitHub or tell a luci
+maintainer not to edit. Snapshot provenance stays in the luci PR body.
+If someone patches the luci copy, absorb it here and recut.
 Keep `APP_VERSION` in `constants.js` equal to `PKG_VERSION`.
 To change the classifier, edit `CLASSIFY_SPEC` in this monorepo, run `./scripts/gen-all.sh`, then cut again.
-If you edit those files only in luci, the next snapshot will overwrite your change.
 
 ### Keeping luci current
 
@@ -82,7 +84,8 @@ An in-tree snapshot with a clear “fwlive wins” rule fits LuCI practice bette
    - Rewrites README / GENERATED / `constants.js` so they do not cite
      monorepo-only paths (`core/`, `openwrt-feed/`, `./scripts/gen-all.sh`).
      Drops README Maintenance / Documentation (no out-of-tree GitHub winner
-     in the luci copy; feed README stays)
+     in the luci copy; feed README stays). Generated headers are labels only
+     (no do-not-edit, no “regenerate upstream”)
    - Keeps `PKG_VERSION` / `PKG_RELEASE` (lockstep with `APP_VERSION`)
    - Verifies file counts and absence of monorepo-only comment paths
 3. Run `FWLIVE_I18N_REQUIRE_SCAN=1 ./scripts/fwlive-test.sh` for upstream/release sign-off. Set `FWLIVE_I18N_SCAN` to the OpenWrt tree's `build/i18n-scan.pl` when it is not on `PATH`; missing scanner prerequisites fail this sign-off path.
@@ -143,6 +146,9 @@ Feature branch (not `master`). Subject example:
   are not in the commit. A snapshot commit may mention host-side test coverage
   **only if** it says the tests live in the fwlive repo, names the path or PR,
   and does not imply the luci tree contains them (luci ships no `tests/`).
+- After squash there is one commit. Say **This commit ships `po/templates`
+  only**, not “First commit” (leftover from the pre-squash series). Use the
+  same wording in the luci PR body Design notes.
 
 ## Filing sequence (prep → luci)
 
@@ -178,8 +184,8 @@ the luci tree**. Each round uses the same split:
    `gh pr view 8992 --repo openwrt/luci --json state,headRefOid`
 4. **Re-cut luci** — from merged fwlive master:
    `./scripts/upstream-cut.sh` → copy into the luci feature branch →
-   `i18n-scan.pl` → FormalityCheck commit (e.g. “refresh snapshot for openwrt-ai
-   round N”) → push `luci-app-fwlive-add`.
+   `i18n-scan.pl` → FormalityCheck commit (still one commit; body says
+   “This commit ships `po/templates` only”) → push `luci-app-fwlive-add`.
 5. **Reply and resolve on luci** — two separate steps (reply alone is not enough):
    - **Reply inline** on each finding thread: `Fixed in <sha>` + one product /
      FormalityCheck line. Code folded in the snapshot commit; no bot thread dumps.
@@ -221,6 +227,7 @@ Living tracker for the open wave: [fwlive #209](https://github.com/lucas-albers-
 | 4 | Round 4 | [#255](https://github.com/lucas-albers-lz4/fwlive/pull/255) | `timeout_missing` → non-gating `warnings` + backend span; staged-line selftests |
 | 5 | Round 5 | [#258](https://github.com/lucas-albers-lz4/fwlive/pull/258) | Document `warnings` expect key; warn-tint degraded backend span; drop inaccurate `classList.toggle` note |
 | 6 | BKPepe (squash / README / `#43`) | [#337](https://github.com/lucas-albers-lz4/fwlive/pull/337) | Luci-safe README (no GitHub winner); drop `#43` from shipped comments; squash luci PR |
+| 7 | openwrt-ai post-squash (headers / wrap / “First commit”) | [#342](https://github.com/lucas-albers-lz4/fwlive/pull/342) | Cut headers labels-only (B); sticky-dir wrap; FormalityCheck “This commit ships po/templates only” |
 
 Process docs for the agent gate live in [#212](https://github.com/lucas-albers-lz4/fwlive/pull/212)
 ([pr-cycle.md](pr-cycle.md) + this file). Umbrella issues [#216](https://github.com/lucas-albers-lz4/fwlive/issues/216) /

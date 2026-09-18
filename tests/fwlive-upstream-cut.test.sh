@@ -129,6 +129,24 @@ check_comment_policy "$CUT_WORK/cut" 1 \
     || die "cut comments still contain tracker ids or GitHub org"
 ok "cut comments have no tracker ids or GitHub org"
 
+if grep -rqE '[Dd]o not edit|regenerate(d)? upstream of this tree|Snapshot from the fwlive monorepo' \
+	"$CUT_WORK/cut"; then
+	die "cut headers still name the fwlive repo or tell maintainers not to edit"
+fi
+grep -q '^# Generated classifier snapshot\.$' \
+	"$CUT_WORK/cut/root/usr/libexec/fwlive-is-firewall-event.sh" \
+	|| die "cut classifier header is not a generated-snapshot label"
+grep -q '^# Generated classifier snapshot\.$' \
+	"$CUT_WORK/cut/root/usr/libexec/fwlive-is-firewall-event.awk" \
+	|| die "cut awk classifier header is not a generated-snapshot label"
+grep -q '^ \* Generated stylesheet snapshot\.$' \
+	"$CUT_WORK/cut/htdocs/luci-static/resources/fwlive/css.js" \
+	|| die "cut stylesheet header is not a generated-snapshot label"
+grep -q '^ \* Shared CLASSIFY_SPEC\.$' \
+	"$CUT_WORK/cut/htdocs/luci-static/resources/fwlive/log.js" \
+	|| die "cut log module header is not a shared-spec label"
+ok "cut generated headers are labels only"
+
 [ -f "$CUT_WORK/cut/po/templates/luci-app-fwlive.pot" ] \
 	|| die "po/templates/luci-app-fwlive.pot missing from cut"
 for lang in de ru zh_Hans; do
