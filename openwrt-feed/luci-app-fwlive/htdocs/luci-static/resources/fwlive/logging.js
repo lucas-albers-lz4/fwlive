@@ -54,7 +54,6 @@ function enableLoggingButton(state, callbacks) {
 			'type': 'button',
 			'disabled': state.loggingBusy ? '' : null,
 			'click': function () {
-				persistConsentDismissed();
 				callbacks.onEnable();
 			}
 		},
