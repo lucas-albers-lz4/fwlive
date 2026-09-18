@@ -9,10 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.44] — 2026-09-17
+
 ### Changed
 - Luci-cut generated headers are labels only (no out-of-tree repo, no do-not-edit); wrap the sticky-dir lock comment
 - Luci FormalityCheck / PR body: “This commit ships po/templates only” (not “First commit”)
 - Reflow comments left ragged after tracker-id parentheticals were dropped
+- Record the OpenWrt 25.12 process and memory load profile, including x86_64 and armsr results (#363, #364)
+
+Supported OpenWrt: **21.02**, **22.03**, **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.43] — 2026-09-17
 
@@ -496,6 +507,7 @@ Manual install: [installation.md](docs/user/installation.md)
 
 ---
 
+[v0.1.44]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.43...v0.1.44
 [v0.1.43]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.42...v0.1.43
 [v0.1.42]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.41...v0.1.42
 [v0.1.41]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.40...v0.1.41
