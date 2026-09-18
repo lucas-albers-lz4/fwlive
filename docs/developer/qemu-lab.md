@@ -582,6 +582,16 @@ soak remains the controlled headless-run evidence above and must use the
 explicit emulation override unless it is repeated with the native browser
 mode.
 
+#### Production `weak_device` probe
+
+The production-side device classification was verified on 2026-09-17 using
+the canonical OpenWrt 24.10.8 armsr/armv8 TCG guest with
+`OWRT_QEMU_SMP=1 OWRT_QEMU_MEM=256`. The guest reported `MemTotal=238560 kB`
+and one `/proc/cpuinfo` processor. A live `ubus call fwlive logging_status`
+returned `"weak_device":true`, with no blocker errors. This is a status
+classification probe; it does not substitute for the browser-performance or
+forwarding measurements above.
+
 For a supplemental loaded-router check, leave the poll path real and run this
 mode while a guest load/traffic producer is active:
 
