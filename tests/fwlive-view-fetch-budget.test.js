@@ -486,7 +486,16 @@ async function testPagehideDisposesCoordinator() {
 	assert.strictEqual(v.entries.length, 0, 'pagehide must discard a real active reply');
 	assert.strictEqual(calls, 1, 'pagehide must not start a queued request');
 	await v.requestPoll();
+	let lateLoadPreferenceResolutions = 0;
+	v.resolveRpcPreferences = function () {
+		lateLoadPreferenceResolutions++;
+	};
 	await v.load();
+	assert.strictEqual(
+		lateLoadPreferenceResolutions,
+		0,
+		'late load must not restore preferences after terminal disposal'
+	);
 	assert.strictEqual(calls, 1, 'disposed coordinator must ignore later poll requests');
 	console.log('fwlive-view fetch-budget: pagehide disposal contract OK');
 }
@@ -527,6 +536,12 @@ async function testPagehideDropsLateStartupUi() {
 	let backendUpdates = 0;
 	let toolbarUpdates = 0;
 	let emptyUpdates = 0;
+	let pollRequests = 0;
+	const requestPoll = v.requestPoll;
+	v.requestPoll = function () {
+		pollRequests++;
+		return requestPoll.apply(this, arguments);
+	};
 	v.updateBackendUi = function () { backendUpdates++; };
 	v.updateLoggingToolbarUi = function () { toolbarUpdates++; };
 	v.updateEmptyStateUi = function () { emptyUpdates++; };
@@ -549,6 +564,7 @@ async function testPagehideDropsLateStartupUi() {
 	assert.strictEqual(backendUpdates, 0, 'late rules reply must not update backend UI');
 	assert.strictEqual(toolbarUpdates, 0, 'late status reply must not update logging UI');
 	assert.strictEqual(emptyUpdates, 0, 'late startup replies must not update empty state');
+	assert.strictEqual(pollRequests, 0, 'late startup completion must not request a poll');
 	assert.strictEqual(pollCalls, 0, 'disposed startup must not start a poll');
 	console.log('fwlive-view fetch-budget: pagehide drops late startup UI OK');
 }

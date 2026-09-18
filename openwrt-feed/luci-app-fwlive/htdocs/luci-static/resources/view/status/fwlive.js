@@ -1960,6 +1960,8 @@ return view.extend({
 	},
 
 	load() {
+		/* A late LuCI lifecycle callback may re-enter load() after pagehide has
+		 * made disposal terminal; do not restore state or re-register polling. */
 		if (this.viewDisposed) return Promise.resolve();
 		/* RPC-affecting preferences must precede poll registration and the first
 		 * request; filter widgets still restore in addFooter after render. */
@@ -1975,9 +1977,10 @@ return view.extend({
 			window.addEventListener('pagehide', this.pagehideHandler);
 		}
 		coordinator.startPolling();
-		return Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]).then(() =>
-			this.requestPoll()
-		);
+		return Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]).then(() => {
+			if (this.viewDisposed) return;
+			return this.requestPoll();
+		});
 	},
 
 	render() {

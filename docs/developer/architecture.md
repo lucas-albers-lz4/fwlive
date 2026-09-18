@@ -75,8 +75,10 @@ hostname work, and dispose the poll coordinator and render scheduler.
 
 Disposal is terminal: it invalidates the epoch, removes polling and visibility
 subscriptions, and settles both batches without aborting the RPC. Late replies
-and callbacks cannot revive it. Keep the disposed instance attached to the
-departing view so old epochs cannot become current again.
+and callbacks cannot revive it. The terminal `viewDisposed` flag also makes
+late startup completion skip its first poll and makes post-disposal `render()`
+and `addFooter()` no-ops. Keep the disposed instance attached to the departing
+view so old epochs cannot become current again.
 
 The render scheduler owns queued frame intent, its token bucket, and the last
 painted row count/head identity. `schedule(force)` coalesces requests within a
