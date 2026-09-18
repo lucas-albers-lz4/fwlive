@@ -867,19 +867,10 @@ return view.extend({
 		return { rows: normalized, pollNew: pollNew };
 	},
 
-	async fetchEntries() {
-		if (!this.sessionSeen) this.sessionSeen = new Set();
-
-		const epoch = this.currentPollEpoch();
-		const resumeMerge = !!this.resumeMerge;
-		const fetchLines = this.requestedFetchLines();
-		const beforeLength = this.entries.length;
-		this.lastPollRequestedLines = fetchLines;
-		this.lastPollReturnedMessages = null;
-		this.lastPollEffectiveLimit = null;
+	/* Keep RPC timing and reply acquisition separate from view-state mutation. */
+	async fetchPollReply(fetchLines) {
 		const t0 = this.nowMs();
 		let reply;
-		let errored = false;
 		try {
 			/* Raw logd lines, not post-filter rows. Fetch a multiple of the
 			 * display limit so mixed syslog still fills the table; pause
@@ -888,14 +879,24 @@ return view.extend({
 				addresses: [String(fetchLines)]
 			});
 		} catch (e) {
-			errored = true;
 			reply = null;
 		}
+		return {
+			reply: reply,
+			rtt: this.nowMs() - t0
+		};
+	},
 
-		/* Visibility changes and disposal invalidate all application of this reply. */
-		if (epoch !== this.currentPollEpoch()) return;
-
-		const rtt = this.nowMs() - t0;
+	/* Caller must discard stale epochs before this synchronous application.
+	 * This updates transport/adaptive state, summary/banner UI, rows, and buffer. */
+	applyPollReply(poll, context) {
+		const reply = poll.reply;
+		const rtt = poll.rtt;
+		const resumeMerge = context.resumeMerge;
+		const fetchLines = context.fetchLines;
+		const beforeLength = context.beforeLength;
+		this.lastPollReturnedMessages = null;
+		this.lastPollEffectiveLimit = null;
 
 		if (!reply || typeof reply !== 'object' || Array.isArray(reply)) {
 			this.lastPollError = true;
@@ -941,7 +942,7 @@ return view.extend({
 			this.lastPollEffectiveLimit = reply.effective_limit;
 		}
 
-		this.notePollRtt(rtt, errored);
+		this.notePollRtt(rtt, false);
 		this.updateAdaptiveBanner();
 		if (this.clientBackoffEnabled() && rtt > constants.POLL_RTT_SLOW_MS) {
 			if (!this.summaryMode) this.enterSummaryMode(reply.summary);
@@ -959,14 +960,38 @@ return view.extend({
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
 			/* buffer.js retains its public paused option; this is the view's table state. */
 			paused: this.tablePaused,
-			resumeMerge: resumeMerge,
+			resumeMerge: resumeMerge || context.pausedAtStart,
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});
 		this.updateFillingState(beforeLength, reply, fetchLines);
-		/* A stale request returns above. Keep this obligation until a current
-		 * request has actually applied the merged batch. */
+		/* Clear the merge obligation only after the current batch is applied. */
 		if (resumeMerge) this.resumeMerge = false;
+	},
+
+	async fetchEntries() {
+		if (!this.sessionSeen) this.sessionSeen = new Set();
+
+		const epoch = this.currentPollEpoch();
+		const pausedAtStart = !!this.tablePaused;
+		const resumeMerge = !!this.resumeMerge;
+		const fetchLines = this.requestedFetchLines();
+		const beforeLength = this.entries.length;
+		this.lastPollRequestedLines = fetchLines;
+		this.lastPollReturnedMessages = null;
+		this.lastPollEffectiveLimit = null;
+
+		const poll = await this.fetchPollReply(fetchLines);
+
+		/* Visibility changes and disposal invalidate all application of this reply. */
+		if (epoch !== this.currentPollEpoch()) return;
+
+		this.applyPollReply(poll, {
+			beforeLength: beforeLength,
+			fetchLines: fetchLines,
+			pausedAtStart: pausedAtStart,
+			resumeMerge: resumeMerge
+		});
 	},
 
 	rememberSessionId(id) {
