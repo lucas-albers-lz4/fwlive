@@ -56,7 +56,7 @@ function filterLink(field, value, label, onFilterClick) {
 		{
 			'href': '#',
 			'class': 'fwlive-filter-link',
-			'title': _('Filter by %s').format(field),
+			'title': _('Filter by %s').format(log.filterFieldLabel(field)),
 			'click': function (ev) {
 				onFilterClick(field, value, ev);
 			}
@@ -77,7 +77,7 @@ function addrFilterLink(field, ip, showHostnames, hostnameCache, onFilterClick) 
 
 	const name = showHostnames && hostnameCache ? hostnameCache.get(ip) : null;
 	const display = name || ip;
-	const title = name ? ip : _('Filter by %s').format(field);
+	const title = name ? ip : _('Filter by %s').format(log.filterFieldLabel(field));
 
 	return E(
 		'a',

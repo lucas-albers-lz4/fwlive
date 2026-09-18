@@ -16,29 +16,35 @@
  * Modules must not mutate state. host is cleared then rebuilt (idempotent replace).
  */
 
-function chipValueNodes(field, val) {
+function chipValueNodes(spec, val) {
 	const p = log.parseFilterValue(val);
 	if (!p.value) return [''];
 
+	const label = log.filterFieldLabel(spec.key);
 	const valueNode = p.negate ? E('span', { 'class': 'fwlive-chip-strike' }, [p.value]) : p.value;
 
 	if (!p.negate) {
 		return [
 			E('span', { 'class': 'fwlive-chip-polarity' }, [_('is')]),
 			' ',
-			log.formatFilterChipLabel(field, val)
+			label + ': ' + val
 		];
 	}
 
-	if (field === 'q' || field === 'src' || field === 'dst')
+	if (spec.key === 'q' || spec.key === 'src' || spec.key === 'dst')
 		return [
-			field + ': ',
-			E('strong', { 'class': 'fwlive-chip-not' }, [_('not')]),
-			' contains ',
+			label + ': ',
+			E('strong', { 'class': 'fwlive-chip-not' }, [_('not contains')]),
+			' ',
 			valueNode
 		];
 
-	return [field + ': ', E('strong', { 'class': 'fwlive-chip-not' }, [_('not')]), ' ', valueNode];
+	return [
+		label + ': ',
+		E('strong', { 'class': 'fwlive-chip-not' }, [_('not')]),
+		' ',
+		valueNode
+	];
 }
 
 function chipLeadingSym(negated) {
@@ -69,7 +75,7 @@ function renderFilterChips(host, state, callbacks) {
 		const lead = chipLeadingSym(negated);
 		if (lead) kids.push(lead);
 
-		kids.push(E('span', { 'class': 'fwlive-chip-label' }, chipValueNodes(spec.label, val)));
+		kids.push(E('span', { 'class': 'fwlive-chip-label' }, chipValueNodes(spec, val)));
 		kids.push(
 			E(
 				'span',
