@@ -146,7 +146,7 @@ should carry a note saying what would raise it.
 | Auto/Manual fetch-budget values are validated against a bounded client option set, URL/localStorage state is cosmetic and does not widen ACLs, and budget/effective-limit status is rendered with text nodes | `host` | `tests/fwlive-view-fetch-budget.test.js`; source-to-POT/i18n gates; `view/status/fwlive.js` |
 | Empty filter output on `poll` returns `error:filter_empty` | `code` | Defensive guard at the catch-all branch in `fetch_firewall_logs`: when the filter returns success but prints nothing, the reply carries `error:filter_empty` instead of a silent empty payload. The shipped filter always prints `{"log":[…]}`, so this only fires for stub/missing-filter regressions; no host test induces it without replacing the shipped filter, which is out of scope. Neighbouring `filter_failed` pinned by `tests/fwlive-view-poll-error.test.js`. |
 | `resolve` without `jshn` / with malformed input returns `error:jshn_missing` / `error:invalid_input` | `host` | same file `testResolveJshnMissing`; `invalid_input` runs only where `jshn` exists (skips on stock hosts). UI keeps the full resolve reply (no `expect` unwrap) so `disabled:load` / `error` siblings reach the view (#306 Layer 2). |
-| `logging_status` always returns the full 9-key shape; failures travel as `blockers`/`warnings` with `ready:false`, never a silent empty object | `host` | same file `testLoggingStatusNeverSilent`; #378 `legacy_iptables_detected` warning uses fixtureable procfs table-name probes and remains diagnostic-only |
+| `logging_status` always returns the full 10-key shape; failures travel as `blockers`/`warnings` with `ready:false`, never a silent empty object | `host` | same file `testLoggingStatusNeverSilent`; #378 `legacy_iptables_detected` warning uses fixtureable procfs table-name probes and remains diagnostic-only |
 | `nf_log` readiness is backend-aware and family-aware: empty/`NONE` selectors block a present family, while an independently unavailable IPv6 family is effective-ready | `host` | `tests/fwlive-logging.test.sh` #371 backend matrix through status/enable, `/proc/net/if_inet6` fixtures, dual-ready and IPv4-`NONE` gates; enable asserts `ok:true` on a stubbed lock. #384 QEMU device check on 24.10.8 / 25.12.5 (lab note below); proof class stays `host` for the fixtures |
 | `logging_status.weak_device` is a read-only procfs-derived boolean (`MemTotal < 256 MiB` or one processor); unavailable/malformed procfs fails closed to `false` | `host` | `tests/fwlive-logging.test.sh` fixture threshold cases + `tests/fwlive-rpcd-security.test.js` shape/type assertion |
 | `enable/disable_wan_logging` with no WAN zone return `error:no_wan_zone` before touching the lock | `host` | same file `testToggleNoWanZone` (asserts lock file untouched) |
@@ -573,9 +573,11 @@ legacy table-name procfs files and appends `legacy_iptables_detected` to
 diagnostic-only: it does not affect `ready`, `blockers`, or the enable gate,
 and remains ubus-only until a user-facing remediation flow is designed.
 
-**Method.** Host fixtures cover missing, empty, IPv4-populated, and
-IPv6-populated table-name files through `FWLIVE_IP_TABLES_NAMES_PATH` and
-`FWLIVE_IP6_TABLES_NAMES_PATH`; no host kernel state or privilege is required.
+**Method.** Host fixtures cover missing, empty, IPv4-populated,
+IPv6-populated, and both-populated table-name files through
+`FWLIVE_IP_TABLES_NAMES_PATH` and `FWLIVE_IP6_TABLES_NAMES_PATH`. Empty
+fixture files remain exported so later `logging_status` tests do not read
+host procfs; no host kernel state or privilege is required.
 
 **Result.** Focused logging tests pass. No ACL, DOM-sink, or read/write-scope
 change was made.

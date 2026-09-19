@@ -44,38 +44,87 @@ ok "build_logging_status_json shape"
 
 # #378: legacy iptables detection is diagnostic-only and reads both procfs
 # table-name files from fixtureable paths. Keep the warning ubus-only until a
-# user-facing remediation flow is designed.
+# user-facing remediation flow is designed. Empty fixture files stay exported
+# so later build_logging_status_json calls do not probe host procfs.
+json_array_field() {
+	_src=$1
+	_key=$2
+	_rest=${_src#*"\"${_key}\":["}
+	[ "$_rest" != "$_src" ] || return 1
+	printf '%s' "${_rest%%]*}"
+}
+
+json_ready_field() {
+	case "$1" in
+		*'"ready":true'*) printf 'true' ;;
+		*'"ready":false'*) printf 'false' ;;
+		*) printf '' ;;
+	esac
+}
+
+assert_legacy_warning_state() {
+	_out=$1
+	_expect=$2
+	_why=$3
+	_warnings=$(json_array_field "$_out" warnings) || die "$_why: missing warnings array: $_out"
+	_blockers=$(json_array_field "$_out" blockers) || die "$_why: missing blockers array: $_out"
+	case "$_blockers" in
+		*legacy_iptables_detected*) die "$_why: must not appear in blockers: $_out" ;;
+	esac
+	if [ "$_expect" = present ]; then
+		case "$_warnings" in
+			*legacy_iptables_detected*) ;;
+			*) die "$_why: missing from warnings: $_out" ;;
+		esac
+	else
+		case "$_warnings" in
+			*legacy_iptables_detected*) die "$_why: must not warn: $_out" ;;
+		esac
+	fi
+}
+
+assert_ready_unchanged() {
+	_out=$1
+	_why=$2
+	_ready=$(json_ready_field "$_out")
+	[ -n "$_ready" ] || die "$_why: missing ready: $_out"
+	[ "$_ready" = "$LEGACY_READY_BASELINE" ] || \
+		die "$_why: ready changed from $LEGACY_READY_BASELINE to $_ready: $_out"
+}
+
 LEGACY_WORK=$(mktemp -d)
+cleanup_legacy_tables() { rm -rf "${LEGACY_WORK:-}"; }
+trap cleanup_legacy_tables EXIT
 LEGACY_IPV4="$LEGACY_WORK/ip_tables_names"
 LEGACY_IPV6="$LEGACY_WORK/ip6_tables_names"
 export FWLIVE_IP_TABLES_NAMES_PATH="$LEGACY_IPV4"
 export FWLIVE_IP6_TABLES_NAMES_PATH="$LEGACY_IPV6"
 rm -f "$LEGACY_IPV4" "$LEGACY_IPV6"
 out=$(build_logging_status_json)
-case "$out" in
-	*'legacy_iptables_detected'*) die "missing legacy table files must not warn: $out" ;;
-esac
+assert_legacy_warning_state "$out" absent "missing legacy table files"
 : >"$LEGACY_IPV4"
 : >"$LEGACY_IPV6"
 out=$(build_logging_status_json)
-case "$out" in
-	*'legacy_iptables_detected'*) die "empty legacy table files must not warn: $out" ;;
-esac
+assert_legacy_warning_state "$out" absent "empty legacy table files"
+LEGACY_READY_BASELINE=$(json_ready_field "$out")
+[ -n "$LEGACY_READY_BASELINE" ] || die "empty legacy table files: missing ready: $out"
 printf 'filter\n' >"$LEGACY_IPV4"
 out=$(build_logging_status_json)
-case "$out" in
-	*'legacy_iptables_detected'*) ;;
-	*) die "IPv4 legacy table must warn: $out" ;;
-esac
+assert_legacy_warning_state "$out" present "IPv4 legacy table"
+assert_ready_unchanged "$out" "IPv4 legacy table"
 : >"$LEGACY_IPV4"
 printf 'filter\n' >"$LEGACY_IPV6"
 out=$(build_logging_status_json)
-case "$out" in
-	*'legacy_iptables_detected'*) ;;
-	*) die "IPv6 legacy table must warn: $out" ;;
-esac
-rm -rf "$LEGACY_WORK"
-unset FWLIVE_IP_TABLES_NAMES_PATH FWLIVE_IP6_TABLES_NAMES_PATH
+assert_legacy_warning_state "$out" present "IPv6 legacy table"
+assert_ready_unchanged "$out" "IPv6 legacy table"
+printf 'filter\n' >"$LEGACY_IPV4"
+printf 'nat\n' >"$LEGACY_IPV6"
+out=$(build_logging_status_json)
+assert_legacy_warning_state "$out" present "both-populated legacy tables"
+assert_ready_unchanged "$out" "both-populated legacy tables"
+# Leave empty files exported so later exact warnings pins stay host-independent.
+: >"$LEGACY_IPV4"
+: >"$LEGACY_IPV6"
 ok "legacy iptables warning uses fixtureable table-name probes"
 
 # #371: nf_log readiness is backend-aware and family-aware.  The IPv4 family
@@ -99,7 +148,8 @@ else
 fi
 NF_LOG_WORK=$(mktemp -d)
 cleanup_nf_log_fixtures() { rm -rf "$NF_LOG_WORK"; }
-trap cleanup_nf_log_fixtures EXIT
+cleanup_logging_test_fixtures() { rm -rf "$NF_LOG_WORK" "${LEGACY_WORK:-}"; }
+trap cleanup_logging_test_fixtures EXIT
 NF_LOG_IPV4="$NF_LOG_WORK/nf-log-4"
 NF_LOG_IPV6="$NF_LOG_WORK/nf-log-6"
 FWLIVE_IPV6_AVAILABLE_PATH="$NF_LOG_WORK/if-inet6"
@@ -250,7 +300,7 @@ ok "#371 effective IPv4/IPv6 readiness gates status and enable"
 unset -f uci acquire_wan_log_lock release_wan_log_lock
 unset -f assert_nf_log_backend_missing assert_enable_ok assert_enable_nf_log_missing
 cleanup_nf_log_fixtures
-trap - EXIT
+trap cleanup_legacy_tables EXIT
 NF_LOG_IPV4="$NF_LOG_IPV4_SAVED"
 NF_LOG_IPV6="$NF_LOG_IPV6_SAVED"
 NF_LOG_IPV6_AVAILABLE_PATH="$NF_LOG_IPV6_AVAILABLE_SAVED"
@@ -690,7 +740,7 @@ CHANGES_CALLS=0
 # file-backed: the changes-call counter (the late_foreign discriminator) and
 # the toggle stdout.
 FWLIVE_TMP=$(mktemp -d)
-trap 'rm -rf "$FWLIVE_TMP"' EXIT
+trap 'rm -rf "$FWLIVE_TMP" "${LEGACY_WORK:-}"' EXIT
 CHANGES_FILE="$FWLIVE_TMP/changes.count"
 READ_FILE="$FWLIVE_TMP/reads.count"
 OUT_FILE="$FWLIVE_TMP/out"
