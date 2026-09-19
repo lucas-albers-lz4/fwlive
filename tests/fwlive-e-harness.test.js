@@ -199,6 +199,35 @@ function testRealRendererIntegration() {
 		`${hostileCandidate}, internet`);
 	assert.strictEqual(collectSubtreeInnerHTMLWrites(noZoneTitle).length, 0,
 		'WAN-zone candidates must render as text nodes, never an HTML sink');
+
+	const toolbarHost = new Element('span');
+	toolbarHost.style = {};
+	logging.renderToolbar(
+		toolbarHost,
+		{
+			loggingStatus: {
+				wan_log: false,
+				blockers: ['no_wan_zone'],
+				wan_zone_candidates: [hostileCandidate, 'internet']
+			},
+			loggingBusy: false,
+			entriesLength: 0,
+			loggingNotice: ''
+		},
+		{ onEnable: function () {}, onDisable: function () {} }
+	);
+	const toolbarStatus = Array.prototype.find.call(toolbarHost.childNodes, function (node) {
+		return node._attrs && node._attrs['class'] === 'fwlive-logging-status';
+	});
+	assert.ok(toolbarStatus, 'no-zone toolbar must render a status span');
+	const toolbarCode = Array.prototype.find.call(toolbarStatus.childNodes, function (node) {
+		return node.tagName === 'code';
+	});
+	assert.ok(toolbarCode, 'no-zone toolbar must render candidate names');
+	assert.strictEqual(toolbarCode.childNodes[0].textContent,
+		`${hostileCandidate}, internet`);
+	assert.strictEqual(collectSubtreeInnerHTMLWrites(toolbarStatus).length, 0,
+		'toolbar WAN-zone candidates must render as text nodes, never an HTML sink');
 }
 
 function findButton(node) {

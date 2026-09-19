@@ -314,6 +314,21 @@ ok "find_wan_zone_section defaults omitted network to a wan6 section name"
 uci() {
 	case "$*" in
 		'-q show firewall')
+			printf "firewall.wan=zone\n"
+			;;
+		'-q get firewall.wan.name') return 1 ;;
+		'-q get firewall.wan') printf 'zone\n' ;;
+		'-q get firewall.wan.network') return 1 ;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "wan" ] || die "named wan section with omitted name/network must resolve, got '$got'"
+ok "find_wan_zone_section defaults omitted name and network to section id"
+
+uci() {
+	case "$*" in
+		'-q show firewall')
 			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='first'\nfirewall.@zone[1]=zone\nfirewall.@zone[1].name='second'\n"
 			;;
 		'-q get firewall.@zone[0].name') printf 'first\n' ;;
