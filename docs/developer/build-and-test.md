@@ -25,7 +25,9 @@ Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)
 
 Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline,
 shell codegen + LuCI wrapper gate (`./scripts/gen-all.sh`), and shellcheck on shipped
-`root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`). Optional: `SH='busybox sh' node tests/fwlive-shell-filter.test.js`.
+`root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`), and the invariant
+rules for shipped JS (`./scripts/fwlive-ast-grep.sh`, ast-grep 0.45.3, rules in
+`scripts/ast-grep-rules/`). Optional: `SH='busybox sh' node tests/fwlive-shell-filter.test.js`.
 
 Docs changes must pass the link checker — it checks relative paths **and**
 heading anchors against a GitHub-style slugger.

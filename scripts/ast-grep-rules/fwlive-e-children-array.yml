@@ -1,0 +1,22 @@
+id: fwlive-e-children-must-be-array
+language: JavaScript
+severity: error
+message: |
+  E() children must use the array form or be a DOM node. Upstream LuCI renders an
+  array child as text nodes and a node child via appendChild, but stringifies
+  anything else into innerHTML - so E('td', attrs, value) is an HTML sink while
+  E('td', attrs, [ value ]) is not.
+  See docs/developer/security-model.md 1.
+files:
+  - openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/**/*.js
+rule:
+  pattern: E($TAG, $ATTRS, $CHILD)
+constraints:
+  ATTRS:
+    kind: object
+  CHILD:
+    any:
+      - kind: string
+      - kind: template_string
+      - kind: binary_expression
+      - pattern: _($$$)

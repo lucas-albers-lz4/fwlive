@@ -34,8 +34,10 @@ reviews:
     # repository YAML, falling back to defaults.
     ast-grep:
       enabled: true
-      # Essentials target Node/Express libraries, not this repo. Keep them
-      # off so they do not run until (or unless) rule_dirs is set.
+      # Repo-authored invariant rules for the shipped LuCI surface — the same
+      # directory the fwlive-test job scans, so findings match CI.
+      rule_dirs: ['scripts/ast-grep-rules']
+      # Essentials target Node/Express libraries, not this repo.
       essential_rules: false
     # There is no `bullseye` tool in CodeRabbit's configuration. The
     # rpcd/frontend security intent is covered by semgrep/opengrep (on by

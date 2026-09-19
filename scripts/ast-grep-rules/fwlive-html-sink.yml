@@ -1,0 +1,20 @@
+id: fwlive-html-sink-nonliteral
+language: JavaScript
+severity: error
+message: |
+  Untrusted values must reach the DOM as text nodes, never an HTML sink.
+  Assigning a non-literal to innerHTML/outerHTML/insertAdjacentHTML (or calling
+  document.write) bypasses that rule.
+  See docs/developer/security-model.md §1.
+files:
+  - openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/**/*.js
+rule:
+  any:
+    - pattern: $EL.innerHTML = $VAL
+    - pattern: $EL.outerHTML = $VAL
+    - pattern: $EL.insertAdjacentHTML($POS, $VAL)
+    - pattern: document.write($VAL)
+constraints:
+  VAL:
+    not:
+      kind: string

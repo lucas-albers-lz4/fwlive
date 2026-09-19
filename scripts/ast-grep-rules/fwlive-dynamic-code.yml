@@ -1,0 +1,13 @@
+id: fwlive-no-dynamic-code
+language: JavaScript
+severity: error
+message: |
+  Dynamic code execution is not allowed in shipped LuCI modules.
+  See docs/developer/security-model.md (privileged surface).
+files:
+  - openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/**/*.js
+rule:
+  any:
+    - pattern: eval($$$)
+    - pattern: new Function($$$)
+    - pattern: Function($$$)

@@ -66,6 +66,11 @@ sinks. The rendering regression harness
 `tests/` coverage) keeps it that way. The compliance sweep landed with
 [#137](https://github.com/lucas-albers-lz4/fwlive/issues/137).
 
+Enforced by `scripts/ast-grep-rules/fwlive-e-children-array.yml`: any provably
+string child (string literal, template literal, concatenation, or a `_()`
+call) fails `./scripts/fwlive-ast-grep.sh` in CI and is reported on the PR by
+CodeRabbit, which reads the same rule directory.
+
 ### 2. Log data is never interpolated into a shell command string
 
 `fwlive-log-filter.sh` passes messages as data through `jsonfilter`/`awk`
