@@ -122,6 +122,11 @@ const shippedJsRules = {
 	'no-undef': 'error',
 	'no-implicit-globals': 'error',
 	'no-eval': 'error',
+	/* Member/indirect forms that the ast-grep dynamic-code rule (#380) cannot
+	 * match (window.eval, globalThis.Function) and string-arg setTimeout/
+	 * setInterval — ESLint covers them here; the shipped tree is clean. */
+	'no-new-func': 'error',
+	'no-implied-eval': 'error',
 	'no-unused-vars': [
 		'error',
 		{
