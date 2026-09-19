@@ -42,6 +42,124 @@ case "$out" in
 esac
 ok "build_logging_status_json shape"
 
+# #371: nf_log readiness is backend-aware and family-aware.  The IPv4 family
+# is required by the supported WAN product path; IPv6 readiness is effective
+# only when the independent if_inet6 probe says IPv6 is present.
+NF_LOG_IPV4_SAVED="$NF_LOG_IPV4"
+NF_LOG_IPV6_SAVED="$NF_LOG_IPV6"
+NF_LOG_IPV6_AVAILABLE_SAVED="$NF_LOG_IPV6_AVAILABLE_PATH"
+if [ "${FWLIVE_IPV6_AVAILABLE_PATH+x}" = x ]; then
+	FWLIVE_IPV6_AVAILABLE_SAVED_SET=1
+	FWLIVE_IPV6_AVAILABLE_SAVED="$FWLIVE_IPV6_AVAILABLE_PATH"
+else
+	FWLIVE_IPV6_AVAILABLE_SAVED_SET=0
+fi
+NF_LOG_WORK=$(mktemp -d)
+cleanup_nf_log_fixtures() { rm -rf "$NF_LOG_WORK"; }
+trap cleanup_nf_log_fixtures EXIT
+NF_LOG_IPV4="$NF_LOG_WORK/nf-log-4"
+NF_LOG_IPV6="$NF_LOG_WORK/nf-log-6"
+FWLIVE_IPV6_AVAILABLE_PATH="$NF_LOG_WORK/if-inet6"
+
+for _nf_log_path in "$NF_LOG_IPV4" "$NF_LOG_IPV6"; do
+	rm -f "$_nf_log_path"
+	if read_nf_log_backend "$_nf_log_path"; then
+		die "missing nf_log backend must be unavailable: $_nf_log_path"
+	fi
+	: >"$_nf_log_path"
+	if read_nf_log_backend "$_nf_log_path"; then
+		die "empty nf_log backend must be unavailable: $_nf_log_path"
+	fi
+	printf 'NONE\n' >"$_nf_log_path"
+	if read_nf_log_backend "$_nf_log_path"; then
+		die "uppercase NONE must be unavailable: $_nf_log_path"
+	fi
+	printf 'none\n' >"$_nf_log_path"
+	if read_nf_log_backend "$_nf_log_path"; then
+		die "lowercase none must be unavailable: $_nf_log_path"
+	fi
+	printf 'nf_log_ipv4\n' >"$_nf_log_path"
+	read_nf_log_backend "$_nf_log_path" \
+		|| die "real nf_log backend must be available: $_nf_log_path"
+done
+ok "#371 backend matrix covers both nf_log paths"
+
+rm -f "$FWLIVE_IPV6_AVAILABLE_PATH"
+if nf_log_family_available ipv6; then
+	die "missing IPv6 availability probe must mean IPv6 is unavailable"
+fi
+: >"$FWLIVE_IPV6_AVAILABLE_PATH"
+if nf_log_family_available ipv6; then
+	die "empty IPv6 availability probe must mean IPv6 is unavailable"
+fi
+printf '00000000000000000000000000000001 01 80 lo\n' >"$FWLIVE_IPV6_AVAILABLE_PATH"
+nf_log_family_available ipv6 \
+	|| die "populated IPv6 availability probe must mean IPv6 is present"
+nf_log_family_available ipv4 \
+	|| die "supported WAN path must require IPv4"
+ok "#371 family availability uses independent IPv6 probe"
+
+# Use one UCI fixture to prove the effective state is shared by status and the
+# enable gate: IPv4-only is allowed, but an available IPv6 family with NONE is
+# a blocker.
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+			;;
+		'-q get firewall.@zone[0]')
+			printf 'zone\n'
+			;;
+		'-q get firewall.@zone[0].log')
+			printf '1\n'
+			;;
+		'-q get firewall.@zone[0].log_limit')
+			printf '10\n'
+			;;
+		*) return 1 ;;
+	esac
+}
+printf 'nf_log_ipv4\n' >"$NF_LOG_IPV4"
+rm -f "$FWLIVE_IPV6_AVAILABLE_PATH"
+printf 'NONE\n' >"$NF_LOG_IPV6"
+out=$(build_logging_status_json)
+case "$out" in
+	*'"nf_log_ipv4":true'*'"nf_log_ipv6":true'*'"ready":true'*) ;;
+	*) die "IPv4-ready/IPv6-absent status must be ready: $out" ;;
+esac
+case "$out" in
+	*'"nf_log_ipv6_missing"'*) die "absent IPv6 must not block status: $out" ;;
+esac
+out=$(enable_wan_logging)
+case "$out" in
+	*'"error":"nf_log_missing"'*) die "absent IPv6 must not block enable: $out" ;;
+esac
+
+printf '00000000000000000000000000000001 01 80 lo\n' >"$FWLIVE_IPV6_AVAILABLE_PATH"
+out=$(build_logging_status_json)
+case "$out" in
+	*'"nf_log_ipv6":false'*'"ready":false'*'"nf_log_ipv6_missing"'*) ;;
+	*) die "present IPv6 with NONE must block status: $out" ;;
+esac
+out=$(enable_wan_logging)
+case "$out" in
+	*'"error":"nf_log_missing"'*) ;;
+	*) die "present IPv6 with NONE must block enable: $out" ;;
+esac
+unset -f uci
+cleanup_nf_log_fixtures
+trap - EXIT
+NF_LOG_IPV4="$NF_LOG_IPV4_SAVED"
+NF_LOG_IPV6="$NF_LOG_IPV6_SAVED"
+NF_LOG_IPV6_AVAILABLE_PATH="$NF_LOG_IPV6_AVAILABLE_SAVED"
+if [ "$FWLIVE_IPV6_AVAILABLE_SAVED_SET" = 1 ]; then
+	FWLIVE_IPV6_AVAILABLE_PATH="$FWLIVE_IPV6_AVAILABLE_SAVED"
+else
+	unset FWLIVE_IPV6_AVAILABLE_PATH
+fi
+NF_LOG_STATE_COMPUTED=0
+ok "#371 effective IPv4/IPv6 readiness gates status and enable"
+
 # #306 Layer 3: procfs-based weak-device detection. Keep the product path
 # read-only; fixture paths exercise both sides of the settled threshold.
 WEAK_WORK=$(mktemp -d)

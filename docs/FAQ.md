@@ -65,10 +65,14 @@ ubus call fwlive poll '{"addresses":["20"]}' | head -c 500
 Most common cause on Docker or minimal images: kernel logging modules are missing. Check:
 
 ```sh
-cat /proc/sys/net/netfilter/nf_log/2    # should be nf_log_ipv4, not "none"
+cat /proc/sys/net/netfilter/nf_log/2    # should be nf_log_ipv4, not NONE/none
 ```
 
-If missing, install `kmod-nf-log-ipv4` / `kmod-nf-log-ipv6`. See [Rule matches but `logread` stays empty](fwlive-nft-logging.md#rule-matches-but-logread-stays-empty).
+An empty value or `NONE` (case-insensitive) means that family has no kernel
+logging backend. Install `kmod-nf-log-ipv4` / `kmod-nf-log-ipv6` as needed.
+IPv6 is checked independently: on an IPv4-only image, a missing or empty
+`/proc/net/if_inet6` probe means IPv6 is unavailable and does not block WAN
+logging. See [Rule matches but `logread` stays empty](fwlive-nft-logging.md#rule-matches-but-logread-stays-empty).
 
 ### Docker rootfs experiment: `nft log` does not work
 

@@ -9,8 +9,16 @@
 # expect soft failures. The rpcd entry point enables strict mode; critical
 # paths use explicit `|| return 1` / `|| true`.
 
-NF_LOG_IPV4='/proc/sys/net/netfilter/nf_log/2'
-NF_LOG_IPV6='/proc/sys/net/netfilter/nf_log/10'
+NF_LOG_IPV4="${FWLIVE_NF_LOG_IPV4_PATH:-/proc/sys/net/netfilter/nf_log/2}"
+NF_LOG_IPV6="${FWLIVE_NF_LOG_IPV6_PATH:-/proc/sys/net/netfilter/nf_log/10}"
+# /proc/sys/net/netfilter/nf_log/10 is a backend selector, not an IPv6
+# availability probe.  An absent /proc/net/if_inet6 means this image has no
+# IPv6 interfaces, so an IPv6 backend is not required for WAN logging.
+NF_LOG_IPV6_AVAILABLE_PATH="${FWLIVE_IPV6_AVAILABLE_PATH:-/proc/net/if_inet6}"
+
+NF_LOG_STATE_COMPUTED=0
+NF_LOG_IPV4_READY=false
+NF_LOG_IPV6_READY=false
 
 # Serialize the WAN logging read->compute->set->commit window across
 # concurrent ubus write-ACL callers: each toggle re-reads the current
@@ -425,7 +433,29 @@ read_nf_log_backend() {
 	path="$1"
 	[ -f "$path" ] || return 1
 	val=$(cat "$path" 2>/dev/null) || return 1
-	[ -n "$val" ] && [ "$val" != 'none' ]
+	[ -n "$val" ] || return 1
+	case "$val" in
+		[Nn][Oo][Nn][Ee]) return 1 ;;
+	esac
+	return 0
+}
+
+nf_log_family_available() {
+	family="$1"
+	case "$family" in
+		ipv4)
+			# Supported fwlive deployments require IPv4 for the WAN path.
+			return 0
+			;;
+		ipv6)
+			path="${FWLIVE_IPV6_AVAILABLE_PATH:-$NF_LOG_IPV6_AVAILABLE_PATH}"
+			[ -r "$path" ] || return 1
+			grep -q '[^[:space:]]' "$path" 2>/dev/null
+			;;
+		*)
+			return 1
+			;;
+	esac
 }
 
 check_nf_log_ipv4() {
@@ -433,7 +463,18 @@ check_nf_log_ipv4() {
 }
 
 check_nf_log_ipv6() {
+	# IPv6 is independently available only when the kernel exposes an IPv6
+	# interface.  An unavailable family is not a readiness blocker.
+	nf_log_family_available ipv6 || return 0
 	read_nf_log_backend "$NF_LOG_IPV6"
+}
+
+compute_nf_log_state() {
+	NF_LOG_IPV4_READY=false
+	check_nf_log_ipv4 && NF_LOG_IPV4_READY=true
+	NF_LOG_IPV6_READY=false
+	check_nf_log_ipv6 && NF_LOG_IPV6_READY=true
+	NF_LOG_STATE_COMPUTED=1
 }
 
 logging_blockers_append() {
@@ -459,10 +500,11 @@ logging_warnings_append() {
 collect_logging_blockers() {
 	zone="$1"
 	LOGGING_BLOCKERS=''
+	[ "$NF_LOG_STATE_COMPUTED" = 1 ] || compute_nf_log_state
 
 	[ -n "$zone" ] || logging_blockers_append 'no_wan_zone'
-	check_nf_log_ipv4 || logging_blockers_append 'nf_log_ipv4_missing'
-	check_nf_log_ipv6 || logging_blockers_append 'nf_log_ipv6_missing'
+	[ "$NF_LOG_IPV4_READY" = true ] || logging_blockers_append 'nf_log_ipv4_missing'
+	[ "$NF_LOG_IPV6_READY" = true ] || logging_blockers_append 'nf_log_ipv6_missing'
 
 	# Report via LOGGING_BLOCKERS, not exit status: return 1 would abort
 	# build_logging_status_json under set -e.
@@ -491,6 +533,8 @@ json_null_or_string() {
 }
 
 build_logging_status_json() {
+	NF_LOG_STATE_COMPUTED=0
+	compute_nf_log_state
 	zone=$(find_wan_zone_section)
 	# Empty zone / unset log bit are valid; set -e cannot apply.
 	log_val=$(wan_zone_log_value "$zone") || log_val=
@@ -504,10 +548,8 @@ build_logging_status_json() {
 		wan_log=true
 	fi
 
-	nf4=false
-	check_nf_log_ipv4 && nf4=true
-	nf6=false
-	check_nf_log_ipv6 && nf6=true
+	nf4=$NF_LOG_IPV4_READY
+	nf6=$NF_LOG_IPV6_READY
 
 	collect_logging_blockers "$zone"
 	blockers="[${LOGGING_BLOCKERS:-}]"
@@ -727,7 +769,9 @@ enable_wan_logging() {
 
 	zone_json=$(json_null_or_string "$zone")
 
-	if ! check_nf_log_ipv4 || ! check_nf_log_ipv6; then
+	NF_LOG_STATE_COMPUTED=0
+	compute_nf_log_state
+	if [ "$NF_LOG_IPV4_READY" != true ] || [ "$NF_LOG_IPV6_READY" != true ]; then
 		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"nf_log_missing"}' "$zone_json"
 		return 0
 	fi
