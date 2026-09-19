@@ -144,32 +144,69 @@ async function testDisableVariants() {
 	console.log('fwlive-view logging: disable variants and no-change behavior OK');
 }
 
-async function testLoggingStatusDefaultReply() {
-	const h = loadFwliveView({
-		defaultRpc: async function (key) {
-			if (key === 'fwlive.logging_status') return null;
-			return {};
-		}
-	});
-	h.view.updateBackendUi = function () {};
-	h.view.updateLoggingToolbarUi = function () {};
-	h.view.updateEmptyStateUi = function () {};
+const LOGGING_STATUS_DEFAULT = {
+	wan_zone: null,
+	wan_zone_candidates: [],
+	wan_log: false,
+	wan_log_limit: null,
+	nf_log_ipv4: false,
+	nf_log_ipv6: false,
+	ready: false,
+	weak_device: false,
+	blockers: [],
+	warnings: []
+};
 
-	await h.view.loadLoggingStatus();
-	assert.deepEqual(h.view.loggingStatus, {
-		wan_zone: null,
-		wan_zone_candidates: [],
-		wan_log: false,
-		wan_log_limit: null,
-		nf_log_ipv4: false,
-		nf_log_ipv6: false,
-		ready: false,
-		weak_device: false,
-		blockers: [],
-		warnings: []
-	}, 'logging_status wrong-type reply must use the declared full default');
-	assert.equal(h.view.weakDevice, false);
+async function testLoggingStatusDefaultReply() {
+	for (const reply of WRONG_TYPE_REPLIES) {
+		const h = loadFwliveView({
+			defaultRpc: async function (key) {
+				if (key === 'fwlive.logging_status') return reply;
+				return {};
+			}
+		});
+		h.view.updateBackendUi = function () {};
+		h.view.updateLoggingToolbarUi = function () {};
+		h.view.updateEmptyStateUi = function () {};
+
+		await h.view.loadLoggingStatus();
+		assert.deepEqual(
+			h.view.loggingStatus,
+			LOGGING_STATUS_DEFAULT,
+			'logging_status wrong-type reply must use the declared full default: ' + JSON.stringify(reply)
+		);
+		assert.equal(h.view.weakDevice, false);
+	}
 	console.log('fwlive-view logging: logging_status default shape OK');
+}
+
+function testMktempFailedBackendLabel() {
+	const h = loadFwliveView();
+	h.document.querySelector = function () {
+		return null;
+	};
+	h.view.updateEmptyStateUi = function () {};
+	const label = h.document.getElementById('fwlive-backend');
+	assert.ok(label, 'backend label must render');
+	label.classList = {
+		toggle: function () {}
+	};
+	h.view.firewallBackend = 'iptables';
+	h.view.lastRulesError = 'mktemp_failed';
+	h.view.updateBackendUi();
+	assert.equal(
+		String(label.textContent),
+		'using iptables \u00b7 Rule labels unavailable — temp file failed',
+		'mktemp_failed must use the specialized temp-file notice'
+	);
+	h.view.lastRulesError = 'iptables_failed';
+	h.view.updateBackendUi();
+	assert.equal(
+		String(label.textContent),
+		'using iptables \u00b7 Rule labels unavailable',
+		'other rules errors must keep the generic unavailable notice'
+	);
+	console.log('fwlive-view logging: mktemp_failed backend label OK');
 }
 
 async function testBusyReentry() {
@@ -205,6 +242,7 @@ async function testBusyReentry() {
 		await testRawFalsyReply();
 		await testDisableVariants();
 		await testLoggingStatusDefaultReply();
+		testMktempFailedBackendLabel();
 		await testBusyReentry();
 		console.log('fwlive-view logging-toggle tests passed');
 	} catch (e) {

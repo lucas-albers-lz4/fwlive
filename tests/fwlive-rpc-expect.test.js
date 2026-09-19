@@ -60,6 +60,10 @@ runContract('browser fixture', browserApplyExpect);
 
 const parityCases = [
 	['empty-key null', null, { '': defaultReply }],
+	['empty-key undefined', undefined, { '': defaultReply }],
+	['empty-key string', 'bad', { '': defaultReply }],
+	['empty-key number', 7, { '': defaultReply }],
+	['empty-key array', [], { '': defaultReply }],
 	['empty-key object preserves shape', { ok: false }, { '': defaultReply }],
 	['named key value', { log: [{ id: 1 }] }, { log: [] }],
 	['named key wrong type', { log: 'wrong' }, { log: [] }],

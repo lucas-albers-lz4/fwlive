@@ -76,6 +76,18 @@ assert.ok(
 	'callFwliveLoggingStatus expect must document the full reply shape incl. warnings (openwrt/luci#8992 round 5)'
 );
 assert.ok(
+	/method: 'enable_wan_logging',\s*expect: \{ '': \{ ok: false, changed: false, wan_zone: null, wan_zone_candidates: \[\] \} \}/.test(
+		viewSrc
+	),
+	'callFwliveEnableLogging empty-key expect must stay { ok:false, changed:false, wan_zone:null }'
+);
+assert.ok(
+	/method: 'disable_wan_logging',\s*expect: \{ '': \{ ok: false, changed: false, wan_zone: null, wan_zone_candidates: \[\] \} \}/.test(
+		viewSrc
+	),
+	'callFwliveDisableLogging empty-key expect must stay { ok:false, changed:false, wan_zone:null }'
+);
+assert.ok(
 	/if\s*\(\s*reply\.error\s*\)/.test(viewSrc),
 	'fetchEntries must set lastPollError when poll reply includes error'
 );

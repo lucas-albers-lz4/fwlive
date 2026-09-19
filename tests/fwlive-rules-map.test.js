@@ -935,10 +935,14 @@ function testIpv6TempfileErrorPrecedence() {
 		}
 	];
 	const hostMktemp = JSON.stringify(hostCommand('mktemp'));
+	const listDumpTemps = () => fs.readdirSync('/tmp')
+		.filter((name) => /^fwlive-(nft|ipt|ip6t)\./.test(name))
+		.map((name) => path.join('/tmp', name));
 
 	for (const c of cases) {
 		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ip6precedence-'));
 		const ip6Called = path.join(stubDir, 'ip6-called');
+		let before = null;
 		try {
 			makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
 			makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
@@ -957,10 +961,6 @@ echo called >> "${ip6Called}"
 exit 1
 `);
 			makeStub(stubDir, 'mktemp', `#!/bin/sh
-if [ "$1" = "192.0.2.1" ]; then
-	echo STUB_RAN
-	exit 0
-fi
 case "$1" in
 	/tmp/fwlive-ip6t.*)
 ${c.ipv6TempFails ? '\texit 1' : `\texec ${hostMktemp} "$@"`}
@@ -971,41 +971,41 @@ ${c.ipv6TempFails ? '\texit 1' : `\texec ${hostMktemp} "$@"`}
 esac
 `);
 
-		const before = new Set(
-			fs.readdirSync('/tmp')
-				.filter((name) => /^fwlive-(nft|ipt|ip6t)\./.test(name))
-				.map((name) => path.join('/tmp', name))
-		);
-		const env = stubPathEnv(stubDir);
-		for (const shell of pathHonouringShells('mktemp')) {
-			let raw;
-			try {
-				raw = runWithShell(shell, env);
-			} catch (e) {
-				if (e.code === 'ENOENT') continue;
-				throw e;
+			before = new Set(listDumpTemps());
+			const env = stubPathEnv(stubDir);
+			for (const shell of pathHonouringShells('mktemp')) {
+				let raw;
+				try {
+					raw = runWithShell(shell, env);
+				} catch (e) {
+					if (e.code === 'ENOENT') continue;
+					throw e;
+				}
+				const res = JSON.parse(raw);
+				assert.equal(res.backend, 'iptables', `[${shell}] ${c.name}: backend`);
+				assert.equal(res.error, c.expectedError, `[${shell}] ${c.name}: error`);
+				if (c.expectIpv4)
+					assert.equal(res.rules['ipv4-ok'], 'ipv4 ok', `[${shell}] ${c.name}: IPv4 rule`);
+				else
+					assert.equal(res.rules['ipv4-ok'], undefined, `[${shell}] ${c.name}: no IPv4 rule after failed dump`);
+				assert.equal(res.rules['ipv6-ok'], undefined, `[${shell}] ${c.name}: IPv6 rule absent`);
+				assert.equal(
+					fs.existsSync(ip6Called),
+					c.expectIp6Call,
+					`[${shell}] ${c.name}: ip6tables-save invocation`
+				);
+				const created = listDumpTemps().filter((file) => !before.has(file));
+				assert.deepEqual(created, [], `[${shell}] ${c.name}: no leaked temp files`);
+				if (fs.existsSync(ip6Called)) fs.unlinkSync(ip6Called);
 			}
-			const res = JSON.parse(raw);
-			assert.equal(res.backend, 'iptables', `[${shell}] ${c.name}: backend`);
-			assert.equal(res.error, c.expectedError, `[${shell}] ${c.name}: error`);
-			if (c.expectIpv4)
-				assert.equal(res.rules['ipv4-ok'], 'ipv4 ok', `[${shell}] ${c.name}: IPv4 rule`);
-			else
-				assert.equal(res.rules['ipv4-ok'], undefined, `[${shell}] ${c.name}: no IPv4 rule after failed dump`);
-			assert.equal(res.rules['ipv6-ok'], undefined, `[${shell}] ${c.name}: IPv6 rule absent`);
-			assert.equal(
-				fs.existsSync(ip6Called),
-				c.expectIp6Call,
-				`[${shell}] ${c.name}: ip6tables-save invocation`
-			);
-			const created = fs.readdirSync('/tmp')
-				.filter((name) => /^fwlive-(nft|ipt|ip6t)\./.test(name))
-				.map((name) => path.join('/tmp', name))
-				.filter((file) => !before.has(file));
-			assert.deepEqual(created, [], `[${shell}] ${c.name}: no leaked temp files`);
-			if (fs.existsSync(ip6Called)) fs.unlinkSync(ip6Called);
-		}
-	} finally {
+		} finally {
+			if (before) {
+				for (const file of listDumpTemps()) {
+					if (!before.has(file)) {
+						try { fs.unlinkSync(file); } catch { /* gone */ }
+					}
+				}
+			}
 			fs.rmSync(stubDir, { recursive: true, force: true });
 		}
 	}
