@@ -68,6 +68,25 @@ function assertStructuredError(res, method) {
 	assert.ok(res.error.length > 0, `[${method}] error must be non-empty`);
 }
 
+function testAclMethodParity() {
+	const listed = JSON.parse(execFileSync('sh', [RPCD, 'list'], { encoding: 'utf8' }));
+	const methods = Object.keys(listed).sort();
+	const read = [...(readUbus.fwlive || [])].sort();
+	const write = [...(acl['luci-app-fwlive']?.write?.ubus?.fwlive || [])].sort();
+	const granted = read.concat(write).sort();
+
+	assert.equal(new Set(read).size, read.length, 'read ACL must not duplicate methods');
+	assert.equal(new Set(write).size, write.length, 'write ACL must not duplicate methods');
+	assert.deepEqual(
+		read.filter(function (method) {
+			return write.includes(method);
+		}),
+		[],
+		'read and write ACL scopes must remain separate'
+	);
+	assert.deepEqual(granted, methods, 'ACL methods must match the rpcd method list');
+}
+
 function testUnknownMethod() {
 	let failed = false;
 	let raw = '';
@@ -549,6 +568,7 @@ function testToggleNoWanZone() {
 }
 
 testUnknownMethod();
+testAclMethodParity();
 testRulesNoBackend();
 testRulesNftDumpFailure();
 testRulesIptablesDumpFailure();

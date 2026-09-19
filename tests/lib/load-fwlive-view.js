@@ -97,8 +97,10 @@ function defaultRpcReply(key) {
 			wan_log_limit: null,
 			nf_log_ipv4: false,
 			nf_log_ipv6: false,
-			ready: true,
-			blockers: []
+			ready: false,
+			weak_device: false,
+			blockers: [],
+			warnings: []
 		};
 	case 'fwlive.poll':
 		return { log: [] };

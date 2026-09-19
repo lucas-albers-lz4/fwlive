@@ -11,14 +11,12 @@ const { loadFwliveView } = require('./lib/load-fwlive-view');
 
 const STORAGE_KEY = 'fwlive-logging-consent-v1';
 
-function makeHarness(method, reply, storage) {
+function makeHarness(method, reply, storage, options) {
+	options = options || {};
 	let calls = 0;
 	const h = loadFwliveView({
 		storage: storage,
-		rawRpcKeys: {
-			'fwlive.enable_wan_logging': true,
-			'fwlive.disable_wan_logging': true
-		},
+		rawRpcKeys: options.rawReply ? { ['fwlive.' + method]: true } : undefined,
 		rpcMocks: {
 			['fwlive.' + method]: async function () {
 				calls++;
@@ -104,6 +102,15 @@ async function testEnableVariants() {
 	console.log('fwlive-view logging: enable variants and persistence OK');
 }
 
+async function testRawFalsyReply() {
+	const x = makeHarness('enable_wan_logging', null, {}, { rawReply: true });
+	await x.view.handleEnableLogging();
+	assert.equal(notice(x.view), 'Could not enable logging.');
+	assert.equal(x.view.loggingBusy, false, 'raw falsy reply must clear busy');
+	assert.equal(x.h.localStorage.getItem(STORAGE_KEY), null);
+	console.log('fwlive-view logging: raw falsy reply defensive path OK');
+}
+
 async function testDisableReply(reply, expectedNotice) {
 	const storage = {};
 	const x = makeHarness('disable_wan_logging', reply, storage);
@@ -164,6 +171,7 @@ async function testBusyReentry() {
 (async function main() {
 	try {
 		await testEnableVariants();
+		await testRawFalsyReply();
 		await testDisableVariants();
 		await testBusyReentry();
 		console.log('fwlive-view logging-toggle tests passed');

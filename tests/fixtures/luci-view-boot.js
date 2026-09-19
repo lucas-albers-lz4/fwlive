@@ -51,10 +51,19 @@
 
 	const rpcMocks = {
 		'fwlive.poll': function() {
-			return { log: CANNED_LOGS.slice() };
+			return {
+				log: CANNED_LOGS.slice(),
+				adaptive: 1,
+				messages_received: CANNED_LOGS.length,
+				effective_limit: 100,
+				truncated: false
+			};
 		},
 		'fwlive.rules': function() {
-			return { rules: { 'wan-lan': 'Allow LAN', 'block-wan': '!fw4: Block WAN' } };
+			return {
+				backend: 'nft',
+				rules: { 'wan-lan': 'Allow LAN', 'block-wan': '!fw4: Block WAN' }
+			};
 		},
 		'fwlive.resolve': function(opts) {
 			const addrs = (opts && opts.addresses) || [];
@@ -73,9 +82,11 @@
 				wan_log: false,
 				wan_log_limit: 10,
 				nf_log_ipv4: true,
-				nf_log_ipv6: false,
+				nf_log_ipv6: true,
 				ready: true,
-				blockers: []
+				weak_device: false,
+				blockers: [],
+				warnings: []
 			};
 		},
 		'fwlive.enable_wan_logging': function() {

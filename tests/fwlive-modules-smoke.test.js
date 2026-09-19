@@ -370,6 +370,41 @@ keyedTable.renderRows(
 	keyedCallbacks
 );
 assert.notStrictEqual(keyedBody.childNodes[0], retainedRow, 'forced renders rebuild rows');
+
+const hostileMessage = '<img src=x onerror=alert(1)> \u202e DROP';
+const sinkTable = loadFwliveModule('table', { log: log, links: links, E: luciE.E });
+const sinkBody = luciE.E('tbody', {}, []);
+sinkTable.renderRows(
+	sinkBody,
+	{
+		rows: [Object.assign({}, row, { id: 'sink', message: hostileMessage })],
+		columns: ['message'],
+		forceRender: true,
+		viewMode: 'simple',
+		messageLayout: 'wrap',
+		expandedRowId: 'sink',
+		rowTint: false,
+		showHostnames: false,
+		hostnameCache: null,
+		firewallBackend: 'nft'
+	},
+	keyedCallbacks
+);
+assert.ok(
+	collectText(sinkBody).indexOf(hostileMessage) >= 0,
+	'hostile log text must remain visible as text'
+);
+function collectInnerHTMLWrites(node, out) {
+	out = out || [];
+	for (const html of node._innerHTMLWrites || []) out.push(html);
+	for (const child of node.childNodes || []) collectInnerHTMLWrites(child, out);
+	return out;
+}
+assert.deepStrictEqual(
+	collectInnerHTMLWrites(sinkBody),
+	[''],
+	'hostile log render may only clear the tbody; it must never write payload HTML'
+);
 console.log('fwlive-modules smoke: table OK');
 
 /* --- buffer --- */

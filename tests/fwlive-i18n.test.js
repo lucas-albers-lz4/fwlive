@@ -17,6 +17,7 @@
  */
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const PKG_DIR = path.resolve(__dirname, '..', 'openwrt-feed', 'luci-app-fwlive');
@@ -26,7 +27,7 @@ const POT_FILE = path.join(PO_DIR, 'templates', 'luci-app-fwlive.pot');
 const RE_FORMAT = /%[%\d.\-+#]*[sdf]/g;
 
 /**
- * Parse a .po/.pot file into an array of { msgid, msgstr } entries.
+ * Parse a .po/.pot file into an array of { msgid, msgstr, fuzzy } entries.
  * Returns msgstr = null for empty/untranslated entries.
  */
 function parsePoFile(filePath) {
@@ -35,17 +36,28 @@ function parsePoFile(filePath) {
   const entries = [];
   let current = null;
   let onMsgstr = false;
+  let pendingFuzzy = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    if (/^#,.*\bfuzzy\b/.test(line)) {
+      pendingFuzzy = true;
+      continue;
+    }
 
     // Detect start of new entry (top-level msgid)
     const midMatch = line.match(/^msgid "((?:[^"\\]|\\.)*)"/);
     if (midMatch) {
       if (current && !(current.msgid === '' && current.msgstr === null)) {
-        entries.push({ msgid: current.msgid, msgstr: current.msgstr || null });
+        entries.push({
+          msgid: current.msgid,
+          msgstr: current.msgstr || null,
+          fuzzy: current.fuzzy
+        });
       }
-      current = { msgid: midMatch[1], msgstr: null };
+      current = { msgid: midMatch[1], msgstr: null, fuzzy: pendingFuzzy };
+      pendingFuzzy = false;
       onMsgstr = false;
       continue;
     }
@@ -74,7 +86,11 @@ function parsePoFile(filePath) {
 
   // Flush last entry
   if (current && !(current.msgid === '' && current.msgstr === null))
-    entries.push({ msgid: current.msgid, msgstr: current.msgstr || null });
+    entries.push({
+      msgid: current.msgid,
+      msgstr: current.msgstr || null,
+      fuzzy: current.fuzzy
+    });
 
   return entries;
 }
@@ -87,6 +103,115 @@ function extractFormats(str) {
   return (str.match(RE_FORMAT) || []).sort();
 }
 
+function translationStatus(entry) {
+  if (!entry) return 'missing';
+  if (entry.fuzzy) return 'fuzzy';
+  if (!entry.msgstr) return 'empty';
+  return 'ok';
+}
+
+function testFuzzyParser() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-i18n-'));
+  const file = path.join(dir, 'fuzzy.po');
+  try {
+    fs.writeFileSync(
+      file,
+      [
+        '#, fuzzy',
+        'msgid "Hello"',
+        'msgstr "Bonjour"',
+        '',
+        'msgid "World"',
+        'msgstr "Monde"',
+        ''
+      ].join('\n')
+    );
+    const entries = parsePoFile(file);
+    if (translationStatus(entries[0]) !== 'fuzzy')
+      throw new Error('fuzzy PO entries must be rejected as active translations');
+    if (translationStatus(entries[1]) !== 'ok')
+      throw new Error('fuzzy state must not leak to the next PO entry');
+
+    const result = inspectCatalog(
+      'fixture',
+      file,
+      ['Hello', 'World'],
+      { Hello: [], World: [] },
+      false
+    );
+    if (result.failure !== 1 || result.fuzzy !== 1)
+      throw new Error('fuzzy catalog entries must contribute to the gate failure status');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function inspectCatalog(lang, poFile, potIds, potFormats, report = true) {
+  if (!fs.existsSync(poFile))
+    return { failure: 1, missingFile: true, poEntries: [] };
+
+  const poEntries = parsePoFile(poFile);
+  const poMap = {};
+  for (const e of poEntries)
+    poMap[e.msgid] = e;
+
+  let missing = 0;
+  let empty = 0;
+  let formatMismatch = 0;
+  let mismatched = 0;
+  let fuzzy = 0;
+
+  for (const msgid of potIds) {
+    const entry = poMap[msgid];
+    const status = translationStatus(entry);
+    if (status === 'missing') {
+      missing++;
+      continue;
+    }
+    if (status === 'fuzzy') {
+      fuzzy++;
+      continue;
+    }
+    if (status === 'empty') {
+      empty++;
+      continue;
+    }
+
+    // Format specifier cross-check
+    const idFormats = potFormats[msgid] || [];
+    const strFormats = extractFormats(entry.msgstr);
+    if (JSON.stringify(idFormats) !== JSON.stringify(strFormats)) {
+      formatMismatch++;
+      if (report && formatMismatch <= 3)
+        console.error('[FAIL] %s: format specifier mismatch for "%s" | msgid: %s | msgstr: %s',
+          lang, msgid, idFormats.join(' '), strFormats.join(' '));
+    }
+  }
+
+  // Stale entries
+  const poIds = poEntries.map(e => e.msgid);
+  for (const msgid of poIds) {
+    if (msgid === '') continue;
+    if (potIds.indexOf(msgid) === -1) {
+      mismatched++;
+      if (report && mismatched <= 3)
+        console.warn('[WARN] %s: stale msgid (not in POT) "%s"', lang, msgid);
+    }
+  }
+
+  const total = missing + empty + formatMismatch + fuzzy;
+  return {
+    failure: total > 0 ? 1 : 0,
+    missing,
+    empty,
+    formatMismatch,
+    mismatched,
+    fuzzy,
+    total,
+    poEntries
+  };
+}
+
 function main() {
   let failures = 0;
 
@@ -95,6 +220,7 @@ function main() {
     process.exit(1);
   }
 
+  testFuzzyParser();
   const potEntries = parsePoFile(POT_FILE);
   const potIds = potEntries.map(e => e.msgid).filter(id => id !== '');
   console.log('POT: %d translatable msgids (%s)\n', potIds.length, POT_FILE);
@@ -117,65 +243,23 @@ function main() {
 
   for (const lang of langs) {
     const poFile = path.join(PO_DIR, lang, 'luci-app-fwlive.po');
-    if (!fs.existsSync(poFile)) {
+    const result = inspectCatalog(lang, poFile, potIds, potFormats);
+    if (result.missingFile) {
       console.error('[FAIL] %s: missing .po file at %s', lang, poFile);
-      failures++;
+      failures += result.failure;
       continue;
     }
 
-    const poEntries = parsePoFile(poFile);
-    const poMap = {};
-    for (const e of poEntries)
-      poMap[e.msgid] = e;
-
-    let missing = 0;
-    let empty = 0;
-    let formatMismatch = 0;
-    let mismatched = 0;
-
-    for (const msgid of potIds) {
-      if (!poMap[msgid]) {
-        missing++;
-        continue;
-      }
-      const entry = poMap[msgid];
-      if (!entry.msgstr) {
-        empty++;
-        continue;
-      }
-
-      // Format specifier cross-check
-      const idFormats = potFormats[msgid] || [];
-      const strFormats = extractFormats(entry.msgstr);
-      if (JSON.stringify(idFormats) !== JSON.stringify(strFormats)) {
-        formatMismatch++;
-        if (formatMismatch <= 3)
-          console.error('[FAIL] %s: format specifier mismatch for "%s" | msgid: %s | msgstr: %s',
-            lang, msgid, idFormats.join(' '), strFormats.join(' '));
-      }
-    }
-
-    // Stale entries
-    const poIds = poEntries.map(e => e.msgid);
-    for (const msgid of poIds) {
-      if (msgid === '') continue;
-      if (potIds.indexOf(msgid) === -1) {
-        mismatched++;
-        if (mismatched <= 3)
-          console.warn('[WARN] %s: stale msgid (not in POT) "%s"', lang, msgid);
-      }
-    }
-
-    const total = missing + empty + formatMismatch;
-    if (total + mismatched === 0)
-      console.log('[PASS] %s: %d msgids OK, %d entries total — formats verified ✓', lang, potIds.length, poEntries.length);
+    if (result.total + result.mismatched === 0)
+      console.log('[PASS] %s: %d msgids OK, %d entries total — formats verified ✓', lang, potIds.length, result.poEntries.length);
     else {
-      if (missing) console.error('[FAIL] %s: %d missing msgid(s)', lang, missing);
-      if (empty) console.error('[FAIL] %s: %d empty translation(s)', lang, empty);
-      if (formatMismatch) console.error('[FAIL] %s: %d format specifier mismatch(es)', lang, formatMismatch);
-      if (missing + empty + formatMismatch > 0) failures++;
-      if (mismatched)
-        console.warn('       (%d stale entries — should be cleaned up)', mismatched);
+      if (result.missing) console.error('[FAIL] %s: %d missing msgid(s)', lang, result.missing);
+      if (result.empty) console.error('[FAIL] %s: %d empty translation(s)', lang, result.empty);
+      if (result.formatMismatch) console.error('[FAIL] %s: %d format specifier mismatch(es)', lang, result.formatMismatch);
+      if (result.fuzzy) console.error('[FAIL] %s: %d fuzzy translation(s)', lang, result.fuzzy);
+      failures += result.failure;
+      if (result.mismatched)
+        console.warn('       (%d stale entries — should be cleaned up)', result.mismatched);
     }
   }
 
