@@ -47,6 +47,11 @@ jobs:
           persist-credentials: false
       - name: Build current ipk
         run: |
+          set -euo pipefail
+          source ./scripts/lib/sdk-matrix.sh
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           mkdir -p .ci-sdk-cache/dl .ci-sdk-cache/feeds/24.10.8
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache
