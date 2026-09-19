@@ -489,3 +489,7 @@ fwlive_adaptive_merge_reply() {
 		fi
 	fi
 }
+
+# CodeRabbit tool-layer probe (scratch branch — NOT for merge):
+# unquoted expansion + unassigned variable (shellcheck SC2086/SC2154).
+echo $CRPROBE_UNDEFINED_VAR

@@ -144,6 +144,15 @@ function renderFilterChips(host, state, callbacks) {
 	);
 }
 
+/* CodeRabbit tool-layer probe (scratch branch — NOT for merge).
+ * Deliberately violates the repo's own ESLint config so we can tell whether
+ * CodeRabbit's sandboxed ESLint actually runs this file's config in CI-less review.
+ * Expected findings: no-undef (__crProbeUndefinedGlobal), semi (missing semicolon).
+ */
+function __crProbeEslint() {
+	if (__crProbeUndefinedGlobal) return 1
+}
+
 return baseclass.extend({
 	renderFilterChips: renderFilterChips
 });
