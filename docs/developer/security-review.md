@@ -1,6 +1,6 @@
 # Security review state
 
-> **Status:** 54 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
+> **Status:** 55 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
 > **Current delta:** 2026-09-19 #371 nf_log backend normalization and independent IPv6 family readiness; host-focused and full-suite gates pass; no ACL, DOM sink, or read/write-scope change.
 > **Last review:** 2026-09-18 delta on #365/#366 behavior-preserving view/rpcd refactors (rules-map dump paths, selftest comparisons, and logging-toggle handler sequencing; host gates green; no ACL, DOM sink, or command-input change); prior 2026-09-16 delta on #347 frozen Auto/Manual fetch-budget contract (validated browser-local discrete values, success-only `effective_limit`, error-path omission, and status text via `textContent`; no ACL change); prior 2026-09-15 delta on #339 weak-device 250-row display cap (server boolean gate, status text via `textContent`, no ACL or HTML-sink change) and candidate browser matrix; prior 2026-09-15 delta on #306 request serialization, filter-failure health gating (structured error-key match and secure sticky-/tmp tempfile), conservative UTF-8 summary bound, and cooldown-expiry probing (no ACL or DOM-sink change); prior 2026-09-15 delta on #306 bounded server summary aggregation (same classifier pass, escaped JSON byte cap, adaptive-off omission) and summary UI (`textContent` only); prior 2026-09-14 delta on accurate `messages_received` counting (filter-side `jsonfilter` enumeration, one awk pass, no duplicate reply key) and Layer 3 weak-device procfs detection (read-only `MemTotal`/processor count, fail-closed boolean, no ACL change); prior 2026-09-13 delta on #306 Layer 2 client backoff (visibility pause, RTT cadence, adaptive/shed banners via `textContent` only; resolve `disabled:load` without treating as DNS fail); prior 2026-09-12 delta on #306 Layer 1 adaptive poll cap (always-on; test/triage override via env/sentinel; state file flock; no UCI); prior 2026-09-11 delta on release-notes pipeline (#322 follow-up); shell-helpers delta same day (#321/#308); full-surface housekeeping review 2026-09-08 (H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
 > **Open:** None from #293. Housekeeping may still emit `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24) lands plan-aware scanning.
@@ -142,7 +142,7 @@ should carry a note saying what would raise it.
 | Empty filter output on `poll` returns `error:filter_empty` | `code` | Defensive guard at the catch-all branch in `fetch_firewall_logs`: when the filter returns success but prints nothing, the reply carries `error:filter_empty` instead of a silent empty payload. The shipped filter always prints `{"log":[…]}`, so this only fires for stub/missing-filter regressions; no host test induces it without replacing the shipped filter, which is out of scope. Neighbouring `filter_failed` pinned by `tests/fwlive-view-poll-error.test.js`. |
 | `resolve` without `jshn` / with malformed input returns `error:jshn_missing` / `error:invalid_input` | `host` | same file `testResolveJshnMissing`; `invalid_input` runs only where `jshn` exists (skips on stock hosts). UI keeps the full resolve reply (no `expect` unwrap) so `disabled:load` / `error` siblings reach the view (#306 Layer 2). |
 | `logging_status` always returns the full 9-key shape; failures travel as `blockers`/`warnings` with `ready:false`, never a silent empty object | `host` | same file `testLoggingStatusNeverSilent` |
-| `nf_log` readiness is backend-aware and family-aware: empty/`NONE` selectors block a present family, while an independently unavailable IPv6 family is effective-ready | `host` | `tests/fwlive-logging.test.sh` #371 backend matrix, `/proc/net/if_inet6` fixtures, status and enable gates |
+| `nf_log` readiness is backend-aware and family-aware: empty/`NONE` selectors block a present family, while an independently unavailable IPv6 family is effective-ready | `host` | `tests/fwlive-logging.test.sh` #371 backend matrix through status/enable, `/proc/net/if_inet6` fixtures, dual-ready and IPv4-`NONE` gates; enable asserts `ok:true` on a stubbed lock |
 | `logging_status.weak_device` is a read-only procfs-derived boolean (`MemTotal < 256 MiB` or one processor); unavailable/malformed procfs fails closed to `false` | `host` | `tests/fwlive-logging.test.sh` fixture threshold cases + `tests/fwlive-rpcd-security.test.js` shape/type assertion |
 | `enable/disable_wan_logging` with no WAN zone return `error:no_wan_zone` before touching the lock | `host` | same file `testToggleNoWanZone` (asserts lock file untouched) |
 | Unknown rpcd method returns `error` with a non-zero exit | `host` | same file `testUnknownMethod` |
@@ -498,10 +498,13 @@ enable gate consume the same computed state. No ACL, DOM sink, or
 read/write-scope change was made.
 
 **Method.** The #371 shell matrix covers both nf_log paths for missing, empty,
-uppercase/lowercase `NONE`, and real backends; fixture probes cover missing,
-empty, and populated IPv6 availability; status and enable tests cover
-IPv4-only success and present-IPv6 `NONE` failure. Documentation and this
-security ledger were updated with the product IPv4 assumption.
+uppercase/lowercase `NONE`, and real backends. IPv4 backend values also drive
+status/blockers/ready and the enable gate (IPv6 stack absent). Family fixtures
+cover missing, empty, and populated `if_inet6` (including loopback `::1` as
+stack-present). Status and enable tests cover IPv4-only `ok:true` on a stubbed
+lock, present-IPv6 `NONE` failure, both-families-ready, and present-IPv4 `NONE`.
+Documentation records the IPv4-required product path and that `if_inet6` is an
+IPv6-stack probe, not a WAN-address probe.
 
 **Result.** Focused logging tests, shellcheck, and the full host suite pass; no
 security finding is known from the code delta.

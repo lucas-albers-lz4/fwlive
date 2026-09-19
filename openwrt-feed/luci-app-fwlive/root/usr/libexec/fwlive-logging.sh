@@ -12,8 +12,11 @@
 NF_LOG_IPV4="${FWLIVE_NF_LOG_IPV4_PATH:-/proc/sys/net/netfilter/nf_log/2}"
 NF_LOG_IPV6="${FWLIVE_NF_LOG_IPV6_PATH:-/proc/sys/net/netfilter/nf_log/10}"
 # /proc/sys/net/netfilter/nf_log/10 is a backend selector, not an IPv6
-# availability probe.  An absent /proc/net/if_inet6 means this image has no
-# IPv6 interfaces, so an IPv6 backend is not required for WAN logging.
+# availability probe.  A missing or empty /proc/net/if_inet6 means the IPv6
+# stack is absent (compiled out or ipv6.disable=1), so an IPv6 backend is
+# not required.  Any content, including loopback ::1, means the IPv6 stack
+# is present and the IPv6 logger is required.  This is not a WAN-address
+# probe: stock OpenWrt with CONFIG_IPV6 still has lo ::1 on an IPv4-only WAN.
 NF_LOG_IPV6_AVAILABLE_PATH="${FWLIVE_IPV6_AVAILABLE_PATH:-/proc/net/if_inet6}"
 
 NF_LOG_STATE_COMPUTED=0
@@ -448,6 +451,8 @@ nf_log_family_available() {
 			return 0
 			;;
 		ipv6)
+			# Content probe: missing/empty => stack absent; any row
+			# (including lo ::1) => stack present. Not a WAN check.
 			path="${FWLIVE_IPV6_AVAILABLE_PATH:-$NF_LOG_IPV6_AVAILABLE_PATH}"
 			[ -r "$path" ] || return 1
 			grep -q '[^[:space:]]' "$path" 2>/dev/null
@@ -463,8 +468,8 @@ check_nf_log_ipv4() {
 }
 
 check_nf_log_ipv6() {
-	# IPv6 is independently available only when the kernel exposes an IPv6
-	# interface.  An unavailable family is not a readiness blocker.
+	# Effective readiness: an absent IPv6 stack is not a blocker.  When
+	# if_inet6 has any address, including lo, the IPv6 logger is required.
 	nf_log_family_available ipv6 || return 0
 	read_nf_log_backend "$NF_LOG_IPV6"
 }
