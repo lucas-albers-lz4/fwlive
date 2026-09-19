@@ -42,6 +42,42 @@ case "$out" in
 esac
 ok "build_logging_status_json shape"
 
+# #378: legacy iptables detection is diagnostic-only and reads both procfs
+# table-name files from fixtureable paths. Keep the warning ubus-only until a
+# user-facing remediation flow is designed.
+LEGACY_WORK=$(mktemp -d)
+LEGACY_IPV4="$LEGACY_WORK/ip_tables_names"
+LEGACY_IPV6="$LEGACY_WORK/ip6_tables_names"
+export FWLIVE_IP_TABLES_NAMES_PATH="$LEGACY_IPV4"
+export FWLIVE_IP6_TABLES_NAMES_PATH="$LEGACY_IPV6"
+rm -f "$LEGACY_IPV4" "$LEGACY_IPV6"
+out=$(build_logging_status_json)
+case "$out" in
+	*'legacy_iptables_detected'*) die "missing legacy table files must not warn: $out" ;;
+esac
+: >"$LEGACY_IPV4"
+: >"$LEGACY_IPV6"
+out=$(build_logging_status_json)
+case "$out" in
+	*'legacy_iptables_detected'*) die "empty legacy table files must not warn: $out" ;;
+esac
+printf 'filter\n' >"$LEGACY_IPV4"
+out=$(build_logging_status_json)
+case "$out" in
+	*'legacy_iptables_detected'*) ;;
+	*) die "IPv4 legacy table must warn: $out" ;;
+esac
+: >"$LEGACY_IPV4"
+printf 'filter\n' >"$LEGACY_IPV6"
+out=$(build_logging_status_json)
+case "$out" in
+	*'legacy_iptables_detected'*) ;;
+	*) die "IPv6 legacy table must warn: $out" ;;
+esac
+rm -rf "$LEGACY_WORK"
+unset FWLIVE_IP_TABLES_NAMES_PATH FWLIVE_IP6_TABLES_NAMES_PATH
+ok "legacy iptables warning uses fixtureable table-name probes"
+
 # #371: nf_log readiness is backend-aware and family-aware.  The IPv4 family
 # is required by the supported WAN product path; IPv6 readiness is effective
 # only when the independent if_inet6 probe says the IPv6 stack is present.
