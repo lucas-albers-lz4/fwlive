@@ -935,14 +935,22 @@ function testIpv6TempfileErrorPrecedence() {
 		}
 	];
 	const hostMktemp = JSON.stringify(hostCommand('mktemp'));
-	const listDumpTemps = () => fs.readdirSync('/tmp')
-		.filter((name) => /^fwlive-(nft|ipt|ip6t)\./.test(name))
-		.map((name) => path.join('/tmp', name));
+	const readOwnedDumpTemps = (logPath) => {
+		try {
+			return fs.readFileSync(logPath, 'utf8')
+				.split('\n')
+				.map((file) => file.trim())
+				.filter((file) => /^\/tmp\/fwlive-(nft|ipt|ip6t)\./.test(file));
+		} catch (e) {
+			if (e.code === 'ENOENT') return [];
+			throw e;
+		}
+	};
 
 	for (const c of cases) {
 		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ip6precedence-'));
 		const ip6Called = path.join(stubDir, 'ip6-called');
-		let before = null;
+		const createdLog = path.join(stubDir, 'created');
 		try {
 			makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
 			makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
@@ -963,17 +971,21 @@ exit 1
 			makeStub(stubDir, 'mktemp', `#!/bin/sh
 case "$1" in
 	/tmp/fwlive-ip6t.*)
-${c.ipv6TempFails ? '\texit 1' : `\texec ${hostMktemp} "$@"`}
+${c.ipv6TempFails ? '\texit 1' : `\ttmp="$(${hostMktemp} "$@")" || exit 1
+\tprintf '%s\n' "$tmp" >> ${JSON.stringify(createdLog)}
+\tprintf '%s\n' "$tmp"`}
 		;;
 	*)
-		exec ${hostMktemp} "$@"
-		;;
+	tmp="$(${hostMktemp} "$@")" || exit 1
+	printf '%s\n' "$tmp" >> ${JSON.stringify(createdLog)}
+	printf '%s\n' "$tmp"
+	;;
 esac
 `);
 
-			before = new Set(listDumpTemps());
 			const env = stubPathEnv(stubDir);
 			for (const shell of pathHonouringShells('mktemp')) {
+				const before = new Set(readOwnedDumpTemps(createdLog));
 				let raw;
 				try {
 					raw = runWithShell(shell, env);
@@ -994,17 +1006,17 @@ esac
 					c.expectIp6Call,
 					`[${shell}] ${c.name}: ip6tables-save invocation`
 				);
-				const created = listDumpTemps().filter((file) => !before.has(file));
-				assert.deepEqual(created, [], `[${shell}] ${c.name}: no leaked temp files`);
+				const created = readOwnedDumpTemps(createdLog).filter((file) => !before.has(file));
+				assert.deepEqual(
+					created.filter((file) => fs.existsSync(file)),
+					[],
+					`[${shell}] ${c.name}: no leaked temp files`
+				);
 				if (fs.existsSync(ip6Called)) fs.unlinkSync(ip6Called);
 			}
 		} finally {
-			if (before) {
-				for (const file of listDumpTemps()) {
-					if (!before.has(file)) {
-						try { fs.unlinkSync(file); } catch { /* gone */ }
-					}
-				}
+			for (const file of readOwnedDumpTemps(createdLog)) {
+				try { fs.unlinkSync(file); } catch { /* gone */ }
 			}
 			fs.rmSync(stubDir, { recursive: true, force: true });
 		}
