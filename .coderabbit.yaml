@@ -25,8 +25,28 @@ reviews:
     docstrings:
       enabled: false
   tools:
-    ast_grep: true            # the tool name is ast_grep (NOT "ast_grex" — see discussion)
-    bullseye: true            # security add-on: good for the rpcd/frontend boundary
+    # CodeRabbit's key is hyphenated where the tool name is: `ast-grep`, not
+    # `ast_grep`. A misspelled key is silently ignored — it does not appear in
+    # the effective configuration (`@coderabbitai configuration`) and cannot
+    # carry that tool's options (rule_dirs, packages, ...).
+    # A known key with the wrong type is different: `ast-grep: true` fails
+    # schema validation (expected object) and CodeRabbit discards the entire
+    # repository YAML, falling back to defaults.
+    ast-grep:
+      enabled: true
+      # Essentials target Node/Express libraries, not this repo. Keep them
+      # off so they do not run until (or unless) rule_dirs is set.
+      essential_rules: false
+    # There is no `bullseye` tool in CodeRabbit's configuration. The
+    # rpcd/frontend security intent is covered by semgrep/opengrep (on by
+    # default) plus the libexec path_instructions below.
+    #
+    # Biome cannot parse a LuCI AMD module (top-level `return`), so it aborts on
+    # every shipped module and never yields a finding here. Oxlint and ESLint
+    # parse the same files; CI's `lint:js` is the gate. See
+    # docs/developer/coderabbit.md.
+    biome:
+      enabled: false
   path_instructions:
     # Device-shipped shell only — BusyBox ash on OpenWrt (not host CI scripts).
     - path: "openwrt-feed/luci-app-fwlive/root/usr/libexec/**"

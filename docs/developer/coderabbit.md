@@ -45,6 +45,37 @@ JS — not a Python/JSDoc public library. The check false-positives on shell
 not use as a proof gate. Prefer substantive path_instructions findings over
 coverage nits. Do not re-enable without a concrete, language-scoped need.
 
+### Tool-level configuration
+
+CodeRabbit's bundled tools are enabled by default and only run against
+changed files of the types they handle. Three tool-level facts apply here:
+
+- **Keys are hyphenated where the tool name is.** The ast-grep key is
+  `ast-grep`, not `ast_grep`. A misspelled key is silently ignored: it does not
+  appear in the effective configuration (`@coderabbitai configuration`) and
+  cannot carry that tool's options (`rule_dirs`, `util_dirs`, `packages`).
+  A **known** key with the wrong type is not silent: `ast-grep: true` fails
+  schema validation (`expected object, received boolean`) and CodeRabbit
+  discards the entire repository YAML, falling back to defaults. The value
+  must be an object (`enabled`, `rule_dirs`, `essential_rules`, `packages`).
+  This config sets `enabled: true` and `essential_rules: false` so the
+  Node/Express essentials package does not run here.
+- **`biome` is off** (`reviews.tools.biome.enabled: false`). Biome cannot parse
+  a LuCI AMD module — every shipped file ends in a top-level
+  `return baseclass.extend({ ... })`, which the LuCI loader supports by
+  evaluating the module inside a function wrapper. Biome aborts on those files
+  and has never produced a finding in this repo; Oxlint and ESLint parse the
+  same files, and CI's `lint:js` remains the gate.
+- **There is no `bullseye` tool.** It appears nowhere in CodeRabbit's
+  configuration reference or in this repo's effective configuration. The
+  rpcd/frontend security intent is served by semgrep/opengrep (default) and the
+  `path_instructions` for `openwrt-feed/.../libexec/**`. Do not re-add it.
+
+The ast-grep *essentials* package adds nothing to this repo today (553 rules,
+of which 7 target JavaScript — Node/Express libraries — and none target shell),
+so it is off (`reviews.tools.ast-grep.essential_rules: false`). Any value
+there must come from repo-authored rules via `rule_dirs`.
+
 ## Efficient trigger path (prefer this)
 
 Goal: **one review slot per stable head**, not a fixed one-hour sleep.
