@@ -35,6 +35,9 @@ const luciBrowserGlobals = {
 	parseInt: 'readonly',
 	parseFloat: 'readonly',
 	isNaN: 'readonly',
+	getComputedStyle: 'readonly',
+	performance: 'readonly',
+	Event: 'readonly',
 	encodeURIComponent: 'readonly',
 	decodeURIComponent: 'readonly',
 };
@@ -67,6 +70,9 @@ const fwliveViewAliases = {
 	hostname: 'readonly',
 	proto: 'readonly',
 	links: 'readonly',
+	renderPolicy: 'readonly',
+	pollCoordinator: 'readonly',
+	renderScheduler: 'readonly',
 };
 
 /** Wrap LuCI AMD bodies so top-level `return` parses under Espree. */
@@ -91,6 +97,46 @@ const luciAmdWrap = {
 	supportsAutofix: false,
 };
 
+/* Shipped LuCI AMD modules share one file set, one language environment and one
+ * rule set. They are attached to TWO filenames on purpose: the processor below
+ * rewrites each file into a virtual `<name>.js.wrapped` file before linting, and
+ * flat config applies configuration per FILENAME — so rules attached only to
+ * `*.js` never reach the processed text. */
+const shippedJsFiles = [
+	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/**/*.js',
+	'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js',
+];
+
+const shippedJsLanguageOptions = {
+	ecmaVersion: 2020,
+	sourceType: 'script',
+	globals: {
+		...luciBrowserGlobals,
+		...luciRuntimeGlobals,
+		...fwliveViewAliases,
+	},
+};
+
+const shippedJsRules = {
+	...js.configs.recommended.rules,
+	'no-undef': 'error',
+	'no-implicit-globals': 'error',
+	'no-eval': 'error',
+	'no-unused-vars': [
+		'error',
+		{
+			argsIgnorePattern: '^_',
+			varsIgnorePattern: '^_',
+			caughtErrorsIgnorePattern: '^_',
+		},
+	],
+	/* LuCI AMD: `'require foo';` is an intentional unused expression. */
+	'no-unused-expressions': 'off',
+	indent: 'off',
+	semi: ['error', 'always'],
+	'no-var': 'off',
+};
+
 module.exports = [
 	{
 		ignores: [
@@ -109,10 +155,7 @@ module.exports = [
 		],
 	},
 	{
-		files: [
-			'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/**/*.js',
-			'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js',
-		],
+		files: shippedJsFiles,
 		plugins: {
 			'luci-amd-wrap': {
 				processors: {
@@ -121,33 +164,15 @@ module.exports = [
 			},
 		},
 		processor: 'luci-amd-wrap/wrap',
-		languageOptions: {
-			ecmaVersion: 2020,
-			sourceType: 'script',
-			globals: {
-				...luciBrowserGlobals,
-				...luciRuntimeGlobals,
-				...fwliveViewAliases,
-			},
-		},
-		rules: {
-			...js.configs.recommended.rules,
-			'no-undef': 'error',
-			'no-implicit-globals': 'error',
-			'no-eval': 'error',
-			'no-unused-vars': [
-				'error',
-				{
-					argsIgnorePattern: '^_',
-					varsIgnorePattern: '^_',
-					caughtErrorsIgnorePattern: '^_',
-				},
-			],
-			/* LuCI AMD: `'require foo';` is an intentional unused expression. */
-			'no-unused-expressions': 'off',
-			indent: 'off',
-			semi: ['error', 'always'],
-			'no-var': 'off',
-		},
+		languageOptions: shippedJsLanguageOptions,
+		rules: shippedJsRules,
+	},
+	{
+		/* The AMD-wrap processor lints a virtual `<name>.js.wrapped` file, not the
+		 * module on disk. Attach the same environment and rules to that virtual
+		 * filename, otherwise no rule (no-undef, semi, no-eval, …) ever applies. */
+		files: ['**/*.js.wrapped'],
+		languageOptions: shippedJsLanguageOptions,
+		rules: shippedJsRules,
 	},
 ];
