@@ -33,7 +33,7 @@ const CONSENT_STORAGE_KEY = 'fwlive-logging-consent-v1';
 function consentDismissedPermanent() {
 	try {
 		return localStorage.getItem(CONSENT_STORAGE_KEY) === '1';
-	} catch (e) {
+	} catch (_e) {
 		return false;
 	}
 }
@@ -41,7 +41,7 @@ function consentDismissedPermanent() {
 function persistConsentDismissed() {
 	try {
 		localStorage.setItem(CONSENT_STORAGE_KEY, '1');
-	} catch (e) {
+	} catch (_e) {
 		/* private mode / no storage */
 	}
 }

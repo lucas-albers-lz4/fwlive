@@ -76,7 +76,7 @@ function storedValue(key, fallback) {
 	try {
 		const v = localStorage.getItem(key);
 		return v === null ? fallback : v;
-	} catch (e) {
+	} catch (_e) {
 		return fallback;
 	}
 }
@@ -84,7 +84,7 @@ function storedValue(key, fallback) {
 function storeValue(key, value) {
 	try {
 		localStorage.setItem(key, value);
-	} catch (e) {
+	} catch (_e) {
 		/* private mode / no storage */
 	}
 }
@@ -215,7 +215,7 @@ return view.extend({
 			try {
 				key = decodeURIComponent(kv[0]);
 				val = decodeURIComponent(kv[1]);
-			} catch (e) {
+			} catch (_e) {
 				continue;
 			}
 			result.push({ key: key, val: val });
@@ -624,7 +624,7 @@ return view.extend({
 			/* Bounds / mktemp failures are reply.error — same idea as poll. */
 			this.lastRulesError = (res && res.error) || null;
 			if (this.lastRulesError) console.warn('fwlive rules map error:', this.lastRulesError);
-		} catch (e) {
+		} catch (_e) {
 			if (this.viewDisposed) return;
 			this.rulesMap = {};
 			this.firewallBackend = 'nft';
@@ -677,7 +677,7 @@ return view.extend({
 			if (this.viewDisposed) return;
 			this.loggingStatus = status;
 			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
-		} catch (e) {
+		} catch (_e) {
 			if (this.viewDisposed) return;
 			this.loggingStatus = null;
 		}
@@ -706,7 +706,7 @@ return view.extend({
 			this.loggingNotice = opts.successNotice(res);
 			if (opts.onSuccess) opts.onSuccess(res);
 			await this.loadLoggingStatus();
-		} catch (e) {
+		} catch (_e) {
 			this.loggingNotice = opts.catchNotice();
 			await this.loadLoggingStatus();
 		} finally {
@@ -880,7 +880,7 @@ return view.extend({
 			reply = await callFwlivePoll({
 				addresses: [String(fetchLines)]
 			});
-		} catch (e) {
+		} catch (_e) {
 			reply = null;
 		}
 		return {
@@ -1682,7 +1682,7 @@ return view.extend({
 
 			this.updateAdaptiveBanner();
 			if (updated) this.scheduleRenderRows(true);
-		} catch (e) {
+		} catch (_e) {
 			/* resolve unavailable — show IPs */
 		} finally {
 			if (gen === this.resolveGeneration) this.resolveInFlight = false;
@@ -1968,7 +1968,7 @@ return view.extend({
 		try {
 			try {
 				await this.fetchEntries();
-			} catch (e) {
+			} catch (_e) {
 				/* fetchEntries already accounts the poll RTT for every rpc
 				 * outcome; a throw here is a local normalize/buffer bug, not
 				 * network slowness, so count nothing further. */
@@ -1986,10 +1986,10 @@ return view.extend({
 
 			try {
 				await this.resolveHostnamesForEntries(this.filteredRows());
-			} catch (e) {
+			} catch (_e) {
 				/* resolve unavailable — show IPs */
 			}
-		} catch (e) {
+		} catch (_e) {
 			/* Keep the coordinator promise settling so a queued refresh cannot
 			 * be stranded by an unexpected local rendering failure. */
 			if (epoch === this.currentPollEpoch()) this.lastPollError = true;
