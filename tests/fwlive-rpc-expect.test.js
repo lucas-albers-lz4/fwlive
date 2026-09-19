@@ -57,10 +57,23 @@ function runContract(label, applyExpect) {
 
 runContract('node helper', nodeApplyExpect);
 runContract('browser fixture', browserApplyExpect);
-assert.deepEqual(
-	nodeApplyExpect(null, { '': defaultReply }),
-	browserApplyExpect(null, { '': defaultReply }),
-	'Node and browser expect helpers must agree'
-);
+
+const parityCases = [
+	['empty-key null', null, { '': defaultReply }],
+	['empty-key undefined', undefined, { '': defaultReply }],
+	['empty-key string', 'bad', { '': defaultReply }],
+	['empty-key number', 7, { '': defaultReply }],
+	['empty-key array', [], { '': defaultReply }],
+	['empty-key object preserves shape', { ok: false }, { '': defaultReply }],
+	['named key value', { log: [{ id: 1 }] }, { log: [] }],
+	['named key wrong type', { log: 'wrong' }, { log: [] }],
+	['named key absent', {}, { log: [] }]
+];
+for (const [label, reply, expect] of parityCases)
+	assert.deepEqual(
+		nodeApplyExpect(reply, expect),
+		browserApplyExpect(reply, expect),
+		'Node and browser expect helpers must agree: ' + label
+	);
 
 console.log('fwlive rpc-expect tests passed');

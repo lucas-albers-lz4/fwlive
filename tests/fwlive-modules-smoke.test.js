@@ -70,10 +70,22 @@ assert.ok(
 	'callFwlivePoll must not use expect:{log:[]} (strips reply.error, #233)'
 );
 assert.ok(
-	/expect:\s*\{\s*'':\s*\{\s*wan_zone: null,\s*wan_zone_candidates: \[\],\s*wan_log: false,\s*wan_log_limit: null,\s*nf_log_ipv4: false,\s*nf_log_ipv6: false,\s*ready: false,\s*blockers: \[\],\s*warnings: \[\]\s*\}\s*\}/.test(
+	/expect:\s*\{\s*'':\s*\{\s*wan_zone: null,\s*wan_zone_candidates: \[\],\s*wan_log: false,\s*wan_log_limit: null,\s*nf_log_ipv4: false,\s*nf_log_ipv6: false,\s*ready: false,\s*weak_device: false,\s*blockers: \[\],\s*warnings: \[\]\s*\}\s*\}/.test(
 		viewSrc
 	),
 	'callFwliveLoggingStatus expect must document the full reply shape incl. warnings (openwrt/luci#8992 round 5)'
+);
+assert.ok(
+	/method: 'enable_wan_logging',\s*expect: \{ '': \{ ok: false, changed: false, wan_zone: null, wan_zone_candidates: \[\] \} \}/.test(
+		viewSrc
+	),
+	'callFwliveEnableLogging empty-key expect must stay { ok:false, changed:false, wan_zone:null }'
+);
+assert.ok(
+	/method: 'disable_wan_logging',\s*expect: \{ '': \{ ok: false, changed: false, wan_zone: null, wan_zone_candidates: \[\] \} \}/.test(
+		viewSrc
+	),
+	'callFwliveDisableLogging empty-key expect must stay { ok:false, changed:false, wan_zone:null }'
 );
 assert.ok(
 	/if\s*\(\s*reply\.error\s*\)/.test(viewSrc),
