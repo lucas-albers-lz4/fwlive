@@ -57,12 +57,14 @@ else
 		PATTERN_IPK="$(expected_package ipk)"
 		PATTERN_APK="$(expected_package apk)"
 		# Prefer the host-native ipk when both local artifact formats are
-		# present; the ordinary host suite does not require an apk extractor.
+		# present. Do not auto-select an apk unless FWLIVE_PAYLOAD_DIR is
+		# already set: OpenWrt 25.12 packages are apk-tools v3 ADB, and
+		# whatever `apk` is on PATH is not used as an extractor.
 		PKG="$(find "$ROOT/out" -type f -path '*/fwlive/*' -name "$PATTERN_IPK" -print 2>/dev/null |
 			LC_ALL=C sort | tail -n 1 || true)"
 		if [ -n "$PKG" ]; then
 			FORMAT=ipk
-		else
+		elif [ -n "${FWLIVE_PAYLOAD_DIR:-}" ]; then
 			PKG="$(find "$ROOT/out" -type f -path '*/fwlive/*' -name "$PATTERN_APK" -print 2>/dev/null |
 				LC_ALL=C sort | tail -n 1 || true)"
 			[ -z "$PKG" ] || FORMAT=apk
@@ -108,16 +110,8 @@ if [ -n "$PAYLOAD_DIR" ]; then
 	[ -d "$PAYLOAD_DIR" ] || { echo "payload directory not found: $PAYLOAD_DIR" >&2; exit 1; }
 	EXTRACT="$PAYLOAD_DIR"
 elif [ "$FORMAT" = apk ]; then
-	if ! command -v apk >/dev/null 2>&1; then
-		echo "apk package requires FWLIVE_PAYLOAD_DIR or the apk extractor" >&2
-		exit 1
-	fi
-	EXTRACT="$WORK/extract"
-	mkdir -p "$EXTRACT"
-	(
-		cd "$EXTRACT"
-		apk --allow-untrusted extract "$PKG"
-	)
+	echo "apk package requires FWLIVE_PAYLOAD_DIR (extract with OpenWrt apk-tools v3; host apk is not used)" >&2
+	exit 1
 else
 	DATA="$WORK/data.tar.gz"
 	if tar -xOf "$PKG" ./data.tar.gz >"$DATA" 2>/dev/null; then
