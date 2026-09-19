@@ -511,6 +511,7 @@ function testLoggingStatusNeverSilent() {
 	const res = JSON.parse(raw);
 	for (const k of [
 		'wan_zone',
+		'wan_zone_candidates',
 		'wan_log',
 		'wan_log_limit',
 		'nf_log_ipv4',
@@ -529,6 +530,7 @@ function testLoggingStatusNeverSilent() {
 	assert.equal(typeof res.weak_device, 'boolean');
 	assert.ok(Array.isArray(res.blockers));
 	assert.ok(Array.isArray(res.warnings));
+	assert.ok(Array.isArray(res.wan_zone_candidates));
 	assert.ok(
 		!Object.prototype.hasOwnProperty.call(res, 'error'),
 		'logging_status must not carry an error field (intentional exception)'

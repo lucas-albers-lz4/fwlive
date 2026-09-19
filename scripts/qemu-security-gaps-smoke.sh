@@ -133,7 +133,7 @@ fi
 ok "logging.lock released on the same inode"
 
 # --- Gap 3: foreign firewall staging must not be committed -----------------
-ZONE="$(ssh_guest "uci -q show firewall | sed -n \"s/^firewall\\.\\([^.]*\\)\\.name='wan'\$/\\1/p\" | head -1")"
+ZONE="$(ssh_guest 'ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '\''$.wan_zone'\'' 2>/dev/null || true')"
 [[ -n "$ZONE" ]] || die "no WAN zone in firewall config"
 
 # Refuse to wipe operator staging — abort if firewall already has pending changes.

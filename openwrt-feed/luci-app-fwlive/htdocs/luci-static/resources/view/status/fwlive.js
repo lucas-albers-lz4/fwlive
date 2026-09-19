@@ -48,6 +48,7 @@ const callFwliveLoggingStatus = rpc.declare({
 	expect: {
 		'': {
 			wan_zone: null,
+			wan_zone_candidates: [],
 			wan_log: false,
 			wan_log_limit: null,
 			nf_log_ipv4: false,
@@ -62,13 +63,13 @@ const callFwliveLoggingStatus = rpc.declare({
 const callFwliveEnableLogging = rpc.declare({
 	object: 'fwlive',
 	method: 'enable_wan_logging',
-	expect: { '': { ok: false, changed: false, wan_zone: null } }
+	expect: { '': { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] } }
 });
 
 const callFwliveDisableLogging = rpc.declare({
 	object: 'fwlive',
 	method: 'disable_wan_logging',
-	expect: { '': { ok: false, changed: false, wan_zone: null } }
+	expect: { '': { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] } }
 });
 
 function storedValue(key, fallback) {
@@ -791,10 +792,13 @@ return view.extend({
 		const st = this.loggingStatus;
 		/* Sort blockers so unstable backend order does not force a rebuild. */
 		const blockers = st && st.blockers ? st.blockers.slice().sort().join(',') : '';
+		const candidates =
+			st && Array.isArray(st.wan_zone_candidates) ? st.wan_zone_candidates.join(',') : '';
 		return [
 			st ? (st.wan_log ? '1' : '0') : 'x',
 			st ? String(st.wan_log_limit || '') : '',
 			blockers,
+			candidates,
 			this.loggingBusy ? '1' : '0',
 			this.loggingNotice || '',
 			this.shouldShowLoggingConsent() ? 'c1' : 'c0'

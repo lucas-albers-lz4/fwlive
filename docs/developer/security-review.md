@@ -1,7 +1,7 @@
 # Security review state
 
 > **Status:** 55 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
-> **Current delta:** 2026-09-19 #371 nf_log backend normalization and independent IPv6 family readiness; host-focused and full-suite gates pass; no ACL, DOM sink, or read/write-scope change.
+> **Current delta:** 2026-09-19 #371 nf_log backend normalization and independent IPv6 family readiness, plus #383 follow-up to #373: no-zone candidates now travel through `logging_status` and render as text nodes in the LuCI empty state and toolbar; host-focused and full-suite validation; no ACL, DOM sink, read/write-scope, or HTML sink change.
 > **Last review:** 2026-09-18 delta on #365/#366 behavior-preserving view/rpcd refactors (rules-map dump paths, selftest comparisons, and logging-toggle handler sequencing; host gates green; no ACL, DOM sink, or command-input change); prior 2026-09-16 delta on #347 frozen Auto/Manual fetch-budget contract (validated browser-local discrete values, success-only `effective_limit`, error-path omission, and status text via `textContent`; no ACL change); prior 2026-09-15 delta on #339 weak-device 250-row display cap (server boolean gate, status text via `textContent`, no ACL or HTML-sink change) and candidate browser matrix; prior 2026-09-15 delta on #306 request serialization, filter-failure health gating (structured error-key match and secure sticky-/tmp tempfile), conservative UTF-8 summary bound, and cooldown-expiry probing (no ACL or DOM-sink change); prior 2026-09-15 delta on #306 bounded server summary aggregation (same classifier pass, escaped JSON byte cap, adaptive-off omission) and summary UI (`textContent` only); prior 2026-09-14 delta on accurate `messages_received` counting (filter-side `jsonfilter` enumeration, one awk pass, no duplicate reply key) and Layer 3 weak-device procfs detection (read-only `MemTotal`/processor count, fail-closed boolean, no ACL change); prior 2026-09-13 delta on #306 Layer 2 client backoff (visibility pause, RTT cadence, adaptive/shed banners via `textContent` only; resolve `disabled:load` without treating as DNS fail); prior 2026-09-12 delta on #306 Layer 1 adaptive poll cap (always-on; test/triage override via env/sentinel; state file flock; no UCI); prior 2026-09-11 delta on release-notes pipeline (#322 follow-up); shell-helpers delta same day (#321/#308); full-surface housekeeping review 2026-09-08 (H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
 > **Open:** None from #293. Housekeeping may still emit `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24) lands plan-aware scanning.
 > **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
@@ -28,6 +28,10 @@ reopen an accepted residual without new evidence.
 | Supply chain | Unpinned tooling, signing keys, feed trust |
 
 > **2026-09-19 #370 delta:** Host coverage now pins exact rpcd/ACL method parity and read/write isolation, representative reply-shape fixtures, hostile table text under the recording LuCI E harness, fail-closed shell cases, IPv6 PTR parsing, fuzzy PO rejection, and ipk/apk payload layout/modes. The filter accepts an explicit dump directory for host fidelity, while the production rpcd caller passes /tmp; no ACL grant or DOM sink changed.
+
+> **2026-09-19 #373 delta:** WAN-zone selection now considers the exact zone name `wan` or effective `network` membership in `wan`/`wan6`, where an omitted network option falls back to the zone name. The first matching zone in firewall config order wins; no-zone replies JSON-escape the discovered zone names. The repository's 25.12-era firewall/network fixtures and lab preparation scripts were also checked for device- or subnet-scoped firewall zones; none appeared, so no device tokens were added to the match set. No ACL, command-input, or DOM-sink change.
+
+> **2026-09-19 #383 delta:** `logging_status` now carries the JSON-escaped no-zone candidate list, and the LuCI empty state and toolbar render candidate names through array-wrapped `E()` text children. Section ids are used as the effective name when UCI omits both `name` and `network`, covered by a host fixture; screenshot fallbacks reject an empty zone id. Lock and finder fixtures now exercise the real zone declarations and no-zone status shape. No ACL or HTML sink change.
 
 ## Why a ledger and not just a model
 
@@ -115,6 +119,7 @@ should carry a note saying what would raise it.
 | SDK feed cache key is exact (no `restore-keys` prefix fallback) | `manual` | same workflow — stale feed pins cannot be restored on cache miss |
 | SDK cache dirs owned by buildbot (1000:1000), owner-write + group/other read-traverse; enforced fail-closed pre-build (skipped only when CI pre-chowned both trees, roots AND nested entries; scan errors fail closed) | `host` | `tests/sdk-matrix-cache-owner.test.sh` — #208 (v0.1.36 chown regression) |
 | WAN toggle changes only the zone `log` bit | `host` | `tests/fwlive-logging.test.sh` — pending-delta refuse; named + anonymous zone lookup |
+| WAN-zone lookup accepts exact `name=wan` or effective `network=wan`/`wan6`, preserves config order, and reports discovered zone names when no supported zone matches | `host` | `tests/fwlive-logging.test.sh` #373 scalar/list/renamed/duplicate/wan6/omitted-name/no-match fixtures; `logging_status.wan_zone_candidates`; LuCI empty-state and toolbar candidate text-node harness; qemu helpers consume `logging_status.wan_zone` |
 | WAN zone identity for staged `uci changes` uses canonical cfg ids (`uci -X`), not class-match on `name=wan` | `host` | `uci_canonical_firewall_section` + `wan_firewall_zone_same`; B-1 duplicate-wan foreign `.log` stays foreign (`tests/fwlive-logging.test.sh`) |
 | Uninstall restores WAN `log` from pre-first-enable baseline | `host` | `tests/fwlive-logging.test.sh` — baseline snapshot/restore; `scripts/qemu-logging-uninstall-smoke.sh` (`lab`) |
 | The WAN logging lock cannot be held by an unprivileged user | `host` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600 |
@@ -468,6 +473,24 @@ links to this ledger for review state.
 **Non-findings.** The rules-map helper still uses `_fwlive_mktemp`, redirects into the unpredictable sticky-`/tmp` file, keeps the IPv6 command-availability gate, and preserves the IPv6 empty-error precedence. The view changes do not add HTML sinks; the new render helpers retain array-wrapped string children. No new command interpolation, ACL scope, or read/write mixing was introduced.
 
 **Result.** Host proof class remains `host`; open findings table stays empty. A full surface re-pass is deferred because this delta found no class bug or high/medium blast-radius issue and no tag pin checklist is due.
+
+### 2026-09-19 — #383 WAN-zone diagnostics follow-up
+
+**Scope.** The #373 no-zone candidate list is now part of `logging_status` and is
+rendered by the LuCI empty state and toolbar as text-node content. The finder
+also treats a zone section id as the effective name when both UCI `name` and
+`network` are omitted. Screenshot fallbacks reject an empty zone id before
+issuing `uci set`. No ACL or command-input scope changed.
+
+**Method.** Added status-shape and `wan6` defaulting fixtures, corrected the
+concurrency-test UCI stub to declare a real zone and reject `no_wan_zone` as a
+successful toggle, and added a hostile candidate name to the LuCI-accurate E()
+harness. The candidate is passed only as an array child, so it reaches the DOM
+as a text node and never an HTML sink. Shell syntax, ShellCheck, focused
+logging/lock/RPC/view tests, and the full host suite pass.
+
+**Result.** No security finding is known from the follow-up; the existing host
+proof class remains `host`.
 
 ### #316 — real jshn RPC coverage
 

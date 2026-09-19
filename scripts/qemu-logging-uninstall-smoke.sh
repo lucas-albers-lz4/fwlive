@@ -33,7 +33,7 @@ ssh_guest 'command -v ubus >/dev/null && test -x /usr/libexec/rpcd/fwlive' \
 
 "${ROOT}/scripts/qemu-reset-wan-logging.sh" >/dev/null
 
-ZONE="$(ssh_guest "uci -q show firewall | sed -n \"s/^firewall\\.\\([^.]*\\)\\.name='wan'\$/\\1/p\" | head -1")"
+ZONE="$(ssh_guest 'ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '\''$.wan_zone'\'' 2>/dev/null || true')"
 [[ -n "$ZONE" ]] || die "no WAN zone in firewall config"
 BASE_LOG="$(uci_zone_log "$ZONE")"
 ok "baseline WAN log empty/unset (uci='${BASE_LOG}')"

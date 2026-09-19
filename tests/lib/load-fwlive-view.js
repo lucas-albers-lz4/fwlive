@@ -93,6 +93,7 @@ function defaultRpcReply(key) {
 	case 'fwlive.logging_status':
 		return {
 			wan_zone: null,
+			wan_zone_candidates: [],
 			wan_log: false,
 			wan_log_limit: null,
 			nf_log_ipv4: false,

@@ -79,6 +79,7 @@
 		'fwlive.logging_status': function() {
 			return {
 				wan_zone: 'wan',
+				wan_zone_candidates: ['wan'],
 				wan_log: false,
 				wan_log_limit: 10,
 				nf_log_ipv4: true,
@@ -90,10 +91,10 @@
 			};
 		},
 		'fwlive.enable_wan_logging': function() {
-			return { ok: true, changed: true, wan_zone: 'wan' };
+			return { ok: true, changed: true, wan_zone: 'wan', wan_zone_candidates: ['wan'] };
 		},
 		'fwlive.disable_wan_logging': function() {
-			return { ok: true, changed: true, wan_zone: 'wan' };
+			return { ok: true, changed: true, wan_zone: 'wan', wan_zone_candidates: ['wan'] };
 		}
 	};
 
