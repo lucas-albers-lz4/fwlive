@@ -4,7 +4,7 @@ severity: error
 message: |
   Untrusted values must reach the DOM as text nodes, never an HTML sink.
   Assigning or appending a non-literal to innerHTML/outerHTML, calling
-  insertAdjacentHTML, or calling document.write bypasses that rule.
+  insertAdjacentHTML, or calling document.write/writeln bypasses that rule.
   See docs/developer/security-model.md §1.
 files:
   - openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/**/*.js
@@ -15,7 +15,10 @@ rule:
     - pattern: $EL.innerHTML += $VAL
     - pattern: $EL.outerHTML += $VAL
     - pattern: $EL.insertAdjacentHTML($POS, $VAL)
-    - pattern: document.write($VAL)
+    # write/writeln parse HTML regardless of argument kind. Do not reuse $VAL:
+    # the string-literal exception below is only for innerHTML/outerHTML clears.
+    - pattern: document.write($$$)
+    - pattern: document.writeln($$$)
 constraints:
   VAL:
     not:

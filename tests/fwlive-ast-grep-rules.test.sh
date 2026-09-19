@@ -24,7 +24,8 @@ if ! out="$(ast-grep scan --config sgconfig.yml . 2>&1)"; then
 fi
 
 # 2. A planted violation must be caught - one per rule, plus the shapes that
-# used to bypass the E()/HTML-sink patterns (identifier attrs, 2-arg E(), +=).
+# used to bypass the E()/HTML-sink patterns (identifier attrs, 2-arg E(), +=,
+# literal document.write/writeln).
 mkdir -p "$TMP/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive"
 cat >"$TMP/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/probe.js" <<'EOF'
 'use strict';
@@ -38,7 +39,9 @@ function probe(parts, untrusted, timeAttrs) {
 	const dynamic = new Function('return 1');
 	const sink = function (el, v) { el.innerHTML = v; };
 	const appendSink = function (el, v) { el.innerHTML += v; };
-	return [bare, translated, concatenated, identAttrs, twoArg, twoArgI18n, dynamic, sink, appendSink, parts];
+	const writeLiteral = function () { document.write('literal HTML'); };
+	const writelnLiteral = function () { document.writeln('literal'); };
+	return [bare, translated, concatenated, identAttrs, twoArg, twoArgI18n, dynamic, sink, appendSink, writeLiteral, writelnLiteral, parts];
 }
 return baseclass.extend({ probe: probe });
 EOF
@@ -62,8 +65,8 @@ if [[ "$e_hits" -lt 6 ]]; then
 	exit 1
 fi
 sink_hits="$(printf '%s\n' "$out" | grep -c 'fwlive-html-sink-nonliteral' || true)"
-if [[ "$sink_hits" -lt 2 ]]; then
-	echo "FAIL: expected >=2 html-sink hits (assignment and +=), got ${sink_hits}" >&2
+if [[ "$sink_hits" -lt 4 ]]; then
+	echo "FAIL: expected >=4 html-sink hits (assignment, +=, write, writeln), got ${sink_hits}" >&2
 	printf '%s\n' "$out" >&2
 	exit 1
 fi
