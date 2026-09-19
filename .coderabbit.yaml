@@ -21,6 +21,15 @@ reviews:
   pre_merge_checks:
     docstrings:
       mode: off
+    # PROBE (scratch branch): does pre_merge_checks.custom_checks run on this plan?
+    custom_checks:
+      - name: "Probe: chips.js carries __crProbeEslint"
+        mode: "warning"
+        instructions: |
+          Inspect openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js
+          at the pull request head. This check FAILS if that file does not contain the
+          identifier __crProbeEslint, and PASSES if it does. Base the verdict only on
+          that single grep-like observation; no other judgement.
   finishing_touches:
     docstrings:
       enabled: false
