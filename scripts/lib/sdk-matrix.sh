@@ -40,6 +40,22 @@ sdk_matrix_version_label() {
 	fi
 }
 
+# OpenWrt 25.12 and snapshots use apk; supported older release lines use ipk.
+# Keep this mapping beside the SDK version mapping so package-producing jobs do
+# not guess from filenames or silently inspect the wrong artifact type.
+sdk_matrix_package_format() {
+	case "$1" in
+		25.12 | 25.12.* | snapshot | SNAPSHOT | latest | '') printf '%s' 'apk' ;;
+		21.02 | 21.02.* | 22.03 | 22.03.* | 23.05 | 23.05.* | 24.10 | 24.10.*)
+			printf '%s' 'ipk'
+			;;
+		*)
+			echo "unknown package format for SDK version: $1" >&2
+			return 1
+			;;
+	esac
+}
+
 sdk_matrix_image_tag() {
 	local target="$1" version="$2" patch
 	patch="$(sdk_matrix_version_patch "$version")"

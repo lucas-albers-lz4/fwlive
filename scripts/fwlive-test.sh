@@ -179,8 +179,11 @@ echo "== fwlive proto filter (menu + custom) ==" >&2
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh
 
-echo "== fwlive ipk payload layout (R9a) ==" >&2
-bash tests/fwlive-ipk-payload.test.sh
+echo "== fwlive package payload layout (R9a) ==" >&2
+bash tests/fwlive-package-payload.test.sh
+
+echo "== fwlive SDK package format mapping ==" >&2
+bash tests/sdk-matrix-package-format.test.sh
 
 echo "== fwlive SDK digest pin-cache (R7) ==" >&2
 bash tests/sdk-matrix-digests.test.sh

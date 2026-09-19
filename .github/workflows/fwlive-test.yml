@@ -36,37 +36,73 @@ jobs:
       - name: Link check (internal markdown links + external URLs)
         run: ./scripts/fwlive-linkcheck.sh
 
-  # R9a: inspect a real current-version ipk, not only the source-shaped host
-  # fallback. The package is _all, so one current ipk covers the payload
-  # layout independently of the SDK target.
+  # R9a: inspect real current-version package artifacts, not only the
+  # source-shaped host fallback. Keep this job id stable for branch protection;
+  # the loop covers both package-manager formats used by supported releases.
   test-ipk-payload:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           persist-credentials: false
-      - name: Build current ipk
+      - name: Build current package artifacts
         run: |
           set -euo pipefail
-          version_key=24.10
-          version_label="$(source ./scripts/lib/sdk-matrix.sh; sdk_matrix_version_label "$version_key")"
           source ./scripts/lib/sdk-matrix.sh
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
-          mkdir -p .ci-sdk-cache/dl ".ci-sdk-cache/feeds/$version_label"
+          mkdir -p .ci-sdk-cache/dl
+          for version_key in 24.10 25.12; do
+            mkdir -p ".ci-sdk-cache/feeds/$(sdk_matrix_version_label "$version_key")"
+          done
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache
-          OWRT_MAKE_JOBS=4 ./scripts/docker-sdk.sh build --target x86-64 --version "$version_key"
-      - name: Inspect real ipk payload
+
+          for version_key in 24.10 25.12; do
+            version_label="$(sdk_matrix_version_label "$version_key")"
+            package_format="$(sdk_matrix_package_format "$version_key")"
+            echo "=== docker-sdk build: OpenWrt $version_key ($package_format) ==="
+            OWRT_MAKE_JOBS=4 ./scripts/docker-sdk.sh build --target x86-64 --version "$version_key"
+          done
+      - name: Inspect real package payloads
         run: |
-          version_key=24.10
-          version_label="$(source ./scripts/lib/sdk-matrix.sh; sdk_matrix_version_label "$version_key")"
+          set -euo pipefail
+          source ./scripts/lib/sdk-matrix.sh
           version="$(sed -n 's/^PKG_VERSION:=//p' openwrt-feed/luci-app-fwlive/Makefile)"
-          ipk="$(find "$GITHUB_WORKSPACE/out/x86_64/$version_label/fwlive" \
-            -type f -name "luci-app-fwlive_${version}*.ipk" -print | sed -n '1p')"
-          test -n "$ipk"
-          FWLIVE_REQUIRE_IPK=1 FWLIVE_IPK="$ipk" bash tests/fwlive-ipk-payload.test.sh
+
+          for version_key in 24.10 25.12; do
+            version_label="$(sdk_matrix_version_label "$version_key")"
+            package_format="$(sdk_matrix_package_format "$version_key")"
+            case "$package_format" in
+              ipk) pattern="luci-app-fwlive_${version}*.ipk" ;;
+              apk) pattern="luci-app-fwlive-${version}*.apk" ;;
+              *) echo "unsupported package format: $package_format" >&2; exit 1 ;;
+            esac
+            package="$(find "$GITHUB_WORKSPACE/out/x86_64/$version_label/fwlive" \
+              -type f -name "$pattern" -print | sed -n '1p')"
+            test -n "$package"
+
+            payload_dir=""
+            if [ "$package_format" = apk ]; then
+              payload_dir="$RUNNER_TEMP/fwlive-apk-payload-$version_key"
+              mkdir -p "$payload_dir"
+              sdk_image="$(sdk_matrix_read_digest_cache x86-64 "$version_key")"
+              test -n "$sdk_image"
+              docker run --rm \
+                --user "$(id -u):$(id -g)" \
+                -v "$package:/tmp/fwlive-package.apk:ro" \
+                -v "$payload_dir:/payload" \
+                "$sdk_image" sh -c \
+                'cd /payload && /builder/staging_dir/host/bin/apk --allow-untrusted extract /tmp/fwlive-package.apk'
+            fi
+
+            FWLIVE_REQUIRE_PACKAGE=1 \
+              FWLIVE_PACKAGE_FORMAT="$package_format" \
+              FWLIVE_PACKAGE="$package" \
+              FWLIVE_PAYLOAD_DIR="$payload_dir" \
+              bash tests/fwlive-package-payload.test.sh
+          done
 
   # Tier 2 mocked LuCI view smoke — required check (add test-view-mock to branch protection).
   test-view-mock:
