@@ -75,8 +75,8 @@ function blockerCode(state) {
 function wanZoneCandidateNames(st) {
 	return Array.isArray(st && st.wan_zone_candidates)
 		? st.wan_zone_candidates.filter(function (name) {
-			return typeof name === 'string';
-		})
+				return typeof name === 'string';
+			})
 		: [];
 }
 
