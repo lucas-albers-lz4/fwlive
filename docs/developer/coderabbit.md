@@ -54,6 +54,12 @@ changed files of the types they handle. Three tool-level facts apply here:
   `ast-grep`, not `ast_grep`. A misspelled key is silently ignored: it does not
   appear in the effective configuration (`@coderabbitai configuration`) and
   cannot carry that tool's options (`rule_dirs`, `util_dirs`, `packages`).
+  A **known** key with the wrong type is not silent: `ast-grep: true` fails
+  schema validation (`expected object, received boolean`) and CodeRabbit
+  discards the entire repository YAML, falling back to defaults. The value
+  must be an object (`enabled`, `rule_dirs`, `essential_rules`, `packages`).
+  This config sets `enabled: true` and `essential_rules: false` so the
+  Node/Express essentials package does not run here.
 - **`biome` is off** (`reviews.tools.biome.enabled: false`). Biome cannot parse
   a LuCI AMD module — every shipped file ends in a top-level
   `return baseclass.extend({ ... })`, which the LuCI loader supports by
@@ -67,8 +73,8 @@ changed files of the types they handle. Three tool-level facts apply here:
 
 The ast-grep *essentials* package adds nothing to this repo today (553 rules,
 of which 7 target JavaScript — Node/Express libraries — and none target shell),
-so any value there must come from repo-authored rules via `rule_dirs`; that is
-tracked as an investigation, not implied by this configuration.
+so it is off (`reviews.tools.ast-grep.essential_rules: false`). Any value
+there must come from repo-authored rules via `rule_dirs`.
 
 ## Efficient trigger path (prefer this)
 
