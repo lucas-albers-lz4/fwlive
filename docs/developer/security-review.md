@@ -1,7 +1,7 @@
 # Security review state
 
 > **Status:** 55 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
-> **Current delta:** 2026-09-19 #371 nf_log backend normalization and independent IPv6 family readiness, plus #383 follow-up to #373: no-zone candidates now travel through `logging_status` and render as text nodes in the LuCI empty state and toolbar; host-focused and full-suite validation; no ACL, DOM sink, read/write-scope, or HTML sink change.
+> **Current delta:** 2026-09-19 #384 live `/proc/net/if_inet6` check on the current 24.10.8 and 25.12.5 QEMU pins (stock stack present including `lo`; `ipv6.disable=1` missing file; IPv4-only enable allowed). Prior: #371 nf_log backend normalization and independent IPv6 family readiness, plus #383 follow-up to #373: no-zone candidates now travel through `logging_status` and render as text nodes in the LuCI empty state and toolbar; host-focused and full-suite validation; no ACL, DOM sink, read/write-scope, or HTML sink change.
 > **Last review:** 2026-09-18 delta on #365/#366 behavior-preserving view/rpcd refactors (rules-map dump paths, selftest comparisons, and logging-toggle handler sequencing; host gates green; no ACL, DOM sink, or command-input change); prior 2026-09-16 delta on #347 frozen Auto/Manual fetch-budget contract (validated browser-local discrete values, success-only `effective_limit`, error-path omission, and status text via `textContent`; no ACL change); prior 2026-09-15 delta on #339 weak-device 250-row display cap (server boolean gate, status text via `textContent`, no ACL or HTML-sink change) and candidate browser matrix; prior 2026-09-15 delta on #306 request serialization, filter-failure health gating (structured error-key match and secure sticky-/tmp tempfile), conservative UTF-8 summary bound, and cooldown-expiry probing (no ACL or DOM-sink change); prior 2026-09-15 delta on #306 bounded server summary aggregation (same classifier pass, escaped JSON byte cap, adaptive-off omission) and summary UI (`textContent` only); prior 2026-09-14 delta on accurate `messages_received` counting (filter-side `jsonfilter` enumeration, one awk pass, no duplicate reply key) and Layer 3 weak-device procfs detection (read-only `MemTotal`/processor count, fail-closed boolean, no ACL change); prior 2026-09-13 delta on #306 Layer 2 client backoff (visibility pause, RTT cadence, adaptive/shed banners via `textContent` only; resolve `disabled:load` without treating as DNS fail); prior 2026-09-12 delta on #306 Layer 1 adaptive poll cap (always-on; test/triage override via env/sentinel; state file flock; no UCI); prior 2026-09-11 delta on release-notes pipeline (#322 follow-up); shell-helpers delta same day (#321/#308); full-surface housekeeping review 2026-09-08 (H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
 > **Open:** None from #293. Housekeeping may still emit `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24) lands plan-aware scanning.
 > **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
@@ -147,7 +147,7 @@ should carry a note saying what would raise it.
 | Empty filter output on `poll` returns `error:filter_empty` | `code` | Defensive guard at the catch-all branch in `fetch_firewall_logs`: when the filter returns success but prints nothing, the reply carries `error:filter_empty` instead of a silent empty payload. The shipped filter always prints `{"log":[…]}`, so this only fires for stub/missing-filter regressions; no host test induces it without replacing the shipped filter, which is out of scope. Neighbouring `filter_failed` pinned by `tests/fwlive-view-poll-error.test.js`. |
 | `resolve` without `jshn` / with malformed input returns `error:jshn_missing` / `error:invalid_input` | `host` | same file `testResolveJshnMissing`; `invalid_input` runs only where `jshn` exists (skips on stock hosts). UI keeps the full resolve reply (no `expect` unwrap) so `disabled:load` / `error` siblings reach the view (#306 Layer 2). |
 | `logging_status` always returns the full 9-key shape; failures travel as `blockers`/`warnings` with `ready:false`, never a silent empty object | `host` | same file `testLoggingStatusNeverSilent` |
-| `nf_log` readiness is backend-aware and family-aware: empty/`NONE` selectors block a present family, while an independently unavailable IPv6 family is effective-ready | `host` | `tests/fwlive-logging.test.sh` #371 backend matrix through status/enable, `/proc/net/if_inet6` fixtures, dual-ready and IPv4-`NONE` gates; enable asserts `ok:true` on a stubbed lock |
+| `nf_log` readiness is backend-aware and family-aware: empty/`NONE` selectors block a present family, while an independently unavailable IPv6 family is effective-ready | `host` | `tests/fwlive-logging.test.sh` #371 backend matrix through status/enable, `/proc/net/if_inet6` fixtures, dual-ready and IPv4-`NONE` gates; enable asserts `ok:true` on a stubbed lock. #384 QEMU device check on 24.10.8 / 25.12.5 (lab note below); proof class stays `host` for the fixtures |
 | `logging_status.weak_device` is a read-only procfs-derived boolean (`MemTotal < 256 MiB` or one processor); unavailable/malformed procfs fails closed to `false` | `host` | `tests/fwlive-logging.test.sh` fixture threshold cases + `tests/fwlive-rpcd-security.test.js` shape/type assertion |
 | `enable/disable_wan_logging` with no WAN zone return `error:no_wan_zone` before touching the lock | `host` | same file `testToggleNoWanZone` (asserts lock file untouched) |
 | Unknown rpcd method returns `error` with a non-zero exit | `host` | same file `testUnknownMethod` |
@@ -531,3 +531,35 @@ IPv6-stack probe, not a WAN-address probe.
 
 **Result.** Focused logging tests, shellcheck, and the full host suite pass; no
 security finding is known from the code delta.
+
+### 2026-09-19 — #384 if_inet6 device check
+
+**Scope.** Confirm on supported OpenWrt images that `/proc/net/if_inet6` is an
+IPv6-stack probe, not a WAN-address probe. Host fixtures stay the #371 proof
+class. This note records the live-device check #371 asked for. No probe-design
+change.
+
+**Method.** x86_64 KVM guests from [`qemu-lab.md`](qemu-lab.md), package
+`0.1.44-r1` plus the `lab/384-if-inet6-probe` libexec overlay at `7d1bcf8`.
+Each guest captured `if_inet6`, `nf_log/2`, `nf_log/10`, and
+`ubus call fwlive logging_status`. Stock `nf_log/10=NONE` was induced by
+writing the sysctl and then restored. The no-stack case used a one-shot
+`ipv6.disable=1` GRUB append on 24.10.8; GRUB was reverted after the capture.
+
+**Result.** Both pins match the #371 table. The probe design stays closed.
+
+| Guest | `if_inet6` | `nf_log/10` | `logging_status` |
+|-------|------------|-------------|------------------|
+| 24.10.8 `r29233-443ec4032a` stock | populated, includes `lo` `::1` plus `br-lan` ULA/link-local | `nf_log_ipv6` | `nf_log_ipv6: true`, no IPv6 blocker |
+| 24.10.8 stock, `nf_log/10` written `NONE` | unchanged (stack still present) | `NONE` | `nf_log_ipv6: false`, blocker `nf_log_ipv6_missing` |
+| 25.12.5 `r33051-f5dae5ece4` stock | populated, includes `lo` `::1` plus `br-lan` ULA/link-local | `nf_log_ipv6` | `nf_log_ipv6: true`, no IPv6 blocker |
+| 25.12.5 stock, `nf_log/10` written `NONE` | unchanged (stack still present) | `NONE` | `nf_log_ipv6: false`, blocker `nf_log_ipv6_missing` |
+| 24.10.8 boot `ipv6.disable=1` | **missing** | still `nf_log_ipv6` | `nf_log_ipv6: true` (family not required); `enable_wan_logging` → `ok: true` |
+
+Lab guests have no `wan` / `wan6` (slirp LAN DHCP only). IPv6 remains present
+through `lo` and `br-lan`, so an IPv4-only WAN does not make the stack
+absent. `nf_log/10` staying populated under `ipv6.disable=1` confirms that
+selector is not an IPv6 availability probe.
+
+No supported image contradicted the table (in particular, `ipv6.disable=1`
+did not leave a populated `if_inet6`).
