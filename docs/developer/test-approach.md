@@ -228,10 +228,10 @@ same audit:
    the branch under test with an extracted function or a stubbed copy of the
    production filter. Assertions must name the externally visible result and
    preserve unrelated state where rollback or configuration is involved.
-5. Treat installed-session and DOM claims as boundary tests. The ACL item
-   (R4a/R4b, formerly L1)
-   needs a real LuCI/uhttpd `/ubus` session login for a role with the read ACL
-   and a role without it; a root `ubus call` is not ACL evidence. The renderer
+5. Treat installed-session and DOM claims as boundary tests. R4a (formerly L1)
+   has per-PR host proof for exact rpcd/ACL method parity; R4b still needs a
+   real LuCI/uhttpd `/ubus` session login for a role with the read ACL and a
+   role without it. A root `ubus call` is not ACL evidence. The renderer
    item (R2, formerly L4) should use the LuCI-accurate `E()` harness with hostile message
    content, allow only intentional empty-container clearing, and assert that
    the hostile value never appears in an `innerHTML` write while appearing as

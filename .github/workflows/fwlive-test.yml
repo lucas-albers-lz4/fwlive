@@ -48,19 +48,23 @@ jobs:
       - name: Build current ipk
         run: |
           set -euo pipefail
+          version_key=24.10
+          version_label="$(source ./scripts/lib/sdk-matrix.sh; sdk_matrix_version_label "$version_key")"
           source ./scripts/lib/sdk-matrix.sh
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
-          mkdir -p .ci-sdk-cache/dl .ci-sdk-cache/feeds/24.10.8
+          mkdir -p .ci-sdk-cache/dl ".ci-sdk-cache/feeds/$version_label"
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache
-          OWRT_MAKE_JOBS=4 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
+          OWRT_MAKE_JOBS=4 ./scripts/docker-sdk.sh build --target x86-64 --version "$version_key"
       - name: Inspect real ipk payload
         run: |
+          version_key=24.10
+          version_label="$(source ./scripts/lib/sdk-matrix.sh; sdk_matrix_version_label "$version_key")"
           version="$(sed -n 's/^PKG_VERSION:=//p' openwrt-feed/luci-app-fwlive/Makefile)"
-          ipk="$(find "$GITHUB_WORKSPACE/out/x86_64/24.10.8/fwlive" \
-            -type f -name "luci-app-fwlive_${version}*.ipk" -print -quit)"
+          ipk="$(find "$GITHUB_WORKSPACE/out/x86_64/$version_label/fwlive" \
+            -type f -name "luci-app-fwlive_${version}*.ipk" -print | sed -n '1p')"
           test -n "$ipk"
           FWLIVE_REQUIRE_IPK=1 FWLIVE_IPK="$ipk" bash tests/fwlive-ipk-payload.test.sh
 
