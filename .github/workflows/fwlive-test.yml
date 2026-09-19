@@ -48,6 +48,8 @@ jobs:
       - name: Build current ipk
         run: |
           mkdir -p .ci-sdk-cache/dl .ci-sdk-cache/feeds/24.10.8
+          sudo chown -R 1000:1000 .ci-sdk-cache
+          sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache
           OWRT_MAKE_JOBS=4 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
       - name: Inspect real ipk payload
         run: |
