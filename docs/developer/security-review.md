@@ -556,10 +556,11 @@ writing the sysctl and then restored. The no-stack case used a one-shot
 | 25.12.5 stock, `nf_log/10` written `NONE` | unchanged (stack still present) | `NONE` | `nf_log_ipv6: false`, blocker `nf_log_ipv6_missing` |
 | 24.10.8 boot `ipv6.disable=1` | **missing** | still `nf_log_ipv6` | `nf_log_ipv6: true` (family not required); `enable_wan_logging` → `ok: true` |
 
-Lab guests have no `wan` / `wan6` (slirp LAN DHCP only). IPv6 remains present
-through `lo` and `br-lan`, so an IPv4-only WAN does not make the stack
-absent. `nf_log/10` staying populated under `ipv6.disable=1` confirms that
-selector is not an IPv6 availability probe.
+Lab guests have no live `wan` / `wan6` interface (slirp LAN DHCP only). The
+stock firewall `wan` zone remains, so `enable_wan_logging` can still return
+`ok: true`. IPv6 remains present through `lo` and `br-lan`, so an IPv4-only
+WAN does not make the stack absent. `nf_log/10` staying populated under
+`ipv6.disable=1` confirms that selector is not an IPv6 availability probe.
 
-No supported image contradicted the table (in particular, `ipv6.disable=1`
-did not leave a populated `if_inet6`).
+No tested supported image contradicted the table (in particular,
+`ipv6.disable=1` did not leave a populated `if_inet6`).
