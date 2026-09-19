@@ -26,7 +26,7 @@ reopen an accepted residual without new evidence.
 | Data corruption / availability | Log pipeline failure, lock issues, UCI sweep |
 | Supply chain | Unpinned tooling, signing keys, feed trust |
 
-> **2026-09-19 #370 delta:** Host coverage now pins exact rpcd/ACL method parity and read/write isolation, real reply-shape handling, hostile table text under the recording LuCI E harness, fail-closed shell cases, IPv6 PTR parsing, fuzzy PO rejection, and ipk payload layout/modes. The filter accepts an explicit dump directory for host fidelity, while the production rpcd caller passes /tmp; no ACL grant or DOM sink changed.
+> **2026-09-19 #370 delta:** Host coverage now pins exact rpcd/ACL method parity and read/write isolation, representative reply-shape fixtures, hostile table text under the recording LuCI E harness, fail-closed shell cases, IPv6 PTR parsing, fuzzy PO rejection, and ipk payload layout/modes. The filter accepts an explicit dump directory for host fidelity, while the production rpcd caller passes /tmp; no ACL grant or DOM sink changed.
 
 ## Why a ledger and not just a model
 
@@ -67,7 +67,7 @@ should carry a note saying what would raise it.
 | Workflow inputs into `run:` bodies | 2026-08-23 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY`; 2026-08-18: dispatch tag validated (control chars, shape, real-tag + HEAD identity) before repo scripts |
 | LuCI view (templates / shipped JS) | 2026-09-03 | Delta + Fable | `#fwlive-backend` via `textContent` only; `timeout_missing` warnings; Wave B Playwright = UX contract — XSS SoT remains recording-`innerHTML` harness (NON-FINDING) |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-08-23 | Read | No ACL or path regressions |
-| #370 package payload | 2026-09-19 | Delta + host test | ipk inspector checks current JS modules, ACL/menu files, libexec layout, and executable modes; real artifact is required with FWLIVE_REQUIRE_IPK=1 |
+| #370 package payload | 2026-09-19 | Delta + host test | per-PR job builds the current 24.10 `_all` ipk and runs the inspector with `FWLIVE_REQUIRE_IPK=1`; it checks JS modules, ACL/menu files, libexec layout, and executable modes |
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-08-23 | Read | Pins intact |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |

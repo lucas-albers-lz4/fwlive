@@ -194,7 +194,7 @@ evidence or an explicit disposition. When the remaining candidates add low
 value, stop the pass.
 “More tests” is not itself a completion criterion.
 
-## Plan refinement from #370
+## Implementation follow-up from #370
 
 Issue [#370](https://github.com/lucas-albers-lz4/fwlive/issues/370) is a useful
 coverage inventory, but its ranked list is not by itself an executable design
@@ -213,44 +213,48 @@ same audit:
    cost, acceptance artifact, and revisit trigger. The ledger's existing
    `maintenance cost` and `revisit trigger` fields are not a substitute for an
    owner or an acceptance condition.
-3. Resolve behavior decisions before writing assertions. In particular, the
-   renamed-WAN case (L3) must first choose the supported contract: preserve
-   exact `name='wan'` matching and test an explicit `no_wan_zone` disposition,
-   or broaden the implementation and test the supported name set. Do not let a
-   test silently choose a product contract. For the release/architecture list
-   (L6), select cells by distinct seams—install format, firewall backend,
-   architecture, and installed LuCI/rpcd path—instead of promising the full
-   Cartesian matrix.
+3. Resolve behavior decisions before writing assertions. The renamed-WAN case
+   (R7, formerly L3) is fixed as the membership union rule: the named `wan`
+   zone is supported, and a zone whose network list contains `wan` or `wan6`
+   is also supported. Keep an explicit `no_wan_zone` disposition for devices
+   matching neither form. Do not let a test silently choose a product
+   contract. R1 (formerly L2) is implemented and reviewed separately in
+   #371. For the release/architecture list (R8, formerly L6), select cells by
+   distinct seams—install format, firewall backend, architecture, and
+   installed LuCI/rpcd path—instead of promising the full Cartesian matrix.
 4. Design every new check to fail for a small, known fault. Host and e-harness
    tests should invoke the shipped entry point or module and inject dependency
    failures through PATH, fixture, or seam controls; they must not reimplement
    the branch under test with an extracted function or a stubbed copy of the
    production filter. Assertions must name the externally visible result and
    preserve unrelated state where rollback or configuration is involved.
-5. Treat installed-session and DOM claims as boundary tests. The ACL item (L1)
+5. Treat installed-session and DOM claims as boundary tests. The ACL item
+   (R4a/R4b, formerly L1)
    needs a real LuCI/uhttpd `/ubus` session login for a role with the read ACL
    and a role without it; a root `ubus call` is not ACL evidence. The renderer
-   item (L4) should use the LuCI-accurate `E()` harness with hostile message
+   item (R2, formerly L4) should use the LuCI-accurate `E()` harness with hostile message
    content, allow only intentional empty-container clearing, and assert that
    the hostile value never appears in an `innerHTML` write while appearing as
-   text. The browser fixture item (L5) needs assertions for the changed
+   text. The browser fixture item (R6, formerly L5) needs assertions for the changed
    backend, adaptive/degradation metadata, IPv6 row, and hostile row—not only
    fields copied into a mock reply.
 
-Apply the #370 candidates in three bounded stages:
+Apply the #370 candidates in three bounded stages. R1 is tracked in #371;
+R6 combines the former L5 and L9 fixture work; and R3 and R9 are part of the
+minimum-ready host evidence rather than optional follow-up items:
 
 | Stage | Scope | Exit condition |
 | --- | --- | --- |
-| Contract and host evidence | L2 nf_log fixtures, the L3 zone-name decision, L4 DOM sink proof, L5 reply-shape/fixture contract, L7 hash restoration, plus the normal empty-ring and highest-value L8 fail-closed cases | Each item has a fault, oracle, shipped-artifact boundary, and a passing required-host assertion, or an explicit deferred disposition. |
-| Installed seams | L1 session ACL and the selected L6 matrix cells | The QEMU/manual artifact records image and package/feed revision, install format, architecture, backend, session identity, command/output, date, and cleanup; direct root calls do not count. |
-| Follow-up state coverage | The remaining L8 rollback injections and L9 backend/IPv6/degradation/storage/resolve cases | Each case is split into an independent assertion with an owner and revisit trigger; grouping is allowed for implementation, not for hiding an unverified branch. |
+| Contract and host evidence | R2 DOM sink proof, R3 hash restoration, R5 fail-closed cases, R6 reply-shape/fixture alignment, R7 union-rule contract, plus the normal empty-ring cases | Each item has a fault, oracle, shipped-artifact boundary, and a passing required-host assertion, or an explicit deferred disposition. |
+| Installed seams | R4b session ACL and the selected R8 matrix cells | The QEMU/manual artifact records image and package/feed revision, install format, architecture, backend, session identity, command/output, date, and cleanup; direct root calls do not count. |
+| Follow-up state coverage | Remaining R5 rollback injections and R6 backend/IPv6/degradation/storage/resolve cases, plus R9 package formats | Each case is split into an independent assertion with an owner and revisit trigger; grouping is allowed for implementation, not for hiding an unverified branch. |
 
 The upstream-cut readiness decision should be made from those exit conditions,
-not from the count of L1–L9 tests. At minimum, L1, L2, L4, L5, and every
-security/configuration branch in L8 need executed evidence or an explicit
-residual; L3 needs a documented contract decision; and L6 needs dated evidence
-for every selected seam cell. A manual result becomes `Manually verified` only
-when its artifact is retained with the review record.
+not from the count of R1–R9 tests. At minimum, R2, R3, R4a, R5, R6, R7, and
+R9a need executed evidence or an explicit residual; R1 is owned by #371; and
+R8 needs dated evidence for every selected seam cell. R4b and R9b remain
+installed-system/package-format evidence. A manual result becomes `Manually
+verified` only when its artifact is retained with the review record.
 
 Evidence snapshot for the follow-up branch used while refining #370
 (`17b9c5de774c`): `./scripts/fwlive-test.sh` passed, `npm run test:view`

@@ -230,7 +230,7 @@ function main() {
       if (empty) console.error('[FAIL] %s: %d empty translation(s)', lang, empty);
       if (formatMismatch) console.error('[FAIL] %s: %d format specifier mismatch(es)', lang, formatMismatch);
       if (fuzzy) console.error('[FAIL] %s: %d fuzzy translation(s)', lang, fuzzy);
-      if (missing + empty + formatMismatch > 0) failures++;
+      if (total > 0) failures++;
       if (mismatched)
         console.warn('       (%d stale entries — should be cleaned up)', mismatched);
     }

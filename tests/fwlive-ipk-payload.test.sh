@@ -12,6 +12,10 @@ trap 'rm -rf "$WORK"' EXIT
 PKG="$(printenv FWLIVE_IPK || true)"
 if [ -n "$PKG" ]; then
 	[ -f "$PKG" ] || { echo "ipk not found: $PKG" >&2; exit 1; }
+	case "$(basename "$PKG")" in
+		luci-app-fwlive_"$VERSION"*.ipk) ;;
+		*) echo "ipk is not current version $VERSION: $PKG" >&2; exit 1 ;;
+	esac
 else
 	PATTERN='luci-app-fwlive_'"$VERSION"'*.ipk'
 	PKG="$(find "$ROOT/out" -type f -path '*/fwlive/*' -name "$PATTERN" -print 2>/dev/null | sort | tail -n 1 || true)"
@@ -58,12 +62,17 @@ tar -xzf "$DATA" -C "$EXTRACT"
 
 MODULE_DIR="$PKG_DIR/htdocs/luci-static/resources/fwlive"
 module_count=0
-while IFS= read -r -d '' module; do
+while IFS= read -r module; do
 	base="$(basename "$module")"
 	test -f "$EXTRACT/www/luci-static/resources/fwlive/$base" ||
 		{ echo "missing packaged module: $base" >&2; exit 1; }
 	module_count=$((module_count + 1))
-done < <(find "$MODULE_DIR" -maxdepth 1 -type f -name '*.js' -print0 | sort -z)
+done < <(
+	cd "$MODULE_DIR"
+	find . -type f -name '*.js' -print |
+		sed 's#^\./##; /\//d' |
+		LC_ALL=C sort
+)
 [ "$module_count" -eq 14 ] ||
 	{ echo "expected 14 fwlive resource modules, found $module_count" >&2; exit 1; }
 test -f "$EXTRACT/www/luci-static/resources/view/status/fwlive.js"
@@ -97,6 +106,11 @@ while IFS= read -r rel; do
 				{ echo "sourced helper unexpectedly executable: $rel" >&2; exit 1; }
 			;;
 	esac
-done < <(cd "$PKG_DIR/root/usr/libexec" && find . -type f -printf '%P\n' | sort)
+done < <(
+	cd "$PKG_DIR/root/usr/libexec"
+	find . -type f -print |
+		sed 's#^\./##' |
+		LC_ALL=C sort
+)
 
 echo "fwlive ipk payload test passed ($module_count modules)"

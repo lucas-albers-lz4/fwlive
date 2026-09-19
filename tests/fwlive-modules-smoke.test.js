@@ -394,11 +394,17 @@ assert.ok(
 	collectText(sinkBody).indexOf(hostileMessage) >= 0,
 	'hostile log text must remain visible as text'
 );
-function assertNoHtmlWrites(node) {
-	assert.equal(node._innerHTMLWrites.length, 0, 'hostile log render must not write innerHTML');
-	for (const child of node.childNodes || []) assertNoHtmlWrites(child);
+function collectInnerHTMLWrites(node, out) {
+	out = out || [];
+	for (const html of node._innerHTMLWrites || []) out.push(html);
+	for (const child of node.childNodes || []) collectInnerHTMLWrites(child, out);
+	return out;
 }
-for (const child of sinkBody.childNodes) assertNoHtmlWrites(child);
+assert.deepStrictEqual(
+	collectInnerHTMLWrites(sinkBody),
+	[''],
+	'hostile log render may only clear the tbody; it must never write payload HTML'
+);
 console.log('fwlive-modules smoke: table OK');
 
 /* --- buffer --- */

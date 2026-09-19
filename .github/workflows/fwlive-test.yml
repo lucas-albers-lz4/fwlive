@@ -36,6 +36,27 @@ jobs:
       - name: Link check (internal markdown links + external URLs)
         run: ./scripts/fwlive-linkcheck.sh
 
+  # R9a: inspect a real current-version ipk, not only the source-shaped host
+  # fallback. The package is _all, so one current ipk covers the payload
+  # layout independently of the SDK target.
+  test-ipk-payload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+      - name: Build current ipk
+        run: |
+          mkdir -p .ci-sdk-cache/dl .ci-sdk-cache/feeds/24.10.8
+          OWRT_MAKE_JOBS=4 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
+      - name: Inspect real ipk payload
+        run: |
+          version="$(sed -n 's/^PKG_VERSION:=//p' openwrt-feed/luci-app-fwlive/Makefile)"
+          ipk="$(find "$GITHUB_WORKSPACE/out/x86_64/24.10.8/fwlive" \
+            -type f -name "luci-app-fwlive_${version}*.ipk" -print -quit)"
+          test -n "$ipk"
+          FWLIVE_REQUIRE_IPK=1 FWLIVE_IPK="$ipk" bash tests/fwlive-ipk-payload.test.sh
+
   # Tier 2 mocked LuCI view smoke — required check (add test-view-mock to branch protection).
   test-view-mock:
     runs-on: ubuntu-latest
