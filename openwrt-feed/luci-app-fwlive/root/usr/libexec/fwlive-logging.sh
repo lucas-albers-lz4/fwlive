@@ -580,12 +580,29 @@ collect_logging_blockers() {
 	return 0
 }
 
+legacy_iptables_active() {
+	for _path in \
+		"${FWLIVE_IP_TABLES_NAMES_PATH:-/proc/net/ip_tables_names}" \
+		"${FWLIVE_IP6_TABLES_NAMES_PATH:-/proc/net/ip6_tables_names}"; do
+		if [ -r "$_path" ] && grep -q '[^[:space:]]' "$_path" 2>/dev/null; then
+			return 0
+		fi
+	done
+	return 1
+}
+
 collect_logging_warnings() {
 	LOGGING_WARNINGS=''
 
 	# rpcd/fwlive run_with_timeout fail-closes to 127 without timeout.
 	# Warnings are diagnostics only — do not gate the enable-logging CTA.
 	command -v timeout >/dev/null 2>&1 || logging_warnings_append 'timeout_missing'
+
+	# Diagnostic only: supported releases use nftables, but a registered legacy
+	# iptables table can still exist in the network namespace visible to rpcd.
+	# Keep this ubus-only for now; it must not affect readiness or the enable
+	# gate, and the UI has no remediation flow for legacy tables yet.
+	legacy_iptables_active && logging_warnings_append 'legacy_iptables_detected'
 
 	# Report via LOGGING_WARNINGS, not exit status.
 	return 0
