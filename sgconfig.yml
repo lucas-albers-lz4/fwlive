@@ -1,0 +1,5 @@
+# ast-grep configuration for the shipped LuCI surface.
+# Usage:  ast-grep scan            (from the repository root)
+# CI pins the same CLI version CodeRabbit runs.
+ruleDirs:
+  - scripts/ast-grep-rules
