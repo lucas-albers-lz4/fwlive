@@ -12,6 +12,7 @@ const js = require('@eslint/js');
 const luciBrowserGlobals = {
 	document: 'readonly',
 	window: 'readonly',
+	globalThis: 'readonly',
 	localStorage: 'readonly',
 	location: 'readonly',
 	setTimeout: 'readonly',
@@ -122,11 +123,27 @@ const shippedJsRules = {
 	'no-undef': 'error',
 	'no-implicit-globals': 'error',
 	'no-eval': 'error',
-	/* Member/indirect forms that the ast-grep dynamic-code rule (#380) cannot
-	 * match (window.eval, globalThis.Function) and string-arg setTimeout/
-	 * setInterval — ESLint covers them here; the shipped tree is clean. */
+	/* Dynamic-code shapes the ast-grep rule (#380) cannot match:
+	 * no-eval (incl. window.eval), no-new-func (bare Function / new Function),
+	 * no-implied-eval (string-arg setTimeout/setInterval). no-new-func does
+	 * not see member access, so no-restricted-properties covers
+	 * globalThis.Function / window.Function and the string-literal computed
+	 * forms (obj['Function']). */
 	'no-new-func': 'error',
 	'no-implied-eval': 'error',
+	'no-restricted-properties': [
+		'error',
+		{
+			object: 'globalThis',
+			property: 'Function',
+			message: 'The Function constructor is not allowed.',
+		},
+		{
+			object: 'window',
+			property: 'Function',
+			message: 'The Function constructor is not allowed.',
+		},
+	],
 	'no-unused-vars': [
 		'error',
 		{
