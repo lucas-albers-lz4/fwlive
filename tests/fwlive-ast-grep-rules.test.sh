@@ -23,17 +23,22 @@ if ! out="$(ast-grep scan --config sgconfig.yml . 2>&1)"; then
 	exit 1
 fi
 
-# 2. A planted violation must be caught - one per rule.
+# 2. A planted violation must be caught - one per rule, plus the shapes that
+# used to bypass the E()/HTML-sink patterns (identifier attrs, 2-arg E(), +=).
 mkdir -p "$TMP/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive"
 cat >"$TMP/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/probe.js" <<'EOF'
 'use strict';
-function probe(parts, untrusted) {
+function probe(parts, untrusted, timeAttrs) {
 	const bare = E('td', {}, 'literal');
 	const translated = E('td', {}, _('x'));
 	const concatenated = E('td', {}, 'a' + untrusted);
+	const identAttrs = E('td', timeAttrs, 'literal');
+	const twoArg = E('div', 'literal');
+	const twoArgI18n = E('span', _('x'));
 	const dynamic = new Function('return 1');
 	const sink = function (el, v) { el.innerHTML = v; };
-	return [bare, translated, concatenated, dynamic, sink, parts];
+	const appendSink = function (el, v) { el.innerHTML += v; };
+	return [bare, translated, concatenated, identAttrs, twoArg, twoArgI18n, dynamic, sink, appendSink, parts];
 }
 return baseclass.extend({ probe: probe });
 EOF
@@ -50,15 +55,30 @@ for id in fwlive-e-children-must-be-array fwlive-no-dynamic-code fwlive-html-sin
 	fi
 done
 
+e_hits="$(printf '%s\n' "$out" | grep -c 'fwlive-e-children-must-be-array' || true)"
+if [[ "$e_hits" -lt 6 ]]; then
+	echo "FAIL: expected >=6 e-children hits (3-arg, ident attrs, 2-arg), got ${e_hits}" >&2
+	printf '%s\n' "$out" >&2
+	exit 1
+fi
+sink_hits="$(printf '%s\n' "$out" | grep -c 'fwlive-html-sink-nonliteral' || true)"
+if [[ "$sink_hits" -lt 2 ]]; then
+	echo "FAIL: expected >=2 html-sink hits (assignment and +=), got ${sink_hits}" >&2
+	printf '%s\n' "$out" >&2
+	exit 1
+fi
+
 # 3. Compliant shapes must stay silent (no friction on correct code).
 cat >"$TMP/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/probe.js" <<'EOF'
 'use strict';
-function probe(parts) {
+function probe(parts, timeAttrs) {
 	const arrayForm = E('td', {}, [ 'literal' ]);
 	const nodeChild = E('tr', {}, E('td', {}, [ 'x' ]));
 	const identifierChild = E('td', {}, parts);
+	const identAttrsArray = E('td', timeAttrs, [ 'literal' ]);
+	const twoArgAttrs = E('div', { 'class': 'x' });
 	const clearNode = function (el) { el.innerHTML = ''; };
-	return [arrayForm, nodeChild, identifierChild, clearNode];
+	return [arrayForm, nodeChild, identifierChild, identAttrsArray, twoArgAttrs, clearNode];
 }
 return baseclass.extend({ probe: probe });
 EOF
