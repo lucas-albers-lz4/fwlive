@@ -900,6 +900,117 @@ exit 127
 	assert.ok(ran > 0, 'mktemp degradation must run under at least one POSIX shell');
 }
 
+function testIpv6TempfileErrorPrecedence() {
+	// Pre-prune evidence for #369: retain IPv4 rules when IPv6 tempfile
+	// allocation fails, and preserve the earlier IPv4 error in both inverse
+	// precedence cases. #378 removes this legacy backend after this evidence
+	// lands, so these assertions must not be carried into the nft-only tests.
+	const cases = [
+		{
+			name: 'IPv4 succeeds, IPv6 tempfile fails',
+			iptablesOk: true,
+			ipv6TempFails: true,
+			ip6Ok: true,
+			expectedError: 'mktemp_failed',
+			expectIpv4: true,
+			expectIp6Call: false
+		},
+		{
+			name: 'IPv4 fails, IPv6 tempfile also fails',
+			iptablesOk: false,
+			ipv6TempFails: true,
+			ip6Ok: true,
+			expectedError: 'iptables_failed',
+			expectIpv4: false,
+			expectIp6Call: false
+		},
+		{
+			name: 'IPv4 fails, IPv6 command also fails',
+			iptablesOk: false,
+			ipv6TempFails: false,
+			ip6Ok: false,
+			expectedError: 'iptables_failed',
+			expectIpv4: false,
+			expectIp6Call: true
+		}
+	];
+	const hostMktemp = JSON.stringify(hostCommand('mktemp'));
+
+	for (const c of cases) {
+		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ip6precedence-'));
+		const ip6Called = path.join(stubDir, 'ip6-called');
+		try {
+			makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
+			makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+			makeStub(stubDir, 'iptables-save', c.iptablesOk ? `#!/bin/sh
+cat <<'EOF'
+-A INPUT -j LOG --log-prefix "ipv4-ok "
+EOF
+` : '#!/bin/sh\nexit 1\n');
+			makeStub(stubDir, 'ip6tables-save', c.ip6Ok ? `#!/bin/sh
+echo called >> "${ip6Called}"
+cat <<'EOF'
+-A INPUT -j LOG --log-prefix "ipv6-ok "
+EOF
+` : `#!/bin/sh
+echo called >> "${ip6Called}"
+exit 1
+`);
+			makeStub(stubDir, 'mktemp', `#!/bin/sh
+if [ "$1" = "192.0.2.1" ]; then
+	echo STUB_RAN
+	exit 0
+fi
+case "$1" in
+	/tmp/fwlive-ip6t.*)
+${c.ipv6TempFails ? '\texit 1' : `\texec ${hostMktemp} "$@"`}
+		;;
+	*)
+		exec ${hostMktemp} "$@"
+		;;
+esac
+`);
+
+		const before = new Set(
+			fs.readdirSync('/tmp')
+				.filter((name) => /^fwlive-(nft|ipt|ip6t)\./.test(name))
+				.map((name) => path.join('/tmp', name))
+		);
+		const env = stubPathEnv(stubDir);
+		for (const shell of pathHonouringShells('mktemp')) {
+			let raw;
+			try {
+				raw = runWithShell(shell, env);
+			} catch (e) {
+				if (e.code === 'ENOENT') continue;
+				throw e;
+			}
+			const res = JSON.parse(raw);
+			assert.equal(res.backend, 'iptables', `[${shell}] ${c.name}: backend`);
+			assert.equal(res.error, c.expectedError, `[${shell}] ${c.name}: error`);
+			if (c.expectIpv4)
+				assert.equal(res.rules['ipv4-ok'], 'ipv4 ok', `[${shell}] ${c.name}: IPv4 rule`);
+			else
+				assert.equal(res.rules['ipv4-ok'], undefined, `[${shell}] ${c.name}: no IPv4 rule after failed dump`);
+			assert.equal(res.rules['ipv6-ok'], undefined, `[${shell}] ${c.name}: IPv6 rule absent`);
+			assert.equal(
+				fs.existsSync(ip6Called),
+				c.expectIp6Call,
+				`[${shell}] ${c.name}: ip6tables-save invocation`
+			);
+			const created = fs.readdirSync('/tmp')
+				.filter((name) => /^fwlive-(nft|ipt|ip6t)\./.test(name))
+				.map((name) => path.join('/tmp', name))
+				.filter((file) => !before.has(file));
+			assert.deepEqual(created, [], `[${shell}] ${c.name}: no leaked temp files`);
+			if (fs.existsSync(ip6Called)) fs.unlinkSync(ip6Called);
+		}
+	} finally {
+			fs.rmSync(stubDir, { recursive: true, force: true });
+		}
+	}
+}
+
 function testGlobMetacharDedup() {
 	// BLOCKER r5: quoted+escaped dedup missed glob keys (foo*, a*b[?c). Must be single key in raw JSON.
 	// Also verifies literal match: a*b[?c must not wildcard-match aXYZbYc.
@@ -1441,6 +1552,7 @@ function run() {
 	testIpv4Ipv6BothContributing();
 	testPollClampLinesContract();
 	testNoMktempGracefulDegradation();
+	testIpv6TempfileErrorPrecedence();
 	testIptablesSaveTimeout();
 	testRulesMapKeyBound();
 	testRulesMapByteBound();

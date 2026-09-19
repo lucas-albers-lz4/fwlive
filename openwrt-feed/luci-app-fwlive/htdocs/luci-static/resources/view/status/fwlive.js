@@ -54,6 +54,7 @@ const callFwliveLoggingStatus = rpc.declare({
 			nf_log_ipv4: false,
 			nf_log_ipv6: false,
 			ready: false,
+			weak_device: false,
 			blockers: [],
 			warnings: []
 		}

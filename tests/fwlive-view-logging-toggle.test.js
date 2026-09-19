@@ -10,6 +10,7 @@ const assert = require('node:assert/strict');
 const { loadFwliveView } = require('./lib/load-fwlive-view');
 
 const STORAGE_KEY = 'fwlive-logging-consent-v1';
+const WRONG_TYPE_REPLIES = [null, [], 'bad', 7];
 
 function makeHarness(method, reply, storage, options) {
 	options = options || {};
@@ -76,7 +77,8 @@ async function testEnableReply(reply, expectedNotice, shouldPersist) {
 }
 
 async function testEnableVariants() {
-	await testEnableReply(null, 'Could not enable logging.', false);
+	for (const reply of WRONG_TYPE_REPLIES)
+		await testEnableReply(reply, 'Could not enable logging.', false);
 	await testEnableReply(
 		{ ok: false, error: 'nf_log_missing' },
 		'Cannot enable logging until kernel log modules are installed.',
@@ -126,7 +128,8 @@ async function testDisableReply(reply, expectedNotice) {
 }
 
 async function testDisableVariants() {
-	await testDisableReply(null, 'Could not disable logging.');
+	for (const reply of WRONG_TYPE_REPLIES)
+		await testDisableReply(reply, 'Could not disable logging.');
 	await testDisableReply(
 		{ ok: false, error: 'firewall_changes_pending' },
 		'Another change is staged for the firewall; apply or revert it first.'
@@ -139,6 +142,34 @@ async function testDisableVariants() {
 		'Administrator access is required to disable logging.'
 	);
 	console.log('fwlive-view logging: disable variants and no-change behavior OK');
+}
+
+async function testLoggingStatusDefaultReply() {
+	const h = loadFwliveView({
+		defaultRpc: async function (key) {
+			if (key === 'fwlive.logging_status') return null;
+			return {};
+		}
+	});
+	h.view.updateBackendUi = function () {};
+	h.view.updateLoggingToolbarUi = function () {};
+	h.view.updateEmptyStateUi = function () {};
+
+	await h.view.loadLoggingStatus();
+	assert.deepEqual(h.view.loggingStatus, {
+		wan_zone: null,
+		wan_zone_candidates: [],
+		wan_log: false,
+		wan_log_limit: null,
+		nf_log_ipv4: false,
+		nf_log_ipv6: false,
+		ready: false,
+		weak_device: false,
+		blockers: [],
+		warnings: []
+	}, 'logging_status wrong-type reply must use the declared full default');
+	assert.equal(h.view.weakDevice, false);
+	console.log('fwlive-view logging: logging_status default shape OK');
 }
 
 async function testBusyReentry() {
@@ -173,6 +204,7 @@ async function testBusyReentry() {
 		await testEnableVariants();
 		await testRawFalsyReply();
 		await testDisableVariants();
+		await testLoggingStatusDefaultReply();
 		await testBusyReentry();
 		console.log('fwlive-view logging-toggle tests passed');
 	} catch (e) {
