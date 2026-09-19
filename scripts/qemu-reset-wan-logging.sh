@@ -19,7 +19,9 @@ ssh_guest() {
 ssh_guest 'echo connected' >/dev/null 2>&1 \
 	|| die "SSH unreachable — start QEMU first"
 
+FWLIVE_INSTALLED=0
 if ssh_guest 'test -x /usr/libexec/rpcd/fwlive'; then
+	FWLIVE_INSTALLED=1
 	if ! ssh_guest 'ubus call fwlive disable_wan_logging' >/dev/null 2>&1; then
 		die "disable_wan_logging failed — baseline preserved at /etc/fwlive/wan-log-baseline"
 	fi
@@ -31,10 +33,16 @@ fi
 ssh_guest 'rm -f /etc/fwlive/wan-log-baseline'
 ok "removed /etc/fwlive/wan-log-baseline (if present)"
 
-ZONE="$(ssh_guest "uci -q show firewall | sed -n \"s/^firewall\\.\\([^.]*\\)\\.name='wan'\$/\\1/p\" | head -1")"
-LOG="$(ssh_guest "uci -q get firewall.${ZONE}.log 2>/dev/null || echo '<unset>'")"
-if ssh_guest 'test -x /usr/libexec/rpcd/fwlive'; then
+if [ "$FWLIVE_INSTALLED" = 1 ]; then
+	ZONE="$(ssh_guest 'ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '\''$.wan_zone'\'' 2>/dev/null || true')"
+	if [ -n "$ZONE" ]; then
+		LOG="$(ssh_guest "uci -q get firewall.$ZONE.log 2>/dev/null || echo '<unset>'")"
+		echo "firewall.$ZONE.log=$LOG"
+	else
+		echo 'no supported WAN zone resolved by fwlive'
+	fi
 	ST="$(ssh_guest 'ubus call fwlive logging_status' 2>/dev/null || true)"
 	echo "logging_status: ${ST:-unavailable}"
+else
+	echo 'fwlive not installed — no WAN logging status to inspect'
 fi
-echo "firewall.${ZONE}.log=${LOG}"

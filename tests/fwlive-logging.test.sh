@@ -227,6 +227,120 @@ got=$(find_wan_zone_section)
 [ "$got" = "@zone[0]" ] || die "uci get miss must continue, expected @zone[0], got '$got'"
 ok "find_wan_zone_section continues after uci get miss"
 
+# #373: WAN-zone identity is the union of the exact name=wan match and
+# effective network membership in wan/wan6. `uci get` normalizes scalar and
+# list network options, so the production helper consumes one token stream.
+uci() {
+	case "$*" in
+		'-q show firewall')
+			cat <<'EOF'
+firewall.@zone[0]=zone
+firewall.@zone[0].name='internet'
+firewall.@zone[0].network='wan'
+firewall.@zone[0].network='wan6'
+EOF
+			;;
+		'-q get firewall.@zone[0].name') printf 'internet\n' ;;
+		'-q get firewall.@zone[0]') printf 'zone\n' ;;
+		'-q get firewall.@zone[0].network') printf 'wan wan6\n' ;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "@zone[0]" ] || die "renamed scalar/list WAN network must resolve, got '$got'"
+ok "find_wan_zone_section renamed zone with scalar/list WAN networks"
+
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='WAN'\n"
+			;;
+		'-q get firewall.@zone[0].name') printf 'WAN\n' ;;
+		'-q get firewall.@zone[0]') printf 'zone\n' ;;
+		'-q get firewall.@zone[0].network') printf 'wan\n' ;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "@zone[0]" ] || die "uppercase renamed zone with WAN network must resolve, got '$got'"
+ok "find_wan_zone_section matches WAN network independently of name"
+
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+			;;
+		'-q get firewall.@zone[0].name') printf 'wan\n' ;;
+		'-q get firewall.@zone[0]') printf 'zone\n' ;;
+		'-q get firewall.@zone[0].network') printf 'lan\n' ;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "@zone[0]" ] || die "name=wan must resolve despite non-WAN network, got '$got'"
+ok "find_wan_zone_section preserves exact name=wan match"
+
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+			;;
+		'-q get firewall.@zone[0].name') printf 'wan\n' ;;
+		'-q get firewall.@zone[0]') printf 'zone\n' ;;
+		'-q get firewall.@zone[0].network') return 1 ;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "@zone[0]" ] || die "name=wan with omitted network must resolve, got '$got'"
+ok "find_wan_zone_section defaults omitted network to zone name"
+
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='first'\nfirewall.@zone[1]=zone\nfirewall.@zone[1].name='second'\n"
+			;;
+		'-q get firewall.@zone[0].name') printf 'first\n' ;;
+		'-q get firewall.@zone[1].name') printf 'second\n' ;;
+		'-q get firewall.@zone[0]'|'-q get firewall.@zone[1]') printf 'zone\n' ;;
+		'-q get firewall.@zone[0].network'|'-q get firewall.@zone[1].network') printf 'wan\n' ;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "@zone[0]" ] || die "duplicate WAN matches must keep first config order, got '$got'"
+ok "find_wan_zone_section keeps first matching zone"
+
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.internet=zone\nfirewall.internet.name='internet\"edge'\nfirewall.internet.network='mywan'\n"
+			;;
+		'-q get firewall.internet.name') printf 'internet"edge\n' ;;
+		'-q get firewall.internet') printf 'zone\n' ;;
+		'-q get firewall.internet.network') printf 'mywan\n' ;;
+		*) return 1 ;;
+	esac
+}
+find_wan_zone_section_state
+[ -z "$WAN_ZONE_FOUND" ] || die "fully renamed network must remain no_wan_zone, got '$WAN_ZONE_FOUND'"
+case "$WAN_ZONE_DIAGNOSTIC_JSON" in
+	'"internet\"edge"') ;;
+	*) die "no_wan diagnostic must list discovered zone name, got [$WAN_ZONE_DIAGNOSTIC_JSON]" ;;
+esac
+out=$(enable_wan_logging)
+case "$out" in
+	*'"error":"no_wan_zone"'*'"wan_zone_candidates":["internet\"edge"]'*) ;;
+	*) die "no_wan_zone response must list discovered zones, got: $out" ;;
+esac
+out=$(disable_wan_logging)
+case "$out" in
+	*'"error":"no_wan_zone"'*'"wan_zone_candidates":["internet\"edge"]'*) ;;
+	*) die "disable no_wan_zone response must list discovered zones, got: $out" ;;
+esac
+ok "no_wan_zone diagnostic lists fully renamed zones"
+unset -f uci
+
 # firewall_changes_pending + enable refuse (issue #168)
 PENDING_STAGED=1
 UCI_COMMITTED=0
