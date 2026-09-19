@@ -185,7 +185,7 @@ uci() {
 	case "$*" in
 		'-q show firewall')
 			cat <<'EOF'
-firewall.fwd=forwarding
+firewall.fwd=zone
 firewall.fwd.name='wan'
 firewall.@zone[0]=zone
 firewall.@zone[0].name='wan'
@@ -209,6 +209,7 @@ uci() {
 	case "$*" in
 		'-q show firewall')
 			cat <<'EOF'
+firewall.gone=zone
 firewall.gone.name='wan'
 firewall.@zone[0]=zone
 firewall.@zone[0].name='wan'
@@ -298,6 +299,21 @@ ok "find_wan_zone_section defaults omitted network to zone name"
 uci() {
 	case "$*" in
 		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan6'\n"
+			;;
+		'-q get firewall.@zone[0].name') printf 'wan6\n' ;;
+		'-q get firewall.@zone[0]') printf 'zone\n' ;;
+		'-q get firewall.@zone[0].network') return 1 ;;
+		*) return 1 ;;
+	esac
+}
+got=$(find_wan_zone_section)
+[ "$got" = "@zone[0]" ] || die "name=wan6 with omitted network must resolve, got '$got'"
+ok "find_wan_zone_section defaults omitted network to a wan6 section name"
+
+uci() {
+	case "$*" in
+		'-q show firewall')
 			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='first'\nfirewall.@zone[1]=zone\nfirewall.@zone[1].name='second'\n"
 			;;
 		'-q get firewall.@zone[0].name') printf 'first\n' ;;
@@ -328,6 +344,14 @@ case "$WAN_ZONE_DIAGNOSTIC_JSON" in
 	'"internet\"edge"') ;;
 	*) die "no_wan diagnostic must list discovered zone name, got [$WAN_ZONE_DIAGNOSTIC_JSON]" ;;
 esac
+check_nf_log_ipv4() { return 0; }
+check_nf_log_ipv6() { return 0; }
+out=$(build_logging_status_json)
+case "$out" in
+	*'"wan_zone":null'*'"wan_zone_candidates":["internet\"edge"]'*) ;;
+	*) die "logging_status must expose no-WAN candidates, got: $out" ;;
+esac
+unset -f check_nf_log_ipv4 check_nf_log_ipv6
 out=$(enable_wan_logging)
 case "$out" in
 	*'"error":"no_wan_zone"'*'"wan_zone_candidates":["internet\"edge"]'*) ;;

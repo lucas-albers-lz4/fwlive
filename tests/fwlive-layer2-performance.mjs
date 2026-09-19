@@ -179,6 +179,7 @@ function syntheticResult(req, payload) {
 	if (object === 'fwlive' && method === 'logging_status') {
 		return {
 			wan_zone: 'wan',
+			wan_zone_candidates: ['wan'],
 			wan_log: false,
 			wan_log_limit: null,
 			nf_log_ipv4: false,

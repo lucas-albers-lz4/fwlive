@@ -200,6 +200,9 @@ find_wan_zone_section_state() {
 						exit
 					}')
 		fi
+		# UCI permits a zone section without an explicit name. In that case
+		# the section id is the effective zone name for omitted network lists.
+		[ -n "$_name" ] || _name="$zone"
 		[ -n "$_name" ] && _zone_label="$_name" || _zone_label="$zone"
 		_esc=$(printf '%s' "$_zone_label" | json_escape)
 		if [ -n "$WAN_ZONE_DIAGNOSTIC_JSON" ]; then
@@ -545,6 +548,7 @@ json_null_or_string() {
 build_logging_status_json() {
 	find_wan_zone_section_state
 	zone=$WAN_ZONE_FOUND
+	candidates=$(wan_zone_diagnostic_json)
 	# Empty zone / unset log bit are valid; set -e cannot apply.
 	log_val=$(wan_zone_log_value "$zone") || log_val=
 	# Unset log_limit is a valid empty value; uci -q get exits 1.
@@ -577,8 +581,8 @@ build_logging_status_json() {
 	zone_json=$(json_null_or_string "$zone")
 	limit_json=$(json_null_or_string "$limit_val")
 
-	printf '{"wan_zone":%s,"wan_log":%s,"wan_log_limit":%s,"nf_log_ipv4":%s,"nf_log_ipv6":%s,"ready":%s,"weak_device":%s,"blockers":%s,"warnings":%s}' \
-		"$zone_json" "$wan_log" "$limit_json" "$nf4" "$nf6" "$ready" "$weak_device" "$blockers" "$warnings"
+	printf '{"wan_zone":%s,"wan_zone_candidates":%s,"wan_log":%s,"wan_log_limit":%s,"nf_log_ipv4":%s,"nf_log_ipv6":%s,"ready":%s,"weak_device":%s,"blockers":%s,"warnings":%s}' \
+		"$zone_json" "$candidates" "$wan_log" "$limit_json" "$nf4" "$nf6" "$ready" "$weak_device" "$blockers" "$warnings"
 }
 
 reload_firewall() {

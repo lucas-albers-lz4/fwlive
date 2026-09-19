@@ -61,7 +61,7 @@ async function ensureWanLoggingOff(page) {
 	/* Guest may leave /tmp/.uci staged (@zone vs cfgXXXX) so the UI toggle
 	 * returns firewall_changes_pending. Force off via UCI for shot 1. */
 	if (await page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' }).count()) {
-		guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); uci set firewall.$zid.log=0; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci");
+		guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; uci set \"firewall.$zid.log=0\"; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci");
 		await openFwlive(page);
 	}
 }
@@ -142,7 +142,7 @@ async function main() {
 	const loggingOnBtn = page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' });
 	if (!(await loggingOnBtn.count())) {
 		/* Same UCI fallback when enable_wan_logging hits firewall_changes_pending. */
-		guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); uci set firewall.$zid.log=1; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci");
+		guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; uci set \"firewall.$zid.log=1\"; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci");
 		await openFwlive(page);
 	}
 	await loggingOnBtn.waitFor({ state: 'visible', timeout: 20000 });

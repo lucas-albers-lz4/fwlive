@@ -129,10 +129,15 @@ uci() {
 		-q)
 			case "$2" in
 				show)
-					printf "firewall.@zone[0].name='wan'\n"
+					printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\nfirewall.@zone[0].network='wan'\n"
 					;;
 				get)
-					cat "$COMMIT_FILE" 2>/dev/null
+					case "$3" in
+						'firewall.@zone[0]') printf 'zone\n' ;;
+						'firewall.@zone[0].name') printf 'wan\n' ;;
+						'firewall.@zone[0].network') printf 'wan\n' ;;
+						*) cat "$COMMIT_FILE" 2>/dev/null ;;
+					esac
 					;;
 			esac
 			return 0
@@ -186,6 +191,7 @@ final_allowed() {
 
 check_json() {
 	case "$1" in
+		*'"error":"no_wan_zone"'*) return 1 ;;
 		'{"ok":true,'*|'{"ok":false,'*) return 0 ;;
 		*) return 1 ;;
 	esac

@@ -218,7 +218,12 @@ function buildEmptyStateNodes(state, callbacks) {
 	}
 
 	if (blocker === 'no_wan_zone') {
-		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, [_('No WAN zone found')]));
+		const candidates = Array.isArray(st && st.wan_zone_candidates)
+			? st.wan_zone_candidates.filter((name) => typeof name === 'string')
+			: [];
+		const title = [_('No WAN zone found')];
+		if (candidates.length) title.push(': ', E('code', {}, [candidates.join(', ')]));
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, title));
 		nodes.push(
 			E('p', {}, [
 				_('No WAN firewall zone found in /etc/config/firewall. Configure zones under '),

@@ -19,7 +19,7 @@ const browserWindow = {};
 vm.runInNewContext(fixtureSource, { window: browserWindow });
 const browserApplyExpect = browserWindow.FwliveRpcExpect.applyExpect;
 
-const defaultReply = { ok: false, changed: false, wan_zone: null };
+const defaultReply = { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] };
 const wrongTypes = [null, undefined, 'bad', 7, []];
 
 function runContract(label, applyExpect) {
