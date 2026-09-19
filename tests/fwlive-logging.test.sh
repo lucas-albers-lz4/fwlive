@@ -93,6 +93,9 @@ for _nf_log_path in "$NF_LOG_IPV4" "$NF_LOG_IPV6"; do
 	printf 'none\n' >"$_nf_log_path"
 	assert_nf_log_backend_missing "$_nf_log_path" \
 		"lowercase none must be unavailable"
+	printf ' NONE \t\n' >"$_nf_log_path"
+	assert_nf_log_backend_missing "$_nf_log_path" \
+		"whitespace-padded NONE must be unavailable"
 	printf 'nf_log_ipv4\n' >"$_nf_log_path"
 	read_nf_log_backend "$_nf_log_path" \
 		|| die "real nf_log backend must be available: $_nf_log_path"

@@ -436,6 +436,15 @@ read_nf_log_backend() {
 	path="$1"
 	[ -f "$path" ] || return 1
 	val=$(cat "$path" 2>/dev/null) || return 1
+	# Sysctl values are single-line, but trim surrounding whitespace before
+	# interpreting the no-backend sentinel. This keeps a malformed `NONE `
+	# value from becoming a fail-open logger.
+	while case "$val" in [[:space:]]*) true ;; *) false ;; esac; do
+		val=${val#?}
+	done
+	while case "$val" in *[[:space:]]) true ;; *) false ;; esac; do
+		val=${val%?}
+	done
 	[ -n "$val" ] || return 1
 	case "$val" in
 		[Nn][Oo][Nn][Ee]) return 1 ;;
