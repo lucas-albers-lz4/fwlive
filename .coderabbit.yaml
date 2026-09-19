@@ -25,7 +25,7 @@ reviews:
     docstrings:
       enabled: false
   tools:
-    ast_grep: true            # the tool name is ast_grep (NOT "ast_grex" — see discussion)
+    ast-grep: true
     bullseye: true            # security add-on: good for the rpcd/frontend boundary
   path_instructions:
     # Device-shipped shell only — BusyBox ash on OpenWrt (not host CI scripts).
