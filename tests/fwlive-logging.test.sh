@@ -393,6 +393,7 @@ drive_toggle() {
 				fi
 				;;
 			'set firewall.@zone[0].log='*)
+				[ "$mode" = uci_set_fail ] && return 1
 				STAGED_LOG="${2#*=}"
 				# Matching committed value clears staging (real uci behaviour).
 				if [ "$STAGED_LOG" = "$CURRENT_LOG" ]; then
@@ -400,6 +401,7 @@ drive_toggle() {
 				fi
 				;;
 			'delete firewall.@zone[0].log')
+				[ "$mode" = uci_delete_fail ] && return 1
 				if [ -z "$CURRENT_LOG" ]; then
 					STAGED_LOG='__unset__'
 				else
@@ -597,6 +599,26 @@ case "$LOGGER_MSGS" in
 esac
 ok "#191 commit failure with only our delta: revert cleans our orphaned staging"
 
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable uci_set_fail
+case "$OUT" in
+	*'"error":"uci_set_failed"'*) ;;
+	*) die "enable/uci-set-fail: expected error uci_set_failed, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#191 enable/uci-set-fail: must not commit"
+[ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/uci-set-fail: failed set left staging: $STAGED_LOG"
+ok "#191 uci set failure leaves no partial staging"
+
+FWLIVE_CURRENT_LOG='1'
+drive_toggle disable uci_delete_fail
+case "$OUT" in
+	*'"error":"uci_delete_failed"'*) ;;
+	*) die "disable/uci-delete-fail: expected error uci_delete_failed, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#191 disable/uci-delete-fail: must not commit"
+[ "$STAGED_LOG" = '__unset__' ] || die "#191 disable/uci-delete-fail: failed delete left staging: $STAGED_LOG"
+ok "#191 uci delete failure leaves no partial staging"
+
 # WAN log baseline snapshot + restore (uninstall prerm)
 BASELINE_WORK=$(mktemp -d)
 WAN_LOG_BASELINE_FILE="$BASELINE_WORK/wan-log-baseline"
@@ -682,6 +704,23 @@ printf '' >"$WAN_LOG_BASELINE_FILE"
 restore_wan_log_baseline || die "restore already-at-baseline failed"
 [ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file should be removed when already at target"
 ok "restore_wan_log_baseline no-op when UCI already matches baseline"
+
+if [ "$(id -u)" -ne 0 ]; then
+	READONLY_WORK=$(mktemp -d)
+	WAN_LOG_BASELINE_FILE="$READONLY_WORK/wan-log-baseline"
+	export WAN_LOG_BASELINE_FILE
+	chmod 0555 "$READONLY_WORK"
+	WAN_ZONE_LOG=''
+	if maybe_snapshot_wan_log_baseline '@zone[0]'; then
+		die "read-only baseline directory must fail closed"
+	fi
+	[ ! -e "$WAN_LOG_BASELINE_FILE" ] || die "read-only baseline directory left a partial file"
+	chmod 0755 "$READONLY_WORK"
+	rm -rf "$READONLY_WORK"
+	ok "read-only baseline directory fails closed"
+else
+	ok "read-only baseline directory skipped under root"
+fi
 
 rm -rf "$BASELINE_WORK"
 unset WAN_LOG_BASELINE_FILE WAN_ZONE_LOG BASELINE_WORK

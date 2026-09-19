@@ -370,6 +370,35 @@ keyedTable.renderRows(
 	keyedCallbacks
 );
 assert.notStrictEqual(keyedBody.childNodes[0], retainedRow, 'forced renders rebuild rows');
+
+const hostileMessage = '<img src=x onerror=alert(1)> \u202e DROP';
+const sinkTable = loadFwliveModule('table', { log: log, links: links, E: luciE.E });
+const sinkBody = luciE.E('tbody', {}, []);
+sinkTable.renderRows(
+	sinkBody,
+	{
+		rows: [Object.assign({}, row, { id: 'sink', message: hostileMessage })],
+		columns: ['message'],
+		forceRender: true,
+		viewMode: 'simple',
+		messageLayout: 'wrap',
+		expandedRowId: 'sink',
+		rowTint: false,
+		showHostnames: false,
+		hostnameCache: null,
+		firewallBackend: 'nft'
+	},
+	keyedCallbacks
+);
+assert.ok(
+	collectText(sinkBody).indexOf(hostileMessage) >= 0,
+	'hostile log text must remain visible as text'
+);
+function assertNoHtmlWrites(node) {
+	assert.equal(node._innerHTMLWrites.length, 0, 'hostile log render must not write innerHTML');
+	for (const child of node.childNodes || []) assertNoHtmlWrites(child);
+}
+for (const child of sinkBody.childNodes) assertNoHtmlWrites(child);
 console.log('fwlive-modules smoke: table OK');
 
 /* --- buffer --- */

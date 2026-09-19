@@ -61,6 +61,10 @@ def main():
                 assert run('resolve', data) == {'names': {}}, (release, data)
             resolved = run('resolve', '{"addresses":["192.0.2.1"]}')
             assert resolved == {'names': {'192.0.2.1': 'host.example'}}, (release, resolved, lookup_log.read_text() if lookup_log.exists() else 'no lookup')
+            many_addresses = [f'192.0.2.{index}' for index in range(1, 34)]
+            capped = run('resolve', json.dumps({'addresses': many_addresses}))
+            assert len(capped.get('names', {})) == 32, (release, capped)
+            assert '192.0.2.33' not in capped.get('names', {}), (release, capped)
             assert run('resolve', json.dumps({'addresses': ['bad', '192.0.2.1', '2001:db8::1']})) == {
                 'names': {'192.0.2.1': 'host.example', '2001:db8::1': 'host.example'}}
             lookup_log.unlink()

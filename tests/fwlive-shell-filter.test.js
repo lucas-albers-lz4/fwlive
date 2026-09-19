@@ -34,6 +34,17 @@ function shSpawn(scriptOrFile, opts) {
 	});
 }
 
+function filterSpawn(args, opts) {
+	const parts = SH.split(/\s+/).filter(Boolean);
+	const cmd = parts[0];
+	const prefix = parts.slice(1);
+	return spawnSync(cmd, prefix.concat([FILTER_SH]).concat(args || []), {
+		input: opts && opts.input,
+		encoding: opts && opts.encoding ? opts.encoding : 'utf8',
+		env: opts && opts.env ? opts.env : process.env
+	});
+}
+
 function shellIsFirewall(msg) {
 	const out = shSpawn(
 		'. "$IS_FW" && is_firewall_event_msg "$FW_MSG" && echo yes || echo no',
@@ -130,6 +141,7 @@ function runJsonParity() {
 	const jf = jsonfilterPathEnv();
 	try {
 		assertFilterParity(fs.readFileSync(FIXTURE, 'utf8'), jf.env);
+		assertFilterParity(JSON.stringify({ log: [] }), jf.env);
 		assertFilterParity(JSON.stringify({
 			log: [
 				{ msg: 'fw4: DROP\bIN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP' },
@@ -139,6 +151,34 @@ function runJsonParity() {
 		}), jf.env);
 	} finally {
 		jf.cleanup();
+	}
+}
+
+function runTempDirGuards() {
+	const jf = jsonfilterPathEnv();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-tmp-'));
+	const payload = JSON.stringify({ log: [] });
+	try {
+		fs.chmodSync(dir, 0o777);
+		let filtered = filterSpawn([dir], {
+			input: payload,
+			encoding: 'utf8',
+			env: jf.env
+		});
+		assert.notEqual(filtered.status, 0, 'non-sticky filter directory must fail');
+		assert.equal(JSON.parse(filtered.stdout).error, 'filter_tempfile_failed');
+
+		fs.chmodSync(dir, 0o1777);
+		filtered = filterSpawn([dir], {
+			input: payload,
+			encoding: 'utf8',
+			env: jf.env
+		});
+		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+		assert.equal(JSON.parse(filtered.stdout).messages_received, 0);
+	} finally {
+		jf.cleanup();
+		fs.rmSync(dir, { recursive: true, force: true });
 	}
 }
 
@@ -359,6 +399,7 @@ function runOversizedStdin() {
 function run() {
 	runMsgParity();
 	runJsonParity();
+	runTempDirGuards();
 	runJsonGetMsgEscapes();
 	runEmptyMalformedInput();
 	runSummaryContract();

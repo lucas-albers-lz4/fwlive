@@ -1006,6 +1006,35 @@ function testTmpDirSticky() {
 	}
 }
 
+function testTmpDirStickyBusybox() {
+	if (!posixShells().includes('busybox')) return;
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-busybox-tmpok-'));
+	const link = dir + '-link';
+	try {
+		let failed = false;
+		fs.chmodSync(dir, 0o777);
+		try {
+			runRpcd('busybox', ['__tmp_dir_ok', dir], { stdio: 'ignore' });
+		} catch (e) {
+			failed = e.status !== 0;
+		}
+		assert.equal(failed, true, 'busybox 0777 without sticky must fail');
+		fs.chmodSync(dir, 0o1777);
+		runRpcd('busybox', ['__tmp_dir_ok', dir]);
+		fs.symlinkSync(dir, link);
+		failed = false;
+		try {
+			runRpcd('busybox', ['__tmp_dir_ok', link], { stdio: 'ignore' });
+		} catch (e) {
+			failed = e.status !== 0;
+		}
+		assert.equal(failed, true, 'busybox symlink dump dir must fail');
+	} finally {
+		try { fs.unlinkSync(link); } catch { /* absent */ }
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+}
+
 function testUciWhitespaceNames() {
 	// #226: "My Rule" must not word-split into My/Rule junk keys, and must
 	// not shadow a real rule named Rule. Space-containing names are skipped
@@ -1222,6 +1251,47 @@ fi
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
 
+function testRulesMapByteBound() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-byte-bound-'));
+	const hugeA = 'A'.repeat(30000) + 'a';
+	const hugeB = 'B'.repeat(30000) + 'b';
+	try {
+		const nft = [
+			'#!/bin/sh',
+			'if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then',
+			"cat <<'EOF'",
+			'table inet fw4 {',
+			'\tchain input {',
+			'\t\tlog prefix "' + hugeA + '"',
+			'\t\tlog prefix "' + hugeB + '"',
+			'\t}',
+			'}',
+			'EOF',
+			'else',
+			'\texit 1',
+			'fi',
+			''
+		].join('\n');
+		makeStub(stubDir, 'nft', nft);
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = {
+			...process.env,
+			PATH: stubDir + ':' + process.env.PATH
+		};
+		for (const shell of posixShells()) {
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) {
+				if (e.code === 'ENOENT') continue;
+				throw e;
+			}
+			const res = JSON.parse(raw);
+			assert.equal(res.error, 'rules_truncated', '[' + shell + '] byte cap must set rules_truncated');
+			assert.equal(res.rules[hugeA], hugeA, '[' + shell + '] first ASCII huge key should fit');
+			assert.equal(res.rules[hugeB], undefined, '[' + shell + '] second huge key must be capped');
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
 function installNslookupStub(stubDir) {
 	makeStub(stubDir, 'nslookup', `#!/bin/sh
 echo "marker-nslookup $1" >> "${stubDir}/called"
@@ -1373,8 +1443,10 @@ function run() {
 	testNoMktempGracefulDegradation();
 	testIptablesSaveTimeout();
 	testRulesMapKeyBound();
+	testRulesMapByteBound();
 	testGlobMetacharDedup();
 	testTmpDirSticky();
+	testTmpDirStickyBusybox();
 	testUciWhitespaceNames();
 	testResolveNslookup();
 	testBusyboxPathShadowNslookup();

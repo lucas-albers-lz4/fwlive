@@ -17,6 +17,7 @@
  */
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const PKG_DIR = path.resolve(__dirname, '..', 'openwrt-feed', 'luci-app-fwlive');
@@ -26,7 +27,7 @@ const POT_FILE = path.join(PO_DIR, 'templates', 'luci-app-fwlive.pot');
 const RE_FORMAT = /%[%\d.\-+#]*[sdf]/g;
 
 /**
- * Parse a .po/.pot file into an array of { msgid, msgstr } entries.
+ * Parse a .po/.pot file into an array of { msgid, msgstr, fuzzy } entries.
  * Returns msgstr = null for empty/untranslated entries.
  */
 function parsePoFile(filePath) {
@@ -35,17 +36,28 @@ function parsePoFile(filePath) {
   const entries = [];
   let current = null;
   let onMsgstr = false;
+  let pendingFuzzy = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    if (/^#,.*\bfuzzy\b/.test(line)) {
+      pendingFuzzy = true;
+      continue;
+    }
 
     // Detect start of new entry (top-level msgid)
     const midMatch = line.match(/^msgid "((?:[^"\\]|\\.)*)"/);
     if (midMatch) {
       if (current && !(current.msgid === '' && current.msgstr === null)) {
-        entries.push({ msgid: current.msgid, msgstr: current.msgstr || null });
+        entries.push({
+          msgid: current.msgid,
+          msgstr: current.msgstr || null,
+          fuzzy: current.fuzzy
+        });
       }
-      current = { msgid: midMatch[1], msgstr: null };
+      current = { msgid: midMatch[1], msgstr: null, fuzzy: pendingFuzzy };
+      pendingFuzzy = false;
       onMsgstr = false;
       continue;
     }
@@ -74,7 +86,11 @@ function parsePoFile(filePath) {
 
   // Flush last entry
   if (current && !(current.msgid === '' && current.msgstr === null))
-    entries.push({ msgid: current.msgid, msgstr: current.msgstr || null });
+    entries.push({
+      msgid: current.msgid,
+      msgstr: current.msgstr || null,
+      fuzzy: current.fuzzy
+    });
 
   return entries;
 }
@@ -87,6 +103,39 @@ function extractFormats(str) {
   return (str.match(RE_FORMAT) || []).sort();
 }
 
+function translationStatus(entry) {
+  if (!entry) return 'missing';
+  if (entry.fuzzy) return 'fuzzy';
+  if (!entry.msgstr) return 'empty';
+  return 'ok';
+}
+
+function testFuzzyParser() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-i18n-'));
+  const file = path.join(dir, 'fuzzy.po');
+  try {
+    fs.writeFileSync(
+      file,
+      [
+        '#, fuzzy',
+        'msgid "Hello"',
+        'msgstr "Bonjour"',
+        '',
+        'msgid "World"',
+        'msgstr "Monde"',
+        ''
+      ].join('\n')
+    );
+    const entries = parsePoFile(file);
+    if (translationStatus(entries[0]) !== 'fuzzy')
+      throw new Error('fuzzy PO entries must be rejected as active translations');
+    if (translationStatus(entries[1]) !== 'ok')
+      throw new Error('fuzzy state must not leak to the next PO entry');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function main() {
   let failures = 0;
 
@@ -95,6 +144,7 @@ function main() {
     process.exit(1);
   }
 
+  testFuzzyParser();
   const potEntries = parsePoFile(POT_FILE);
   const potIds = potEntries.map(e => e.msgid).filter(id => id !== '');
   console.log('POT: %d translatable msgids (%s)\n', potIds.length, POT_FILE);
@@ -132,14 +182,20 @@ function main() {
     let empty = 0;
     let formatMismatch = 0;
     let mismatched = 0;
+    let fuzzy = 0;
 
     for (const msgid of potIds) {
-      if (!poMap[msgid]) {
+      const entry = poMap[msgid];
+      const status = translationStatus(entry);
+      if (status === 'missing') {
         missing++;
         continue;
       }
-      const entry = poMap[msgid];
-      if (!entry.msgstr) {
+      if (status === 'fuzzy') {
+        fuzzy++;
+        continue;
+      }
+      if (status === 'empty') {
         empty++;
         continue;
       }
@@ -166,13 +222,14 @@ function main() {
       }
     }
 
-    const total = missing + empty + formatMismatch;
+    const total = missing + empty + formatMismatch + fuzzy;
     if (total + mismatched === 0)
       console.log('[PASS] %s: %d msgids OK, %d entries total — formats verified ✓', lang, potIds.length, poEntries.length);
     else {
       if (missing) console.error('[FAIL] %s: %d missing msgid(s)', lang, missing);
       if (empty) console.error('[FAIL] %s: %d empty translation(s)', lang, empty);
       if (formatMismatch) console.error('[FAIL] %s: %d format specifier mismatch(es)', lang, formatMismatch);
+      if (fuzzy) console.error('[FAIL] %s: %d fuzzy translation(s)', lang, fuzzy);
       if (missing + empty + formatMismatch > 0) failures++;
       if (mismatched)
         console.warn('       (%d stale entries — should be cleaned up)', mismatched);

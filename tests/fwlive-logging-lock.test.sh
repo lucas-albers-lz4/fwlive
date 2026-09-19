@@ -79,6 +79,33 @@ for _ in 1 2 3 4 5; do
 done
 ok "flock-serialized read-modify-write never loses an update (5/5 rounds end at 2)"
 
+# A PATH-first flock failure must fail closed instead of entering the
+# critical section without an exclusive lock.
+FLOCK_SHADOW="$WORK/flock-shadow"
+mkdir -p "$FLOCK_SHADOW"
+cat > "$FLOCK_SHADOW/flock" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$FLOCK_MARKER"
+exit 127
+EOF
+chmod +x "$FLOCK_SHADOW/flock"
+cat > "$WORK/flock-child.sh" <<'EOF'
+#!/bin/sh
+. "$1"
+if acquire_wan_log_lock; then
+	exit 2
+fi
+[ -e "$2" ] || exit 3
+EOF
+chmod +x "$WORK/flock-child.sh"
+FLOCK_MARKER="$WORK/flock-called" \
+PATH="$FLOCK_SHADOW:$PATH" \
+FWLIVE_WAN_LOG_LOCK_FILE="$WORK/path-shadow.lock" \
+	sh "$WORK/flock-child.sh" "$LOGGING_SH" "$WORK/path-shadow.lock" \
+	|| die "PATH-shadowed flock must fail closed"
+[ -s "$WORK/flock-called" ] || die "PATH-shadowed flock stub did not run"
+ok "PATH-shadowed flock fails closed"
+
 # --- Part B: real functions, concurrent enable/disable on shared UCI -------
 # usage: $0 <logging-sh> <dir> <enable|disable> <seed>
 cat > "$WORK/child.sh" <<'EOF'
