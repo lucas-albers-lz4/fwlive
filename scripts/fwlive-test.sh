@@ -217,7 +217,7 @@ bash tests/fwlive-adaptive-cap.test.sh
 echo "== fwlive logging lock (race) ==" >&2
 bash tests/fwlive-logging-lock.test.sh
 
-echo "== fwlive rules map (iptables-save) ==" >&2
+echo "== fwlive rules map (nft) ==" >&2
 "$NODE" tests/fwlive-rules-map.test.js
 
 echo "== fwlive linkcheck classifier ==" >&2
