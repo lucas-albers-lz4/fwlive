@@ -225,7 +225,8 @@ call_object() {
 	local sid="$1"
 	local object="$2"
 	local method="$3"
-	local args="${4:-{}}"
+	local args="{}"
+	[[ $# -ge 4 ]] && args="$4"
 	local payload
 	payload="$(jq -cn --arg sid "$sid" --arg object "$object" --arg method "$method" --argjson args "$args" \
 		'{jsonrpc:"2.0",id:2,method:"call",params:[$sid,$object,$method,$args]}')"
