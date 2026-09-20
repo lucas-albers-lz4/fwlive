@@ -876,4 +876,8 @@ case "${1:-}" in
 				;;
 		esac
 		;;
+	*)
+		# Removed CLI hooks (including __rulesmap_iptables) must not succeed.
+		exit 1
+		;;
 esac

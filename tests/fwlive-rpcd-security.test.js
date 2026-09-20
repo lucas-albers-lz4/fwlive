@@ -133,6 +133,41 @@ function testRulesNoBackend() {
 	}
 }
 
+function testRulesNftAbsent() {
+	// command -v nft fails when the binary is missing, not only when it
+	// exits non-zero. Same unknown/no_backend contract as a failed nft.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-nonft-'));
+	try {
+		makePassthrough(stubDir, 'dirname', '/usr/bin/dirname');
+		makePassthrough(stubDir, 'sed', '/usr/bin/sed');
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = { ...process.env, PATH: stubDir };
+		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
+		const res = JSON.parse(raw);
+		assert.equal(res.backend, 'unknown');
+		assertStructuredError(res, 'rules/nft_absent');
+		assert.equal(res.error, 'no_backend');
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testRemovedRulesmapIptablesCli() {
+	let failed = false;
+	let raw = '';
+	try {
+		execFileSync('sh', [RPCD, '__rulesmap_iptables'], {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'pipe']
+		});
+	} catch (e) {
+		failed = e.status !== 0;
+		raw = String(e.stdout || '');
+	}
+	assert.equal(failed, true, 'removed __rulesmap_iptables must exit non-zero');
+	assert.equal(raw.trim(), '', 'removed CLI hook must not emit a rules map');
+}
+
 function testRulesNftDumpFailure() {
 	// Stateful nft: the detect probe (first call) succeeds empty so the
 	// backend is nft, then the dump (second call) fails. Catches a dump
@@ -703,6 +738,8 @@ function testToggleNoWanZone() {
 testUnknownMethod();
 testAclMethodParity();
 testRulesNoBackend();
+testRulesNftAbsent();
+testRemovedRulesmapIptablesCli();
 testRulesNftDumpFailure();
 testRulesNoIptablesFallback();
 testPollMessagesReceived();

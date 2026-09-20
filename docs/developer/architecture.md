@@ -112,8 +112,8 @@ and rejects later paints. DOM construction, scroll position, and banner text sta
 | Opt-in hostnames | `fwlive.resolve` via BusyBox `nslookup`; checkbox default off; server checks the IPv4/IPv6 shape before lookup |
 | `core/` + LuCI mirror | Parser tested without browser or router |
 | LuCI gate (not generator) | `gen-luci-wrapper.js` checks full `CLASSIFY_SPEC` equality + preserve markers; shared classify in `log.js` stays hand-maintained (no text-transform codegen). Core has no `@fwlive-codegen:luci-begin/end` markers — only LuCI has a preserve region for presentation helpers. |
-| nft/fw4 primary | Tested on **21.02.7** (fw3 lab), **22.03.7**, **23.05.5**, **24.10.8**, **25.12.5** lab matrix |
-| iptables LOG | Primary on **21.02.x** (fw3); best-effort on **22.03+** when nft absent — same logd pipe; rule map from `iptables-save` |
+| nft/fw4 primary | Rules map is nft-only. Tested on **23.05.5**, **24.10.8**, **25.12.5**; historical 21.02/22.03 lab notes stay in [supported-releases.md](../supported-releases.md) |
+| iptables LOG | Log lines tagged `iptables` still classify. There is no `iptables-save` rules-map fallback. |
 | OPNsense as reference | Interaction and layout patterns, not PHP/Volt port |
 | Keep monorepo + `src-link` | See [Feed layout decision](#feed-layout-decision) |
 
