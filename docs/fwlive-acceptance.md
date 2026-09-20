@@ -118,6 +118,12 @@ ssh -p 2222 root@127.0.0.1 'ping 127.0.0.1'   # 1 pkt/s baseline
 
 Tested on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 24.10.8** (TCG); **23.05.5** via x86 smoke + same `_all` ipk.
 
+### Installed package evidence
+
+The current package lifecycle evidence for issue #389 is recorded in
+[the dated installed-package report](evidence/issue-389-2026-09-20.md),
+including real `opkg remove` and `apk del` baseline-restore checks.
+
 ---
 
 ## Stage 6 — Inspect & enrichment (done)
