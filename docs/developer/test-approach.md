@@ -229,9 +229,12 @@ same audit:
    production filter. Assertions must name the externally visible result and
    preserve unrelated state where rollback or configuration is involved.
 5. Treat installed-session and DOM claims as boundary tests. R4a (formerly L1)
-   has per-PR host proof for exact rpcd/ACL method parity; R4b still needs a
-   real LuCI/uhttpd `/ubus` session login for a role with the read ACL and a
-   role without it. A root `ubus call` is not ACL evidence. The renderer
+   has per-PR host proof for exact rpcd/ACL method parity; R4b has installed
+   LuCI/uhttpd `/ubus` evidence for a grant role (all six fwlive methods plus
+   `log.read` denial) and a `luci-base`-only deny role whose grant is first
+   exercised via `file.list`, then sampled on `logging_status` and
+   `enable_wan_logging` in [the #392 artifact](../evidence/issue-392-2026-09-20.md).
+   A root `ubus call` is not ACL evidence. The renderer
    item (R2, formerly L4) should use the LuCI-accurate `E()` harness with hostile message
    content, allow only intentional empty-container clearing, and assert that
    the hostile value never appears in an `innerHTML` write while appearing as
@@ -246,7 +249,7 @@ minimum-ready host evidence rather than optional follow-up items:
 | Stage | Scope | Exit condition |
 | --- | --- | --- |
 | Contract and host evidence | R2 DOM sink proof, R3 hash restoration, R5 fail-closed cases, R6 reply-shape/fixture alignment, R7 union-rule contract, plus the normal empty-ring cases | Each item has a fault, oracle, shipped-artifact boundary, and a passing required-host assertion, or an explicit deferred disposition. |
-| Installed seams | R4b session ACL and the selected R8 matrix cells | The QEMU/manual artifact records image and package/feed revision, install format, architecture, backend, session identity, command/output, date, and cleanup; direct root calls do not count. |
+| Installed seams | R4b session ACL and the selected R8 matrix cells | The QEMU/manual artifact records image and package/feed revision, install format, architecture, backend, session identity, command, reconstructed method table, helper cleanup OK line, date, and cleanup; direct root calls do not count. |
 | Follow-up state coverage | Remaining R5 rollback injections and R6 backend/IPv6/degradation/storage/resolve cases, plus R9 package formats | Each case is split into an independent assertion with an owner and revisit trigger; grouping is allowed for implementation, not for hiding an unverified branch. |
 
 The upstream-cut readiness decision should be made from those exit conditions,
