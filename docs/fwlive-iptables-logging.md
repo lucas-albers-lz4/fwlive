@@ -33,7 +33,10 @@ ping -c 3 $(./scripts/fwlive-iptables-ping-log.sh guest-ip)
 ./scripts/fwlive-iptables-ping-log.sh remove --ssh
 ```
 
-## Manual rule example
+### Manual rule example (historical)
+
+The copy-pasteable `iptables -j LOG` snippet below is for that retired fw3 lab
+only. On supported 23.05+ images, use nft/UCI logging instead.
 
 ```sh
 iptables -I INPUT -p icmp --icmp-type echo-request \

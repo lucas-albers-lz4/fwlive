@@ -44,7 +44,7 @@ Enable in `menuconfig`: **LuCI → Applications → luci-app-fwlive**
 
 ## Runtime
 
-- Menu visible when **`/usr/sbin/nft`** or **`/usr/sbin/iptables`** is executable (no hard `firewall4` package dependency)
+- Menu visible when the `luci-app-fwlive` ACL is granted (no `nft`/`iptables` binary check)
 - **fw4/nft** primary on **23.05+**; log lines tagged **iptables** still classify. OpenWrt **21.02** / **22.03** are unsupported
 - Polls **`ubus fwlive poll`** (filtered firewall log lines from logd) — firewall rules must **`log`** matching traffic
 - See [`../docs/user/enabling-firewall-logs.md`](../docs/user/enabling-firewall-logs.md)

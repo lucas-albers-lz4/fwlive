@@ -184,7 +184,7 @@ That tests **Live View + parser**; it does not prove that **`nft log`** works in
 - **fw4 exists** but rules may not **`log`** — empty UI is normal until they do.
 - Rule at **end** of `input` never sees LAN pings — use **`nft insert`** at the top (before `jump input_lan`).
 - Make sure that **`kmod-nf-log`** / **`kmod-nf-log6`** are present on minimal images; **`cat /proc/sys/net/netfilter/nf_log/2`** should be **`nf_log_ipv4`**. An empty selector or `NONE` (case-insensitive) means that family has no backend. IPv6 availability is probed independently through **`/proc/net/if_inet6`**; do not infer it from whether **`nf_log/10`** exists. A missing or empty `if_inet6` means the IPv6 stack is absent (compiled out or `ipv6.disable=1`). Any content, including loopback **`::1`**, means the stack is present and the IPv6 logger is required — this is not a WAN-address probe. IPv4 is required by the supported WAN path.
-- Make sure that **`/usr/sbin/nft`** exists (menu is hidden without it).
+- The LuCI menu depends on the `luci-app-fwlive` ACL only; a missing **`/usr/sbin/nft`** does not hide the page. The supported rules-map path still needs nft/fw4.
 - Make sure that **`luci-app-fwlive`** and **`luci-base`** are installed.
 - Run **`logread | grep SRC=`** — if nothing there, the UI stays empty too.
 - Stage 1 filter hides dnsmasq/procd noise; only firewall-shaped lines count.

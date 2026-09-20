@@ -14,7 +14,8 @@
 
 The menu entry is controlled by the `luci-app-fwlive` ACL and does not require
 an iptables or nftables binary merely to appear. Supported firewall rules use
-the firewall4/nft path; iptables-tagged log lines still classify as metadata.
+the firewall4/nft path; iptables-tagged log lines still classify and still
+become table rows.
 
 ## Supported OpenWrt releases
 
