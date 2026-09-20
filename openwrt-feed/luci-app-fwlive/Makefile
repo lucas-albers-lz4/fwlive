@@ -28,9 +28,15 @@ case "$${IPKG_INSTROOT}" in
 	''|/) ;;
 	*) exit 0 ;;
 esac
-# The opkg wrapper invokes this body as <wrapper> <action>; APK's
-# pre-deinstall receives the installed version when removing a package.
-# A same-version APK reinstall uses post-upgrade and does not run this hook.
+# The opkg wrapper invokes this body as <wrapper> <action>.
+# OpenWrt APK post-upgrade/pre-deinstall wiring is in package-pack.mk;
+# post-upgrade exports PKG_UPGRADE=1. This guard is belt-and-braces with
+# the upgrade action arg.
+# A version-shaped $$1 with empty $$2 is APK uninstall (pre-deinstall).
+# Same-version APK reinstall uses post-upgrade and does not run this hook.
+# A version-changing APK upgrade is indistinguishable from uninstall at
+# this hook (both pass the old version as $$1). Do not claim that path
+# was lab-proven.
 [ "$${PKG_UPGRADE:-}" = 1 ] && exit 0
 case "$${2-}" in
 	remove) ;;
@@ -39,16 +45,14 @@ case "$${2-}" in
 		case "$${1-}" in
 			remove) ;;
 			upgrade|''|[!0-9]*) exit 0 ;;
-			[0-9]*.[0-9]*) ;;
+			# Character-class '.' so the version arm is a literal dot (1a2 must not restore).
+			[0-9]*[.][0-9]*) ;;
 			*) exit 0 ;;
 		esac
 		;;
 	*) exit 0 ;;
 esac
 . /usr/libexec/fwlive-logging.sh
-# Do not restore the user's WAN-log baseline on an upgrade path. APK 3.0
-# passes the old package version to pre-deinstall for a real removal, while
-# same-version reinstall runs post-upgrade without pre-deinstall.
 # Best-effort restore still exits 0 so a transient lock/pending-staging failure
 # cannot strand the package half-removed. The baseline is kept on failure for
 # admin recovery; helpers are still present while this prerm runs.
