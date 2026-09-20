@@ -181,6 +181,8 @@ echo "== fwlive filter negate toggle ==" >&2
 
 echo "== fwlive proto filter (menu + custom) ==" >&2
 "$NODE" tests/fwlive-proto-filter.test.js
+echo "== fwlive chip sink and applyHash (#393) ==" >&2
+"$NODE" tests/fwlive-chips-hash.test.js
 
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh

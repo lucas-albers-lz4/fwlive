@@ -84,6 +84,16 @@ function testAclMethodParity() {
 		[],
 		'read and write ACL scopes must remain separate'
 	);
+	assert.deepEqual(
+		read,
+		['logging_status', 'poll', 'resolve', 'rules'],
+		'read ACL must own exactly the read methods'
+	);
+	assert.deepEqual(
+		write,
+		['disable_wan_logging', 'enable_wan_logging'],
+		'write ACL must own exactly the write methods'
+	);
 	assert.deepEqual(granted, methods, 'ACL methods must match the rpcd method list');
 }
 
@@ -537,6 +547,136 @@ function testLoggingStatusNeverSilent() {
 	);
 }
 
+function makeNfLogFixtures(workDir) {
+	const nfLog4 = path.join(workDir, 'nf-log-4');
+	const nfLog6 = path.join(workDir, 'nf-log-6');
+	const inet6 = path.join(workDir, 'if-inet6');
+	fs.writeFileSync(nfLog4, 'nf_log_ipv4\n');
+	fs.writeFileSync(nfLog6, 'nf_log_ipv6\n');
+	fs.writeFileSync(inet6, '00000000000000000000000000000001 01 80 lo\n');
+	return { nfLog4, nfLog6, inet6 };
+}
+
+function makeWanUciStub(stubDir, mutationMarker, logValue) {
+	const log = logValue === undefined ? '' : String(logValue);
+	makeStub(
+		stubDir,
+		'uci',
+		`#!/bin/sh
+marker="${mutationMarker}"
+log_value="${log}"
+case "$*" in
+	'-q show firewall')
+		printf "firewall.@zone[0]=zone\\nfirewall.@zone[0].name='wan'\\n"
+		;;
+	'-q get firewall.@zone[0]')
+		printf 'zone\\n'
+		;;
+	'-q get firewall.@zone[0].name')
+		printf 'wan\\n'
+		;;
+	'-q get firewall.@zone[0].network')
+		printf 'wan\\n'
+		;;
+	'-q get firewall.@zone[0].log')
+		printf '%s' "$log_value"
+		;;
+	'-q changes firewall')
+		return 1
+		;;
+	'set firewall.'*|'delete firewall.'*|'commit firewall')
+		printf '%s\\n' "$*" >>"$marker"
+		return 0
+		;;
+	*)
+		return 1
+		;;
+esac
+`
+	);
+}
+
+function testToggleLockFailed() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-391-lock-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-391-lock-work-'));
+	const lockDir = path.join(work, 'lock');
+	const lockFile = path.join(lockDir, 'logging.lock');
+	const mutationMarker = path.join(work, 'uci-mutations');
+	const nf = makeNfLogFixtures(work);
+	fs.mkdirSync(lockDir, { recursive: true });
+	fs.symlinkSync('/dev/null', lockFile);
+	makeWanUciStub(stubDir, mutationMarker, '2');
+	try {
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_WAN_LOG_LOCK_FILE: lockFile,
+			FWLIVE_NF_LOG_IPV4_PATH: nf.nfLog4,
+			FWLIVE_NF_LOG_IPV6_PATH: nf.nfLog6,
+			FWLIVE_IPV6_AVAILABLE_PATH: nf.inet6
+		};
+		for (const method of ['enable_wan_logging', 'disable_wan_logging']) {
+			const raw = runCall(['call', method], { encoding: 'utf8', env });
+			const res = JSON.parse(raw);
+			assert.equal(res.ok, false, `[${method}] lock failure must not report success`);
+			assertStructuredError(res, `${method}/lock_failed`);
+			assert.equal(res.error, 'lock_failed');
+			assert.equal(
+				fs.existsSync(mutationMarker) ? fs.readFileSync(mutationMarker, 'utf8').trim() : '',
+				'',
+				`${method} must not stage or commit UCI on lock failure`
+			);
+		}
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testToggleBaselineSnapshotFailed() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-391-base-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-391-base-work-'));
+	const lockDir = path.join(work, 'lock');
+	const lockFile = path.join(lockDir, 'logging.lock');
+	const baselineDir = path.join(work, 'baseline');
+	const baselineFile = path.join(baselineDir, 'wan-log-baseline');
+	const mutationMarker = path.join(work, 'uci-mutations');
+	const nf = makeNfLogFixtures(work);
+	fs.mkdirSync(lockDir, { recursive: true });
+	// A regular file at the directory path makes mkdir -p fail for every uid,
+	// including root; DAC-based chmod failures do not reproduce under root.
+	fs.writeFileSync(baselineDir, 'not a directory\n');
+	makeWanUciStub(stubDir, mutationMarker, '');
+	try {
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_WAN_LOG_LOCK_FILE: lockFile,
+			FWLIVE_WAN_LOG_BASELINE_FILE: baselineFile,
+			FWLIVE_NF_LOG_IPV4_PATH: nf.nfLog4,
+			FWLIVE_NF_LOG_IPV6_PATH: nf.nfLog6,
+			FWLIVE_IPV6_AVAILABLE_PATH: nf.inet6
+		};
+		const raw = runCall(['call', 'enable_wan_logging'], { encoding: 'utf8', env });
+		const res = JSON.parse(raw);
+		assert.equal(res.ok, false, 'baseline snapshot failure must not report success');
+		assertStructuredError(res, 'enable_wan_logging/baseline_snapshot_failed');
+		assert.equal(res.error, 'baseline_snapshot_failed');
+		assert.equal(
+			fs.existsSync(mutationMarker) ? fs.readFileSync(mutationMarker, 'utf8').trim() : '',
+			'',
+			'enable must not stage or commit UCI when baseline snapshot fails'
+		);
+		assert.ok(
+			!fs.existsSync(baselineFile),
+			'baseline snapshot failure must not leave a partial baseline file'
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function testToggleNoWanZone() {
 	// uci returns no zones: both write-ACL methods must fail closed with
 	// no_wan_zone before touching the lock. Pin the lock file path so the
@@ -583,5 +723,7 @@ testSummaryErrorValueDoesNotFailHealthGate();
 testResolveJshnMissing();
 testLoggingStatusNeverSilent();
 testToggleNoWanZone();
+testToggleLockFailed();
+testToggleBaselineSnapshotFailed();
 
 console.log('fwlive rpcd security: OK');

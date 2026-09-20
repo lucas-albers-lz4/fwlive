@@ -182,6 +182,90 @@ function runTempDirGuards() {
 	}
 }
 
+function runMktempFailure() {
+	const jf = jsonfilterPathEnv();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-mktemp-'));
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-mktemp-stub-'));
+	const stubMarker = path.join(stubDir, 'mktemp-called');
+	const payload = JSON.stringify({ log: [] });
+	try {
+		fs.chmodSync(dir, 0o1777);
+		fs.writeFileSync(path.join(stubDir, 'mktemp'), [
+			'#!/bin/sh',
+			'printf called >"' + stubMarker + '"',
+			'exit 1',
+			''
+		].join('\n'), { mode: 0o755 });
+		let env = {
+			...jf.env,
+			PATH: stubDir + path.delimiter + (jf.env.PATH || process.env.PATH || '')
+		};
+		let filtered = filterSpawn([dir], {
+			input: payload,
+			encoding: 'utf8',
+			env
+		});
+		if (filtered.status === 0 && SH.includes('busybox')) {
+			// BusyBox ash resolves mktemp as a builtin, so PATH shadowing does
+			// not reach the production guard. Sticky + owner r-x (01500) still
+			// passes -d/-k and makes builtin mktemp fail for a non-root owner.
+			// 01577 was still group/other-writable, so mktemp could succeed.
+			// Root bypasses DAC, so fall back to a regular file at the path
+			// (same error token, every uid).
+			fs.chmodSync(dir, 0o1500);
+			filtered = filterSpawn([dir], {
+				input: payload,
+				encoding: 'utf8',
+				env: jf.env
+			});
+			if (filtered.status === 0) {
+				fs.rmSync(dir, { recursive: true, force: true });
+				fs.writeFileSync(dir, 'not a directory\n');
+				filtered = filterSpawn([dir], {
+					input: payload,
+					encoding: 'utf8',
+					env: jf.env
+				});
+			}
+		} else {
+			assert.ok(fs.existsSync(stubMarker), 'PATH-shadowed mktemp must run on dash/sh');
+		}
+		assert.notEqual(filtered.status, 0, 'mktemp failure must exit non-zero');
+		assert.equal(JSON.parse(filtered.stdout).error, 'filter_tempfile_failed');
+		if (fs.statSync(dir).isDirectory()) {
+			const leftovers = fs.readdirSync(dir).filter((f) => f.startsWith('fwlive-filter.'));
+			assert.equal(leftovers.length, 0, 'mktemp failure must not leave partial temp files');
+		}
+	} finally {
+		jf.cleanup();
+		fs.rmSync(dir, { recursive: true, force: true });
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function runSymlinkTempDir() {
+	const jf = jsonfilterPathEnv();
+	const realDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-real-'));
+	const linkDir = path.join(os.tmpdir(), `fwlive-filter-link-${process.pid}`);
+	const payload = JSON.stringify({ log: [] });
+	try {
+		fs.chmodSync(realDir, 0o1777);
+		fs.rmSync(linkDir, { force: true });
+		fs.symlinkSync(realDir, linkDir);
+		const filtered = filterSpawn([linkDir], {
+			input: payload,
+			encoding: 'utf8',
+			env: jf.env
+		});
+		assert.notEqual(filtered.status, 0, 'symlink filter directory must fail');
+		assert.equal(JSON.parse(filtered.stdout).error, 'filter_tempfile_failed');
+	} finally {
+		jf.cleanup();
+		fs.rmSync(linkDir, { force: true });
+		fs.rmSync(realDir, { recursive: true, force: true });
+	}
+}
+
 function runJsonGetMsgEscapes() {
 	const cases = [
 		'{"msg":"fw4: DROP\\bIN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}',
@@ -400,6 +484,8 @@ function run() {
 	runMsgParity();
 	runJsonParity();
 	runTempDirGuards();
+	runMktempFailure();
+	runSymlinkTempDir();
 	runJsonGetMsgEscapes();
 	runEmptyMalformedInput();
 	runSummaryContract();

@@ -61,6 +61,8 @@ def main():
                 assert run('resolve', data) == {'names': {}}, (release, data)
             resolved = run('resolve', '{"addresses":["192.0.2.1"]}')
             assert resolved == {'names': {'192.0.2.1': 'host.example'}}, (release, resolved, lookup_log.read_text() if lookup_log.exists() else 'no lookup')
+            # G4 / RESOLVE_MAX=32: 33 successful addresses must return 32 names.
+            assert 'RESOLVE_MAX=32' in source, (release, 'rpcd resolve cap drifted')
             many_addresses = [f'192.0.2.{index}' for index in range(1, 34)]
             capped = run('resolve', json.dumps({'addresses': many_addresses}))
             assert len(capped.get('names', {})) == 32, (release, capped)
