@@ -584,14 +584,18 @@ diagnostic-only: it does not affect `ready`, `blockers`, or the enable gate.
 LuCI now shows the warning in `#fwlive-backend` via `textContent` and one
 allowlisted `_()` string (#388). It still does not block logging enablement.
 
-**Method.** Host fixtures cover missing, empty, IPv4-populated,
-IPv6-populated, and both-populated table-name files through
-`FWLIVE_IP_TABLES_NAMES_PATH` and `FWLIVE_IP6_TABLES_NAMES_PATH`. Empty
-fixture files remain exported so later `logging_status` tests do not read
-host procfs; no host kernel state or privilege is required.
+**Method.** Host fixtures cover missing, empty, whitespace-only,
+IPv4-populated, blank-first-line/populated-second-line, IPv6-populated, and
+both-populated table-name files through `FWLIVE_IP_TABLES_NAMES_PATH` and
+`FWLIVE_IP6_TABLES_NAMES_PATH`. Empty fixture files remain exported so later
+`logging_status` tests do not read host procfs; no host kernel state or
+privilege is required.
 
-**Result.** Focused logging tests pass. No ACL, DOM-sink, or read/write-scope
-change was made.
+**Result.** Focused logging tests pass. The warning intentionally reports any
+registered table-name entry, not active rules; a loaded legacy module with an
+empty built-in table can therefore produce a diagnostic false positive. That
+boundary is documented and does not affect readiness or enablement. No ACL,
+DOM-sink, or read/write-scope change was made.
 
 ### 2026-09-19 — #378 Phase 2 nft-only rules map
 
