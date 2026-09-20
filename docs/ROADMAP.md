@@ -47,7 +47,7 @@ Stage 4 ✓ ──► Stage 5 ✓ ──► Stage 3 ✓ ──► Stage 4b ✓ �
 
 **Next:** publish upstream · expand validation matrix sign-off (25.12) · Stage 6 rule overlay (optional).
 
-**Backport / versions:** **21.02.7**, **22.03.7**, **23.05.5** (x86 smoke) + armsr **24.10** — **done**. See [`fwlive-acceptance.md`](fwlive-acceptance.md).
+**Backport / versions:** current floor **23.05.5** (x86 smoke) + armsr **24.10**. **21.02.7** / **22.03.7** were historical lab sign-offs and are unsupported. See [`fwlive-acceptance.md`](fwlive-acceptance.md).
 
 ---
 

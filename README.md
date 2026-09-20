@@ -127,7 +127,7 @@ Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](doc
 | Guide | Summary |
 |-------|---------|
 | [Overview](docs/user/overview.md) | Problem, data flow, when to use it |
-| [Requirements](docs/user/requirements.md) | Supported releases, firewall4/fw3, dependencies |
+| [Requirements](docs/user/requirements.md) | Supported releases, firewall4/nft, dependencies |
 | [Installation](docs/user/installation.md) | opkg, apk, or feed |
 | [Using the UI](docs/user/using-the-ui.md) | Controls, filters, screenshots |
 | [Enabling logs](docs/user/enabling-firewall-logs.md) | nft/fw4 `log` rules |

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Document the current support floor as OpenWrt **23.05+**; **21.02** and **22.03** remain historical lab notes only. The v0.1.44 footer below records that release's former matrix.
+- Package `LUCI_DESCRIPTION` and remaining user-facing docs now match the ACL-only menu and firewall4/nft rules-map contract; iptables-tagged log lines still classify.
 
 ## [v0.1.44] — 2026-09-17
 

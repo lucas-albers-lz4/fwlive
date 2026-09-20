@@ -1,10 +1,10 @@
 # LOG metadata and historical iptables reference
 
 On supported OpenWrt releases, Firewall Live View reads **logd** from the
-firewall4/nft pipeline. Traffic appears only when rules use nft logging or UCI
-**`option log '1'`**. Log lines tagged `iptables` (including `iptables-nft`
-and `xt_LOG`) still classify, but they do not select an iptables rules-map
-path.
+firewall4/nft pipeline. Supported rules create those lines with nft logging
+or UCI **`option log '1'`**. Log lines tagged `iptables` (including
+`iptables-nft` / `xt_LOG` `-j LOG`) still classify and still become table
+rows, but they do not select an iptables rules-map path.
 
 **This is not iptables TRACE.** Silent rule hits without LOG never appear in the table.
 
@@ -50,8 +50,9 @@ UCI: `option log '1'` on a `@rule` or wan zone where your image supports it.
 
 ## Current LuCI UI
 
-On supported releases, the page shows **`using fw4`** for the firewall4/nft
-backend. Rule-name links use `admin/network/firewall/rules`; there is no
-iptables-save rules-map fallback. An iptables-tagged log can still classify,
-and a registered legacy table may add a diagnostic warning, but neither
-changes the supported rules-map contract.
+On supported releases, when `rules` reports nft, the page shows **`using fw4`**.
+Stock images without `timeout` report `backend: unknown` instead. Rule-name
+links use `admin/network/firewall/rules`; there is no iptables-save rules-map
+fallback. An iptables-tagged log can still classify, and a registered legacy
+table may add a diagnostic warning, but neither changes the supported
+rules-map contract.

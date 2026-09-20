@@ -9,9 +9,10 @@ Downloaded to `lab/images/`:
 ```sh
 RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh
 RELEASE=23.05.5 ./scripts/download-openwrt-x86-64.sh
-RELEASE=22.03.7 ./scripts/download-openwrt-x86-64.sh
-RELEASE=21.02.7 ./scripts/download-openwrt-x86-64.sh
 RELEASE=24.10.8 ./scripts/download-openwrt-armsr-armv8.sh
+# Historical images only (unsupported; scripts still fetch them):
+# RELEASE=22.03.7 ./scripts/download-openwrt-x86-64.sh
+# RELEASE=21.02.7 ./scripts/download-openwrt-x86-64.sh
 ```
 
 ## Prepare image (required once per image)
