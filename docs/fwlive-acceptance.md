@@ -16,8 +16,8 @@ Run the checks again after changes — see [Build & test](developer/build-and-te
 
 | OpenWrt | SDK build | Lab target | End-to-end sign-off |
 | ------- | --------- | ---------- | ------------------- |
-| **21.02.7** | ✓ x86-64 | **x86_64** (KVM, fw3/iptables) | ✓ `qemu-smoke-fwlive.sh` (2026-06-20) |
-| **22.03.7** | ✓ x86-64 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` (2026-06-27) |
+| **21.02.7** (historical) | ✓ x86-64 (retired) | **x86_64** (KVM, fw3/iptables) | historical `qemu-smoke-fwlive.sh` (2026-06-20) |
+| **22.03.7** (historical) | ✓ x86-64 (retired) | **x86_64** (KVM) | historical `qemu-smoke-fwlive.sh` (2026-06-27) |
 | **24.10.8** | ✓ armsr-armv8, x86-64 | **armsr/armv8** (production) | ✓ LuCI, ubus, nft log, rules |
 | **24.10.8** | ✓ | **x86_64** (fast KVM lab) | ✓ primary dev loop |
 | **23.05.5** | ✓ armsr-armv8 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` |
@@ -116,7 +116,7 @@ ssh -p 2222 root@127.0.0.1 'ping 127.0.0.1'   # 1 pkt/s baseline
 | Headless smoke (`qemu-smoke-fwlive.sh`) on 23.05.5 x86 | ✓ |
 | armsr 24.10.8 LuCI page loads in browser | ✓ |
 
-Tested on **QEMU x86_64 21.02.7**, **22.03.7**, **24.10** (KVM) and **armsr 24.10.8** (TCG); **23.05.5** via x86 smoke + same `_all` ipk.
+Tested on **QEMU x86_64 24.10** (KVM) and **armsr 24.10.8** (TCG); **23.05.5** via x86 smoke + same `_all` ipk. **21.02.7** / **22.03.7** remain historical lab notes only.
 
 ### Installed package evidence
 
