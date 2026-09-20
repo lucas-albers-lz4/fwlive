@@ -28,11 +28,30 @@ case "$${IPKG_INSTROOT}" in
 	''|/) ;;
 	*) exit 0 ;;
 esac
+# The opkg wrapper invokes this body as <wrapper> <action>; APK's
+# pre-deinstall receives the installed version when removing a package.
+# A same-version APK reinstall uses post-upgrade and does not run this hook.
+[ "$${PKG_UPGRADE:-}" = 1 ] && exit 0
+case "$${2-}" in
+	remove) ;;
+	upgrade) exit 0 ;;
+	'')
+		case "$${1-}" in
+			remove) ;;
+			upgrade|''|[!0-9]*) exit 0 ;;
+			[0-9]*.[0-9]*) ;;
+			*) exit 0 ;;
+		esac
+		;;
+	*) exit 0 ;;
+esac
 . /usr/libexec/fwlive-logging.sh
-# Best-effort restore: always exit 0 so a transient lock/pending-staging
-# failure cannot strand the package half-removed. Baseline is kept on
-# failure (restore_wan_log_baseline) for admin recovery; helpers are still
-# present while this prerm runs.
+# Do not restore the user's WAN-log baseline on an upgrade path. APK 3.0
+# passes the old package version to pre-deinstall for a real removal, while
+# same-version reinstall runs post-upgrade without pre-deinstall.
+# Best-effort restore still exits 0 so a transient lock/pending-staging failure
+# cannot strand the package half-removed. The baseline is kept on failure for
+# admin recovery; helpers are still present while this prerm runs.
 restore_wan_log_baseline || logger -t fwlive "WAN log baseline restore failed during uninstall"
 exit 0
 endef
