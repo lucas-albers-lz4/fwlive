@@ -29,7 +29,7 @@
 | Script | Role |
 |--------|------|
 | `gen-shell-classifier.js` | **Codegen** — emits `fwlive-is-firewall-event.sh` from `CLASSIFY_SPEC` |
-| `gen-luci-wrapper.js` | **Gate** — deep-equals full LuCI `CLASSIFY_SPEC` to core, checks preserve markers / 21.02 APIs; re-emits committed `log.js` bytes (does not transform shared logic) |
+| `gen-luci-wrapper.js` | **Gate** — deep-equals full LuCI `CLASSIFY_SPEC` to core, checks preserve markers / no `Array.includes` or `Object.values` in shipped `log.js`; re-emits committed `log.js` bytes (does not transform shared logic) |
 
 After editing classification: update **both** `core/fwlive-log.js` and the LuCI `CLASSIFY_SPEC` mirror, run `./scripts/gen-all.sh`, and commit the regenerated shell classifier. A drifted LuCI wrapper fails the gate — it is not auto-fixed by `gen-all.sh`. SDK package builds do not run Node.
 

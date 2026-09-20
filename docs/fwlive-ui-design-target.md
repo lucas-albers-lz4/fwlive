@@ -84,7 +84,7 @@ Suggestions to replicate OPNsense’s clean tabular Live View, adapted for LuCI.
 | ---------- | ------- | ------------ |
 | Rule column with human label | **Adopt** | Stage 3: `rule_label` from nft/fw4 metadata. |
 | nft `comment`, handle, or log prefix | **Adapt** | Prefer **fw4 rule name** / UCI `@name` when resolvable; fallback: nft handle or log `prefix "…"`. |
-| Deep link to firewall configuration | **Adopt (lightweight)** | Link to `admin/status/nftables` or `admin/network/firewall` with hash/query when we have a stable rule key — **best-effort**, not 1:1 with OPNsense RID. |
+| Deep link to firewall configuration | **Adopt (lightweight)** | Link to `admin/network/firewall/rules` with the rule hint as the URL hash — **best-effort**, not 1:1 with OPNsense RID. Do not use `admin/status/nftables` or `admin/status/iptables`. |
 | `meta nftrace` / tracking id | **Investigate** | Only if log lines expose stable ids on OpenWrt 24.10; document findings in stage 3 notes. |
 
 OpenWrt will **not** mirror OPNsense PF rule IDs. Parity is **“jump toward the rule that likely generated this log”**, not identical RID badges.

@@ -38,6 +38,6 @@ assert.equal(out2.status, 0, out2.stderr || out2.stdout);
 assert.strictEqual(out2.stdout, fs.readFileSync(LUCI_DST, 'utf8'),
 	'fwlive/log.js failed gen-luci-wrapper checks');
 assert.ok(out2.stdout.indexOf('.includes(') < 0 && out2.stdout.indexOf('Object.values') < 0,
-	'generated LuCI wrapper must stay 21.02-compatible');
+	'generated LuCI wrapper must not use Array.includes or Object.values');
 
 console.log('fwlive codegen freshness + syntax OK');

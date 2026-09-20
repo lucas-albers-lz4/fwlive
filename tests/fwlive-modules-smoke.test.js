@@ -121,6 +121,8 @@ assert.strictEqual(fl.tag, 'a');
 fl.attrs.click({ preventDefault: function () {} });
 assert.deepStrictEqual(clicks[0], ['proto', 'TCP']);
 assert.strictEqual(links.ruleAdminPath('fw4', 'nft'), 'admin/network/firewall/rules');
+assert.strictEqual(links.ruleAdminPath('custom', 'iptables'), 'admin/network/firewall/rules');
+assert.strictEqual(links.ruleAdminPath('fw4', 'unknown'), 'admin/network/firewall/rules');
 console.log('fwlive-modules smoke: links OK');
 
 /* --- chips --- */
@@ -174,6 +176,13 @@ const logging = loadFwliveModule('logging', {
 assert.strictEqual(typeof logging.renderToolbar, 'function');
 assert.strictEqual(typeof logging.renderEmptyState, 'function');
 assert.strictEqual(typeof logging.renderManualTestNodes, 'function');
+const manualHost = luciE.E('li', { 'id': 'fwlive-manual-test' }, []);
+logging.renderManualTestNodes(manualHost, { firewallBackend: 'iptables' }, {});
+const manualText = collectText(manualHost);
+assert.ok(manualText.indexOf('nft insert rule') >= 0, 'manual test is nft-only');
+assert.ok(manualText.indexOf('iptables') < 0, 'manual test must not emit iptables');
+assert.strictEqual(manualHost._innerHTMLWrites.length, 1, 'host clear is the only innerHTML write');
+assert.strictEqual(manualHost._innerHTMLWrites[0], '', 'innerHTML write is a clear, not a payload');
 
 function collectText(node) {
 	if (!node) return '';
