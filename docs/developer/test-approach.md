@@ -231,8 +231,9 @@ same audit:
 5. Treat installed-session and DOM claims as boundary tests. R4a (formerly L1)
    has per-PR host proof for exact rpcd/ACL method parity; R4b has installed
    LuCI/uhttpd `/ubus` evidence for a grant role (all six fwlive methods plus
-   `log.read` denial) and a sampled deny role (`logging_status` and
-   `enable_wan_logging`) without that ACL in [the #392 artifact](../evidence/issue-392-2026-09-20.md).
+   `log.read` denial) and a `luci-base`-only deny role whose grant is first
+   exercised via `file.list`, then sampled on `logging_status` and
+   `enable_wan_logging` in [the #392 artifact](../evidence/issue-392-2026-09-20.md).
    A root `ubus call` is not ACL evidence. The renderer
    item (R2, formerly L4) should use the LuCI-accurate `E()` harness with hostile message
    content, allow only intentional empty-container clearing, and assert that
