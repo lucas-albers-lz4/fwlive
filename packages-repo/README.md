@@ -16,8 +16,16 @@ BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
 feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
 case "$feed" in
   23.05|24.10) ;;
-  *)
+  25.12)
     echo "Release $DISTRIB_RELEASE uses apk — use the OpenWrt 25.12+ commands below" >&2
+    exit 1
+    ;;
+  21.02|22.03)
+    echo "OpenWrt $DISTRIB_RELEASE is unsupported; no published opkg feed" >&2
+    exit 1
+    ;;
+  *)
+    echo "OpenWrt $DISTRIB_RELEASE is not a published fwlive feed (23.05/24.10 opkg, 25.12 apk)" >&2
     exit 1
     ;;
 esac
