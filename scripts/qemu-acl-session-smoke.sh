@@ -14,10 +14,21 @@ HOST="${OPENWRT_HOST:-127.0.0.1}"
 SSH_PORT="${OPENWRT_SSH_PORT:-2222}"
 HTTP_PORT="${OWRT_HOSTFWD_HTTP:-8080}"
 SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf '%s' unknown)"
+if git -C "$ROOT" diff --quiet && \
+	git -C "$ROOT" diff --cached --quiet && \
+	[[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=all)" ]]; then
+	SOURCE_STATE=clean
+else
+	SOURCE_STATE=dirty
+fi
 GRANT_USER="${FWLIVE_ACL_GRANT_USER:-fwlive-acl-grant}"
 DENY_USER="${FWLIVE_ACL_DENY_USER:-fwlive-acl-deny}"
 # This password exists only for the temporary lab logins and is never printed.
-TEST_PASSWORD="${FWLIVE_ACL_TEST_PASSWORD:-FwliveAclSession-2026}"
+if [[ -n "${FWLIVE_ACL_TEST_PASSWORD:-}" ]]; then
+	TEST_PASSWORD="$FWLIVE_ACL_TEST_PASSWORD"
+else
+	TEST_PASSWORD="FwliveAclSession-${RANDOM}${RANDOM}${RANDOM}"
+fi
 
 SSH_OPTS=(
 	-o StrictHostKeyChecking=no
@@ -27,6 +38,7 @@ SSH_OPTS=(
 )
 UBUS_URL="http://${HOST}:${HTTP_PORT}/ubus"
 BACKUP=""
+BACKUP_SHA256=""
 ORIGINAL_WAN_LOG=""
 
 die() {
@@ -72,24 +84,57 @@ fi
 command -v curl >/dev/null 2>&1 || die "host curl is required"
 command -v jq >/dev/null 2>&1 || die "host jq is required"
 command -v ssh >/dev/null 2>&1 || die "host ssh is required"
+echo "acl-session smoke source=${SOURCE_SHA} source_state=${SOURCE_STATE}"
 
 ssh_guest() {
+	# shellcheck disable=SC2029 # arguments intentionally form the remote command.
 	ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
 }
 
+guest_sha256() {
+	local path="$1"
+	local line
+	line="$(ssh_guest "sha256sum '$path'")" || return 1
+	printf '%s\n' "${line%% *}"
+}
+
 cleanup_guest() {
+	local original_status=$?
+	local cleanup_failed=0
+	local restored_sha256=""
 	set +e
 	if [[ -n "$BACKUP" ]]; then
 		# Discard any uncommitted UCI overlay before restoring the file. This
 		# matters if the script exits after uci add but before uci commit.
-		ssh_guest 'uci revert rpcd' >/dev/null 2>&1 || true
+		ssh_guest 'uci revert rpcd' >/dev/null 2>&1 || cleanup_failed=1
 		if [[ "$ORIGINAL_WAN_LOG" == true ]]; then
-			ssh_guest 'ubus call fwlive enable_wan_logging >/dev/null 2>&1' || true
+			ssh_guest 'ubus call fwlive enable_wan_logging >/dev/null 2>&1' || cleanup_failed=1
 		elif [[ "$ORIGINAL_WAN_LOG" == false ]]; then
-			ssh_guest 'ubus call fwlive disable_wan_logging >/dev/null 2>&1' || true
+			ssh_guest 'ubus call fwlive disable_wan_logging >/dev/null 2>&1' || cleanup_failed=1
+		else
+			cleanup_failed=1
 		fi
-		ssh_guest "cp '$BACKUP' /etc/config/rpcd && /etc/init.d/rpcd restart; rm -f '$BACKUP'" \
-			>/dev/null 2>&1
+		if ! ssh_guest "cp '$BACKUP' /etc/config/rpcd && /etc/init.d/rpcd restart" \
+			>/dev/null 2>&1; then
+			cleanup_failed=1
+		else
+			restored_sha256="$(guest_sha256 /etc/config/rpcd)" || cleanup_failed=1
+			if [[ "$restored_sha256" != "$BACKUP_SHA256" ]]; then
+				echo "acl-session smoke cleanup FAIL: restored rpcd hash mismatch" >&2
+				cleanup_failed=1
+			fi
+		fi
+		if [[ "$cleanup_failed" -eq 0 ]]; then
+			ssh_guest "rm -f '$BACKUP'" >/dev/null 2>&1 || cleanup_failed=1
+		fi
+		if [[ "$cleanup_failed" -eq 0 ]]; then
+			ok "guest rpcd backup restored and hash verified"
+		else
+			echo "acl-session smoke cleanup FAIL: backup retained at $BACKUP" >&2
+		fi
+	fi
+	if [[ "$cleanup_failed" -ne 0 ]] && [[ "$original_status" -eq 0 ]]; then
+		exit 1
 	fi
 }
 
@@ -102,10 +147,18 @@ ssh_guest 'test -x /usr/libexec/rpcd/fwlive && test -x /usr/sbin/uhttpd' \
 
 BACKUP_CANDIDATE="$(ssh_guest 'mktemp /tmp/fwlive-acl-session.XXXXXX')"
 [[ -n "$BACKUP_CANDIDATE" ]] || die "could not allocate guest rpcd backup"
-if ssh_guest "cp /etc/config/rpcd '$BACKUP_CANDIDATE'"; then
-	# Do not arm the restore trap until the backup is known-good. Otherwise a
-	# failed copy could restore an empty tempfile over /etc/config/rpcd.
+if ssh_guest "cp /etc/config/rpcd '$BACKUP_CANDIDATE' && test -s '$BACKUP_CANDIDATE'"; then
+	BACKUP_HASH_CANDIDATE="$(guest_sha256 "$BACKUP_CANDIDATE")" || {
+		ssh_guest "rm -f '$BACKUP_CANDIDATE'" >/dev/null 2>&1 || true
+		die "could not hash the guest rpcd backup"
+	}
+	if [[ ! "$BACKUP_HASH_CANDIDATE" =~ ^[[:xdigit:]]{64}$ ]]; then
+		ssh_guest "rm -f '$BACKUP_CANDIDATE'" >/dev/null 2>&1 || true
+		die "guest rpcd backup hash is invalid"
+	fi
+	# Do not arm the restore trap until the copy and its hash are known-good.
 	BACKUP="$BACKUP_CANDIDATE"
+	BACKUP_SHA256="$BACKUP_HASH_CANDIDATE"
 else
 	ssh_guest "rm -f '$BACKUP_CANDIDATE'" >/dev/null 2>&1 || true
 	die "could not copy the guest rpcd config"
@@ -140,7 +193,6 @@ add_login() {
 add_login "$GRANT_USER"
 add_login "$DENY_USER"
 ssh_guest 'uci commit rpcd && /etc/init.d/rpcd restart'
-sleep 1
 
 ubus_http_call() {
 	local payload="$1"
@@ -154,10 +206,17 @@ login_session() {
 	local payload response code
 	payload="$(jq -cn --arg user "$username" --arg password "$TEST_PASSWORD" \
 		'{jsonrpc:"2.0",id:1,method:"call",params:["00000000000000000000000000000000","session","login",{username:$user,password:$password}]}')"
-	response="$(ubus_http_call "$payload")"
-	code="$(jq -r '.result[0] // 255' <<<"$response")"
-	[[ "$code" == 0 ]] || die "login failed for $username: $response"
-	jq -er '.result[1].ubus_rpc_session // empty' <<<"$response"
+	for _attempt in 1 2 3 4 5 6 7 8 9 10; do
+		if response="$(ubus_http_call "$payload")"; then
+			code="$(jq -r '.result[0] // 255' <<<"$response")"
+			if [[ "$code" == 0 ]]; then
+				jq -er '.result[1].ubus_rpc_session // empty' <<<"$response"
+				return 0
+			fi
+		fi
+		sleep 1
+	done
+	die "login failed for $username after rpcd readiness retries"
 }
 
 call_object() {
@@ -178,6 +237,10 @@ rpc_status_code() {
 	jq -r '.result[0] // .error.code // 255' <<<"$1"
 }
 
+rpc_error_code() {
+	jq -r '.error.code // 255' <<<"$1"
+}
+
 assert_allowed() {
 	local label="$1"
 	local response="$2"
@@ -191,14 +254,15 @@ assert_denied() {
 	local label="$1"
 	local response="$2"
 	local code
-	code="$(rpc_status_code "$response")"
+	code="$(rpc_error_code "$response")"
 	[[ "$code" == -32002 ]] || die "$label should be denied with JSON-RPC Access denied (-32002), got: $response"
 	ok "$label denied (JSON-RPC error=$code)"
 }
 
+# shellcheck disable=SC2016 # the release variable must expand in the guest shell.
 RELEASE="$(ssh_guest '. /etc/openwrt_release 2>/dev/null; printf "%s" "${DISTRIB_RELEASE:-unknown}"')"
 ARCH="$(ssh_guest 'uname -m')"
-echo "acl-session smoke guest=${RELEASE} arch=${ARCH} source=${SOURCE_SHA}"
+echo "acl-session smoke guest=${RELEASE} arch=${ARCH}"
 
 GRANT_SID="$(login_session "$GRANT_USER")"
 echo "acl-session smoke authenticated user=${GRANT_USER}"
@@ -215,4 +279,4 @@ echo "acl-session smoke authenticated user=${DENY_USER}"
 assert_denied "${DENY_USER}: fwlive.logging_status" "$(call_fwlive "$DENY_SID" logging_status)"
 assert_denied "${DENY_USER}: fwlive.enable_wan_logging" "$(call_fwlive "$DENY_SID" enable_wan_logging)"
 
-ok "authenticated session ACL boundary verified; rpcd config will be restored"
+ok "authenticated session ACL boundary verified; cleanup will verify guest state"
