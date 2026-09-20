@@ -122,6 +122,7 @@ printf 'filter\n' >"$LEGACY_IPV6"
 out=$(build_logging_status_json)
 assert_legacy_warning_state "$out" present "IPv6 legacy table"
 assert_ready_unchanged "$out" "IPv6 legacy table"
+: >"$LEGACY_IPV6"
 printf '\nfilter\n' >"$LEGACY_IPV4"
 out=$(build_logging_status_json)
 assert_legacy_warning_state "$out" present "blank-first-line legacy table"
