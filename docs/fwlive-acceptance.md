@@ -124,6 +124,11 @@ The current package lifecycle evidence for issue #389 is recorded in
 [the dated installed-package report](evidence/issue-389-2026-09-20.md),
 including real `opkg remove` and `apk del` baseline-restore checks.
 
+The installed authenticated-session ACL evidence for issue #392 is recorded in
+[the dated session report](evidence/issue-392-2026-09-20.md). It is separate
+from host ACL method-parity tests because direct root `ubus` calls do not prove
+LuCI/uhttpd session enforcement.
+
 ---
 
 ## Stage 6 — Inspect & enrichment (done)
