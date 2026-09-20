@@ -27,6 +27,10 @@ for method in logging_status rules poll resolve enable_wan_logging disable_wan_l
 done
 grep -Fq 'call_object "$GRANT_SID" log read' "$SCRIPT" \
 	|| { echo "helper must prove the granted session cannot call log.read" >&2; exit 1; }
+grep -Fq 'luci-base' "$SCRIPT" \
+	|| { echo "helper must grant luci-base on the deny session" >&2; exit 1; }
+grep -Fq 'file list' "$SCRIPT" \
+	|| { echo "helper must exercise the deny session luci-base grant" >&2; exit 1; }
 grep -Fq -- '-32002' "$SCRIPT" \
 	|| { echo "helper must pin the JSON-RPC Access denied code" >&2; exit 1; }
 grep -Fq 'cleanup_guest' "$SCRIPT" \

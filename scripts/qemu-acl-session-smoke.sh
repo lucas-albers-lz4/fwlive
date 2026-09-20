@@ -66,7 +66,9 @@ usage() {
 Usage: scripts/qemu-acl-session-smoke.sh
 
 Proves fwlive read/write method access through two temporary authenticated
-LuCI/uhttpd `/ubus` sessions: one with the luci-app-fwlive ACL and one without.
+LuCI/uhttpd `/ubus` sessions: one with the luci-app-fwlive ACL and one with
+luci-base only. Cleanup runs `uci revert rpcd`, which discards any staged
+rpcd edits on the guest, not only this helper's overlay.
 
 Environment:
   OPENWRT_HOST       guest host (default: 127.0.0.1)
@@ -184,8 +186,8 @@ add_login() {
 	if [[ "$username" == "$GRANT_USER" ]]; then
 		ssh_guest "uci add_list rpcd.$section.read='luci-app-fwlive'; uci add_list rpcd.$section.write='luci-app-fwlive'"
 	else
-		# Match an ordinary authenticated LuCI user while deliberately omitting
-		# the application ACL under test.
+		# luci-base only: enough to prove the session is authenticated, while
+		# omitting luci-app-fwlive. file.list is the positive control.
 		ssh_guest "uci add_list rpcd.$section.read='luci-base'"
 	fi
 }
@@ -223,9 +225,10 @@ call_object() {
 	local sid="$1"
 	local object="$2"
 	local method="$3"
+	local args="${4:-{}}"
 	local payload
-	payload="$(jq -cn --arg sid "$sid" --arg object "$object" --arg method "$method" \
-		'{jsonrpc:"2.0",id:2,method:"call",params:[$sid,$object,$method,{}]}')"
+	payload="$(jq -cn --arg sid "$sid" --arg object "$object" --arg method "$method" --argjson args "$args" \
+		'{jsonrpc:"2.0",id:2,method:"call",params:[$sid,$object,$method,$args]}')"
 	ubus_http_call "$payload"
 }
 
@@ -276,6 +279,7 @@ assert_denied "${GRANT_USER}: log.read" "$(call_object "$GRANT_SID" log read)"
 
 DENY_SID="$(login_session "$DENY_USER")"
 echo "acl-session smoke authenticated user=${DENY_USER}"
+assert_allowed "${DENY_USER}: file.list" "$(call_object "$DENY_SID" file list '{"path":"/etc/config"}')"
 assert_denied "${DENY_USER}: fwlive.logging_status" "$(call_fwlive "$DENY_SID" logging_status)"
 assert_denied "${DENY_USER}: fwlive.enable_wan_logging" "$(call_fwlive "$DENY_SID" enable_wan_logging)"
 
