@@ -21,6 +21,14 @@ grep -Fq 'luci-app-fwlive' "$SCRIPT" \
 	|| { echo "helper must assign the shipped ACL group" >&2; exit 1; }
 grep -Fq 'assert_denied' "$SCRIPT" \
 	|| { echo "helper must assert the no-grant session" >&2; exit 1; }
+for method in logging_status rules poll resolve enable_wan_logging disable_wan_logging; do
+	grep -Fq "$method" "$SCRIPT" \
+		|| { echo "helper must cover fwlive.$method" >&2; exit 1; }
+done
+grep -Fq 'call_object "$GRANT_SID" log read' "$SCRIPT" \
+	|| { echo "helper must prove the granted session cannot call log.read" >&2; exit 1; }
+grep -Fq -- '-32002' "$SCRIPT" \
+	|| { echo "helper must pin the JSON-RPC Access denied code" >&2; exit 1; }
 grep -Fq 'cleanup_guest' "$SCRIPT" \
 	|| { echo "helper must restore the guest rpcd config" >&2; exit 1; }
 

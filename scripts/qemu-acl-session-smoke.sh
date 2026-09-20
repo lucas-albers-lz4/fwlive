@@ -80,6 +80,9 @@ ssh_guest() {
 cleanup_guest() {
 	set +e
 	if [[ -n "$BACKUP" ]]; then
+		# Discard any uncommitted UCI overlay before restoring the file. This
+		# matters if the script exits after uci add but before uci commit.
+		ssh_guest 'uci revert rpcd' >/dev/null 2>&1 || true
 		if [[ "$ORIGINAL_WAN_LOG" == true ]]; then
 			ssh_guest 'ubus call fwlive enable_wan_logging >/dev/null 2>&1' || true
 		elif [[ "$ORIGINAL_WAN_LOG" == false ]]; then
@@ -97,9 +100,16 @@ ssh_guest 'echo connected' >/dev/null 2>&1 \
 ssh_guest 'test -x /usr/libexec/rpcd/fwlive && test -x /usr/sbin/uhttpd' \
 	|| die "guest needs installed fwlive and uhttpd"
 
-BACKUP="$(ssh_guest 'mktemp /tmp/fwlive-acl-session.XXXXXX')"
-[[ -n "$BACKUP" ]] || die "could not allocate guest rpcd backup"
-ssh_guest "cp /etc/config/rpcd '$BACKUP'"
+BACKUP_CANDIDATE="$(ssh_guest 'mktemp /tmp/fwlive-acl-session.XXXXXX')"
+[[ -n "$BACKUP_CANDIDATE" ]] || die "could not allocate guest rpcd backup"
+if ssh_guest "cp /etc/config/rpcd '$BACKUP_CANDIDATE'"; then
+	# Do not arm the restore trap until the backup is known-good. Otherwise a
+	# failed copy could restore an empty tempfile over /etc/config/rpcd.
+	BACKUP="$BACKUP_CANDIDATE"
+else
+	ssh_guest "rm -f '$BACKUP_CANDIDATE'" >/dev/null 2>&1 || true
+	die "could not copy the guest rpcd config"
+fi
 ORIGINAL_WAN_LOG="$(ssh_guest 'ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '\''$.wan_log'\'' 2>/dev/null || true')"
 case "$ORIGINAL_WAN_LOG" in
 	true|false) ;;
@@ -120,6 +130,10 @@ add_login() {
 	ssh_guest "uci set rpcd.$section.username='$username'; uci set rpcd.$section.password='$PASSWORD_HASH'"
 	if [[ "$username" == "$GRANT_USER" ]]; then
 		ssh_guest "uci add_list rpcd.$section.read='luci-app-fwlive'; uci add_list rpcd.$section.write='luci-app-fwlive'"
+	else
+		# Match an ordinary authenticated LuCI user while deliberately omitting
+		# the application ACL under test.
+		ssh_guest "uci add_list rpcd.$section.read='luci-base'"
 	fi
 }
 
@@ -146,13 +160,18 @@ login_session() {
 	jq -er '.result[1].ubus_rpc_session // empty' <<<"$response"
 }
 
-call_fwlive() {
+call_object() {
 	local sid="$1"
-	local method="$2"
+	local object="$2"
+	local method="$3"
 	local payload
-	payload="$(jq -cn --arg sid "$sid" --arg method "$method" \
-		'{jsonrpc:"2.0",id:2,method:"call",params:[$sid,"fwlive",$method,{}]}')"
+	payload="$(jq -cn --arg sid "$sid" --arg object "$object" --arg method "$method" \
+		'{jsonrpc:"2.0",id:2,method:"call",params:[$sid,$object,$method,{}]}')"
 	ubus_http_call "$payload"
+}
+
+call_fwlive() {
+	call_object "$1" fwlive "$2"
 }
 
 rpc_status_code() {
@@ -173,8 +192,8 @@ assert_denied() {
 	local response="$2"
 	local code
 	code="$(rpc_status_code "$response")"
-	[[ "$code" != 0 ]] || die "$label should be denied, got: $response"
-	ok "$label denied (JSON-RPC result=$code)"
+	[[ "$code" == -32002 ]] || die "$label should be denied with JSON-RPC Access denied (-32002), got: $response"
+	ok "$label denied (JSON-RPC error=$code)"
 }
 
 RELEASE="$(ssh_guest '. /etc/openwrt_release 2>/dev/null; printf "%s" "${DISTRIB_RELEASE:-unknown}"')"
@@ -185,8 +204,11 @@ GRANT_SID="$(login_session "$GRANT_USER")"
 echo "acl-session smoke authenticated user=${GRANT_USER}"
 assert_allowed "${GRANT_USER}: fwlive.logging_status" "$(call_fwlive "$GRANT_SID" logging_status)"
 assert_allowed "${GRANT_USER}: fwlive.rules" "$(call_fwlive "$GRANT_SID" rules)"
+assert_allowed "${GRANT_USER}: fwlive.poll" "$(call_fwlive "$GRANT_SID" poll)"
+assert_allowed "${GRANT_USER}: fwlive.resolve" "$(call_fwlive "$GRANT_SID" resolve)"
 assert_allowed "${GRANT_USER}: fwlive.enable_wan_logging" "$(call_fwlive "$GRANT_SID" enable_wan_logging)"
 assert_allowed "${GRANT_USER}: fwlive.disable_wan_logging" "$(call_fwlive "$GRANT_SID" disable_wan_logging)"
+assert_denied "${GRANT_USER}: log.read" "$(call_object "$GRANT_SID" log read)"
 
 DENY_SID="$(login_session "$DENY_USER")"
 echo "acl-session smoke authenticated user=${DENY_USER}"
