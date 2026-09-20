@@ -191,19 +191,19 @@ function testMktempFailedBackendLabel() {
 	label.classList = {
 		toggle: function () {}
 	};
-	h.view.firewallBackend = 'iptables';
+	h.view.firewallBackend = 'nft';
 	h.view.lastRulesError = 'mktemp_failed';
 	h.view.updateBackendUi();
 	assert.equal(
 		String(label.textContent),
-		'using iptables \u00b7 Rule labels unavailable — temp file failed',
+		'using fw4 \u00b7 Rule labels unavailable — temp file failed',
 		'mktemp_failed must use the specialized temp-file notice'
 	);
-	h.view.lastRulesError = 'iptables_failed';
+	h.view.lastRulesError = 'nft_failed';
 	h.view.updateBackendUi();
 	assert.equal(
 		String(label.textContent),
-		'using iptables \u00b7 Rule labels unavailable',
+		'using fw4 \u00b7 Rule labels unavailable',
 		'other rules errors must keep the generic unavailable notice'
 	);
 	console.log('fwlive-view logging: mktemp_failed backend label OK');
@@ -228,7 +228,7 @@ function testBackendDisplayLabels() {
 
 	h.view.firewallBackend = 'iptables';
 	h.view.updateBackendUi();
-	assert.equal(String(label.textContent), 'using iptables', 'iptables backend label');
+	assert.equal(String(label.textContent), '', 'removed iptables backend has no using-* label');
 
 	h.view.firewallBackend = 'unknown';
 	h.view.updateBackendUi();
@@ -241,7 +241,43 @@ function testBackendDisplayLabels() {
 		'Rule labels unavailable',
 		'unknown + no_backend must still render the error as text'
 	);
-	console.log('fwlive-view logging: iptables/unknown backend labels OK');
+	console.log('fwlive-view logging: nft/unknown backend labels OK');
+}
+
+function testLegacyIptablesWarning() {
+	const h = loadFwliveView();
+	h.document.querySelector = function () {
+		return null;
+	};
+	h.view.updateEmptyStateUi = function () {};
+	const label = h.document.getElementById('fwlive-backend');
+	assert.ok(label, 'backend label must render');
+	label.classList = {
+		toggle: function (name, on) {
+			this[name] = !!on;
+		}
+	};
+	h.view.firewallBackend = 'nft';
+	h.view.lastRulesError = null;
+	h.view.loggingStatus = { warnings: [] };
+	h.view.updateBackendUi();
+	assert.equal(String(label.textContent), 'using fw4', 'absent warning leaves nft label');
+	assert.equal(label.classList['fwlive-backend-warn'], false, 'absent warning is not warn-tint');
+
+	h.view.loggingStatus = { warnings: ['legacy_iptables_detected'] };
+	h.view.updateBackendUi();
+	assert.equal(
+		String(label.textContent),
+		'using fw4 \u00b7 Live view may be incomplete — a legacy iptables table is registered',
+		'legacy_iptables_detected must render as text beside the nft label'
+	);
+	assert.equal(label.classList['fwlive-backend-warn'], true, 'legacy warning uses warn-tint');
+	assert.deepEqual(
+		label._innerHTMLWrites || [],
+		[],
+		'backend span must not write innerHTML'
+	);
+	console.log('fwlive-view logging: legacy_iptables_detected warning OK');
 }
 
 async function testBusyReentry() {
@@ -279,6 +315,7 @@ async function testBusyReentry() {
 		await testLoggingStatusDefaultReply();
 		testMktempFailedBackendLabel();
 		testBackendDisplayLabels();
+		testLegacyIptablesWarning();
 		await testBusyReentry();
 		console.log('fwlive-view logging-toggle tests passed');
 	} catch (e) {
