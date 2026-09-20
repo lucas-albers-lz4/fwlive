@@ -28,12 +28,16 @@ fixture="$(mktemp -d)"
 staging="$(mktemp -d)"
 trap 'rm -rf "$fixture" "$staging"' EXIT
 export FEED_PUBLISH_ROOT="$fixture"
-mkdir -p "${fixture}/out/x86_64"/{23.05.5,24.10.8}/fwlive
+mkdir -p "${fixture}/out/x86_64"/{23.05.5,24.10.8,25.12.5}/fwlive
 echo ipk23 > "${fixture}/out/x86_64/23.05.5/fwlive/luci-app-fwlive_0.1.16_all.ipk"
 echo ipk24 > "${fixture}/out/x86_64/24.10.8/fwlive/luci-app-fwlive_0.1.16_all.ipk"
+echo apk25 > "${fixture}/out/x86_64/25.12.5/fwlive/luci-app-fwlive-0.1.16-r1.apk"
 feed_publish_stage_release_assets "$staging"
 test -f "$staging/luci-app-fwlive_0.1.16_23.05_all.ipk"
 test -f "$staging/luci-app-fwlive_0.1.16_24.10_all.ipk"
+test -f "$staging/luci-app-fwlive-0.1.16-r1.apk"
+staged_count="$(find "$staging" -mindepth 1 -maxdepth 1 -type f | wc -l)"
+assert_eq "$staged_count" "3" "active matrix stages exactly 23.05, 24.10, and 25.12"
 
 # Guard #144: manifest records ONE SDK image digest per target×version cell.
 # Docker is mocked so the test is hermetic (RepoDigests source + the
@@ -132,7 +136,9 @@ grep -q '"sdk_digest": "ghcr.io/openwrt/sdk@sha256:' "${fixture}/manifest-stagin
 command -v node >/dev/null 2>&1 && node -e '
 	const fs = require("fs");
 	const m = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-	if (!Array.isArray(m.packages) || m.packages.length < 1) process.exit(1);
+	if (!Array.isArray(m.packages) || m.packages.length !== 3) process.exit(1);
+	const lines = m.packages.map((p) => p.openwrt).sort().join(",");
+	if (lines !== "23.05,24.10,25.12") process.exit(1);
 	for (const p of m.packages) {
 		if (!/^ghcr\.io\/openwrt\/sdk@sha256:[0-9a-f]{64}$/.test(p.sdk_digest || "")) process.exit(1);
 	}
