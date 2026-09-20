@@ -10,6 +10,10 @@ One table of record for which OpenWrt releases `luci-app-fwlive` runs on. Per-re
 
 **Not supported:** OpenWrt **21.02** / **22.03** and earlier (historical notes below). Prefer **24.10+** for new deployments. `snapshot` is an internal SDK option only.
 
+The published feed key is **23.05** for the supported 23.05 release line;
+**23.05.5** is the patch level validated in the lab, not an install-time
+version gate.
+
 Install commands: [Installation guide](user/installation.md). Requirements: [Requirements](user/requirements.md).
 
 ## 21.02.x (historical)
