@@ -12,7 +12,7 @@ One table of record for which OpenWrt releases `luci-app-fwlive` runs on. Per-re
 
 Install commands: [Installation guide](user/installation.md). Requirements: [Requirements](user/requirements.md).
 
-## 21.02.x (historical)
+## 21.02.x (legacy fw3)
 
 **Status:** Unsupported. OpenWrt 21.02 is EOL. The published feed and SDK matrix no longer build or ship a `…/21.02` cell. Keep these notes for old lab evidence only; source-build at your own risk.
 
@@ -40,7 +40,7 @@ iptables -I INPUT -p icmp --icmp-type echo-request -j my-debug
 
 UCI: `option log '1'` on `@rule` entries where supported.
 
-## 22.03.x (historical)
+## 22.03.x (EOL)
 
 **Status:** Unsupported. OpenWrt 22.03 is EOL. The published feed and SDK matrix no longer build or ship a `…/22.03` cell. Keep these notes for old lab evidence only; source-build at your own risk.
 
