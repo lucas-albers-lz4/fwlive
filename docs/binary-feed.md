@@ -16,12 +16,6 @@ fwlive-packages/          (gh-pages branch)
   public.key              opkg trust anchor
   fwlive-feed.rsa.pub     apk trust anchor
   manifest.json           release metadata + sha256
-  21.02/
-    luci-app-fwlive_*_all.ipk
-    Packages  Packages.gz  Packages.sig
-  22.03/
-    luci-app-fwlive_*_all.ipk
-    Packages  Packages.gz  Packages.sig
   23.05/
     luci-app-fwlive_*_all.ipk
     Packages  Packages.gz  Packages.sig
@@ -41,7 +35,7 @@ The package is **`_all`** — one feed URL per OpenWrt release line, not per CPU
 
 `manifest.json` records release metadata plus one entry per published cell
 (**target × OpenWrt line**). The SDK images referenced by the build are
-**mutable tags** (`ghcr.io/openwrt/sdk:x86-64-21.02.7`), so each cell also
+**mutable tags** (`ghcr.io/openwrt/sdk:x86-64-23.05.5`), so each cell also
 records the **immutable digest** of the image it was actually built from —
 making a release attributable to the exact image despite the moving tag.
 
@@ -50,10 +44,10 @@ making a release attributable to the exact image despite the moving tag.
   "git_tag": "v0.1.16",
   "packages": [
     {
-      "openwrt": "21.02",
-      "file": "luci-app-fwlive_0.1.16_21.02_all.ipk",
+      "openwrt": "23.05",
+      "file": "luci-app-fwlive_0.1.16_23.05_all.ipk",
       "sha256": "…",
-      "sdk_image": "ghcr.io/openwrt/sdk:x86-64-21.02.7",
+      "sdk_image": "ghcr.io/openwrt/sdk:x86-64-23.05.5",
       "sdk_digest": "ghcr.io/openwrt/sdk@sha256:…"
     },
     …
@@ -69,7 +63,7 @@ Before this change a cell was `{"openwrt", "file", "sha256"}` only; the
 After the SDK image is pulled, the digest is resolved per cell with:
 
 ```sh
-docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/openwrt/sdk:x86-64-21.02.7
+docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/openwrt/sdk:x86-64-23.05.5
 # → ghcr.io/openwrt/sdk@sha256:…
 ```
 
@@ -168,7 +162,7 @@ Expected apk secret shape: PEM `-----BEGIN PRIVATE KEY-----` (openssl genrsa out
 On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml):
 
 1. Checks the signing keys via [`validate-feed-keys.sh`](../scripts/validate-feed-keys.sh) (before build).
-2. Builds `luci-app-fwlive` for **21.02**, **22.03**, **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
+2. Builds `luci-app-fwlive` for **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
 3. Runs [`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh) (double-build sha256 gate).
 4. Stages signed feed via [`publish-packages.sh`](../scripts/publish-packages.sh).
 5. Deploys to **`fwlive-packages`** `gh-pages`.
@@ -182,8 +176,6 @@ On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-
 ```sh
 # Build
 export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
-./scripts/docker-sdk.sh build --target x86-64 --version 21.02
-./scripts/docker-sdk.sh build --target x86-64 --version 22.03
 ./scripts/docker-sdk.sh build --target x86-64 --version 23.05
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 ./scripts/docker-sdk.sh build --target x86-64 --version 25.12

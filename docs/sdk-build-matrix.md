@@ -6,19 +6,17 @@ Cross-build **`luci-app-fwlive`** for multiple OpenWrt releases and CPU targets 
 
 | OpenWrt version | Image tag suffix | Notes |
 |-----------------|------------------|--------|
-| **snapshot** (latest) | *(none)* | Same as `armsr-armv8` / `x86-64` without suffix |
+| **snapshot** (latest) | *(none)* | Internal SDK/matrix option only — not published to the feed |
 | **25.12** | `-25.12.5` | Current stable release |
 | **24.10** | `-24.10.8` | Pinned to current 24.10 point release |
 | **23.05** | `-23.05.5` | Pinned to current 23.05 point release |
-| **22.03** | `-22.03.7` | EOL — published **opkg** feed (`…/22.03`); SDK image **x86-64 only** on ghcr.io |
-| **21.02** | `-21.02.7` | Legacy fw3/iptables — published **opkg** feed (`…/21.02`) |
 
 | Target | SDK image prefix | Package arch dir |
 |--------|------------------|------------------|
 | **armsr-armv8** | `ghcr.io/openwrt/sdk:armsr-armv8` | `aarch64_generic` |
 | **x86-64** | `ghcr.io/openwrt/sdk:x86-64` | `x86_64` |
 
-**Twelve listed cells** (6 versions × 2 targets); **11 buildable** — `armsr-armv8` + **22.03** has no published SDK image on ghcr.io. Build the `_all` ipk with **`x86-64-22.03.7`** only — see [22.03 notes](supported-releases.md#2203x-eol).
+**Eight listed cells** (4 versions × 2 targets). Three published lines are **23.05** / **24.10** / **25.12**; **snapshot** is an internal SDK option only. Legacy **21.02** / **22.03** lines are no longer in the active build/publish matrix; see [supported releases](supported-releases.md) for historical notes.
 
 Each cell uses its **own Docker volume** (separate SDK tree + `.config`). First use runs `./setup.sh` inside the container to download the matching SDK archive.
 
@@ -50,7 +48,6 @@ Examples:
 
 - `out/aarch64_generic/snapshot/fwlive/…`
 - `out/aarch64_generic/24.10.8/fwlive/…`
-- `out/x86_64/22.03.7/fwlive/…`
 - `out/x86_64/23.05.5/fwlive/…`
 
 Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; use the versioned subdirs above.
@@ -58,7 +55,7 @@ Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; 
 ## Build everything
 
 ```sh
-# All 6 cells (feeds setup runs once per volume)
+# All active cells (feeds setup runs once per volume)
 ./scripts/docker-sdk.sh build-all
 
 # Subset
@@ -66,9 +63,9 @@ Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; 
 ./scripts/docker-sdk.sh build-all --version 23.05
 ```
 
-Expect **long runtime** on first `build-all` (six SDK downloads + six feed setups). The **x86-64** cells (especially **snapshot**) may compile a large slice of the **`base`** feed on first `make` (kernel modules, nftables stack); subsequent builds are incremental.
+Expect **long runtime** on first `build-all` (SDK downloads + feed setups per cell). The **x86-64** cells (especially **snapshot**) may compile a large slice of the **`base`** feed on first `make` (kernel modules, nftables stack); subsequent builds are incremental.
 
-Pinned point releases: **25.12 → 25.12.5**, **24.10 → 24.10.8**, **23.05 → 23.05.5**, **22.03 → 22.03.7** (override with full patch in `--version` if needed).
+Pinned point releases: **25.12 → 25.12.5**, **24.10 → 24.10.8**, **23.05 → 23.05.5** (override with full patch in `--version` if needed).
 
 QEMU smoke per version: [`validation-matrix.md`](validation-matrix.md).
 

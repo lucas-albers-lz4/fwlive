@@ -8,12 +8,12 @@ Install directly from the signed GitHub Pages feed — no manual download.
 
 | OpenWrt | Package manager | Feed path |
 |---------|-----------------|-----------|
-| **21.02.x** (legacy fw3) | `opkg` | `…/21.02` |
-| **22.03.x** (EOL) | `opkg` | `…/22.03` |
 | **23.05** / **24.10** | `opkg` | `…/23.05` or `…/24.10` |
 | **25.12.x** | `apk` | `…/25.12/all` |
 
-**opkg (21.02 – 24.10)** — set the path for your release:
+OpenWrt **21.02** / **22.03** are unsupported: those feed directories are no longer published.
+
+**opkg (23.05 / 24.10)** — set the path for your release:
 
 ```sh
 wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
@@ -22,7 +22,7 @@ echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >>
 opkg update && opkg install luci-app-fwlive
 ```
 
-Use `…/23.05` for OpenWrt 23.05, `…/22.03` for **22.03.x**, `…/21.02` for legacy **21.02.x (fw3)**.
+Use `…/23.05` for OpenWrt 23.05 and `…/24.10` for OpenWrt 24.10.
 
 **apk (25.12.x):**
 
@@ -48,14 +48,14 @@ Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-
 
 | OpenWrt | Artifact | Package manager |
 |---------|----------|-----------------|
-| **21.02.x** / **22.03.x** / **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg` |
+| **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg` |
 | **25.12.x** | `luci-app-fwlive-*.apk` | `apk` |
 
 The package is **`_all`** — architecture-independent. One `.ipk` or `.apk` per OpenWrt release works on any router (ARM, x86, etc.).
 
 Copy to the router and install:
 
-**OpenWrt 21.02 / 22.03 / 23.05 / 24.10** (`opkg`):
+**OpenWrt 23.05 / 24.10** (`opkg`):
 
 ```sh
 scp luci-app-fwlive_*.ipk root@192.168.1.1:/tmp/
@@ -131,7 +131,7 @@ Re-install the new version over the existing one. No LuCI configuration migratio
 
 If you used **Enable logging**, WAN zone `log` stays on across upgrades until you turn it off or uninstall the package (see below).
 
-**opkg (21.02 – 24.10):**
+**opkg (23.05 / 24.10):**
 ```sh
 opkg update && opkg install luci-app-fwlive
 ```
@@ -146,7 +146,7 @@ After upgrade, refresh the LuCI page in your browser (may need a cache-busting h
 ## Uninstall
 
 ```sh
-opkg remove luci-app-fwlive    # 21.02 / 22.03 / 23.05 / 24.10
+opkg remove luci-app-fwlive    # 23.05 / 24.10
 apk del luci-app-fwlive        # 25.12.x
 ```
 

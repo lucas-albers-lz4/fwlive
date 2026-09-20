@@ -15,16 +15,6 @@ assert_eq() {
 }
 
 assert_eq "$(feed_publish_release_asset_basename \
-	"${ROOT}/out/x86_64/21.02.7/fwlive/luci-app-fwlive_0.1.16_all.ipk")" \
-	"luci-app-fwlive_0.1.16_21.02_all.ipk" \
-	"21.02 ipk suffix"
-
-assert_eq "$(feed_publish_release_asset_basename \
-	"${ROOT}/out/x86_64/22.03.7/fwlive/luci-app-fwlive_0.1.16_all.ipk")" \
-	"luci-app-fwlive_0.1.16_22.03_all.ipk" \
-	"22.03 ipk suffix"
-
-assert_eq "$(feed_publish_release_asset_basename \
 	"${ROOT}/out/x86_64/23.05.5/fwlive/luci-app-fwlive_0.1.16_all.ipk")" \
 	"luci-app-fwlive_0.1.16_23.05_all.ipk" \
 	"23.05 ipk suffix"
@@ -38,14 +28,16 @@ fixture="$(mktemp -d)"
 staging="$(mktemp -d)"
 trap 'rm -rf "$fixture" "$staging"' EXIT
 export FEED_PUBLISH_ROOT="$fixture"
-mkdir -p "${fixture}/out/x86_64"/{21.02.7,22.03.7,23.05.5}/fwlive
-echo ipk21 > "${fixture}/out/x86_64/21.02.7/fwlive/luci-app-fwlive_0.1.16_all.ipk"
-echo ipk22 > "${fixture}/out/x86_64/22.03.7/fwlive/luci-app-fwlive_0.1.16_all.ipk"
+mkdir -p "${fixture}/out/x86_64"/{23.05.5,24.10.8,25.12.5}/fwlive
 echo ipk23 > "${fixture}/out/x86_64/23.05.5/fwlive/luci-app-fwlive_0.1.16_all.ipk"
+echo ipk24 > "${fixture}/out/x86_64/24.10.8/fwlive/luci-app-fwlive_0.1.16_all.ipk"
+echo apk25 > "${fixture}/out/x86_64/25.12.5/fwlive/luci-app-fwlive-0.1.16-r1.apk"
 feed_publish_stage_release_assets "$staging"
-test -f "$staging/luci-app-fwlive_0.1.16_21.02_all.ipk"
-test -f "$staging/luci-app-fwlive_0.1.16_22.03_all.ipk"
 test -f "$staging/luci-app-fwlive_0.1.16_23.05_all.ipk"
+test -f "$staging/luci-app-fwlive_0.1.16_24.10_all.ipk"
+test -f "$staging/luci-app-fwlive-0.1.16-r1.apk"
+staged_count="$(find "$staging" -mindepth 1 -maxdepth 1 -type f | wc -l)"
+assert_eq "$staged_count" "3" "active matrix stages exactly 23.05, 24.10, and 25.12"
 
 # Guard #144: manifest records ONE SDK image digest per target×version cell.
 # Docker is mocked so the test is hermetic (RepoDigests source + the
@@ -125,7 +117,7 @@ export MOCK_PULL_LOG="$pull_log"
 feed_publish_write_manifest "${fixture}/pull-staging" test-tag
 grep -q '^pull ghcr.io/openwrt/sdk:' "$pull_log" || { echo "FAIL: sdk_matrix_pull not called"; exit 1; }
 # Cold pin-cache: sdk_image stays the mutable tag; digest is a separate field.
-grep -q '"sdk_image": "ghcr.io/openwrt/sdk:x86-64-21.02.7"' "${fixture}/pull-staging/manifest.json" \
+grep -q '"sdk_image": "ghcr.io/openwrt/sdk:x86-64-23.05.5"' "${fixture}/pull-staging/manifest.json" \
 	|| { echo "FAIL: cold-cache sdk_image must be the tag, not the digest ref"; exit 1; }
 grep -q '"sdk_image": "ghcr.io/openwrt/sdk@sha256:' "${fixture}/pull-staging/manifest.json" \
 	&& { echo "FAIL: sdk_image must not be a digest ref"; exit 1; }
@@ -137,14 +129,16 @@ if grep -q '^pull ' "$pull_log"; then
 	exit 1
 fi
 test -f "${fixture}/manifest-staging/manifest.json"
-grep -q '"openwrt": "21.02"' "${fixture}/manifest-staging/manifest.json"
+grep -q '"openwrt": "23.05"' "${fixture}/manifest-staging/manifest.json"
 grep -q '"sha256":' "${fixture}/manifest-staging/manifest.json"
-grep -q '"sdk_image": "ghcr.io/openwrt/sdk:x86-64-21.02.7"' "${fixture}/manifest-staging/manifest.json"
+grep -q '"sdk_image": "ghcr.io/openwrt/sdk:x86-64-23.05.5"' "${fixture}/manifest-staging/manifest.json"
 grep -q '"sdk_digest": "ghcr.io/openwrt/sdk@sha256:' "${fixture}/manifest-staging/manifest.json"
 command -v node >/dev/null 2>&1 && node -e '
 	const fs = require("fs");
 	const m = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-	if (!Array.isArray(m.packages) || m.packages.length < 3) process.exit(1);
+	if (!Array.isArray(m.packages) || m.packages.length !== 3) process.exit(1);
+	const lines = m.packages.map((p) => p.openwrt).sort().join(",");
+	if (lines !== "23.05,24.10,25.12") process.exit(1);
 	for (const p of m.packages) {
 		if (!/^ghcr\.io\/openwrt\/sdk@sha256:[0-9a-f]{64}$/.test(p.sdk_digest || "")) process.exit(1);
 	}

@@ -14,7 +14,7 @@ if [[ -d "$installed/25.12" ]]; then
 	cp -a "$installed/." "$PREFIX/"
 fi
 FWLIVE_JSHN_PREFIX="$PREFIX" "$INSTALLER" --all >"$WORK/first.log"
-for release in 21.02 22.03 23.05 24.10 25.12; do
+for release in 23.05 24.10 25.12; do
 	test -x "$PREFIX/$release/bin/jshn"
 	test -f "$PREFIX/$release/share/jshn.sh"
 	test -f "$PREFIX/$release/manifest"
@@ -23,12 +23,12 @@ for release in 21.02 22.03 23.05 24.10 25.12; do
 done
 
 FWLIVE_JSHN_PREFIX="$PREFIX" "$INSTALLER" --all >"$WORK/second.log"
-test "$(grep -c 'already installed and verified' "$WORK/second.log")" -eq 5
+test "$(grep -c 'already installed and verified' "$WORK/second.log")" -eq 3
 
 mkdir -p "$WORK/scripts"
 cp "$INSTALLER" "$WORK/scripts/install-host-jshn.sh"
 cp "$ROOT/scripts/jshn-pins.txt" "$WORK/scripts/jshn-pins.txt"
-sed -i '0,/^21\.02 /s//21.02 0/' "$WORK/scripts/jshn-pins.txt"
+sed -i '0,/^23\.05 /s//23.05 0/' "$WORK/scripts/jshn-pins.txt"
 if FWLIVE_JSHN_PREFIX="$WORK/output" "$WORK/scripts/install-host-jshn.sh" --release 24.10 >"$WORK/tampered.log" 2>&1; then
 	echo "FAIL: tampered pin manifest was accepted" >&2
 	exit 1

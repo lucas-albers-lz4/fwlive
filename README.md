@@ -3,7 +3,7 @@
 [![Tests](https://github.com/lucas-albers-lz4/fwlive/actions/workflows/fwlive-test.yml/badge.svg)](https://github.com/lucas-albers-lz4/fwlive/actions/workflows/fwlive-test.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-LuCI **Firewall Live View**: a live, filterable table of firewall **LOG** events on OpenWrt (firewall4/nft on **22.03+**; fw3/iptables on legacy **21.02.x**) — inspired by OPNsense Live View, implemented as a small, portable LuCI app.
+LuCI **Firewall Live View**: a live, filterable table of firewall **LOG** events on OpenWrt (firewall4/nft on **23.05+**) — inspired by OPNsense Live View, implemented as a small, portable LuCI app.
 
 ![Firewall Live View — Simple view](docs/user/assets/fwlive-simple-view.png)
 
@@ -29,14 +29,11 @@ Host unit tests: `npm test` (runs `./scripts/fwlive-test.sh`). Legacy macOS/docs
 
 | Release | Validated patch | Firewall stack | Package format |
 |---------|-----------------|----------------|----------------|
-| **21.02.x** | **21.02.7** | fw3 / iptables (legacy, EOL) | `.ipk` (`opkg`) |
-| **22.03.x** | **22.03.7** | firewall4 / nft (EOL) | `.ipk` (`opkg`) |
-| **23.05.x** | **23.05.5** | firewall4 / nft | `.ipk` (`opkg`) |
+| **23.05.x** | **23.05.5** | firewall4 / nft (EOL) | `.ipk` (`opkg`) |
 | **24.10.x** | **24.10.8** | firewall4 / nft | `.ipk` (`opkg`) |
 | **25.12.x** | **25.12.5** | firewall4 / nft | `.apk` (`apk`) |
-| **snapshot** | latest | firewall4 / nft | `.apk` (best-effort) |
 
-**Not supported:** releases before **21.02**. Use **21.02.x** for fw3/iptables; **22.03.x** and **23.05.x** are supported but EOL — prefer **24.10+** for new deployments.
+**Not supported:** OpenWrt **21.02** / **22.03** and earlier. Historical lab notes remain in [supported releases](docs/supported-releases.md). Prefer **24.10+** for new deployments. `snapshot` is an internal SDK option only and is not a published feed.
 
 The package is **`_all`** (LuCI JS + shell) — one artifact per OpenWrt release line works on any router architecture.
 
@@ -53,9 +50,17 @@ BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
 . /etc/openwrt_release
 feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
 case "$feed" in
-  21.02|22.03|23.05|24.10) ;;
-  *)
+  23.05|24.10) ;;
+  25.12)
     echo "Release $DISTRIB_RELEASE uses apk — use the OpenWrt 25.12+ commands below" >&2
+    exit 1
+    ;;
+  21.02|22.03)
+    echo "OpenWrt $DISTRIB_RELEASE is unsupported; no published opkg feed" >&2
+    exit 1
+    ;;
+  *)
+    echo "OpenWrt $DISTRIB_RELEASE is not a published fwlive feed (23.05/24.10 opkg, 25.12 apk)" >&2
     exit 1
     ;;
 esac
@@ -89,7 +94,7 @@ More detail: [binary feed](docs/binary-feed.md) · [supported releases](docs/sup
 
 | OpenWrt | Package | Install |
 |---------|---------|---------|
-| **21.02.x** / **22.03.x** / **23.05.x** / **24.10.x** | `luci-app-fwlive_*_all.ipk` | `opkg install /tmp/luci-app-fwlive_*.ipk` |
+| **23.05.x** / **24.10.x** | `luci-app-fwlive_*_all.ipk` | `opkg install /tmp/luci-app-fwlive_*.ipk` |
 | **25.12+** | `luci-app-fwlive-*.apk` | `apk add --allow-untrusted /tmp/luci-app-fwlive-*.apk` |
 
 **Build from feed** (firmware/SDK builders):
@@ -140,7 +145,7 @@ Full paths: [Installation guide](docs/user/installation.md) · [Binary feed](doc
 
 ## Status
 
-**Basic functionality complete** — validated on **21.02.7**, **22.03.7**, **23.05.5**, **24.10.8**, and **25.12.5** (x86 KVM lab). Details: [acceptance criteria](docs/fwlive-acceptance.md).
+**Basic functionality complete** — current support floor is **23.05.5+**, with published packages for **23.05.5**, **24.10.8**, and **25.12.5**. Details: [acceptance criteria](docs/fwlive-acceptance.md).
 
 | Phase | State |
 |-------|-------|

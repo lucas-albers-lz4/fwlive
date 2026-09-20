@@ -10,7 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = Path(os.environ.get('FWLIVE_JSHN_PREFIX', Path.home() / '.cache/fwlive-jshn'))
 RPC = ROOT / 'openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive'
-RELEASES = ('21.02', '22.03', '23.05', '24.10', '25.12')
+RELEASES = ('23.05', '24.10', '25.12')
 
 
 def main():

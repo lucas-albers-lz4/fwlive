@@ -6,18 +6,26 @@ Signed **opkg** / **apk** binary feed for [`luci-app-fwlive`](https://github.com
 
 ## Install
 
-**Recommended — binary feed** (`opkg` on **21.02–24.10**, `apk` on **25.12+** from GitHub Pages). Full guide: [installation](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/user/installation.md#1-binary-feed-recommended).
+**Recommended — binary feed** (`opkg` on **23.05–24.10**, `apk` on **25.12+** from GitHub Pages). Full guide: [installation](https://github.com/lucas-albers-lz4/fwlive/blob/master/docs/user/installation.md#1-binary-feed-recommended).
 
-**opkg (21.02.x – 24.10.x)** — run on the router. It picks the feed for your OpenWrt release:
+**opkg (23.05.x – 24.10.x)** — run on the router. It picks the feed for your OpenWrt release:
 
 ```sh
 BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
 . /etc/openwrt_release
 feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
 case "$feed" in
-  21.02|22.03|23.05|24.10) ;;
-  *)
+  23.05|24.10) ;;
+  25.12)
     echo "Release $DISTRIB_RELEASE uses apk — use the OpenWrt 25.12+ commands below" >&2
+    exit 1
+    ;;
+  21.02|22.03)
+    echo "OpenWrt $DISTRIB_RELEASE is unsupported; no published opkg feed" >&2
+    exit 1
+    ;;
+  *)
+    echo "OpenWrt $DISTRIB_RELEASE is not a published fwlive feed (23.05/24.10 opkg, 25.12 apk)" >&2
     exit 1
     ;;
 esac

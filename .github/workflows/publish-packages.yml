@@ -157,7 +157,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .ci-sdk-cache/dl
-          for v in 21.02.7 22.03.7 23.05.5 24.10.8 25.12.5; do
+          for v in 23.05.5 24.10.8 25.12.5; do
             mkdir -p ".ci-sdk-cache/feeds/$v"
           done
           # #208: refuse to mkdir/chown through a symlinked cache path — sudo
@@ -170,7 +170,7 @@ jobs:
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache
 
-      - name: Build packages (21.02, 22.03, 23.05, 24.10, 25.12)
+      - name: Build packages (23.05, 24.10, 25.12)
         run: |
           set -euo pipefail
           # #269 fail-closed: no signing-secret material may exist anywhere
@@ -187,7 +187,7 @@ jobs:
             exit 1
           fi
           mkdir -p out
-          for ver in 21.02 22.03 23.05 24.10 25.12; do
+          for ver in 23.05 24.10 25.12; do
             echo "=== docker-sdk build: OpenWrt ${ver} ==="
             ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
           done

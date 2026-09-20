@@ -54,10 +54,10 @@ Before cutting a `v*` tag, make sure that the `peaceiris/actions-gh-pages` SHA i
    ```
 
    Pushing the tag triggers [`.github/workflows/publish-packages.yml`](../.github/workflows/publish-packages.yml), which:
-   - Builds packages for **21.02**, **22.03**, **23.05**, **24.10**, **25.12**
+   - Builds packages for **23.05**, **24.10**, **25.12**
    - Checks reproducible builds ([`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh))
    - Signs and deploys the feed to **`lucas-albers-lz4/fwlive-packages`** (GitHub Pages)
-   - Uploads release assets (one `.ipk` per opkg line, `.apk` for 25.12 — filenames include the OpenWrt line, e.g. `luci-app-fwlive_0.1.34_21.02_all.ipk`)
+   - Uploads release assets (one `.ipk` per opkg line, `.apk` for 25.12 — filenames include the OpenWrt line, e.g. `luci-app-fwlive_0.1.34_23.05_all.ipk`)
    - Runs a QEMU feed smoke (`smoke-from-feed` job) installing from the live feed URL — always on tag pushes (default cell **24.10**; `workflow_dispatch` can override via `feed_smoke` / `smoke_version` inputs)
 
    GitHub **immutable releases** cannot receive assets after publish. If you already published an empty release, delete it on GitHub (keep the tag) and re-run the workflow from Actions → **Run workflow**, entering the tag name.
@@ -70,8 +70,6 @@ Make sure that the GitHub Actions secrets are configured — see [binary-feed.md
 
 ```sh
 export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
-./scripts/docker-sdk.sh build --target x86-64 --version 21.02
-./scripts/docker-sdk.sh build --target x86-64 --version 22.03
 ./scripts/docker-sdk.sh build --target x86-64 --version 23.05
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 ./scripts/docker-sdk.sh build --target x86-64 --version 25.12
@@ -81,14 +79,12 @@ export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
 Artifacts:
 
 ```text
-out/x86_64/21.02.7/fwlive/luci-app-fwlive_*_all.ipk
-out/x86_64/22.03.7/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/23.05.5/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/24.10.8/fwlive/luci-app-fwlive_*_all.ipk
 out/x86_64/25.12.5/fwlive/luci-app-fwlive-*.apk
 ```
 
-GitHub Release attachments are renamed with the OpenWrt line suffix (e.g. `_21.02_all.ipk`) so multiple `_all.ipk` builds do not collide on upload.
+GitHub Release attachments are renamed with the OpenWrt line suffix (e.g. `_23.05_all.ipk`) so multiple `_all.ipk` builds do not collide on upload.
 
 Make sure that the filenames match `PKG_VERSION` in the Makefile.
 
@@ -109,7 +105,7 @@ tag range and ships a near-empty body when the range holds direct commits
 
 Include in each release (CHANGELOG section content):
 
-- Supported OpenWrt: **21.02**, **22.03**, **23.05**, **24.10** (opkg) · **25.12** (apk)
+- Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
 - Feed install: [binary-feed.md](binary-feed.md)
 - Menu: **Status → Firewall Live View**
 - Requires firewall rules with **`log`** — [enabling firewall logs](user/enabling-firewall-logs.md)
