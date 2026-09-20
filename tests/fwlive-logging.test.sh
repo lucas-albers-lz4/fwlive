@@ -109,6 +109,10 @@ out=$(build_logging_status_json)
 assert_legacy_warning_state "$out" absent "empty legacy table files"
 LEGACY_READY_BASELINE=$(json_ready_field "$out")
 [ -n "$LEGACY_READY_BASELINE" ] || die "empty legacy table files: missing ready: $out"
+printf ' \t \n\n' >"$LEGACY_IPV4"
+out=$(build_logging_status_json)
+assert_legacy_warning_state "$out" absent "whitespace-only legacy table file"
+assert_ready_unchanged "$out" "whitespace-only legacy table file"
 printf 'filter\n' >"$LEGACY_IPV4"
 out=$(build_logging_status_json)
 assert_legacy_warning_state "$out" present "IPv4 legacy table"
@@ -118,6 +122,10 @@ printf 'filter\n' >"$LEGACY_IPV6"
 out=$(build_logging_status_json)
 assert_legacy_warning_state "$out" present "IPv6 legacy table"
 assert_ready_unchanged "$out" "IPv6 legacy table"
+printf '\nfilter\n' >"$LEGACY_IPV4"
+out=$(build_logging_status_json)
+assert_legacy_warning_state "$out" present "blank-first-line legacy table"
+assert_ready_unchanged "$out" "blank-first-line legacy table"
 printf 'filter\n' >"$LEGACY_IPV4"
 printf 'nat\n' >"$LEGACY_IPV6"
 out=$(build_logging_status_json)
