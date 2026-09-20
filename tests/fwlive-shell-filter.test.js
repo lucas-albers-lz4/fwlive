@@ -207,25 +207,37 @@ function runMktempFailure() {
 		});
 		if (filtered.status === 0 && SH.includes('busybox')) {
 			// BusyBox ash resolves mktemp as a builtin, so PATH shadowing does
-			// not reach the production guard. Owner-read-only sticky mode still
-			// passes the -k check while forcing the real mktemp failure path.
-			fs.chmodSync(dir, 0o1577);
-			env = jf.env;
+			// not reach the production guard. Sticky + owner r-x (01500) still
+			// passes -d/-k and makes builtin mktemp fail for a non-root owner.
+			// 01577 was still group/other-writable, so mktemp could succeed.
+			// Root bypasses DAC, so fall back to a regular file at the path
+			// (same error token, every uid).
+			fs.chmodSync(dir, 0o1500);
 			filtered = filterSpawn([dir], {
 				input: payload,
 				encoding: 'utf8',
-				env
+				env: jf.env
 			});
+			if (filtered.status === 0) {
+				fs.rmSync(dir, { recursive: true, force: true });
+				fs.writeFileSync(dir, 'not a directory\n');
+				filtered = filterSpawn([dir], {
+					input: payload,
+					encoding: 'utf8',
+					env: jf.env
+				});
+			}
 		} else {
 			assert.ok(fs.existsSync(stubMarker), 'PATH-shadowed mktemp must run on dash/sh');
 		}
 		assert.notEqual(filtered.status, 0, 'mktemp failure must exit non-zero');
 		assert.equal(JSON.parse(filtered.stdout).error, 'filter_tempfile_failed');
-		const leftovers = fs.readdirSync(dir).filter((f) => f.startsWith('fwlive-filter.'));
-		assert.equal(leftovers.length, 0, 'mktemp failure must not leave partial temp files');
+		if (fs.statSync(dir).isDirectory()) {
+			const leftovers = fs.readdirSync(dir).filter((f) => f.startsWith('fwlive-filter.'));
+			assert.equal(leftovers.length, 0, 'mktemp failure must not leave partial temp files');
+		}
 	} finally {
 		jf.cleanup();
-		fs.chmodSync(dir, 0o755);
 		fs.rmSync(dir, { recursive: true, force: true });
 		fs.rmSync(stubDir, { recursive: true, force: true });
 	}
@@ -238,7 +250,7 @@ function runSymlinkTempDir() {
 	const payload = JSON.stringify({ log: [] });
 	try {
 		fs.chmodSync(realDir, 0o1777);
-		if (fs.existsSync(linkDir)) fs.rmSync(linkDir);
+		fs.rmSync(linkDir, { force: true });
 		fs.symlinkSync(realDir, linkDir);
 		const filtered = filterSpawn([linkDir], {
 			input: payload,
@@ -249,7 +261,7 @@ function runSymlinkTempDir() {
 		assert.equal(JSON.parse(filtered.stdout).error, 'filter_tempfile_failed');
 	} finally {
 		jf.cleanup();
-		if (fs.existsSync(linkDir)) fs.rmSync(linkDir);
+		fs.rmSync(linkDir, { force: true });
 		fs.rmSync(realDir, { recursive: true, force: true });
 	}
 }

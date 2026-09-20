@@ -643,8 +643,9 @@ function testToggleBaselineSnapshotFailed() {
 	const mutationMarker = path.join(work, 'uci-mutations');
 	const nf = makeNfLogFixtures(work);
 	fs.mkdirSync(lockDir, { recursive: true });
-	fs.mkdirSync(baselineDir, { recursive: true });
-	fs.chmodSync(baselineDir, 0o555);
+	// A regular file at the directory path makes mkdir -p fail for every uid,
+	// including root; DAC-based chmod failures do not reproduce under root.
+	fs.writeFileSync(baselineDir, 'not a directory\n');
 	makeWanUciStub(stubDir, mutationMarker, '');
 	try {
 		const env = {
@@ -671,7 +672,6 @@ function testToggleBaselineSnapshotFailed() {
 			'baseline snapshot failure must not leave a partial baseline file'
 		);
 	} finally {
-		fs.chmodSync(baselineDir, 0o755);
 		fs.rmSync(stubDir, { recursive: true, force: true });
 		fs.rmSync(work, { recursive: true, force: true });
 	}
