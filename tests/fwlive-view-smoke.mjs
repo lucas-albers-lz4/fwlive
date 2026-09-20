@@ -126,6 +126,33 @@ async function testSegmentToggles(page) {
 	console.log('OK: segment aria-pressed toggles');
 }
 
+async function testFixtureRowsAndTextSafety(page) {
+	await clearFilters(page);
+	await page.waitForFunction(() =>
+		document.querySelectorAll('#fwlive-table tbody tr').length >= 6,
+		{ timeout: 10000 }
+	);
+	const result = await page.evaluate(() => {
+		const table = document.getElementById('fwlive-table');
+		return {
+			text: table ? table.textContent || '' : '',
+			images: table ? table.querySelectorAll('img').length : 0,
+			ansi: table ? (table.textContent || '').indexOf('\u001b[31mDROP\u001b[0m') >= 0 : false
+		};
+	});
+	if (!result.text.includes('2001:db8::1') || !result.text.includes('2001:db8::2'))
+		throw new Error('IPv6 fixture must remain visible in the detailed table');
+	if (!result.text.includes('<img src=x onerror=alert(1)>'))
+		throw new Error('hostile message fixture must remain visible as text');
+	if (!result.text.includes('x'.repeat(320)))
+		throw new Error('overlong one-line message must remain available in full');
+	if (!result.ansi)
+		throw new Error('ANSI message fixture must remain visible without interpretation');
+	if (result.images !== 0)
+		throw new Error('hostile message fixture must not create an img element');
+	console.log('OK: IPv6, one-line, ANSI, overlong, and hostile-row fixtures');
+}
+
 async function testHostnamesToggle(page) {
 	await clearFilters(page);
 	/* Simple view so filteredRows() still has the canned log IPs. */
@@ -193,6 +220,114 @@ async function testPollErrorBanner(page) {
 	}
 }
 
+async function testAdaptiveSummaryAndWarnings(page) {
+	await page.evaluate(async () => {
+		window.__fwlivePrevPollMock = window.setFwlivePollMock(async function() {
+			await new Promise((resolve) => setTimeout(resolve, 1600));
+			return {
+				log: [{
+					id: 99,
+					time: 1704067299,
+					msg: 'fw4: DROP IN=wan SRC=2001:db8::99 DST=2001:db8::100 PROTO=TCP'
+				}],
+				adaptive: 1,
+				effective_limit: 25,
+				messages_received: 1,
+				truncated: 1,
+				shed: { level: 'hot', limit: 25 },
+				summary: {
+					top_talkers: [{ value: '<summary-host>', count: 1 }],
+					top_drops: [{ value: '2001:db8::99', count: 1 }],
+					top_rules: [{ value: '<summary-rule>', count: 1 }]
+				}
+			};
+		});
+		await window.fwliveView.fetchEntries();
+	});
+	await page.waitForFunction(() => {
+		const view = window.fwliveView;
+		const card = document.getElementById('fwlive-summary');
+		return view && view.summaryMode && card && card.style.display === 'block';
+	}, { timeout: 10000 });
+	const banner = await page.locator('#fwlive-adaptive').textContent();
+	const summary = await page.locator('#fwlive-summary-body').textContent();
+	if (!/Server shedding/i.test(banner || '') || !/25/.test(banner || ''))
+		throw new Error(`adaptive shedding banner missing: ${banner}`);
+	if (!String(summary).includes('<summary-host>') || !String(summary).includes('2001:db8::99'))
+		throw new Error(`summary fixture missing expected text: ${summary}`);
+	if (await page.locator('#fwlive-summary-body img').count())
+		throw new Error('summary values must remain text nodes');
+
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		view.loggingStatus = Object.assign({}, view.loggingStatus, {
+			warnings: ['timeout_missing', 'legacy_iptables_detected']
+		});
+		view.firewallBackend = 'nft';
+		view.lastRulesError = null;
+		view.updateBackendUi();
+	});
+	const warnings = await page.locator('#fwlive-backend').textContent();
+	if (!/timeout command missing/i.test(warnings || '') || !/legacy iptables table/i.test(warnings || ''))
+		throw new Error(`warning rendering missing: ${warnings}`);
+
+	await page.evaluate(() => {
+		window.setFwlivePollMock(window.__fwlivePrevPollMock);
+		delete window.__fwlivePrevPollMock;
+		window.fwliveView.leaveSummaryMode();
+	});
+	console.log('OK: adaptive summary, shedding, and warning rendering');
+}
+
+async function testStorageFailure(page) {
+	await page.evaluate(() => {
+		const proto = Storage.prototype;
+		const desc = Object.getOwnPropertyDescriptor(proto, 'setItem');
+		Object.defineProperty(proto, 'setItem', {
+			configurable: true,
+			value: function() { throw new Error('storage denied'); }
+		});
+		try {
+			const view = window.fwliveView;
+			view.saveViewMode();
+			view.saveShowHostnames();
+			view.saveRowTint();
+		} finally {
+			Object.defineProperty(proto, 'setItem', desc);
+		}
+	});
+	console.log('OK: storage failure paths are best effort');
+}
+
+async function testResolverError(page) {
+	await page.evaluate(async () => {
+		const view = window.fwliveView;
+		view.showHostnames = true;
+		view.hostnameCache.clear();
+		view.hostnameFailed.clear();
+		view.resolveLoadShed = false;
+		view.resolveShedUntil = 0;
+		window.__fwlivePrevResolveMock = window.setFwliveResolveMock(function() {
+			return { names: {}, error: 'no_resolver' };
+		});
+		await view.resolveHostnamesForEntries([
+			{ src: '2001:db8::1', dst: '2001:db8::2' }
+		]);
+	});
+	const state = await page.evaluate(() => ({
+		failed: window.fwliveView.hostnameFailed.size,
+		shed: window.fwliveView.resolveLoadShed,
+		inFlight: window.fwliveView.resolveInFlight
+	}));
+	if (state.failed !== 0 || state.shed || state.inFlight)
+		throw new Error(`resolver error mutated hostname state: ${JSON.stringify(state)}`);
+	await page.evaluate(() => {
+		window.setFwliveResolveMock(window.__fwlivePrevResolveMock);
+		delete window.__fwlivePrevResolveMock;
+	});
+	console.log('OK: resolver-error reply path');
+}
+
 async function testRulesTruncatedDegraded(page) {
 	/* Tier-2 Gap 1 (#274): a truncated rules reply degrades the backend span
 	 * while the counter and paused class still render (~256-rules shape). */
@@ -257,8 +392,12 @@ async function runSmoke(browser) {
 		await testProtoCustomWins(page);
 		await testChipInvert(page);
 		await testSegmentToggles(page);
+		await testFixtureRowsAndTextSafety(page);
 		await testHostnamesToggle(page);
 		await testPollErrorBanner(page);
+		await testAdaptiveSummaryAndWarnings(page);
+		await testStorageFailure(page);
+		await testResolverError(page);
 		await testRulesTruncatedDegraded(page);
 
 		if (pageErrors.length)

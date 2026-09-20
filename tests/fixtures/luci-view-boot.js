@@ -35,7 +35,10 @@
 	const CANNED_LOGS = [
 		{ id: 1, time: 1704067200, msg: 'fw4: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP SPT=1234 DPT=443' },
 		{ id: 2, time: 1704067201, msg: 'iptables: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22' },
-		{ id: 3, time: 1704067202, msg: 'fw4: IN=wan OUT= SRC=192.0.2.3 DST=192.0.2.4 PROTO=UDP SPT=53 DPT=53' }
+		{ id: 3, time: 1704067202, msg: 'fw4: IN=wan OUT= SRC=192.0.2.3 DST=192.0.2.4 PROTO=UDP SPT=53 DPT=53' },
+		{ id: 4, time: 1704067203, msg: 'fw4: DROP IN=wan OUT= SRC=2001:db8::1 DST=2001:db8::2 PROTO=TCP SPT=443 DPT=8443' },
+		{ id: 5, time: 1704067204, msg: 'fw4: ACCEPT IN=wan OUT=br-lan SRC=198.51.100.9 DST=192.0.2.9 PROTO=TCP MSG=<img src=x onerror=alert(1)> ANSI \u001b[31mDROP\u001b[0m' },
+		{ id: 6, time: 1704067205, msg: 'fw4: DROP IN=wan OUT= SRC=198.51.100.10 DST=192.0.2.10 PROTO=TCP ' + 'x'.repeat(320) }
 	];
 
 	const NAME_MAP = {
@@ -44,7 +47,9 @@
 		'203.0.113.5': 'attacker',
 		'192.168.1.1': 'router',
 		'192.0.2.3': 'udp-src',
-		'192.0.2.4': 'udp-dst'
+		'192.0.2.4': 'udp-dst',
+		'2001:db8::1': 'ipv6-src',
+		'2001:db8::2': 'ipv6-dst'
 	};
 
 	window.fwliveResolveCalls = [];
@@ -107,6 +112,12 @@
 	window.setFwliveRulesMock = function(fn) {
 		const prev = rpcMocks['fwlive.rules'];
 		rpcMocks['fwlive.rules'] = fn;
+		return prev;
+	};
+
+	window.setFwliveResolveMock = function(fn) {
+		const prev = rpcMocks['fwlive.resolve'];
+		rpcMocks['fwlive.resolve'] = fn;
 		return prev;
 	};
 
