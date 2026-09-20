@@ -163,6 +163,7 @@ echo "== fwlive view fetch budget (#347) ==" >&2
 "$NODE" tests/fwlive-layer2-performance-rpc.test.mjs
 bash tests/qemu-forwarding-slo-net.test.sh
 bash tests/qemu-forwarding-slo-harness.test.sh
+bash tests/qemu-acl-session-harness.test.sh
 
 echo "== fwlive LuCI-accurate E() harness (#149) ==" >&2
 "$NODE" tests/fwlive-e-harness.test.js
