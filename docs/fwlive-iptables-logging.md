@@ -6,8 +6,8 @@ Firewall Live View reads **logd** — the same pipeline as fw4. On iptables back
 
 **Support:**
 
-- **21.02.x (legacy fw3):** iptables LOG is the **primary** path — lab-tested on 21.02.7 x86. Install the **21.02 SDK-built ipk** only.
-- **22.03.x / 23.05+:** **firewall4/nft** is the supported path; **iptables LOG** is best-effort when `/usr/sbin/iptables` is present without nft.
+- **Supported releases (23.05+):** **firewall4/nft** is the rules-map path. Log lines tagged `iptables` (including `iptables-nft` / `xt_LOG`) still classify. Standalone iptables-legacy is unsupported and only diagnosed.
+- **21.02.x / 22.03.x:** unsupported. Historical lab notes only — no published feed or SDK matrix cell. See [supported releases](supported-releases.md#2102x-historical).
 
 **This is not iptables TRACE.** Silent rule hits without LOG never appear in the table.
 

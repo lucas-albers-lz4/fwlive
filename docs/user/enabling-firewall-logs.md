@@ -1,6 +1,6 @@
 # Enabling firewall logs
 
-Firewall Live View shows traffic only when the firewall writes firewall-shaped lines to **logd** — via **nftables / fw4** on 22.03+, or via **iptables LOG / fw3** on 21.02.x. The UI reads those lines. It does not tap the firewall directly.
+Firewall Live View shows traffic only when the firewall writes firewall-shaped lines to **logd** — via **nftables / fw4** on **23.05+**. Log lines tagged `iptables` still classify. OpenWrt **21.02** / **22.03** are unsupported. The UI reads those lines. It does not tap the firewall directly.
 
 **After a fresh install the table is usually empty.** Stock OpenWrt rarely logs traffic until you turn logging on.
 
@@ -145,5 +145,5 @@ Kernel modules, Docker caveats, and custom chains:
 Deep configuration lives in the reference files:
 
 - **[fwlive-nft-logging.md](../fwlive-nft-logging.md)** — kernel `nf_log` modules, Docker caveats, custom chains, prefix pitfalls.
-- **[fwlive-iptables-logging.md](../fwlive-iptables-logging.md)** — iptables / fw3 (21.02.x) LOG reference.
+- **[fwlive-iptables-logging.md](../fwlive-iptables-logging.md)** — iptables-tagged log lines and historical fw3 notes.
 - **[Using the UI](using-the-ui.md)** — the empty state and watch-strip controls.
