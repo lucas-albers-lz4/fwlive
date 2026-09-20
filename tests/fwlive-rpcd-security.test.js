@@ -114,9 +114,8 @@ function testUnknownMethod() {
 }
 
 function testRulesNoBackend() {
-	// nft fails and iptables-save is absent from PATH, so detection yields
-	// unknown. Assumes the host has no real iptables-save (true on Ubuntu
-	// CI runners and containers; OpenWrt device CI must keep it so).
+	// nft fails, so detection yields unknown. There is no iptables-save
+	// fallback (#378 Phase 2).
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-nobe-'));
 	try {
 		makePassthrough(stubDir, 'dirname', '/usr/bin/dirname');
@@ -166,53 +165,45 @@ exit 1
 	}
 }
 
-function testRulesIptablesDumpFailure() {
-	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-iptf-'));
-	try {
-		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
-		makeStub(stubDir, 'iptables-save', '#!/bin/sh\nexit 1\n');
-		// ip6tables-save not stubbed -> command -v returns false -> skipped
-		// (tests the IPv4-only failure path so ip6tables_failed isn't masked
-		// by an unrelated stub)
-		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
-		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
-		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
-		const res = JSON.parse(raw);
-		assert.equal(res.backend, 'iptables');
-		assertStructuredError(res, 'rules/iptables_failed');
-		assert.equal(res.error, 'iptables_failed');
-	} finally {
-		fs.rmSync(stubDir, { recursive: true, force: true });
-	}
-}
-
-function testRulesIp6tablesDumpFailure() {
-	// ip6tables-save present and failing must surface ip6tables_failed even
-	// when the IPv4 dump succeeded: a partial-success map must not look
-	// healthy to the UI.
-	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-ip6f-'));
+function testRulesNoIptablesFallback() {
+	// nft fails; iptables-save / ip6tables-save on PATH must not become the
+	// rules backend or be invoked (#378 Phase 2).
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-nobe-ipt-'));
 	try {
 		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
 		makeStub(
 			stubDir,
 			'iptables-save',
 			`#!/bin/sh
-cat <<'EOF'
--A INPUT -j LOG --log-prefix "ipv4-only"
-EOF
+echo called >> "${stubDir}/ipt-called"
+exit 1
 `
 		);
-		makeStub(stubDir, 'ip6tables-save', '#!/bin/sh\nexit 1\n');
+		makeStub(
+			stubDir,
+			'ip6tables-save',
+			`#!/bin/sh
+echo called >> "${stubDir}/ip6-called"
+exit 1
+`
+		);
 		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
 		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
 		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
 		const res = JSON.parse(raw);
-		assert.equal(res.backend, 'iptables');
-		assertStructuredError(res, 'rules/ip6tables_failed');
-		assert.equal(res.error, 'ip6tables_failed');
-		// IPv4 enrichment must still be present: a failed ip6 dump must not
-		// mask the IPv4 rules that did make it through.
-		assert.equal(res.rules['ipv4-only'], 'ipv4 only');
+		assert.equal(res.backend, 'unknown');
+		assertStructuredError(res, 'rules/no_backend');
+		assert.equal(res.error, 'no_backend');
+		assert.equal(
+			fs.existsSync(path.join(stubDir, 'ipt-called')),
+			false,
+			'iptables-save must not run'
+		);
+		assert.equal(
+			fs.existsSync(path.join(stubDir, 'ip6-called')),
+			false,
+			'ip6tables-save must not run'
+		);
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 	}
@@ -713,8 +704,7 @@ testUnknownMethod();
 testAclMethodParity();
 testRulesNoBackend();
 testRulesNftDumpFailure();
-testRulesIptablesDumpFailure();
-testRulesIp6tablesDumpFailure();
+testRulesNoIptablesFallback();
 testPollMessagesReceived();
 testPollUbusFailure();
 testAdaptiveHotSurvivesFailedPoll();

@@ -1,7 +1,7 @@
 # Security review state
 
 > **Status:** 55 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
-> **Current delta:** 2026-09-19 #384 live `/proc/net/if_inet6` check on the current 24.10.8 and 25.12.5 QEMU pins (stock stack present including `lo`; `ipv6.disable=1` missing file; IPv4-only enable allowed). Prior: #371 nf_log backend normalization and independent IPv6 family readiness, plus #383 follow-up to #373: no-zone candidates now travel through `logging_status` and render as text nodes in the LuCI empty state and toolbar; host-focused and full-suite validation; no ACL, DOM sink, read/write-scope, or HTML sink change.
+> **Current delta:** 2026-09-19 #378 Phase 2 rpcd rules map is nft-only (`iptables-save` dump path and `__rulesmap_iptables` CLI hook removed; detect failure is `unknown`/`no_backend`; nft dump failure keeps `nft_failed`). Prior: 2026-09-19 #384 live `/proc/net/if_inet6` check on the current 24.10.8 and 25.12.5 QEMU pins (stock stack present including `lo`; `ipv6.disable=1` missing file; IPv4-only enable allowed). Prior: #371 nf_log backend normalization and independent IPv6 family readiness, plus #383 follow-up to #373: no-zone candidates now travel through `logging_status` and render as text nodes in the LuCI empty state and toolbar; host-focused and full-suite validation; no ACL, DOM sink, read/write-scope, or HTML sink change.
 > **Last review:** 2026-09-18 delta on #365/#366 behavior-preserving view/rpcd refactors (rules-map dump paths, selftest comparisons, and logging-toggle handler sequencing; host gates green; no ACL, DOM sink, or command-input change); prior 2026-09-16 delta on #347 frozen Auto/Manual fetch-budget contract (validated browser-local discrete values, success-only `effective_limit`, error-path omission, and status text via `textContent`; no ACL change); prior 2026-09-15 delta on #339 weak-device 250-row display cap (server boolean gate, status text via `textContent`, no ACL or HTML-sink change) and candidate browser matrix; prior 2026-09-15 delta on #306 request serialization, filter-failure health gating (structured error-key match and secure sticky-/tmp tempfile), conservative UTF-8 summary bound, and cooldown-expiry probing (no ACL or DOM-sink change); prior 2026-09-15 delta on #306 bounded server summary aggregation (same classifier pass, escaped JSON byte cap, adaptive-off omission) and summary UI (`textContent` only); prior 2026-09-14 delta on accurate `messages_received` counting (filter-side `jsonfilter` enumeration, one awk pass, no duplicate reply key) and Layer 3 weak-device procfs detection (read-only `MemTotal`/processor count, fail-closed boolean, no ACL change); prior 2026-09-13 delta on #306 Layer 2 client backoff (visibility pause, RTT cadence, adaptive/shed banners via `textContent` only; resolve `disabled:load` without treating as DNS fail); prior 2026-09-12 delta on #306 Layer 1 adaptive poll cap (always-on; test/triage override via env/sentinel; state file flock; no UCI); prior 2026-09-11 delta on release-notes pipeline (#322 follow-up); shell-helpers delta same day (#321/#308); full-surface housekeeping review 2026-09-08 (H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
 > **Open:** None from #293. Housekeeping may still emit `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24) lands plan-aware scanning.
 > **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
@@ -28,6 +28,8 @@ reopen an accepted residual without new evidence.
 | Supply chain | Unpinned tooling, signing keys, feed trust |
 
 > **2026-09-19 #370 delta:** Host coverage now pins exact rpcd/ACL method parity and read/write isolation, representative reply-shape fixtures, hostile table text under the recording LuCI E harness, fail-closed shell cases, IPv6 PTR parsing, fuzzy PO rejection, and ipk/apk payload layout/modes. The filter accepts an explicit dump directory for host fidelity, while the production rpcd caller passes /tmp; no ACL grant or DOM sink changed.
+
+> **2026-09-19 #378 Phase 2 delta:** `rules` is nft-only. The `iptables-save` dump path, `IPTABLES_TIMEOUT`, and `__rulesmap_iptables` CLI hook are gone. Detect failure is `unknown`/`no_backend`; a selected nft dump still uses `nft_failed`. Sticky `/tmp`, mktemp fail-closed, timeout, size/key caps, and first-wins dedup are unchanged. No ACL, DOM sink, or LuCI change.
 
 > **2026-09-19 #373 delta:** WAN-zone selection now considers the exact zone name `wan` or effective `network` membership in `wan`/`wan6`, where an omitted network option falls back to the zone name. The first matching zone in firewall config order wins; no-zone replies JSON-escape the discovered zone names. The repository's 25.12-era firewall/network fixtures and lab preparation scripts were also checked for device- or subnet-scoped firewall zones; none appeared, so no device tokens were added to the match set. No ACL, command-input, or DOM-sink change.
 
@@ -62,7 +64,7 @@ should carry a note saying what would raise it.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-08-13 | Sweep + harness | #177: #175/#176 UI delta on recording-`innerHTML` harness; no non-empty innerHTML writes |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
-| rpcd plugin + ACL scope | 2026-09-18 | Delta + host test | #365/#366 B1/B2: rules-map dump extraction preserves backend gating/error precedence; selftest comparison extraction preserves stderr and exit behavior; read/write split, no `ubus log.*`, and CLI-only methods unchanged |
+| rpcd plugin + ACL scope | 2026-09-19 | Delta + host test | #378 Phase 2: `rules` is nft-only; no `iptables-save` fallback or `__rulesmap_iptables` CLI hook; nft dump/mktemp/no_backend error contract unchanged; read/write split, no `ubus log.*` |
 | Shell helpers — injection and quoting | 2026-09-18 | Delta + host test | #365/#366: paired dump command/mapper cases retain quoted temp paths and timeout argv; `check_eq` quotes values and propagates failure explicitly; no new command-input sink |
 | Shell helpers — **file modes and lock ownership** | 2026-08-31 | Reproduced | #204 symlink reject + #232 BusyBox-safe dir check (`[ -O ]` + `find -perm`, no `stat -c`); Parts E/F in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-08-22 | Read + host test | `/etc/fwlive/wan-log-baseline`; restore only on `remove` |
@@ -126,10 +128,10 @@ should carry a note saying what would raise it.
 | Lock path rejects symlinks before truncate/chmod/chown | `host` | `tests/fwlive-logging-lock.test.sh` Part E — #204 |
 | Production lock dir check works without `stat -c` (BusyBox `STAT=n`) | `host` | `wan_log_lock_dir_safe`: `[ -O ]` + `find -prune -perm`; Part F shadows `stat` |
 | Rules map prefers `!fw4:` labels over earlier cosmetics for the same prefix (UCI still first-wins) | `host` | labeled-then-unlabeled passes; `tests/fwlive-rules-map.test.js` `testFw4LabeledBeatsCosmetic` |
-| `iptables-save` / `ip6tables-save` bounded by `IPTABLES_TIMEOUT`; rules map key/byte capped | `host` | `testIptablesSaveTimeout`, `testRulesMapKeyBound` |
+| `nft list ruleset` bounded by `NFT_TIMEOUT`; rules map key/byte capped | `host` | `testRulesMapKeyBound`, `testRulesMapByteBound` |
 | mktemp-skip on rules map surfaces `error:mktemp_failed` | `host` | `testNoMktempGracefulDegradation` |
-| `rules` dump failure surfaces `error:nft_failed` / `error:iptables_failed` / `error:ip6tables_failed` (partial-success still partial — IPv4 keys stay if only the IPv6 dump failed), never a silent empty map | `host` | `tests/fwlive-rpcd-security.test.js` `testRulesNftDumpFailure` / `testRulesIptablesDumpFailure` / `testRulesIp6tablesDumpFailure` |
-| `rules` with no usable backend surfaces `error:no_backend` | `host` | same file `testRulesNoBackend` |
+| `rules` dump failure surfaces `error:nft_failed`, never a silent empty map | `host` | `tests/fwlive-rpcd-security.test.js` `testRulesNftDumpFailure` |
+| `rules` is nft-only: missing nft or a failed detect dump is `unknown`/`no_backend`; `iptables-save` on PATH is not invoked | `host` | same file `testRulesNoBackend` / `testRulesNoIptablesFallback` |
 | Dead `logd` on `poll` returns `error:log_read_failed`, not an empty table | `host` | same file `testPollUbusFailure` |
 | Adaptive poll cap always on; no UCI; disable only via `FWLIVE_ADAPTIVE=0` or sentinel next to state under `/var/run` (not world-writable `/tmp`) | `host` | `tests/fwlive-adaptive-cap.test.sh`; reply carries `adaptive` |
 | Adaptive poll replies add `effective_limit` only for successful adaptive responses; all six filter/read error paths omit it and preserve accurate `messages_received` without duplicate keys | `host` | `fwlive_adaptive_merge_reply` success flag; `tests/fwlive-adaptive-cap.test.sh`; `tests/fwlive-rpcd-security.test.js` |
@@ -581,3 +583,23 @@ host procfs; no host kernel state or privilege is required.
 
 **Result.** Focused logging tests pass. No ACL, DOM-sink, or read/write-scope
 change was made.
+
+### 2026-09-19 — #378 Phase 2 nft-only rules map
+
+**Scope.** `root/usr/libexec/rpcd/fwlive` `rules` no longer dumps
+`iptables-save`/`ip6tables-save`. Detection is nft-only: missing nft or a
+failed detect dump returns `backend: "unknown"` with `error: "no_backend"`.
+A later nft dump failure keeps `error: "nft_failed"`. The CLI-only
+`__rulesmap_iptables` hook and `/tmp/rulesmap` fixture path are removed.
+Sticky-directory, mktemp, `NFT_TIMEOUT`, size/key caps, first-wins dedup,
+and the nft JSON shape are unchanged. LuCI, classifier, and log
+normalization are out of scope.
+
+**Method.** Host tests under dash (and busybox sh when PATH honours stubs):
+`tests/fwlive-rpcd-security.test.js` (nft dump failure, no-backend, no
+iptables fallback) and `tests/fwlive-rules-map.test.js` (nft success,
+mktemp skip, key/byte truncation). #394 ACL exact-array and toggle
+lock/baseline failure coverage is retained.
+
+**Result.** No ACL, DOM-sink, or read/write-scope change. The deleted CLI
+hook is no longer a privileged surface.

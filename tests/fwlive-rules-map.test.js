@@ -14,65 +14,6 @@ const FILTER_SH = path.join(ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh');
 const LOGGING_SH = path.join(ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh');
-const FIXTURE = path.join(__dirname, 'fixtures', 'iptables-save.sample');
-const RULESMAP = '/tmp/rulesmap';
-const RULESMAP_LOCK = '/tmp/fwlive-rulesmap-test.lock';
-
-function withFileLock(lockPath, fn) {
-	// mkdir is atomic; busy-wait with 50ms sleep. Break a stale lock left
-	// after SIGKILL (mtime older than 60s) so CI cannot hang 5s forever (#231).
-	const deadline = Date.now() + 5000;
-	while (true) {
-		try {
-			fs.mkdirSync(lockPath);
-			break;
-		} catch (e) {
-			if (e.code !== 'EEXIST') throw e;
-			if (Date.now() > deadline) {
-				try {
-					const st = fs.statSync(lockPath);
-					if (Date.now() - st.mtimeMs > 60000) {
-						fs.rmdirSync(lockPath);
-						continue;
-					}
-				} catch { /* gone */ }
-				throw new Error('lock timeout ' + lockPath);
-			}
-			try { execFileSync('sleep', ['0.05']); } catch {}
-		}
-	}
-	try {
-		return fn();
-	} finally {
-		try { fs.rmdirSync(lockPath); } catch {}
-	}
-}
-
-function runRedirectPath() {
-	// Production pins RULESMAP_IPTABLES_FILE to /tmp/rulesmap for security
-	// (no arbitrary argv path). This test must use the fixed path but
-	// serialize concurrent invocations via a mkdir lock to avoid races.
-	withFileLock(RULESMAP_LOCK, () => {
-		fs.copyFileSync(FIXTURE, RULESMAP);
-		const raw = execFileSync(RPCD, ['__rulesmap_iptables'], { encoding: 'utf8' });
-		const res = JSON.parse(raw);
-		assert.equal(res.backend, 'iptables');
-		assert.equal(res.rules['fwlive-ping'], 'fwlive-ping');
-		assert.equal(res.rules['allow-dns'], 'Allow-DNS');
-		// Fixed path only: argv fixture path must not be readable when /tmp/rulesmap is gone.
-		fs.unlinkSync(RULESMAP);
-		let failed = false;
-		try {
-			execFileSync(RPCD, ['__rulesmap_iptables', FIXTURE], {
-				encoding: 'utf8',
-				stdio: ['ignore', 'pipe', 'pipe'],
-			});
-		} catch (e) {
-			failed = e.status !== 0;
-		}
-		assert.equal(failed, true, 'arbitrary argv path must not be accepted');
-	});
-}
 
 function makeStub(dir, name, content) {
 	const p = path.join(dir, name);
@@ -343,45 +284,6 @@ exit 0
 	}
 }
 
-function testProductionIptables() {
-	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ipt-'));
-	try {
-		makeStub(stubDir, 'iptables-save', `#!/bin/sh
-cat <<'EOF'
--A INPUT -m comment --comment "Allow-SSH" -j LOG --log-prefix "fwlive-ssh "
--A FORWARD -m comment --comment "Allow-DNS" -j LOG --log-prefix "allow-dns "
-EOF
-`);
-		makeStub(stubDir, 'uci', `#!/bin/sh
-exit 0
-`);
-		// Ensure no nft on PATH for this test: shadow with failing stub
-		makeStub(stubDir, 'nft', `#!/bin/sh
-exit 1
-`);
-		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		const shells = posixShells();
-		for (const shell of shells) {
-			let raw;
-			try {
-				raw = runWithShell(shell, env);
-			} catch (e) {
-				if (e.code === 'ENOENT') continue;
-				throw e;
-			}
-			const res = JSON.parse(raw);
-			assert.equal(res.backend, 'iptables', `[${shell}] backend should be iptables`);
-			// iptables log-prefix must reach OUT (catches pipeline-subshell or missing normalize)
-			assert.equal(res.rules['fwlive-ssh'], 'Allow-SSH', `[${shell}] iptables fwlive-ssh`);
-			assert.equal(res.rules['allow-dns'], 'Allow-DNS', `[${shell}] iptables allow-dns slug or raw`);
-			// raw check: no trailing-space key (catches nft-only normalize)
-			assert.equal((raw.match(/"fwlive-ssh "/g) || []).length, 0, `[${shell}] raw must not contain trailing-space key`);
-		}
-	} finally {
-		fs.rmSync(stubDir, { recursive: true, force: true });
-	}
-}
-
 function testDuplicateKeys() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-dup-'));
 	try {
@@ -422,50 +324,18 @@ exit 0
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 	}
-	// Also test iptables duplicate via stub (prefix normalized, so trailing space stripped still dup)
-	const stubDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-dup2-'));
-	try {
-		makeStub(stubDir2, 'iptables-save', `#!/bin/sh
-cat <<'EOF'
--A INPUT -j LOG --log-prefix "fwlive-wan"
-EOF
-`);
-		makeStub(stubDir2, 'nft', `#!/bin/sh
-exit 1
-`);
-		makeStub(stubDir2, 'uci', `#!/bin/sh
-exit 0
-`);
-		const env = { ...process.env, PATH: `${stubDir2}:${process.env.PATH}` };
-		const shells = posixShells();
-		for (const shell of shells) {
-			let raw;
-			try {
-				raw = runWithShell(shell, env);
-			} catch (e) {
-				if (e.code === 'ENOENT') continue;
-				throw e;
-			}
-			const count = (raw.match(/"fwlive-wan":/g) || []).length;
-			assert.equal(count, 1, `[${shell}] iptables duplicate key should be 1, got ${count} in ${raw}`);
-		}
-	} finally {
-		fs.rmSync(stubDir2, { recursive: true, force: true });
-	}
 }
 
 // --- New tests for R3 findings ---
 
-function testIdempotentNormalizationCrossBackend() {
+function testIdempotentNormalization() {
 	// Verifies BLOCKER: normalize_log_prefix must be idempotent and strip all
-	// trailing colons/spaces in any interleaving (foo:: , foo: : , etc.)
-	// and nft vs iptables must emit identical keys.
+	// trailing colons/spaces in any interleaving (foo:: , foo: : , etc.).
 	const cases = [
 		{ raw: 'zz::', expect: 'zz' },
 		{ raw: 'foo:: ', expect: 'foo' },
 	];
 	for (const c of cases) {
-		// nft
 		const stubNft = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-xnft-'));
 		try {
 			makeStub(stubNft, 'nft', `#!/bin/sh
@@ -489,79 +359,11 @@ exit 0
 				let raw;
 				try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 				const res = JSON.parse(raw);
-				// nft must emit normalized key (catches single-colon strip); raw must not contain buggy key
 				assert.equal(res.rules[c.expect], c.expect.split('-').join(' '), `[${shell}] nft ${c.raw} -> ${c.expect}`);
 				assert.equal(res.rules[c.raw], undefined, `[${shell}] nft buggy key ${c.raw} must not exist`);
 				assert.equal((raw.match(new RegExp('"' + c.expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '":')) || []).length, 1, `[${shell}] nft raw should have exactly one ${c.expect}`);
 			}
 		} finally { fs.rmSync(stubNft, { recursive: true, force: true }); }
-
-		// iptables
-		const stubIpt = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-xipt-'));
-		try {
-			makeStub(stubIpt, 'iptables-save', `#!/bin/sh
-cat <<'EOF'
--A INPUT -j LOG --log-prefix "${c.raw}"
-EOF
-`);
-			makeStub(stubIpt, 'nft', `#!/bin/sh
-exit 1
-`);
-			makeStub(stubIpt, 'uci', `#!/bin/sh
-exit 0
-`);
-			const env = { ...process.env, PATH: `${stubIpt}:${process.env.PATH}` };
-			for (const shell of posixShells()) {
-				let raw;
-				try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
-				const res = JSON.parse(raw);
-				assert.equal(res.rules[c.expect], c.expect.split('-').join(' '), `[${shell}] iptables ${c.raw} -> ${c.expect}`);
-				assert.equal(res.rules[c.raw], undefined, `[${shell}] iptables buggy key ${c.raw} must not exist`);
-			}
-		} finally { fs.rmSync(stubIpt, { recursive: true, force: true }); }
-	}
-
-	// Cross-backend identical key check for zz:: and foo::  (catches double-normalization drift)
-	const nftDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-cross-nft-'));
-	const iptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-cross-ipt-'));
-	try {
-		makeStub(nftDir, 'nft', `#!/bin/sh
-if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
-cat <<'EOF'
-table inet fw4 { chain input { log prefix "zz::" } }
-EOF
-else
-	exit 1
-fi
-`);
-		makeStub(nftDir, 'uci', `#!/bin/sh
-exit 0
-`);
-		makeStub(iptDir, 'iptables-save', `#!/bin/sh
-cat <<'EOF'
--A INPUT -j LOG --log-prefix "zz::"
-EOF
-`);
-		makeStub(iptDir, 'nft', `#!/bin/sh
-exit 1
-`);
-		makeStub(iptDir, 'uci', `#!/bin/sh
-exit 0
-`);
-		for (const shell of posixShells()) {
-			let rawNft, rawIpt;
-			try { rawNft = runWithShell(shell, { ...process.env, PATH: `${nftDir}:${process.env.PATH}` }); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
-			try { rawIpt = runWithShell(shell, { ...process.env, PATH: `${iptDir}:${process.env.PATH}` }); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
-			const n = JSON.parse(rawNft);
-			const i = JSON.parse(rawIpt);
-			// identical key on both backends (catches nft-once vs iptables-twice drift)
-			assert.equal(n.rules['zz'], 'zz', `[${shell}] nft zz`);
-			assert.equal(i.rules['zz'], 'zz', `[${shell}] iptables zz`);
-			assert.equal(JSON.stringify(n.rules['zz']), JSON.stringify(i.rules['zz']), `[${shell}] cross-backend zz identical`);
-		}
-	} finally {
-		fs.rmSync(nftDir, { recursive: true, force: true });
-		fs.rmSync(iptDir, { recursive: true, force: true });
 	}
 }
 
@@ -718,48 +520,6 @@ exit 0
 	} finally { fs.rmSync(stubDir3, { recursive: true, force: true }); }
 }
 
-function testIpv4Ipv6BothContributing() {
-	// Both IPv4 and IPv6 fragments must contribute distinct keys, and duplicate
-	// across fragments (fwlive-wan on both) must still be deduped via global OUT
-	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ip46-'));
-	try {
-		makeStub(stubDir, 'iptables-save', `#!/bin/sh
-cat <<'EOF'
--A INPUT -j LOG --log-prefix "ipv4-rule "
--A INPUT -j LOG --log-prefix "fwlive-wan"
-EOF
-`);
-		makeStub(stubDir, 'ip6tables-save', `#!/bin/sh
-cat <<'EOF'
--A INPUT -j LOG --log-prefix "ipv6-rule "
--A INPUT -j LOG --log-prefix "fwlive-wan"
-EOF
-`);
-		makeStub(stubDir, 'nft', `#!/bin/sh
-exit 1
-`);
-		makeStub(stubDir, 'uci', `#!/bin/sh
-exit 0
-`);
-		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
-		for (const shell of posixShells()) {
-			let raw;
-			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
-			const res = JSON.parse(raw);
-			assert.equal(res.backend, 'iptables', `[${shell}] backend iptables`);
-			// both fragments contribute (catches only-first-fragment merge)
-			assert.equal(res.rules['ipv4-rule'], 'ipv4 rule', `[${shell}] ipv4-rule present`);
-			assert.equal(res.rules['ipv6-rule'], 'ipv6 rule', `[${shell}] ipv6-rule present`);
-			// cross-fragment duplicate must be single (catches per-fragment OUT isolation)
-			const cnt = (raw.match(/"fwlive-wan":/g) || []).length;
-			assert.equal(cnt, 1, `[${shell}] cross-fragment fwlive-wan must be 1, got ${cnt} in ${raw}`);
-			// raw must contain both distinct keys exactly once
-			assert.equal((raw.match(/"ipv4-rule":/g) || []).length, 1, `[${shell}] ipv4 raw count 1`);
-			assert.equal((raw.match(/"ipv6-rule":/g) || []).length, 1, `[${shell}] ipv6 raw count 1`);
-		}
-	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
-}
-
 function testPollClampLinesContract() {
 	// Verify poll_clamp_lines validates non-digit input (was trust-caller before)
 	const shells = posixShells();
@@ -900,128 +660,6 @@ exit 127
 	assert.ok(ran > 0, 'mktemp degradation must run under at least one POSIX shell');
 }
 
-function testIpv6TempfileErrorPrecedence() {
-	// Pre-prune evidence for #369: retain IPv4 rules when IPv6 tempfile
-	// allocation fails, and preserve the earlier IPv4 error in both inverse
-	// precedence cases. #378 removes this legacy backend after this evidence
-	// lands, so these assertions must not be carried into the nft-only tests.
-	const cases = [
-		{
-			name: 'IPv4 succeeds, IPv6 tempfile fails',
-			iptablesOk: true,
-			ipv6TempFails: true,
-			ip6Ok: true,
-			expectedError: 'mktemp_failed',
-			expectIpv4: true,
-			expectIp6Call: false
-		},
-		{
-			name: 'IPv4 fails, IPv6 tempfile also fails',
-			iptablesOk: false,
-			ipv6TempFails: true,
-			ip6Ok: true,
-			expectedError: 'iptables_failed',
-			expectIpv4: false,
-			expectIp6Call: false
-		},
-		{
-			name: 'IPv4 fails, IPv6 command also fails',
-			iptablesOk: false,
-			ipv6TempFails: false,
-			ip6Ok: false,
-			expectedError: 'iptables_failed',
-			expectIpv4: false,
-			expectIp6Call: true
-		}
-	];
-	const hostMktemp = JSON.stringify(hostCommand('mktemp'));
-	const readOwnedDumpTemps = (logPath) => {
-		try {
-			return fs.readFileSync(logPath, 'utf8')
-				.split('\n')
-				.map((file) => file.trim())
-				.filter((file) => /^\/tmp\/fwlive-(nft|ipt|ip6t)\./.test(file));
-		} catch (e) {
-			if (e.code === 'ENOENT') return [];
-			throw e;
-		}
-	};
-
-	for (const c of cases) {
-		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ip6precedence-'));
-		const ip6Called = path.join(stubDir, 'ip6-called');
-		const createdLog = path.join(stubDir, 'created');
-		try {
-			makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
-			makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
-			makeStub(stubDir, 'iptables-save', c.iptablesOk ? `#!/bin/sh
-cat <<'EOF'
--A INPUT -j LOG --log-prefix "ipv4-ok "
-EOF
-` : '#!/bin/sh\nexit 1\n');
-			makeStub(stubDir, 'ip6tables-save', c.ip6Ok ? `#!/bin/sh
-echo called >> "${ip6Called}"
-cat <<'EOF'
--A INPUT -j LOG --log-prefix "ipv6-ok "
-EOF
-` : `#!/bin/sh
-echo called >> "${ip6Called}"
-exit 1
-`);
-			makeStub(stubDir, 'mktemp', `#!/bin/sh
-case "$1" in
-	/tmp/fwlive-ip6t.*)
-${c.ipv6TempFails ? '\texit 1' : `\ttmp="$(${hostMktemp} "$@")" || exit 1
-\tprintf '%s\n' "$tmp" >> ${JSON.stringify(createdLog)}
-\tprintf '%s\n' "$tmp"`}
-		;;
-	*)
-	tmp="$(${hostMktemp} "$@")" || exit 1
-	printf '%s\n' "$tmp" >> ${JSON.stringify(createdLog)}
-	printf '%s\n' "$tmp"
-	;;
-esac
-`);
-
-			const env = stubPathEnv(stubDir);
-			for (const shell of pathHonouringShells('mktemp')) {
-				const before = new Set(readOwnedDumpTemps(createdLog));
-				let raw;
-				try {
-					raw = runWithShell(shell, env);
-				} catch (e) {
-					if (e.code === 'ENOENT') continue;
-					throw e;
-				}
-				const res = JSON.parse(raw);
-				assert.equal(res.backend, 'iptables', `[${shell}] ${c.name}: backend`);
-				assert.equal(res.error, c.expectedError, `[${shell}] ${c.name}: error`);
-				if (c.expectIpv4)
-					assert.equal(res.rules['ipv4-ok'], 'ipv4 ok', `[${shell}] ${c.name}: IPv4 rule`);
-				else
-					assert.equal(res.rules['ipv4-ok'], undefined, `[${shell}] ${c.name}: no IPv4 rule after failed dump`);
-				assert.equal(res.rules['ipv6-ok'], undefined, `[${shell}] ${c.name}: IPv6 rule absent`);
-				assert.equal(
-					fs.existsSync(ip6Called),
-					c.expectIp6Call,
-					`[${shell}] ${c.name}: ip6tables-save invocation`
-				);
-				const created = readOwnedDumpTemps(createdLog).filter((file) => !before.has(file));
-				assert.deepEqual(
-					created.filter((file) => fs.existsSync(file)),
-					[],
-					`[${shell}] ${c.name}: no leaked temp files`
-				);
-				if (fs.existsSync(ip6Called)) fs.unlinkSync(ip6Called);
-			}
-		} finally {
-			for (const file of readOwnedDumpTemps(createdLog)) {
-				try { fs.unlinkSync(file); } catch { /* gone */ }
-			}
-			fs.rmSync(stubDir, { recursive: true, force: true });
-		}
-	}
-}
 
 function testGlobMetacharDedup() {
 	// BLOCKER r5: quoted+escaped dedup missed glob keys (foo*, a*b[?c). Must be single key in raw JSON.
@@ -1309,38 +947,6 @@ exit 0
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
 
-function testIptablesSaveTimeout() {
-	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-iptto-'));
-	try {
-		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
-		makeStub(stubDir, 'iptables-save', `#!/bin/sh
-sleep 30
-echo '*filter'
-echo 'COMMIT'
-`);
-		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
-		const env = {
-			...process.env,
-			PATH: `${stubDir}:${process.env.PATH}`,
-			FWLIVE_IPTABLES_TIMEOUT: '1'
-		};
-		const t0 = Date.now();
-		let raw;
-		try {
-			raw = runWithShell('dash', env);
-		} catch (e) {
-			if (e.code === 'ENOENT')
-				raw = runWithShell('sh', env);
-			else
-				throw e;
-		}
-		const elapsed = Date.now() - t0;
-		assert.ok(elapsed < 8000, `hung iptables-save must not pin worker (${elapsed}ms)`);
-		const res = JSON.parse(raw);
-		assert.equal(res.backend, 'iptables');
-		assert.ok(res.rules);
-	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
-}
 
 function testRulesMapKeyBound() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-bound-'));
@@ -1526,46 +1132,17 @@ function testBusyboxPathShadowGetent() {
 		'rpcd/fwlive must not call getent; resolve uses nslookup (#218/#228)');
 }
 
-function testBusyboxPathShadowIptablesSave() {
-	// Production: build_rules_map iptables backend → run_with_timeout iptables-save.
-	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-ipt-'));
-	try {
-		makeStub(stubDir, 'iptables-save', `#!/bin/sh
-echo "marker-iptables-save" >> "${stubDir}/called"
-cat <<'EOF'
--A INPUT -m comment --comment "Allow-SSH" -j LOG --log-prefix "fwlive-ssh "
-EOF
-`);
-		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
-		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
-		const env = stubPathEnv(stubDir);
-		for (const shell of pathHonouringShells('iptables-save')) {
-			resetCalled(stubDir);
-			const raw = runWithShell(shell, env);
-			const res = JSON.parse(raw);
-			assert.equal(res.backend, 'iptables', `[${shell}] backend should be iptables`);
-			assert.equal(res.rules['fwlive-ssh'], 'Allow-SSH', `[${shell}] iptables fwlive-ssh`);
-			assert.ok(readCalled(stubDir).includes('marker-iptables-save'),
-				`[${shell}] iptables-save stub ran`);
-		}
-	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
-}
 
 function run() {
-	runRedirectPath();
 	testProductionNft();
 	testNftPrefixNormalization();
-	testProductionIptables();
 	testDuplicateKeys();
-	testIdempotentNormalizationCrossBackend();
+	testIdempotentNormalization();
 	testEmptyPrefixGuard();
 	testUciStreamMergeAndCollision();
 	testFw4LabeledBeatsCosmetic();
-	testIpv4Ipv6BothContributing();
 	testPollClampLinesContract();
 	testNoMktempGracefulDegradation();
-	testIpv6TempfileErrorPrecedence();
-	testIptablesSaveTimeout();
 	testRulesMapKeyBound();
 	testRulesMapByteBound();
 	testGlobMetacharDedup();
@@ -1578,7 +1155,6 @@ function run() {
 	testBusyboxPathShadowJsonfilter();
 	testBusyboxPathShadowStat();
 	testBusyboxPathShadowGetent();
-	testBusyboxPathShadowIptablesSave();
 	console.log('fwlive rules map tests passed');
 }
 
