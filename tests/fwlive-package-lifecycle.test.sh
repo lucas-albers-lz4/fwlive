@@ -275,10 +275,10 @@ inspect_apk_artifact() {
 	local found=""
 	if [ -n "$payload" ]; then
 		[ -d "$payload" ] || fail "payload directory not found: $payload"
-		found="$(find "$payload" -type f \( -name 'pre-deinstall' -o -name '*pre-deinstall*' \) -print 2>/dev/null | LC_ALL=C sort | sed -n '1p' || true)"
-		if [ -z "$found" ]; then
-			found="$(grep -lR -- 'restore_wan_log_baseline' "$payload" 2>/dev/null | LC_ALL=C sort | sed -n '1p' || true)"
-		fi
+		# apk extract ships data files only. Control scripts live in ADB
+		# metadata, so do not treat a payload helper that mentions
+		# restore_wan_log_baseline (fwlive-logging.sh) as pre-deinstall.
+		found="$(find "$payload" -type f -name 'pre-deinstall' -print 2>/dev/null | LC_ALL=C sort | sed -n '1p' || true)"
 		if [ -n "$found" ]; then
 			grep -Fq 'PKG_UPGRADE' "$found" ||
 				fail "APK pre-deinstall lacks PKG_UPGRADE: $found"
@@ -379,6 +379,16 @@ esac
 restore_wan_log_baseline
 EOF
 FWLIVE_PAYLOAD_DIR="$apk_good" inspect_apk_artifact
+
+# CI apk extract is data files; fwlive-logging.sh mentions restore_wan_log_baseline
+# but is not pre-deinstall.
+apk_data="$WORK/apk-payload-data"
+mkdir -p "$apk_data/usr/libexec"
+cat >"$apk_data/usr/libexec/fwlive-logging.sh" <<'EOF'
+restore_wan_log_baseline() { :; }
+EOF
+FWLIVE_PAYLOAD_DIR="$apk_data" inspect_apk_artifact
+ok 'APK data-only payload extract skips hook execute (logging.sh is not pre-deinstall)'
 
 PKG="${FWLIVE_PACKAGE:-${FWLIVE_IPK:-}}"
 if [ -z "$PKG" ]; then
