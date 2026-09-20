@@ -141,8 +141,10 @@ if [[ -f "$RPCD_BIN" ]]; then
 		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 			"mkdir -p /usr/lib/opkg/info && cat > /usr/lib/opkg/info/luci-app-fwlive.prerm && chmod 755 /usr/lib/opkg/info/luci-app-fwlive.prerm" <<'EOF'
 #!/bin/sh
-[ -n "${IPKG_INSTROOT}" ] && exit 0
-[ "$1" = "remove" ] || exit 0
+case "${IPKG_INSTROOT}" in
+	''|/) ;;
+	*) exit 0 ;;
+esac
 . /usr/libexec/fwlive-logging.sh
 restore_wan_log_baseline || logger -t fwlive "WAN log baseline restore failed during uninstall"
 # Always exit 0 — see Package/luci-app-fwlive/prerm (do not strand uninstall).
