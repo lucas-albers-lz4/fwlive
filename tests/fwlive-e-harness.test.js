@@ -24,7 +24,7 @@ const {
 	luciE
 } = require('./lib/load-fwlive-module');
 
-const { E, Element, TextNode, document } = luciE;
+const { E, Element, TextNode, document, collectSubtreeInnerHTMLWrites } = luciE;
 
 /* --- discrimination: array child renders a text node, no innerHTML write --- */
 function testArrayChildCreatesTextNode() {
@@ -132,19 +132,6 @@ function testRealRendererIntegration() {
 	// Luna fold (2026-08-10): recursively collect innerHTML writes across
 	// the ENTIRE subtree, not just the root node — a bare-string regression
 	// in a nested child would otherwise go unnoticed (root writes stay 0).
-	function collectSubtreeInnerHTMLWrites(node, out) {
-		out = out || [];
-		if (node._innerHTMLWrites && node._innerHTMLWrites.length > 0) {
-			for (let i = 0; i < node._innerHTMLWrites.length; i++)
-				out.push({ node: node, html: node._innerHTMLWrites[i] });
-		}
-		if (Array.isArray(node.childNodes)) {
-			for (let i = 0; i < node.childNodes.length; i++)
-				collectSubtreeInnerHTMLWrites(node.childNodes[i], out);
-		}
-		return out;
-	}
-
 	const panelWrites = collectSubtreeInnerHTMLWrites(panel);
 	// End state (#148): every string child is routed through a text node
 	// (array form), so the consent subtree must have ZERO innerHTML writes.

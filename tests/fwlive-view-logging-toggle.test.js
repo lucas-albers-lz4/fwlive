@@ -209,6 +209,41 @@ function testMktempFailedBackendLabel() {
 	console.log('fwlive-view logging: mktemp_failed backend label OK');
 }
 
+function testBackendDisplayLabels() {
+	const h = loadFwliveView();
+	h.document.querySelector = function () {
+		return null;
+	};
+	h.view.updateEmptyStateUi = function () {};
+	const label = h.document.getElementById('fwlive-backend');
+	assert.ok(label, 'backend label must render');
+	label.classList = {
+		toggle: function () {}
+	};
+	h.view.lastRulesError = null;
+
+	h.view.firewallBackend = 'nft';
+	h.view.updateBackendUi();
+	assert.equal(String(label.textContent), 'using fw4', 'nft backend label');
+
+	h.view.firewallBackend = 'iptables';
+	h.view.updateBackendUi();
+	assert.equal(String(label.textContent), 'using iptables', 'iptables backend label');
+
+	h.view.firewallBackend = 'unknown';
+	h.view.updateBackendUi();
+	assert.equal(String(label.textContent), '', 'unknown backend has no using-* label');
+
+	h.view.lastRulesError = 'no_backend';
+	h.view.updateBackendUi();
+	assert.equal(
+		String(label.textContent),
+		'Rule labels unavailable',
+		'unknown + no_backend must still render the error as text'
+	);
+	console.log('fwlive-view logging: iptables/unknown backend labels OK');
+}
+
 async function testBusyReentry() {
 	let rpcCalled = false;
 	const h = loadFwliveView({
@@ -243,6 +278,7 @@ async function testBusyReentry() {
 		await testDisableVariants();
 		await testLoggingStatusDefaultReply();
 		testMktempFailedBackendLabel();
+		testBackendDisplayLabels();
 		await testBusyReentry();
 		console.log('fwlive-view logging-toggle tests passed');
 	} catch (e) {

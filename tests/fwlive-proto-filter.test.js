@@ -7,6 +7,7 @@
 
 const assert = require('node:assert/strict');
 const { loadFwliveModule, luciE } = require('./lib/load-fwlive-module');
+const { collectInnerHTMLWrites } = luciE;
 
 const MENU = [ '', 'TCP', 'UDP', 'ICMP', 'ICMPV6', 'IGMP', 'GRE', 'ESP', 'AH', 'SCTP',
 	'!TCP', '!UDP', '!ICMP', '!ICMPV6', '!IGMP', '!GRE', '!ESP', '!AH', '!SCTP' ];
@@ -89,9 +90,9 @@ chips.renderFilterChips(host, {
 	chipFields: [ { key: 'proto', label: 'proto' } ]
 }, { onInvert: function() {}, onClear: function() {}, onClearAll: function() {} });
 assert.ok(host._innerHTMLWrites.length >= 1, 'chip rebuild clears via innerHTML');
-assert.ok(host._innerHTMLWrites.every(function(w) {
+assert.ok(collectInnerHTMLWrites(host).every(function(w) {
 	return w === '' || w.indexOf(payload) < 0;
-}), 'payload must not reach innerHTML sink');
+}), 'payload must not reach any innerHTML sink in the chip subtree');
 assert.ok(host.childNodes.length >= 1);
 
 console.log('fwlive proto filter tests passed');

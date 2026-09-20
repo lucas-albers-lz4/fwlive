@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadFwliveModule, fakeE, luciE } = require('./lib/load-fwlive-module');
+const { collectInnerHTMLWrites } = luciE;
 
 const PKG = path.join(__dirname, '..', 'openwrt-feed', 'luci-app-fwlive');
 
@@ -383,40 +384,98 @@ keyedTable.renderRows(
 );
 assert.notStrictEqual(keyedBody.childNodes[0], retainedRow, 'forced renders rebuild rows');
 
+function assertSinkOnlyTbodyClear(host, payload) {
+	assert.deepStrictEqual(
+		collectInnerHTMLWrites(host),
+		[''],
+		'message render may only clear the tbody; it must never write payload HTML'
+	);
+	for (const html of collectInnerHTMLWrites(host)) {
+		if (html && payload && html.indexOf(payload) >= 0)
+			assert.fail('payload reached innerHTML: ' + html);
+	}
+}
+
+function findMessageTd(host) {
+	const tr = host.childNodes[0];
+	assert.ok(tr, 'message row must render');
+	return (tr.childNodes || []).find(function (c) {
+		return c.tagName === 'td' && c._attrs && String(c._attrs.class).indexOf('fwlive-message') >= 0;
+	});
+}
+
+function hasMessageWrapDiv(td) {
+	return (td.childNodes || []).some(function (c) {
+		return c.tagName === 'div' && c._attrs && c._attrs.class === 'fwlive-message-wrap';
+	});
+}
+
+function renderMessageRow(message, layout, extra) {
+	const tbl = loadFwliveModule('table', { log: log, links: links, E: luciE.E });
+	const body = luciE.E('tbody', {}, []);
+	tbl.renderRows(
+		body,
+		Object.assign(
+			{
+				rows: [Object.assign({}, row, { id: 'sink', message: message })],
+				columns: ['message'],
+				forceRender: true,
+				viewMode: 'simple',
+				messageLayout: layout,
+				expandedRowId: layout === 'wrap' ? 'sink' : null,
+				rowTint: false,
+				showHostnames: false,
+				hostnameCache: null,
+				firewallBackend: 'nft'
+			},
+			extra || {}
+		),
+		keyedCallbacks
+	);
+	return body;
+}
+
 const hostileMessage = '<img src=x onerror=alert(1)> \u202e DROP';
-const sinkTable = loadFwliveModule('table', { log: log, links: links, E: luciE.E });
-const sinkBody = luciE.E('tbody', {}, []);
-sinkTable.renderRows(
-	sinkBody,
-	{
-		rows: [Object.assign({}, row, { id: 'sink', message: hostileMessage })],
-		columns: ['message'],
-		forceRender: true,
-		viewMode: 'simple',
-		messageLayout: 'wrap',
-		expandedRowId: 'sink',
-		rowTint: false,
-		showHostnames: false,
-		hostnameCache: null,
-		firewallBackend: 'nft'
-	},
-	keyedCallbacks
-);
+const wrapHostile = renderMessageRow(hostileMessage, 'wrap');
 assert.ok(
-	collectText(sinkBody).indexOf(hostileMessage) >= 0,
+	collectText(wrapHostile).indexOf(hostileMessage) >= 0,
 	'hostile log text must remain visible as text'
 );
-function collectInnerHTMLWrites(node, out) {
-	out = out || [];
-	for (const html of node._innerHTMLWrites || []) out.push(html);
-	for (const child of node.childNodes || []) collectInnerHTMLWrites(child, out);
-	return out;
-}
-assert.deepStrictEqual(
-	collectInnerHTMLWrites(sinkBody),
-	[''],
-	'hostile log render may only clear the tbody; it must never write payload HTML'
+assert.ok(hasMessageWrapDiv(findMessageTd(wrapHostile)), 'wrap layout uses the wrap div');
+assertSinkOnlyTbodyClear(wrapHostile, '<img');
+
+const onelineHostile = renderMessageRow(hostileMessage, 'oneline');
+assert.ok(
+	collectText(onelineHostile).indexOf(hostileMessage) >= 0,
+	'oneline hostile text must remain visible'
 );
+assert.ok(!hasMessageWrapDiv(findMessageTd(onelineHostile)), 'oneline layout must not wrap');
+assertSinkOnlyTbodyClear(onelineHostile, '<img');
+
+const ansiHostile = '\u001b[31mDROP\u001b[0m ' + hostileMessage;
+const ansiBody = renderMessageRow(ansiHostile, 'wrap');
+const ansiText = collectText(ansiBody);
+assert.ok(ansiText.indexOf('DROP') >= 0, 'ANSI message must keep DROP as text');
+assert.ok(ansiText.indexOf(hostileMessage) >= 0, 'ANSI+hostile must stay visible as text');
+assertSinkOnlyTbodyClear(ansiBody, '<img');
+
+const overlongRaw = 'DROP ' + 'x'.repeat(320);
+const wrapShown = log.formatMessageDisplay(overlongRaw, 'wrap');
+const onelineShown = log.formatMessageDisplay(overlongRaw, 'oneline');
+assert.ok(wrapShown.endsWith('…'), 'wrap overlong must ellipsize');
+assert.strictEqual(wrapShown.length, 238, 'wrap cap is 237 chars plus ellipsis');
+assert.ok(!onelineShown.endsWith('…') || onelineShown.length > 238, 'oneline keeps the full string');
+assert.ok(onelineShown.indexOf('x'.repeat(40)) >= 0);
+
+const wrapLong = renderMessageRow(overlongRaw, 'wrap', { expandedRowId: null });
+assert.ok(collectText(wrapLong).indexOf(wrapShown) >= 0, 'wrap cell shows truncated text');
+assert.ok(collectText(wrapLong).indexOf('x'.repeat(300)) < 0, 'wrap cell must not show the full tail');
+assertSinkOnlyTbodyClear(wrapLong, '<img');
+
+const onelineLong = renderMessageRow(overlongRaw, 'oneline');
+assert.ok(collectText(onelineLong).indexOf(onelineShown) >= 0, 'oneline cell shows the full string');
+assert.ok(!hasMessageWrapDiv(findMessageTd(onelineLong)), 'overlong oneline has no wrap div');
+assertSinkOnlyTbodyClear(onelineLong, '<img');
 console.log('fwlive-modules smoke: table OK');
 
 /* --- buffer --- */

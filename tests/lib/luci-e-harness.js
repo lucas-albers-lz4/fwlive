@@ -243,6 +243,24 @@ const dom = {
 /* LuCI binds E → dom.create in the view context. */
 const E = dom.create.bind(dom);
 
+function collectSubtreeInnerHTMLWrites(node, out) {
+	out = out || [];
+	if (!node) return out;
+	if (node._innerHTMLWrites && node._innerHTMLWrites.length > 0) {
+		for (let i = 0; i < node._innerHTMLWrites.length; i++)
+			out.push({ node: node, html: node._innerHTMLWrites[i] });
+	}
+	const kids = node.childNodes || [];
+	for (let i = 0; i < kids.length; i++) collectSubtreeInnerHTMLWrites(kids[i], out);
+	return out;
+}
+
+function collectInnerHTMLWrites(node) {
+	return collectSubtreeInnerHTMLWrites(node).map(function (entry) {
+		return entry.html;
+	});
+}
+
 module.exports = {
 	Node: Node,
 	Element: Element,
@@ -251,5 +269,7 @@ module.exports = {
 	document: document,
 	dom: dom,
 	E: E,
+	collectSubtreeInnerHTMLWrites: collectSubtreeInnerHTMLWrites,
+	collectInnerHTMLWrites: collectInnerHTMLWrites,
 	PortedFrom: 'openwrt/luci@f699752316ac4651ae4f4f966510d352670ca87a'
 };
