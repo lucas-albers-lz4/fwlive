@@ -1,7 +1,7 @@
 # Security review state
 
 > **Status:** 55 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
-> **Current delta:** 2026-09-20 #394 host coverage for exact rpcd/ACL method ownership, hostile chip/hash/table values, and fail-closed shell/toggle paths; the `q` chip fix keys behavior from `spec.key` while preserving display labels. Prior: #384 live `/proc/net/if_inet6` check on the current 24.10.8 and 25.12.5 QEMU pins (stock stack present including `lo`; `ipv6.disable=1` missing file; IPv4-only enable allowed), #371 nf_log backend normalization and independent IPv6 family readiness, plus #383 follow-up to #373: no-zone candidates now travel through `logging_status` and render as text nodes in the LuCI empty state and toolbar; no ACL grant, DOM sink, read/write-scope, or HTML sink change.
+> **Current delta:** 2026-09-20 #378 Phase 2 LuCI / #388: `legacy_iptables_detected` is now a `#fwlive-backend` `textContent` clause (non-gating); rule links always use `admin/network/firewall/rules`. Prior: 2026-09-20 #394 host coverage for exact rpcd/ACL method ownership, hostile chip/hash/table values, and fail-closed shell/toggle paths; the `q` chip fix keys behavior from `spec.key` while preserving display labels. Prior: #384 live `/proc/net/if_inet6` check on the current 24.10.8 and 25.12.5 QEMU pins (stock stack present including `lo`; `ipv6.disable=1` missing file; IPv4-only enable allowed), #371 nf_log backend normalization and independent IPv6 family readiness, plus #383 follow-up to #373: no-zone candidates now travel through `logging_status` and render as text nodes in the LuCI empty state and toolbar; no ACL grant, DOM sink, read/write-scope, or HTML sink change.
 > **Last review:** 2026-09-18 delta on #365/#366 behavior-preserving view/rpcd refactors (rules-map dump paths, selftest comparisons, and logging-toggle handler sequencing; host gates green; no ACL, DOM sink, or command-input change); prior 2026-09-16 delta on #347 frozen Auto/Manual fetch-budget contract (validated browser-local discrete values, success-only `effective_limit`, error-path omission, and status text via `textContent`; no ACL change); prior 2026-09-15 delta on #339 weak-device 250-row display cap (server boolean gate, status text via `textContent`, no ACL or HTML-sink change) and candidate browser matrix; prior 2026-09-15 delta on #306 request serialization, filter-failure health gating (structured error-key match and secure sticky-/tmp tempfile), conservative UTF-8 summary bound, and cooldown-expiry probing (no ACL or DOM-sink change); prior 2026-09-15 delta on #306 bounded server summary aggregation (same classifier pass, escaped JSON byte cap, adaptive-off omission) and summary UI (`textContent` only); prior 2026-09-14 delta on accurate `messages_received` counting (filter-side `jsonfilter` enumeration, one awk pass, no duplicate reply key) and Layer 3 weak-device procfs detection (read-only `MemTotal`/processor count, fail-closed boolean, no ACL change); prior 2026-09-13 delta on #306 Layer 2 client backoff (visibility pause, RTT cadence, adaptive/shed banners via `textContent` only; resolve `disabled:load` without treating as DNS fail); prior 2026-09-12 delta on #306 Layer 1 adaptive poll cap (always-on; test/triage override via env/sentinel; state file flock; no UCI); prior 2026-09-11 delta on release-notes pipeline (#322 follow-up); shell-helpers delta same day (#321/#308); full-surface housekeeping review 2026-09-08 (H1 stale branch deleted; H2 Validity checks + Non-provider patterns plan-gated — not available on personal GitHub accounts; tracked upstream in [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24)).
 > **Open:** None from #293. Housekeeping may still emit `secret_validity_checks_off` / `secret_nonprovider_patterns_off` as false positives until [housekeeping#24](https://github.com/lucas-albers-lz4/housekeeping/issues/24) lands plan-aware scanning.
 > **Next:** On the next `v*` tag, re-check pins and run full docker usign (gap 4). The full surface re-pass is deferred — the gate criteria are not met (skill § Multi-model pass / full-pass gate). Lab gaps 1–3 ran as smoke tests on 2026-09-04 (`./scripts/qemu-security-gaps-smoke.sh` green). The gap 2 flock residual is unchanged.
@@ -34,6 +34,8 @@ reopen an accepted residual without new evidence.
 > **2026-09-19 #383 delta:** `logging_status` now carries the JSON-escaped no-zone candidate list, and the LuCI empty state and toolbar render candidate names through array-wrapped `E()` text children. Section ids are used as the effective name when UCI omits both `name` and `network`, covered by a host fixture; screenshot fallbacks reject an empty zone id. Lock and finder fixtures now exercise the real zone declarations and no-zone status shape. No ACL or HTML sink change.
 
 > **2026-09-20 #394 delta:** Host tests now pin the exact rpcd read/write method arrays, recursive LuCI sink behavior, hash restoration, deterministic dependency failures, and table formatting. The `q` chip uses its field key for behavior while retaining its display label; no ACL grant or shipped HTML sink change.
+
+> **2026-09-20 #388 delta:** `legacy_iptables_detected` is no longer ubus-only. The view appends one allowlisted `_()` clause to `#fwlive-backend` via `textContent` and warn-tint. Enable CTA, `ready`, and `blockers` are unchanged. Rule links always go to `admin/network/firewall/rules`; the iptables/nftables status-page branches and `using iptables` label are removed. No ACL or HTML sink change.
 
 ## Why a ledger and not just a model
 
@@ -435,6 +437,7 @@ links to this ledger for review state.
 **Non-findings**
 
 - `#fwlive-backend` / `timeout_missing`: `textContent` + allowlisted `_()` strings only.
+- `#fwlive-backend` / `legacy_iptables_detected`: same `textContent` + `_()` pattern; diagnostic, non-gating.
 - Wave B Playwright: UX contract only; XSS SoT remains recording-`innerHTML` harness (Fable NON-FINDING).
 - Stage-0 class memory: no new `${{ }}` in `run:`, no new temp-mode/pin regressions in delta.
 - UCI `.log_*` near-miss grammar (#257) holds under Fable checklist.
@@ -572,8 +575,9 @@ No tested supported image contradicted the table (in particular,
 **Scope.** `fwlive-logging.sh` reads the network namespace's IPv4 and IPv6
 legacy table-name procfs files and appends `legacy_iptables_detected` to
 `logging_status.warnings` when either contains a table name. The warning is
-diagnostic-only: it does not affect `ready`, `blockers`, or the enable gate,
-and remains ubus-only until a user-facing remediation flow is designed.
+diagnostic-only: it does not affect `ready`, `blockers`, or the enable gate.
+LuCI now shows the warning in `#fwlive-backend` via `textContent` and one
+allowlisted `_()` string (#388). It still does not block logging enablement.
 
 **Method.** Host fixtures cover missing, empty, IPv4-populated,
 IPv6-populated, and both-populated table-name files through

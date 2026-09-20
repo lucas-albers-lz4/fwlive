@@ -3,7 +3,7 @@
 
 /**
  * LuCI wrapper gate for gen-all.sh: verifies preserve markers, CLASSIFY_SPEC surface,
- * and 21.02 API constraints; emits committed log.js bytes (idempotent).
+ * and ES5 API constraints; emits committed log.js bytes (idempotent).
  *
  * This is a gate, not a generator: shared classify logic in log.js is hand-maintained
  * and must stay deep-equal to core CLASSIFY_SPEC. Running gen-all.sh re-emits the
@@ -27,7 +27,7 @@ assert.ok(src.indexOf('CLASSIFY_SPEC') >= 0, 'missing CLASSIFY_SPEC');
 assert.ok(src.indexOf('evaluateClassifySpec') >= 0, 'missing evaluateClassifySpec');
 assert.ok(src.indexOf('gen-all.sh') >= 0, 'missing gen-all.sh banner');
 assert.ok(src.indexOf('.includes(') < 0 && src.indexOf('Object.values') < 0,
-	'LuCI wrapper must stay 21.02-compatible');
+	'LuCI wrapper must not use Array.includes or Object.values');
 
 function extractClassifySpec(text) {
 	const key = 'CLASSIFY_SPEC:';
