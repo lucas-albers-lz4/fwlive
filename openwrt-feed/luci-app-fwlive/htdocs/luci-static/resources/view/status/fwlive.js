@@ -2476,8 +2476,7 @@ return view.extend({
 		this.updateTintWarnUi();
 		this.renderRows(true);
 		const testLi = document.getElementById('fwlive-manual-test');
-		if (testLi)
-			logging.renderManualTestNodes(testLi, {}, {});
+		if (testLi) logging.renderManualTestNodes(testLi, {}, {});
 		if (this.showHostnames) this.resolveHostnamesForEntries(this.filteredRows());
 	}
 });
