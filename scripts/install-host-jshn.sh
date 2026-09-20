@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PIN_FILE="${ROOT}/scripts/jshn-pins.txt"
-PIN_SHA256="dfd4389cd5a8e7cc54e8851ebe971c3602d1487986235103ff28aadc23dde5a9"
+PIN_SHA256="c2c851fef3e0dd1af1a56d82ef343344d5162b7145bb42c8cca8336db0369a93"
 PREFIX="${FWLIVE_JSHN_PREFIX:-${HOME}/.cache/fwlive-jshn}"
 REPOSITORY="https://github.com/openwrt/libubox.git"
 DEFAULT_RELEASE="24.10"
@@ -22,8 +22,8 @@ verify_pin_file() {
 	[[ -f "$PIN_FILE" ]] || die "pin manifest missing: $PIN_FILE"
 	actual="$(sha256sum "$PIN_FILE" | awk '{print $1}')"
 	[[ "$actual" == "$PIN_SHA256" ]] || die "pin manifest integrity check failed"
-	lines="$(awk '!/^([[:space:]]*#|[[:space:]]*$)/ { if (NF != 2 || $1 !~ /^(21\.02|22\.03|23\.05|24\.10|25\.12)$/ || $2 !~ /^[0-9a-f]{40}$/) exit 1; n++ } END { print n+0 }' "$PIN_FILE")" || die "invalid pin manifest format"
-	[[ "$lines" == 5 ]] || die "pin manifest must contain five release pins"
+	lines="$(awk '!/^([[:space:]]*#|[[:space:]]*$)/ { if (NF != 2 || $1 !~ /^(23\.05|24\.10|25\.12)$/ || $2 !~ /^[0-9a-f]{40}$/) exit 1; n++ } END { print n+0 }' "$PIN_FILE")" || die "invalid pin manifest format"
+	[[ "$lines" == 3 ]] || die "pin manifest must contain three release pins"
 }
 pin_for() { awk -v release="$1" '$1 == release { print $2; found=1 } END { if (!found) exit 1 }' "$PIN_FILE"; }
 require_tools() {
@@ -72,7 +72,7 @@ done
 [[ $all -eq 0 || "$release" == "$DEFAULT_RELEASE" ]] || die "--all cannot be combined with --release"
 verify_pin_file; require_tools
 if [[ $all -eq 1 ]]; then
-	for release in 21.02 22.03 23.05 24.10 25.12; do install_release "$release"; done
+	for release in 23.05 24.10 25.12; do install_release "$release"; done
 else
 	install_release "$release"
 fi

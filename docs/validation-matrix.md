@@ -18,8 +18,8 @@ End-to-end validation reuses the flow proven on **23.05.5 x86** — generalized 
 | **25.12** | 25.12.5 | `*-25.12.5` | x86 + armsr |
 | **24.10** | 24.10.8 | `*-24.10.8` | x86 + armsr |
 | **23.05** | 23.05.5 | `*-23.05.5` | x86 + armsr |
-| **22.03** | 22.03.7 | `x86-64-22.03.7` | x86 (SDK build); same `_all` ipk on armsr |
-| **21.02** | 21.02.7 | `*-21.02.7` | x86 only (fw3 lab sign-off) |
+
+Legacy **21.02** / **22.03** are out of the active build/publish matrix; see [supported-releases.md](supported-releases.md) for historical lab notes.
 
 | QEMU target | Script | Boot |
 |-------------|--------|------|
@@ -47,7 +47,7 @@ End-to-end validation reuses the flow proven on **23.05.5 x86** — generalized 
 ./scripts/validate-openwrt-all.sh list
 ```
 
-Back-compat: `./scripts/validate-openwrt-23.05.sh` → `validate-openwrt.sh --version 23.05`. Same for `./scripts/validate-openwrt-22.03.sh`.
+Back-compat: `./scripts/validate-openwrt-23.05.sh` → `validate-openwrt.sh --version 23.05`.
 
 ## What each smoke step checks
 

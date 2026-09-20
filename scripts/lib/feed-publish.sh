@@ -30,8 +30,6 @@ feed_publish_abspath() {
 # Map user version key → feed directory name on GitHub Pages.
 feed_publish_feed_dir() {
 	case "$(sdk_matrix_version_label "$1")" in
-		21.02.7) printf '%s' '21.02' ;;
-		22.03.7) printf '%s' '22.03' ;;
 		23.05.5) printf '%s' '23.05' ;;
 		24.10.8) printf '%s' '24.10' ;;
 		25.12.5) printf '%s' '25.12' ;;
@@ -51,11 +49,9 @@ feed_publish_find_artifact() {
 	ls -1 "${candidates[@]}" 2>/dev/null | head -1
 }
 
-# Map SDK output dir (e.g. 21.02.7) → feed/release key (e.g. 21.02).
+# Map SDK output dir (e.g. 23.05.5) → feed/release key (e.g. 23.05).
 feed_publish_release_key() {
 	case "$1" in
-		21.02.7) printf '%s' '21.02' ;;
-		22.03.7) printf '%s' '22.03' ;;
 		23.05.5) printf '%s' '23.05' ;;
 		24.10.8) printf '%s' '24.10' ;;
 		25.12.5) printf '%s' '25.12' ;;
@@ -83,7 +79,7 @@ feed_publish_stage_release_assets() {
 	local ver ver_label path name
 	mkdir -p "$dest"
 	find "$dest" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-	for ver in 21.02 22.03 23.05 24.10 25.12; do
+	for ver in 23.05 24.10 25.12; do
 		ver_label="$(sdk_matrix_version_label "$ver")"
 		path="$(feed_publish_find_artifact "$ver_label" 2>/dev/null || true)"
 		[[ -n "$path" ]] || continue
@@ -157,8 +153,6 @@ feed_publish_ipkg_index_script() {
 	# + hash pin defeats TOFU (issue #131): a branch ref can move, but a commit
 	# SHA + verified hash cannot.
 	case "$ver_label" in
-		21.02.7) sha='57a6d97ddf8f6541a52e0f8fad8c6f47685a1bc3'; expected_hash='35e587385a601580d79a1b5cdbb2f591d7b34be9c07e7be36cbb8765a8ef58e6' ;;
-		22.03.7) sha='4e1d1b7df0ce6fa96d7462dc883917682f428046'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
 		23.05.5) sha='33063b4ccf00d39393796499b23df55187b192dc'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
 		24.10.8) sha='0b795ce79e23b553aa184080c390f9ce92a2b6d4'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
 		25.12.5) sha='f0a60eee2fe051741c643ea6118718aae1ef17fb'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
@@ -220,7 +214,7 @@ feed_publish_stage_opkg_host() {
 	raw="$(mktemp)"
 	# ipkg-make-index.sh uses $MKHASH sha256 (OpenWrt mkhash), not sha256sum alone.
 	mkhash=""
-	for ver in 25.12 24.10 23.05 22.03 21.02; do
+	for ver in 25.12 24.10 23.05; do
 		sdk_matrix_resolve x86-64 "$ver" 2>/dev/null || continue
 		if sdk_matrix_feeds_ready 2>/dev/null; then
 			mkhash="$(sdk_matrix_compose_run sh -c 'test -x /builder/staging_dir/host/bin/mkhash && echo /builder/staging_dir/host/bin/mkhash' 2>/dev/null | tr -d '\r' || true)"
@@ -471,7 +465,7 @@ feed_publish_write_manifest() {
 	: > "$manifest"
 	printf '{\n  "git_tag": "%s",\n  "packages": [\n' "${git_tag//\"/\\\"}" >> "$manifest"
 	local first=1
-	for ver in 21.02 22.03 23.05 24.10 25.12; do
+	for ver in 23.05 24.10 25.12; do
 		ver_label="$(sdk_matrix_version_label "$ver")"
 		artifact="$(feed_publish_find_artifact "$ver_label" 2>/dev/null || true)"
 		[[ -n "$artifact" ]] || continue
