@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Document the current support floor as OpenWrt **23.05+**; **21.02** and **22.03** remain historical lab notes only. The v0.1.44 footer below records that release's former matrix.
+
 ## [v0.1.44] — 2026-09-17
 
 ### Changed
@@ -17,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reflow comments left ragged after tracker-id parentheticals were dropped
 - Record the OpenWrt 25.12 process and memory load profile, including x86_64 and armsr results (#363, #364)
 
-Supported OpenWrt: **21.02**, **22.03**, **23.05**, **24.10** (opkg) · **25.12** (apk)
+Supported at the v0.1.44 release: **21.02**, **22.03**, **23.05**, **24.10** (opkg) · **25.12** (apk)
 
 Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
 

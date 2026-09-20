@@ -43,9 +43,10 @@ esac
 ok "build_logging_status_json shape"
 
 # #378: legacy iptables detection is diagnostic-only and reads both procfs
-# table-name files from fixtureable paths. Keep the warning ubus-only until a
-# user-facing remediation flow is designed. Empty fixture files stay exported
-# so later build_logging_status_json calls do not probe host procfs.
+# table-name files from fixtureable paths. LuCI surfaces the warning in the
+# backend label; it must not alter readiness or the enable gate. Empty fixture
+# files stay exported so later build_logging_status_json calls do not probe
+# host procfs.
 json_array_field() {
 	_src=$1
 	_key=$2

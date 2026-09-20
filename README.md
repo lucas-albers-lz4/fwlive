@@ -15,7 +15,7 @@ LuCI **Firewall Live View**: a live, filterable table of firewall **LOG** events
 - **Show Detail** — one-button toggle to the full 14-column Detailed view
 - **Filter** by action, interface, protocol, addresses, ports; quick search across fields
 - **Click-to-filter** and **URL hash** state for shareable troubleshooting views
-- Resolves **rule names** from fw4/nft or iptables `--log-prefix` metadata where possible
+- Resolves **rule names** from fw4/nft rule metadata and UCI firewall rule names where possible; iptables-tagged logs still classify
 
 **Menu:** Status → Firewall Live View (`/cgi-bin/luci/admin/status/fwlive`)
 

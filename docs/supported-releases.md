@@ -20,12 +20,9 @@ Install commands: [Installation guide](user/installation.md). Requirements: [Req
 - LuCI uses the **lua_prefix** dispatcher (no ucode). The lab prepare script skips ucode tweaks when `dispatcher.uc` is absent.
 - There is no published `…/21.02` feed. A source-built 21.02 ipk is lab-only; do not install a 23.05+ package on 21.02.
 
-Build and validate:
-
-```sh
-./scripts/docker-sdk.sh build --target x86-64 --version 21.02
-./scripts/validate-openwrt.sh --version 21.02 --sdk-target x86-64
-```
+The commands used for the old lab are no longer part of the supported SDK
+matrix. There is no current build or validation command for 21.02; retain the
+scope below only as historical evidence.
 
 Validation scope: app-stack sign-off on **21.02.7 x86-64 QEMU lab** only. Typical fw3 fleets use MIPS/ARM — treat other SoCs as best-effort until hardware or armsr lab is run.
 
@@ -45,16 +42,12 @@ UCI: `option log '1'` on `@rule` entries where supported.
 **Status:** Unsupported. OpenWrt 22.03 is EOL. The published feed and SDK matrix no longer build or ship a `…/22.03` cell. Keep these notes for old lab evidence only; source-build at your own risk.
 
 - Same firewall4/nft era as 23.05 — one feed, one JS view, one parser.
-- SDK note: `ghcr.io/openwrt/sdk:armsr-armv8-22.03.7` is not published. Build the `_all` ipk with **`x86-64-22.03.7`** (or extract the SDK tarball manually).
+- Historical SDK note: `ghcr.io/openwrt/sdk:armsr-armv8-22.03.7` was not published; the old lab used **`x86-64-22.03.7`** for its `_all` ipk.
 - Fresh x86 22.03.7 images may ship **without** `/etc/config/network`. The lab prepare script seeds a DHCP `lan` section before first boot.
 - There is no published `…/22.03` feed. A source-built 22.03 ipk is lab-only.
 
-Build and validate:
-
-```sh
-./scripts/docker-sdk.sh build --target x86-64 --version 22.03
-./scripts/validate-openwrt.sh --version 22.03
-```
+There is no current build or validation command for 22.03; the notes above
+describe historical lab conditions only.
 
 ## 23.05.x
 
