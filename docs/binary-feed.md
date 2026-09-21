@@ -70,19 +70,23 @@ build.
 After the SDK image is pulled, the digest is resolved per cell with:
 
 ```sh
-docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/openwrt/sdk:x86-64-23.05.5
+docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+	ghcr.io/openwrt/sdk:x86-64-23.05.5 \
+	| awk '$0 ~ /^ghcr[.]io\/openwrt\/sdk@sha256:/ { print; exit }'
 # → ghcr.io/openwrt/sdk@sha256:…
 ```
 
-`RepoDigests[0]` is the registry digest of the image that was actually pulled
-and built against (implemented in `scripts/lib/sdk-matrix.sh` → `sdk_matrix_image_digest`).
+The selected entry is the `RepoDigest` whose repository prefix matches the image
+that was actually pulled and built against; list position is not trusted. This
+is implemented in `scripts/lib/sdk-matrix.sh` → `sdk_matrix_image_digest`.
 
 ### Fallback
 
-If `RepoDigests` is **empty** (locally built / registry-less image), the image
-ID is recorded as `@sha256:<image ID>` and a **warning** is emitted to stderr —
-an empty digest is **never** recorded silently. If neither `RepoDigests` nor
-the image ID can be read, manifest generation **fails** (no silent empty value).
+If no matching `RepoDigest` is available (for example, a locally built or
+registry-less image), the image ID is recorded as `@sha256:<image ID>` and a
+**warning** is emitted to stderr — an empty digest is **never** recorded
+silently. If neither the matching `RepoDigest` nor the image ID can be read,
+manifest generation **fails** (no silent empty value).
 
 ### Out of scope
 
