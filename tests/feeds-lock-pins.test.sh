@@ -95,6 +95,27 @@ else
 fi
 git -C "$feeds/base" checkout -q -- README
 
+# Hidden index flags can suppress both porcelain and diff output; fail closed.
+printf hidden >>"$feeds/base/README"
+git -C "$feeds/base" update-index --skip-worktree README
+if feeds_lock_assert_heads "$neg/one.conf" "$feeds" base packages luci 2>/dev/null; then
+	bad "skip-worktree tracked edit must fail"
+else
+	ok "skip-worktree tracked edit fails closed"
+fi
+git -C "$feeds/base" update-index --no-skip-worktree README
+git -C "$feeds/base" checkout -q -- README
+
+printf hidden >>"$feeds/base/README"
+git -C "$feeds/base" update-index --assume-unchanged README
+if feeds_lock_assert_heads "$neg/one.conf" "$feeds" base packages luci 2>/dev/null; then
+	bad "assume-unchanged tracked edit must fail"
+else
+	ok "assume-unchanged tracked edit fails closed"
+fi
+git -C "$feeds/base" update-index --no-assume-unchanged README
+git -C "$feeds/base" checkout -q -- README
+
 # --root=package layout (25.12/snapshot): git lives in base_root.
 rm -rf "$feeds/base" "$feeds/base_root"
 git_init "$feeds/base_root" base-root-ok

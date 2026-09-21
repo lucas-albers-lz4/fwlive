@@ -48,15 +48,22 @@ making a release attributable to the exact image despite the moving tag.
       "file": "luci-app-fwlive_0.1.16_23.05_all.ipk",
       "sha256": "…",
       "sdk_image": "ghcr.io/openwrt/sdk:x86-64-23.05.5",
-      "sdk_digest": "ghcr.io/openwrt/sdk@sha256:…"
+      "sdk_digest": "ghcr.io/openwrt/sdk@sha256:…",
+      "feeds_lock_sha256": "…",
+      "feeds": {
+        "base": "…",
+        "packages": "…",
+        "luci": "…"
+      }
     },
     …
   ]
 }
 ```
 
-Before this change a cell was `{"openwrt", "file", "sha256"}` only; the
-`sdk_image` / `sdk_digest` pair is added alongside the per-package sha256.
+Each cell records the package hash, the SDK image and digest, the feeds lock
+hash, and the verified `base` / `packages` / `luci` feed commits used for the
+build.
 
 ### Digest source
 

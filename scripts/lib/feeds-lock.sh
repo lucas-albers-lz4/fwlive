@@ -112,6 +112,13 @@ feeds_lock_assert_heads() {
 			echo "feeds-lock: $_name HEAD $_head != pin $_sha" >&2
 			return 1
 		fi
+		# `git status --porcelain` hides tracked edits when an index entry has
+		# skip-worktree or assume-unchanged set. A cache with either flag is not
+		# trustworthy, even when the visible work tree looks clean.
+		if git -C "$_repo" ls-files -v | grep -Eq '^(S|[a-z]) '; then
+			echo "feeds-lock: $_name has hidden tracked-file index flags" >&2
+			return 1
+		fi
 		_status="$(git -C "$_repo" status --porcelain)" || return 1
 		if [ -n "$_status" ]; then
 			echo "feeds-lock: $_name work tree is not clean" >&2
