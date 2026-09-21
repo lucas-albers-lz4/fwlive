@@ -3,6 +3,7 @@
 #
 #   ./scripts/qemu-install-fwlive.sh
 #   ./scripts/qemu-install-fwlive.sh out/x86_64/24.10.8/fwlive/luci-app-fwlive_*.ipk
+#   ./scripts/qemu-install-fwlive.sh --artifact-only out/x86_64/24.10.8/fwlive/luci-app-fwlive_*.ipk
 #
 # Prereqs: guest reachable at ssh -p 2222 root@127.0.0.1 (run-openwrt-*-qemu.sh).
 set -euo pipefail
@@ -11,9 +12,29 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OPENWRT_HOST="${OPENWRT_HOST:-127.0.0.1}"
 OPENWRT_SSH_PORT="${OPENWRT_SSH_PORT:-2222}"
 OPENWRT_USER="${OPENWRT_USER:-root}"
-IPK="${1:-}"
+IPK=""
+ARTIFACT_ONLY=0
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
 FWLIVE_VERSION="${OWRT_FWLIVE_VERSION:-}"
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		--artifact-only) ARTIFACT_ONLY=1; shift ;;
+		-h|--help)
+			sed -n '1,9p' "$0"
+			echo '  --artifact-only  install only the package; do not sync files from the source tree'
+			exit 0
+			;;
+		--)
+			shift
+			[[ $# -eq 1 && -z "$IPK" ]] || { echo 'expected one package path after --' >&2; exit 1; }
+			IPK="$1"
+			shift
+			;;
+		-*) echo "unknown option: $1" >&2; exit 1 ;;
+		*) [[ -z "$IPK" ]] || { echo 'expected only one package path' >&2; exit 1; }; IPK="$1"; shift ;;
+	esac
+done
 
 if [[ -z "$IPK" ]]; then
 	shopt -s nullglob
@@ -97,17 +118,19 @@ else
 		"opkg install ${REMOTE} && rm -f ${REMOTE}"
 fi
 
-FWLIVE_PKG="$ROOT/openwrt-feed/luci-app-fwlive"
-FWLIVE_DIR="$FWLIVE_PKG/htdocs/luci-static/resources"
-RPCD_BIN="$FWLIVE_PKG/root/usr/libexec/rpcd/fwlive"
-LIBEXEC_LOGGING="$FWLIVE_PKG/root/usr/libexec/fwlive-logging.sh"
-LIBEXEC_ADAPTIVE="$FWLIVE_PKG/root/usr/libexec/fwlive-adaptive-cap.sh"
-LIBEXEC_FILTER="$FWLIVE_PKG/root/usr/libexec/fwlive-log-filter.sh"
-LIBEXEC_ISFW="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.sh"
-LIBEXEC_ISFW_AWK="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.awk"
-ACL_JSON="$FWLIVE_PKG/root/usr/share/rpcd/acl.d/luci-app-fwlive.json"
-MENU_JSON="$FWLIVE_PKG/root/usr/share/luci/menu.d/luci-app-fwlive.json"
-if [[ -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
+if [[ "$ARTIFACT_ONLY" -eq 0 ]]; then
+	FWLIVE_PKG="$ROOT/openwrt-feed/luci-app-fwlive"
+	FWLIVE_DIR="$FWLIVE_PKG/htdocs/luci-static/resources"
+	RPCD_BIN="$FWLIVE_PKG/root/usr/libexec/rpcd/fwlive"
+	LIBEXEC_LOGGING="$FWLIVE_PKG/root/usr/libexec/fwlive-logging.sh"
+	LIBEXEC_ADAPTIVE="$FWLIVE_PKG/root/usr/libexec/fwlive-adaptive-cap.sh"
+	LIBEXEC_FILTER="$FWLIVE_PKG/root/usr/libexec/fwlive-log-filter.sh"
+	LIBEXEC_ISFW="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.sh"
+	LIBEXEC_ISFW_AWK="$FWLIVE_PKG/root/usr/libexec/fwlive-is-firewall-event.awk"
+	ACL_JSON="$FWLIVE_PKG/root/usr/share/rpcd/acl.d/luci-app-fwlive.json"
+	MENU_JSON="$FWLIVE_PKG/root/usr/share/luci/menu.d/luci-app-fwlive.json"
+fi
+if [[ "$ARTIFACT_ONLY" -eq 0 && -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
 	echo "Syncing dev JS from feed (may be ahead of .ipk)..."
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"mkdir -p /www/luci-static/resources/view/status /www/luci-static/resources/fwlive"
@@ -126,7 +149,7 @@ if [[ -f "$FWLIVE_DIR/view/status/fwlive.js" ]]; then
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"rm -f /www/luci-static/resources/fwlive/parser.js"
 fi
-if [[ -f "$RPCD_BIN" ]]; then
+if [[ "$ARTIFACT_ONLY" -eq 0 && -f "$RPCD_BIN" ]]; then
 	echo "Syncing rpcd fwlive plugin + ACL..."
 	# Keep package-manager maintainer scripts from the artifact. Overwriting the
 	# hook here would make uninstall smokes validate the source tree, not the IPK/APK.
@@ -175,7 +198,7 @@ if [[ -f "$RPCD_BIN" ]]; then
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"/etc/init.d/rpcd restart"
 fi
-if [[ -f "$MENU_JSON" ]]; then
+if [[ "$ARTIFACT_ONLY" -eq 0 && -f "$MENU_JSON" ]]; then
 	echo "Syncing LuCI menu entry..."
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"cat > /usr/share/luci/menu.d/luci-app-fwlive.json" < "$MENU_JSON"

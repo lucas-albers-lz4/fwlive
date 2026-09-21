@@ -130,10 +130,10 @@ validate_matrix_install_ipk() {
 	local version_label="$1" qemu_target="$2" root
 	root="$(validate_matrix_root)"
 	case "$qemu_target" in
-		x86) OWRT_FWLIVE_ARCH=x86_64 ;;
-		armsr) OWRT_FWLIVE_ARCH=aarch64_generic ;;
+		x86) export OWRT_FWLIVE_ARCH=x86_64 ;;
+		armsr) export OWRT_FWLIVE_ARCH=aarch64_generic ;;
 	esac
-	OWRT_FWLIVE_VERSION="$version_label" "${root}/scripts/qemu-install-fwlive.sh"
+	OWRT_FWLIVE_VERSION="$version_label" "${root}/scripts/qemu-install-fwlive.sh" --artifact-only
 }
 
 validate_matrix_smoke() {
