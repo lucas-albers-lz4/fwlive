@@ -20,8 +20,10 @@ for lock in "$LOCKDIR"/*/feeds.conf; do
 done
 
 base23="$(feeds_lock_each_pin "$LOCKDIR/23.05.5/feeds.conf" | awk '$1=="base"{print $2}')"
+# Drift guard against the lock file, not a live ls-remote. Confirm with:
+# git ls-remote https://github.com/openwrt/openwrt.git 'refs/tags/v23.05.5^{}'
 if [[ "$base23" == "28cf53e6bd9bb68958aae7958e7950d967f02b46" ]]; then
-	ok "23.05.5 base is peeled v23.05.5"
+	ok "23.05.5 base pin has not drifted from peeled v23.05.5"
 else
 	bad "23.05.5 base pin is '$base23'"
 fi
@@ -70,6 +72,19 @@ if feeds_lock_require_pins "$neg/absroot.conf" 2>/dev/null; then
 	bad "absolute --root must fail require_pins"
 else
 	ok "absolute --root fails require_pins"
+fi
+
+cp "$LOCKDIR/23.05.5/feeds.conf" "$neg/full.conf"
+sed -i 's/^src-git luci /src-git-full luci /' "$neg/full.conf"
+full_err="$neg/full.err"
+if feeds_lock_require_pins "$neg/full.conf" 2>"$full_err"; then
+	bad "src-git-full must fail require_pins"
+else
+	if grep -q 'unsupported src-git-full' "$full_err"; then
+		ok "src-git-full is named in the diagnostic"
+	else
+		bad "src-git-full diagnostic was $(tr '\n' ' ' <"$full_err")"
+	fi
 fi
 
 git_init() {
@@ -124,6 +139,15 @@ else
 	ok "dirty work tree fails closed"
 fi
 git -C "$feeds/base" checkout -q -- README
+
+# Untracked files are dirty: feeds install can pick up an extra Makefile.
+printf 'scratch\n' >"$feeds/base/scratch.txt"
+if feeds_lock_assert_heads "$neg/one.conf" "$feeds" base packages luci 2>/dev/null; then
+	bad "untracked file must fail"
+else
+	ok "untracked file fails closed"
+fi
+rm -f "$feeds/base/scratch.txt"
 
 # Hidden index flags can suppress both porcelain and diff output; fail closed.
 printf hidden >>"$feeds/base/README"

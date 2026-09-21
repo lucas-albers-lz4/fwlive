@@ -52,6 +52,10 @@ feeds_lock_require_pins() {
 		src-link*)
 			continue
 			;;
+		src-git-full*)
+			echo "feeds-lock: unsupported src-git-full: $_line" >&2
+			return 1
+			;;
 		src-git*)
 			printf '%s\n' "$_line" | grep -Eq '^src-git( --root=[^[:space:]]+)? [^[:space:]]+ [^[:space:]]+\^[0-9a-f]{40}$' || {
 				echo "feeds-lock: unpinned src-git: $_line" >&2
@@ -258,6 +262,8 @@ feeds_lock_assert_heads() {
 			echo "feeds-lock: $_name has hidden tracked-file index flags" >&2
 			return 1
 		fi
+		# Untracked files (`??`) fail closed too: an extra Makefile under
+		# a feed checkout is visible to `feeds install`.
 		_status="$(git -C "$_repo" status --porcelain)" || return 1
 		if [ -n "$_status" ]; then
 			echo "feeds-lock: $_name work tree is not clean" >&2

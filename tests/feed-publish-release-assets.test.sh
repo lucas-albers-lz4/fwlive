@@ -335,4 +335,27 @@ if grep -qx host "$sdkfail_called"; then
 fi
 echo "SDK sign failure abort OK"
 
+# APK integrity failure (exit 2) must not be reported as a missing SDK build.
+apk_staging="${fixture}/apk-integrity-staging"
+apk_err="$(mktemp)"
+sdk_matrix_feeds_ready() {
+	echo "probe: feed HEAD/pin mismatch" >&2
+	return 2
+}
+export APK_FEED_SECRET_KEY="${fixture}/apk-secret.rsa"
+printf 'dummy-apk-key\n' >"$APK_FEED_SECRET_KEY"
+if feed_publish_stage_apk 25.12 "$apk_staging" 2>"$apk_err"; then
+	echo "FAIL: integrity failure must abort apk staging" >&2
+	exit 1
+fi
+grep -q 'refusing apk staging' "$apk_err" || {
+	echo "FAIL: apk integrity abort must name the refusal" >&2
+	exit 1
+}
+if grep -q 'run docker-sdk.sh build' "$apk_err"; then
+	echo "FAIL: apk integrity failure must not look like a missing build" >&2
+	exit 1
+fi
+echo "apk integrity-failure messaging OK"
+
 echo "feed-publish release asset tests passed"

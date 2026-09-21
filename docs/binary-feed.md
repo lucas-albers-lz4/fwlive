@@ -65,7 +65,10 @@ Each cell records the package hash, the SDK image and digest, the feeds lock
 hash, and the `base` / `packages` / `luci` commits from that lock. Those SHAs
 are the pins `feeds_lock_assert_heads` checks when the SDK volume is set up
 or reused; manifest generation copies the lock pins rather than re-running
-`rev-parse` at publish time.
+`rev-parse` at publish time. A host-signed opkg cell (`feeds_ready` exit 1)
+therefore records **declared** pins, not HEADs observed in that job.
+`feeds_lock_assert_heads` treats untracked files as a dirty tree — an extra
+Makefile under a feed checkout is visible to `feeds install`.
 
 ### Digest source
 
@@ -74,7 +77,7 @@ After the SDK image is pulled, the digest is resolved per cell with:
 ```sh
 docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' \
 	ghcr.io/openwrt/sdk:x86-64-23.05.5 \
-	| awk '$0 ~ /^ghcr[.]io\/openwrt\/sdk@sha256:/ { print; exit }'
+	| awk -v r='ghcr.io/openwrt/sdk' 'index($0, r "@sha256:") == 1 { print; exit }'
 # → ghcr.io/openwrt/sdk@sha256:…
 ```
 

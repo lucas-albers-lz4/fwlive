@@ -513,12 +513,15 @@ sdk_matrix_feeds_setup() {
 		ok=0
 		i=1
 		while [ \"\$i\" -le 3 ]; do
-			if ./scripts/feeds update base luci packages \\
-				&& feeds_lock_assert_heads /work/fwlive/scripts/feeds.lock/\$label/feeds.conf /builder/feeds base packages luci; then
-				ok=1
-				break
+			if ./scripts/feeds update base luci packages; then
+				if feeds_lock_assert_heads /work/fwlive/scripts/feeds.lock/\$label/feeds.conf /builder/feeds base packages luci; then
+					ok=1
+					break
+				fi
+				echo \"feeds-lock: pin/HEAD check failed (attempt \$i/3); wiping feed clones\" >&2
+			else
+				echo \"feeds update failed (attempt \$i/3); wiping feed clones\" >&2
 			fi
-			echo \"feeds update or pin check failed (attempt \$i/3); wiping feed clones\" >&2
 			rm -rf feeds/base feeds/base_root feeds/packages feeds/luci
 			if [ \"\$i\" -eq 3 ]; then
 				break

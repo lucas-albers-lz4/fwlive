@@ -424,8 +424,17 @@ feed_publish_stage_apk() {
 	}
 	feed_publish_apply_sdk_pin "$version_key" \
 		|| { echo "failed to pin SDK image for apk sign" >&2; return 1; }
-	sdk_matrix_feeds_ready \
-		|| { echo "run docker-sdk.sh build --version ${version_key} before staging apk feed" >&2; return 1; }
+	ready_rc=0
+	ready_out=""
+	ready_out="$(sdk_matrix_feeds_ready 2>&1)" || ready_rc=$?
+	if [[ "$ready_rc" -eq 2 ]]; then
+		printf '%s\n' "$ready_out" >&2
+		echo "feed integrity failed; refusing apk staging" >&2
+		return 1
+	elif [[ "$ready_rc" -ne 0 ]]; then
+		echo "run docker-sdk.sh build --version ${version_key} before staging apk feed" >&2
+		return 1
+	fi
 	local key_abs tools_dir lib_dir rc
 	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
 	key_abs="$(feed_publish_abspath "$APK_FEED_SECRET_KEY")"
