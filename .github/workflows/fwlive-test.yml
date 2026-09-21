@@ -103,6 +103,11 @@ jobs:
               FWLIVE_PACKAGE="$package" \
               FWLIVE_PAYLOAD_DIR="$payload_dir" \
               bash tests/fwlive-package-payload.test.sh
+            FWLIVE_REQUIRE_PACKAGE=1 \
+              FWLIVE_PACKAGE_FORMAT="$package_format" \
+              FWLIVE_PACKAGE="$package" \
+              FWLIVE_PAYLOAD_DIR="$payload_dir" \
+              bash tests/fwlive-package-lifecycle.test.sh
           done
 
   # Tier 2 mocked LuCI view smoke — required check (add test-view-mock to branch protection).

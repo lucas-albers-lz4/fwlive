@@ -191,6 +191,9 @@ bash tests/feed-publish-release-assets.test.sh
 echo "== fwlive package payload layout (R9a) ==" >&2
 bash tests/fwlive-package-payload.test.sh
 
+echo "== fwlive package lifecycle hook (#389) ==" >&2
+bash tests/fwlive-package-lifecycle.test.sh
+
 echo "== fwlive apk payload refuses host apk ==" >&2
 bash tests/fwlive-package-payload-apk-host.test.sh
 
