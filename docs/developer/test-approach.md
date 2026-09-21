@@ -202,10 +202,12 @@ This is ledger/disposition for later close of #389, #392, #378, and
 **#392.** R4a host exact ACL read/write arrays are merged (#394): read =
 `rules`, `poll`, `resolve`, `logging_status`; write =
 `enable_wan_logging`, `disable_wan_logging`. Sessions do not get
-`ubus log.read`. R4b installed authenticated-session evidence is merged
-(#401 smoke, #402 artifact
+`ubus log.read` (`testAclMethodParity` plus the ACL `log.*` guard; CI).
+R4b installed authenticated-session evidence is the dated artifact from
+the manual `qemu-acl-session-smoke.sh` run (#401 smoke, #402 artifact
 [issue-392-2026-09-20.md](../evidence/issue-392-2026-09-20.md)) on
-OpenWrt 24.10.8 x86_64: the grant session was allowed all six fwlive
+OpenWrt 24.10.8 x86_64; the per-PR harness only static-checks that
+script. On that guest: the grant session was allowed all six fwlive
 methods and denied `log.read` with JSON-RPC `-32002`; the
 `luci-base`-only deny session was allowed `file.list`, then denied
 sampled `logging_status` (read) and `enable_wan_logging` (write). The
@@ -259,10 +261,14 @@ inspector.
 - **R9b:** 25.12 APK **control** inspection is described (`apk adbdump`
   in the #389 record) plus the installed uninstall run. There is no
   retained payload dump.
-- **G2:** `qemu-forwarding-slo` tests are harness/static, not an e2e
-  guest SLO. Revisit on an SLO escape.
-- **G6:** there are currently zero `ip6.arpa` fixtures in `tests/`. This
-  item is not done. Revisit on a resolver change or IPv6 resolve escape.
+- **G2:** per-PR `qemu-forwarding-slo-harness` / `-net` tests are
+  harness/static (`bash -n`, ShellCheck, helper unit checks). The routed
+  guest run (`qemu-forwarding-slo-run.sh` plus traffic) stays manual/lab.
+  Revisit on an SLO escape.
+- **G6:** rpcd `__selftest` includes `ip6.arpa` PTR fixtures; `tests/`
+  does not (`testResolveNslookup` is IPv4 `in-addr.arpa` only). Host
+  tests must not be read as covering IPv6 PTR parse. Revisit on a
+  resolver change or IPv6 resolve escape.
 
 ## Implementation follow-up from #370
 
