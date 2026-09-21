@@ -20,6 +20,8 @@ shift || true
 VERSION_FILTER=""
 QEMU_FILTER=""
 SDK_TARGET="${OWRT_VALIDATE_SDK_TARGET:-armsr-armv8}"
+SDK_TARGET_EXPLICIT=0
+[[ -n "${OWRT_VALIDATE_SDK_TARGET:-}" ]] && SDK_TARGET_EXPLICIT=1
 SKIP_BUILD=0
 
 usage() {
@@ -47,7 +49,7 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--version) VERSION_FILTER="${2:?}"; shift 2 ;;
 		--qemu-target) QEMU_FILTER="${2:?}"; shift 2 ;;
-		--sdk-target) SDK_TARGET="${2:?}"; shift 2 ;;
+		--sdk-target) SDK_TARGET="${2:?}"; SDK_TARGET_EXPLICIT=1; shift 2 ;;
 		--skip-build) SKIP_BUILD=1; shift ;;
 		-h|--help) usage; exit 0 ;;
 		*) echo "unknown arg: $1" >&2; usage >&2; exit 1 ;;
@@ -83,7 +85,7 @@ case "$MODE" in
 		"${ROOT}/scripts/validate-baseline.sh"
 		args=()
 		[[ -n "$VERSION_FILTER" ]] && args+=(--version "$VERSION_FILTER")
-		[[ -n "${OWRT_VALIDATE_SDK_TARGET:-}" ]] && args+=(--target "$SDK_TARGET")
+		[[ "$SDK_TARGET_EXPLICIT" -eq 1 ]] && args+=(--target "$SDK_TARGET")
 		"${ROOT}/scripts/docker-sdk.sh" build-all "${args[@]}"
 		;;
 	smoke-x86)
