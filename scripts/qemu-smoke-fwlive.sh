@@ -120,6 +120,35 @@ printf '%s' "$CACHE_BODY" | grep -q 'Firewall Live View' \
 	|| die "LuCI index cache present but Firewall Live View missing"
 ok "LuCI index cache lists Firewall Live View (Status menu)"
 
+count_parsed_rows() {
+	local raw rows node_cmd
+	if ! raw="$("${ROOT}/scripts/fwlive-ubus-read.sh" --lines 30 2>/dev/null)"; then
+		printf '0'
+		return 1
+	fi
+
+	node_cmd="${NODE:-}"
+	if [[ -z "$node_cmd" ]]; then
+		if command -v node >/dev/null 2>&1; then
+			node_cmd=node
+		elif command -v nodejs >/dev/null 2>&1; then
+			node_cmd=nodejs
+		else
+			printf '0'
+			return 1
+		fi
+	fi
+	if ! rows="$(printf '%s' "$raw" | "$node_cmd" -e '
+		const value = JSON.parse(require("fs").readFileSync(0, "utf8"));
+		if (!Array.isArray(value)) process.exit(2);
+		process.stdout.write(String(value.length));
+	' 2>/dev/null)"; then
+		printf '0'
+		return 1
+	fi
+	printf '%s' "$rows"
+}
+
 read_required_rows() {
 	local raw rows node_cmd
 	if ! raw="$("${ROOT}/scripts/fwlive-ubus-read.sh" --lines 30 2>&1)"; then
@@ -148,6 +177,19 @@ read_required_rows() {
 	printf '%s' "$rows"
 }
 
+wait_for_required_rows() {
+	local backend="$1" attempt rows
+	for attempt in 1 2 3 4 5; do
+		rows="$(read_required_rows)"
+		if [[ "$rows" -ge 1 ]]; then
+			printf '%s' "$rows"
+			return 0
+		fi
+		[[ "$attempt" -lt 5 ]] && sleep 1
+	done
+	die "firewall log pipeline produced zero parsed rows (${backend})"
+}
+
 run_required_log_pipeline() {
 	local backend="$1" rows
 	if [[ "$backend" == nft ]]; then
@@ -160,12 +202,25 @@ run_required_log_pipeline() {
 
 	ssh_guest 'ping -c 3 -W 1 127.0.0.1 >/dev/null 2>&1' \
 		|| die "firewall traffic generation failed (${backend})"
-	sleep 1
-	rows="$(read_required_rows)"
-	if [[ "$rows" -lt 1 ]]; then
-		die "firewall log pipeline produced zero parsed rows (${backend})"
-	fi
+	rows="$(wait_for_required_rows "$backend")"
 	ok "firewall log pipeline ${backend} (${rows} parsed row(s))"
+}
+
+run_optional_log_pipeline() {
+	local backend="$1" rows
+	if [[ "$backend" == nft ]]; then
+		"${ROOT}/scripts/fwlive-nft-ping-log.sh" add --ssh >/dev/null 2>&1 || true
+	else
+		"${ROOT}/scripts/fwlive-iptables-ping-log.sh" add --ssh >/dev/null 2>&1 || true
+	fi
+	ssh_guest 'ping -c 3 -W 1 127.0.0.1 >/dev/null 2>&1' || true
+	rows=0
+	rows="$(count_parsed_rows)" || rows=0
+	if [[ "${rows:-0}" -ge 1 ]]; then
+		ok "firewall log pipeline ${backend} (${rows} parsed row(s))"
+	else
+		echo "smoke WARN: no parsed firewall rows yet (${backend} log rule may need traffic)" >&2
+	fi
 }
 
 if ssh_guest 'command -v nft >/dev/null 2>&1'; then
@@ -173,30 +228,14 @@ if ssh_guest 'command -v nft >/dev/null 2>&1'; then
 	if [[ "$REQUIRE_LOG_PIPELINE" -eq 1 ]]; then
 		run_required_log_pipeline nft
 	else
-		"${ROOT}/scripts/fwlive-nft-ping-log.sh" add --ssh >/dev/null 2>&1 || true
-		ssh_guest 'ping -c 3 -W 1 127.0.0.1 >/dev/null 2>&1' || true
-		sleep 1
-		ROWS="$("${ROOT}/scripts/fwlive-ubus-read.sh" --lines 30 2>/dev/null | wc -l | tr -d ' ')"
-		if [[ "${ROWS:-0}" -ge 1 ]]; then
-			ok "firewall log pipeline (${ROWS} parsed row(s))"
-		else
-			echo "smoke WARN: no parsed firewall rows yet (nft log rule may need traffic)" >&2
-		fi
+		run_optional_log_pipeline nft
 	fi
 elif ssh_guest 'command -v iptables >/dev/null 2>&1'; then
 	ok "firewall backend probe: iptables"
 	if [[ "$REQUIRE_LOG_PIPELINE" -eq 1 ]]; then
 		run_required_log_pipeline iptables
 	else
-		"${ROOT}/scripts/fwlive-iptables-ping-log.sh" add --ssh >/dev/null 2>&1 || true
-		ssh_guest 'ping -c 3 -W 1 127.0.0.1 >/dev/null 2>&1' || true
-		sleep 1
-		ROWS="$("${ROOT}/scripts/fwlive-ubus-read.sh" --lines 30 2>/dev/null | wc -l | tr -d ' ')"
-		if [[ "${ROWS:-0}" -ge 1 ]]; then
-			ok "firewall log pipeline iptables (${ROWS} parsed row(s))"
-		else
-			echo "smoke WARN: no parsed firewall rows yet (iptables LOG rule may need traffic)" >&2
-		fi
+		run_optional_log_pipeline iptables
 	fi
 else
 	die "firewall backend probe: neither nft nor iptables found"

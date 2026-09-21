@@ -120,6 +120,8 @@ grep -Fq 'firewall traffic generation failed (nft)' "$TMP/traffic-failure.log" \
 ok 'required mode rejects traffic generation failure'
 
 FWLIVE_STUB_ROWS=zero run_smoke best-effort-zero || die 'default best-effort mode stopped on zero rows'
+grep -Fq 'smoke WARN: no parsed firewall rows yet' "$TMP/best-effort-zero.log" \
+	|| die 'best-effort zero rows did not warn (wc -l empty JSON would look like one row)'
 ok 'default mode remains best effort'
 
 FWLIVE_STUB_ROWS=rows run_smoke required-rows --require-log-pipeline \
