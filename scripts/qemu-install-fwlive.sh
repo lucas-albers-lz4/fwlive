@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
 		--artifact-only) ARTIFACT_ONLY=1; shift ;;
 		-h|--help)
 			sed -n '1,9p' "$0"
-			echo '  --artifact-only  install only the package; do not sync files from the source tree'
+			echo '  --artifact-only  install only the package (force-reinstall; drop leftover source-sync files)'
 			exit 0
 			;;
 		--)
@@ -109,13 +109,33 @@ else
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"cat > ${REMOTE}" < "$IPK"
 fi
+if [[ "$ARTIFACT_ONLY" -eq 1 ]]; then
+	# Same-version opkg/apk is a no-op; a prior non-artifact install can leave
+	# source-synced files that the package manager will not replace.
+	echo "Clearing leftover source-sync files for artifact-only install..."
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
+		'rm -f /www/luci-static/resources/view/status/fwlive.js
+		rm -rf /www/luci-static/resources/fwlive
+		rm -f /usr/libexec/rpcd/fwlive \
+			/usr/libexec/fwlive-logging.sh \
+			/usr/libexec/fwlive-adaptive-cap.sh \
+			/usr/libexec/fwlive-log-filter.sh \
+			/usr/libexec/fwlive-is-firewall-event.sh \
+			/usr/libexec/fwlive-is-firewall-event.awk \
+			/usr/share/rpcd/acl.d/luci-app-fwlive.json \
+			/usr/share/luci/menu.d/luci-app-fwlive.json'
+fi
 if [[ "$pkg_ext" == apk ]] || ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 	'command -v apk >/dev/null'; then
+	_apk_flags='--allow-untrusted'
+	[[ "$ARTIFACT_ONLY" -eq 1 ]] && _apk_flags='--allow-untrusted --force-reinstall'
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
-		"apk add --allow-untrusted ${REMOTE} && rm -f ${REMOTE}"
+		"apk add ${_apk_flags} ${REMOTE} && rm -f ${REMOTE}"
 else
+	_opkg_flags=''
+	[[ "$ARTIFACT_ONLY" -eq 1 ]] && _opkg_flags='--force-reinstall '
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
-		"opkg install ${REMOTE} && rm -f ${REMOTE}"
+		"opkg install ${_opkg_flags}${REMOTE} && rm -f ${REMOTE}"
 fi
 
 if [[ "$ARTIFACT_ONLY" -eq 0 ]]; then
