@@ -122,7 +122,10 @@ Tested on **QEMU x86_64 24.10** (KVM) and **armsr 24.10.8** (TCG); **23.05.5** v
 
 The current package lifecycle evidence for issue #389 is recorded in
 [the dated installed-package report](evidence/issue-389-2026-09-20.md),
-including real `opkg remove` and `apk del` baseline-restore checks.
+including QEMU uninstall restoration via `opkg remove` / `apk del` and
+same-version no-op preservation checks (`opkg install` when up-to-date;
+`apk add --force-reinstall`). Host tests on #405 cover the packaged `prerm`
+action matrix.
 
 The installed authenticated-session ACL evidence for issue #392 is recorded in
 [the dated session report](evidence/issue-392-2026-09-20.md). It is separate
