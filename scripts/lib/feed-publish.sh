@@ -374,7 +374,7 @@ feed_publish_stage_opkg_sdk() {
 
 feed_publish_stage_opkg() {
 	local version_key="$1" staging="$2"
-	local ver_label feed_dir artifact pkg_dir
+	local ver_label feed_dir artifact pkg_dir ready_rc ready_out
 	ver_label="$(sdk_matrix_version_label "$version_key")"
 	feed_dir="${staging}/$(feed_publish_feed_dir "$version_key")"
 	artifact="$(feed_publish_find_artifact "$ver_label")" || {
@@ -389,12 +389,19 @@ feed_publish_stage_opkg() {
 	cp -a "$artifact" "$feed_dir/"
 	pkg_dir="$feed_dir"
 	sdk_matrix_resolve x86-64 "$version_key"
-	if sdk_matrix_feeds_ready 2>/dev/null; then
+	ready_rc=0
+	ready_out=""
+	ready_out="$(sdk_matrix_feeds_ready 2>&1)" || ready_rc=$?
+	if [[ "$ready_rc" -eq 0 ]]; then
 		echo "  index+sign via SDK (${SDK_MATRIX_IMAGE})" >&2
-		feed_publish_stage_opkg_sdk "$version_key" "$pkg_dir"
+		feed_publish_stage_opkg_sdk "$version_key" "$pkg_dir" || return 1
+	elif [[ "$ready_rc" -eq 2 ]]; then
+		printf '%s\n' "$ready_out" >&2
+		echo "feed integrity failed; refusing host-sign fallback" >&2
+		return 1
 	else
 		echo "  index+sign on host (no SDK volume)" >&2
-		feed_publish_stage_opkg_host "$pkg_dir" "$ver_label"
+		feed_publish_stage_opkg_host "$pkg_dir" "$ver_label" || return 1
 	fi
 	printf '%s' "$artifact"
 }
@@ -417,8 +424,17 @@ feed_publish_stage_apk() {
 	}
 	feed_publish_apply_sdk_pin "$version_key" \
 		|| { echo "failed to pin SDK image for apk sign" >&2; return 1; }
-	sdk_matrix_feeds_ready \
-		|| { echo "run docker-sdk.sh build --version ${version_key} before staging apk feed" >&2; return 1; }
+	ready_rc=0
+	ready_out=""
+	ready_out="$(sdk_matrix_feeds_ready 2>&1)" || ready_rc=$?
+	if [[ "$ready_rc" -eq 2 ]]; then
+		printf '%s\n' "$ready_out" >&2
+		echo "feed integrity failed; refusing apk staging" >&2
+		return 1
+	elif [[ "$ready_rc" -ne 0 ]]; then
+		echo "run docker-sdk.sh build --version ${version_key} before staging apk feed" >&2
+		return 1
+	fi
 	local key_abs tools_dir lib_dir rc
 	pkg_dir="$(feed_publish_abspath "$pkg_dir")"
 	key_abs="$(feed_publish_abspath "$APK_FEED_SECRET_KEY")"
@@ -458,6 +474,34 @@ feed_publish_copy_keys() {
 	[[ -n "${APK_FEED_PUBLIC_KEY:-}" && -f "$APK_FEED_PUBLIC_KEY" ]] && cp -a "$APK_FEED_PUBLIC_KEY" "${staging}/fwlive-feed.rsa.pub"
 }
 
+feed_publish_lock_pins() {
+	local version_key="$1"
+	local lock_path pair name sha
+	lock_path="$(sdk_matrix_feeds_lock_path "$version_key")"
+	feeds_lock_require_pins "$lock_path" || return 1
+	FEED_PUBLISH_LOCK_SHA256="$(sha256sum "$lock_path" | awk '{print $1}')"
+	FEED_PUBLISH_FEED_BASE=""
+	FEED_PUBLISH_FEED_PACKAGES=""
+	FEED_PUBLISH_FEED_LUCI=""
+	while IFS= read -r pair || [[ -n "$pair" ]]; do
+		[[ -n "$pair" ]] || continue
+		name="${pair%% *}"
+		sha="${pair#* }"
+		sha="${sha%% *}"
+		case "$name" in
+			base) FEED_PUBLISH_FEED_BASE="$sha" ;;
+			packages) FEED_PUBLISH_FEED_PACKAGES="$sha" ;;
+			luci) FEED_PUBLISH_FEED_LUCI="$sha" ;;
+		esac
+	done <<EOF
+$(feeds_lock_each_pin "$lock_path")
+EOF
+	[[ -n "$FEED_PUBLISH_FEED_BASE" && -n "$FEED_PUBLISH_FEED_PACKAGES" && -n "$FEED_PUBLISH_FEED_LUCI" ]] || {
+		echo "feeds-lock: missing base/packages/luci pin for $version_key" >&2
+		return 1
+	}
+}
+
 feed_publish_write_manifest() {
 	local staging="$1" git_tag="${2:-unknown}"
 	local manifest ver artifact ver_label sum sdk_digest sdk_image
@@ -480,10 +524,13 @@ feed_publish_write_manifest() {
 		# record an empty sdk_digest and the release would proceed.
 		sdk_digest="$(sdk_matrix_image_digest)" || return 1
 		sdk_image="ghcr.io/openwrt/sdk:$(sdk_matrix_image_tag x86-64 "$ver")"
+		feed_publish_lock_pins "$ver" || return 1
 		[[ $first -eq 1 ]] || printf ',\n' >> "$manifest"
 		first=0
-		printf '    {"openwrt": "%s", "file": "%s", "sha256": "%s", "sdk_image": "%s", "sdk_digest": "%s"}' \
-			"$ver" "$(basename "$artifact")" "$sum" "$sdk_image" "$sdk_digest" >> "$manifest"
+		printf '    {"openwrt": "%s", "file": "%s", "sha256": "%s", "sdk_image": "%s", "sdk_digest": "%s", "feeds_lock_sha256": "%s", "feeds": {"base": "%s", "packages": "%s", "luci": "%s"}}' \
+			"$ver" "$(basename "$artifact")" "$sum" "$sdk_image" "$sdk_digest" \
+			"$FEED_PUBLISH_LOCK_SHA256" "$FEED_PUBLISH_FEED_BASE" \
+			"$FEED_PUBLISH_FEED_PACKAGES" "$FEED_PUBLISH_FEED_LUCI" >> "$manifest"
 	done
 	printf '\n  ]\n}\n' >> "$manifest"
 }

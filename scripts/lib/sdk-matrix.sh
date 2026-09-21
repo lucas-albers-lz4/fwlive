@@ -8,6 +8,9 @@
 # and must stay POSIX; do not copy Bash-isms from here into those scripts.
 set -euo pipefail
 
+# shellcheck source=feeds-lock.sh
+source "$(dirname "${BASH_SOURCE[0]}")/feeds-lock.sh"
+
 SDK_MATRIX_TARGETS=(armsr-armv8 x86-64)
 SDK_MATRIX_VERSIONS=(snapshot 25.12 24.10 23.05)
 
@@ -465,6 +468,10 @@ sdk_matrix_feeds_ready() {
 		[ -d /builder/feeds/luci/.git ] || { echo "probe: missing luci .git" >&2; exit 1; }
 		find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q . \
 			|| { echo "probe: luci-app-fwlive Makefile not found" >&2; exit 1; }
+		# shellcheck disable=SC1091
+		. /work/fwlive/scripts/lib/feeds-lock.sh
+		feeds_lock_assert_heads "$lock" /builder/feeds base packages luci \
+			|| { echo "probe: feed HEAD/pin mismatch" >&2; exit 2; }
 	' sh "$SDK_MATRIX_VERSION_LABEL"
 }
 
@@ -483,9 +490,10 @@ sdk_matrix_feeds_setup() {
 		echo "missing pinned feeds lock: $lock_path" >&2
 		return 1
 	}
+	feeds_lock_require_pins "$lock_path" || return 1
 	# Retry feeds update: git.openwrt.org (and mirrors) drop TLS under CI load.
 	# HTTP/1.1 reduces curl-35 / gnutls_handshake failures (openwrt/openwrt#21854).
-	# Wipe partial clones on failure; require .git dirs so soft exit-0 without clone fails.
+	# Wipe clones when update OR pin/HEAD check fails so a poisoned cache can recover.
 	# \$1 = version label (data); base package list is host-escaped into the script body.
 	sdk_matrix_compose_run sh -ec "
 		label=\$1
@@ -499,17 +507,21 @@ sdk_matrix_feeds_setup() {
 
 		git config --global http.version HTTP/1.1 || true
 
+		# shellcheck disable=SC1091
+		. /work/fwlive/scripts/lib/feeds-lock.sh
+
 		ok=0
 		i=1
 		while [ \"\$i\" -le 3 ]; do
-			if ./scripts/feeds update base luci packages \\
-				&& { [ -d feeds/base/.git ] || [ -d feeds/base_root/.git ]; } \\
-				&& [ -d feeds/packages/.git ] \\
-				&& [ -d feeds/luci/.git ]; then
-				ok=1
-				break
+			if ./scripts/feeds update base luci packages; then
+				if feeds_lock_assert_heads /work/fwlive/scripts/feeds.lock/\$label/feeds.conf /builder/feeds base packages luci; then
+					ok=1
+					break
+				fi
+				echo \"feeds-lock: pin/HEAD check failed (attempt \$i/3); wiping feed clones\" >&2
+			else
+				echo \"feeds update failed (attempt \$i/3); wiping feed clones\" >&2
 			fi
-			echo \"feeds update failed (attempt \$i/3); wiping partial clones\" >&2
 			rm -rf feeds/base feeds/base_root feeds/packages feeds/luci
 			if [ \"\$i\" -eq 3 ]; then
 				break

@@ -48,34 +48,50 @@ making a release attributable to the exact image despite the moving tag.
       "file": "luci-app-fwlive_0.1.16_23.05_all.ipk",
       "sha256": "…",
       "sdk_image": "ghcr.io/openwrt/sdk:x86-64-23.05.5",
-      "sdk_digest": "ghcr.io/openwrt/sdk@sha256:…"
+      "sdk_digest": "ghcr.io/openwrt/sdk@sha256:…",
+      "feeds_lock_sha256": "…",
+      "feeds": {
+        "base": "…",
+        "packages": "…",
+        "luci": "…"
+      }
     },
     …
   ]
 }
 ```
 
-Before this change a cell was `{"openwrt", "file", "sha256"}` only; the
-`sdk_image` / `sdk_digest` pair is added alongside the per-package sha256.
+Each cell records the package hash, the SDK image and digest, the feeds lock
+hash, and the `base` / `packages` / `luci` commits from that lock. Those SHAs
+are the pins `feeds_lock_assert_heads` checks when the SDK volume is set up
+or reused; manifest generation copies the lock pins rather than re-running
+`rev-parse` at publish time. A host-signed opkg cell (`feeds_ready` exit 1)
+therefore records **declared** pins, not HEADs observed in that job.
+`feeds_lock_assert_heads` treats untracked files as a dirty tree — an extra
+Makefile under a feed checkout is visible to `feeds install`.
 
 ### Digest source
 
 After the SDK image is pulled, the digest is resolved per cell with:
 
 ```sh
-docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/openwrt/sdk:x86-64-23.05.5
+docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+	ghcr.io/openwrt/sdk:x86-64-23.05.5 \
+	| awk -v r='ghcr.io/openwrt/sdk' 'index($0, r "@sha256:") == 1 { print; exit }'
 # → ghcr.io/openwrt/sdk@sha256:…
 ```
 
-`RepoDigests[0]` is the registry digest of the image that was actually pulled
-and built against (implemented in `scripts/lib/sdk-matrix.sh` → `sdk_matrix_image_digest`).
+The selected entry is the `RepoDigest` whose repository prefix matches the image
+that was actually pulled and built against; list position is not trusted. This
+is implemented in `scripts/lib/sdk-matrix.sh` → `sdk_matrix_image_digest`.
 
 ### Fallback
 
-If `RepoDigests` is **empty** (locally built / registry-less image), the image
-ID is recorded as `@sha256:<image ID>` and a **warning** is emitted to stderr —
-an empty digest is **never** recorded silently. If neither `RepoDigests` nor
-the image ID can be read, manifest generation **fails** (no silent empty value).
+If no matching `RepoDigest` is available (for example, a locally built or
+registry-less image), the image ID is recorded as `@sha256:<image ID>` and a
+**warning** is emitted to stderr — an empty digest is **never** recorded
+silently. If neither the matching `RepoDigest` nor the image ID can be read,
+manifest generation **fails** (no silent empty value).
 
 ### Out of scope
 
@@ -197,9 +213,10 @@ Pinned inputs (regenerate when bumping OpenWrt point releases):
 
 | Input | Location |
 |-------|----------|
-| Feed commits | [`scripts/feeds.lock/`](../scripts/feeds.lock/) per SDK version (GitHub mirrors of git.openwrt.org; pinned SHAs unchanged) |
+| Feed commits | [`scripts/feeds.lock/`](../scripts/feeds.lock/) per SDK version (GitHub mirrors of git.openwrt.org; every `src-git` line is a peeled `^<40-hex>` commit, including 23.05 `base`) |
 | SDK image tag | [`scripts/lib/sdk-matrix.sh`](../scripts/lib/sdk-matrix.sh) |
 | SDK image digest | Recorded per cell in `manifest.json` ([release manifest](#release-manifest)) |
+| Feed revisions | Same manifest: lock pins for `feeds.base` / `feeds.packages` / `feeds.luci` plus `feeds_lock_sha256` |
 | Package version | `PKG_VERSION` / `PKG_RELEASE` in package Makefile |
 | Timestamps | `SOURCE_DATE_EPOCH` (git commit epoch; set in CI on release tag) |
 
@@ -226,7 +243,10 @@ When OpenWrt bumps a point release (e.g. 24.10.7 → 24.10.8):
 
 ```sh
 docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.8 cat feeds.conf.default
-# Copy into scripts/feeds.lock/24.10.8/feeds.conf (add src-link fwlive line)
+# Copy into scripts/feeds.lock/24.10.8/feeds.conf (add src-link fwlive line).
+# Replace any `;branch` src-git ref with the peeled 40-hex commit
+# (`git ls-remote … 'refs/tags/vX.Y.Z^{}'`). `tests/feeds-lock-pins.test.sh`
+# rejects unpinned src-git lines.
 # Update sdk_matrix_version_patch in sdk-matrix.sh
 ```
 

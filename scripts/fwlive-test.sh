@@ -215,6 +215,9 @@ bash tests/validate-feed-keys-mode.test.sh
 echo "== fwlive fetch-pin gate ==" >&2
 bash tests/fetch-pin-gate.test.sh
 
+echo "== fwlive feeds.lock src-git pins (#411) ==" >&2
+bash tests/feeds-lock-pins.test.sh
+
 echo "== fwlive adaptive cap (#306 Layer 1) ==" >&2
 bash tests/fwlive-adaptive-cap.test.sh
 

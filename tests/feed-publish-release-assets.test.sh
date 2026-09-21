@@ -141,6 +141,10 @@ command -v node >/dev/null 2>&1 && node -e '
 	if (lines !== "23.05,24.10,25.12") process.exit(1);
 	for (const p of m.packages) {
 		if (!/^ghcr\.io\/openwrt\/sdk@sha256:[0-9a-f]{64}$/.test(p.sdk_digest || "")) process.exit(1);
+		if (!/^[0-9a-f]{64}$/.test(p.feeds_lock_sha256 || "")) process.exit(1);
+		if (!p.feeds || !/^[0-9a-f]{40}$/.test(p.feeds.base || "") ||
+			!/^[0-9a-f]{40}$/.test(p.feeds.packages || "") ||
+			!/^[0-9a-f]{40}$/.test(p.feeds.luci || "")) process.exit(1);
 	}
 ' "${fixture}/manifest-staging/manifest.json"
 
@@ -266,5 +270,92 @@ FEED_PUBLISH_ROOT="$notes_fix" feed_publish_release_notes_file "${fixture}/none.
 # Malformed tag → non-zero before touching the changelog
 FEED_PUBLISH_ROOT="$notes_fix" feed_publish_release_notes_file "${fixture}/bad.md" 'v9.9.9; rm' &&
 	{ echo "FAIL: malformed tag must return non-zero" >&2; exit 1; }
+
+# Integrity failure (sdk_matrix_feeds_ready exit 2) must refuse host-sign.
+integrity_staging="${fixture}/integrity-staging"
+integrity_err="$(mktemp)"
+integrity_called="${fixture}/integrity-called"
+: >"$integrity_called"
+export OPKG_FEED_SECRET_KEY="${fixture}/opkg-secret.key"
+printf 'untrusted comment: test\nRWTEST\n' >"$OPKG_FEED_SECRET_KEY"
+sdk_matrix_feeds_ready() {
+	echo "probe: feed HEAD/pin mismatch" >&2
+	return 2
+}
+feed_publish_stage_opkg_sdk() {
+	echo sdk >>"$integrity_called"
+	return 0
+}
+feed_publish_stage_opkg_host() {
+	echo host >>"$integrity_called"
+	return 0
+}
+if feed_publish_stage_opkg 23.05 "$integrity_staging" 2>"$integrity_err"; then
+	echo "FAIL: integrity failure must abort opkg staging" >&2
+	exit 1
+fi
+grep -q 'refusing host-sign fallback' "$integrity_err" || {
+	echo "FAIL: integrity abort must name the host-sign refusal" >&2
+	exit 1
+}
+if grep -qE '^(sdk|host)$' "$integrity_called"; then
+	echo "FAIL: integrity failure must not call SDK or host sign" >&2
+	exit 1
+fi
+if [[ -e "${integrity_staging}/23.05/Packages.sig" ]]; then
+	echo "FAIL: integrity failure must not write Packages.sig" >&2
+	exit 1
+fi
+echo "integrity-failure host-sign refusal OK"
+
+# SDK sign failure must abort even when the caller uses `if` (errexit off).
+sdkfail_staging="${fixture}/sdkfail-staging"
+sdkfail_called="${fixture}/sdkfail-called"
+: >"$sdkfail_called"
+sdk_matrix_feeds_ready() { return 0; }
+feed_publish_stage_opkg_sdk() {
+	echo sdk >>"$sdkfail_called"
+	return 1
+}
+feed_publish_stage_opkg_host() {
+	echo host >>"$sdkfail_called"
+	return 0
+}
+if feed_publish_stage_opkg 23.05 "$sdkfail_staging" 2>/dev/null; then
+	echo "FAIL: SDK sign failure must abort opkg staging" >&2
+	exit 1
+fi
+grep -qx sdk "$sdkfail_called" || {
+	echo "FAIL: SDK sign path must be attempted" >&2
+	exit 1
+}
+if grep -qx host "$sdkfail_called"; then
+	echo "FAIL: SDK sign failure must not fall back to host-sign" >&2
+	exit 1
+fi
+echo "SDK sign failure abort OK"
+
+# APK integrity failure (exit 2) must not be reported as a missing SDK build.
+apk_staging="${fixture}/apk-integrity-staging"
+apk_err="$(mktemp)"
+sdk_matrix_feeds_ready() {
+	echo "probe: feed HEAD/pin mismatch" >&2
+	return 2
+}
+export APK_FEED_SECRET_KEY="${fixture}/apk-secret.rsa"
+printf 'dummy-apk-key\n' >"$APK_FEED_SECRET_KEY"
+if feed_publish_stage_apk 25.12 "$apk_staging" 2>"$apk_err"; then
+	echo "FAIL: integrity failure must abort apk staging" >&2
+	exit 1
+fi
+grep -q 'refusing apk staging' "$apk_err" || {
+	echo "FAIL: apk integrity abort must name the refusal" >&2
+	exit 1
+}
+if grep -q 'run docker-sdk.sh build' "$apk_err"; then
+	echo "FAIL: apk integrity failure must not look like a missing build" >&2
+	exit 1
+fi
+echo "apk integrity-failure messaging OK"
 
 echo "feed-publish release asset tests passed"
