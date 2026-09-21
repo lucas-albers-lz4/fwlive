@@ -249,8 +249,9 @@ this ledger, not more production pruning.
 #392 are the remaining children. R1 is owned by closed #371.
 R2/R3/R5/R6/R7/R9a have host/e-harness coverage. R4a/R4b are covered by
 #392. G4 (`RESOLVE_MAX=32`) is covered by jshn-compat. G3/G5 were
-covered by host tests. R9a is the format-aware host IPK payload
-inspector.
+covered by host tests. G6 IPv6 PTR parse is covered by rpcd
+`__selftest` (see residual below). R9a is the format-aware host IPK
+payload inspector.
 
 **Residuals**
 
@@ -265,10 +266,13 @@ inspector.
   harness/static (`bash -n`, ShellCheck, helper unit checks). The routed
   guest run (`qemu-forwarding-slo-run.sh` plus traffic) stays manual/lab.
   Revisit on an SLO escape.
-- **G6:** rpcd `__selftest` includes `ip6.arpa` PTR fixtures; `tests/`
-  does not (`testResolveNslookup` is IPv4 `in-addr.arpa` only). Host
-  tests must not be read as covering IPv6 PTR parse. Revisit on a
-  resolver change or IPv6 resolve escape.
+- **G6:** rpcd `__selftest` includes bind-style and BusyBox `ip6.arpa`
+  PTR fixtures, and the required host suite executes that selftest
+  (`fwlive-rpcd-security.test.js`, `fwlive-logging.test.sh`). The
+  dedicated `testResolveNslookup` driver is IPv4 `in-addr.arpa` only.
+  Residual: no direct end-to-end IPv6 resolve (stubbed `nslookup`
+  through `resolve`, or installed QEMU). Revisit on a resolver change
+  or IPv6 resolve escape.
 
 ## Implementation follow-up from #370
 
