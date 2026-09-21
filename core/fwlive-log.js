@@ -243,7 +243,7 @@ function timestampUnix(entry) {
 	if (!Number.isFinite(n))
 		return null;
 
-	const unix = n > 1e12 ? Math.floor(n / 1000) : Math.floor(n);
+	const unix = Math.abs(n) > 1e12 ? Math.floor(n / 1000) : Math.floor(n);
 	return Math.abs(unix) <= MAX_DATE_SECONDS ? unix : null;
 }
 

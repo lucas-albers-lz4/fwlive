@@ -29,6 +29,12 @@ function run() {
 	assert.equal(core.timestampUnix(malformedTimestamp), null);
 	assert.doesNotThrow(() => core.normalizeEntry(malformedTimestamp));
 	assert.equal(core.normalizeEntry(malformedTimestamp).timestamp_display, '');
+
+	const negativeMillisTimestamp = {
+		time: -1700000000000,
+		msg: sample.msg
+	};
+	assert.equal(core.timestampUnix(negativeMillisTimestamp), -1700000000);
 	assert.equal(
 		core.filterLogEntries([sample, malformedTimestamp]).length,
 		2,

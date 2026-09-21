@@ -44,6 +44,10 @@ assert.strictEqual(core.timestampUnix(outOfRangeTs), null);
 assert.strictEqual(luci.timestampUnix(outOfRangeTs), null);
 assert.deepStrictEqual(luci.normalizeEntry(outOfRangeTs), core.normalizeEntry(outOfRangeTs));
 
+const negativeMillisTs = { time: -1700000000000, msg: outOfRangeTs.msg };
+assert.strictEqual(core.timestampUnix(negativeMillisTs), -1700000000);
+assert.strictEqual(luci.timestampUnix(negativeMillisTs), core.timestampUnix(negativeMillisTs));
+
 const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
 assert.strictEqual(
 	core.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),
