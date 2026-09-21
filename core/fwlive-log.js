@@ -53,6 +53,7 @@ const ACTION_RE = wordPattern(CLASSIFY_SPEC.actionWords);
 const PASS_ACTION_WORDS = CLASSIFY_SPEC.actionWords.slice(0, 3); /* ACCEPT|ALLOW|PASS */
 const DENY_CLASS_WORDS = CLASSIFY_SPEC.actionWords.slice(3); /* DROP|REJECT|DENY|BLOCK — pinned */
 const DENY_ACTION = wordPattern(DENY_CLASS_WORDS);
+const MAX_DATE_SECONDS = 8640000000000;
 
 const TCP_FLAG_TAIL = /\b(SYN|ACK|FIN|RST|PSH|URG)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG))*\s*$/i;
 const NETFILTER_KV_GLUE = /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=)/g;
@@ -232,15 +233,18 @@ function timestampUnix(entry) {
 
 	if (typeof entry.time === 'string' && /^\d{4}-\d{2}-\d{2}[T ]/.test(entry.time)) {
 		const ms = new Date(entry.time).getTime();
-		if (Number.isFinite(ms))
-			return Math.floor(ms / 1000);
+		if (Number.isFinite(ms)) {
+			const unix = Math.floor(ms / 1000);
+			return Math.abs(unix) <= MAX_DATE_SECONDS ? unix : null;
+		}
 	}
 
 	const n = Number(entry.time);
 	if (!Number.isFinite(n))
 		return null;
 
-	return n > 1e12 ? Math.floor(n / 1000) : Math.floor(n);
+	const unix = n > 1e12 ? Math.floor(n / 1000) : Math.floor(n);
+	return Math.abs(unix) <= MAX_DATE_SECONDS ? unix : null;
 }
 
 function formatTimestampDisplay(entry) {

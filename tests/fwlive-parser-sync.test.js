@@ -39,6 +39,10 @@ assert.strictEqual(
 	core.timestampUnix({ time: '2024-01-01T12:00:00Z' }),
 	luci.timestampUnix({ time: '2024-01-01T12:00:00Z' })
 );
+const outOfRangeTs = { time: -1e16, msg: 'fw4: ACCEPT IN=wan SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP' };
+assert.strictEqual(core.timestampUnix(outOfRangeTs), null);
+assert.strictEqual(luci.timestampUnix(outOfRangeTs), null);
+assert.deepStrictEqual(luci.normalizeEntry(outOfRangeTs), core.normalizeEntry(outOfRangeTs));
 
 const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
 assert.strictEqual(

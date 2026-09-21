@@ -21,6 +21,19 @@ function run() {
 	};
 	const spaceRow = core.normalizeEntry(spaceTime);
 	assert.equal(spaceRow.timestamp, Math.floor(new Date('2026-03-20T02:00:00').getTime() / 1000));
+
+	const malformedTimestamp = {
+		time: -1e16,
+		msg: 'fw4: ACCEPT IN=wan SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP'
+	};
+	assert.equal(core.timestampUnix(malformedTimestamp), null);
+	assert.doesNotThrow(() => core.normalizeEntry(malformedTimestamp));
+	assert.equal(core.normalizeEntry(malformedTimestamp).timestamp_display, '');
+	assert.equal(
+		core.filterLogEntries([sample, malformedTimestamp]).length,
+		2,
+		'one malformed timestamp must not abort the batch'
+	);
 	assert.equal(row.action, 'drop');
 	assert.equal(row.action_raw, 'DROP');
 	assert.equal(row.proto, 'TCP');
