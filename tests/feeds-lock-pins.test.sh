@@ -42,6 +42,20 @@ else
 	ok "branch ref fails require_pins"
 fi
 
+: >"$neg/empty.conf"
+if feeds_lock_require_pins "$neg/empty.conf" 2>/dev/null; then
+	bad "empty lock must fail require_pins"
+else
+	ok "empty lock fails require_pins"
+fi
+
+grep -v '^src-git luci ' "$LOCKDIR/23.05.5/feeds.conf" >"$neg/noluci.conf"
+if feeds_lock_require_pins "$neg/noluci.conf" 2>/dev/null; then
+	bad "lock missing luci must fail require_pins"
+else
+	ok "lock missing luci fails require_pins"
+fi
+
 git_init() {
 	local dir="$1" sha_msg="$2"
 	mkdir -p "$dir"
@@ -116,6 +130,23 @@ fi
 git -C "$feeds/base" update-index --no-assume-unchanged README
 git -C "$feeds/base" checkout -q -- README
 
+if feeds_lock_assert_heads "$neg/one.conf" "$feeds" base packages luci routing 2>/dev/null; then
+	bad "requested feed missing from lock must fail"
+else
+	ok "requested feed missing from lock fails closed"
+fi
+
+# gitfile (.git is a file) must still resolve HEAD.
+mv "$feeds/packages/.git" "$neg/packages.git"
+printf 'gitdir: %s\n' "$neg/packages.git" >"$feeds/packages/.git"
+if feeds_lock_assert_heads "$neg/one.conf" "$feeds" base packages luci; then
+	ok "gitfile checkout matches pin"
+else
+	bad "gitfile checkout must match pin"
+fi
+rm -f "$feeds/packages/.git"
+mv "$neg/packages.git" "$feeds/packages/.git"
+
 # --root=package layout (25.12/snapshot): git lives in base_root.
 rm -rf "$feeds/base" "$feeds/base_root"
 git_init "$feeds/base_root" base-root-ok
@@ -133,6 +164,23 @@ if feeds_lock_assert_heads "$neg/root.conf" "$feeds" base packages luci; then
 	ok "base_root layout matches pin; unused routing pin ignored"
 else
 	bad "base_root layout must match pin"
+fi
+
+root_fields="$(feeds_lock_each_pin "$neg/root.conf" | awk '$1=="base"{print $2, $3}')"
+if [[ "$root_fields" == "$base_root_sha package" ]]; then
+	ok "each_pin keeps --root=package on base"
+else
+	bad "each_pin --root fields are '$root_fields'"
+fi
+
+# --root=package: a plain directory at feeds/base must not ride on a clean base_root.
+rm -f "$feeds/base"
+mkdir -p "$feeds/base"
+printf 'evil\n' >"$feeds/base/Makefile"
+if feeds_lock_assert_heads "$neg/root.conf" "$feeds" base packages luci 2>/dev/null; then
+	bad "replaced --root base symlink must fail"
+else
+	ok "replaced --root base symlink fails closed"
 fi
 
 if [[ "$fail" -ne 0 ]]; then

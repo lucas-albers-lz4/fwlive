@@ -493,7 +493,7 @@ sdk_matrix_feeds_setup() {
 	feeds_lock_require_pins "$lock_path" || return 1
 	# Retry feeds update: git.openwrt.org (and mirrors) drop TLS under CI load.
 	# HTTP/1.1 reduces curl-35 / gnutls_handshake failures (openwrt/openwrt#21854).
-	# Wipe partial clones on failure; require .git dirs so soft exit-0 without clone fails.
+	# Wipe clones when update OR pin/HEAD check fails so a poisoned cache can recover.
 	# \$1 = version label (data); base package list is host-escaped into the script body.
 	sdk_matrix_compose_run sh -ec "
 		label=\$1
@@ -507,17 +507,18 @@ sdk_matrix_feeds_setup() {
 
 		git config --global http.version HTTP/1.1 || true
 
+		# shellcheck disable=SC1091
+		. /work/fwlive/scripts/lib/feeds-lock.sh
+
 		ok=0
 		i=1
 		while [ \"\$i\" -le 3 ]; do
 			if ./scripts/feeds update base luci packages \\
-				&& { [ -d feeds/base/.git ] || [ -d feeds/base_root/.git ]; } \\
-				&& [ -d feeds/packages/.git ] \\
-				&& [ -d feeds/luci/.git ]; then
+				&& feeds_lock_assert_heads /work/fwlive/scripts/feeds.lock/\$label/feeds.conf /builder/feeds base packages luci; then
 				ok=1
 				break
 			fi
-			echo \"feeds update failed (attempt \$i/3); wiping partial clones\" >&2
+			echo \"feeds update or pin check failed (attempt \$i/3); wiping feed clones\" >&2
 			rm -rf feeds/base feeds/base_root feeds/packages feeds/luci
 			if [ \"\$i\" -eq 3 ]; then
 				break
@@ -526,11 +527,6 @@ sdk_matrix_feeds_setup() {
 			i=\$((i + 1))
 		done
 		[ \"\$ok\" -eq 1 ] || { echo 'feeds update failed after 3 attempts' >&2; exit 1; }
-
-		# shellcheck disable=SC1091
-		. /work/fwlive/scripts/lib/feeds-lock.sh
-		feeds_lock_assert_heads /work/fwlive/scripts/feeds.lock/\$label/feeds.conf /builder/feeds base packages luci \
-			|| { echo 'feeds-lock: materialized HEAD does not match pin' >&2; exit 1; }
 
 		./scripts/feeds install -p base ${base_pkgs_q}
 		./scripts/feeds install luci-base

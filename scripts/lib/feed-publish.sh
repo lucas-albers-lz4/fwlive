@@ -478,6 +478,7 @@ feed_publish_lock_pins() {
 		[[ -n "$pair" ]] || continue
 		name="${pair%% *}"
 		sha="${pair#* }"
+		sha="${sha%% *}"
 		case "$name" in
 			base) FEED_PUBLISH_FEED_BASE="$sha" ;;
 			packages) FEED_PUBLISH_FEED_PACKAGES="$sha" ;;

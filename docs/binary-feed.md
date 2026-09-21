@@ -62,8 +62,10 @@ making a release attributable to the exact image despite the moving tag.
 ```
 
 Each cell records the package hash, the SDK image and digest, the feeds lock
-hash, and the verified `base` / `packages` / `luci` feed commits used for the
-build.
+hash, and the `base` / `packages` / `luci` commits from that lock. Those SHAs
+are the pins `feeds_lock_assert_heads` checks when the SDK volume is set up
+or reused; manifest generation copies the lock pins rather than re-running
+`rev-parse` at publish time.
 
 ### Digest source
 
@@ -211,7 +213,7 @@ Pinned inputs (regenerate when bumping OpenWrt point releases):
 | Feed commits | [`scripts/feeds.lock/`](../scripts/feeds.lock/) per SDK version (GitHub mirrors of git.openwrt.org; every `src-git` line is a peeled `^<40-hex>` commit, including 23.05 `base`) |
 | SDK image tag | [`scripts/lib/sdk-matrix.sh`](../scripts/lib/sdk-matrix.sh) |
 | SDK image digest | Recorded per cell in `manifest.json` ([release manifest](#release-manifest)) |
-| Feed revisions | Same manifest: `feeds.base` / `feeds.packages` / `feeds.luci` plus `feeds_lock_sha256` |
+| Feed revisions | Same manifest: lock pins for `feeds.base` / `feeds.packages` / `feeds.luci` plus `feeds_lock_sha256` |
 | Package version | `PKG_VERSION` / `PKG_RELEASE` in package Makefile |
 | Timestamps | `SOURCE_DATE_EPOCH` (git commit epoch; set in CI on release tag) |
 
