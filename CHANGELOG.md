@@ -9,9 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.45] — 2026-09-21
+
+### Security
+- Pin the OpenWrt 23.05 `base` feed to peeled `v23.05.5` and require 40-hex `src-git` pins; refuse host-sign when materialized feed HEADs do not match (#411, #412)
+
 ### Changed
 - Document the current support floor as OpenWrt **23.05+**; **21.02** and **22.03** remain historical lab notes only. The v0.1.44 footer below records that release's former matrix.
 - Package `LUCI_DESCRIPTION` and remaining user-facing docs now match the ACL-only menu and firewall4/nft rules-map contract; iptables-tagged log lines still classify.
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.44] — 2026-09-17
 
@@ -511,6 +524,7 @@ Manual install: [installation.md](docs/user/installation.md)
 
 ---
 
+[v0.1.45]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.44...v0.1.45
 [v0.1.44]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.43...v0.1.44
 [v0.1.43]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.42...v0.1.43
 [v0.1.42]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.41...v0.1.42
