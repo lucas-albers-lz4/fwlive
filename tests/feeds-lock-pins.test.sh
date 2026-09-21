@@ -71,7 +71,7 @@ src-git luci https://github.com/openwrt/luci.git^${luci_sha}
 src-link fwlive /work/fwlive/openwrt-feed
 EOF
 
-if feeds_lock_assert_heads "$neg/one.conf" "$feeds"; then
+if feeds_lock_assert_heads "$neg/one.conf" "$feeds" base packages luci; then
 	ok "matching HEADs pass"
 else
 	bad "matching HEADs must pass"
@@ -79,7 +79,7 @@ fi
 
 # Cache-hit mismatch: base HEAD differs from the pin.
 git -C "$feeds/base" commit -q --allow-empty -m drift
-if feeds_lock_assert_heads "$neg/one.conf" "$feeds" 2>/dev/null; then
+if feeds_lock_assert_heads "$neg/one.conf" "$feeds" base packages luci 2>/dev/null; then
 	bad "mismatched feed HEAD must fail"
 else
 	ok "mismatched feed HEAD fails closed"
@@ -88,7 +88,7 @@ git -C "$feeds/base" reset -q --hard "$base_sha"
 
 # Dirty tracked file.
 printf dirty >>"$feeds/base/README"
-if feeds_lock_assert_heads "$neg/one.conf" "$feeds" 2>/dev/null; then
+if feeds_lock_assert_heads "$neg/one.conf" "$feeds" base packages luci 2>/dev/null; then
 	bad "dirty work tree must fail"
 else
 	ok "dirty work tree fails closed"
@@ -105,10 +105,11 @@ cat >"$neg/root.conf" <<EOF
 src-git --root=package base https://github.com/openwrt/openwrt.git^${base_root_sha}
 src-git packages https://github.com/openwrt/packages.git^${pkg_sha}
 src-git luci https://github.com/openwrt/luci.git^${luci_sha}
+src-git routing https://github.com/openwrt/routing.git^aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 src-link fwlive /work/fwlive/openwrt-feed
 EOF
-if feeds_lock_assert_heads "$neg/root.conf" "$feeds"; then
-	ok "base_root layout matches pin"
+if feeds_lock_assert_heads "$neg/root.conf" "$feeds" base packages luci; then
+	ok "base_root layout matches pin; unused routing pin ignored"
 else
 	bad "base_root layout must match pin"
 fi

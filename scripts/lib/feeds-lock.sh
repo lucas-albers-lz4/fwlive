@@ -73,16 +73,20 @@ feeds_lock_git_dir() {
 	return 1
 }
 
-# Exit 0 when every pinned feed HEAD matches and the work tree is clean.
+# Exit 0 when each named feed (or every pin if no names) matches HEAD and is clean.
+# Extra unused lock pins (routing, telephony, video) are ignored unless named.
 feeds_lock_assert_heads() {
 	_lock="${1:-}"
 	_feeds="${2:-}"
+	shift 2 || true
+	_want="$*"
 	_pair=''
 	_name=''
 	_sha=''
 	_repo=''
 	_head=''
 	_status=''
+	_needed=''
 	feeds_lock_require_pins "$_lock" || return 1
 	[ -n "$_feeds" ] && [ -d "$_feeds" ] || {
 		echo "feeds-lock: missing feeds dir: ${_feeds:-<empty>}" >&2
@@ -92,6 +96,16 @@ feeds_lock_assert_heads() {
 		[ -n "$_pair" ] || continue
 		_name="${_pair%% *}"
 		_sha="${_pair#* }"
+		if [ -n "$_want" ]; then
+			_needed=0
+			for _need in $_want; do
+				if [ "$_need" = "$_name" ]; then
+					_needed=1
+					break
+				fi
+			done
+			[ "$_needed" -eq 1 ] || continue
+		fi
 		_repo="$(feeds_lock_git_dir "$_feeds" "$_name")" || return 1
 		_head="$(git -C "$_repo" rev-parse HEAD)" || return 1
 		if [ "$_head" != "$_sha" ]; then

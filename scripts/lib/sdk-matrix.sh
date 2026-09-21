@@ -470,7 +470,7 @@ sdk_matrix_feeds_ready() {
 			|| { echo "probe: luci-app-fwlive Makefile not found" >&2; exit 1; }
 		# shellcheck disable=SC1091
 		. /work/fwlive/scripts/lib/feeds-lock.sh
-		feeds_lock_assert_heads "$lock" /builder/feeds \
+		feeds_lock_assert_heads "$lock" /builder/feeds base packages luci \
 			|| { echo "probe: feed HEAD/pin mismatch" >&2; exit 2; }
 	' sh "$SDK_MATRIX_VERSION_LABEL"
 }
@@ -529,7 +529,7 @@ sdk_matrix_feeds_setup() {
 
 		# shellcheck disable=SC1091
 		. /work/fwlive/scripts/lib/feeds-lock.sh
-		feeds_lock_assert_heads /work/fwlive/scripts/feeds.lock/\$label/feeds.conf /builder/feeds \
+		feeds_lock_assert_heads /work/fwlive/scripts/feeds.lock/\$label/feeds.conf /builder/feeds base packages luci \
 			|| { echo 'feeds-lock: materialized HEAD does not match pin' >&2; exit 1; }
 
 		./scripts/feeds install -p base ${base_pkgs_q}
