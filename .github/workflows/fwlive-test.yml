@@ -54,13 +54,13 @@ jobs:
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           mkdir -p .ci-sdk-cache/dl
-          for version_key in 24.10 25.12; do
+          for version_key in 23.05 24.10 25.12; do
             mkdir -p ".ci-sdk-cache/feeds/$(sdk_matrix_version_label "$version_key")"
           done
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache
 
-          for version_key in 24.10 25.12; do
+          for version_key in 23.05 24.10 25.12; do
             version_label="$(sdk_matrix_version_label "$version_key")"
             package_format="$(sdk_matrix_package_format "$version_key")"
             echo "=== docker-sdk build: OpenWrt $version_key ($package_format) ==="
@@ -72,7 +72,7 @@ jobs:
           source ./scripts/lib/sdk-matrix.sh
           version="$(sed -n 's/^PKG_VERSION:=//p' openwrt-feed/luci-app-fwlive/Makefile)"
 
-          for version_key in 24.10 25.12; do
+          for version_key in 23.05 24.10 25.12; do
             version_label="$(sdk_matrix_version_label "$version_key")"
             package_format="$(sdk_matrix_package_format "$version_key")"
             case "$package_format" in
