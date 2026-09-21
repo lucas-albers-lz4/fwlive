@@ -48,7 +48,7 @@ It sets `option log '1'` on your WAN firewall zone via ubus and reloads the fire
 
 ### Why does the page warn about a legacy iptables table?
 
-The warning is diagnostic. It does not block **Enable logging**. It means `/proc/net/ip_tables_names` or `ip6_tables_names` in the rpcd network namespace listed a table name, so the live view may be incomplete. A read-only `iptables-legacy -L` can register a name that then stays, so the warning can outlive the condition you think you cleared. firewall4/nft is the supported rules-map path; `iptables-nft` is compatible.
+The warning is diagnostic. It does not block **Enable logging**. It means `/proc/net/ip_tables_names` or `ip6_tables_names` in the rpcd network namespace listed a table name, so the live view may be incomplete. Loading `kmod-ipt-*` can write an empty built-in table name into those files, and a read-only `iptables-legacy -L` can register a name that then stays, so the warning can outlive the condition you think you cleared. firewall4/nft is the supported rules-map path; `iptables-nft` is compatible.
 
 ### The UI stays empty but I see firewall lines in `logread`
 
