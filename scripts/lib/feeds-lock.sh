@@ -3,10 +3,39 @@
 # POSIX: sourced from bash tests and from dash inside the SDK image.
 # Do not execute directly.
 
+# --root must stay a relative path inside ${name}_root (no absolute, empty,
+# '.' / '..' components, or '//' runs).
+feeds_lock_root_path_ok() {
+	_rp_root="${1:-}"
+	_rp_comp=''
+	_rp_rest=''
+	[ -n "$_rp_root" ] || return 1
+	case "$_rp_root" in
+	/* | */ | *//*)
+		return 1
+		;;
+	esac
+	_rp_rest="$_rp_root"
+	while [ -n "$_rp_rest" ]; do
+		_rp_comp="${_rp_rest%%/*}"
+		if [ "$_rp_comp" = "$_rp_rest" ]; then
+			_rp_rest=''
+		else
+			_rp_rest="${_rp_rest#*/}"
+		fi
+		case "$_rp_comp" in
+		'' | . | ..)
+			return 1
+			;;
+		esac
+	done
+}
+
 feeds_lock_require_pins() {
 	_lock="${1:-}"
 	_line=''
 	_rest=''
+	_root=''
 	_name=''
 	_have_base=0
 	_have_packages=0
@@ -31,6 +60,12 @@ feeds_lock_require_pins() {
 			_rest="${_line#src-git }"
 			case "$_rest" in
 			--root=*)
+				_root="${_rest%% *}"
+				_root="${_root#--root=}"
+				feeds_lock_root_path_ok "$_root" || {
+					echo "feeds-lock: unsafe --root=$_root" >&2
+					return 1
+				}
 				_rest="${_rest#* }"
 				;;
 			esac
@@ -100,6 +135,8 @@ feeds_lock_root_link_ok() {
 	_link="$_feeds/$_name"
 	_want="${_name}_root/${_root}"
 	_got=''
+	_repo_abs=''
+	_link_abs=''
 	[ -L "$_link" ] || {
 		echo "feeds-lock: $_name must be a symlink to $_want" >&2
 		return 1
@@ -109,10 +146,23 @@ feeds_lock_root_link_ok() {
 	_got="${_got#./}"
 	case "$_got" in
 	"$_want" | "$_feeds/$_want")
+		;;
+	*)
+		echo "feeds-lock: $_name symlink '$_got' is not $_want" >&2
+		return 1
+		;;
+	esac
+	_repo_abs="$(cd "$_feeds/${_name}_root" && pwd -P)" || return 1
+	_link_abs="$(cd "$_link" && pwd -P)" || {
+		echo "feeds-lock: $_name symlink does not resolve" >&2
+		return 1
+	}
+	case "$_link_abs" in
+	"$_repo_abs" | "$_repo_abs"/*)
 		return 0
 		;;
 	esac
-	echo "feeds-lock: $_name symlink '$_got' is not $_want" >&2
+	echo "feeds-lock: $_name resolves outside ${_name}_root" >&2
 	return 1
 }
 

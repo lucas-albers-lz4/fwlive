@@ -56,6 +56,22 @@ else
 	ok "lock missing luci fails require_pins"
 fi
 
+cp "$LOCKDIR/25.12.5/feeds.conf" "$neg/traverse.conf"
+sed -i 's|--root=package|--root=../../outside|' "$neg/traverse.conf"
+if feeds_lock_require_pins "$neg/traverse.conf" 2>/dev/null; then
+	bad "traversal --root must fail require_pins"
+else
+	ok "traversal --root fails require_pins"
+fi
+
+cp "$LOCKDIR/25.12.5/feeds.conf" "$neg/absroot.conf"
+sed -i 's|--root=package|--root=/tmp/evil|' "$neg/absroot.conf"
+if feeds_lock_require_pins "$neg/absroot.conf" 2>/dev/null; then
+	bad "absolute --root must fail require_pins"
+else
+	ok "absolute --root fails require_pins"
+fi
+
 git_init() {
 	local dir="$1" sha_msg="$2"
 	mkdir -p "$dir"

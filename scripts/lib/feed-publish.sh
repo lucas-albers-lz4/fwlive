@@ -394,14 +394,14 @@ feed_publish_stage_opkg() {
 	ready_out="$(sdk_matrix_feeds_ready 2>&1)" || ready_rc=$?
 	if [[ "$ready_rc" -eq 0 ]]; then
 		echo "  index+sign via SDK (${SDK_MATRIX_IMAGE})" >&2
-		feed_publish_stage_opkg_sdk "$version_key" "$pkg_dir"
+		feed_publish_stage_opkg_sdk "$version_key" "$pkg_dir" || return 1
 	elif [[ "$ready_rc" -eq 2 ]]; then
 		printf '%s\n' "$ready_out" >&2
 		echo "feed integrity failed; refusing host-sign fallback" >&2
 		return 1
 	else
 		echo "  index+sign on host (no SDK volume)" >&2
-		feed_publish_stage_opkg_host "$pkg_dir" "$ver_label"
+		feed_publish_stage_opkg_host "$pkg_dir" "$ver_label" || return 1
 	fi
 	printf '%s' "$artifact"
 }

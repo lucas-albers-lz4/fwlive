@@ -308,4 +308,31 @@ if [[ -e "${integrity_staging}/23.05/Packages.sig" ]]; then
 fi
 echo "integrity-failure host-sign refusal OK"
 
+# SDK sign failure must abort even when the caller uses `if` (errexit off).
+sdkfail_staging="${fixture}/sdkfail-staging"
+sdkfail_called="${fixture}/sdkfail-called"
+: >"$sdkfail_called"
+sdk_matrix_feeds_ready() { return 0; }
+feed_publish_stage_opkg_sdk() {
+	echo sdk >>"$sdkfail_called"
+	return 1
+}
+feed_publish_stage_opkg_host() {
+	echo host >>"$sdkfail_called"
+	return 0
+}
+if feed_publish_stage_opkg 23.05 "$sdkfail_staging" 2>/dev/null; then
+	echo "FAIL: SDK sign failure must abort opkg staging" >&2
+	exit 1
+fi
+grep -qx sdk "$sdkfail_called" || {
+	echo "FAIL: SDK sign path must be attempted" >&2
+	exit 1
+}
+if grep -qx host "$sdkfail_called"; then
+	echo "FAIL: SDK sign failure must not fall back to host-sign" >&2
+	exit 1
+fi
+echo "SDK sign failure abort OK"
+
 echo "feed-publish release asset tests passed"
