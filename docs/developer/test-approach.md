@@ -194,6 +194,32 @@ evidence or an explicit disposition. When the remaining candidates add low
 value, stop the pass.
 “More tests” is not itself a completion criterion.
 
+### 2026-09-20 #370/#378 closeout snapshot
+
+The selected package-lifecycle/format evidence is now recorded rather than
+left as open design text. R8 remains **partial**: package-lifecycle and
+format cells are in [the #389 evidence](../evidence/issue-389-2026-09-20.md)
+— 24.10 armsr IPK uninstall restoration (plus root-SSH `ubus` observations
+that are not session proof), 24.10 x86 IPK and 25.12 APK uninstall
+restoration, and x86/APK same-version no-op preservation checks — while
+session-authenticated R8 cells remain open (R4b session proof is
+[#392](../evidence/issue-392-2026-09-20.md) only). The host action matrix
+covers explicit upgrade handling separately. R9a is covered by the
+format-aware host IPK payload inspector; R9b is covered by the 25.12 APK
+**control** inspection (`apk adbdump` described in the record) and the
+installed uninstall run — not a retained payload dump.
+
+The #378 compatibility gate is deliberately retained as a checked shipped-
+artifact constraint: `gen-luci-wrapper.js` rejects `Array.includes` and
+`Object.values` in `log.js` while checking the generated `CLASSIFY_SPEC` mirror.
+That gate applies to the supported 23.05+ LuCI/browser surface, not to a 21.02
+support claim; the decision and floor are recorded in [contributing.md](contributing.md)
+and [fwlive-acceptance.md](../fwlive-acceptance.md). G1 is resolved by the
+nft-only prune: no permanent tests are added for the removed legacy backend
+branches, while `iptables` log-tag classification remains covered.
+Historical 21.02/22.03 references remain only in the documented historical
+allowlist and dated review evidence.
+
 ## Implementation follow-up from #370
 
 Issue [#370](https://github.com/lucas-albers-lz4/fwlive/issues/370) is a useful
@@ -255,9 +281,11 @@ minimum-ready host evidence rather than optional follow-up items:
 The upstream-cut readiness decision should be made from those exit conditions,
 not from the count of R1–R9 tests. At minimum, R2, R3, R4a, R5, R6, R7, and
 R9a need executed evidence or an explicit residual; R1 is owned by #371; and
-R8 needs dated evidence for every selected seam cell. R4b and R9b remain
-installed-system/package-format evidence. A manual result becomes `Manually
-verified` only when its artifact is retained with the review record.
+R8 needs dated evidence for every selected seam cell; session-authenticated
+cells remain open except R4b ([#392](../evidence/issue-392-2026-09-20.md)).
+R4b and R9b package-lifecycle/format evidence is retained in the #392 and
+#389 artifacts. A manual result becomes `Manually verified` only when its
+artifact is retained with the review record.
 
 Evidence snapshot for the follow-up branch used while refining #370
 (`17b9c5de774c`): `./scripts/fwlive-test.sh` passed, `npm run test:view`
