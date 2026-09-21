@@ -137,7 +137,7 @@ validate_matrix_install_ipk() {
 }
 
 validate_matrix_smoke() {
-	"$(validate_matrix_root)/scripts/qemu-smoke-fwlive.sh"
+	"$(validate_matrix_root)/scripts/qemu-smoke-fwlive.sh" --require-log-pipeline
 }
 
 # End-to-end: build (optional) → image → QEMU → install → smoke.

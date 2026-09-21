@@ -9,7 +9,7 @@ run_arch() {
 	local label="$1" ssh_port="$2" http_port="$3"
 	echo "== full smoke: ${label} ==" >&2
 	OPENWRT_SSH_PORT="$ssh_port" OWRT_HOSTFWD_HTTP="$http_port" \
-		"${ROOT}/scripts/qemu-smoke-fwlive.sh"
+		"${ROOT}/scripts/qemu-smoke-fwlive.sh" --require-log-pipeline
 }
 
 set +e
