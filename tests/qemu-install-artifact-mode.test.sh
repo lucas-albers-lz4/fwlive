@@ -12,7 +12,7 @@ touch "$TMP/fake.apk"
 # Matrix wiring: --artifact-only must live in the install helper, not a comment elsewhere.
 install_fn="$(sed -n '/^validate_matrix_install_ipk()/,/^}/p' \
 	"$ROOT/scripts/lib/validate-matrix.sh")"
-printf '%s\n' "$install_fn" | grep -Fq -- '--artifact-only'
+	printf '%s\n' "$install_fn" | grep -Fq -- '--artifact-only'
 
 cat >"$TMP/bin/scp" <<'EOF'
 #!/bin/sh
@@ -58,7 +58,7 @@ run_install "$TMP/artifact.log" --artifact-only "$TMP/fake.ipk"
 
 grep -Fq 'rm -f /www/luci-static/resources/view/status/fwlive.js' "$TMP/artifact.log"
 grep -Fq 'opkg install --force-reinstall' "$TMP/artifact.log"
-if grep -Eq 'cat > /www/|cat > /usr/libexec/|mkdir -p /www' "$TMP/artifact.log"; then
+	if grep -Eq 'cat > /www/|cat > /usr/libexec/|mkdir -p /www' "$TMP/artifact.log"; then
 	echo 'artifact-only install unexpectedly synced source files' >&2
 	exit 1
 fi
