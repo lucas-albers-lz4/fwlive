@@ -90,8 +90,11 @@ case "$MODE" in
 		;;
 	smoke-x86)
 		# x86 KVM guests need x86-64 packages (25.12+ apk); fall back to _all ipk when present.
-		if [[ -z "${OWRT_VALIDATE_SDK_TARGET:-}" && "$SDK_TARGET" == "armsr-armv8" ]]; then
+		# An explicit --sdk-target wins over the fallback; warn when it cannot match the guest.
+		if [[ "$SDK_TARGET_EXPLICIT" -eq 0 && "$SDK_TARGET" == "armsr-armv8" ]]; then
 			SDK_TARGET="x86-64"
+		elif [[ "$SDK_TARGET_EXPLICIT" -eq 1 && "$SDK_TARGET" != "x86-64" ]]; then
+			echo "warn: --sdk-target ${SDK_TARGET} with an x86 KVM guest; ${SDK_TARGET} packages may not install" >&2
 		fi
 		# Snapshot downloads are minimal (no LuCI/uhttpd) — smoke pinned releases only.
 		smoke_versions=()
