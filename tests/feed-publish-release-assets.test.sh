@@ -271,4 +271,41 @@ FEED_PUBLISH_ROOT="$notes_fix" feed_publish_release_notes_file "${fixture}/none.
 FEED_PUBLISH_ROOT="$notes_fix" feed_publish_release_notes_file "${fixture}/bad.md" 'v9.9.9; rm' &&
 	{ echo "FAIL: malformed tag must return non-zero" >&2; exit 1; }
 
+# Integrity failure (sdk_matrix_feeds_ready exit 2) must refuse host-sign.
+integrity_staging="${fixture}/integrity-staging"
+integrity_err="$(mktemp)"
+integrity_called="${fixture}/integrity-called"
+: >"$integrity_called"
+export OPKG_FEED_SECRET_KEY="${fixture}/opkg-secret.key"
+printf 'untrusted comment: test\nRWTEST\n' >"$OPKG_FEED_SECRET_KEY"
+sdk_matrix_feeds_ready() {
+	echo "probe: feed HEAD/pin mismatch" >&2
+	return 2
+}
+feed_publish_stage_opkg_sdk() {
+	echo sdk >>"$integrity_called"
+	return 0
+}
+feed_publish_stage_opkg_host() {
+	echo host >>"$integrity_called"
+	return 0
+}
+if feed_publish_stage_opkg 23.05 "$integrity_staging" 2>"$integrity_err"; then
+	echo "FAIL: integrity failure must abort opkg staging" >&2
+	exit 1
+fi
+grep -q 'refusing host-sign fallback' "$integrity_err" || {
+	echo "FAIL: integrity abort must name the host-sign refusal" >&2
+	exit 1
+}
+if grep -qE '^(sdk|host)$' "$integrity_called"; then
+	echo "FAIL: integrity failure must not call SDK or host sign" >&2
+	exit 1
+fi
+if [[ -e "${integrity_staging}/23.05/Packages.sig" ]]; then
+	echo "FAIL: integrity failure must not write Packages.sig" >&2
+	exit 1
+fi
+echo "integrity-failure host-sign refusal OK"
+
 echo "feed-publish release asset tests passed"
