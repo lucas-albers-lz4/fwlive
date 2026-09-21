@@ -196,29 +196,73 @@ value, stop the pass.
 
 ### 2026-09-20 #370/#378 closeout snapshot
 
-The selected package-lifecycle/format evidence is now recorded rather than
-left as open design text. R8 remains **partial**: package-lifecycle and
-format cells are in [the #389 evidence](../evidence/issue-389-2026-09-20.md)
-— 24.10 armsr IPK uninstall restoration (plus root-SSH `ubus` observations
-that are not session proof), 24.10 x86 IPK and 25.12 APK uninstall
-restoration, and x86/APK same-version no-op preservation checks — while
-session-authenticated R8 cells remain open (R4b session proof is
-[#392](../evidence/issue-392-2026-09-20.md) only). The host action matrix
-covers explicit upgrade handling separately. R9a is covered by the
-format-aware host IPK payload inspector; R9b is covered by the 25.12 APK
-**control** inspection (`apk adbdump` described in the record) and the
-installed uninstall run — not a retained payload dump.
+This is ledger/disposition for later close of #389, #392, #378, and
+#370. It does not add production coverage.
 
-The #378 compatibility gate is deliberately retained as a checked shipped-
-artifact constraint: `gen-luci-wrapper.js` rejects `Array.includes` and
-`Object.values` in `log.js` while checking the generated `CLASSIFY_SPEC` mirror.
-That gate applies to the supported 23.05+ LuCI/browser surface, not to a 21.02
-support claim; the decision and floor are recorded in [contributing.md](contributing.md)
-and [fwlive-acceptance.md](../fwlive-acceptance.md). G1 is resolved by the
-nft-only prune: no permanent tests are added for the removed legacy backend
-branches, while `iptables` log-tag classification remains covered.
-Historical 21.02/22.03 references remain only in the documented historical
-allowlist and dated review evidence.
+**#392.** R4a host exact ACL read/write arrays are merged (#394): read =
+`rules`, `poll`, `resolve`, `logging_status`; write =
+`enable_wan_logging`, `disable_wan_logging`. Sessions do not get
+`ubus log.read`. R4b installed authenticated-session evidence is merged
+(#401 smoke, #402 artifact
+[issue-392-2026-09-20.md](../evidence/issue-392-2026-09-20.md)) on
+OpenWrt 24.10.8 x86_64: the grant session was allowed all six fwlive
+methods and denied `log.read` with JSON-RPC `-32002`; the
+`luci-base`-only deny session was allowed `file.list`, then denied
+sampled `logging_status` (read) and `enable_wan_logging` (write). The
+remaining four deny-session methods were not called. Host tests stay
+separate from that artifact. Session identity is R4b, not R8.
+
+**#389 / R8 lifecycle.** Uninstall restoration is in
+[issue-389-2026-09-20.md](../evidence/issue-389-2026-09-20.md): 24.10.8
+armsr IPK (`opkg remove` via `qemu-logging-uninstall-smoke.sh`, port
+2224 parallel lab), 24.10.8 x86 IPK, and 25.12.5 APK (`apk del`). The
+host packaged-hook matrix (#405) shows remove restores, while upgrade /
+`PKG_UPGRADE=1` / empty/unknown do not. Same-version reinstall cells are
+no-op preservation, not skip-upgrade hook proof (#406). The 23.05 IPK is
+represented by the architecture-independent `_all` 24.10 IPK; there is
+no separate 23.05 rebuild. Armsr `poll`/`resolve`/`rules`/enable/disable
+notes are root-SSH `ubus` observations, **not** session proof.
+
+R8 required two package-lifecycle cells (24.10 armsr + 25.12 apk), not a
+second session-ACL matrix. R8 is **not** session-complete. Do not claim
+session-authenticated proof on armsr or 25.12 apk.
+
+**#378.** Phases 1–3 are merged (nft-only rules, UI warning, drop
+21.02/22.03 from the matrix). The compatibility gate is retained as a
+checked shipped-artifact constraint: `gen-luci-wrapper.js` rejects
+`Array.includes` and `Object.values` in `log.js`. That is an ES5 check
+for 23.05+ LuCI/browser, recorded in [contributing.md](contributing.md);
+it is not a 21.02 support claim.
+G1 is resolved by pruning, not by adding tests for deleted iptables
+backend branches; `iptables` log-tag classification remains covered.
+`snapshot` stays SDK-internal, not a published feed.
+`legacy_iptables_detected` is diagnostic UI `textContent`; it reports
+registered table names, not active rules (false-positive if `kmod-ipt-*`
+loads empty tables) — already in [security-review.md](security-review.md).
+Historical 21.02/22.03 references remain only in the documented
+historical allowlist and dated review evidence. Remaining #378 work is
+this ledger, not more production pruning.
+
+**#370.** Sub-issues #390, #391, and #393 are already closed. #389 and
+#392 are the remaining children. R1 is owned by closed #371.
+R2/R3/R5/R6/R7/R9a have host/e-harness coverage. R4a/R4b are covered by
+#392. G4 (`RESOLVE_MAX=32`) is covered by jshn-compat. G3/G5 were
+covered by host tests. R9a is the format-aware host IPK payload
+inspector.
+
+**Residuals**
+
+- **R8 session identity:** ACL session smoke was 24.10 x86 (R4b).
+  Repeating it on armsr or 25.12 apk is not required because the shipped
+  ACL/rpcd object is architecture-independent. Armsr read/write notes
+  remain root-SSH `ubus`, not session proof.
+- **R9b:** 25.12 APK **control** inspection is described (`apk adbdump`
+  in the #389 record) plus the installed uninstall run. There is no
+  retained payload dump.
+- **G2:** `qemu-forwarding-slo` tests are harness/static, not an e2e
+  guest SLO. Revisit on an SLO escape.
+- **G6:** there are currently zero `ip6.arpa` fixtures in `tests/`. This
+  item is not done. Revisit on a resolver change or IPv6 resolve escape.
 
 ## Implementation follow-up from #370
 
@@ -275,17 +319,23 @@ minimum-ready host evidence rather than optional follow-up items:
 | Stage | Scope | Exit condition |
 | --- | --- | --- |
 | Contract and host evidence | R2 DOM sink proof, R3 hash restoration, R5 fail-closed cases, R6 reply-shape/fixture alignment, R7 union-rule contract, plus the normal empty-ring cases | Each item has a fault, oracle, shipped-artifact boundary, and a passing required-host assertion, or an explicit deferred disposition. |
-| Installed seams | R4b session ACL and the selected R8 matrix cells | The QEMU/manual artifact records image and package/feed revision, install format, architecture, backend, session identity, command, reconstructed method table, helper cleanup OK line, date, and cleanup; direct root calls do not count. |
+| Installed seams | R4b session ACL (24.10 x86) and the selected R8 lifecycle cells | R4b owns session identity and the grant/deny method table ([#392](../evidence/issue-392-2026-09-20.md)). R8 owns install format, architecture, backend, and package-lifecycle commands ([#389](../evidence/issue-389-2026-09-20.md)); direct root calls are not session proof, and R8 does not require repeating the ACL smoke on armsr or 25.12 apk. |
 | Follow-up state coverage | Remaining R5 rollback injections and R6 backend/IPv6/degradation/storage/resolve cases, plus R9 package formats | Each case is split into an independent assertion with an owner and revisit trigger; grouping is allowed for implementation, not for hiding an unverified branch. |
 
 The upstream-cut readiness decision should be made from those exit conditions,
 not from the count of R1–R9 tests. At minimum, R2, R3, R4a, R5, R6, R7, and
-R9a need executed evidence or an explicit residual; R1 is owned by #371; and
-R8 needs dated evidence for every selected seam cell; session-authenticated
-cells remain open except R4b ([#392](../evidence/issue-392-2026-09-20.md)).
-R4b and R9b package-lifecycle/format evidence is retained in the #392 and
-#389 artifacts. A manual result becomes `Manually verified` only when its
-artifact is retained with the review record.
+R9a need executed evidence or an explicit residual; R1 is owned by #371.
+R4b session identity is the 24.10 x86 LuCI/uhttpd smoke
+([#392](../evidence/issue-392-2026-09-20.md)); it is not an R8 cell.
+R8's selected cells are package-lifecycle evidence in
+[#389](../evidence/issue-389-2026-09-20.md) (24.10 armsr IPK and 25.12
+apk, plus the extra 24.10 x86 IPK uninstall). R8 is not
+session-complete: armsr read/write notes are root-SSH `ubus`, and the
+ACL smoke is not repeated on armsr/apk because the shipped ACL/rpcd
+object is architecture-independent. R9b remains a described APK control
+inspection without a retained payload dump. A manual result becomes
+`Manually verified` only when its artifact is retained with the review
+record.
 
 Evidence snapshot for the follow-up branch used while refining #370
 (`17b9c5de774c`): `./scripts/fwlive-test.sh` passed, `npm run test:view`
