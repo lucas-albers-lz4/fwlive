@@ -429,11 +429,14 @@ else
 fi
 `);
 		makeStub(stubDir, 'uci', `#!/bin/sh
-if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
-	echo "firewall.@rule[0].name='foo-bar'"
-	echo "firewall.@rule[1].name='uci-only'"
-else
-	exit 0
+		if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
+			echo "firewall.@rule[0].name='foo-bar'"
+			echo "firewall.@rule[1].name='uci-only'"
+			echo "firewall.allow-ssh=rule"
+		elif [ "$1" = "-q" ] && [ "$2" = "get" ] && [ "$3" = "firewall.allow-ssh.name" ]; then
+			echo 'Allow-SSH'
+		else
+			exit 0
 fi
 `);
 		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
@@ -443,6 +446,7 @@ fi
 			const res = JSON.parse(raw);
 			// merge: uci-only must be present (catches lost UCI when fragment overwrote)
 			assert.equal(res.rules['uci-only'], 'uci-only', `[${shell}] uci+stream merge: uci-only present`);
+			assert.equal(res.rules['Allow-SSH'], 'Allow-SSH', `[${shell}] named UCI rule present`);
 			// merge: nft-only must be present (catches subshell discard)
 			assert.equal(res.rules['nft-only'], 'nft only', `[${shell}] uci+stream merge: nft-only present`);
 			// collision: foo-bar from UCI vs nft log prefix foo-bar -> single key (catches naive case "$OUT" *"$key"*)

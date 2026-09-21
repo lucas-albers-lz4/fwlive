@@ -1,5 +1,7 @@
 # Security review state
 
+> **2026-09-21 #416 delta:** The rules map now performs a second `uci -q show firewall` pass for named `config rule` sections and attempts one filtered `uci -q get firewall.<section>.name` per section; missing UCI or name remains non-fatal. The branch tests cover a named section lookup and retain first-wins and whitespace-filtering coverage.
+
 > **#389 lifecycle follow-up:** the packaged hook now understands the generated opkg wrapper (`<wrapper> remove`), APK 3.0's version-valued `pre-deinstall`, and skips upgrade/empty/unknown actions, `PKG_UPGRADE=1`, and non-version `1a2`. Host tests execute extracted `prerm-pkg` (so an always-restore body fails) and model the opkg `default_prerm` `$1-pkg` hop; installed uninstall restoration is in [the dated #389 evidence](../evidence/issue-389-2026-09-20.md). Same-version reinstall cells are no-op preservation checks only and do not exercise the hook.
 
 > **Status:** 73 controls in force; 0 open security findings; housekeeping GHAS sub-features N/A on personal account (#293 H2 closed).
@@ -72,7 +74,7 @@ should carry a note saying what would raise it.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-08-13 | Sweep + harness | #177: #175/#176 UI delta on recording-`innerHTML` harness; no non-empty innerHTML writes |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
-| rpcd plugin + ACL scope | 2026-09-20 | Delta + host test + lab | #378 Phase 2: `rules` is nft-only; no `iptables-save` fallback or `__rulesmap_iptables` CLI hook; nft dump/mktemp/no_backend error contract unchanged; read/write split, no `ubus log.*`; installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
+| rpcd plugin + ACL scope | 2026-09-21 | Delta + host test + lab | #416: the rules map retains anonymous UCI names and additionally discovers named `config rule` sections through a second `uci show` pass plus filtered per-section name lookup; missing UCI/name is non-fatal. #378 Phase 2 remains nft-only; no `iptables-save` fallback or `__rulesmap_iptables` CLI hook; nft dump/mktemp/no_backend error contract unchanged; read/write split, no `ubus log.*`; installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
 | Shell helpers — injection and quoting | 2026-09-18 | Delta + host test | #365/#366: paired dump command/mapper cases retain quoted temp paths and timeout argv; `check_eq` quotes values and propagates failure explicitly; no new command-input sink |
 | Shell helpers — **file modes and lock ownership** | 2026-08-31 | Reproduced | #204 symlink reject + #232 BusyBox-safe dir check (`[ -O ]` + `find -perm`, no `stat -c`); Parts E/F in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-09-20 | Host + lab | `/etc/fwlive/wan-log-baseline`; generated opkg `remove` and APK version-valued uninstall restore, while `upgrade`/empty/unknown/`PKG_UPGRADE=1`/`1a2` and non-root staging roots skip; host matrix executes packaged `prerm-pkg` and the opkg `default_prerm` hop; uninstall restoration in [#389 evidence](../evidence/issue-389-2026-09-20.md) |
@@ -102,7 +104,7 @@ should carry a note saying what would raise it.
 | Addresses shape-validated before `nslookup` | `host` | rpcd `__selftest`, incl. a literal `$(reboot)` token |
 | Missing `nslookup` surfaces `error:no_resolver` (not silent empty names) | `host` | `tests/fwlive-rules-map.test.js` `testResolveNslookup` |
 | `json_escape` is defined in `fwlive-logging.sh` (prerm standalone) | `host` | `tests/fwlive-logging.test.sh` type check; rpcd `__selftest` |
-| UCI rule names with whitespace are not word-split into junk keys | `host` | `tests/fwlive-rules-map.test.js` `testUciWhitespaceNames` |
+| Anonymous and named UCI rule names are mapped without word-splitting; missing UCI/name is non-fatal | `host` | `tests/fwlive-rules-map.test.js` `testUciStreamMergeAndCollision` covers named-section lookup and first-wins merge; `testUciWhitespaceNames` covers whitespace filtering |
 | `jsonfilter` declared; missing filter exits non-zero with `error` | `host` | Makefile `LUCI_DEPENDS`; `tests/fwlive-shell-filter.test.js` `runMissingJsonfilter` |
 | Generated classifier asset is required; missing asset exits non-zero with `classifier_missing` instead of silently filtering everything out | `host` | `tests/fwlive-shell-filter.test.js` `runMissingClassifier`; codegen freshness covers the `.awk` asset |
 | GitHub Release normal-path body is the CHANGELOG section; missing-section fallback is `--generate-notes` with a loud warning (body may be sparse — fold before tagging) | `host` | `feed_publish_release_notes_file` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-release-assets.test.sh` notes assertions; `publish_new` warn on fallback |
@@ -619,3 +621,22 @@ lock/baseline failure coverage is retained.
 
 **Result.** No ACL, DOM-sink, or read/write-scope change. The deleted CLI
 hook is no longer a privileged surface.
+
+### 2026-09-21 — #416 named UCI rules-map lookup
+
+**Scope.** `root/usr/libexec/rpcd/fwlive` retains the existing anonymous-rule
+name extraction and adds a second `uci -q show firewall` reader for named
+`config rule` sections. It attempts one filtered
+`uci -q get firewall.<section>.name` for each discovered section. Failed or
+empty UCI/name lookups remain non-fatal; existing first-wins deduplication and
+whitespace filtering are unchanged.
+
+**Method.** `tests/fwlive-rules-map.test.js` runs the rules-map harness across
+the available POSIX shells. `testUciStreamMergeAndCollision` supplies a named
+section and verifies its returned name plus first-wins behavior;
+`testUciWhitespaceNames` retains the no-word-splitting and whitespace-filtering
+checks.
+
+**Result.** The tested rules map includes the named UCI rule without changing
+the existing collision or whitespace behavior. This is a ledger update for the
+implemented behavior, not a new security finding.
