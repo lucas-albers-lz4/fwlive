@@ -349,6 +349,37 @@ const timeTd = simpleTr.children.find(function (c) {
 assert.ok(timeTd, 'simple view should render a time cell');
 assert.strictEqual(String(timeTd.attrs.title), 'Click a row for the full message');
 
+const outboundOnlyBody = {
+	innerHTML: 'rows',
+	children: [],
+	appendChild: function (n) {
+		this.children.push(n);
+		this.innerHTML = '';
+	}
+};
+table.renderRows(
+	outboundOnlyBody,
+	{
+		rows: [Object.assign({}, row, { interface_in: '', interface_out: 'eth0', interface: 'eth0' })],
+		columns: ['iface'],
+		viewMode: 'simple',
+		messageLayout: 'wrap',
+		expandedRowId: null,
+		rowTint: false,
+		showHostnames: false,
+		hostnameCache: null,
+		firewallBackend: 'nft'
+	},
+	{
+		onRowClick: function () {},
+		onFilterClick: function () {},
+		actionRowTintClass: function () {
+			return '';
+		}
+	}
+);
+assert.match(JSON.stringify(outboundOnlyBody.children[0]), /eth0/, 'simple view should show OUT-only interface');
+
 const keyedTable = loadFwliveModule('table', {
 	log: log,
 	links: links,
