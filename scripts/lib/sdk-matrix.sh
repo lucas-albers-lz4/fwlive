@@ -8,6 +8,9 @@
 # and must stay POSIX; do not copy Bash-isms from here into those scripts.
 set -euo pipefail
 
+# shellcheck source=feeds-lock.sh
+source "$(dirname "${BASH_SOURCE[0]}")/feeds-lock.sh"
+
 SDK_MATRIX_TARGETS=(armsr-armv8 x86-64)
 SDK_MATRIX_VERSIONS=(snapshot 25.12 24.10 23.05)
 
@@ -465,6 +468,10 @@ sdk_matrix_feeds_ready() {
 		[ -d /builder/feeds/luci/.git ] || { echo "probe: missing luci .git" >&2; exit 1; }
 		find -L /builder/feeds -maxdepth 8 -path "*/luci-app-fwlive/Makefile" 2>/dev/null | grep -q . \
 			|| { echo "probe: luci-app-fwlive Makefile not found" >&2; exit 1; }
+		# shellcheck disable=SC1091
+		. /work/fwlive/scripts/lib/feeds-lock.sh
+		feeds_lock_assert_heads "$lock" /builder/feeds \
+			|| { echo "probe: feed HEAD/pin mismatch" >&2; exit 2; }
 	' sh "$SDK_MATRIX_VERSION_LABEL"
 }
 
@@ -483,6 +490,7 @@ sdk_matrix_feeds_setup() {
 		echo "missing pinned feeds lock: $lock_path" >&2
 		return 1
 	}
+	feeds_lock_require_pins "$lock_path" || return 1
 	# Retry feeds update: git.openwrt.org (and mirrors) drop TLS under CI load.
 	# HTTP/1.1 reduces curl-35 / gnutls_handshake failures (openwrt/openwrt#21854).
 	# Wipe partial clones on failure; require .git dirs so soft exit-0 without clone fails.
@@ -518,6 +526,11 @@ sdk_matrix_feeds_setup() {
 			i=\$((i + 1))
 		done
 		[ \"\$ok\" -eq 1 ] || { echo 'feeds update failed after 3 attempts' >&2; exit 1; }
+
+		# shellcheck disable=SC1091
+		. /work/fwlive/scripts/lib/feeds-lock.sh
+		feeds_lock_assert_heads /work/fwlive/scripts/feeds.lock/\$label/feeds.conf /builder/feeds \
+			|| { echo 'feeds-lock: materialized HEAD does not match pin' >&2; exit 1; }
 
 		./scripts/feeds install -p base ${base_pkgs_q}
 		./scripts/feeds install luci-base

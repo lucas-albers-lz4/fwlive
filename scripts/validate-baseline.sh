@@ -35,6 +35,7 @@ required=(
 	scripts/feeds.lock/23.05.5/feeds.conf
 	scripts/feeds.lock/24.10.8/feeds.conf
 	scripts/feeds.lock/25.12.5/feeds.conf
+	scripts/lib/feeds-lock.sh
 	scripts/qemu-smoke-fwlive.sh
 	scripts/qemu-install-fwlive.sh
 	scripts/qemu-lab-prepare-image.sh
@@ -53,6 +54,13 @@ for f in "${required[@]}"; do
 	[[ -e "${ROOT}/${f}" ]] || { echo "baseline FAIL: missing ${f}" >&2; exit 1; }
 done
 echo "baseline OK: required paths present" >&2
+
+# shellcheck source=lib/feeds-lock.sh
+source "${ROOT}/scripts/lib/feeds-lock.sh"
+for lock in "${ROOT}/scripts/feeds.lock/"*/feeds.conf; do
+	feeds_lock_require_pins "$lock" || exit 1
+done
+echo "baseline OK: feeds.lock src-git pins" >&2
 
 pkg_ver=$(sed -n 's/^PKG_VERSION:=//p' "${ROOT}/openwrt-feed/luci-app-fwlive/Makefile" | head -1)
 app_ver=$(sed -n "s/.*APP_VERSION: '\\([^']*\\)'.*/\\1/p" \

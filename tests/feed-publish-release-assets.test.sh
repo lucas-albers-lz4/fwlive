@@ -141,6 +141,10 @@ command -v node >/dev/null 2>&1 && node -e '
 	if (lines !== "23.05,24.10,25.12") process.exit(1);
 	for (const p of m.packages) {
 		if (!/^ghcr\.io\/openwrt\/sdk@sha256:[0-9a-f]{64}$/.test(p.sdk_digest || "")) process.exit(1);
+		if (!/^[0-9a-f]{64}$/.test(p.feeds_lock_sha256 || "")) process.exit(1);
+		if (!p.feeds || !/^[0-9a-f]{40}$/.test(p.feeds.base || "") ||
+			!/^[0-9a-f]{40}$/.test(p.feeds.packages || "") ||
+			!/^[0-9a-f]{40}$/.test(p.feeds.luci || "")) process.exit(1);
 	}
 ' "${fixture}/manifest-staging/manifest.json"
 

@@ -197,9 +197,10 @@ Pinned inputs (regenerate when bumping OpenWrt point releases):
 
 | Input | Location |
 |-------|----------|
-| Feed commits | [`scripts/feeds.lock/`](../scripts/feeds.lock/) per SDK version (GitHub mirrors of git.openwrt.org; pinned SHAs unchanged) |
+| Feed commits | [`scripts/feeds.lock/`](../scripts/feeds.lock/) per SDK version (GitHub mirrors of git.openwrt.org; every `src-git` line is a peeled `^<40-hex>` commit, including 23.05 `base`) |
 | SDK image tag | [`scripts/lib/sdk-matrix.sh`](../scripts/lib/sdk-matrix.sh) |
 | SDK image digest | Recorded per cell in `manifest.json` ([release manifest](#release-manifest)) |
+| Feed revisions | Same manifest: `feeds.base` / `feeds.packages` / `feeds.luci` plus `feeds_lock_sha256` |
 | Package version | `PKG_VERSION` / `PKG_RELEASE` in package Makefile |
 | Timestamps | `SOURCE_DATE_EPOCH` (git commit epoch; set in CI on release tag) |
 
@@ -226,7 +227,10 @@ When OpenWrt bumps a point release (e.g. 24.10.7 → 24.10.8):
 
 ```sh
 docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.8 cat feeds.conf.default
-# Copy into scripts/feeds.lock/24.10.8/feeds.conf (add src-link fwlive line)
+# Copy into scripts/feeds.lock/24.10.8/feeds.conf (add src-link fwlive line).
+# Replace any `;branch` src-git ref with the peeled 40-hex commit
+# (`git ls-remote … 'refs/tags/vX.Y.Z^{}'`). `tests/feeds-lock-pins.test.sh`
+# rejects unpinned src-git lines.
 # Update sdk_matrix_version_patch in sdk-matrix.sh
 ```
 
