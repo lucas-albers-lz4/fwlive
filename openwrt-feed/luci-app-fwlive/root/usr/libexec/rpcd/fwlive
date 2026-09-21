@@ -95,7 +95,7 @@ uci_rule_names() {
 			sed -n 's/^firewall\.\([A-Za-z0-9_-]*\)=rule$/\1/p' |
 			while IFS= read -r section; do
 				uci -q get "firewall.${section}.name" 2>/dev/null || true
-			done
+			done || true
 	}
 }
 
