@@ -395,8 +395,20 @@ return view.extend({
 		return constants.DEFAULT_ROW_TINT;
 	},
 
+	readRowTintPalette() {
+		const v = storedValue('fwlive-row-tint-palette', null);
+		if (v === 'accessible') return 'accessible';
+		if (v === 'classic') return 'classic';
+		/* Migrate an enabled legacy mode into the separate palette key. */
+		return this.readRowTint() === 'accessible' ? 'accessible' : 'classic';
+	},
+
 	saveRowTint() {
 		storeValue('fwlive-row-tint', this.rowTint);
+	},
+
+	saveRowTintPalette() {
+		storeValue('fwlive-row-tint-palette', this.rowTintPalette);
 	},
 
 	rowTintPaletteOptions() {
@@ -433,6 +445,7 @@ return view.extend({
 
 	commitRowTintChange() {
 		this.saveRowTint();
+		this.saveRowTintPalette();
 		this.tintProbeDone = false;
 		this.applyRowTintMode();
 		this.updateRowTintUi();
@@ -443,7 +456,10 @@ return view.extend({
 		const v = ev && ev.target ? ev.target.value : 'classic';
 		const pal = v === 'accessible' ? 'accessible' : 'classic';
 		this.rowTintPalette = pal;
-		if (!this.rowTintEnabled()) return;
+		if (!this.rowTintEnabled()) {
+			this.saveRowTintPalette();
+			return;
+		}
 		this.rowTint = pal;
 		this.commitRowTintChange();
 	},
@@ -2482,7 +2498,7 @@ return view.extend({
 		this.messageLayout = this.readMessageLayout();
 		this.showHostnames = this.readShowHostnames();
 		this.rowTint = this.readRowTint();
-		this.rowTintPalette = this.rowTintEnabled() ? this.rowTint : 'classic';
+		this.rowTintPalette = this.readRowTintPalette();
 		this.hostnameCache = new Map();
 		this.hostnameFailed = new Map();
 		this.resolveGeneration = 0;
