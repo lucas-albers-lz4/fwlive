@@ -683,10 +683,15 @@ return view.extend({
 			const status = await callFwliveLoggingStatus();
 			if (this.viewDisposed) return;
 			this.loggingStatus = status;
+			this.loggingNotice = '';
 			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		} catch (_e) {
 			if (this.viewDisposed) return;
-			this.loggingStatus = null;
+			/* Keep last toolbar state. Do not clobber a toggle success/failure notice. */
+			if (!this.loggingNotice)
+				this.loggingNotice = _(
+					'Could not refresh logging status; showing the last known state.'
+				);
 		}
 		this.updateBackendUi();
 		this.updateLoggingToolbarUi();
@@ -712,6 +717,10 @@ return view.extend({
 
 			this.loggingNotice = opts.successNotice(res);
 			if (opts.onSuccess) opts.onSuccess(res);
+			if (this.loggingStatus && typeof opts.wanLog === 'boolean')
+				this.loggingStatus = Object.assign({}, this.loggingStatus, {
+					wan_log: opts.wanLog
+				});
 			await this.loadLoggingStatus();
 		} catch (_e) {
 			this.loggingNotice = opts.catchNotice();
@@ -725,6 +734,7 @@ return view.extend({
 
 	async handleEnableLogging() {
 		return this.runLoggingToggle({
+			wanLog: true,
 			call: () => callFwliveEnableLogging(),
 			initialUi: () => {
 				this.updateEmptyStateUi();
@@ -752,6 +762,7 @@ return view.extend({
 
 	async handleDisableLogging() {
 		return this.runLoggingToggle({
+			wanLog: false,
 			call: () => callFwliveDisableLogging(),
 			initialUi: () => this.updateLoggingToolbarUi(),
 			failureNotice: (res) => {
