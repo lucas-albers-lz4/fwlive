@@ -392,11 +392,7 @@ return baseclass.extend({
 		const tsUnix = this.timestampUnix(entry);
 		const tsDisplay = this.formatTimestampDisplay(entry);
 		const proto = (kv.PROTO || '').toUpperCase();
-		const actionRaw = this.inferActionRaw(
-			message,
-			kv,
-			this.detectAction(message)
-		);
+		const actionRaw = this.inferActionRaw(message, kv, this.detectAction(message));
 		const action = this.normalizeAction(actionRaw);
 		const addrs = this.extractAddrs(kv);
 		const ifs = this.extractIfaces(kv);
