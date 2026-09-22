@@ -50,6 +50,21 @@ set -- $(fwlive_adaptive_plan 2000)
 	|| die "state duration must stay cool after gap"
 ok "plan uses processing duration not inter-arrival"
 
+# A full-sized cold sample probes upward one step at a time instead of
+# jumping from the cool cap straight to POLL_LINES_MAX.
+fwlive_adaptive_record 40 250
+set -- $(fwlive_adaptive_read_state)
+[ "$2" = 500 ] && [ "$3" = cold ] || die "first cold probe state=$*"
+set -- $(fwlive_adaptive_plan 2000)
+[ "$1" = 500 ] || die "cold probe must hold retained limit=$1 want 500"
+fwlive_adaptive_record 40 500
+set -- $(fwlive_adaptive_plan 2000)
+[ "$1" = 1000 ] || die "second cold probe=$1 want 1000"
+fwlive_adaptive_record 40 1000
+set -- $(fwlive_adaptive_plan 2000)
+[ "$1" = 2000 ] || die "third cold probe=$1 want 2000"
+ok "cold recovery probes upward without oscillation"
+
 # Warm: first warm halves; second consecutive warm holds.
 fwlive_adaptive_write_state 0 2000 cold 0 0 0
 fwlive_adaptive_record 400 2000
