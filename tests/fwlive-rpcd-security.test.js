@@ -59,7 +59,7 @@ function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEAS
 		const plugin = path.join(libexec, 'rpcd', 'fwlive');
 		const source = fs
 			.readFileSync(RPCD, 'utf8')
-			.replaceAll('/usr/share/libubox/jshn.sh', shellQuote(jshnSh));
+			.replaceAll('/usr/share/libubox/jshn.sh', () => shellQuote(jshnSh));
 		fs.writeFileSync(plugin, source, { mode: 0o755 });
 		fs.chmodSync(plugin, 0o755);
 		const env = {
@@ -85,7 +85,7 @@ function testSelftestHarnessBoundaries() {
 	const sourcePair = path.join(prefix, release);
 	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-rpcd-harness-'));
 	try {
-		const spacedPrefix = path.join(work, 'prefix with spaces');
+		const spacedPrefix = path.join(work, "prefix with spaces $& $$ 'quote'");
 		fs.mkdirSync(spacedPrefix, { recursive: true });
 		fs.cpSync(sourcePair, path.join(spacedPrefix, release), { recursive: true });
 		assert.doesNotThrow(
