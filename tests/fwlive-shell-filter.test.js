@@ -182,6 +182,59 @@ function runTempDirGuards() {
 	}
 }
 
+function runSignalCleanup() {
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-signal-'));
+	const tmpDir = path.join(work, 'tmp');
+	const stubDir = path.join(work, 'bin');
+	const childPid = path.join(work, 'jsonfilter.pid');
+	const output = path.join(work, 'stdout');
+	const error = path.join(work, 'stderr');
+	fs.mkdirSync(tmpDir);
+	fs.mkdirSync(stubDir);
+	fs.chmodSync(tmpDir, 0o1777);
+	fs.writeFileSync(path.join(stubDir, 'jsonfilter'), [
+		'#!/bin/sh',
+		'printf "%s" "$$" >"$FWLIVE_JSONFILTER_PID"',
+		'trap "exit 0" 1 2 3 15',
+		'while :; do sleep 1; done',
+		''
+	].join('\n'), { mode: 0o755 });
+	try {
+		const controller = [
+			'"$FWLIVE_FILTER" "$FWLIVE_TMP" </dev/null >"$FWLIVE_OUT" 2>"$FWLIVE_ERR" &',
+			'_filter_pid=$!',
+			'for _i in 1 2 3 4 5 6 7 8 9 10; do',
+			'\t[ -s "$FWLIVE_JSONFILTER_PID" ] && break',
+			'\tsleep 0.01',
+			'done',
+			'[ -s "$FWLIVE_JSONFILTER_PID" ] || { echo "jsonfilter did not start" >&2; kill "$_filter_pid" 2>/dev/null || true; wait "$_filter_pid" 2>/dev/null || true; exit 1; }',
+			'kill -TERM "$_filter_pid"',
+			'sleep 0.05',
+			'kill -TERM "$(cat "$FWLIVE_JSONFILTER_PID")" 2>/dev/null || true',
+			'wait "$_filter_pid"',
+			'_status=$?',
+			'[ "$_status" -eq 143 ] || { echo "filter status=$_status, want 143" >&2; cat "$FWLIVE_OUT" "$FWLIVE_ERR" >&2; exit 1; }',
+			'set -- "$FWLIVE_TMP"/fwlive-filter.*',
+			'[ ! -e "$1" ] || { echo "signal left tempfile: $1" >&2; exit 1; }'
+		].join('\n');
+		const r = spawnSync('/bin/sh', ['-c', controller], {
+			encoding: 'utf8',
+			env: {
+				...process.env,
+				PATH: stubDir + path.delimiter + (process.env.PATH || ''),
+				FWLIVE_FILTER: FILTER_SH,
+				FWLIVE_TMP: tmpDir,
+				FWLIVE_JSONFILTER_PID: childPid,
+				FWLIVE_OUT: output,
+				FWLIVE_ERR: error
+			}
+		});
+		assert.equal(r.status, 0, r.stderr || r.stdout);
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function runMktempFailure() {
 	const jf = jsonfilterPathEnv();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-mktemp-'));
@@ -484,6 +537,7 @@ function run() {
 	runMsgParity();
 	runJsonParity();
 	runTempDirGuards();
+	runSignalCleanup();
 	runMktempFailure();
 	runSymlinkTempDir();
 	runJsonGetMsgEscapes();
