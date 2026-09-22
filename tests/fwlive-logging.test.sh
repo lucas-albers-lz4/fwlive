@@ -772,6 +772,7 @@ drive_toggle() {
 	UCI_CALLS=''
 	UCI_COMMITS=0
 	STAGED_LOG='__unset__'
+	STAGED_PENDING=0
 	LOGGER_MSGS=''
 	CHANGES_CALLS=0
 	REVERTED=0
@@ -794,14 +795,14 @@ drive_toggle() {
 					post_stage_foreign)
 						# clean through pre-stage gates; foreign appears only
 						# once OUR log delta is staged (post-stage check)
-						if [ "$STAGED_LOG" != '__unset__' ]; then
+						if [ "$STAGED_PENDING" = 1 ]; then
 							printf "firewall.@rule[9].name='foreign'\n"
 						fi
 						;;
 					post_stage_log_limit_foreign)
 						# Same window, but foreign touches log_limit — must not
 						# be mistaken for our log= delta (substring trap).
-						if [ "$STAGED_LOG" != '__unset__' ]; then
+						if [ "$STAGED_PENDING" = 1 ]; then
 							printf "firewall.@zone[0].log_limit='10/minute'\n"
 						fi
 						;;
@@ -810,9 +811,13 @@ drive_toggle() {
 						# on enable: early + pre-stage + post-stage); foreign
 						# appears only when the failure path re-queries
 						[ "$_n" -ge 4 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
+					rollback_post_stage_foreign)
+						# Rollback pre-check is call 4; expose the foreign delta
+						# only after rollback stages its restore (call 5).
+						[ "$_n" -ge 5 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
 				esac
 				# Real `uci -q changes` also lists OUR staged delta once staged.
-				if [ "$STAGED_LOG" != '__unset__' ]; then
+				if [ "$STAGED_PENDING" = 1 ]; then
 					printf "firewall.@zone[0].log='%s'\n" "$STAGED_LOG"
 				fi
 				;;
@@ -840,32 +845,40 @@ drive_toggle() {
 					printf '%s\n' "$CURRENT_LOG"
 				fi
 				;;
-			'set firewall.@zone[0].log='*)
+			'set firewall.@zone[0].log='*|'-q set firewall.@zone[0].log='*)
 				[ "$mode" = uci_set_fail ] && return 1
 				STAGED_LOG="${2#*=}"
+				[ "${2:-}" = set ] && STAGED_LOG="${3#*=}"
+				STAGED_PENDING=1
 				# Matching committed value clears staging (real uci behaviour).
 				if [ "$STAGED_LOG" = "$CURRENT_LOG" ]; then
 					STAGED_LOG='__unset__'
+					STAGED_PENDING=0
 				fi
 				;;
-			'delete firewall.@zone[0].log')
+			'delete firewall.@zone[0].log'|'-q delete firewall.@zone[0].log')
 				[ "$mode" = uci_delete_fail ] && return 1
 				if [ -z "$CURRENT_LOG" ]; then
 					STAGED_LOG='__unset__'
 				else
 					STAGED_LOG=''
 				fi
+				STAGED_PENDING=1
+				[ -z "$CURRENT_LOG" ] && STAGED_PENDING=0
 				;;
 			'commit firewall')
 				case "$mode" in
 					late_foreign|post_stage_foreign|post_stage_log_limit_foreign)
 						die "#191: uci commit issued while a foreign delta was staged" ;;
+					rollback_post_stage_foreign)
+						[ "$UCI_COMMITS" -ge 1 ] && die "#457: rollback commit issued while a foreign delta was staged" ;;
 					commit_fail_foreign|commit_fail_ours)
 						# commit fails; the caller decides whether to revert
 						return 1 ;;
 				esac
 				UCI_COMMITS=$((UCI_COMMITS + 1))
 				CURRENT_LOG="$STAGED_LOG"
+				STAGED_PENDING=0
 				;;
 			*'revert firewall'*)
 				case "$mode" in
@@ -881,7 +894,10 @@ drive_toggle() {
 	check_nf_log_ipv6() { return 0; }
 	acquire_wan_log_lock() { return 0; }
 	release_wan_log_lock() { return 0; }
-	reload_firewall() { return 0; }
+	reload_firewall() {
+		[ "$mode" = rollback_post_stage_foreign ] && return 1
+		return 0
+	}
 	logger() { LOGGER_MSGS="$LOGGER_MSGS|$*"; }
 	if [ "$op" = enable ]; then
 		enable_wan_logging > "$OUT_FILE"
@@ -1016,6 +1032,25 @@ case "$LOGGER_MSGS" in
 	*'verify FAILED'*) die "#191 happy disable: spurious verify warning: $LOGGER_MSGS" ;;
 esac
 ok "#191 happy-path disable still deletes + commits (verify passes)"
+
+# --- issue #457: rollback has the same post-stage foreign-delta guard --
+# A failed reload releases the toggle lock before re-acquiring it for the
+# rollback. A foreign delta can therefore appear after rollback stages its
+# restore, and must cause the rollback to undo only its own staging without a
+# second commit.
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable rollback_post_stage_foreign
+case "$OUT" in
+	*'"error":"firewall_reload_failed"'*) ;;
+	*) die "#457 rollback/post-stage-foreign: expected reload failure, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 1 ] || die "#457 rollback/post-stage-foreign: rollback must not commit ($UCI_COMMITS)"
+[ "$STAGED_LOG" = '__unset__' ] || die "#457 rollback/post-stage-foreign: rollback must undo its staging, got '$STAGED_LOG'"
+case "$LOGGER_MSGS" in
+	*'rollback skipped after stage'*) ;;
+	*) die "#457 rollback/post-stage-foreign: missing guard log: $LOGGER_MSGS" ;;
+esac
+ok "#457 rollback aborts on foreign delta staged after restore"
 
 # --- commit-failure paths (#191, CodeRabbit/luna fold) ---
 # Commit fails with a FOREIGN delta now visible: must NOT revert (config-wide
