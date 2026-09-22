@@ -23,6 +23,14 @@
     {
       "time": 1781999395,
       "msg": "[   42.147422] fwlive-custom: IN=lo OUT= MAC=00:00:00:00:00:00:00:00:00:00:00:00:08:00 SRC=127.0.0.1 DST=127.0.0.1 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=340 DF PROTO=ICMP TYPE=8 CODE=0 ID=5365 SEQ=0"
+    },
+    {
+      "time": 1717675805,
+      "msg": "DROPIN=wan SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22"
+    },
+    {
+      "time": 1717675806,
+      "msg": "REJECTIN=lan SRC=192.168.1.1 DST=203.0.113.5 PROTO=TCP DPT=22"
     }
   ]
 }

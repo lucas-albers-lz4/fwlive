@@ -129,6 +129,22 @@ const GOLDEN = [
 		src: '127.0.0.1', dst: '127.0.0.1', sport: '', dport: '',
 		interface_in: 'lo', interface_out: '', rule_hint: 'fwlive-custom',
 		flags: '', length: 84, timestamp: 1781999395
+	},
+	{
+		fixture: 'logread-iptables.json', i: 6, firewall: true,
+		msg: 'DROPIN=wan SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22',
+		action: 'drop', action_raw: 'DROP', proto: 'TCP',
+		src: '203.0.113.5', dst: '192.168.1.1', sport: '', dport: '22',
+		interface_in: 'wan', interface_out: '', rule_hint: 'DROP',
+		flags: '', length: null, timestamp: 1717675805
+	},
+	{
+		fixture: 'logread-iptables.json', i: 7, firewall: true,
+		msg: 'REJECTIN=lan SRC=192.168.1.1 DST=203.0.113.5 PROTO=TCP DPT=22',
+		action: 'reject', action_raw: 'REJECT', proto: 'TCP',
+		src: '192.168.1.1', dst: '203.0.113.5', sport: '', dport: '22',
+		interface_in: 'lan', interface_out: '', rule_hint: 'REJECT',
+		flags: '', length: null, timestamp: 1717675806
 	}
 ];
 

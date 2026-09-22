@@ -387,21 +387,18 @@ return baseclass.extend({
 	},
 
 	normalizeEntry: function (entry) {
-		const kv = this.parseKeyValueLog(entry.msg || '');
+		const message = this.normalizeNetfilterMessage(entry.msg || '');
+		const kv = this.parseKeyValueLog(message);
 		const tsUnix = this.timestampUnix(entry);
 		const tsDisplay = this.formatTimestampDisplay(entry);
 		const proto = (kv.PROTO || '').toUpperCase();
-		const actionRaw = this.inferActionRaw(
-			entry.msg || '',
-			kv,
-			this.detectAction(entry.msg || '')
-		);
+		const actionRaw = this.inferActionRaw(message, kv, this.detectAction(message));
 		const action = this.normalizeAction(actionRaw);
 		const addrs = this.extractAddrs(kv);
 		const ifs = this.extractIfaces(kv);
-		const flags = this.parseFlags(entry.msg || '', kv);
+		const flags = this.parseFlags(message, kv);
 		const length = this.parseLength(kv);
-		const ruleHint = this.parseRuleHint(entry.msg || '');
+		const ruleHint = this.parseRuleHint(message);
 		const ruleLabel = this.formatRuleLabel(ruleHint);
 
 		return {
