@@ -445,40 +445,41 @@ restore_wan_log_baseline() {
 }
 
 wan_filter_log_enabled() {
-	log_val="$1"
-	[ -n "$log_val" ] || return 1
-	case "$log_val" in
-		*[!0-9]*) return 1 ;;
-	esac
+	log_val=$(wan_filter_log_decimal "$1") || return 1
 	[ $((log_val & 1)) -ne 0 ]
 }
 
+wan_filter_log_decimal() {
+	_log_val="$1"
+	case "$_log_val" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	while [ "${_log_val#0}" != "$_log_val" ]; do
+		_log_val=${_log_val#0}
+	done
+	[ -n "$_log_val" ] || _log_val=0
+	printf '%s' "$_log_val"
+}
+
 wan_filter_log_target_value() {
-	current="$1"
+	current=$(wan_filter_log_decimal "$1") || {
+		printf '1'
+		return 0
+	}
 	if wan_filter_log_enabled "$current"; then
 		printf '%s' "$current"
 		return 0
 	fi
-	case "$current" in
-		''|*[!0-9]*)
-			printf '1'
-			;;
-		*)
-			printf '%d' $((current | 1))
-			;;
-	esac
+	printf '%d' $((current | 1))
 }
 
 # Clear filter-log bit 0 only. Prints remaining value, or empty when the option
 # should be deleted (no bits left / non-numeric / already empty).
 wan_filter_log_clear_value() {
-	current="$1"
-	case "$current" in
-		''|*[!0-9]*)
-			printf ''
-			return 0
-			;;
-	esac
+	current=$(wan_filter_log_decimal "$1") || {
+		printf ''
+		return 0
+	}
 	cleared=$((current & ~1))
 	if [ "$cleared" -eq 0 ]; then
 		printf ''
@@ -977,6 +978,20 @@ run_logging_selftest() {
 		echo 'wan_filter_log_enabled 2: expected false' >&2
 		return 1
 	fi
+	for leading_value in 011 010 08 0; do
+		if ! wan_filter_log_decimal "$leading_value" >/dev/null; then
+			echo "wan_filter_log_decimal $leading_value: expected decimal digits" >&2
+			return 1
+		fi
+	done
+	if wan_filter_log_enabled '08' || wan_filter_log_enabled '010'; then
+		echo 'leading-zero even values: expected false' >&2
+		return 1
+	fi
+	if ! wan_filter_log_enabled '011'; then
+		echo 'leading-zero odd value: expected true' >&2
+		return 1
+	fi
 
 	got=$(wan_filter_log_target_value '')
 	if [ "$got" != '1' ]; then
@@ -993,6 +1008,16 @@ run_logging_selftest() {
 	got=$(wan_filter_log_target_value '1')
 	if [ "$got" != '1' ]; then
 		echo "wan_filter_log_target_value 1: expected 1 got $got" >&2
+		return 1
+	fi
+	got=$(wan_filter_log_target_value '08')
+	if [ "$got" != '9' ]; then
+		echo "wan_filter_log_target_value 08: expected 9 got $got" >&2
+		return 1
+	fi
+	got=$(wan_filter_log_target_value '011')
+	if [ "$got" != '11' ]; then
+		echo "wan_filter_log_target_value 011: expected 11 got $got" >&2
 		return 1
 	fi
 
@@ -1012,6 +1037,17 @@ run_logging_selftest() {
 	got=$(wan_filter_log_clear_value '2')
 	if [ "$got" != '2' ]; then
 		echo "wan_filter_log_clear_value 2: expected 2 got $got" >&2
+		return 1
+	fi
+
+	got=$(wan_filter_log_clear_value '010')
+	if [ "$got" != '10' ]; then
+		echo "wan_filter_log_clear_value 010: expected 10 got $got" >&2
+		return 1
+	fi
+	got=$(wan_filter_log_clear_value '0')
+	if [ -n "$got" ]; then
+		echo "wan_filter_log_clear_value 0: expected empty got $got" >&2
 		return 1
 	fi
 
