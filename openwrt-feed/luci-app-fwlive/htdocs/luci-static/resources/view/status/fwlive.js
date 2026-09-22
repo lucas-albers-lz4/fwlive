@@ -143,6 +143,7 @@ return view.extend({
 	summaryRowsShown: false,
 	summaryData: null,
 	resolveLoadShed: false,
+	resolveShedUntil: 0,
 	filterInputTimer: null,
 	messageLayout: 'wrap',
 	/* Session-new IDs from the last applied batch; this is not buffer growth. */
