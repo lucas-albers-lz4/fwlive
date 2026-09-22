@@ -77,8 +77,8 @@ OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-x86-qemu.sh
 
 # Production-shaped (armsr, TCG — allow slow boot)
 RELEASE=24.10.8 ./scripts/download-openwrt-armsr-armv8.sh
-sudo OWRT_IMG=lab/images/openwrt-armsr-armv8.img ./scripts/qemu-lab-prepare-image.sh
-./scripts/run-openwrt-armsr-armv8-qemu.sh
+sudo OWRT_IMG=lab/images/openwrt-armsr-armv8-24.10.8.img ./scripts/qemu-lab-prepare-image.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 ```
 
 ---

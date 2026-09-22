@@ -6,29 +6,29 @@ Colloquially people still say **“armvirt”** for *OpenWrt in QEMU on a virtua
 
 ## 1. Download images (preferred)
 
-From the release tree, e.g. **24.10.0** (adjust the path if you use a newer **24.10.x** point release):
+From the release tree, e.g. **24.10.8** (adjust the path if you use another supported release):
 
 **Directory:** `releases/<version>/targets/armsr/armv8/`
 
-| What | File (example for 24.10.0) |
+| What | File (example for 24.10.8) |
 |------|----------------------------|
-| QEMU disk | `openwrt-24.10.0-armsr-armv8-generic-ext4-combined-efi.img.gz` |
+| QEMU disk | `openwrt-24.10.8-armsr-armv8-generic-ext4-combined-efi.img.gz` |
 | U-Boot (QEMU) | `u-boot-qemu_armv8/u-boot.bin` |
-| Optional quick test | `openwrt-24.10.0-armsr-armv8-generic-initramfs-kernel.bin` (RAM boot, no persistence) |
+| Optional quick test | `openwrt-24.10.8-armsr-armv8-generic-initramfs-kernel.bin` (RAM boot, no persistence) |
 
-**SDK** (same folder): `openwrt-sdk-24.10.0-armsr-armv8_gcc-*_musl.Linux-x86_64.tar.zst` — use this to build `luci-app-fwlive` (see [`minimal-build-sdk.md`](minimal-build-sdk.md)).
+**SDK** (same folder): `openwrt-sdk-24.10.8-armsr-armv8_gcc-*_musl.Linux-x86_64.tar.zst` — use this to build `luci-app-fwlive` (see [`minimal-build-sdk.md`](minimal-build-sdk.md)).
 
 ### Helper (repo)
 
 ```sh
-RELEASE=24.10.0 ./scripts/download-openwrt-armsr-armv8.sh
+RELEASE=24.10.8 ./scripts/download-openwrt-armsr-armv8.sh
 ```
 
-Writes **`lab/images/openwrt-armsr-armv8.img`** and **`lab/images/u-boot-qemu_armv8.bin`** (paths are gitignored).
+Writes release-stamped **`lab/images/openwrt-armsr-armv8-24.10.8.img`** and **`lab/images/u-boot-qemu_armv8-24.10.8.bin`** (paths are gitignored). For the pinned default release, it also creates compatibility symlinks named **`openwrt-armsr-armv8.img`** and **`u-boot-qemu_armv8.bin`**.
 
 ## 2. SDK / package arch (for `luci-app-fwlive`)
 
-Build the `.ipk` with the SDK that matches **the same release and `armsr/armv8` target** as the running image. Do **not** mix 24.10.0 image with a snapshot SDK.
+Build the `.ipk` with the SDK that matches **the same release and `armsr/armv8` target** as the running image. Do **not** mix a 24.10.8 image with a snapshot SDK.
 
 | Topic | Note |
 |-------|------|
@@ -47,7 +47,7 @@ Then build **`luci-app-fwlive`** with the SDK ([`minimal-build-sdk.md`](minimal-
    ```
 3. **Networking (tested, same as x86 lab):** single **`-nic user,hostfwd=...`** + guest LAN **DHCP**. Prepare the image before first boot:
    ```sh
-   sudo OWRT_IMG=lab/images/openwrt-armsr-armv8.img ./scripts/qemu-lab-prepare-image.sh
+   sudo OWRT_IMG=lab/images/openwrt-armsr-armv8-24.10.8.img ./scripts/qemu-lab-prepare-image.sh
    ```
    (Also clears root password for lab SSH — armsr images may ship with a hash; x86 lab images are usually already blank.)
    Legacy dual-NIC mode: `OWRT_QEMU_DUAL_NIC=1` (not recommended). QEMU uses:
@@ -63,10 +63,10 @@ Then build **`luci-app-fwlive`** with the SDK ([`minimal-build-sdk.md`](minimal-
 After download (or manual `gunzip` of the `.img.gz`):
 
 ```sh
-./scripts/run-openwrt-armsr-armv8-qemu.sh
+OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 ```
 
-Defaults expect **`lab/images/openwrt-armsr-armv8.img`** and **`lab/images/u-boot-qemu_armv8.bin`**. Override with `OWRT_IMG` / `OWRT_UBOOT` if needed.
+For the pinned 24.10.8 release, the helper creates compatibility symlinks at **`lab/images/openwrt-armsr-armv8.img`** and **`lab/images/u-boot-qemu_armv8.bin`**. You can select another downloaded release with `OWRT_RELEASE=<release>` or override with `OWRT_IMG` / `OWRT_UBOOT`.
 
 The script picks **QEMU networking by OS**:
 
@@ -80,7 +80,7 @@ qemu-system-aarch64 -nographic \
   -bios /path/to/u-boot.bin \
   -smp 1 -m 1024 \
   -device virtio-rng-pci \
-  -drive file=/path/to/openwrt-armsr-armv8.img,format=raw,index=0,media=disk \
+  -drive file=/path/to/openwrt-armsr-armv8-24.10.8.img,format=raw,index=0,media=disk \
   -netdev user,id=wan0 \
   -device virtio-net-pci,netdev=wan0,mac=52:54:00:11:22:33 \
   -netdev user,id=lan0,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22 \
@@ -107,7 +107,7 @@ From a full OpenWrt **source** tree, `scripts/qemustart` supports **`armsr`** �
 ## Common mix-ups
 
 - **Toolchain** (`openwrt-toolchain-…tar.zst`) is only a cross-compiler bundle. To build **LuCI packages** with feeds, use the **SDK** (`openwrt-sdk-…tar.zst`) from the same `armsr/armv8` directory.
-- **Disk image** can stay named `openwrt-24.10.0-armsr-armv8-generic-ext4-combined-efi.img`; `scripts/run-openwrt-armsr-armv8-qemu.sh` picks that pattern up automatically under `lab/images/`.
+- **Disk image** downloaded by the helper is release-stamped (for example `openwrt-armsr-armv8-24.10.8.img`); `scripts/run-openwrt-armsr-armv8-qemu.sh` also accepts the compatibility symlink or an explicit `OWRT_IMG` path.
 - **U-Boot** (`u-boot-qemu_armv8/u-boot.bin`) is still required for the QEMU `-bios` line even when the `.img` is already downloaded.
 
 ## Terminology

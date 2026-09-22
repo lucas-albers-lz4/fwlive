@@ -91,14 +91,13 @@ The `.ipk` appears under `bin/packages/.../luci/luci-app-fwlive_*.ipk` (exact pa
 
 ### 4a. Compile with Docker (optional; same result as §4)
 
-If you already completed steps 1–4 on the host, you can point Docker at that tree:
+Use the repository's supported Docker SDK driver. It pins the official SDK image and keeps the SDK in a Docker named volume, so the SDK does not need to be bind-mounted from the host:
 
 ```sh
-export OPENWRT_SDK_MOUNT=/path/to/extracted-sdk
-export USE_SDK_BIND=1
-docker compose build
-./scripts/docker-sdk-make.sh
+./scripts/docker-sdk.sh build --target armsr-armv8 --version 24.10
 ```
+
+The command sets up the feeds, compiles `luci-app-fwlive`, and copies the packages to `out/`. Use `--target x86-64` or another supported `--version` as needed; see `./scripts/docker-sdk.sh --help` for the matrix.
 
 ### 5. Deploy on the router or QEMU guest
 
@@ -177,11 +176,11 @@ Bind-mounting an SDK from **macOS** (APFS is case-insensitive) causes:
 OpenWrt can only be built on a case-sensitive filesystem
 ```
 
-Use the **volume workflow** (`docker-sdk-import-tar.sh`) so the SDK lives on a case-sensitive filesystem inside Docker, not a macOS bind mount.
+Use the supported Docker SDK driver (`./scripts/docker-sdk.sh build --target armsr-armv8 --version 24.10`) so the SDK lives in a Docker named volume on a case-sensitive filesystem, not in a macOS bind mount.
 
 ## `No rule to make target 'package/luci-app-fwlive/compile'`
 
-Feeds not installed or **`make defconfig`** not run — run **`docker-sdk-setup-feeds.sh`** (volume) or complete steps 2–4 above (bind mount).
+Feeds not installed or **`make defconfig`** not run — run `./scripts/docker-sdk.sh setup --target armsr-armv8 --version 24.10` with the Docker driver, or complete steps 2–4 above with a host SDK.
 
 ## macOS deployment: finding the guest IP
 
