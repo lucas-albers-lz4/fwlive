@@ -998,6 +998,30 @@ async function testPauseDuringLivePollRetainsBuffer() {
 	console.log('fwlive-view layer2: pause during live poll retains buffer OK');
 }
 
+async function testResumeClearsPauseBufferLoading() {
+	let release;
+	const gate = new Promise(function (resolve) {
+		release = resolve;
+	});
+	const h = loadFwliveView();
+	const v = h.view;
+	v.updateStreamControlsUi = function () {};
+	v.renderRows = function () {};
+	v.requestPoll = function () { return gate; };
+	v.tablePaused = false;
+	v.entries = [];
+
+	v.onPauseClick();
+	assert.strictEqual(v.pauseBufferLoading, true, 'Pause must mark the empty buffer as loading');
+	v.onPauseClick();
+	assert.strictEqual(v.pauseBufferLoading, false,
+		'Resume must clear the pause loading state before the gated poll settles');
+
+	release();
+	await gate;
+	console.log('fwlive-view layer2: resume clears pause loading OK');
+}
+
 async function testStaleAnimationFrameIsDropped() {
 	const frames = [];
 	const h = loadFwliveView({
@@ -1186,6 +1210,7 @@ async function testPausedDisplayControlsPaint() {
 		await testResumeMergeSurvivesVisibilityRace();
 		await testUnpauseDuringPausedPollRetainsBuffer();
 		await testPauseDuringLivePollRetainsBuffer();
+		await testResumeClearsPauseBufferLoading();
 		await testStaleAnimationFrameIsDropped();
 		await testAnimationFrameAdaptersPreserveWindowReceiver();
 		await testLimitRefreshPreservesQueuedForce();
