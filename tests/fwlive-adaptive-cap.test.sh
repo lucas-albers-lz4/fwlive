@@ -245,6 +245,21 @@ case "$_mode" in
 esac
 ok "lock created 0600 under umask 022"
 
+# State writes must not change the caller's process umask (issue #505).
+rm -f "$FWLIVE_ADAPTIVE_STATE_FILE"
+_caller_umask=$(umask)
+umask 022
+fwlive_adaptive_write_state 900 250 hot 0 1 1000
+_after_write_umask=$(umask)
+[ "$_after_write_umask" = 0022 ] || die "state write changed umask: $_after_write_umask"
+_state_mode=$(stat -c '%a' "$FWLIVE_ADAPTIVE_STATE_FILE" 2>/dev/null || stat -f '%OLp' "$FWLIVE_ADAPTIVE_STATE_FILE")
+case "$_state_mode" in
+	600|0600) ;;
+	*) die "state mode want 0600 got $_state_mode" ;;
+esac
+umask "$_caller_umask"
+ok "state write scopes umask"
+
 # oneshot dropped from production poll path
 if grep -E 'oneshot[[:space:]]*:[[:space:]]*true' "$RPCD" >/dev/null; then
 	die "rpcd poll must not send oneshot:true"
