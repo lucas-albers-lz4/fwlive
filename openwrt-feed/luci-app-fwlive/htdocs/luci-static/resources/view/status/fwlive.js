@@ -1477,7 +1477,8 @@ return view.extend({
 		this.resolveInFlight = false;
 
 		/* Paint the existing cache immediately; resolving only fills misses. */
-		this.renderRows(true);
+		if (this.tablePaused) this.updateStatus();
+		else this.renderRows(true);
 		if (this.showHostnames) this.resolveHostnamesForEntries(this.filteredRows());
 	},
 
