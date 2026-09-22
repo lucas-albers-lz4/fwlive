@@ -345,7 +345,8 @@ async function testResolverError(page) {
 			await view.resolveHostnamesForEntries([
 				{ src: '2001:db8::1', dst: '2001:db8::2' }
 			]);
-			view.hostnameFailed.clear();
+			if (view.hostnameFailed.size !== 0)
+				throw new Error('structured resolver error mutated hostname failure state');
 			reply = 5;
 			await view.resolveHostnamesForEntries([
 				{ src: '2001:db8::1', dst: '2001:db8::2' }
