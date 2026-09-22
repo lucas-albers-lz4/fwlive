@@ -2014,8 +2014,7 @@ return view.extend({
 			else if (this.summaryMode) {
 				this.renderSummary();
 				this.updateStatus();
-			}
-			else this.scheduleRenderRows();
+			} else this.scheduleRenderRows();
 
 			try {
 				await this.resolveHostnamesForEntries(this.filteredRows());
