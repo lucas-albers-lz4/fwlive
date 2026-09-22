@@ -64,10 +64,10 @@ function run() {
 	const iptFixture = path.join(__dirname, 'fixtures', 'logread-iptables.json');
 	const iptPayload = JSON.parse(fs.readFileSync(iptFixture, 'utf8'));
 	const iptStats = core.statsLogEntries(iptPayload.log);
-	assert.equal(iptStats.firewall, 7);
+	assert.equal(iptStats.firewall, 8);
 	assert.equal(iptStats.noise, 1);
 	const iptRows = core.filterLogEntries(iptPayload.log);
-	assert.equal(iptRows.length, 7);
+	assert.equal(iptRows.length, 8);
 	assert.ok(iptRows.some((r) => r.rule_hint === 'fwlive-ping'));
 	assert.ok(iptRows.some((r) => r.action === 'drop' && r.interface_in === 'wan'));
 
