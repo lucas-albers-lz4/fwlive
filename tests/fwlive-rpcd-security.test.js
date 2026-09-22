@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -26,8 +26,111 @@ if (!Array.isArray(readUbus.fwlive) || !readUbus.fwlive.includes('poll')) {
 	process.exit(1);
 }
 
-const out = execFileSync('sh', [RPCD, '__selftest'], { encoding: 'utf8' });
-if (out.includes('skip:')) console.log('fwlive rpcd security: ' + out.trim());
+function shellQuote(value) {
+	return "'" + value.replaceAll("'", "'\"'\"'") + "'";
+}
+
+function assertSelftestResult(result) {
+	assert.ifError(result.error);
+	assert.equal(result.status, 0, `rpcd selftest failed: ${result.stderr || result.stdout}`);
+	const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+	assert.doesNotMatch(output, /skip:/, 'rpcd selftest must execute with matched jshn');
+	return output;
+}
+
+function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEASE || '24.10') {
+	const busybox = 'busybox';
+	prefix = prefix || process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	assert.match(release, /^(23\.05|24\.10|25\.12)$/, 'unsupported FWLIVE_JSHN_RELEASE');
+
+	const pair = path.join(prefix, release);
+	const jshn = path.join(pair, 'bin', 'jshn');
+	const jshnSh = path.join(pair, 'share', 'jshn.sh');
+	const jshnStat = fs.existsSync(jshn) && fs.statSync(jshn);
+	assert.ok(jshnStat && jshnStat.isFile(), `matched jshn binary missing: ${jshn}`);
+	assert.ok((jshnStat.mode & 0o111) !== 0, `matched jshn binary is not executable: ${jshn}`);
+	const jshnShStat = fs.existsSync(jshnSh) && fs.statSync(jshnSh);
+	assert.ok(jshnShStat && jshnShStat.isFile(), `matched jshn shell library missing: ${jshnSh}`);
+
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-rpcd-selftest-'));
+	try {
+		const libexec = path.join(work, 'libexec');
+		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+		const plugin = path.join(libexec, 'rpcd', 'fwlive');
+		const source = fs
+			.readFileSync(RPCD, 'utf8')
+			.replaceAll('/usr/share/libubox/jshn.sh', () => shellQuote(jshnSh));
+		fs.writeFileSync(plugin, source, { mode: 0o755 });
+		fs.chmodSync(plugin, 0o755);
+		const env = {
+			...process.env,
+			PATH: `${path.dirname(jshn)}:${process.env.PATH || ''}`,
+		};
+		const resolved = execFileSync(busybox, ['sh', '-c', 'command -v jshn'], {
+			encoding: 'utf8',
+			env,
+		}).trim();
+		assert.equal(fs.realpathSync(resolved), fs.realpathSync(jshn), 'selected jshn must win PATH resolution');
+		return assertSelftestResult(
+			spawnSync(busybox, ['sh', plugin, '__selftest'], { encoding: 'utf8', env })
+		);
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testSelftestHarnessBoundaries() {
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const sourcePair = path.join(prefix, release);
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-rpcd-harness-'));
+	try {
+		const spacedPrefix = path.join(work, "prefix with spaces $& $$ 'quote'");
+		fs.mkdirSync(spacedPrefix, { recursive: true });
+		fs.cpSync(sourcePair, path.join(spacedPrefix, release), { recursive: true });
+		assert.doesNotThrow(
+			() => runMatchedRpcdSelftest(spacedPrefix, release),
+			'jshn prefixes containing spaces must be supported'
+		);
+
+		const skip = path.join(work, 'skip-selftest');
+		fs.writeFileSync(skip, '#!/bin/sh\nprintf "skip: fake\\n" >&2\nexit 0\n', { mode: 0o755 });
+		fs.chmodSync(skip, 0o755);
+		assert.throws(
+			() => assertSelftestResult(spawnSync(skip, [], { encoding: 'utf8' })),
+			/must execute/,
+			'stderr-only skip must fail the harness'
+		);
+
+		const badPrefix = path.join(work, 'bad-prefix');
+		const badPair = path.join(badPrefix, release);
+		fs.mkdirSync(path.join(badPair, 'bin'), { recursive: true });
+		fs.mkdirSync(path.join(badPair, 'share'), { recursive: true });
+		fs.copyFileSync(path.join(sourcePair, 'share', 'jshn.sh'), path.join(badPair, 'share', 'jshn.sh'));
+		const badJshn = path.join(badPair, 'bin', 'jshn');
+		fs.writeFileSync(badJshn, '#!/bin/sh\nexit 0\n', { mode: 0o644 });
+		const fallbackBin = path.join(work, 'fallback-bin');
+		fs.mkdirSync(fallbackBin);
+		fs.writeFileSync(path.join(fallbackBin, 'jshn'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+		const oldPath = process.env.PATH;
+		process.env.PATH = `${fallbackBin}:${oldPath || ''}`;
+		try {
+			assert.throws(
+				() => runMatchedRpcdSelftest(badPrefix, release),
+				/not executable/,
+				'non-executable selected jshn must fail even with another jshn on PATH'
+			);
+		} finally {
+			process.env.PATH = oldPath;
+		}
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+testSelftestHarnessBoundaries();
+const out = runMatchedRpcdSelftest();
+console.log('fwlive rpcd security: ' + out.trim());
 
 execFileSync('bash', [LOGGING_TEST], { stdio: 'inherit' });
 
