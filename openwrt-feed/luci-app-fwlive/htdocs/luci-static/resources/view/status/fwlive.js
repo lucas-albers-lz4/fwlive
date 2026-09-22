@@ -687,7 +687,9 @@ return view.extend({
 		} catch (_e) {
 			if (this.viewDisposed) return;
 			/* Keep the last usable toolbar state across a transient refresh failure. */
-			this.loggingNotice = _('Could not refresh logging status; showing the last known state.');
+			this.loggingNotice = _(
+				'Could not refresh logging status; showing the last known state.'
+			);
 		}
 		this.updateBackendUi();
 		this.updateLoggingToolbarUi();
