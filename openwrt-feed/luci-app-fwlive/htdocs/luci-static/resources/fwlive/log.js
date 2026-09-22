@@ -203,7 +203,8 @@ return baseclass.extend({
 
 		const msg = this.normalizeNetfilterMessage(message || '');
 		const withoutKv = msg.replace(/\b[A-Z]+=[^\s]*/g, ' ');
-		if (this.DENY_ACTION.test(withoutKv) || this.DENY_ACTION_UNDERSCORE.test(withoutKv)) return 'UNKNOWN';
+		if (this.DENY_ACTION.test(withoutKv) || this.DENY_ACTION_UNDERSCORE.test(withoutKv))
+			return 'UNKNOWN';
 
 		if (/^kernel:/i.test(msg.trim())) return 'UNKNOWN';
 
