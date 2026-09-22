@@ -93,7 +93,7 @@ else
 fi
 
 if [[ "$RUN_SMOKE" -eq 1 ]]; then
-	"${ROOT}/scripts/qemu-smoke-fwlive.sh"
+	"${ROOT}/scripts/qemu-smoke-fwlive.sh" --require-log-pipeline
 fi
 
 echo "Feed install complete." >&2
