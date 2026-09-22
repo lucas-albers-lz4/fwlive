@@ -1620,11 +1620,15 @@ return view.extend({
 	},
 
 	resolveNamesFromReply(res) {
-		return res && typeof res === 'object' && res.names && typeof res.names === 'object'
-			? res.names
-			: res && typeof res === 'object' && !Array.isArray(res)
-				? res
-				: {};
+		if (!res || typeof res !== 'object' || Array.isArray(res)) return null;
+		if (Object.prototype.hasOwnProperty.call(res, 'error')) return null;
+		if (Object.prototype.hasOwnProperty.call(res, 'names')) {
+			return res.names && typeof res.names === 'object' && !Array.isArray(res.names)
+				? res.names
+				: null;
+		}
+		/* Legacy expect-unwrap replies are the names map itself. */
+		return res;
 	},
 
 	async resolveHostnamesForEntries(entries) {
@@ -1666,14 +1670,11 @@ return view.extend({
 
 			this.resolveLoadShed = false;
 			this.resolveShedUntil = 0;
-			/* RPC-level failure (no_resolver, jshn_missing, invalid_input): the
-			 * reply carries no per-address signal, so return without failMark —
-			 * otherwise every address looks like "no PTR" and retries stall
-			 * for the failure TTL. */
-			if (res && typeof res === 'object' && typeof res.error === 'string' && res.error)
-				return;
 			/* Full reply: names map under .names; legacy expect-unwrap was the map. */
 			const names = this.resolveNamesFromReply(res);
+			/* RPC-level failures carry no per-address signal. Do not turn numeric,
+			 * null, or malformed replies into negative hostname cache entries. */
+			if (names === null) return;
 			let updated = false;
 
 			for (let i = 0; i < need.length; i++) {
