@@ -7,6 +7,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 mkdir -p "$TMP/bin"
 touch "$TMP/fake.ipk"
+touch "$TMP/fake.apk"
 
 # Matrix wiring: --artifact-only must live in the install helper, not a comment elsewhere.
 install_fn="$(sed -n '/^validate_matrix_install_ipk()/,/^}/p' \
@@ -59,6 +60,15 @@ grep -Fq 'rm -f /www/luci-static/resources/view/status/fwlive.js' "$TMP/artifact
 grep -Fq 'opkg install --force-reinstall' "$TMP/artifact.log"
 if grep -Eq 'cat > /www/|cat > /usr/libexec/|mkdir -p /www' "$TMP/artifact.log"; then
 	echo 'artifact-only install unexpectedly synced source files' >&2
+	exit 1
+fi
+
+run_install "$TMP/apk-artifact.log" --artifact-only "$TMP/fake.apk"
+
+grep -Fq 'rm -f /www/luci-static/resources/view/status/fwlive.js' "$TMP/apk-artifact.log"
+grep -Fq 'apk add --allow-untrusted --force-reinstall' "$TMP/apk-artifact.log"
+if grep -Eq 'cat > /www/|cat > /usr/libexec/|mkdir -p /www' "$TMP/apk-artifact.log"; then
+	echo 'artifact-only APK install unexpectedly synced source files' >&2
 	exit 1
 fi
 
