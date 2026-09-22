@@ -53,6 +53,7 @@ const ACTION_RE = wordPattern(CLASSIFY_SPEC.actionWords);
 const PASS_ACTION_WORDS = CLASSIFY_SPEC.actionWords.slice(0, 3); /* ACCEPT|ALLOW|PASS */
 const DENY_CLASS_WORDS = CLASSIFY_SPEC.actionWords.slice(3); /* DROP|REJECT|DENY|BLOCK — pinned */
 const DENY_ACTION = wordPattern(DENY_CLASS_WORDS);
+const DENY_ACTION_UNDERSCORE = /\b(?:DROP|REJECT|DENY|BLOCK)_[A-Za-z0-9_]*/i;
 const MAX_DATE_SECONDS = 8640000000000;
 
 /* Kernel nf_log may append trailer KVs such as WINDOW=… RES=0x00 URGP=0
@@ -195,7 +196,7 @@ function inferActionRaw(message, kv, actionRaw) {
 	const msg = normalizeNetfilterMessage(message || '');
 	/* Ignore KEY=value payloads so MAC=…DROP… / PASS=… do not suppress pass inference. */
 	const withoutKv = msg.replace(/\b[A-Z]+=[^\s]*/g, ' ');
-	if (DENY_ACTION.test(withoutKv))
+	if (DENY_ACTION.test(withoutKv) || DENY_ACTION_UNDERSCORE.test(withoutKv))
 		return 'UNKNOWN';
 
 	if (/^kernel:/i.test(msg.trim()))

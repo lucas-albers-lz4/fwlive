@@ -31,6 +31,10 @@
     {
       "time": 1717675806,
       "msg": "REJECTIN=lan SRC=192.168.1.1 DST=203.0.113.5 PROTO=TCP DPT=22"
+    },
+    {
+      "time": 1717675807,
+      "msg": "reject_from_wan IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22"
     }
   ]
 }
