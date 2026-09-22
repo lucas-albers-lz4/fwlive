@@ -678,10 +678,26 @@ restore_wan_zone_log() {
 		logger -t fwlive "WAN log rollback skipped: firewall changes pending" 2>/dev/null || true
 		return 1
 	fi
+	# Capture the committed value before staging our rollback. If another
+	# writer stages a firewall delta after this point, the post-stage guard
+	# below must be able to undo only our rollback staging without reverting
+	# the other writer's change.
+	committed=$(wan_zone_log_value "$zone")
 	if [ -z "$previous" ]; then
 		uci -q delete "firewall.${zone}.log" 2>/dev/null || true
 	else
 		uci -q set "firewall.${zone}.log=${previous}" 2>/dev/null || true
+	fi
+	_staged=$(uci -q changes firewall 2>/dev/null || true)
+	_foreign=$(wan_log_foreign_staged_lines "$zone" "$_staged")
+	if [ -n "$_foreign" ]; then
+		if [ -z "$committed" ]; then
+			uci delete "firewall.${zone}.log" 2>/dev/null || true
+		else
+			uci set "firewall.${zone}.log=${committed}" 2>/dev/null || true
+		fi
+		logger -t fwlive "WAN log rollback skipped after stage: firewall changes staged by another writer" 2>/dev/null || true
+		return 1
 	fi
 	uci commit firewall 2>/dev/null || true
 }
@@ -693,13 +709,14 @@ restore_wan_zone_log() {
 # TOCTOU hardening: UCI staging is global per config file, so a
 # non-cooperating writer (another admin's `uci set`, the LuCI firewall page)
 # can stage a delta AFTER the toggle's early firewall_changes_pending check.
-# Staging and committing therefore live INSIDE this function — the only path
-# to `uci commit firewall` in the toggle flow, so callers cannot bypass it —
-# gated by:
+# Staging and committing therefore live INSIDE this function, gated by:
 #   1. a pending re-check BEFORE our own delta exists in staging (foreign-only);
 #   2. a post-stage re-check AFTER our set/delete: if anything besides our
 #      log option is staged, undo our staging (restore the pre-stage committed
 #      value) and abort without commit — foreign staging stays intact.
+# The reload-failure rollback has its own pre/post-stage guard for the same
+# reason; it must not bypass this invariant merely because it is compensating
+# for a failed reload.
 # Residual window: a writer that stages between the post-stage check and
 # `uci commit` can still ride along; post-commit verification detects a
 # mismatched log bit. Same-option races (another writer also staging
