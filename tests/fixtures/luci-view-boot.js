@@ -181,9 +181,9 @@
 		const constants = await loadModule(RES + '/fwlive/constants.js', [], []);
 		const css = await loadModule(RES + '/fwlive/css.js', [], []);
 		const tint = await loadModule(RES + '/fwlive/tint.js', [], []);
-		const links = await loadModule(RES + '/fwlive/links.js', ['log'], [log]);
 		const buffer = await loadModule(RES + '/fwlive/buffer.js', [], []);
 		const hostname = await loadModule(RES + '/fwlive/hostname.js', [], []);
+		const links = await loadModule(RES + '/fwlive/links.js', ['log', 'hostname'], [log, hostname]);
 		const pollCoordinator = await loadModule(RES + '/fwlive/poll-coordinator.js', [], []);
 		const renderPolicy = await loadModule(RES + '/fwlive/render-policy.js', [], []);
 		const renderScheduler = await loadModule(RES + '/fwlive/render-scheduler.js', [], []);

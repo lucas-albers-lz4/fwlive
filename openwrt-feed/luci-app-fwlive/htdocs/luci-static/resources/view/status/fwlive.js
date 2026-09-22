@@ -1476,8 +1476,10 @@ return view.extend({
 		this.resolveGeneration = (this.resolveGeneration || 0) + 1;
 		this.resolveInFlight = false;
 
-		if (this.showHostnames) this.resolveHostnamesForEntries(this.filteredRows());
+		/* Paint the existing cache immediately; resolving only fills misses. */
+		if (this.tablePaused) this.updateStatus();
 		else this.renderRows(true);
+		if (this.showHostnames) this.resolveHostnamesForEntries(this.filteredRows());
 	},
 
 	onFetchModeChange(ev) {
@@ -1653,7 +1655,7 @@ return view.extend({
 
 		for (let i = 0; i < ips.length && need.length < 32; i++) {
 			const ip = ips[i];
-			if (this.hostnameCache.has(ip)) continue;
+			if (hostname.lruGet(this.hostnameCache, ip) !== undefined) continue;
 			if (hostname.failIsHot(this.hostnameFailed, ip, now)) continue;
 			need.push(ip);
 		}
