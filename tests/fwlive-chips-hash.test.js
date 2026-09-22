@@ -159,6 +159,24 @@ function testApplyHashValidAndMalformed() {
 	assert.strictEqual(malformed.view.readFilters().proto, '!TCP');
 }
 
+function testApplyHashPreservesEqualsInValue() {
+	const h = loadFwliveView({ location: { hash: '#q=a=b%26c' } });
+	withSelectOptions(h);
+	h.view.applyHash();
+	assert.strictEqual(valueOf(h, 'fwlive-q'), 'a=b&c');
+}
+
+function testUpdateHashRoundTripsEqualsAndAmpersand() {
+	const h = loadFwliveView({ location: { hash: '' } });
+	h.view.updateHash({ q: 'a=b&c' });
+	// A browser prefixes the assigned hash with '#'; the harness is a plain object.
+	h.location.hash = '#' + h.location.hash;
+	const q = h.view.hashEntries().filter(function (entry) {
+		return entry.key === 'q';
+	})[0];
+	assert.deepStrictEqual(q, { key: 'q', val: 'a=b&c' });
+}
+
 function testApplyHashHostileAsText() {
 	const encoded = encodeURIComponent(HOSTILE);
 	const h = loadFwliveView({
@@ -180,5 +198,7 @@ testRecursiveProtoSink();
 testNegatedTextChips();
 testHostileTextChipSink();
 testApplyHashValidAndMalformed();
+testApplyHashPreservesEqualsInValue();
+testUpdateHashRoundTripsEqualsAndAmpersand();
 testApplyHashHostileAsText();
 console.log('fwlive chips/hash sink tests passed');
