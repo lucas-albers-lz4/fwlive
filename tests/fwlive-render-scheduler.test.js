@@ -86,7 +86,7 @@ function makeFrames() {
 		'clock rollback creates no token debt'
 	);
 	time = 10000;
-	assert.strictEqual(s.shouldRender(rows(['e']), false, 4), false, 'refill never exceeds capacity');
+	assert.strictEqual(s.shouldRender(rows(['e']), false, 4), true, 'full bucket grants a periodic paint');
 	s.resetBudget();
 	assert.strictEqual(s.isFloodSuppressed(), false);
 	assert.strictEqual(s.shouldRender(rows(['e']), false, 3), true, 'reset restores capacity');
@@ -98,6 +98,28 @@ function makeFrames() {
 	time = 11000;
 	assert.strictEqual(s.shouldRender(rows(['g']), false, 3), true);
 	assert.strictEqual(s.shouldRender(rows(['h']), false, 1), false, 'reset does not bank elapsed time');
+}
+
+/* A sustained batch larger than one interval still gets periodic paints. */
+{
+	let time = 0;
+	const s = renderScheduler.create({
+		renderCost: policy.renderCost,
+		capacity: 250,
+		getEpoch: () => 0,
+		render: () => {},
+		now: () => time
+	});
+	s.markRendered(rows(['old']));
+	for (let i = 0; i < 3; i++) {
+		assert.strictEqual(
+			s.shouldRender(rows([`new-${i}`]), false, 400),
+			true,
+			'full bucket must paint an oversized batch'
+		);
+		s.markRendered(rows([`new-${i}`]));
+		time += 1000;
+	}
 }
 
 {

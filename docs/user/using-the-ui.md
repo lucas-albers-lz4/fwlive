@@ -143,7 +143,11 @@ If logging is already on but the table is still empty, wait for inbound WAN traf
 
 ## High traffic rate
 
-If more than ~250 **new** events arrive per second, a banner may appear and rendering throttles briefly.
+If more than ~250 **new** events arrive per second, a banner may appear and
+some frames are skipped while the render budget refills. Under a sustained
+flood, the scheduler still paints periodically even when one batch is larger
+than the per-second budget; the table should not remain frozen until traffic
+slows or a control changes.
 
 The status banner can distinguish the requested raw-line budget, a successful
 server-applied limit, and the number of classified firewall messages returned.
