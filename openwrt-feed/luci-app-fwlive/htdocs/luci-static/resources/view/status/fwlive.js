@@ -1684,7 +1684,9 @@ return view.extend({
 					hostname.lruSet(this.hostnameCache, ip, names[ip]);
 					this.hostnameFailed.delete(ip);
 					updated = true;
-				} else if (!truncated) {
+				} else if (Object.prototype.hasOwnProperty.call(names, ip) || !truncated) {
+					/* Empty-string names are completed NXDOMAIN/timeout lookups.
+					 * Truncated replies omit unprocessed addresses entirely. */
 					hostname.failMark(this.hostnameFailed, ip, now);
 				}
 			}

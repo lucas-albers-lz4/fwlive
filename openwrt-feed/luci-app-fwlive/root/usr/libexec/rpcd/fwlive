@@ -619,6 +619,20 @@ resolve_addresses() {
 			name=$(resolve_hostname "$ip") || name=
 			if [ -n "$name" ]; then
 				map_add "$ip" "$name"
+			else
+				# Record a completed miss so the view can fail-mark NXDOMAIN
+				# without treating the unprocessed truncated tail as tried.
+				# map_add skips empty values (rules-map labels); resolve needs them.
+				esc_key=$(printf '%s' "$ip" | json_escape)
+				case "$OUT" in
+					*"\"$esc_key\":"*) ;;
+					*)
+						if [ -n "$OUT" ]; then
+							OUT="${OUT},"
+						fi
+						OUT="${OUT}\"${esc_key}\":\"\""
+						;;
+				esac
 			fi
 		done <<EOF
 $_addresses

@@ -594,7 +594,10 @@ async function testResolveTruncatedNoFailMark() {
 				return { log: [], adaptive: 1 };
 			},
 			'fwlive.resolve': async function () {
-				return { names: { '192.0.2.1': 'one.example' }, truncated: true };
+				return {
+					names: { '192.0.2.1': 'one.example', '198.51.100.1': '' },
+					truncated: true
+				};
 			}
 		}
 	});
@@ -603,11 +606,22 @@ async function testResolveTruncatedNoFailMark() {
 	v.hostnameCache = new Map();
 	v.hostnameFailed = new Map();
 	await v.resolveHostnamesForEntries([
-		{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }
+		{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' },
+		{ id: '2', src: '203.0.113.1', dst: '192.0.2.1' }
 	]);
 	assert.strictEqual(v.hostnameCache.get('192.0.2.1'), 'one.example');
-	assert.strictEqual(v.hostnameFailed.size, 0, 'truncated remainder must stay retryable');
+	assert.strictEqual(
+		v.hostnameFailed.has('198.51.100.1'),
+		true,
+		'truncated NXDOMAIN that was looked up must be fail-marked'
+	);
+	assert.strictEqual(
+		v.hostnameFailed.has('203.0.113.1'),
+		false,
+		'truncated remainder must stay retryable'
+	);
 	assert.strictEqual(v.hostnameCache.has('198.51.100.1'), false);
+	assert.strictEqual(v.hostnameCache.has('203.0.113.1'), false);
 	console.log('fwlive-view layer2: resolve truncated reply OK');
 }
 
