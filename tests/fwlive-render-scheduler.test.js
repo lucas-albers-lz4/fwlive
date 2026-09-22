@@ -117,6 +117,11 @@ function makeFrames() {
 			true,
 			'full bucket must paint an oversized batch'
 		);
+		assert.strictEqual(
+			s.isFloodSuppressed(),
+			true,
+			'oversized grant keeps the flood warning latched'
+		);
 		s.markRendered(rows([`new-${i}`]));
 		time += 1000;
 	}

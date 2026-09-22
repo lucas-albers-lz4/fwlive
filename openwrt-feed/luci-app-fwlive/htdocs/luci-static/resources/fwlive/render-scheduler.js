@@ -82,7 +82,7 @@ function createScheduler(options) {
 		 * flood cannot freeze the table until the user changes a control. */
 		if (cost > bucket && bucket >= capacity) {
 			bucket = 0;
-			floodSuppressed = false;
+			floodSuppressed = true;
 			return true;
 		}
 		floodSuppressed = cost > bucket;
