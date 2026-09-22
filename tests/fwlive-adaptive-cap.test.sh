@@ -183,6 +183,9 @@ fi
 ok "lock-open failure fail-opens record"
 
 # merge_reply shape
+got=$(fwlive_adaptive_merge_reply '{}' 0 50 0 0)
+[ "$got" = '{"adaptive":1,"messages_received":0,"truncated":0}' ] || \
+	die "empty object merge must remain valid JSON: $got"
 got=$(fwlive_adaptive_merge_reply '{"log":[]}' 0 50 0 0)
 case "$got" in
 	*'\"adaptive\":1'*|*',"adaptive":1,'*) ;;
