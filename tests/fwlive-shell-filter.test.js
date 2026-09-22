@@ -182,6 +182,89 @@ function runTempDirGuards() {
 	}
 }
 
+function runSignalCleanup() {
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-signal-'));
+	const tmpDir = path.join(work, 'tmp');
+	const stubDir = path.join(work, 'bin');
+	const childPid = path.join(work, 'jsonfilter.pid');
+	const output = path.join(work, 'stdout');
+	const error = path.join(work, 'stderr');
+	fs.mkdirSync(tmpDir);
+	fs.mkdirSync(stubDir);
+	fs.chmodSync(tmpDir, 0o1777);
+	fs.writeFileSync(path.join(stubDir, 'jsonfilter'), [
+		'#!/bin/sh',
+		'printf "%s" "$$" >"$FWLIVE_JSONFILTER_PID"',
+		'trap "exit 0" 1 2 3 15',
+		'while :; do sleep 1; done',
+		''
+	].join('\n'), { mode: 0o755 });
+	try {
+		const shellParts = SH.split(/\s+/).filter(Boolean);
+		assert.ok(shellParts.length >= 1, 'signal test requires a shell command');
+		const controller = [
+			'_filter_pid=',
+			'_child_pid=',
+			'_cleanup() {',
+			'\tif [ -n "$_filter_pid" ]; then kill -KILL "$_filter_pid" 2>/dev/null || true; wait "$_filter_pid" 2>/dev/null || true; fi',
+			'\tif [ -n "$_child_pid" ]; then kill -KILL "$_child_pid" 2>/dev/null || true; wait "$_child_pid" 2>/dev/null || true; fi',
+			'}',
+			'trap _cleanup 0 1 2 3 15',
+			'if [ -n "$FWLIVE_SHELL_ARG" ]; then',
+			'\t"$FWLIVE_SHELL_CMD" "$FWLIVE_SHELL_ARG" "$FWLIVE_FILTER" "$FWLIVE_TMP" </dev/null >"$FWLIVE_OUT" 2>"$FWLIVE_ERR" &',
+			'else',
+			'\t"$FWLIVE_SHELL_CMD" "$FWLIVE_FILTER" "$FWLIVE_TMP" </dev/null >"$FWLIVE_OUT" 2>"$FWLIVE_ERR" &',
+			'fi',
+			'_filter_pid=$!',
+			'_i=0; while [ "$_i" -lt 100 ]; do',
+			'\t[ -s "$FWLIVE_JSONFILTER_PID" ] && break',
+			'\t_i=$((_i + 1)); sleep 0.01',
+			'done',
+			'[ -s "$FWLIVE_JSONFILTER_PID" ] || { echo "jsonfilter did not start" >&2; exit 1; }',
+			'_child_pid=$(cat "$FWLIVE_JSONFILTER_PID")',
+			'kill -TERM "$_filter_pid"',
+			'sleep 0.05',
+			'kill -TERM "$_child_pid" 2>/dev/null || true',
+			'_i=0; while [ "$_i" -lt 100 ]; do',
+			'\tkill -0 "$_filter_pid" 2>/dev/null || break',
+			'\t_i=$((_i + 1)); sleep 0.01',
+			'done',
+			'if kill -0 "$_filter_pid" 2>/dev/null; then echo "filter did not terminate" >&2; exit 1; fi',
+			'wait "$_filter_pid"',
+			'_status=$?',
+			'_filter_pid=',
+			'[ "$_status" -eq 143 ] || { echo "filter status=$_status, want 143" >&2; cat "$FWLIVE_OUT" "$FWLIVE_ERR" >&2; exit 1; }',
+			'kill -TERM "$_child_pid" 2>/dev/null || true',
+			'_i=0; while [ "$_i" -lt 50 ]; do',
+			'\tkill -0 "$_child_pid" 2>/dev/null || break',
+			'\t_i=$((_i + 1)); sleep 0.01',
+			'done',
+			'kill -KILL "$_child_pid" 2>/dev/null || true',
+			'wait "$_child_pid" 2>/dev/null || true',
+			'_child_pid=',
+			'set -- "$FWLIVE_TMP"/fwlive-filter.*',
+			'[ ! -e "$1" ] || { echo "signal left tempfile: $1" >&2; exit 1; }'
+		].join('\n');
+		const r = spawnSync('/bin/sh', ['-c', controller], {
+			encoding: 'utf8',
+			env: {
+				...process.env,
+				PATH: stubDir + path.delimiter + (process.env.PATH || ''),
+				FWLIVE_FILTER: FILTER_SH,
+				FWLIVE_SHELL_CMD: shellParts[0],
+				FWLIVE_SHELL_ARG: shellParts[1] || '',
+				FWLIVE_TMP: tmpDir,
+				FWLIVE_JSONFILTER_PID: childPid,
+				FWLIVE_OUT: output,
+				FWLIVE_ERR: error
+			}
+		});
+		assert.equal(r.status, 0, r.stderr || r.stdout);
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function runMktempFailure() {
 	const jf = jsonfilterPathEnv();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-mktemp-'));
@@ -484,6 +567,7 @@ function run() {
 	runMsgParity();
 	runJsonParity();
 	runTempDirGuards();
+	runSignalCleanup();
 	runMktempFailure();
 	runSymlinkTempDir();
 	runJsonGetMsgEscapes();
