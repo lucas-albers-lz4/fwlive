@@ -21,6 +21,15 @@ function sleep(ms) {
 	});
 }
 
+function collectText(node) {
+	if (!node) return '';
+	if (node.nodeType === 3) return String(node.textContent || '');
+	const kids = node.childNodes || [];
+	let out = '';
+	for (let i = 0; i < kids.length; i++) out += collectText(kids[i]);
+	return out;
+}
+
 async function testRttKindHelpers() {
 	const h = loadFwliveView();
 	const v = h.view;
@@ -103,6 +112,9 @@ async function testLoggingStatusFailurePreservesToolbar() {
 			'fwlive.logging_status': async function () {
 				if (rejectStatus) throw new Error('logging status unavailable');
 				return goodStatus;
+			},
+			'fwlive.enable_wan_logging': async function () {
+				return { ok: true, changed: true };
 			}
 		}
 	});
@@ -120,6 +132,30 @@ async function testLoggingStatusFailurePreservesToolbar() {
 	assert.deepStrictEqual(v.loggingStatus, goodStatus, 'status failure must keep the last good state');
 	assert.match(String(v.loggingNotice), /last known state/);
 	assert.strictEqual(bar.childNodes[0].tagName, 'button', 'toolbar must remain actionable');
+	assert.match(collectText(bar), /last known state/, 'toolbar must show the last-known notice');
+	const noticeEl = bar.childNodes[1];
+	assert.ok(noticeEl, 'toolbar must append a notice node after the button');
+	assert.strictEqual(noticeEl.tagName, 'span');
+	assert.deepEqual(noticeEl._innerHTMLWrites || [], [], 'toolbar notice must be a text node');
+
+	await v.handleEnableLogging();
+	assert.equal(v.loggingStatus && v.loggingStatus.wan_log, true, 'failed refresh after enable must keep wan_log true');
+	assert.match(collectText(bar), /WAN logging on/, 'toolbar must still look enabled');
+	assert.match(String(v.loggingNotice), /WAN drop\/reject logging is on/);
+	assert.doesNotMatch(
+		String(v.loggingNotice),
+		/last known state/,
+		'toggle success notice must not be replaced by the generic last-known string'
+	);
+	assert.match(collectText(bar), /WAN drop\/reject logging is on/, 'toolbar must keep the toggle success notice');
+
+	rejectStatus = false;
+	goodStatus.wan_log = true;
+	await v.loadLoggingStatus();
+	assert.equal(v.loggingNotice, '', 'successful status refresh must clear loggingNotice');
+	assert.equal(v.loggingStatus && v.loggingStatus.wan_log, true);
+	assert.equal(collectText(bar).indexOf('last known state'), -1);
+	assert.equal(collectText(bar).indexOf('WAN drop/reject logging is on'), -1);
 	console.log('fwlive-view layer2: logging status failure preserves toolbar OK');
 }
 

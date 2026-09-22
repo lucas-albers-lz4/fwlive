@@ -87,6 +87,13 @@ function labelWithZoneCandidates(label, st) {
 	return children;
 }
 
+function appendLoggingNotice(host, state) {
+	if (!state.loggingNotice) return;
+	host.appendChild(
+		E('span', { 'class': 'fwlive-logging-notice' }, [state.loggingNotice])
+	);
+}
+
 function renderToolbar(host, state, callbacks) {
 	host.innerHTML = '';
 	const st = state.loggingStatus;
@@ -107,6 +114,7 @@ function renderToolbar(host, state, callbacks) {
 			)
 		);
 		host.appendChild(links.firewallZonesLink());
+		appendLoggingNotice(host, state);
 		return;
 	}
 
@@ -116,6 +124,7 @@ function renderToolbar(host, state, callbacks) {
 				_('WAN logging unavailable: missing kernel log modules')
 			])
 		);
+		appendLoggingNotice(host, state);
 		return;
 	}
 
@@ -144,6 +153,7 @@ function renderToolbar(host, state, callbacks) {
 				children
 			)
 		);
+		appendLoggingNotice(host, state);
 		return;
 	}
 
@@ -162,6 +172,7 @@ function renderToolbar(host, state, callbacks) {
 			[state.loggingBusy ? _('Enabling…') : _('Enable logging')]
 		)
 	);
+	appendLoggingNotice(host, state);
 }
 
 function buildConsentPanel(state, callbacks) {
