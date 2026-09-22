@@ -2011,8 +2011,10 @@ return view.extend({
 			 * cadence state; summary mode can therefore appear while rows are paused
 			 * and stays behind the explicit Show rows control. */
 			if (this.tablePaused) this.updateStatus();
-			else if (this.summaryMode) this.renderSummary();
-			else this.scheduleRenderRows();
+			else if (this.summaryMode) {
+				this.renderSummary();
+				this.updateStatus();
+			} else this.scheduleRenderRows();
 
 			try {
 				await this.resolveHostnamesForEntries(this.filteredRows());

@@ -83,12 +83,32 @@ async function testPollTransportThrow() {
 	console.log('fwlive-view poll-error: transport throw OK');
 }
 
+async function testSummaryPollErrorRefreshesStatus() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				return { log: [], error: 'filter_failed' };
+			}
+		}
+	});
+	const view = h.view;
+	view.summaryMode = true;
+	view.summaryRowsShown = false;
+
+	await view.runPollRequest(view.currentPollEpoch());
+	const status = h.document.getElementById('fwlive-status');
+	assert.match(status.textContent, /Connection lost/i,
+		'summary-mode poll errors must refresh the status line');
+	console.log('fwlive-view poll-error: summary error status OK');
+}
+
 (async function main() {
 	try {
 		await testPollErrorField();
 		await testPollHappyPath();
 		await testPollBadShape();
 		await testPollTransportThrow();
+		await testSummaryPollErrorRefreshesStatus();
 		console.log('fwlive-view poll-error tests passed');
 	} catch (e) {
 		fail(e && e.stack ? e.stack : String(e));
