@@ -417,6 +417,34 @@ async function testResolveReplyShapes() {
 	console.log('fwlive-view layer2: resolve reply shapes OK');
 }
 
+async function testWarmHostnameTogglePaintsCache() {
+	const h = loadFwliveView();
+	const v = h.view;
+	const ip = '192.0.2.1';
+	const renders = [];
+	let resolves = 0;
+	v.entries = [{ id: 'warm', src: ip, dst: '198.51.100.1' }];
+	v.hostnameCache = new Map([[ip, 'router.example']]);
+	v.hostnameFailed = new Map();
+	v.renderRows = function (force) { renders.push(force); };
+	v.resolveHostnamesForEntries = function () {
+		resolves++;
+		return Promise.resolve();
+	};
+
+	v.onShowHostnamesChange({ target: { checked: false } });
+	assert.deepStrictEqual(renders, [true], 'turning names off must repaint');
+	renders.length = 0;
+	v.onShowHostnamesChange({ target: { checked: true } });
+	assert.deepStrictEqual(
+		renders,
+		[true],
+		'turning names on must repaint immediately from the warm cache'
+	);
+	assert.strictEqual(resolves, 1, 'toggle-on must still resolve cache misses');
+	console.log('fwlive-view layer2: warm hostname toggle paints cache OK');
+}
+
 async function testShedSurfacing() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -1047,6 +1075,7 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 		await testAdaptiveOffDisablesBackoff();
 		await testResolveLoadShed();
 		await testResolveReplyShapes();
+		await testWarmHostnameTogglePaintsCache();
 		await testShedSurfacing();
 		await testSummaryFallbackAndRecovery();
 		await testStreakResetOnAdaptiveOff();

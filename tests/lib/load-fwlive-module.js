@@ -49,13 +49,14 @@ function loadFwliveModule(name, deps) {
 		.replace(/^'require [^']+';[^\n]*\n/gm, '');
 	const baseclass = { extend: function(desc) { return desc; } };
 	const fn = new Function(
-		'baseclass', 'log', 'links', 'E', '_', 'document', 'window', 'localStorage',
+		'baseclass', 'log', 'links', 'hostname', 'E', '_', 'document', 'window', 'localStorage',
 		body
 	);
 	return fn(
 		baseclass,
 		deps.log || {},
 		deps.links || {},
+		deps.hostname || {},
 		deps.E || fakeE,
 		deps._ || fakeGettext,
 		deps.document || {

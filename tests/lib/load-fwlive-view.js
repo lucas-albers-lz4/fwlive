@@ -138,7 +138,8 @@ function loadFwliveView(options) {
 	const css = loadFwliveModule('css');
 	const tint = loadFwliveModule('tint');
 	const chips = loadFwliveModule('chips', { log: log });
-	const links = loadFwliveModule('links', { log: log });
+	const hostname = loadFwliveModule('hostname');
+	const links = loadFwliveModule('links', { log: log, hostname: hostname });
 	const logging = loadFwliveModule('logging', {
 		log: log,
 		links: links,
@@ -148,7 +149,6 @@ function loadFwliveView(options) {
 	});
 	const table = loadFwliveModule('table', { log: log, links: links });
 	const buffer = loadFwliveModule('buffer');
-	const hostname = loadFwliveModule('hostname');
 	const pollCoordinator = loadFwliveModule('poll-coordinator');
 	const proto = loadFwliveModule('proto', { document: document });
 	const renderPolicy = loadFwliveModule('render-policy');
