@@ -13,12 +13,12 @@ function run() {
 
 	const statsOut = execFileSync(process.execPath, [ core, 'stats', fixture ], { encoding: 'utf8' });
 	const stats = JSON.parse(statsOut);
-	assert.equal(stats.firewall, 4);
+	assert.equal(stats.firewall, 5);
 	assert.equal(stats.noise, 3);
 
 	const filterOut = execFileSync(process.execPath, [ core, 'filter', fixture ], { encoding: 'utf8' });
 	const rows = JSON.parse(filterOut);
-	assert.equal(rows.length, 4);
+	assert.equal(rows.length, 5);
 	assert.equal(rows[0].src || rows[0].dst ? 1 : 0, 1);
 
 	const pipeOut = execFileSync(process.execPath, [ core, 'filter' ], {
@@ -26,7 +26,7 @@ function run() {
 		input: fs.readFileSync(fixture, 'utf8')
 	});
 	const piped = JSON.parse(pipeOut);
-	assert.equal(piped.length, 4);
+	assert.equal(piped.length, 5);
 
 	console.log('fwlive CLI pipeline tests passed');
 }
