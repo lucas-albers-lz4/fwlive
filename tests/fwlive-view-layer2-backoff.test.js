@@ -587,6 +587,30 @@ async function testResolveRpcErrorNoFailMark() {
 	console.log('fwlive-view layer2: resolve rpc error OK');
 }
 
+async function testResolveTruncatedNoFailMark() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				return { names: { '192.0.2.1': 'one.example' }, truncated: true };
+			}
+		}
+	});
+	const v = h.view;
+	v.showHostnames = true;
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	await v.resolveHostnamesForEntries([
+		{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }
+	]);
+	assert.strictEqual(v.hostnameCache.get('192.0.2.1'), 'one.example');
+	assert.strictEqual(v.hostnameFailed.size, 0, 'truncated remainder must stay retryable');
+	assert.strictEqual(v.hostnameCache.has('198.51.100.1'), false);
+	console.log('fwlive-view layer2: resolve truncated reply OK');
+}
+
 async function testResumeStaleSkipsRender() {
 	async function run(stale) {
 		let release;
@@ -1000,6 +1024,7 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 		await testStreakResetOnAdaptiveOff();
 		await testResolveShedCooldown();
 		await testResolveRpcErrorNoFailMark();
+		await testResolveTruncatedNoFailMark();
 		await testResumeStaleSkipsRender();
 		await testResumeMergeSurvivesVisibilityRace();
 		await testUnpauseDuringPausedPollRetainsBuffer();
