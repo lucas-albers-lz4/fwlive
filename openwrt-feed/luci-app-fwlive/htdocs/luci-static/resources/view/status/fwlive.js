@@ -1333,7 +1333,8 @@ return view.extend({
 		this.summaryRowsShown = false;
 		this.summaryData = null;
 		this.updateSummaryUi();
-		this.renderRows(true);
+		if (this.tablePaused) this.updateStatus();
+		else this.renderRows(true);
 	},
 
 	onSummaryRowsToggle() {
