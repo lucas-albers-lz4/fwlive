@@ -479,9 +479,23 @@ async function testSummaryFallbackAndRecovery() {
 		h.document.getElementById('fwlive-summary-body').textContent.indexOf('203.0.113.1') >= 0
 	);
 
+	let renders = 0;
+	v.renderRows = function () {
+		renders++;
+	};
+	v.entries = [{ id: '1', src: '203.0.113.1', dst: '198.51.100.1' }];
+	const emptyEl = h.document.getElementById('fwlive-empty');
+	emptyEl.style.display = 'none';
+	v.tablePaused = true;
 	for (let i = 0; i < 3; i++) v.notePollRtt(50, false);
 	assert.strictEqual(v.summaryMode, false, 'three fast RTTs must restore rows');
+	assert.strictEqual(renders, 0, 'summary recovery must not reveal rows while paused');
 	assert.strictEqual(h.document.getElementById('fwlive-summary').style.display, 'none');
+	assert.strictEqual(
+		emptyEl.style.display,
+		'none',
+		'empty panel must stay hidden when filtered rows exist while paused'
+	);
 	console.log('fwlive-view layer2: summary fallback/recovery OK');
 }
 

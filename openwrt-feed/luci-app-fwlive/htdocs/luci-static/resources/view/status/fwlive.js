@@ -1333,7 +1333,14 @@ return view.extend({
 		this.summaryRowsShown = false;
 		this.summaryData = null;
 		this.updateSummaryUi();
-		this.renderRows(true);
+		if (this.tablePaused) {
+			const empty = document.getElementById('fwlive-empty');
+			if (empty) {
+				const rows = this.filteredRows();
+				empty.style.display = rows.length ? 'none' : 'block';
+			}
+			this.updateStatus();
+		} else this.renderRows(true);
 	},
 
 	onSummaryRowsToggle() {
