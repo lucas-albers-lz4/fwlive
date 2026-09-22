@@ -6,6 +6,12 @@
 > `jsonfilter`, requires the TERM status, and verifies tempfile cleanup; no
 > ACL, DOM sink, or read/write-scope change.
 
+> **2026-09-22 #505 delta:** the adaptive state writer now scopes its 077
+> umask to the temporary-file write, so fail-open callers do not change the
+> surrounding rpcd shell's umask. Host coverage checks both unchanged caller
+> umask and 0600 state-file creation; no UCI, ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-21 #416 delta:** The rules map now performs a second `uci -q show firewall` pass for named `config rule` sections and attempts one filtered `uci -q get firewall.<section>.name` per section; missing UCI or name remains non-fatal. The branch tests cover a named section lookup and retain first-wins and whitespace-filtering coverage.
 
 > **#389 lifecycle follow-up:** the packaged hook now understands the generated opkg wrapper (`<wrapper> remove`), APK 3.0's version-valued `pre-deinstall`, and skips upgrade/empty/unknown actions, `PKG_UPGRADE=1`, and non-version `1a2`. Host tests execute extracted `prerm-pkg` (so an always-restore body fails) and model the opkg `default_prerm` `$1-pkg` hop; installed uninstall restoration is in [the dated #389 evidence](../evidence/issue-389-2026-09-20.md). Same-version reinstall cells are no-op preservation checks only and do not exercise the hook.
