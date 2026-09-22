@@ -55,6 +55,35 @@ const tcpTrailer = {
 assert.strictEqual(core.normalizeEntry(tcpTrailer).flags, 'SYN');
 assert.strictEqual(luci.normalizeEntry(tcpTrailer).flags, 'SYN');
 
+const underscoreDeny = {
+	time: 1717675807,
+	msg: 'reject_from_wan IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22'
+};
+assert.strictEqual(core.normalizeEntry(underscoreDeny).action, 'unknown');
+assert.strictEqual(core.normalizeEntry(underscoreDeny).action_raw, 'UNKNOWN');
+assert.strictEqual(luci.normalizeEntry(underscoreDeny).action, 'unknown');
+assert.strictEqual(luci.normalizeEntry(underscoreDeny).action_raw, 'UNKNOWN');
+
+const hyphenDeny = {
+	time: 1717675808,
+	msg: 'reject wan in: IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22'
+};
+assert.strictEqual(core.normalizeEntry(hyphenDeny).action, 'reject');
+assert.strictEqual(luci.normalizeEntry(hyphenDeny).action, 'reject');
+
+const suffixDeny = {
+	time: 1717675809,
+	msg: 'wan_reject IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22'
+};
+assert.strictEqual(core.normalizeEntry(suffixDeny).action, 'unknown');
+assert.strictEqual(luci.normalizeEntry(suffixDeny).action, 'unknown');
+const medialDeny = {
+	time: 1717675810,
+	msg: 'input_wan_drop IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22'
+};
+assert.strictEqual(core.normalizeEntry(medialDeny).action, 'unknown');
+assert.strictEqual(luci.normalizeEntry(medialDeny).action, 'unknown');
+
 const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
 assert.strictEqual(
 	core.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),

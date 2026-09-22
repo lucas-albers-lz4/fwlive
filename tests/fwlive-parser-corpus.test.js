@@ -145,6 +145,14 @@ const GOLDEN = [
 		src: '192.168.1.1', dst: '203.0.113.5', sport: '', dport: '22',
 		interface_in: 'lan', interface_out: '', rule_hint: 'REJECT',
 		flags: '', length: null, timestamp: 1717675806
+	},
+	{
+		fixture: 'logread-iptables.json', i: 8, firewall: true,
+		msg: 'reject_from_wan IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		src: '203.0.113.5', dst: '192.168.1.1', sport: '', dport: '22',
+		interface_in: 'eth0', interface_out: '', rule_hint: 'reject_from_wan',
+		flags: '', length: null, timestamp: 1717675807
 	}
 ];
 
