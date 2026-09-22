@@ -31,8 +31,8 @@ fi
 
 # get-sdk.sh: verify_downloaded_sha256 must appear before tar -xf.
 _gs="$ROOT/scripts/get-sdk.sh"
-_verify_line=$(grep -n 'verify_downloaded_sha256' "$_gs" | head -1 | cut -d: -f1)
-_tar_line=$(grep -n 'tar -xf' "$_gs" | head -1 | cut -d: -f1)
+_verify_line=$(awk '/^[[:space:]]*verify_downloaded_sha256[[:space:]]+"/ {print NR; exit}' "$_gs")
+_tar_line=$(awk '/^[[:space:]]*tar[[:space:]]+-xf[[:space:]]+/ {print NR; exit}' "$_gs")
 if [ -n "$_verify_line" ] && [ -n "$_tar_line" ] && [ "$_verify_line" -lt "$_tar_line" ]; then
 	ok "get-sdk.sh verifies before tar extract"
 else
@@ -69,10 +69,9 @@ else
 	ok "negative usign fixture rejected by pin checks"
 fi
 
-_nv=$(grep -n 'verify_downloaded_sha256' "$_neg/bad-get-sdk.sh" | grep -v '^#' | head -1 | cut -d: -f1 || true)
 # Call sites: first non-definition invocation after tar would fail order check.
-_n_verify_call=$(awk '/verify_downloaded_sha256 \$/{print NR; exit}' "$_neg/bad-get-sdk.sh")
-_n_tar=$(awk '/tar -xf/{print NR; exit}' "$_neg/bad-get-sdk.sh")
+_n_verify_call=$(awk '/^[[:space:]]*verify_downloaded_sha256[[:space:]]+"/ {print NR; exit}' "$_neg/bad-get-sdk.sh")
+_n_tar=$(awk '/^[[:space:]]*tar[[:space:]]+-xf[[:space:]]+/ {print NR; exit}' "$_neg/bad-get-sdk.sh")
 if [ -n "$_n_verify_call" ] && [ -n "$_n_tar" ] && [ "$_n_verify_call" -lt "$_n_tar" ]; then
 	bad "negative get-sdk fixture unexpectedly passed order check"
 else
