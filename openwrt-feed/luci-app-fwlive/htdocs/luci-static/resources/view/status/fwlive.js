@@ -1561,8 +1561,7 @@ return view.extend({
 		/* Reset flood throttle so Limit changes paint even during ping -A. */
 		this.ensureRenderScheduler().resetBudget();
 		const cancelForce = this.ensureRenderScheduler().forceNextRender();
-		if (!this.tablePaused) this.renderRows(true);
-		else this.updateStatus();
+		this.renderRows(true);
 		const epoch = this.currentPollEpoch();
 		this.requestPoll()
 			.then(() => {
@@ -1831,8 +1830,7 @@ return view.extend({
 		this.messageLayout = next;
 		this.saveMessageLayout();
 		this.updateMessageLayoutUi();
-		if (this.tablePaused) this.updateStatus();
-		else this.renderRows(true);
+		this.renderRows(true);
 	},
 
 	renderRows(force) {

@@ -1145,6 +1145,23 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 	console.log('fwlive-view layer2: Limit paints before hostname completion OK');
 }
 
+async function testPausedDisplayControlsPaint() {
+	const h = loadFwliveView();
+	const v = h.view;
+	const renders = [];
+	v.tablePaused = true;
+	v.renderRows = (force) => renders.push(force);
+	v.updateMessageLayoutUi = () => {};
+	v.requestPoll = () => Promise.resolve();
+
+	v.onRowLimitChange({ target: { value: '500' } });
+	assert.deepStrictEqual(renders, [true], 'paused Limit changes must repaint immediately');
+	v.setMessageLayout('oneline');
+	assert.deepStrictEqual(renders, [true, true],
+		'paused message-layout changes must repaint immediately');
+	console.log('fwlive-view layer2: paused display controls paint OK');
+}
+
 (async function main() {
 	try {
 		await testRttKindHelpers();
@@ -1173,6 +1190,7 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 		await testAnimationFrameAdaptersPreserveWindowReceiver();
 		await testLimitRefreshPreservesQueuedForce();
 		await testLimitPaintDoesNotWaitForHostnames();
+		await testPausedDisplayControlsPaint();
 		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {
