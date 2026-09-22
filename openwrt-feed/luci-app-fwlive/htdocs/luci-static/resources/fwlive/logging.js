@@ -89,9 +89,7 @@ function labelWithZoneCandidates(label, st) {
 
 function appendLoggingNotice(host, state) {
 	if (!state.loggingNotice) return;
-	host.appendChild(
-		E('span', { 'class': 'fwlive-logging-notice' }, [state.loggingNotice])
-	);
+	host.appendChild(E('span', { 'class': 'fwlive-logging-notice' }, [state.loggingNotice]));
 }
 
 function renderToolbar(host, state, callbacks) {
