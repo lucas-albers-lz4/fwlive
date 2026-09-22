@@ -318,10 +318,10 @@ for (const entry of (data && Array.isArray(data.log) ? data.log : []))
 		const res = JSON.parse(raw);
 		assert.equal(
 			res.messages_received,
-			7,
-			'poll must report all seven logd entries, including non-firewall rows'
+			8,
+			'poll must report all eight logd entries, including non-firewall rows'
 		);
-		assert.equal(res.log.length, 4, 'fixture should still classify four firewall rows');
+		assert.equal(res.log.length, 5, 'fixture should classify five firewall rows');
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 		fs.rmSync(work, { recursive: true, force: true });
