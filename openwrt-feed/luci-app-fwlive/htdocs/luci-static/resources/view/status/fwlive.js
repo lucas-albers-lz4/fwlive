@@ -686,7 +686,8 @@ return view.extend({
 			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		} catch (_e) {
 			if (this.viewDisposed) return;
-			this.loggingStatus = null;
+			/* Keep the last usable toolbar state across a transient refresh failure. */
+			this.loggingNotice = _('Could not refresh logging status; showing the last known state.');
 		}
 		this.updateBackendUi();
 		this.updateLoggingToolbarUi();

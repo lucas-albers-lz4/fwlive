@@ -90,6 +90,39 @@ async function testWeakDeviceDisplayCap() {
 	console.log('fwlive-view layer2: weak-device display cap OK');
 }
 
+async function testLoggingStatusFailurePreservesToolbar() {
+	let rejectStatus = false;
+	const goodStatus = {
+		wan_log: false,
+		wan_log_limit: null,
+		blockers: [],
+		warnings: []
+	};
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.logging_status': async function () {
+				if (rejectStatus) throw new Error('logging status unavailable');
+				return goodStatus;
+			}
+		}
+	});
+	const v = h.view;
+	v.updateBackendUi = function () {};
+	v.updateEmptyStateUi = function () {};
+	const bar = h.document.getElementById('fwlive-logging-bar');
+	bar.style = { display: '' };
+	await v.loadLoggingStatus();
+	assert.deepStrictEqual(v.loggingStatus, goodStatus);
+	assert.strictEqual(bar.childNodes[0].tagName, 'button');
+
+	rejectStatus = true;
+	await v.loadLoggingStatus();
+	assert.deepStrictEqual(v.loggingStatus, goodStatus, 'status failure must keep the last good state');
+	assert.match(String(v.loggingNotice), /last known state/);
+	assert.strictEqual(bar.childNodes[0].tagName, 'button', 'toolbar must remain actionable');
+	console.log('fwlive-view layer2: logging status failure preserves toolbar OK');
+}
+
 async function testVisibilityStopsPoll() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -1080,6 +1113,7 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 	try {
 		await testRttKindHelpers();
 		await testWeakDeviceDisplayCap();
+		await testLoggingStatusFailurePreservesToolbar();
 		await testVisibilityStopsPoll();
 		await testEpochDiscardsStale();
 		await testHideShowWhileInFlightNoOverlap();
