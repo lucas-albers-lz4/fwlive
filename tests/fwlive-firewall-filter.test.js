@@ -11,12 +11,12 @@ function run() {
 	const payload = JSON.parse(fs.readFileSync(fixture, 'utf8'));
 
 	const stats = core.statsLogEntries(payload.log);
-	assert.equal(stats.total, 7);
+	assert.equal(stats.total, 8);
 	assert.equal(stats.noise, 3);
-	assert.equal(stats.firewall, 4);
+	assert.equal(stats.firewall, 5);
 
 	const rows = core.filterLogEntries(payload.log);
-	assert.equal(rows.length, 4);
+	assert.equal(rows.length, 5);
 
 	const actions = rows.map((r) => r.action);
 	assert.ok(actions.includes('drop'));

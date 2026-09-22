@@ -55,7 +55,10 @@ const DENY_CLASS_WORDS = CLASSIFY_SPEC.actionWords.slice(3); /* DROP|REJECT|DENY
 const DENY_ACTION = wordPattern(DENY_CLASS_WORDS);
 const MAX_DATE_SECONDS = 8640000000000;
 
-const TCP_FLAG_TAIL = /\b(SYN|ACK|FIN|RST|PSH|URG)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG))*\s*$/i;
+/* Kernel nf_log may append trailer KVs such as WINDOW=… RES=0x00 URGP=0
+ * after the TCP flag words. Keep the capture limited to a final flag run and
+ * return only group 1, never the trailer fields. */
+const TCP_FLAG_TAIL = /\b((?:SYN|ACK|FIN|RST|PSH|URG)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG))*)(?:\s+[A-Z][A-Z0-9_]*=[^\s]+)*\s*$/i;
 const NETFILTER_KV_GLUE = /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=)/g;
 
 /** nft log prefixes are concatenated with IN= in kernel lines (e.g. fwlive-pingIN=lo). */
@@ -215,7 +218,7 @@ function parseFlags(message, kv) {
 	if (!m)
 		return '';
 
-	return m[0].trim().toUpperCase().replace(/\s+/g, ',');
+	return m[1].trim().toUpperCase().replace(/\s+/g, ',');
 }
 
 function parseLength(kv) {

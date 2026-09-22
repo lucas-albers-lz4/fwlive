@@ -48,6 +48,13 @@ const negativeMillisTs = { time: -1700000000000, msg: outOfRangeTs.msg };
 assert.strictEqual(core.timestampUnix(negativeMillisTs), -1700000000);
 assert.strictEqual(luci.timestampUnix(negativeMillisTs), core.timestampUnix(negativeMillisTs));
 
+const tcpTrailer = {
+	time: 1717675747,
+	msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0'
+};
+assert.strictEqual(core.normalizeEntry(tcpTrailer).flags, 'SYN');
+assert.strictEqual(luci.normalizeEntry(tcpTrailer).flags, 'SYN');
+
 const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
 assert.strictEqual(
 	core.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),

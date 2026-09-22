@@ -79,6 +79,14 @@ const GOLDEN = [
 		flags: '', length: null, timestamp: 1717675746
 	},
 	{
+		fixture: 'logread-mixed.json', i: 7, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		flags: 'SYN', length: 60, timestamp: 1717675747
+	},
+	{
 		fixture: 'logread-iptables.json', i: 0, firewall: true,
 		msg: '[  123.456789] fwlive-ping: IN=br-lan OUT= MAC=00:11:22:33:44:55:66:77 SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP TYPE=8 CODE=0',
 		action: 'pass', action_raw: 'PASS', proto: 'ICMP',
