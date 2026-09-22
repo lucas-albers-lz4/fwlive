@@ -298,17 +298,18 @@ function extractIfaces(kv) {
 }
 
 function normalizeEntry(entry) {
-	const kv = parseKeyValueLog(entry.msg || '');
+	const message = normalizeNetfilterMessage(entry.msg || '');
+	const kv = parseKeyValueLog(message);
 	const tsUnix = timestampUnix(entry);
 	const tsDisplay = formatTimestampDisplay(entry);
 	const proto = (kv.PROTO || '').toUpperCase();
-	const actionRaw = inferActionRaw(entry.msg || '', kv, detectAction(entry.msg || ''));
+	const actionRaw = inferActionRaw(message, kv, detectAction(message));
 	const action = normalizeAction(actionRaw);
 	const addrs = extractAddrs(kv);
 	const ifs = extractIfaces(kv);
-	const flags = parseFlags(entry.msg || '', kv);
+	const flags = parseFlags(message, kv);
 	const length = parseLength(kv);
-	const ruleHint = parseRuleHint(entry.msg || '');
+	const ruleHint = parseRuleHint(message);
 	const ruleLabel = formatRuleLabel(ruleHint);
 
 	return {
