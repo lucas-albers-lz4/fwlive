@@ -1536,9 +1536,9 @@ return view.extend({
 			return;
 		}
 
-	if (wasPaused && !this.tablePaused) {
-		this.pauseBufferLoading = false;
-		this.fillingBuffer = false;
+		if (wasPaused && !this.tablePaused) {
+			this.pauseBufferLoading = false;
+			this.fillingBuffer = false;
 			this.followLive = true;
 			/* Merge pause buffer with the first live poll — do not replace. */
 			this.resumeMerge = true;
