@@ -78,7 +78,7 @@ return baseclass.extend({
 	FIREWALL_HINT: /(^|[^A-Za-z0-9_])(fw4|nft|iptables|kernel|firewall)([^A-Za-z0-9_]|$)/i,
 	ACTION_RE: /(^|[^A-Za-z0-9_])(ACCEPT|ALLOW|PASS|DROP|REJECT|DENY|BLOCK)([^A-Za-z0-9_]|$)/i,
 	DENY_ACTION: /(^|[^A-Za-z0-9_])(DROP|REJECT|DENY|BLOCK)([^A-Za-z0-9_]|$)/i,
-	DENY_ACTION_UNDERSCORE: /\b(?:DROP|REJECT|DENY|BLOCK)_[A-Za-z0-9_]*/i,
+	DENY_ACTION_UNDERSCORE: /(?:^|[^A-Za-z0-9])(?:DROP|REJECT|DENY|BLOCK)(?:[^A-Za-z0-9]|$)/i,
 	MAX_DATE_SECONDS: 8640000000000,
 
 	normalizeNetfilterMessage: function (message) {

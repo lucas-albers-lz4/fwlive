@@ -53,7 +53,12 @@ const ACTION_RE = wordPattern(CLASSIFY_SPEC.actionWords);
 const PASS_ACTION_WORDS = CLASSIFY_SPEC.actionWords.slice(0, 3); /* ACCEPT|ALLOW|PASS */
 const DENY_CLASS_WORDS = CLASSIFY_SPEC.actionWords.slice(3); /* DROP|REJECT|DENY|BLOCK — pinned */
 const DENY_ACTION = wordPattern(DENY_CLASS_WORDS);
-const DENY_ACTION_UNDERSCORE = /\b(?:DROP|REJECT|DENY|BLOCK)_[A-Za-z0-9_]*/i;
+/* Underscore is a word character, so ACTION_RE misses reject_from_wan and
+ * wan_reject. Treat the deny word as an underscore-delimited segment. */
+const DENY_ACTION_UNDERSCORE = new RegExp(
+	'(?:^|[^A-Za-z0-9])(?:' + DENY_CLASS_WORDS.join('|') + ')(?:[^A-Za-z0-9]|$)',
+	'i'
+);
 const MAX_DATE_SECONDS = 8640000000000;
 
 /* Kernel nf_log may append trailer KVs such as WINDOW=… RES=0x00 URGP=0
