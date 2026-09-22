@@ -113,6 +113,26 @@ for (let i = 0; i < classifyMsgs.length; i++) {
 	);
 }
 
+const daemonPrefixSamples = [
+	{
+		msg: 'wpad-drop IN=wlan0 SRC=203.0.113.5 DST=192.0.2.1 PROTO=TCP DROP',
+		expect: true
+	},
+	{
+		msg: 'hostapd-filter IN=wlan0 SRC=203.0.113.5 DST=192.0.2.1 PROTO=TCP DROP',
+		expect: true
+	},
+	{
+		msg: 'wpad[1]: filter IN=wlan0 SRC=203.0.113.5 DST=192.0.2.1 PROTO=TCP DROP',
+		expect: false
+	}
+];
+for (let i = 0; i < daemonPrefixSamples.length; i++) {
+	const sample = daemonPrefixSamples[i];
+	assert.strictEqual(core.isFirewallEvent(sample), sample.expect);
+	assert.strictEqual(luci.isFirewallEvent(sample), sample.expect);
+}
+
 const coreSrc = fs.readFileSync(CORE, 'utf8');
 const luciSrc = fs.readFileSync(LUCI, 'utf8');
 assert.ok(coreSrc.indexOf('.includes(') < 0, 'core still uses String.includes');

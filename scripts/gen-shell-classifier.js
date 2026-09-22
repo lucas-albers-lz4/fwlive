@@ -54,6 +54,7 @@ function emitAwkRules() {
 function emitAwkProgram() {
 	const glue = SPEC.glueKeys.join(' ');
 	const prefixes = awkEscapeAlt(SPEC.nonFirewallPrefixes);
+	const prefixBoundary = SPEC.nonFirewallPrefixHyphenContinuation ? '[^a-z0-9_-]' : '[^a-z0-9_]';
 	const hints = awkEscapeAlt(SPEC.firewallHints.map(function(w) { return w.toLowerCase(); }));
 	const actions = SPEC.actionWords.join(' ');
 
@@ -81,7 +82,7 @@ function emitAwkProgram() {
 		'}',
 		'function non_fw_prefix(s, lc) {',
 		'\tlc = tolower(s)',
-		'\treturn lc ~ "^(' + prefixes + ')([^a-z0-9_]|$)"',
+		'\treturn lc ~ "^(' + prefixes + ')(' + prefixBoundary + '|$)"',
 		'}',
 		'function detect_action(s, words, n, i, w, wl, lc, start, pos, before, afterc, best, bestpos) {',
 		'\tn = split("' + actions + '", words, " ")',

@@ -11,6 +11,8 @@ const CLASSIFY_SPEC = {
 
 	/* NON_FIREWALL_PREFIX daemon names (matched at message start) */
 	nonFirewallPrefixes: ['dnsmasq', 'procd', 'ubusd', 'netifd', 'odhcpd', 'logd', 'dropbear', 'uhttpd', 'hostapd', 'wpad'],
+	/* Hyphenated custom nft prefixes (wpad-drop) are firewall names, not daemon tags. */
+	nonFirewallPrefixHyphenContinuation: true,
 
 	/* FIREWALL_HINT words */
 	firewallHints: ['fw4', 'nft', 'iptables', 'kernel', 'firewall'],
@@ -45,7 +47,8 @@ function kvHas(msg, key) {
 
 /* ---- spec-derived classification regexes (explicit boundaries, no \\b) ---- */
 const NON_FIREWALL_PREFIX = new RegExp(
-	'^(' + CLASSIFY_SPEC.nonFirewallPrefixes.join('|') + ')([^A-Za-z0-9_]|$)',
+	'^(' + CLASSIFY_SPEC.nonFirewallPrefixes.join('|') + ')(' +
+		(CLASSIFY_SPEC.nonFirewallPrefixHyphenContinuation ? '[^A-Za-z0-9_-]' : '[^A-Za-z0-9_]') + '|$)',
 	'i'
 );
 const FIREWALL_HINT = wordPattern(CLASSIFY_SPEC.firewallHints);
