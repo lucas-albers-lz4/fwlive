@@ -338,9 +338,16 @@ async function testResolverError(page) {
 			view.hostnameFailed.clear();
 			view.resolveLoadShed = false;
 			view.resolveShedUntil = 0;
+			let reply = { names: {}, error: 'no_resolver' };
 			window.__fwlivePrevResolveMock = window.setFwliveResolveMock(function() {
-				return { names: {}, error: 'no_resolver' };
+				return reply;
 			});
+			await view.resolveHostnamesForEntries([
+				{ src: '2001:db8::1', dst: '2001:db8::2' }
+			]);
+			if (view.hostnameFailed.size !== 0)
+				throw new Error('structured resolver error mutated hostname failure state');
+			reply = 5;
 			await view.resolveHostnamesForEntries([
 				{ src: '2001:db8::1', dst: '2001:db8::2' }
 			]);
@@ -352,7 +359,7 @@ async function testResolverError(page) {
 		}));
 		if (state.failed !== 0 || state.shed || state.inFlight)
 			throw new Error(`resolver error mutated hostname state: ${JSON.stringify(state)}`);
-		console.log('OK: resolver-error reply path');
+		console.log('OK: string and numeric resolver-error reply paths');
 	} finally {
 		await page.evaluate(() => {
 			if (typeof window.__fwlivePrevResolveMock !== 'undefined') {

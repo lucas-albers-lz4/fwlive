@@ -412,8 +412,8 @@ async function testResolveReplyShapes() {
 		v.resolveNamesFromReply({ '198.51.100.1': 'host.example' }),
 		{ '198.51.100.1': 'host.example' }
 	);
-	assert.deepStrictEqual(v.resolveNamesFromReply(null), {});
-	assert.deepStrictEqual(v.resolveNamesFromReply([]), {});
+	assert.strictEqual(v.resolveNamesFromReply(null), null);
+	assert.strictEqual(v.resolveNamesFromReply([]), null);
 	console.log('fwlive-view layer2: resolve reply shapes OK');
 }
 
