@@ -39,6 +39,7 @@ return baseclass.extend({
 			'hostapd',
 			'wpad'
 		],
+		nonFirewallPrefixHyphenContinuation: true,
 		firewallHints: ['fw4', 'nft', 'iptables', 'kernel', 'firewall'],
 		actionWords: ['ACCEPT', 'ALLOW', 'PASS', 'DROP', 'REJECT', 'DENY', 'BLOCK'],
 		rules: [
@@ -74,7 +75,7 @@ return baseclass.extend({
 	},
 
 	NON_FIREWALL_PREFIX:
-		/^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)([^A-Za-z0-9_]|$)/i,
+		/^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)([^A-Za-z0-9_-]|$)/i,
 	FIREWALL_HINT: /(^|[^A-Za-z0-9_])(fw4|nft|iptables|kernel|firewall)([^A-Za-z0-9_]|$)/i,
 	ACTION_RE: /(^|[^A-Za-z0-9_])(ACCEPT|ALLOW|PASS|DROP|REJECT|DENY|BLOCK)([^A-Za-z0-9_]|$)/i,
 	DENY_ACTION: /(^|[^A-Za-z0-9_])(DROP|REJECT|DENY|BLOCK)([^A-Za-z0-9_]|$)/i,

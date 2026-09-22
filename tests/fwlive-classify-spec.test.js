@@ -22,6 +22,8 @@ const GOLDEN = [
 	{ msg: '[  239.247521] fwlive-pingIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP', expect: true },
 	{ msg: 'IN=wan OUT= SRC=2001:db8::1 DST=2001:db8::2 PROTO=TCP SPT=1234 DPT=443', expect: true },
 	{ msg: 'not-a-firewall-line at all', expect: false },
+	{ msg: 'wpad-drop IN=wlan0 SRC=203.0.113.5 DST=192.0.2.1 PROTO=TCP DROP', expect: true },
+	{ msg: 'hostapd-filter IN=wlan0 SRC=203.0.113.5 DST=192.0.2.1 PROTO=TCP DROP', expect: true },
 	/* Presence semantics (empty values): unified outcome = shell's TRUE. */
 	{ msg: 'x DST= DROP', expect: true },
 	{ msg: 'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP', expect: true },
@@ -43,6 +45,12 @@ function run() {
 		assert.strictEqual(core.isFirewallEvent({ msg: g.msg }), g.expect,
 			'isFirewallEvent: ' + JSON.stringify(g.msg));
 	}
+
+	assert.strictEqual(
+		core.isFirewallEvent({ msg: 'wpad[1]: filter IN=wlan0 SRC=203.0.113.5 DST=192.0.2.1 PROTO=TCP DROP' }),
+		false,
+		'syslog-tagged wpad line must remain non-firewall'
+	);
 
 	console.log('fwlive classify spec golden corpus passed');
 }
