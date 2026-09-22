@@ -67,6 +67,30 @@ def main():
             capped = run('resolve', json.dumps({'addresses': many_addresses}))
             assert len(capped.get('names', {})) == 32, (release, capped)
             assert '192.0.2.33' not in capped.get('names', {}), (release, capped)
+            assert capped.get('truncated') is True, (release, capped)
+
+            # Force the wall-clock guard after the first lookup. A shell
+            # function keeps this deterministic even when the matched
+            # BusyBox environment has a built-in date applet.
+            budget_plugin = libexec / 'rpcd/fwlive-budget'
+            budget_plugin.write_text(
+                'date() {\n'
+                '  if [ -f "$DATE_STATE" ]; then IFS= read -r DATE_CALLS < "$DATE_STATE" || DATE_CALLS=0; else DATE_CALLS=0; fi\n'
+                '  DATE_CALLS=$((DATE_CALLS + 1))\n'
+                '  printf "%s\\n" "$DATE_CALLS" > "$DATE_STATE"\n'
+                '  case "$DATE_CALLS" in 1|2) printf "100\\n";; *) printf "106\\n";; esac\n'
+                '}\n'
+                + text
+            )
+            budget_plugin.chmod(0o755)
+            env['DATE_STATE'] = str(work / 'date-calls')
+            budgeted = run(
+                'resolve',
+                json.dumps({'addresses': ['192.0.2.1', '192.0.2.2']}),
+                plugin=budget_plugin,
+            )
+            assert budgeted == {'names': {'192.0.2.1': 'host.example'}, 'truncated': True}, (release, budgeted)
+
             assert run('resolve', json.dumps({'addresses': ['bad', '192.0.2.1', '2001:db8::1']})) == {
                 'names': {'192.0.2.1': 'host.example', '2001:db8::1': 'host.example'}}
             lookup_log.unlink()

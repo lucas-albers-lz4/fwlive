@@ -1675,6 +1675,7 @@ return view.extend({
 			/* RPC-level failures carry no per-address signal. Do not turn numeric,
 			 * null, or malformed replies into negative hostname cache entries. */
 			if (names === null) return;
+			const truncated = res && typeof res === 'object' && res.truncated === true;
 			let updated = false;
 
 			for (let i = 0; i < need.length; i++) {
@@ -1683,7 +1684,9 @@ return view.extend({
 					hostname.lruSet(this.hostnameCache, ip, names[ip]);
 					this.hostnameFailed.delete(ip);
 					updated = true;
-				} else {
+				} else if (Object.prototype.hasOwnProperty.call(names, ip) || !truncated) {
+					/* Empty-string names are completed NXDOMAIN/timeout lookups.
+					 * Truncated replies omit unprocessed addresses entirely. */
 					hostname.failMark(this.hostnameFailed, ip, now);
 				}
 			}
