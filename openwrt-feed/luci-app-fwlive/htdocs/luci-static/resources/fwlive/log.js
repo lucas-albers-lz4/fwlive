@@ -27,7 +27,7 @@ return baseclass.extend({
 			'PREC',
 			'DF'
 		],
-			nonFirewallPrefixes: [
+		nonFirewallPrefixes: [
 			'dnsmasq',
 			'procd',
 			'ubusd',
@@ -37,9 +37,9 @@ return baseclass.extend({
 			'dropbear',
 			'uhttpd',
 			'hostapd',
-				'wpad'
-			],
-			nonFirewallPrefixHyphenContinuation: true,
+			'wpad'
+		],
+		nonFirewallPrefixHyphenContinuation: true,
 		firewallHints: ['fw4', 'nft', 'iptables', 'kernel', 'firewall'],
 		actionWords: ['ACCEPT', 'ALLOW', 'PASS', 'DROP', 'REJECT', 'DENY', 'BLOCK'],
 		rules: [
