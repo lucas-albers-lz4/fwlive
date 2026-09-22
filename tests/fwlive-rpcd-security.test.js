@@ -26,8 +26,44 @@ if (!Array.isArray(readUbus.fwlive) || !readUbus.fwlive.includes('poll')) {
 	process.exit(1);
 }
 
-const out = execFileSync('sh', [RPCD, '__selftest'], { encoding: 'utf8' });
-if (out.includes('skip:')) console.log('fwlive rpcd security: ' + out.trim());
+function runMatchedRpcdSelftest() {
+	const busybox = 'busybox';
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	assert.match(release, /^(23\.05|24\.10|25\.12)$/, 'unsupported FWLIVE_JSHN_RELEASE');
+
+	const pair = path.join(prefix, release);
+	const jshn = path.join(pair, 'bin', 'jshn');
+	const jshnSh = path.join(pair, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
+
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-rpcd-selftest-'));
+	try {
+		const libexec = path.join(work, 'libexec');
+		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+		const plugin = path.join(libexec, 'rpcd', 'fwlive');
+		const source = fs
+			.readFileSync(RPCD, 'utf8')
+			.replaceAll('/usr/share/libubox/jshn.sh', jshnSh);
+		fs.writeFileSync(plugin, source, { mode: 0o755 });
+		fs.chmodSync(plugin, 0o755);
+		const env = {
+			...process.env,
+			PATH: `${path.dirname(jshn)}:${process.env.PATH || ''}`,
+		};
+		return execFileSync(busybox, ['sh', plugin, '__selftest'], {
+			encoding: 'utf8',
+			env,
+		});
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+const out = runMatchedRpcdSelftest();
+assert.doesNotMatch(out, /skip:/, 'rpcd selftest must execute with matched jshn');
+console.log('fwlive rpcd security: ' + out.trim());
 
 execFileSync('bash', [LOGGING_TEST], { stdio: 'inherit' });
 

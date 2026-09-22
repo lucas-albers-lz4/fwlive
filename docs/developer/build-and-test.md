@@ -111,3 +111,6 @@ No system library is replaced. All five release pairs are mandatory in the
 compatibility gate, even when their shell libraries have identical contents.
 `bash tests/install-host-jshn.test.sh` checks repeat installs and pin mismatch
 handling. Ordinary dash tests remain separate from these BusyBox ash tests.
+`tests/fwlive-rpcd-security.test.js` runs the rpcd selftest with the matched
+BusyBox/jshn pair (24.10 by default; select another supported pair with
+`FWLIVE_JSHN_RELEASE`). A missing pair is a test failure, not a successful skip.
