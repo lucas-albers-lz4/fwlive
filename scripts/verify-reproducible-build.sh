@@ -43,7 +43,7 @@ artifact_sha() {
 }
 
 verify_one() {
-	local version_key="$1" label h1 h2 f1 f2
+	local version_key="$1" label h1 h2 f1 f2 out
 	sdk_matrix_validate_version "$version_key"
 	sdk_matrix_validate_target "$TARGET"
 	sdk_matrix_resolve "$TARGET" "$version_key"
@@ -61,10 +61,15 @@ verify_one() {
 		sdk_matrix_copy_out
 	fi
 
-	read -r h1 f1 <<< "$(artifact_sha "$label")" || {
+	out="$(artifact_sha "$label")" || {
 		echo "no artifact after pass 1 for ${label}" >&2
 		return 1
 	}
+	read -r h1 f1 <<< "$out"
+	if [[ -z "$h1" ]]; then
+		echo "no artifact after pass 1 for ${label}" >&2
+		return 1
+	fi
 	echo "  pass 1: ${h1}  ${f1##*/}" >&2
 
 	echo "→ clean + build pass 2..." >&2
@@ -72,10 +77,15 @@ verify_one() {
 	sdk_matrix_make
 	sdk_matrix_copy_out
 
-	read -r h2 f2 <<< "$(artifact_sha "$label")" || {
+	out="$(artifact_sha "$label")" || {
 		echo "no artifact after pass 2 for ${label}" >&2
 		return 1
 	}
+	read -r h2 f2 <<< "$out"
+	if [[ -z "$h2" ]]; then
+		echo "no artifact after pass 2 for ${label}" >&2
+		return 1
+	fi
 	echo "  pass 2: ${h2}  ${f2##*/}" >&2
 
 	if [[ "$h1" != "$h2" ]]; then
