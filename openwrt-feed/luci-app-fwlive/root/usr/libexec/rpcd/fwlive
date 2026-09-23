@@ -307,12 +307,18 @@ enrich_rules_dump() {
 		# (unknown/no_backend, same as a failed detect probe).
 		if nft_list_ruleset >"$_rules_dump" 2>/dev/null; then
 			backend=nft
-			# Rewrite dump to TSV in place (printf %s, no here-doc expand).
-			_nft_parsed=$(nft_dump_fields <"$_rules_dump")
-			printf '%s\n' "$_nft_parsed" >"$_rules_dump"
-			map_from_nft_stream labeled <"$_rules_dump"
-			if [ -z "$_map_overflow" ]; then
-				map_from_nft_stream unlabeled <"$_rules_dump"
+			# Stream awk output to a second temp so a huge dump is
+			# not materialized in the rpcd worker's shell heap.
+			_nft_tsv=$(_fwlive_mktemp "fwlive-nft-tsv")
+			if [ -z "$_nft_tsv" ]; then
+				_enrich_error='mktemp_failed'
+			else
+				nft_dump_fields <"$_rules_dump" >"$_nft_tsv"
+				map_from_nft_stream labeled <"$_nft_tsv"
+				if [ -z "$_map_overflow" ]; then
+					map_from_nft_stream unlabeled <"$_nft_tsv"
+				fi
+				rm -f "$_nft_tsv"
 			fi
 		fi
 		rm -f "$_rules_dump"
