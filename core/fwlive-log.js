@@ -268,8 +268,8 @@ function formatTimestampDisplay(entry) {
 }
 
 function isFirewallEvent(entry) {
-	const msg = normalizeNetfilterMessage((entry && entry.msg) || '');
-	if (!msg.trim())
+	const msg = normalizeNetfilterMessage((entry && entry.msg) || '').trim();
+	if (!msg)
 		return false;
 
 	/* Spec-derived prefix guard: explicit boundary + /i (matches shell case-insensitive). */

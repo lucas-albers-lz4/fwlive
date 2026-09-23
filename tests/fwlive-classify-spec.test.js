@@ -27,7 +27,9 @@ const GOLDEN = [
 	/* Presence semantics (empty values): unified outcome = shell's TRUE. */
 	{ msg: 'x DST= DROP', expect: true },
 	{ msg: 'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP', expect: true },
-	{ msg: 'IN= OUT= SRC= DST= PROTO=', expect: true }
+	{ msg: 'IN= OUT= SRC= DST= PROTO=', expect: true },
+	/* #499 — trim must not drop real firewall lines */
+	{ msg: ' IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP', expect: true }
 ];
 
 function run() {
@@ -51,6 +53,15 @@ function run() {
 		false,
 		'syslog-tagged wpad line must remain non-firewall'
 	);
+
+	/* #499 — trim before non-firewall prefix guard (shell parity) */
+	for (const msg of [
+		'  dnsmasq[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP',
+		' wpad[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP DROP'
+	]) {
+		assert.strictEqual(core.isFirewallEvent({ msg }), false,
+			'leading-whitespace daemon line: ' + JSON.stringify(msg));
+	}
 
 	console.log('fwlive classify spec golden corpus passed');
 }
