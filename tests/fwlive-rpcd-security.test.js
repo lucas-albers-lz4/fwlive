@@ -639,6 +639,76 @@ function testResolveJshnMissing() {
 	}
 }
 
+function testResolveSkipsNonStringAddresses() {
+	// Mixed JSON types must not stop address enumeration: a number/null/bool
+	// in the middle is skipped, later valid IPs still resolve, and skipped
+	// types do not set truncated (#501). Matched jshn + PATH nslookup stub
+	// (busybox ash, same plugin patch as runMatchedRpcdSelftest).
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const pair = path.join(prefix, release);
+	const jshn = path.join(pair, 'bin', 'jshn');
+	const jshnSh = path.join(pair, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
+
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-501-resolve-'));
+	try {
+		const libexec = path.join(work, 'libexec');
+		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+		const plugin = path.join(libexec, 'rpcd', 'fwlive');
+		const source =
+			'timeout() { /usr/bin/timeout "$@"; }\n' +
+			fs.readFileSync(RPCD, 'utf8').replaceAll('/usr/share/libubox/jshn.sh', () =>
+				shellQuote(jshnSh)
+			);
+		fs.writeFileSync(plugin, source, { mode: 0o755 });
+		fs.chmodSync(plugin, 0o755);
+
+		const stubDir = path.join(work, 'stubs');
+		fs.mkdirSync(stubDir);
+		const lookupLog = path.join(work, 'lookups');
+		makeStub(
+			stubDir,
+			'nslookup',
+			`#!/bin/sh
+printf '%s\\n' "$*" >> ${shellQuote(lookupLog)}
+printf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: 192.0.2.1\\n"
+`
+		);
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'adaptive-state-absent'),
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+		const payload = JSON.stringify({
+			addresses: ['192.0.2.1', 5, null, true, '198.51.100.2']
+		});
+		const raw = execFileSync('busybox', ['sh', '-eu', plugin, 'call', 'resolve'], {
+			encoding: 'utf8',
+			env,
+			input: payload
+		});
+		const res = JSON.parse(raw);
+		assert.equal(res.names['192.0.2.1'], 'host.example', 'first string must resolve');
+		assert.equal(
+			res.names['198.51.100.2'],
+			'host.example',
+			'later string after non-strings must still resolve'
+		);
+		assert.equal(Object.keys(res.names).length, 2);
+		assert.equal(res.truncated, undefined, 'skipped types must not set truncated');
+		assert.equal(res.error, undefined);
+		const lookedUp = fs.readFileSync(lookupLog, 'utf8');
+		assert.match(lookedUp, /192\.0\.2\.1/);
+		assert.match(lookedUp, /198\.51\.100\.2/);
+		assert.doesNotMatch(lookedUp, /(^|\n)5(\n|$)/);
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 // Malformed JSON is mandatory in fwlive-jshn-compat.test.py for every real
 // release pair under ash; do not add a host-dependent skip here.
 
@@ -851,6 +921,7 @@ testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
 testSummaryErrorValueDoesNotFailHealthGate();
 testResolveJshnMissing();
+testResolveSkipsNonStringAddresses();
 testLoggingStatusNeverSilent();
 testToggleNoWanZone();
 testToggleLockFailed();
