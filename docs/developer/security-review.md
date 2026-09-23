@@ -5,6 +5,14 @@
 > LuCI/session-controlled env (rpcd worker env is root-owned, not set by
 > unprivileged ubus callers). Named jshn poll-cap failures go to logger,
 > not poll JSON `error`. No ACL/DOM change.
+>
+> **2026-09-22 #543 delta:** `resolve` skips non-string `addresses` elements
+> instead of ending enumeration, so later valid IPs still resolve. Skipped
+> types do not set `truncated` (`truncated` remains `RESOLVE_MAX` /
+> `RESOLVE_BUDGET` only). Host coverage:
+> `tests/fwlive-rpcd-security.test.js` and
+> `tests/fwlive-jshn-compat.test.py`; no ACL, DOM sink, or
+> read/write-scope change.
 
 > **2026-09-22 #498 delta:** `fwlive-log-filter.sh` now removes its temporary
 > JSON file and exits with the signal status for HUP/INT/QUIT/TERM instead of
