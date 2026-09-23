@@ -358,7 +358,9 @@ function runJsonGetMsgEscapes() {
 		'{"msg":"fw4: DROP\\bIN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}',
 		'{"msg":"fw4: DROP\\fIN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}',
 		'{"msg":"fw4: DROP\\u0009IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}',
-		'{"msg":"fw4: DROP\\u0001IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}'
+		'{"msg":"fw4: DROP\\u0001IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}',
+		'{"msg":"euro\\u20acrule IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DROP"}',
+		'{"msg":"cafe\\u00e9rule IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DROP"}'
 	];
 	for (const line of cases) {
 		const out = shSpawn(
@@ -367,6 +369,37 @@ function runJsonGetMsgEscapes() {
 		);
 		assert.ok(out.includes('IN=wan'), 'json_get_msg dropped classify for ' + line);
 	}
+}
+
+function jsonGetMsgReply(line) {
+	return shSpawn(
+		'. "$IS_FW" && printf \'%s\\n\' "$LINE" | _fwlive_filter_json_reply',
+		{ env: { ...process.env, FILTER_DIR: path.dirname(IS_FW), IS_FW: IS_FW, LINE: line } }
+	);
+}
+
+function runJsonGetMsgUnicodeSummary() {
+	const euro = jsonGetMsgReply(
+		'{"msg":"euro\\u20acrule IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DROP"}'
+	);
+	const euroOut = JSON.parse(euro);
+	assert.equal(euroOut.summary.top_rules[0].value, 'euro€rule',
+		'\\u20ac must decode to euro sign in summary top_rules');
+	assert.notEqual(euroOut.summary.top_rules[0].value, 'eurorule');
+
+	const e9 = jsonGetMsgReply(
+		'{"msg":"cafe\\u00e9rule IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DROP"}'
+	);
+	assert.ok(!e9.includes('"value":"caferule"'),
+		'\\u00e9 must not vanish from summary top_rules');
+	assert.ok(/"value":"cafe.+rule"/.test(e9),
+		'\\u00e9 Latin-1 fast path must keep cafe…rule');
+
+	const nul = JSON.parse(jsonGetMsgReply(
+		'{"msg":"AB\\u0000CD IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DROP"}'
+	));
+	assert.equal(nul.summary.top_rules[0].value, 'ABCD',
+		'\\u0000 cannot live in BusyBox awk strings; json_get_msg drops NUL');
 }
 
 function runEmptyMalformedInput() {
@@ -575,6 +608,7 @@ function run() {
 	runMktempFailure();
 	runSymlinkTempDir();
 	runJsonGetMsgEscapes();
+	runJsonGetMsgUnicodeSummary();
 	runEmptyMalformedInput();
 	runSummaryContract();
 	runMetacharSafety();
