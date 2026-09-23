@@ -719,10 +719,11 @@ restore_wan_zone_log() {
 # for a failed reload.
 # Residual window: a writer that stages between the post-stage check and
 # `uci commit` can still ride along; post-commit verification detects a
-# mismatched log bit. Same-option races (another writer also staging
-# firewall.<wan>.log) are not distinguishable in the changes list.
-# The caller-reported error is firewall_changes_pending: the LuCI view already
-# maps it to the accurate "another change is staged" notice.
+# mismatched log bit and reports firewall_commit_raced (no blind-revert).
+# Same-option races (another writer also staging firewall.<wan>.log) are
+# not distinguishable in the changes list. Pre-stage races report
+# firewall_changes_pending: the LuCI view already maps it to the accurate
+# "another change is staged" notice.
 #
 # target: value to stage; EMPTY means delete the option (bit fully cleared).
 # Prints the failure JSON and returns 1 on abort or failure.
@@ -809,6 +810,8 @@ commit_wan_log_change() {
 	# reload-failure rollback path still guards the ordinary failure case.
 	if ! verify_wan_log_commit "$zone" "$target"; then
 		logger -t fwlive "WAN log post-commit verify FAILED: wrote '${target:-<deleted>}', read back differs" 2>/dev/null || true
+		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"firewall_commit_raced"}' "$zone_json"
+		return 1
 	fi
 	return 0
 }
