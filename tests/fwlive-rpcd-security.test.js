@@ -57,14 +57,11 @@ function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEAS
 		const libexec = path.join(work, 'libexec');
 		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
 		const plugin = path.join(libexec, 'rpcd', 'fwlive');
-		const source = fs
-			.readFileSync(RPCD, 'utf8')
-			.replaceAll('/usr/share/libubox/jshn.sh', () => shellQuote(jshnSh));
-		fs.writeFileSync(plugin, source, { mode: 0o755 });
 		fs.chmodSync(plugin, 0o755);
 		const env = {
 			...process.env,
 			PATH: `${path.dirname(jshn)}:${process.env.PATH || ''}`,
+			FWLIVE_JSHN_SH: jshnSh,
 		};
 		const resolved = execFileSync(busybox, ['sh', '-c', 'command -v jshn'], {
 			encoding: 'utf8',
@@ -639,11 +636,81 @@ function testResolveJshnMissing() {
 	}
 }
 
+function testPollLinesJshnCauses() {
+	// #441: poll cap stays a clamped integer; named jshn failures go to logger,
+	// never poll JSON "error". Library path is FWLIVE_JSHN_SH, not a source rewrite.
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const pair = path.join(prefix, release);
+	const jshn = path.join(pair, 'bin', 'jshn');
+	const jshnSh = path.join(pair, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
+	assert.match(
+		fs.readFileSync(RPCD, 'utf8'),
+		/\$\{FWLIVE_JSHN_SH:-\/usr\/share\/libubox\/jshn\.sh\}/,
+		'production source must keep an overridable jshn library path'
+	);
+
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-441-poll-lines-'));
+	try {
+		const libexec = path.join(work, 'libexec');
+		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+		const plugin = path.join(libexec, 'rpcd', 'fwlive');
+		const loggerLog = path.join(work, 'logger.log');
+		const source =
+			`logger() { printf '%s\\n' "$*" >> ${shellQuote(loggerLog)}; }\n` +
+			fs.readFileSync(RPCD, 'utf8');
+		fs.writeFileSync(plugin, source, { mode: 0o755 });
+		fs.chmodSync(plugin, 0o755);
+		const stubDir = path.join(work, 'stubs');
+		fs.mkdirSync(stubDir);
+
+		function pollLines(input, extraEnv) {
+			fs.writeFileSync(loggerLog, '');
+			const env = {
+				...process.env,
+				PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+				FWLIVE_JSHN_SH: jshnSh,
+				...extraEnv
+			};
+			const stdout = execFileSync('busybox', ['sh', '-eu', plugin, '__poll_lines', input], {
+				encoding: 'utf8',
+				env
+			}).trim();
+			const log = fs.existsSync(loggerLog) ? fs.readFileSync(loggerLog, 'utf8') : '';
+			return { stdout, log };
+		}
+
+		let got = pollLines('{"addresses":["500"]}');
+		assert.equal(got.stdout, '500', 'hostname/library override must parse without rewriting source');
+		assert.doesNotMatch(got.log, /jshn_missing|jshn_lib_missing|invalid_input/);
+
+		got = pollLines('{}');
+		assert.equal(got.stdout, '50');
+		assert.doesNotMatch(got.log, /jshn_missing|jshn_lib_missing|invalid_input/);
+
+		got = pollLines('not-json{{{');
+		assert.equal(got.stdout, '50');
+		assert.match(got.log, /invalid_input/, 'parse failure must be observable, not a silent 50');
+
+		got = pollLines('{"addresses":["500"]}', { FWLIVE_JSHN_SH: '/no/such/fwlive-jshn.sh' });
+		assert.equal(got.stdout, '50');
+		assert.match(got.log, /jshn_lib_missing/);
+
+		got = pollLines('{"addresses":["500"]}', { PATH: `${stubDir}:/usr/bin:/bin` });
+		assert.equal(got.stdout, '50');
+		assert.match(got.log, /jshn_missing/);
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function testResolveSkipsNonStringAddresses() {
 	// Mixed JSON types must not stop address enumeration: a number/null/bool
 	// in the middle is skipped, later valid IPs still resolve, and skipped
-	// types do not set truncated (#501). Matched jshn + PATH nslookup stub
-	// (busybox ash, same plugin patch as runMatchedRpcdSelftest).
+	// types do not set truncated (#501). Matched jshn via FWLIVE_JSHN_SH
+	// (busybox ash, same timeout() prefix as the compat harness).
 	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
 	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	const pair = path.join(prefix, release);
@@ -657,11 +724,7 @@ function testResolveSkipsNonStringAddresses() {
 		const libexec = path.join(work, 'libexec');
 		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
 		const plugin = path.join(libexec, 'rpcd', 'fwlive');
-		const source =
-			'timeout() { /usr/bin/timeout "$@"; }\n' +
-			fs.readFileSync(RPCD, 'utf8').replaceAll('/usr/share/libubox/jshn.sh', () =>
-				shellQuote(jshnSh)
-			);
+		const source = 'timeout() { /usr/bin/timeout "$@"; }\n' + fs.readFileSync(RPCD, 'utf8');
 		fs.writeFileSync(plugin, source, { mode: 0o755 });
 		fs.chmodSync(plugin, 0o755);
 
@@ -679,6 +742,7 @@ printf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: 192.0.2.1\\n"
 		const env = {
 			...process.env,
 			PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+			FWLIVE_JSHN_SH: jshnSh,
 			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'adaptive-state-absent'),
 			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
 		};
@@ -921,6 +985,7 @@ testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
 testSummaryErrorValueDoesNotFailHealthGate();
 testResolveJshnMissing();
+testPollLinesJshnCauses();
 testResolveSkipsNonStringAddresses();
 testLoggingStatusNeverSilent();
 testToggleNoWanZone();
