@@ -707,6 +707,7 @@ async function testResolveShedCooldown() {
 	v.showHostnames = true;
 	v.hostnameCache = new Map();
 	v.hostnameFailed = new Map();
+	assert.strictEqual(v.resolveShedUntil, 0, 'resolve shed deadline starts declared and clear');
 	const entries = [{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }];
 	await v.resolveHostnamesForEntries(entries);
 	assert.strictEqual(v.resolveLoadShed, true);
