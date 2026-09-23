@@ -214,14 +214,6 @@ nft_list_ruleset() {
 	run_with_timeout "$NFT_TIMEOUT" nft list ruleset
 }
 
-detect_firewall_backend() {
-	if command -v nft >/dev/null 2>&1 && nft_list_ruleset >/dev/null; then
-		printf '%s' nft
-		return 0
-	fi
-	printf '%s' unknown
-}
-
 _fwlive_tmp_dir_ok() {
 	# Fail closed unless the dump dir is a real directory with the sticky
 	# bit. Without sticky, another uid can unlink a just-created mktemp
@@ -256,15 +248,18 @@ enrich_rules_dump() {
 
 	_rules_dump=$(_fwlive_mktemp "$_dump_prefix") || _rules_dump=''
 	if [ -n "$_rules_dump" ]; then
+		# One dump serves detect + parse. Empty/failed dump is not nft
+		# (unknown/no_backend, same as a failed detect probe).
 		if nft_list_ruleset >"$_rules_dump" 2>/dev/null; then
+			backend=nft
 			map_from_nft_stream labeled <"$_rules_dump"
 			map_from_nft_stream unlabeled <"$_rules_dump"
-		elif [ -z "$_enrich_error" ]; then
-			_enrich_error='nft_failed'
 		fi
 		rm -f "$_rules_dump"
 	else
+		# nft is on PATH (caller checked); skip enrichment without a dump.
 		_enrich_error='mktemp_failed'
+		backend=nft
 	fi
 }
 
@@ -273,13 +268,14 @@ build_rules_map() {
 	_map_keys=0
 	_map_overflow=''
 	_enrich_error=''
-	backend=$(detect_firewall_backend)
+	backend=unknown
 
 	# UCI first, then labeled stream prefixes, then unlabeled cosmetics
 	# First-wins keeps UCI over nft and !fw4: over cosmetic.
 	map_uci_rule_names
 
-	if [ "$backend" = nft ]; then
+	# Temp file first, then a single nft_list_ruleset; backend from success.
+	if command -v nft >/dev/null 2>&1; then
 		enrich_rules_dump fwlive-nft
 	fi
 

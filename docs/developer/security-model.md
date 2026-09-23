@@ -121,10 +121,9 @@ The rpcd plugin runs as **root**. Its entire input surface is:
 `__selftest`, `__poll_clamp`, `__tmp_dir_ok`, `__resolve_one`, and
 `__parse_nslookup` are CLI-only and must never become ubus methods.
 
-`rules` dumps nftables only. If `nft` is missing or the detect dump fails, the
-reply is `backend: "unknown"` with `error: "no_backend"`. A later nft dump
-failure keeps the existing `nft_failed` contract. There is no `iptables-save`
-fallback.
+`rules` dumps nftables only. If `nft` is missing or the dump fails, the
+reply is `backend: "unknown"` with `error: "no_backend"`. There is no
+`iptables-save` fallback.
 
 The `uci set` touches only bit 0 of the WAN zone `log` value, and UCI is rolled
 back if the firewall reload fails. Before `uci set` / commit, the toggle refuses
