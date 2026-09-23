@@ -1454,7 +1454,8 @@ got=$(run_with_timeout 5 echo hello 2>/dev/null) || _rc=$?
 unset -f command
 ok "run_with_timeout returns 127 without timeout (fail-closed)"
 
-sh "$RPCD" __selftest >/dev/null || die "rpcd __selftest"
-ok "rpcd __selftest"
+# rpcd __selftest (including jshn poll-cap) is owned by
+# tests/fwlive-rpcd-security.test.js — do not re-add a bare sh "$RPCD"
+# __selftest here; that treats skip: as success (#536).
 
 echo "fwlive-logging tests passed"

@@ -268,7 +268,7 @@ payload inspector.
   Revisit on an SLO escape.
 - **G6:** rpcd `__selftest` includes bind-style and BusyBox `ip6.arpa`
   PTR fixtures, and the required host suite executes that selftest
-  (`fwlive-rpcd-security.test.js`, `fwlive-logging.test.sh`). The
+  (`fwlive-rpcd-security.test.js`). The
   dedicated `testResolveNslookup` driver is IPv4 `in-addr.arpa` only.
   Residual: no direct end-to-end IPv6 resolve (stubbed `nslookup`
   through `resolve`, or installed QEMU). Revisit on a resolver change
