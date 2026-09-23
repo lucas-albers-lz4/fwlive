@@ -187,6 +187,9 @@ echo "== fwlive proto filter (menu + custom) ==" >&2
 echo "== fwlive chip sink and applyHash (#393) ==" >&2
 "$NODE" tests/fwlive-chips-hash.test.js
 
+echo "== fwlive feed artifact selection (#495) ==" >&2
+bash tests/feed-publish-find-artifact.test.sh
+
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh
 

@@ -8,6 +8,14 @@
 > plants a stale matching IPK, stubs docker copy as a no-op, and requires
 > copy_out to fail. No ACL, DOM sink, or read/write-scope change.
 
+> **2026-09-22 #495 delta:** `feed_publish_find_artifact` now selects the
+> newest-mtime luci-app-fwlive ipk/apk under a reused `out/` tree (`ls -1t`)
+> instead of the alphabetically first name (`ls -1`). A leftover
+> `luci-app-fwlive_0.1.44_all.ipk` therefore cannot win over a later-built
+> 0.1.45/0.1.46. Host coverage plants a later-named newer file that
+> alphabetical `ls -1` would not pick. No ACL, DOM sink, or read/write-scope
+> change.
+
 > **2026-09-22 #504 delta:** nft dump parse is one awk pass (`nft_dump_fields`)
 > writing TSV to a second tempfile, then `map_from_nft_stream` stops at the
 > map byte/key cap. The dump is not buffered in a shell variable. Host
