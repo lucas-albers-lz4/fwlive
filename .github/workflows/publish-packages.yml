@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  # Weekly 25.12 APK live-feed smoke only (#421 slice 1). Does not publish.
+  schedule:
+    - cron: '17 6 * * 1'
   workflow_dispatch:
     inputs:
       tag:
@@ -36,6 +39,7 @@ concurrency:
 
 jobs:
   build-publish:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     # Required reviewers / secret gate — configure Environment "feed-publish" in repo settings.
@@ -310,7 +314,9 @@ jobs:
           fi
 
   # Single-cell QEMU feed smoke (#10): TCG on hosted runners; default OpenWrt 24.10.
-  # Tag pushes always smoke; workflow_dispatch can skip via feed_smoke=false.
+  # Tag pushes always smoke that one 24.10 cell (do not add a second QEMU smoke
+  # on every tag). workflow_dispatch can skip via feed_smoke=false or pick
+  # another cell via smoke_version. Schedule uses smoke-from-feed-25-12 instead.
   smoke-from-feed:
     if: >-
       github.event_name == 'push' ||
@@ -381,3 +387,30 @@ jobs:
           ver="$SMOKE_VERSION"
           echo "Feed smoke OpenWrt version: $ver"
           ./scripts/validate-feed-smoke.sh --version "$ver"
+
+  # Periodic 25.12 APK live-feed smoke (#421 slice 1). No build, Pages deploy,
+  # or release upload. Must not needs: build-publish (that job is skipped).
+  smoke-from-feed-25-12:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      OWRT_QEMU_ACCEL: tcg
+      OWRT_VALIDATE_SSH_WAIT_X86: "900"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+
+      - name: Install lab dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 ovmf openssh-client curl
+
+      - name: Wait for GitHub Pages propagation
+        run: ./scripts/wait-feed-pages.sh "$FWLIVE_FEED_BASE_URL"
+
+      - name: Feed smoke (25.12 APK)
+        run: ./scripts/validate-feed-smoke.sh --version 25.12

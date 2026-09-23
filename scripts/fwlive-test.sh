@@ -204,6 +204,10 @@ bash tests/feed-keys-mode.test.sh
 
 echo "== fwlive validate-feed-keys mode path (0600) ==" >&2
 bash tests/validate-feed-keys-mode.test.sh
+
+echo "== fwlive wait-feed-pages APK key (#421) ==" >&2
+bash tests/wait-feed-pages.test.sh
+
 echo "== fwlive agent-build-and-deploy ipk-only (#434) ==" >&2
 bash tests/agent-build-and-deploy-ipk.test.sh
 

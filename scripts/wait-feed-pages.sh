@@ -14,6 +14,7 @@ urls=(
 	"${BASE}/23.05/Packages.gz"
 	"${BASE}/25.12/all/packages.adb"
 	"${BASE}/public.key"
+	"${BASE}/fwlive-feed.rsa.pub"
 )
 
 deadline=$((SECONDS + MAX_WAIT))
