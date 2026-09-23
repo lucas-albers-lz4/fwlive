@@ -68,8 +68,9 @@ function assertRegexParity(label, actual, expected) {
 }
 
 function extractClassifySpec(text) {
-	const key = 'CLASSIFY_SPEC';
-	const keyAt = text.indexOf(key);
+	let keyAt = text.indexOf('const CLASSIFY_SPEC');
+	if (keyAt < 0)
+		keyAt = text.indexOf('CLASSIFY_SPEC =');
 	assert.ok(keyAt >= 0, 'CLASSIFY_SPEC key not found in LuCI wrapper');
 	const start = text.indexOf('{', keyAt);
 	assert.ok(start >= 0, 'CLASSIFY_SPEC object not found in LuCI wrapper');
@@ -123,6 +124,9 @@ for (let i = 0; i < regexNames.length; i++) {
 
 assertRegexParity('core NON_FIREWALL_PREFIX', core.NON_FIREWALL_PREFIX, expected.NON_FIREWALL_PREFIX);
 assertRegexParity('core FIREWALL_HINT', core.FIREWALL_HINT, expected.FIREWALL_HINT);
+assertRegexParity('core ACTION_RE', core.ACTION_RE, expected.ACTION_RE);
 assertRegexParity('core DENY_ACTION', core.DENY_ACTION, expected.DENY_ACTION);
+assertRegexParity('core DENY_ACTION_UNDERSCORE', core.DENY_ACTION_UNDERSCORE, expected.DENY_ACTION_UNDERSCORE);
+assertRegexParity('core NETFILTER_KV_GLUE', core.NETFILTER_KV_GLUE, expected.NETFILTER_KV_GLUE);
 
 process.stdout.write(src);

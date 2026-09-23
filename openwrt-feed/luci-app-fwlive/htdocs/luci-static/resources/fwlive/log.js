@@ -67,8 +67,11 @@ function wordPattern(words) {
 /* ---- spec-derived classification regexes (mirror core/fwlive-log.js) ---- */
 const DENY_CLASS_WORDS = CLASSIFY_SPEC.actionWords.slice(3);
 const NON_FIREWALL_PREFIX = new RegExp(
-	'^(' + CLASSIFY_SPEC.nonFirewallPrefixes.join('|') + ')(' +
-		(CLASSIFY_SPEC.nonFirewallPrefixHyphenContinuation ? '[^A-Za-z0-9_-]' : '[^A-Za-z0-9_]') + '|$)',
+	'^(' +
+		CLASSIFY_SPEC.nonFirewallPrefixes.join('|') +
+		')(' +
+		(CLASSIFY_SPEC.nonFirewallPrefixHyphenContinuation ? '[^A-Za-z0-9_-]' : '[^A-Za-z0-9_]') +
+		'|$)',
 	'i'
 );
 const FIREWALL_HINT = wordPattern(CLASSIFY_SPEC.firewallHints);
