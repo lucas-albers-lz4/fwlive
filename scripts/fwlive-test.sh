@@ -184,6 +184,9 @@ bash tests/packaging-ci-paths.test.sh
 echo "== fwlive SDK package format mapping ==" >&2
 bash tests/sdk-matrix-package-format.test.sh
 
+echo "== fwlive SDK release version labels (#519) ==" >&2
+bash tests/sdk-matrix-release-labels.test.sh
+
 echo "== fwlive SDK copy-out artifact check ==" >&2
 bash tests/sdk-matrix-copy-out.test.sh
 

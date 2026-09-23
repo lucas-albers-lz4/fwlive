@@ -1,0 +1,6 @@
+# actionlint 1.7.7 schema predates GitHub concurrency.queue (2026-05-07).
+# Keep `queue: max` in publish-packages.yml; ignore only that unknown key.
+paths:
+  .github/workflows/publish-packages.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
