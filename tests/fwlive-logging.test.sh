@@ -1002,8 +1002,8 @@ ok "#191 enable aborts on foreign log_limit staged after our set (exact log= mat
 FWLIVE_CURRENT_LOG=''
 drive_toggle enable verify_mismatch
 case "$OUT" in
-	*'"ok":false'*'"error":"firewall_commit_raced"'*) ;;
-	*) die "#191 enable/verify-mismatch: expected ok:false firewall_commit_raced, got: $OUT" ;;
+	*'"ok":false'*'"changed":false'*'"error":"firewall_commit_raced"'*) ;;
+	*) die "#191 enable/verify-mismatch: expected ok:false changed:false firewall_commit_raced, got: $OUT" ;;
 esac
 [ "$UCI_COMMITS" -eq 1 ] || die "#191 enable/verify-mismatch: expected exactly one commit, got $UCI_COMMITS"
 [ "$RELOADS" -eq 1 ] || die "#191 enable/verify-mismatch: raced commit must still reload, got $RELOADS"
@@ -1017,8 +1017,8 @@ ok "#191 post-commit verify mismatch reports firewall_commit_raced, keeps the co
 FWLIVE_CURRENT_LOG='3'
 drive_toggle disable verify_mismatch
 case "$OUT" in
-	*'"ok":false'*'"error":"firewall_commit_raced"'*) ;;
-	*) die "#191 disable/verify-mismatch: expected ok:false firewall_commit_raced, got: $OUT" ;;
+	*'"ok":false'*'"changed":false'*'"error":"firewall_commit_raced"'*) ;;
+	*) die "#191 disable/verify-mismatch: expected ok:false changed:false firewall_commit_raced, got: $OUT" ;;
 esac
 [ "$UCI_COMMITS" -eq 1 ] || die "#191 disable/verify-mismatch: expected exactly one commit, got $UCI_COMMITS"
 [ "$RELOADS" -eq 1 ] || die "#191 disable/verify-mismatch: raced commit must still reload, got $RELOADS"

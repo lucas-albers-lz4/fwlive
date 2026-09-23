@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-22 #502 delta:** post-commit WAN-log verify mismatch now returns
+> rc 2 from `commit_wan_log_change`, still reloads fw4, and reports
+> `firewall_commit_raced` with `ok:false`/`changed:false` instead of rolling
+> back a foreign writer's committed UCI. Host coverage pins the JSON and the
+> reload. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #500 delta:** WAN log baseline remains enable-only. Disable of
 > a pre-existing/foreign log bit is not snapshotted, so uninstall restore
 > will not put that bit back. Package README and the helper comment record
