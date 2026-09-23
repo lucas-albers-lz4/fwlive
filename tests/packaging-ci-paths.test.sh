@@ -152,6 +152,35 @@ else
 	bad "openwrt-feed diff: got $out"
 fi
 
+mkdir -p "$WORKDIR/docs"
+git -C "$WORKDIR" mv openwrt-feed/Makefile docs/Makefile
+git -C "$WORKDIR" commit -q -m move-out
+head_move="$(git -C "$WORKDIR" rev-parse HEAD)"
+out="$(
+	cd "$WORKDIR"
+	PACKAGING_CI_BASE_SHA="$head_pkg" PACKAGING_CI_HEAD_SHA="$head_move" packaging_ci_decide
+)"
+if [[ "$out" == "run_matrix=true" ]]; then
+	ok "rename out of openwrt-feed still runs matrix"
+else
+	bad "rename out of openwrt-feed: got $out"
+fi
+
+mkdir -p "$WORKDIR/openwrt-feed"
+printf 'space\n' >"$WORKDIR/openwrt-feed/weird name.sh"
+git -C "$WORKDIR" add "openwrt-feed/weird name.sh"
+git -C "$WORKDIR" commit -q -m spaced-name
+head_space="$(git -C "$WORKDIR" rev-parse HEAD)"
+out="$(
+	cd "$WORKDIR"
+	PACKAGING_CI_BASE_SHA="$head_move" PACKAGING_CI_HEAD_SHA="$head_space" packaging_ci_decide
+)"
+if [[ "$out" == "run_matrix=true" ]]; then
+	ok "packaging path with a space runs matrix"
+else
+	bad "packaging path with a space: got $out"
+fi
+
 missing="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 out="$(
 	cd "$WORKDIR"

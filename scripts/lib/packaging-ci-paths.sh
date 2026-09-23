@@ -28,10 +28,11 @@ packaging_ci_path_matches() {
 	return 1
 }
 
-# Read repo-relative paths from stdin. Return 0 if any path requires the matrix.
+# Read NUL-delimited repo-relative paths from stdin (git diff -z).
+# Return 0 if any path requires the matrix.
 packaging_ci_paths_need_matrix() {
 	local path
-	while IFS= read -r path || [[ -n "$path" ]]; do
+	while IFS= read -r -d '' path || [[ -n "$path" ]]; do
 		[[ -z "$path" ]] && continue
 		if packaging_ci_path_matches "$path"; then
 			echo "packaging-ci-paths: $path requires SDK matrix" >&2
@@ -64,7 +65,7 @@ packaging_ci_emit() {
 packaging_ci_decide() {
 	local base="${PACKAGING_CI_BASE_SHA:-}"
 	local head="${PACKAGING_CI_HEAD_SHA:-}"
-	local diff
+	local diff_file
 
 	if ! packaging_ci_sha_usable "$base"; then
 		packaging_ci_emit true "fail-closed (unusable base SHA); running matrix"
@@ -84,15 +85,22 @@ packaging_ci_decide() {
 		return 0
 	fi
 
-	if ! diff="$(git diff --name-only "$base" "$head")"; then
+	# --no-renames: a move out of a packaging path still lists the old name.
+	# -z: do not quote unusual names; bash variables cannot hold NUL, so
+	# write to a temp file instead of capturing stdout.
+	diff_file="$(mktemp)"
+	if ! git diff --no-renames -z --name-only "$base" "$head" >"$diff_file"; then
+		rm -f "$diff_file"
 		packaging_ci_emit true "fail-closed (git diff failed); running matrix"
 		return 0
 	fi
 
-	if printf '%s\n' "$diff" | packaging_ci_paths_need_matrix; then
+	if packaging_ci_paths_need_matrix <"$diff_file"; then
+		rm -f "$diff_file"
 		packaging_ci_emit true "packaging path changed; running matrix"
 		return 0
 	fi
+	rm -f "$diff_file"
 
 	packaging_ci_emit false "no packaging paths in diff; skipping SDK matrix"
 }
