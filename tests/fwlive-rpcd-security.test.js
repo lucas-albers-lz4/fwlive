@@ -338,6 +338,82 @@ exit 1
 	}
 }
 
+function testRulesNftParseNoPerLineSed() {
+	// #504: map_from_nft_stream must not fork echo|sed per dump line.
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const start = src.indexOf('map_from_nft_stream()');
+	const end = src.indexOf('\nnft_list_ruleset()', start);
+	assert.ok(start >= 0 && end > start, 'map_from_nft_stream must precede nft_list_ruleset');
+	const body = src.slice(start, end);
+	assert.doesNotMatch(
+		body,
+		/echo\s+"\$line"\s+\|\s+sed/,
+		'map_from_nft_stream must not fork echo|sed per line'
+	);
+	assert.match(src, /nft_dump_fields\(\)/, 'one awk pass must live in nft_dump_fields');
+}
+
+function testRulesOverflowStopsWithoutSecondDumpPass() {
+	// #504: overflow sets rules_truncated from one dump; sed must not scale
+	// with dump lines (old path: 2 seds x lines x 2 passes).
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-504-overflow-'));
+	const dumpLines = 600;
+	const rules = [];
+	for (let i = 0; i < dumpLines; i++)
+		rules.push(`\t\tlog prefix "pfx-${i}"`);
+	try {
+		makeStub(
+			stubDir,
+			'nft',
+			`#!/bin/sh
+printf '%s\\n' "nft $*" >> "${stubDir}/nft.log"
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+${rules.join('\n')}
+	}
+}
+EOF
+	exit 0
+fi
+exit 1
+`
+		);
+		makeStub(
+			stubDir,
+			'sed',
+			`#!/bin/sh
+echo sed >> "${stubDir}/sed.log"
+exec /usr/bin/sed "$@"
+`
+		);
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
+		const res = JSON.parse(raw);
+		assert.equal(res.backend, 'nft');
+		assert.equal(res.error, 'rules_truncated');
+		const keys = Object.keys(res.rules || {});
+		assert.ok(keys.length <= 512, `keys ${keys.length} must be <= 512`);
+		assert.deepEqual(
+			fs.readFileSync(path.join(stubDir, 'nft.log'), 'utf8').trim().split('\n'),
+			['nft list ruleset'],
+			'overflow must not dump nft ruleset a second time'
+		);
+		const sedLog = fs.existsSync(path.join(stubDir, 'sed.log'))
+			? fs.readFileSync(path.join(stubDir, 'sed.log'), 'utf8')
+			: '';
+		const sedCalls = sedLog.split('\n').filter(Boolean).length;
+		assert.ok(
+			sedCalls < dumpLines,
+			`one rules call must not invoke sed per dump line (got ${sedCalls} for ${dumpLines} lines)`
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
 function testRulesNoIptablesFallback() {
 	// nft fails; iptables-save / ip6tables-save on PATH must not become the
 	// rules backend or be invoked (#378 Phase 2).
@@ -1067,6 +1143,8 @@ testRulesNftAbsent();
 testRemovedRulesmapIptablesCli();
 testRulesNftDumpFailure();
 testRulesNftListRulesetOnce();
+testRulesNftParseNoPerLineSed();
+testRulesOverflowStopsWithoutSecondDumpPass();
 testRulesNoIptablesFallback();
 testPollMessagesReceived();
 testPollUbusFailure();
