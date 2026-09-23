@@ -1188,9 +1188,10 @@ restore_wan_log_baseline || die "restore already-at-baseline failed"
 [ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file should be removed when already at target"
 ok "restore_wan_log_baseline no-op when UCI already matches baseline"
 
-# #500: disable with log=1 and no baseline must snapshot before mutation so
-# uninstall restore can put the bit back. Run in this shell (not `$()`) so
-# the uci stub's WAN_ZONE_LOG mutation is visible to restore.
+# #500 option 1: disable with a pre-existing/foreign log bit and no prior
+# enable must not snapshot. Uninstall restore must not put that bit back.
+# Run in this shell (not `$()`) so the uci stub's WAN_ZONE_LOG mutation is
+# visible to restore.
 rm -f "$WAN_LOG_BASELINE_FILE"
 WAN_ZONE_LOG='1'
 disable_wan_logging >"$BASELINE_WORK/disable.out"
@@ -1199,13 +1200,11 @@ case "$out" in
 	*'"ok":true'*'"changed":true'*) ;;
 	*) die "#500 disable with no baseline: expected ok:true/changed:true, got: $out" ;;
 esac
-[ -f "$WAN_LOG_BASELINE_FILE" ] || die "#500 disable must write baseline before mutating"
-baseline=$(cat "$WAN_LOG_BASELINE_FILE")
-[ "$baseline" = "1" ] || die "#500 baseline must capture pre-disable log=1, got '$baseline'"
-[ -z "$WAN_ZONE_LOG" ] || die "#500 disable must clear log bit before restore, got '$WAN_ZONE_LOG'"
-restore_wan_log_baseline || die "#500 restore after disable failed"
-[ "$WAN_ZONE_LOG" = "1" ] || die "#500 restore expected log=1, got '$WAN_ZONE_LOG'"
-ok "disable_wan_logging snapshots pre-existing log bit for restore"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "#500 disable without prior enable must not write baseline"
+[ -z "$WAN_ZONE_LOG" ] || die "#500 disable must clear log bit, got '$WAN_ZONE_LOG'"
+restore_wan_log_baseline || die "#500 restore with no baseline failed"
+[ -z "$WAN_ZONE_LOG" ] || die "#500 restore must not put foreign log bit back, got '$WAN_ZONE_LOG'"
+ok "disable_wan_logging does not snapshot a pre-existing/foreign log bit"
 
 if [ "$(id -u)" -ne 0 ]; then
 	READONLY_WORK=$(mktemp -d)
