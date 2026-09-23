@@ -875,6 +875,12 @@ function testResolveNslookup() {
 	parsed = parseNslookup('domain name = other.example.');
 	assert.equal(parsed.got, '', 'domain name = is not a PTR name field');
 	assert.equal(parsed.status, 1, 'domain name = parse must fail');
+	parsed = parseNslookup('domain  name = two.example.');
+	assert.equal(parsed.got, '', 'domain  name = (repeated space) is not a PTR name field');
+	assert.equal(parsed.status, 1, 'domain  name = parse must fail');
+	parsed = parseNslookup('domain\t name = tab.example.');
+	assert.equal(parsed.got, '', 'domain<tab> name = is not a PTR name field');
+	assert.equal(parsed.status, 1, 'domain tab-space name = parse must fail');
 	parsed = parseNslookup('8.8.8.8.in-addr.arpa\tname = dns.google.');
 	assert.equal(parsed.got, 'dns.google', 'bind-style name = still parses');
 	assert.equal(parsed.status, 0, 'bind-style name = must succeed');

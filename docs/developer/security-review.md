@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-22 #506 delta:** `parse_nslookup_name` treats `name =` as a whole
+> token and rejects the phrase `domain name =` even when `domain` and `name`
+> are separated by repeated whitespace. Host coverage includes
+> `domain  name =` and tab-space variants. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #543 delta:** `resolve` skips non-string `addresses` elements
 > instead of ending enumeration, so later valid IPs still resolve. Skipped
 > types do not set `truncated` (`truncated` remains `RESOLVE_MAX` /

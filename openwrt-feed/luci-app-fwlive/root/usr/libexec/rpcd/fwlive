@@ -437,6 +437,7 @@ parse_nslookup_name() {
 				host = substr($0, RLENGTH + 1)
 			} else if (match(low, /[^a-z0-9_]name[ \t]*=[ \t]*/)) {
 				pre = substr(low, 1, RSTART - 1)
+				sub(/[ \t]+$/, "", pre)
 				if (pre != "domain" && pre !~ /[^a-z0-9_]domain$/)
 					host = substr($0, RSTART + RLENGTH)
 			}
@@ -832,6 +833,10 @@ Address: 127.0.0.1:53")
 	check_eq parse_nslookup_name "$got" '' "hostname = must not parse as name got '$got'" || return 1
 	got=$(parse_nslookup_name "domain name = other.example.")
 	check_eq parse_nslookup_name "$got" '' "domain name = must not parse as name got '$got'" || return 1
+	got=$(parse_nslookup_name "domain  name = two.example.")
+	check_eq parse_nslookup_name "$got" '' "domain  name = must not parse as name got '$got'" || return 1
+	got=$(parse_nslookup_name "domain	 name = tab.example.")
+	check_eq parse_nslookup_name "$got" '' "domain tab name = must not parse as name got '$got'" || return 1
 	got=$(parse_nslookup_name "name = dns.google. hostname = evil.example.")
 	check_eq parse_nslookup_name "$got" "dns.google" "standalone name = must beat hostname = got '$got'" || return 1
 
