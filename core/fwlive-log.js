@@ -370,13 +370,6 @@ function formatFilterChipLabel(field, val) {
 	if (!p.value)
 		return '';
 
-	if (p.negate) {
-		if (field === 'q' || field === 'src' || field === 'dst')
-			return field + ': not contains ' + p.value;
-
-		return field + ': not ' + p.value;
-	}
-
 	return field + ': ' + val;
 }
 
