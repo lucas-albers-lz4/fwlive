@@ -310,24 +310,6 @@ return baseclass.extend({
 		return '%s:%s:%s'.format(pad(d.getHours()), pad(d.getMinutes()), pad(d.getSeconds()));
 	},
 
-	formatFlowDisplay: function (row) {
-		const src = row && row.src ? String(row.src) : '';
-		const dst = row && row.dst ? String(row.dst) : '';
-		const sport = row && row.sport ? String(row.sport) : '';
-		const dport = row && row.dport ? String(row.dport) : '';
-		let left = src;
-		let right = dst;
-
-		if (sport) left = left ? left + ':' + sport : ':' + sport;
-		if (dport) right = right ? right + ':' + dport : ':' + dport;
-
-		if (!left && !right) return '—';
-		if (!right) return left;
-		if (!left) return '→ ' + right;
-
-		return left + ' → ' + right;
-	},
-
 	formatCell: function (value) {
 		if (value == null || value === '') return '';
 
@@ -480,13 +462,6 @@ return baseclass.extend({
 	formatFilterChipLabel: function (field, val) {
 		const p = this.parseFilterValue(val);
 		if (!p.value) return '';
-
-		if (p.negate) {
-			if (field === 'q' || field === 'src' || field === 'dst')
-				return '%s: not contains %s'.format(field, p.value);
-
-			return '%s: not %s'.format(field, p.value);
-		}
 
 		return '%s: %s'.format(field, val);
 	},

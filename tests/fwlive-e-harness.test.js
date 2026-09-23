@@ -143,7 +143,6 @@ function testRealRendererIntegration() {
 	logging.renderEmptyState(host, {
 		loggingStatus: { wan_log: false, blockers: [] },
 		loggingBusy: false,
-		entriesLength: 0,
 		loggingNotice: '',
 		showConsent: false
 	}, { onEnable: function() {} });
@@ -198,7 +197,6 @@ function testRealRendererIntegration() {
 				wan_zone_candidates: [hostileCandidate, 'internet']
 			},
 			loggingBusy: false,
-			entriesLength: 0,
 			loggingNotice: ''
 		},
 		{ onEnable: function () {}, onDisable: function () {} }
