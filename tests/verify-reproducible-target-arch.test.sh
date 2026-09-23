@@ -90,5 +90,29 @@ else
 	bad "verify_one did not report missing pass-1 artifact"
 fi
 
+# Pass-2 disappearance: pass 1 hashes an artifact, then copy_out deletes it.
+sdk_matrix_resolve x86-64 24.10
+pass1="$TMP/out/${SDK_MATRIX_PACKAGE_ARCH}/${label}/fwlive/luci-app-fwlive_0_all.ipk"
+mkdir -p "$(dirname "$pass1")"
+printf 'pass1\n' >"$pass1"
+copy_calls=0
+sdk_matrix_copy_out() {
+	copy_calls=$((copy_calls + 1))
+	if [[ "$copy_calls" -ge 2 ]]; then
+		rm -f "$pass1"
+	fi
+}
+pass2_log="$TMP/pass2.log"
+if verify_one 24.10 >"$pass2_log" 2>&1; then
+	bad "verify_one succeeded when pass 2 had no artifact"
+else
+	ok "verify_one fails when pass 2 drops the artifact"
+fi
+if grep -q 'no artifact after pass 2' "$pass2_log"; then
+	ok "verify_one reported missing pass-2 artifact"
+else
+	bad "verify_one did not report missing pass-2 artifact: $(tr '\n' ' ' <"$pass2_log")"
+fi
+
 [ "$fail" = "0" ] || exit 1
 echo "verify-reproducible-target-arch: ok"

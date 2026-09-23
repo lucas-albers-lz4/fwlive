@@ -3,7 +3,9 @@
 #
 #   ./scripts/verify-reproducible-build.sh
 #   ./scripts/verify-reproducible-build.sh --version 24.10
+#   ./scripts/verify-reproducible-build.sh --target armsr-armv8 --version 24.10
 #   SOURCE_DATE_EPOCH=1700000000 ./scripts/verify-reproducible-build.sh
+#   OWRT_VERIFY_TARGET and --target select the SDK target (default x86-64).
 #
 # Requires: Linux x86_64, Docker, prior or implicit feeds setup via docker-sdk.sh build.
 set -euo pipefail
@@ -16,7 +18,7 @@ TARGET="${OWRT_VERIFY_TARGET:-x86-64}"
 VERSIONS=(23.05 24.10 25.12)
 
 usage() {
-	sed -n '1,12p' "$0"
+	sed -n '1,10p' "$0"
 }
 
 while [[ $# -gt 0 ]]; do

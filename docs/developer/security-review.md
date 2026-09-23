@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-22 #494 delta:** `verify-reproducible-build.sh` preserves
+> `artifact_sha`'s exit status (no `read <<< "$(...)"` mask) and rejects an
+> empty hash on both passes, so a missing artifact cannot compare equal and
+> print `OK`. Host coverage drives `verify_one` with empty `out/` and a
+> pass-2 disappearance. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #500 delta:** WAN log baseline remains enable-only. Disable of
 > a pre-existing/foreign log bit is not snapshotted, so uninstall restore
 > will not put that bit back. Package README and the helper comment record
