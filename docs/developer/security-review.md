@@ -6,6 +6,13 @@
 > host tests pin `euro\u20acrule` → `eurorule`, Latin-1 `\u00e9`, and NUL
 > drop. No classifier, ACL, DOM sink, or read/write-scope change.
 
+> **2026-09-22 #500 delta:** WAN log baseline remains enable-only. Disable of
+> a pre-existing/foreign log bit is not snapshotted, so uninstall restore
+> will not put that bit back. Package README and the helper comment record
+> that hole as the product contract. Host coverage asserts disable without a
+> prior enable neither writes a baseline nor restores the foreign bit; no
+> ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #498 delta:** `fwlive-log-filter.sh` now removes its temporary
 > JSON file and exits with the signal status for HUP/INT/QUIT/TERM instead of
 > continuing after a trapped signal. Host coverage interrupts a live
