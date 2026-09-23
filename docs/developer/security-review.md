@@ -6,6 +6,14 @@
 > back a foreign writer's committed UCI. Host coverage pins the JSON and the
 > reload. No ACL, DOM sink, or read/write-scope change.
 
+> **2026-09-22 #503 delta:** WAN-log reload rollback (`restore_wan_zone_log`)
+> now returns non-zero when `uci commit firewall` fails, and reverts its own
+> orphaned staging when the remaining `uci changes` list is only that log
+> option. Callers therefore report failure instead of a false rollback
+> success, and a later toggle is not stuck on `firewall_changes_pending`.
+> Host coverage drives a commit-failure stub and requires the revert. No ACL,
+> DOM sink, or read/write-scope change.
+
 > **2026-09-22 #500 delta:** WAN log baseline remains enable-only. Disable of
 > a pre-existing/foreign log bit is not snapshotted, so uninstall restore
 > will not put that bit back. Package README and the helper comment record
