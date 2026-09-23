@@ -54,7 +54,7 @@ apply_ssh_opts() {
 die() { echo "error: $*" >&2; exit 1; }
 
 usage() {
-	sed -n '1,17p' "$0" | tail -n +2
+	awk 'NR == 1 { next } /^set -euo pipefail$/ { exit } { print }' "$0"
 	exit "${1:-0}"
 }
 
@@ -122,8 +122,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$IPK_PATH" ]] || die "required: --ipk path/to/luci-app-fwlive_*_all.ipk"
-[[ -f "$IPK_PATH" ]] || die "ipk not found: $IPK_PATH"
+# Suffix before existence: a missing .apk (copied from old snapshot docs)
+# must still print the qemu-install pointer, not only "ipk not found".
 [[ "$IPK_PATH" == *.ipk ]] || die "ipk-only helper (23.05/24.10 opkg); for 25.12/snapshot apk use qemu-install-fwlive.sh"
+[[ -f "$IPK_PATH" ]] || die "ipk not found: $IPK_PATH"
 
 apply_legacy_defaults
 apply_ssh_opts
