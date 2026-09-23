@@ -579,7 +579,9 @@ return view.extend({
 
 		const compression = addr.indexOf('::');
 		if (compression !== -1 && addr.indexOf('::', compression + 2) !== -1) return false;
-		if (compression === -1 && (addr[0] === ':' || addr[addr.length - 1] === ':')) return false;
+		/* A stray leading/trailing colon is not part of a single `::`. */
+		if (addr[0] === ':' && addr[1] !== ':') return false;
+		if (addr[addr.length - 1] === ':' && addr[addr.length - 2] !== ':') return false;
 
 		let groups;
 		let embeddedIpv4 = false;

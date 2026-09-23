@@ -66,7 +66,11 @@ async function testLikelyIpShape() {
 		['2001:::1', false],
 		['2001::db8::1', false],
 		[':1:2:3:4:5:6:7:8', false],
-		['1:2:3:4:5:6:7:8:', false]
+		['1:2:3:4:5:6:7:8:', false],
+		[':1::2', false],
+		['1::2:', false],
+		['::1:', false],
+		[':ffff::192.0.2.1', false]
 	];
 
 	for (let i = 0; i < cases.length; i++)
