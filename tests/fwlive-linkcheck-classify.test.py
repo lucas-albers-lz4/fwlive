@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 '..', 'scripts', 'lib'))
-from linkcheck_classify import classify_code
+from linkcheck_classify import classify_code, classify_retry
 
 
 def test_000_warns():
@@ -34,6 +34,16 @@ def test_301_ok():
 
 def test_404_fails():
     assert classify_code('404') == 'fail'
+
+
+def test_000_then_404_fails():
+    # First probe 000 (DNS/TLS/timeout), retry 404: real miss must fail.
+    assert classify_retry('000', '404') == 'fail'
+
+
+def test_000_then_000_warns():
+    # Network 000 on both attempts stays a warning, not a failure.
+    assert classify_retry('000', '000') == 'warn'
 
 
 def test_403_warns():

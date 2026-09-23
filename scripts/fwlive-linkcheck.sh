@@ -75,7 +75,7 @@ python3 - <<'PYEOF'
 import os, re, subprocess, sys
 
 sys.path.insert(0, os.path.join(os.getcwd(), 'scripts', 'lib'))
-from linkcheck_classify import classify_code
+from linkcheck_classify import classify_code, classify_retry
 
 files = subprocess.check_output(
     ['git', 'ls-files', '*.md'], text=True
@@ -113,17 +113,22 @@ for u in sorted(urls):
         if verdict == 'warn':
             if code == '000':
                 # Network-level failure (DNS/TLS/conn-refused/timeout) —
-                # not a problem with the link itself. Retry once, then
-                # warn with the retry's verdict.
+                # retry once, then classify the retry on its own merits
+                # (404 = fail; second 000 = warn).
                 try:
                     r2 = subprocess.run(
                         ['curl', '-sL', '-o', '/dev/null', '-w', '%{http_code}',
                          '-A', 'Mozilla/5.0 (X11; Linux x86_64)', '--max-time', '15', u],
                         capture_output=True, text=True, timeout=20)
                     code2 = r2.stdout.strip()
-                    if classify_code(code2) == 'ok':
+                    verdict2 = classify_retry(code, code2)
+                    recorded = code2 if code2 else '000'
+                    if verdict2 == 'ok':
                         continue
-                    warns.append((u, code2 if code2 else '000'))
+                    if verdict2 == 'fail':
+                        fails.append((u, recorded))
+                    else:
+                        warns.append((u, recorded))
                 except Exception:
                     warns.append((u, '000 (retry also failed)'))
             else:
