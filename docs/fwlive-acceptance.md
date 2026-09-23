@@ -12,7 +12,7 @@ Run the checks again after changes — see [Build & test](developer/build-and-te
 
 ## Supported versions and targets
 
-`luci-app-fwlive` builds as **`_all`** (no per-SoC binaries). The app is **not hardware-specific** — LuCI JS, `ubus log.read`, and the ash `rpcd` plugin are portable. **Testing on one ARM target (e.g. armsr/armv8) is sufficient for other ARM boards** on the same OpenWrt version; differences show up by **release** (23.05 vs 24.10), not by CPU model.
+`luci-app-fwlive` builds as **`_all`** (no per-SoC binaries). The app is **not hardware-specific** — LuCI JS, the ash `rpcd` plugin, and **`ubus fwlive.poll`** are portable. The browser calls `fwlive.poll`; rpcd invokes `log.read` internally. LuCI sessions do **not** call `ubus log.read` directly. **Testing on one ARM target (e.g. armsr/armv8) is sufficient for other ARM boards** on the same OpenWrt version; differences show up by **release** (23.05 vs 24.10), not by CPU model.
 
 | OpenWrt | SDK build | Lab target | End-to-end sign-off |
 | ------- | --------- | ---------- | ------------------- |
@@ -47,9 +47,9 @@ Build: see [SDK build matrix](sdk-build-matrix.md) for the full command referenc
 - **Filter operators:** prefix `!` for is-not / not-contains; action dropdown includes **not pass**, **not drop**, etc. (stage 5.6).
 - **Flood banner** appears under high ingest rate only (token bucket charges new events per poll, not full row count).
 - **Simple view** (default): Action, Time (compact), Interface, Flow, Proto, Rule; no horizontal scroll on typical laptop widths.
-- **Detailed view**: 14-column table including Message, Flags, Len, Dir (via **Show Detail** toggle).
+- **Detailed view**: 14-column table including Message, Flags, Len, Dir (via the **Detail** view control).
 - **Detail toggle** persists in `localStorage` after user toggles; `view=detailed` in URL hash restores Detailed mode.
-- **Zero-configuration**: first visit shows live table with auto-refresh; empty state and **Help** are on-router (no build-host doc paths).
+- **Zero-configuration**: first visit shows live table with polling (~1/s); empty state and **Help** are on-router (no build-host doc paths).
 - **Simple row expand**: click row shows full netfilter message; second click collapses; filter links do not toggle expand.
 
 ---
@@ -112,7 +112,7 @@ ssh -p 2222 root@127.0.0.1 'ping 127.0.0.1'   # 1 pkt/s baseline
 | Src **!127.0.0.1** excludes loopback pings | ✓ |
 | Limit 250 + 1 pkt/s: **no** flood banner | ✓ |
 | `ping -A 127.0.0.1`: flood banner appears, UI stays responsive | ✓ |
-| Uncheck auto-refresh: ingest count rises ~1/s | ✓ |
+| Click **Pause**: ingest count rises ~1/s | ✓ |
 | Headless smoke (`qemu-smoke-fwlive.sh`) on 23.05.5 x86 | ✓ |
 | armsr 24.10.8 LuCI page loads in browser | ✓ |
 

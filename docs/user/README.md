@@ -7,7 +7,7 @@ Documentation for **installing and using** `luci-app-fwlive` on an OpenWrt route
 | [Overview](overview.md) | What the package does and when to use it |
 | [Requirements](requirements.md) | Supported OpenWrt versions and dependencies |
 | [Installation](installation.md) | Binary feed (recommended), or other methods |
-| [Using the UI](using-the-ui.md) | First visit, Simple & Detailed views, Show Detail, Help |
+| [Using the UI](using-the-ui.md) | First visit, Simple & Detailed views, Simple/Detail control, Help |
 | [Enabling firewall logs](enabling-firewall-logs.md) | Quick start after install, zone/rule logging, log more traffic |
 
 **Menu path after install:** **Status → Firewall Live View**  
@@ -23,7 +23,7 @@ Live View shows **whatever OpenWrt is logging**. Stock configurations log almost
 |---------------------------|--------------|
 | ![Empty — logging off](assets/fwlive-empty-logging-off.png) | ![After Enable](assets/fwlive-after-enable.png) |
 
-| Simple (default) | Detailed (Show Detail) |
+| Simple (default) | Detailed (Detail) |
 |------------------|------------------------|
 | ![Simple view](assets/fwlive-simple-view.png) | ![Detailed view](assets/fwlive-main-view.png) |
 
