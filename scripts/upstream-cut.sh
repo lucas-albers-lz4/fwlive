@@ -126,7 +126,8 @@ log_js="$OUT/htdocs/luci-static/resources/fwlive/log.js"
 if [ -f "$log_js" ]; then
 	sed -i \
 		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC.|' \
-		-e '/gen-luci-wrapper\.js gates full-spec drift/d' \
+		-e '/gen-luci-wrapper\.js gates full-spec/d' \
+		-e 's|spec-derived classification regexes (mirror core/fwlive-log\.js)|spec-derived classification regexes|' \
 		"$log_js"
 fi
 
