@@ -8,6 +8,12 @@
 > alphabetical `ls -1` would not pick. No ACL, DOM sink, or read/write-scope
 > change.
 
+> **2026-09-22 #507 delta:** the JSON summary decoder keeps the BusyBox-awk
+> Latin-1 `%c` path for `\uXXXX` in 1..255 and collapses code points outside
+> that range (no UTF-8 materialization). The generator documents this limit;
+> host tests pin `euro\u20acrule` → `eurorule`, Latin-1 `\u00e9`, and NUL
+> drop. No classifier, ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #543 delta:** `resolve` skips non-string `addresses` elements
 > instead of ending enumeration, so later valid IPs still resolve. Skipped
 > types do not set `truncated` (`truncated` remains `RESOLVE_MAX` /

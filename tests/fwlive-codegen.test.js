@@ -4,6 +4,7 @@
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -39,5 +40,47 @@ assert.strictEqual(out2.stdout, fs.readFileSync(LUCI_DST, 'utf8'),
 	'fwlive/log.js failed gen-luci-wrapper checks');
 assert.ok(out2.stdout.indexOf('.includes(') < 0 && out2.stdout.indexOf('Object.values') < 0,
 	'generated LuCI wrapper must not use Array.includes or Object.values');
+
+const luciSrc = fs.readFileSync(LUCI_DST, 'utf8');
+const luciTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-luci-gate-'));
+try {
+	const stalePrefixSrc = luciSrc.replace(
+		/const NON_FIREWALL_PREFIX = new RegExp\([\s\S]*?\);/,
+		'const NON_FIREWALL_PREFIX = /^(staledaemon)/i;'
+	);
+	const stalePrefixPath = path.join(luciTmp, 'stale-prefix.js');
+	fs.writeFileSync(stalePrefixPath, stalePrefixSrc);
+	const stalePrefix = spawnSync(process.execPath, [GEN_LUCI, stalePrefixPath], { encoding: 'utf8' });
+	assert.notEqual(stalePrefix.status, 0,
+		'stale NON_FIREWALL_PREFIX should fail gen-luci-wrapper regex gate');
+	assert.match(stalePrefix.stderr + stalePrefix.stdout,
+		/NON_FIREWALL_PREFIX regex source drifted from CLASSIFY_SPEC/);
+
+	const staleGlueSrc = luciSrc.replace(
+		/const NETFILTER_KV_GLUE = new RegExp\([\s\S]*?\);/,
+		'const NETFILTER_KV_GLUE = /([^\\s])(?=(STALE)=)/g;'
+	);
+	const staleGluePath = path.join(luciTmp, 'stale-glue.js');
+	fs.writeFileSync(staleGluePath, staleGlueSrc);
+	const staleGlue = spawnSync(process.execPath, [GEN_LUCI, staleGluePath], { encoding: 'utf8' });
+	assert.notEqual(staleGlue.status, 0,
+		'stale NETFILTER_KV_GLUE should fail gen-luci-wrapper regex gate');
+	assert.match(staleGlue.stderr + staleGlue.stdout,
+		/NETFILTER_KV_GLUE regex source drifted from CLASSIFY_SPEC/);
+
+	const mutatedSpecSrc = luciSrc.replace(
+		"'wpad'",
+		"'wpad', 'staledaemon'"
+	);
+	const mutatedSpecPath = path.join(luciTmp, 'mutated-spec.js');
+	fs.writeFileSync(mutatedSpecPath, mutatedSpecSrc);
+	const mutatedSpec = spawnSync(process.execPath, [GEN_LUCI, mutatedSpecPath], { encoding: 'utf8' });
+	assert.notEqual(mutatedSpec.status, 0,
+		'CLASSIFY_SPEC mutation without core sync should fail gen-luci-wrapper gate');
+	assert.match(mutatedSpec.stderr + mutatedSpec.stdout,
+		/CLASSIFY_SPEC drifted from core/);
+} finally {
+	fs.rmSync(luciTmp, { recursive: true, force: true });
+}
 
 console.log('fwlive codegen freshness + syntax OK');
