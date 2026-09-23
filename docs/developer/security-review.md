@@ -6,6 +6,14 @@
 > host tests pin `euro\u20acrule` → `eurorule`, Latin-1 `\u00e9`, and NUL
 > drop. No classifier, ACL, DOM sink, or read/write-scope change.
 
+> **2026-09-22 #543 delta:** `resolve` skips non-string `addresses` elements
+> instead of ending enumeration, so later valid IPs still resolve. Skipped
+> types do not set `truncated` (`truncated` remains `RESOLVE_MAX` /
+> `RESOLVE_BUDGET` only). Host coverage:
+> `tests/fwlive-rpcd-security.test.js` and
+> `tests/fwlive-jshn-compat.test.py`; no ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #500 delta:** WAN log baseline remains enable-only. Disable of
 > a pre-existing/foreign log bit is not snapshotted, so uninstall restore
 > will not put that bit back. Package README and the helper comment record
