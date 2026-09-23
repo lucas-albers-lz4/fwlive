@@ -7,6 +7,21 @@
 - **Output encoding** — untrusted values must reach the DOM as text nodes, never through an HTML sink; applies to every renderer, including values that look constrained — see [Security model § Invariants](security-model.md#invariants)
 - **No scope creep** — MVP is done; backlog items are in [`../ROADMAP.md`](../ROADMAP.md)
 
+## Tabs (shell + shipped JS)
+
+Use tab characters, not spaces, for indentation in shipped shell under
+`root/usr/libexec/` and shipped JavaScript under `htdocs/`. Prettier enforces
+tabs for JS via [`.prettierrc.json`](../../.prettierrc.json) (`useTabs: true`).
+Verify before commit:
+
+```sh
+npm run lint:format                # shipped JS tabs (Prettier useTabs)
+./scripts/fwlive-shellcheck.sh     # shipped shell lint (ShellCheck; not tab indent)
+```
+
+There is no automated tab gate for shell. Check `root/usr/libexec/` by eye
+(spaces vs tabs) before commit.
+
 ## Change workflow
 
 1. Edit code (`core/` and/or LuCI package)
@@ -76,7 +91,7 @@ to be built against (#137).
 | [security-model.md](security-model.md) | Trust boundaries, output encoding, untrusted inputs, ACL scope, supply-chain surface |
 | [security-review.md](security-review.md) | Review state — surface coverage, proof class per control, open findings, accepted residuals |
 | [test-approach.md](test-approach.md) | Defect-driven test selection, evidence states, fidelity levels, and coverage-review criteria |
-| [contributing.md](contributing.md) | Contributor workflow, parser sync / codegen, package and version rules, documentation conventions (not the agent PR gate — see pr-cycle.md) |
+| [contributing.md](contributing.md) | Contributor workflow, parser sync / codegen, package and version rules, tabs in shell and shipped JS, documentation conventions (not the agent PR gate — see pr-cycle.md) |
 | [build-and-test.md](build-and-test.md) | Commands, what each gate covers, test caveats |
 | [architecture.md](architecture.md) | Module split, data path, design rationale |
 | [pr-cycle.md](pr-cycle.md) | Agent PR sequence: luna/Bugbot → human → file → CodeRabbit → triage → merge |
