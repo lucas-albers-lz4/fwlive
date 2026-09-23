@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-22 #441 delta:** `FWLIVE_JSHN_SH` defaults to
+> `/usr/share/libubox/jshn.sh`; it is a host-test override, not a
+> LuCI/session-controlled env (rpcd worker env is root-owned, not set by
+> unprivileged ubus callers). Named jshn poll-cap failures go to logger,
+> not poll JSON `error`. No ACL/DOM change.
+
 > **2026-09-22 #498 delta:** `fwlive-log-filter.sh` now removes its temporary
 > JSON file and exits with the signal status for HUP/INT/QUIT/TERM instead of
 > continuing after a trapped signal. Host coverage interrupts a live
