@@ -82,12 +82,12 @@ head -1 "${DEST}/opkg-secret.key" | grep -q 'untrusted comment:' \
 	&& ok "no leftover mktemp sibling after rewrite_prefix" \
 	|| bad "leftover mktemp sibling after rewrite_prefix"
 
-if [[ "${FWLIVE_VALIDATE_KEYS_DOCKER:-0}" == "1" ]]; then
-	echo "skip: FWLIVE_VALIDATE_KEYS_DOCKER=1 needs real usign+RSA pair; use CI secrets on publish" >&2
-fi
-
 if [[ "$fail" -ne 0 ]]; then
 	echo "validate-feed-keys-mode: FAILED" >&2
 	exit 1
 fi
+
+# Docker usign/openssl is not run here (placeholder keys). Full sign stays
+# prove-next on publish with CI secrets. Do not print skip: — that banner
+# was counted as ok (#515) and advertised a check this file does not run.
 echo "validate-feed-keys-mode: OK" >&2
