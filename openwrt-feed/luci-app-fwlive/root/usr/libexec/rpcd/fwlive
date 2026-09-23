@@ -378,6 +378,7 @@ poll_clamp_lines() {
 	fi
 }
 
+# Failed jshn reads still default to 50 (silent numeric contract; syslog named cause only).
 poll_lines_from_input() {
 	input="$1"
 	lines=50
@@ -965,7 +966,7 @@ Address: 127.0.0.1:53")
 	got=$(poll_lines_from_input '{"addresses":["100"]}')
 	check_eq poll_lines_from_input "$got" "100" "expected 100 got $got" || return 1
 
-	# #441: jshn failures must log a named cause; stdout stays the numeric default.
+	# jshn failures must log a named cause; stdout stays the numeric default.
 	# logger() override is inherited by the $() subshell; command -v still finds
 	# the binary, so the unqualified logger call is what this intercepts.
 	_poll_log="/tmp/fwlive-poll-cause.$$"
