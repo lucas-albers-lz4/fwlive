@@ -74,7 +74,11 @@ function runMsgParity() {
 		/* #100 — prefix boundary: word-suffix must not match non-firewall daemon glob */
 		{ msg: 'dnsmasqfoo: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP' },
 		{ msg: 'x DST= DROP' },
-		{ msg: 'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP' }
+		{ msg: 'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP' },
+		/* #499 — leading whitespace before daemon prefix must trim like shell */
+		{ msg: '  dnsmasq[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP' },
+		{ msg: ' wpad[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP DROP' },
+		{ msg: ' IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP' }
 	];
 
 	for (const entry of fixture.log.concat(extra)) {

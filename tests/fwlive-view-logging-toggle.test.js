@@ -199,7 +199,7 @@ function testMktempFailedBackendLabel() {
 		'using fw4 \u00b7 Rule labels unavailable — temp file failed',
 		'mktemp_failed must use the specialized temp-file notice'
 	);
-	h.view.lastRulesError = 'nft_failed';
+	h.view.lastRulesError = 'no_backend';
 	h.view.updateBackendUi();
 	assert.equal(
 		String(label.textContent),

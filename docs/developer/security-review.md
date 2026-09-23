@@ -6,11 +6,43 @@
 > coverage includes overflow and one-pass cases. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-22 #492 delta:** `rules` performs one `nft list ruleset` dump
+> for detect and parse. A missing or failed dump is `unknown`/`no_backend`
+> (`nft_failed` is no longer produced). Host coverage asserts a single dump.
+> No ACL, DOM sink, or read/write-scope change.
+
+> **2026-09-22 #491 delta:** poll ubus log-read and the firewall filter each
+> run under `POLL_TIMEOUT` (5s) via `run_with_timeout`. Timeout or a missing
+> `timeout` binary fails closed (`log_read_failed` / `filter_failed`) instead
+> of hanging the rpcd worker. Host coverage uses a hung ubus stub. No ACL,
+> DOM sink, or read/write-scope change.
+
 > **2026-09-22 #441 delta:** `FWLIVE_JSHN_SH` defaults to
 > `/usr/share/libubox/jshn.sh`; it is a host-test override, not a
 > LuCI/session-controlled env (rpcd worker env is root-owned, not set by
 > unprivileged ubus callers). Named jshn poll-cap failures go to logger,
 > not poll JSON `error`. No ACL/DOM change.
+
+> **2026-09-22 #506 delta:** `parse_nslookup_name` treats `name =` as a whole
+> token and rejects the phrase `domain name =` even when `domain` and `name`
+> are separated by repeated whitespace. Host coverage includes
+> `domain  name =` and tab-space variants. No ACL, DOM sink, or
+> read/write-scope change.
+
+> **2026-09-22 #543 delta:** `resolve` skips non-string `addresses` elements
+> instead of ending enumeration, so later valid IPs still resolve. Skipped
+> types do not set `truncated` (`truncated` remains `RESOLVE_MAX` /
+> `RESOLVE_BUDGET` only). Host coverage:
+> `tests/fwlive-rpcd-security.test.js` and
+> `tests/fwlive-jshn-compat.test.py`; no ACL, DOM sink, or
+> read/write-scope change.
+
+> **2026-09-22 #500 delta:** WAN log baseline remains enable-only. Disable of
+> a pre-existing/foreign log bit is not snapshotted, so uninstall restore
+> will not put that bit back. Package README and the helper comment record
+> that hole as the product contract. Host coverage asserts disable without a
+> prior enable neither writes a baseline nor restores the foreign bit; no
+> ACL, DOM sink, or read/write-scope change.
 
 > **2026-09-22 #498 delta:** `fwlive-log-filter.sh` now removes its temporary
 > JSON file and exits with the signal status for HUP/INT/QUIT/TERM instead of
