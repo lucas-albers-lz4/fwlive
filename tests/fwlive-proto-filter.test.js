@@ -6,8 +6,25 @@
  */
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { loadFwliveModule, luciE } = require('./lib/load-fwlive-module');
 const { collectInnerHTMLWrites } = luciE;
+
+const VIEW_SRC = fs.readFileSync(
+	path.join(
+		__dirname,
+		'..',
+		'openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js'
+	),
+	'utf8'
+);
+assert.match(VIEW_SRC, /'id': 'fwlive-proto'/, 'view markup must create #fwlive-proto');
+assert.match(
+	VIEW_SRC,
+	/'id': 'fwlive-proto-custom'/,
+	'view markup must create #fwlive-proto-custom'
+);
 
 const MENU = [ '', 'TCP', 'UDP', 'ICMP', 'ICMPV6', 'IGMP', 'GRE', 'ESP', 'AH', 'SCTP',
 	'!TCP', '!UDP', '!ICMP', '!ICMPV6', '!IGMP', '!GRE', '!ESP', '!AH', '!SCTP' ];
