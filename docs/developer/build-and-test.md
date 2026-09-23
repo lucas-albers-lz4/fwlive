@@ -9,7 +9,7 @@
 ./scripts/docker-sdk.sh build-all          # all version × target cells
 ```
 
-Artifacts: `out/<arch>/<version>/fwlive/luci-app-fwlive*.{ipk,apk}`
+Artifacts: `out/<arch>/<patch>/fwlive/luci-app-fwlive*.{ipk,apk}` (e.g. `out/x86_64/24.10.8/fwlive/…`; `--version 24.10` → `24.10.8`)
 
 Matrix reference: [`../sdk-build-matrix.md`](../sdk-build-matrix.md)  
 Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)
@@ -107,8 +107,9 @@ Install `busybox`, `cmake`, a C compiler and `libjson-c-dev`, then run
 `./scripts/install-host-jshn.sh --all` before `./scripts/fwlive-test.sh`.
 The installer uses matched libubox binaries and shell libraries in
 `~/.cache/fwlive-jshn` (`FWLIVE_JSHN_PREFIX` overrides this directory).
-No system library is replaced. All five release pairs are mandatory in the
-compatibility gate, even when their shell libraries have identical contents.
+No system library is replaced. All three pinned release pairs (23.05, 24.10,
+25.12 in `scripts/jshn-pins.txt`) are mandatory in the compatibility gate,
+even when their shell libraries have identical contents.
 `bash tests/install-host-jshn.test.sh` checks repeat installs and pin mismatch
 handling. Ordinary dash tests remain separate from these BusyBox ash tests.
 `tests/fwlive-rpcd-security.test.js` runs the rpcd selftest with the matched

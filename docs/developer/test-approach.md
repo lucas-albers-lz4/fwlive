@@ -351,7 +351,7 @@ record.
 
 Evidence snapshot for the follow-up branch used while refining #370
 (`17b9c5de774c`): `./scripts/fwlive-test.sh` passed, `npm run test:view`
-passed, and the five-release `fwlive-jshn-compat` checks passed. The rpcd
+passed, and the three-release `fwlive-jshn-compat` checks passed. The rpcd
 self-test also reported its expected `jshn not available` skip, so that branch
 is not counted as executed there; the separate compatibility gate is the
 evidence for real-jshn semantics. This is the evidence distinction the review

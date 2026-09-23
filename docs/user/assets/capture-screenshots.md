@@ -49,7 +49,7 @@ Writes:
 
 ## Manual capture
 
-Use the same lab URL. Capture empty/consent **before** Enable. After Enable, capture the notice strip. Then add traffic (`./scripts/fwlive-nft-ping-log.sh add --ssh` and ping) for the remaining shots. Click **Show Detail** for `fwlive-main-view.png`. In Simple view, click a row (not a filter link) to expand the message for `fwlive-expanded-message.png`.
+Use the same lab URL. Capture empty/consent **before** Enable. After Enable, capture the notice strip. Then add traffic (`./scripts/fwlive-nft-ping-log.sh add --ssh` and ping) for the remaining shots. Select **Detail** in the View control for `fwlive-main-view.png`. In Simple view, click a row (not a filter link) to expand the message for `fwlive-expanded-message.png`.
 
 After installing or changing `menu.d`, clear the guest cache if the page 404s:
 

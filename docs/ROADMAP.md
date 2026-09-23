@@ -29,7 +29,7 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 | **MVP** | **Done** | Real nft logs on QEMU; stages 1–5 core, 4b, 3.4b; acceptance signed off |
 | **Infra** | **Done** | QEMU x86 lab, `qemu-install-fwlive.sh`, nft ping helper |
 | **Stage 4** | **Done (core)** | Pause/resume + buffer status; message layout toggle |
-| **Stage 4b** | **Done** | Auto-refresh checkbox + row limit dropdown |
+| **Stage 4b** | **Done** | Pause/Resume + row limit dropdown |
 | **Stage 5** | **Done (core)** | Click-to-filter, chips, pass inference |
 | **Stage 3** Rule attribution | **Done (core)** | rule_hint, Rule column, deep link |
 | **Stage 6** | **Done** | **Show hostnames** checkbox (default off) — `ubus fwlive resolve` |
@@ -70,11 +70,11 @@ Deferred within stage 5: saved filter templates.
 
 ## Stage 4b — stream controls (OPNsense parity, planned)
 
-Evaluated and implemented: stream controls (auto-refresh, limit) — see [user guide](user/using-the-ui.md#shared-controls).
+Evaluated and implemented: stream controls (Pause/Resume, limit) — see [user guide](user/using-the-ui.md#shared-controls).
 
 | Step | Deliverable | Status |
 | ---- | ----------- | ------ |
-| **4b.1** | Auto-refresh checkbox ↔ `paused` | **done** |
+| **4b.1** | Pause/Resume ↔ `paused` | **done** |
 | **4b.2** | Limit dropdown (25…2000) → `maxHistory` / `visibleRows` | **done** |
 | **4b.3** | `localStorage` persistence; default **100** | **done** |
 | **4b.4** | Status line shows `shown/limit` while paused/live | **done** |

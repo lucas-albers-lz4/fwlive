@@ -113,7 +113,7 @@ On **Linux x86_64**:
 ./scripts/docker-sdk.sh build --target x86-64 --version 24.10
 ```
 
-Packages land under `out/<arch>/<version>/fwlive/`. Deploy with `scp` + `opkg`/`apk` as in section 1.
+Packages land under `out/<arch>/<patch>/fwlive/` (e.g. `out/aarch64_generic/24.10.8/fwlive/`; `--version 24.10` resolves to `24.10.8` via `sdk_matrix_version_label`). Deploy with `scp` + `opkg`/`apk` as in [section 2](#2-github-release-manual-download).
 
 For a full QEMU lab loop (build → boot → install), see [Developer: QEMU lab](../developer/qemu-lab.md).
 

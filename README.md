@@ -12,7 +12,7 @@ LuCI **Firewall Live View**: a live, filterable table of firewall **LOG** events
 - Polls firewall log lines about **once per second** — no page reload
 - Shows **pass** / **drop** (and related actions) with clear styling
 - **Simple view** (default) — compact table; click a row to expand the raw log message
-- **Show Detail** — one-button toggle to the full 14-column Detailed view
+- **Simple / Detail** — segmented View control; Detail shows the full 14-column table
 - **Filter** by action, interface, protocol, addresses, ports; quick search across fields
 - **Click-to-filter** and **URL hash** state for shareable troubleshooting views
 - Resolves **rule names** from fw4/nft rule metadata and UCI firewall rule names where possible; iptables-tagged logs still classify
@@ -97,14 +97,17 @@ More detail: [binary feed](docs/binary-feed.md) · [supported releases](docs/sup
 | **23.05.x** / **24.10.x** | `luci-app-fwlive_*_all.ipk` | `opkg install /tmp/luci-app-fwlive_*.ipk` |
 | **25.12+** | `luci-app-fwlive-*.apk` | `apk add --allow-untrusted /tmp/luci-app-fwlive-*.apk` |
 
-**Build from feed** (firmware/SDK builders):
+**Build from feed** (from your OpenWrt checkout or SDK tree — not the fwlive monorepo alone):
 
 ```sh
 git clone https://github.com/lucas-albers-lz4/fwlive.git
-echo "src-link fwlive $(pwd)/fwlive/openwrt-feed" >> feeds.conf
+# In feeds.conf inside your OpenWrt/SDK checkout:
+echo "src-link fwlive /absolute/path/to/fwlive/openwrt-feed" >> feeds.conf
 ./scripts/feeds update fwlive
 ./scripts/feeds install luci-app-fwlive
 ```
+
+See [Installation → Feed via src-link](docs/user/installation.md#3-feed-via-src-link-builders).
 
 </details>
 
