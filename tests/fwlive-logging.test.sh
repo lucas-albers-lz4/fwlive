@@ -8,6 +8,11 @@ RPCD="$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive"
 
 die() { echo "fwlive-logging test FAIL: $*" >&2; exit 1; }
 ok() { echo "fwlive-logging test OK: $*"; }
+skips=0
+skip() {
+	echo "SKIP: $*" >&2
+	skips=$((skips + 1))
+}
 
 . "$LOGGING_SH"
 
@@ -1268,7 +1273,7 @@ if [ "$(id -u)" -ne 0 ]; then
 	rm -rf "$READONLY_WORK"
 	ok "read-only baseline directory fails closed"
 else
-	ok "read-only baseline directory skipped under root"
+	skip "read-only baseline directory under root"
 fi
 
 rm -rf "$BASELINE_WORK"
@@ -1465,7 +1470,7 @@ if command -v timeout >/dev/null 2>&1; then
 	unset -f uci check_nf_log_ipv4 check_nf_log_ipv6
 	ok "timeout present omits timeout_missing from warnings"
 else
-	ok "timeout present case skipped (no timeout on test host)"
+	skip "timeout present case (no timeout on test host)"
 fi
 
 # Gap 3: run_with_timeout contract, tested against the shipped text.
@@ -1484,7 +1489,7 @@ if command -v timeout >/dev/null 2>&1; then
 	[ "$_rc" -ne 0 ] && [ "$_rc" -ne 127 ] || die "run_with_timeout must time out (non-zero, not 127), got: $_rc"
 	ok "run_with_timeout times out without running unbounded"
 else
-	ok "run_with_timeout exec/timeout skipped (no timeout on test host)"
+	skip "run_with_timeout exec/timeout (no timeout on test host)"
 fi
 # command is a shell keyword, so command command reaches the real builtin.
 command() {
@@ -1505,4 +1510,7 @@ ok "run_with_timeout returns 127 without timeout (fail-closed)"
 # tests/fwlive-rpcd-security.test.js — do not re-add a bare sh "$RPCD"
 # __selftest here; that treats skip: as success (#536).
 
+if [ "$skips" -gt 0 ]; then
+	echo "SUMMARY: fwlive-logging tests passed; $skips SKIPPED" >&2
+fi
 echo "fwlive-logging tests passed"
