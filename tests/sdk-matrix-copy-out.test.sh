@@ -16,7 +16,13 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 sdk_matrix_root() { printf '%s' "$TMP"; }
-sdk_matrix_cache_dirs() { return 0; }
+sdk_matrix_cache_dirs() {
+	# Real cache_dirs sets these; the compose env expansion needs them under set -u.
+	SDK_MATRIX_DL_CACHE="${TMP}/.ci-sdk-cache/dl"
+	SDK_MATRIX_FEEDS_CACHE="${TMP}/.ci-sdk-cache/feeds"
+	return 0
+}
+# Default: copy is a no-op (compose never plants an artifact).
 docker() { return 0; }
 
 sdk_matrix_resolve x86-64 24.10
@@ -41,27 +47,57 @@ else
 	ok "decoy-only dest: copy_out returns non-zero"
 fi
 
+# Stale matching IPK from an earlier build must not satisfy the post-copy check
+# when this invocation copies nothing.
 : >"${dest}/fwlive/luci-app-fwlive_0.1.0_all.ipk"
-if sdk_matrix_copy_out >/dev/null 2>&1; then
-	ok "matching ipk: copy_out succeeds"
+err="$TMP/stale.err"
+if sdk_matrix_copy_out >"$TMP/stale.out" 2>"$err"; then
+	bad "stale matching ipk must not make sdk_matrix_copy_out succeed"
 else
-	bad "matching ipk must make sdk_matrix_copy_out succeed"
+	ok "stale matching ipk with no-op copy: copy_out returns non-zero"
+fi
+if [[ -e "${dest}/fwlive/luci-app-fwlive_0.1.0_all.ipk" ]]; then
+	bad "stale matching ipk must be removed before copy"
+else
+	ok "stale matching ipk: cleared before copy"
+fi
+grep -q 'no luci-app-fwlive package artifact' "$err" \
+	&& ok "stale matching ipk: clear error message" \
+	|| bad "stale matching ipk: missing artifact error"
+
+docker() {
+	mkdir -p "${dest}/fwlive"
+	: >"${dest}/fwlive/luci-app-fwlive_0.1.0_all.ipk"
+	return 0
+}
+if sdk_matrix_copy_out >/dev/null 2>&1; then
+	ok "matching ipk from this copy: copy_out succeeds"
+else
+	bad "matching ipk planted by copy must make sdk_matrix_copy_out succeed"
 fi
 
 rm -f "${dest}/fwlive/luci-app-fwlive_0.1.0_all.ipk"
-: >"${dest}/luci-app-fwlive-0.1.0-r1.apk"
+docker() {
+	mkdir -p "$dest"
+	: >"${dest}/luci-app-fwlive-0.1.0-r1.apk"
+	return 0
+}
 if sdk_matrix_copy_out >/dev/null 2>&1; then
-	ok "matching apk at dest root: copy_out succeeds"
+	ok "matching apk at dest root from this copy: copy_out succeeds"
 else
-	bad "matching apk at dest root must make sdk_matrix_copy_out succeed"
+	bad "matching apk planted at dest root must make sdk_matrix_copy_out succeed"
 fi
 
 rm -f "${dest}/luci-app-fwlive-0.1.0-r1.apk"
-: >"${dest}/fwlive/luci-app-fwlive_0.1.0-r1.apk"
+docker() {
+	mkdir -p "${dest}/fwlive"
+	: >"${dest}/fwlive/luci-app-fwlive_0.1.0-r1.apk"
+	return 0
+}
 if sdk_matrix_copy_out >/dev/null 2>&1; then
-	ok "matching _*.apk: copy_out succeeds"
+	ok "matching _*.apk from this copy: copy_out succeeds"
 else
-	bad "matching luci-app-fwlive_*.apk must make sdk_matrix_copy_out succeed"
+	bad "matching luci-app-fwlive_*.apk planted by copy must make sdk_matrix_copy_out succeed"
 fi
 
 [ "$fail" = "0" ] || exit 1

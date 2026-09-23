@@ -1,5 +1,13 @@
 # Security review state
 
+> **2026-09-22 #435 delta:** `sdk_matrix_copy_out` now removes matching
+> luci-app-fwlive ipk/apk files from the destination (`$dest/fwlive` and
+> dest-root globs) before copying, then fail-closes if no matching artifact
+> exists after copy. A leftover package from an earlier build cannot satisfy
+> the existence check when this invocation copies nothing. Host coverage
+> plants a stale matching IPK, stubs docker copy as a no-op, and requires
+> copy_out to fail. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #498 delta:** `fwlive-log-filter.sh` now removes its temporary
 > JSON file and exits with the signal status for HUP/INT/QUIT/TERM instead of
 > continuing after a trapped signal. Host coverage interrupts a live
