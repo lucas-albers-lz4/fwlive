@@ -45,6 +45,48 @@ async function testRttKindHelpers() {
 	console.log('fwlive-view layer2: rtt helpers OK');
 }
 
+async function testLikelyIpShape() {
+	const v = loadFwliveView().view;
+	const cases = [
+		['192.0.2.1', true],
+		['2001:0db8:85a3:0000:0000:8a2e:0370:7334', true],
+		['2001:db8::1', true],
+		['::', true],
+		['::ffff:192.0.2.1', true],
+		['cafe', false],
+		['12345', false],
+		['dead', false],
+		[':', false],
+		['...', false],
+		['abc.def', false],
+		['cafe:1', false],
+		['256.0.0.1', false],
+		['1:2:3:4:5:6:7', false],
+		['1:2:3:4:5:6:7:8:9', false],
+		['2001:::1', false],
+		['2001::db8::1', false],
+		[':1:2:3:4:5:6:7:8', false],
+		['1:2:3:4:5:6:7:8:', false],
+		[':1::2', false],
+		['1::2:', false],
+		['::1:', false],
+		[':ffff::192.0.2.1', false]
+	];
+
+	for (let i = 0; i < cases.length; i++)
+		assert.strictEqual(v.isLikelyIp(cases[i][0]), cases[i][1], cases[i][0]);
+
+	assert.deepStrictEqual(
+		v.collectIpsFromEntries([
+			{ src: 'cafe', dst: '192.0.2.1' },
+			{ src: 'cafe:1', dst: '2001:db8::1' },
+			{ src: '256.0.0.1', dst: '::ffff:192.0.2.1' }
+		]),
+		['192.0.2.1', '2001:db8::1', '::ffff:192.0.2.1']
+	);
+	console.log('fwlive-view layer2: likely IP shape OK');
+}
+
 async function testWeakDeviceDisplayCap() {
 	let rejectStatus = false;
 	let status = { weak_device: true, ready: true, blockers: [], warnings: [] };
@@ -1189,6 +1231,7 @@ async function testPausedDisplayControlsPaint() {
 (async function main() {
 	try {
 		await testRttKindHelpers();
+		await testLikelyIpShape();
 		await testWeakDeviceDisplayCap();
 		await testLoggingStatusFailurePreservesToolbar();
 		await testVisibilityStopsPoll();
