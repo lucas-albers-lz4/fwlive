@@ -17,6 +17,8 @@ def main():
     busybox = shutil.which('busybox')
     assert busybox, 'busybox required'
     source = Path(os.environ.get('FWLIVE_RPCD_TEST_SOURCE', RPC)).read_text()
+    assert 'FWLIVE_JSHN_SH' in source, 'library path must be overridable without rewriting production source'
+    assert '/usr/share/libubox/jshn.sh' in source
     for release in RELEASES:
         pair = PREFIX / release
         assert (pair / 'bin/jshn').is_file(), f'Install real jshn: scripts/install-host-jshn.sh --all ({release} missing)'
@@ -26,18 +28,25 @@ def main():
             libexec = work / 'libexec'
             shutil.copytree(RPC.parent.parent, libexec)
             plugin = libexec / 'rpcd/fwlive'
-            text = source.replace('/usr/share/libubox/jshn.sh', str(pair / 'share/jshn.sh'))
             # BusyBox may prefer its timeout applet, whose nslookup applet
             # bypasses PATH stubs. Bind the OS service to host timeout.
-            text = 'timeout() { /usr/bin/timeout "$@"; }\n' + text
+            # BusyBox ash also prefers its logger applet over PATH; intercept
+            # it so poll-cap causes are observable without rewriting jshn.sh.
+            text = (
+                'timeout() { /usr/bin/timeout "$@"; }\n'
+                'logger() { printf "%s\\n" "$*" >> "$LOGGER_LOG"; }\n'
+                + source
+            )
             plugin.write_text(text)
             bindir = work / 'bin'
             bindir.mkdir()
             # Only OS services are stubbed; JSON binary and shell library are real.
             lookup_log = work / 'lookups'
+            logger_log = work / 'logger'
             stubs = {
                 'nslookup': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$LOOKUP_LOG"\nprintf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: 192.0.2.1\\n"\n',
                 'ubus': '#!/bin/sh\nprintf "%s" "$4" > "$POLL_REQUEST"\nexit 1\n',
+                'logger': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$LOGGER_LOG"\n',
             }
             for name, body in stubs.items():
                 path = bindir / name
@@ -45,6 +54,8 @@ def main():
                 path.chmod(0o755)
             env = dict(os.environ, PATH=f'{bindir}:{pair / "bin"}:/usr/bin:/bin',
                        LOOKUP_LOG=str(lookup_log), POLL_REQUEST=str(work / 'poll'),
+                       LOGGER_LOG=str(logger_log),
+                       FWLIVE_JSHN_SH=str(pair / 'share/jshn.sh'),
                        FWLIVE_ADAPTIVE='1',
                        FWLIVE_ADAPTIVE_STATE_FILE=str(work / 'adaptive-state.json'),
                        FWLIVE_ADAPTIVE_OFF_FILE=str(work / 'adaptive-off-absent'))
@@ -103,13 +114,40 @@ def main():
             lookup_log.unlink()
             assert run('resolve', json.dumps({'addresses': ['192.0.2.1\n192.0.2.2']})) == {'names': {}}
             assert not lookup_log.exists(), 'newline must not become two valid addresses'
+            named_causes = ('jshn_missing', 'jshn_lib_missing', 'invalid_input')
             for data, expected in [('not-json{{{', 50), ('{}', 50), ('{"addresses":[]}', 50),
                                    ('{"addresses":["500"]}', 500), ('{"addresses":["0"]}', 50), ('{"addresses":["0005"]}', 5), ('{"addresses":["999999999999999999999"]}', 2000)]:
+                logger_log.write_text('')
                 got = run('poll', data)
                 assert got.get('log') == [] and got.get('error') == 'log_read_failed', (release, data, got)
+                assert got.get('error') not in named_causes, (release, data, got)
                 assert got.get('adaptive') == 1, (release, got)
                 assert got.get('messages_received') == 0, (release, got)
                 assert json.loads((work / 'poll').read_text())['lines'] == expected
+                logged = logger_log.read_text() if logger_log.exists() else ''
+                if data == 'not-json{{{':
+                    assert 'invalid_input' in logged, (release, data, logged)
+                else:
+                    for cause in named_causes:
+                        assert cause not in logged, (release, data, logged)
+            logger_log.write_text('')
+            missing_lib = subprocess.run(
+                [busybox, 'sh', str(plugin), '__poll_lines', '{"addresses":["500"]}'],
+                env=dict(env, FWLIVE_JSHN_SH='/no/such/fwlive-jshn.sh'),
+                capture_output=True, text=True, timeout=15)
+            assert missing_lib.returncode == 0 and missing_lib.stdout.strip() == '50', (
+                release, missing_lib.stdout, missing_lib.stderr)
+            assert 'jshn_lib_missing' in (logger_log.read_text() if logger_log.exists() else ''), (
+                release, logger_log.read_text() if logger_log.exists() else '')
+            logger_log.write_text('')
+            missing_bin = subprocess.run(
+                [busybox, 'sh', str(plugin), '__poll_lines', '{"addresses":["500"]}'],
+                env=dict(env, PATH=f'{bindir}:/usr/bin:/bin'),
+                capture_output=True, text=True, timeout=15)
+            assert missing_bin.returncode == 0 and missing_bin.stdout.strip() == '50', (
+                release, missing_bin.stdout, missing_bin.stderr)
+            assert 'jshn_missing' in (logger_log.read_text() if logger_log.exists() else ''), (
+                release, logger_log.read_text() if logger_log.exists() else '')
             # Source only function definitions; verify functions return before
             # checking flags, so an unrelated abort cannot masquerade as proof.
             definitions = libexec / 'rpcd/definitions'

@@ -57,14 +57,11 @@ function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEAS
 		const libexec = path.join(work, 'libexec');
 		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
 		const plugin = path.join(libexec, 'rpcd', 'fwlive');
-		const source = fs
-			.readFileSync(RPCD, 'utf8')
-			.replaceAll('/usr/share/libubox/jshn.sh', () => shellQuote(jshnSh));
-		fs.writeFileSync(plugin, source, { mode: 0o755 });
 		fs.chmodSync(plugin, 0o755);
 		const env = {
 			...process.env,
 			PATH: `${path.dirname(jshn)}:${process.env.PATH || ''}`,
+			FWLIVE_JSHN_SH: jshnSh,
 		};
 		const resolved = execFileSync(busybox, ['sh', '-c', 'command -v jshn'], {
 			encoding: 'utf8',
@@ -218,14 +215,15 @@ function testUnknownMethod() {
 
 function testRulesNoBackend() {
 	// nft fails, so detection yields unknown. There is no iptables-save
-	// fallback (#378 Phase 2).
+	// fallback (#378 Phase 2). Keep host timeout/mktemp on PATH so the
+	// single dump runs (nft stub exit 1), not a mktemp skip.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-nobe-'));
 	try {
 		makePassthrough(stubDir, 'dirname', '/usr/bin/dirname');
 		makePassthrough(stubDir, 'sed', '/usr/bin/sed');
 		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
 		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
-		const env = { ...process.env, PATH: stubDir };
+		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
 		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
 		const res = JSON.parse(raw);
 		assert.equal(res.backend, 'unknown');
@@ -272,21 +270,53 @@ function testRemovedRulesmapIptablesCli() {
 }
 
 function testRulesNftDumpFailure() {
-	// Stateful nft: the detect probe (first call) succeeds empty so the
-	// backend is nft, then the dump (second call) fails. Catches a dump
-	// failure degrading into a silent empty rules map.
+	// Single dump: nft list ruleset fails. Must surface an error, not a
+	// silent empty map. Failed dump is not nft (unknown/no_backend).
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-nftf-'));
 	try {
 		makeStub(
 			stubDir,
 			'nft',
 			`#!/bin/sh
-state="${stubDir}/nft.calls"
-n="$(/bin/cat "$state" 2>/dev/null || echo 0)"
-echo $((n + 1)) >"$state"
+printf '%s\\n' "nft $*" >> "${stubDir}/nft.log"
+exit 1
+`
+		);
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
+		const res = JSON.parse(raw);
+		assert.equal(res.backend, 'unknown');
+		assertStructuredError(res, 'rules/no_backend');
+		assert.equal(res.error, 'no_backend');
+		assert.deepEqual(
+			fs.readFileSync(path.join(stubDir, 'nft.log'), 'utf8').trim().split('\n'),
+			['nft list ruleset'],
+			'failed rules dump must invoke nft list ruleset once'
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testRulesNftListRulesetOnce() {
+	// #492: detect used to dump to /dev/null, then enrich dumped again.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-492-nft-once-'));
+	try {
+		makeStub(
+			stubDir,
+			'nft',
+			`#!/bin/sh
+printf '%s\\n' "nft $*" >> "${stubDir}/nft.log"
 if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
-	if [ "$n" -eq 0 ]; then exit 0; fi
-	exit 1
+	cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "once-prefix" comment "!fw4: Once-Rule"
+	}
+}
+EOF
+	exit 0
 fi
 exit 1
 `
@@ -296,8 +326,89 @@ exit 1
 		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
 		const res = JSON.parse(raw);
 		assert.equal(res.backend, 'nft');
-		assertStructuredError(res, 'rules/nft_failed');
-		assert.equal(res.error, 'nft_failed');
+		assert.equal(res.rules['once-prefix'], 'Once-Rule');
+		assert.equal(res.error, undefined);
+		assert.deepEqual(
+			fs.readFileSync(path.join(stubDir, 'nft.log'), 'utf8').trim().split('\n'),
+			['nft list ruleset'],
+			'one rules call must invoke nft list ruleset once, not twice'
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testRulesNftParseNoPerLineSed() {
+	// #504: map_from_nft_stream must not fork echo|sed per dump line.
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const start = src.indexOf('map_from_nft_stream()');
+	const end = src.indexOf('\nnft_list_ruleset()', start);
+	assert.ok(start >= 0 && end > start, 'map_from_nft_stream must precede nft_list_ruleset');
+	const body = src.slice(start, end);
+	assert.doesNotMatch(
+		body,
+		/echo\s+"\$line"\s+\|\s+sed/,
+		'map_from_nft_stream must not fork echo|sed per line'
+	);
+	assert.match(src, /nft_dump_fields\(\)/, 'one awk pass must live in nft_dump_fields');
+}
+
+function testRulesOverflowStopsWithoutSecondDumpPass() {
+	// #504: overflow sets rules_truncated from one dump; sed must not scale
+	// with dump lines (old path: 2 seds x lines x 2 passes).
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-504-overflow-'));
+	const dumpLines = 600;
+	const rules = [];
+	for (let i = 0; i < dumpLines; i++)
+		rules.push(`\t\tlog prefix "pfx-${i}"`);
+	try {
+		makeStub(
+			stubDir,
+			'nft',
+			`#!/bin/sh
+printf '%s\\n' "nft $*" >> "${stubDir}/nft.log"
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+${rules.join('\n')}
+	}
+}
+EOF
+	exit 0
+fi
+exit 1
+`
+		);
+		makeStub(
+			stubDir,
+			'sed',
+			`#!/bin/sh
+echo sed >> "${stubDir}/sed.log"
+exec /usr/bin/sed "$@"
+`
+		);
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
+		const res = JSON.parse(raw);
+		assert.equal(res.backend, 'nft');
+		assert.equal(res.error, 'rules_truncated');
+		const keys = Object.keys(res.rules || {});
+		assert.ok(keys.length <= 512, `keys ${keys.length} must be <= 512`);
+		assert.deepEqual(
+			fs.readFileSync(path.join(stubDir, 'nft.log'), 'utf8').trim().split('\n'),
+			['nft list ruleset'],
+			'overflow must not dump nft ruleset a second time'
+		);
+		const sedLog = fs.existsSync(path.join(stubDir, 'sed.log'))
+			? fs.readFileSync(path.join(stubDir, 'sed.log'), 'utf8')
+			: '';
+		const sedCalls = sedLog.split('\n').filter(Boolean).length;
+		assert.ok(
+			sedCalls < dumpLines,
+			`one rules call must not invoke sed per dump line (got ${sedCalls} for ${dumpLines} lines)`
+		);
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 	}
@@ -372,6 +483,56 @@ function testPollUbusFailure() {
 			res.messages_received,
 			0,
 			'failed log.read must keep the messages_received fallback at 0'
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testPollHungUbusReturnsWithinBudget() {
+	// #491: a wedged log.read must not hold the poll worker for the ubus CLI
+	// default (~30s). POLL_TIMEOUT + run_with_timeout fail as log_read_failed
+	// so adaptive still skips the cold sample.
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const match = src.match(/^POLL_TIMEOUT=([1-9][0-9]*)$/m);
+	assert.ok(match, 'POLL_TIMEOUT must be an integer timeout in seconds');
+	const pollTimeout = Number(match[1]);
+	assert.ok(
+		pollTimeout >= 5 && pollTimeout <= 10,
+		`POLL_TIMEOUT must be 5-10s, got ${pollTimeout}`
+	);
+	assert.match(
+		src,
+		/run_with_timeout "\$POLL_TIMEOUT" ubus call log read/,
+		'poll log.read must run under run_with_timeout POLL_TIMEOUT'
+	);
+
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-491-hung-ubus-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-491-hung-adapt-'));
+	try {
+		makeStub(stubDir, 'ubus', '#!/bin/sh\nexec /bin/sleep 30\n');
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'state.json'),
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+		const started = Date.now();
+		const raw = runCall(['call', 'poll', '{"addresses":["50"]}'], {
+			encoding: 'utf8',
+			env,
+			timeout: (pollTimeout + 8) * 1000
+		});
+		const elapsedMs = Date.now() - started;
+		const res = JSON.parse(raw);
+		assert.ok(Array.isArray(res.log), 'hung log.read must keep the log shape');
+		assertStructuredError(res, 'poll/hung-ubus');
+		assert.equal(res.error, 'log_read_failed');
+		assert.ok(
+			elapsedMs < (pollTimeout + 2) * 1000,
+			`poll must return within POLL_TIMEOUT=${pollTimeout}s (+2s slack), took ${elapsedMs}ms`
 		);
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
@@ -639,11 +800,81 @@ function testResolveJshnMissing() {
 	}
 }
 
+function testPollLinesJshnCauses() {
+	// #441: poll cap stays a clamped integer; named jshn failures go to logger,
+	// never poll JSON "error". Library path is FWLIVE_JSHN_SH, not a source rewrite.
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const pair = path.join(prefix, release);
+	const jshn = path.join(pair, 'bin', 'jshn');
+	const jshnSh = path.join(pair, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
+	assert.match(
+		fs.readFileSync(RPCD, 'utf8'),
+		/\$\{FWLIVE_JSHN_SH:-\/usr\/share\/libubox\/jshn\.sh\}/,
+		'production source must keep an overridable jshn library path'
+	);
+
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-441-poll-lines-'));
+	try {
+		const libexec = path.join(work, 'libexec');
+		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+		const plugin = path.join(libexec, 'rpcd', 'fwlive');
+		const loggerLog = path.join(work, 'logger.log');
+		const source =
+			`logger() { printf '%s\\n' "$*" >> ${shellQuote(loggerLog)}; }\n` +
+			fs.readFileSync(RPCD, 'utf8');
+		fs.writeFileSync(plugin, source, { mode: 0o755 });
+		fs.chmodSync(plugin, 0o755);
+		const stubDir = path.join(work, 'stubs');
+		fs.mkdirSync(stubDir);
+
+		function pollLines(input, extraEnv) {
+			fs.writeFileSync(loggerLog, '');
+			const env = {
+				...process.env,
+				PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+				FWLIVE_JSHN_SH: jshnSh,
+				...extraEnv
+			};
+			const stdout = execFileSync('busybox', ['sh', '-eu', plugin, '__poll_lines', input], {
+				encoding: 'utf8',
+				env
+			}).trim();
+			const log = fs.existsSync(loggerLog) ? fs.readFileSync(loggerLog, 'utf8') : '';
+			return { stdout, log };
+		}
+
+		let got = pollLines('{"addresses":["500"]}');
+		assert.equal(got.stdout, '500', 'hostname/library override must parse without rewriting source');
+		assert.doesNotMatch(got.log, /jshn_missing|jshn_lib_missing|invalid_input/);
+
+		got = pollLines('{}');
+		assert.equal(got.stdout, '50');
+		assert.doesNotMatch(got.log, /jshn_missing|jshn_lib_missing|invalid_input/);
+
+		got = pollLines('not-json{{{');
+		assert.equal(got.stdout, '50');
+		assert.match(got.log, /invalid_input/, 'parse failure must be observable, not a silent 50');
+
+		got = pollLines('{"addresses":["500"]}', { FWLIVE_JSHN_SH: '/no/such/fwlive-jshn.sh' });
+		assert.equal(got.stdout, '50');
+		assert.match(got.log, /jshn_lib_missing/);
+
+		got = pollLines('{"addresses":["500"]}', { PATH: `${stubDir}:/usr/bin:/bin` });
+		assert.equal(got.stdout, '50');
+		assert.match(got.log, /jshn_missing/);
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function testResolveSkipsNonStringAddresses() {
 	// Mixed JSON types must not stop address enumeration: a number/null/bool
 	// in the middle is skipped, later valid IPs still resolve, and skipped
-	// types do not set truncated (#501). Matched jshn + PATH nslookup stub
-	// (busybox ash, same plugin patch as runMatchedRpcdSelftest).
+	// types do not set truncated (#501). Matched jshn via FWLIVE_JSHN_SH
+	// (busybox ash, same timeout() prefix as the compat harness).
 	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
 	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	const pair = path.join(prefix, release);
@@ -657,11 +888,7 @@ function testResolveSkipsNonStringAddresses() {
 		const libexec = path.join(work, 'libexec');
 		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
 		const plugin = path.join(libexec, 'rpcd', 'fwlive');
-		const source =
-			'timeout() { /usr/bin/timeout "$@"; }\n' +
-			fs.readFileSync(RPCD, 'utf8').replaceAll('/usr/share/libubox/jshn.sh', () =>
-				shellQuote(jshnSh)
-			);
+		const source = 'timeout() { /usr/bin/timeout "$@"; }\n' + fs.readFileSync(RPCD, 'utf8');
 		fs.writeFileSync(plugin, source, { mode: 0o755 });
 		fs.chmodSync(plugin, 0o755);
 
@@ -679,6 +906,7 @@ printf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: 192.0.2.1\\n"
 		const env = {
 			...process.env,
 			PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+			FWLIVE_JSHN_SH: jshnSh,
 			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'adaptive-state-absent'),
 			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
 		};
@@ -914,13 +1142,18 @@ testRulesNoBackend();
 testRulesNftAbsent();
 testRemovedRulesmapIptablesCli();
 testRulesNftDumpFailure();
+testRulesNftListRulesetOnce();
+testRulesNftParseNoPerLineSed();
+testRulesOverflowStopsWithoutSecondDumpPass();
 testRulesNoIptablesFallback();
 testPollMessagesReceived();
 testPollUbusFailure();
+testPollHungUbusReturnsWithinBudget();
 testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
 testSummaryErrorValueDoesNotFailHealthGate();
 testResolveJshnMissing();
+testPollLinesJshnCauses();
 testResolveSkipsNonStringAddresses();
 testLoggingStatusNeverSilent();
 testToggleNoWanZone();

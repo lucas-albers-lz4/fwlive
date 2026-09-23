@@ -607,6 +607,49 @@ sdk_matrix_clean_package() {
 	sdk_matrix_compose_run sh -ec 'cd /builder && export TERM=dumb && make package/luci-app-fwlive/clean V=s'
 }
 
+# Fill nameref array with matching luci-app-fwlive ipk/apk paths under dest.
+sdk_matrix_out_package_candidates() {
+	local dest="$1"
+	local -n _sdk_matrix_pkgs="$2"
+	local nullglob_was=0
+	_sdk_matrix_pkgs=()
+	[[ -d "$dest" ]] || return 0
+	shopt -q nullglob && nullglob_was=1
+	shopt -s nullglob
+	_sdk_matrix_pkgs=(
+		"${dest}"/luci-app-fwlive_*_all.ipk
+		"${dest}"/luci-app-fwlive-*.apk
+		"${dest}"/luci-app-fwlive_*.apk
+		"${dest}"/fwlive/luci-app-fwlive_*_all.ipk
+		"${dest}"/fwlive/luci-app-fwlive-*.apk
+		"${dest}"/fwlive/luci-app-fwlive_*.apk
+	)
+	[[ $nullglob_was -eq 1 ]] || shopt -u nullglob
+}
+
+# True when dest holds a luci-app-fwlive ipk/apk (fwlive/ subdir or dest root).
+sdk_matrix_out_has_package() {
+	local dest="$1"
+	local -a candidates=()
+	local f
+	sdk_matrix_out_package_candidates "$dest" candidates
+	for f in "${candidates[@]}"; do
+		[[ -f "$f" ]] && return 0
+	done
+	return 1
+}
+
+# Drop leftover luci-app-fwlive artifacts so a reused out/ cannot satisfy copy_out.
+sdk_matrix_clear_out_packages() {
+	local dest="$1"
+	local -a candidates=()
+	local f
+	sdk_matrix_out_package_candidates "$dest" candidates
+	for f in "${candidates[@]}"; do
+		rm -f "$f"
+	done
+}
+
 sdk_matrix_copy_out() {
 	local root out_mount dest_host
 	root="$(sdk_matrix_root)"
@@ -616,6 +659,10 @@ sdk_matrix_copy_out() {
 	# SDK image runs as buildbot (uid 1000); GHA workspace is often uid 1001 — copy as root.
 	# Pass the same dl/feeds bind mounts as compose_run so defaults do not clobber /builder.
 	sdk_matrix_cache_dirs "$root" "$SDK_MATRIX_VERSION_LABEL" || return 1
+	# Reused out/ may still hold a matching ipk/apk from an earlier build.
+	# Clear those paths before copy so the post-copy existence check is
+	# fail-closed for this invocation (docker copy also uses || true).
+	sdk_matrix_clear_out_packages "$dest_host"
 	(
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
@@ -634,6 +681,11 @@ sdk_matrix_copy_out() {
 			ls -la \"\$dest\"/fwlive/luci-app-fwlive* 2>/dev/null || ls -la \"\$dest\"/luci-app-fwlive* 2>/dev/null || true
 		"
 	)
+	if ! sdk_matrix_out_has_package "$dest_host"; then
+		echo "sdk-matrix: no luci-app-fwlive package artifact under ${dest_host}" >&2
+		echo "sdk-matrix: expected luci-app-fwlive_*_all.ipk or luci-app-fwlive-*.apk (or luci-app-fwlive_*.apk)" >&2
+		return 1
+	fi
 	echo "Packages under: ${SDK_MATRIX_OUT_DIR}/" >&2
 }
 

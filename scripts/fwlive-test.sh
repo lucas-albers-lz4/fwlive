@@ -187,6 +187,9 @@ echo "== fwlive proto filter (menu + custom) ==" >&2
 echo "== fwlive chip sink and applyHash (#393) ==" >&2
 "$NODE" tests/fwlive-chips-hash.test.js
 
+echo "== fwlive feed artifact selection (#495) ==" >&2
+bash tests/feed-publish-find-artifact.test.sh
+
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh
 
@@ -201,6 +204,9 @@ bash tests/fwlive-package-payload-apk-host.test.sh
 
 echo "== fwlive SDK package format mapping ==" >&2
 bash tests/sdk-matrix-package-format.test.sh
+
+echo "== fwlive SDK copy-out artifact check ==" >&2
+bash tests/sdk-matrix-copy-out.test.sh
 
 echo "== fwlive SDK digest pin-cache (R7) ==" >&2
 bash tests/sdk-matrix-digests.test.sh

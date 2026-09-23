@@ -12,6 +12,59 @@
 > Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-22 #435 delta:** `sdk_matrix_copy_out` now removes matching
+> luci-app-fwlive ipk/apk files from the destination (`$dest/fwlive` and
+> dest-root globs) before copying, then fail-closes if no matching artifact
+> exists after copy. A leftover package from an earlier build cannot satisfy
+> the existence check when this invocation copies nothing. Host coverage
+> plants a stale matching IPK, stubs docker copy as a no-op, and requires
+> copy_out to fail. No ACL, DOM sink, or read/write-scope change.
+
+> **2026-09-22 #495 delta:** `feed_publish_find_artifact` now selects the
+> newest-mtime luci-app-fwlive ipk/apk under a reused `out/` tree (`ls -1t`)
+> instead of the alphabetically first name (`ls -1`). A leftover
+> `luci-app-fwlive_0.1.44_all.ipk` therefore cannot win over a later-built
+> 0.1.45/0.1.46. Host coverage plants a later-named newer file that
+> alphabetical `ls -1` would not pick. No ACL, DOM sink, or read/write-scope
+> change.
+
+> **2026-09-22 #504 delta:** nft dump parse is one awk pass (`nft_dump_fields`)
+> writing TSV to a second tempfile, then `map_from_nft_stream` stops at the
+> map byte/key cap. The dump is not buffered in a shell variable. Host
+> coverage includes overflow and one-pass cases. No ACL, DOM sink, or
+> read/write-scope change.
+
+> **2026-09-22 #492 delta:** `rules` performs one `nft list ruleset` dump
+> for detect and parse. A missing or failed dump is `unknown`/`no_backend`
+> (`nft_failed` is no longer produced). Host coverage asserts a single dump.
+> No ACL, DOM sink, or read/write-scope change.
+
+> **2026-09-22 #491 delta:** poll ubus log-read and the firewall filter each
+> run under `POLL_TIMEOUT` (5s) via `run_with_timeout`. Timeout or a missing
+> `timeout` binary fails closed (`log_read_failed` / `filter_failed`) instead
+> of hanging the rpcd worker. Host coverage uses a hung ubus stub. No ACL,
+> DOM sink, or read/write-scope change.
+
+> **2026-09-22 #441 delta:** `FWLIVE_JSHN_SH` defaults to
+> `/usr/share/libubox/jshn.sh`; it is a host-test override, not a
+> LuCI/session-controlled env (rpcd worker env is root-owned, not set by
+> unprivileged ubus callers). Named jshn poll-cap failures go to logger,
+> not poll JSON `error`. Leading-zero strip in `poll_clamp_lines` is
+> in-shell so a default-50 poll does not add a `sed` exec. No ACL/DOM
+> change.
+
+> **2026-09-22 #502 delta:** post-commit WAN-log verify mismatch now returns
+> rc 2 from `commit_wan_log_change`, still reloads fw4, and reports
+> `firewall_commit_raced` with `ok:false`/`changed:false` instead of rolling
+> back a foreign writer's committed UCI. Host coverage pins the JSON and the
+> reload. No ACL, DOM sink, or read/write-scope change.
+
+> **2026-09-22 #506 delta:** `parse_nslookup_name` treats `name =` as a whole
+> token and rejects the phrase `domain name =` even when `domain` and `name`
+> are separated by repeated whitespace. Host coverage includes
+> `domain  name =` and tab-space variants. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #503 delta:** WAN-log reload rollback (`restore_wan_zone_log`)
 > now returns non-zero when `uci commit firewall` fails, and reverts its own
 > orphaned staging when the remaining `uci changes` list is only that log
@@ -367,7 +420,7 @@ the same PR as this file.
   through `env:`. All three actions are SHA-pinned, including the one receiving
   `FEED_DEPLOY_KEY`.
 - `is_resolvable_address`, `poll_lines_from_input`, and `json_escape` hold under
-  their selftests; the escaped-quote capture in the nft prefix regex is correct.
+  their selftests; `nft_dump_fields` captures escaped quotes in nft prefixes.
 - `/tmp/.uci` is `0700` (libuci `UCI_DIRMODE`), so an unprivileged user cannot
   stage a firewall delta for S4 to commit. This is what keeps S4 at Low.
 
