@@ -28,12 +28,15 @@ NF_LOG_IPV6_READY=false
 # firewall.<zone>.log bit, computes a target, then uci set + uci commit. Two
 # concurrent callers could otherwise interleave and last-commit-wins.
 #
-# BusyBox flock constraint: it has NO -w timeout. A stuck lock holder blocks
-# any waiter until the holder exits or the device reboots. The critical
-# section MUST stay SHORT (a few uci commands). Do NOT hold the lock across
-# the /etc/init.d/firewall reload (can take seconds); the lock is released
-# before reload, and reload-failure rollback is a best-effort UCI write
-# outside the lock.
+# BusyBox flock constraint: it has NO -w timeout. The lock is opened with
+# `exec 9>>` + `flock 9`. In ash/dash, `>>` clears close-on-exec, so a live
+# child keeps fd 9 after this holder dies. A stuck lock therefore blocks any
+# waiter until the last fd-9 inheritor exits or the device reboots (killing
+# the holder alone may not release it). The critical section MUST stay SHORT
+# (a few uci commands). Do NOT hold the lock across the /etc/init.d/firewall
+# reload (can take seconds); the lock is released before reload.
+# Reload-failure rollback re-acquires the lock so the read-compare-restore
+# is atomic against concurrent writers; do not drop that re-acquire.
 # Overridable for tests/containers (default is root-only /etc/fwlive).
 WAN_LOG_LOCK_FILE="${FWLIVE_WAN_LOG_LOCK_FILE:-/etc/fwlive/logging.lock}"
 WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-/etc/fwlive/wan-log-baseline}"

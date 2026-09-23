@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-23 #458 delta:** The shipped `fwlive-logging.sh` helper comment now
+> matches fd-inheritance (`exec 9>>` + `flock 9`; recovery is until the last
+> fd-9 inheritor exits, not merely the holder) and the reload-failure rollback
+> re-acquire (read-compare-restore is atomic). No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-23 #490/#451/#519/#520/#521 delta:** CI pins `ruff==0.16.8` in both
 > workflows; `publish-packages.yml` uses a `publish-packages` concurrency
 > group with `cancel-in-progress: false` and `queue: max` so a third pending
