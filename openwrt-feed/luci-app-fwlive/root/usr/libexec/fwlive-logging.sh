@@ -386,8 +386,10 @@ wan_log_baseline_path() {
 	printf '%s' "$WAN_LOG_BASELINE_FILE"
 }
 
-# Snapshot firewall.<wan>.log once before the first enable/disable mutation.
+# Snapshot firewall.<wan>.log once before the first enable changes UCI.
 # Empty file means the option was unset. Skipped when baseline already exists.
+# Disable does not snapshot: a pre-existing/foreign log bit is an operator
+# request to turn logging off; uninstall must not put that bit back.
 maybe_snapshot_wan_log_baseline() {
 	zone="$1"
 	path="$(wan_log_baseline_path)"
@@ -964,11 +966,9 @@ disable_wan_logging() {
 		return 0
 	fi
 
-	if ! maybe_snapshot_wan_log_baseline "$zone"; then
-		release_wan_log_lock
-		printf '{"ok":false,"changed":false,"wan_zone":%s,"error":"baseline_snapshot_failed"}' "$zone_json"
-		return 0
-	fi
+	# Enable-only baseline: do not snapshot here. A pre-existing/foreign
+	# log bit is an operator request to turn logging off; uninstall must
+	# not restore that bit.
 
 	target=$(wan_filter_log_clear_value "$current")
 	if ! commit_wan_log_change "$zone" "$zone_json" "$target"; then
