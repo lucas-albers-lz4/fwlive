@@ -1,5 +1,13 @@
 # Security review state
 
+> **2026-09-22 #495 delta:** `feed_publish_find_artifact` now selects the
+> newest-mtime luci-app-fwlive ipk/apk under a reused `out/` tree (`ls -1t`)
+> instead of the alphabetically first name (`ls -1`). A leftover
+> `luci-app-fwlive_0.1.44_all.ipk` therefore cannot win over a later-built
+> 0.1.45/0.1.46. Host coverage plants a later-named newer file that
+> alphabetical `ls -1` would not pick. No ACL, DOM sink, or read/write-scope
+> change.
+
 > **2026-09-22 #498 delta:** `fwlive-log-filter.sh` now removes its temporary
 > JSON file and exits with the signal status for HUP/INT/QUIT/TERM instead of
 > continuing after a trapped signal. Host coverage interrupts a live

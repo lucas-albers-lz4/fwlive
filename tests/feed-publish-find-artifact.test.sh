@@ -31,9 +31,19 @@ touch -t 202601020000 "$fresh"
 got="$(feed_publish_find_artifact 23.05.5)"
 assert_eq "$got" "$fresh" "newer mtime wins over alphabetical first"
 
-# Invert: newest mtime still wins when the filename sorts later.
-touch -t 202601030000 "$stale"
+# Discriminating invert: 0.1.45 is older; later-named 0.1.46 is newest.
+# Alphabetical ls -1 would pick 0.1.45; ls -1t must pick 0.1.46.
+rm -f "$stale"
+older="${dir}/luci-app-fwlive_0.1.45_all.ipk"
+newest="${dir}/luci-app-fwlive_0.1.46_all.ipk"
+echo older > "$older"
+echo newest > "$newest"
+touch -t 202601040000 "$older"
+touch -t 202601050000 "$newest"
+
+alpha="$(ls -1 "$older" "$newest" | head -1)"
+assert_eq "$alpha" "$older" "fixture: alphabetical ls -1 picks older-named 0.1.45"
 got="$(feed_publish_find_artifact 23.05.5)"
-assert_eq "$got" "$stale" "newest mtime wins even when the filename sorts later"
+assert_eq "$got" "$newest" "ls -1t picks later-named 0.1.46 that alphabetical ls -1 would not"
 
 echo "feed-publish find-artifact newest-mtime tests passed"
