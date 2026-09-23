@@ -9,7 +9,10 @@
 ./scripts/docker-sdk.sh build-all          # all version × target cells
 ```
 
-Artifacts: `out/<arch>/<patch>/fwlive/luci-app-fwlive*.{ipk,apk}` (e.g. `out/x86_64/24.10.8/fwlive/…`; `--version 24.10` → `24.10.8`)
+Artifacts: `out/<arch>/<version-label>/fwlive/luci-app-fwlive*.{ipk,apk}`
+(e.g. `out/x86_64/24.10.8/fwlive/…`; `--version 24.10` → `24.10.8`;
+`snapshot` → `snapshot`). `build-all` writes every version × target cell
+under those paths.
 
 Matrix reference: [`../sdk-build-matrix.md`](../sdk-build-matrix.md)  
 Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)

@@ -12,7 +12,7 @@ Run the checks again after changes — see [Build & test](developer/build-and-te
 
 ## Supported versions and targets
 
-`luci-app-fwlive` builds as **`_all`** (no per-SoC binaries). The app is **not hardware-specific** — LuCI JS, `ubus log.read`, and the ash `rpcd` plugin are portable. **Testing on one ARM target (e.g. armsr/armv8) is sufficient for other ARM boards** on the same OpenWrt version; differences show up by **release** (23.05 vs 24.10), not by CPU model.
+`luci-app-fwlive` builds as **`_all`** (no per-SoC binaries). The app is **not hardware-specific** — LuCI JS, the ash `rpcd` plugin, and **`ubus fwlive.poll`** are portable. The browser calls `fwlive.poll`; rpcd invokes `log.read` internally. LuCI sessions do **not** call `ubus log.read` directly. **Testing on one ARM target (e.g. armsr/armv8) is sufficient for other ARM boards** on the same OpenWrt version; differences show up by **release** (23.05 vs 24.10), not by CPU model.
 
 | OpenWrt | SDK build | Lab target | End-to-end sign-off |
 | ------- | --------- | ---------- | ------------------- |
