@@ -6,6 +6,12 @@
 > Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-22 #504 delta:** nft dump parse is one awk pass (`nft_dump_fields`)
+> writing TSV to a second tempfile, then `map_from_nft_stream` stops at the
+> map byte/key cap. The dump is not buffered in a shell variable. Host
+> coverage includes overflow and one-pass cases. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #492 delta:** `rules` performs one `nft list ruleset` dump
 > for detect and parse. A missing or failed dump is `unknown`/`no_backend`
 > (`nft_failed` is no longer produced). Host coverage asserts a single dump.
@@ -392,7 +398,7 @@ the same PR as this file.
   through `env:`. All three actions are SHA-pinned, including the one receiving
   `FEED_DEPLOY_KEY`.
 - `is_resolvable_address`, `poll_lines_from_input`, and `json_escape` hold under
-  their selftests; the escaped-quote capture in the nft prefix regex is correct.
+  their selftests; `nft_dump_fields` captures escaped quotes in nft prefixes.
 - `/tmp/.uci` is `0700` (libuci `UCI_DIRMODE`), so an unprivileged user cannot
   stage a firewall delta for S4 to commit. This is what keeps S4 at Low.
 
