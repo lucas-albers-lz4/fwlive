@@ -9,7 +9,9 @@
  *   node tests/fwlive-i18n.test.js
  *
  * This reads POT + PO files from the openwrt-feed package directory and
- * reports issues. Exits non-zero on any failure.
+ * reports issues. Exits non-zero on any failure. A present POT with no
+ * locale directories (aside from templates/) is a failure; "nothing to
+ * check" applies only when both the template and locale catalogs are absent.
  *
  * In a full OpenWrt build this is redundant (luci.mk already validates PO
  * syntax at build time), but as a CI gate it catches incomplete translations
@@ -103,6 +105,30 @@ function extractFormats(str) {
   return (str.match(RE_FORMAT) || []).sort();
 }
 
+/**
+ * Locale directories under po/, excluding the POT templates/ folder.
+ */
+function listLocaleDirs(poDir) {
+  if (!fs.existsSync(poDir) || !fs.statSync(poDir).isDirectory())
+    return [];
+  return fs.readdirSync(poDir).filter(d =>
+    d !== 'templates' && fs.statSync(path.join(poDir, d)).isDirectory()
+  );
+}
+
+/**
+ * Decide how the completeness gate treats a po/ tree.
+ * template + no langs => fail; neither => skip; langs present => check.
+ */
+function localeCoverageDecision(poDir, potFile) {
+  const langs = listLocaleDirs(poDir);
+  if (langs.length === 0) {
+    if (fs.existsSync(potFile)) return { action: 'fail', langs };
+    return { action: 'skip', langs };
+  }
+  return { action: 'check', langs };
+}
+
 function translationStatus(entry) {
   if (!entry) return 'missing';
   if (entry.fuzzy) return 'fuzzy';
@@ -141,6 +167,40 @@ function testFuzzyParser() {
     );
     if (result.failure !== 1 || result.fuzzy !== 1)
       throw new Error('fuzzy catalog entries must contribute to the gate failure status');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function testLocaleCoverageDecision() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-i18n-locales-'));
+  try {
+    const withPot = path.join(dir, 'with-pot');
+    fs.mkdirSync(path.join(withPot, 'templates'), { recursive: true });
+    const withPotFile = path.join(withPot, 'templates', 'luci-app-fwlive.pot');
+    fs.copyFileSync(POT_FILE, withPotFile);
+    const failDecision = localeCoverageDecision(withPot, withPotFile);
+    if (failDecision.action !== 'fail' || failDecision.langs.length !== 0)
+      throw new Error('template with no locale dirs must fail the i18n gate');
+
+    const empty = path.join(dir, 'empty');
+    fs.mkdirSync(empty, { recursive: true });
+    const skipDecision = localeCoverageDecision(
+      empty,
+      path.join(empty, 'templates', 'luci-app-fwlive.pot')
+    );
+    if (skipDecision.action !== 'skip' || skipDecision.langs.length !== 0)
+      throw new Error('absent template and locale dirs must skip the i18n gate');
+
+    const realDecision = localeCoverageDecision(PO_DIR, POT_FILE);
+    if (realDecision.action !== 'check')
+      throw new Error('shipped po/ tree must proceed to catalog checks');
+    if (realDecision.langs.indexOf('templates') !== -1)
+      throw new Error('templates must not count as a locale directory');
+    for (const lang of ['de', 'ru', 'zh_Hans']) {
+      if (realDecision.langs.indexOf(lang) === -1)
+        throw new Error('shipped po/ tree must include locale ' + lang);
+    }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -215,12 +275,27 @@ function inspectCatalog(lang, poFile, potIds, potFormats, report = true) {
 function main() {
   let failures = 0;
 
+  testFuzzyParser();
+  testLocaleCoverageDecision();
+
+  const coverage = localeCoverageDecision(PO_DIR, POT_FILE);
+  if (coverage.action === 'fail') {
+    console.error(
+      '[FAIL] POT template exists at %s but po/ has no locale directories.',
+      POT_FILE
+    );
+    process.exit(1);
+  }
+  if (coverage.action === 'skip') {
+    console.log('No translation template or directories found — nothing to check.');
+    return 0;
+  }
+
   if (!fs.existsSync(POT_FILE)) {
     console.error('POT file not found:', POT_FILE);
     process.exit(1);
   }
 
-  testFuzzyParser();
   const potEntries = parsePoFile(POT_FILE);
   const potIds = potEntries.map(e => e.msgid).filter(id => id !== '');
   console.log('POT: %d translatable msgids (%s)\n', potIds.length, POT_FILE);
@@ -231,15 +306,7 @@ function main() {
     if (e.msgid) potFormats[e.msgid] = extractFormats(e.msgid);
   }
 
-  // Find all language directories
-  const langs = fs.readdirSync(PO_DIR).filter(d =>
-    d !== 'templates' && fs.statSync(path.join(PO_DIR, d)).isDirectory()
-  );
-
-  if (langs.length === 0) {
-    console.log('No translation directories found — nothing to check.');
-    return 0;
-  }
+  const langs = coverage.langs;
 
   for (const lang of langs) {
     const poFile = path.join(PO_DIR, lang, 'luci-app-fwlive.po');
@@ -271,4 +338,7 @@ function main() {
   console.log('\nAll %d language(s) pass.', langs.length);
 }
 
-main();
+if (require.main === module)
+  main();
+else
+  module.exports = { listLocaleDirs, localeCoverageDecision };
