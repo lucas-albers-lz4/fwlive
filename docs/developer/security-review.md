@@ -10,6 +10,12 @@
 > `timeout-minutes` (test 30, test-ipk-payload 45, build-publish 180;
 > smoke stays 45). No ACL, DOM sink, or read/write-scope change.
 
+> **2026-09-23 #434 delta:** `scripts/agent-build-and-deploy.sh` is ipk-only
+> (23.05/24.10 `opkg`). A non-`.ipk` `--ipk` path (including a missing
+> `.apk`) dies with a pointer to `qemu-install-fwlive.sh` before the file
+> existence check. SSH host-key default and `--lab-only` opt-in are
+> unchanged. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #494 delta:** `verify-reproducible-build.sh` preserves
 > `artifact_sha`'s exit status (no `read <<< "$(...)"` mask) and rejects an
 > empty hash on both passes, so a missing artifact cannot compare equal and

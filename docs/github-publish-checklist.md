@@ -91,7 +91,7 @@ Checklist:
 - `LUCI_PKGARCH:=all` — pure JS + shell rpcd, no target binaries
 - `htdocs/` + `root/` layout per LuCI.mk
 - `menu.d` JSON + `rpcd` ACL + `usr/libexec/rpcd/fwlive` (`list` / `call`)
-- `LUCI_DEPENDS` on `luci-base`, `logd` (`rpcd` comes via `luci-base`; no hard `firewall4` dependency)
+- `LUCI_DEPENDS` on `luci-base`, `logd`, `jsonfilter` (`rpcd` comes via `luci-base`; no hard `firewall4` dependency)
 - `po/templates/luci-app-fwlive.pot` — i18n scaffolding (strings marked with `_()` in the view)
 
 ## macOS contributors

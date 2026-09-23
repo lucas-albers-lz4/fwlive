@@ -15,12 +15,12 @@ How we pursue **OPNsense Live View** look-and-feel and interaction patterns on O
 | [`fwlive.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js) | `view.extend()` — layout, polling, DOM updates, filter UX | Volt/HTML layout + page JS |
 | [`fwlive/log.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js) | Parsing, normalization, client-side filter predicates | Server/JS log parsing module |
 | [`core/fwlive-log.js`](../core/fwlive-log.js) | Node test twin of `log.js` (CLI + unit tests) | — |
-| `rpc.declare({ object: 'log', method: 'read' })` | JSON-RPC → **ubus** via **rpcd** | `/api/diagnostics/firewall/log` |
+| `rpc.declare({ object: 'fwlive', method: 'poll' })` | JSON-RPC → **ubus** via **rpcd** | `/api/diagnostics/firewall/log` |
 | `menu.d` + `rpcd` ACL JSON | Declarative menu + permissions | PHP routing + ACL |
 
 We **do not** use legacy Lua CBI views (`luasrc/controller`, `cbi.Map`). We **do not** need OPNsense’s PHP/Volt engine. Design patterns port **into the browser**: poll, parse, filter, render.
 
-**Data path (fixed):** nft/fw4 `log` → kernel printk → logd → `ubus log.read` → client parser → table.
+**Data path (fixed):** nft/fw4 `log` → kernel printk → logd → `ubus fwlive.poll` (rpcd reads logd, server-side firewall filter) → client parser → table. *(Early MVP polled `log.read` from the browser; Stage 7 moved filtering into rpcd.)*
 
 ---
 
@@ -54,7 +54,7 @@ Suggestions to replicate OPNsense’s clean tabular Live View, adapted for LuCI.
 | Build layout in `render()` with `E()` | **Adopt** | Already in use; extend with control bar + badge styling. |
 | Map `pass`/`drop` to green/red typography | **Adopt (adapted)** | Use LuCI-friendly classes: custom `.fwlive-pass` / `.fwlive-deny` (done) or map to `text-success` / `text-danger` where theme-consistent. Optional unicode/icon prefix (✔/✖) — low priority, test contrast in dark themes. |
 | Sticky header + scroll body | **Adopt** | `#fwlive-scroll` + `position: sticky` on `thead` (done). |
-| Pause / Play top bar | **Adopt** | Stage 4 **done** (`Pause` button). Stage 4b: OPNsense **Auto-refresh** checkbox alias — see [ROADMAP.md](ROADMAP.md). |
+| Pause / Resume top bar | **Adopt** | Stage 4 **done** (`fwlive-pause` button). Stage 4b: row limit dropdown — see [ROADMAP.md](ROADMAP.md). |
 | Row limit dropdown | **Adopt** | Stage 4b: 25…2000 → `maxHistory` + `visibleRows`; default 100; cap 2000. |
 | Primary columns: Action, Time, Interface, Src/Dst, Rule | **Adopt (phased)** | Most columns exist. **Rule Info** = stage 3. Consider a combined **Src → Dst** column later to reduce width (optional polish). |
 | Interface as small grey badges | **Adopt** | Stage 4/5 polish: `E('span', { 'class': 'label' }, iface)` on `interface_in` / `out`. |
@@ -71,7 +71,7 @@ Suggestions to replicate OPNsense’s clean tabular Live View, adapted for LuCI.
 | Click IP/interface/action → add filter token | **Adopt** | Stage 5. Wrap cell text in `E('a', { click: … })` or LuCI `ui.createActionHandler`; append `{ field, op, value }` to `activeFilters`. |
 | `data-filter-field` / `data-filter-val` anchors | **Adapt** | Same idea; prefer LuCI click handlers over raw `href="#"` where possible. |
 | AND semantics across active tokens | **Adopt** | Extend `matchesFilter()` to accept token array; today: single form fields + quick search (OR across fields via `q`). |
-| Filter **client-side only** (no ubus filter args) | **Adopt** | **Already correct.** `log.read` returns recent lines; cheap on router; parser drops noise. |
+| Server-side firewall filter in `fwlive.poll` | **Adopt** | **Done (stage 7).** rpcd reads logd and returns firewall-shaped lines only; client applies form/hash filters. |
 | Slice to visible row cap after filter | **Adopt** | `visibleRows` (200) after filter; OPNsense ~50 — tunable constant. |
 
 **Current MVP:** text inputs + URL hash persistence. **Target:** visual filter tags + click-to-filter, per stage 5 in [ROADMAP.md](ROADMAP.md).
@@ -112,7 +112,7 @@ Intentional fork from OPNsense’s single wide table — OpenWrt LuCI benefits f
 | **Simple** | Yes | Action, Time (compact), Interface, Flow, Proto, Rule | Click row → expand/collapse raw line |
 | **Detailed** | No | All 14 schema columns incl. Message, Flags, Len, Dir | Inline column; wrap/one-line toggle |
 
-- Toolbar: single **Show Detail** / **Hide Detail** button; persisted in `localStorage` (`fwlive-view-mode`) after user toggles.
+- Watch strip: **Simple** / **Detail** segmented control (`fwlive-view-simple`, `fwlive-view-detail`); help: “Use Detail for all columns”; persisted in `localStorage` (`fwlive-view-mode`) after user toggles.
 - URL hash: `view=detailed` when sharing Detailed layout (`view=advanced` accepted for back-compat).
 - Zero-configuration: first visit polls immediately; empty state and collapsed **Help** on-page (no external docs).
 - Simple filters: quick search + action + proto; **More filters** for the rest.
@@ -144,4 +144,4 @@ Intentional fork from OPNsense’s single wide table — OpenWrt LuCI benefits f
 
 ## Summary
 
-We target **OPNsense Live View operator experience** on a **LuCI client-side architecture**: `fwlive.js` owns the grid and controls; `fwlive/log.js` owns parsing and in-memory filtering; **ubus** stays a dumb recent-log pipe. Suggestions about Volt, PHP APIs, and server-side filtering **do not apply**; suggestions about sticky grids, pause, token filters, and rule attribution **do apply**, phased per the staged plan.
+We target **OPNsense Live View operator experience** on a **LuCI client-side architecture**: `fwlive.js` owns the grid and controls; `fwlive/log.js` owns parsing and in-memory filtering; **`fwlive.poll`** returns firewall-shaped log lines from rpcd. Suggestions about Volt and PHP APIs **do not apply**; suggestions about sticky grids, pause, token filters, and rule attribution **do apply**, phased per the staged plan.

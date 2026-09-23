@@ -29,11 +29,11 @@ See **[ROADMAP.md](ROADMAP.md)** for stages, CLI test commands, and exit criteri
 - Implemented (stage 3.3): Rule links to firewall admin (`fw4` → traffic rules; else nftables).
 - Implemented (stage 3.4b): UCI rule name resolve (`rule_label`) via `ubus fwlive rules`.
 - Implemented (stage 4): **pause/resume** — buffer ingests while table frozen; resume redraws; message wrap/one-line toggle.
-- Implemented (stage 4b): **auto-refresh** checkbox + **limit** dropdown (25…2000, default 100).
+- Implemented (stage 4b): **Pause/Resume** button + **limit** dropdown (25…2000, default 100).
 - Implemented (stage 4.5): 250/s render cap + suppression banner (token bucket).
 - Deferred: session running-total / rate counter (not in OPNsense limit spec).
 - Implemented (stage 5, partial): click-to-filter (src/dst/proto/iface/action); filter chip bar with clear.
-- **Deliberate difference:** **Simple / Detailed toggle** (single **Show Detail** button) — OPNsense uses one table layout; we default to a compact Simple grid and optional Detailed 14-column forensic view ([`fwlive-ui-design-target.md`](fwlive-ui-design-target.md) § View modes).
+- **Deliberate difference:** **Simple / Detail** segmented View control — OPNsense uses one table layout; we default to a compact Simple grid and optional Detailed 14-column forensic view ([`fwlive-ui-design-target.md`](fwlive-ui-design-target.md) § View modes).
 - Implemented (stage 5.6): advanced filter operators (`!` prefix for is-not/not-contains); token array tests.
 - Implemented (stage 6, partial): **Show hostnames** checkbox (default off) + `ubus fwlive resolve`.
 - Deferred (stage 6): rule overlay / modal details.

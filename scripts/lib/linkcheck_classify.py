@@ -8,6 +8,8 @@ importable unit — the test exercises THIS code, not a copy.
     classify_code('404') -> 'fail'  (genuine HTTP error)
     classify_code('000') -> 'warn'  (no HTTP response: DNS/TLS/timeout)
     classify_code('403') -> 'warn'  (bot protection / rate limit)
+    classify_retry('000', '404') -> 'fail'  (retry revealed a real miss)
+    classify_retry('000', '000') -> 'warn'  (network on both attempts)
 
 'warn' codes: 000, 403, 429, 500, 502, 503, 504. Everything else that
 isn't 2xx/3xx is 'fail' (404, 410, 418, 451, ...).
@@ -33,6 +35,20 @@ def classify_code(code):
     if code == '000':
         return 'warn'
     return 'fail'
+
+
+def classify_retry(first_code, retry_code):
+    """Verdict after retrying a first-probe 000.
+
+    The retry is classified on its own merits. A genuine HTTP miss
+    (404, 410, ...) must fail; a second 000 stays a warning. Do not
+    coerce a fail retry into a warning just because the first probe
+    was a network-level 000.
+    """
+    first = (first_code or '').strip() or '000'
+    if first != '000':
+        return classify_code(first)
+    return classify_code(retry_code)
 
 
 if __name__ == '__main__':

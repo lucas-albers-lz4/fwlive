@@ -200,7 +200,6 @@ logging.renderToolbar(
 	{
 		loggingStatus: { wan_log: true, wan_log_limit: null, blockers: [] },
 		loggingBusy: false,
-		entriesLength: 0,
 		loggingNotice: ''
 	},
 	{ onEnable: function () {}, onDisable: function () {} }
@@ -219,7 +218,6 @@ logging.renderToolbar(
 	{
 		loggingStatus: { wan_log: false, wan_log_limit: null, blockers: [] },
 		loggingBusy: false,
-		entriesLength: 0,
 		loggingNotice: ''
 	},
 	{ onEnable: function () {}, onDisable: function () {} }
@@ -234,7 +232,6 @@ logging.renderEmptyState(
 	{
 		loggingStatus: { wan_log: false, blockers: [] },
 		loggingBusy: false,
-		entriesLength: 0,
 		loggingNotice: ''
 	},
 	{ onEnable: function () {} }

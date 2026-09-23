@@ -7,7 +7,7 @@ Canonical setup: **Linux x86_64** build host, cross-compile for OpenWrt, test in
 | Role | Architecture | Notes |
 |------|--------------|-------|
 | **Build host** | Linux **x86_64** only | Official SDKs are `Linux-x86_64` tarballs |
-| **Package output** | `aarch64_generic`, `x86_64` | Under `out/<arch>/<version>/fwlive/` |
+| **Package output** | `aarch64_generic`, `x86_64` | Under `out/<arch>/<version-label>/fwlive/` (`sdk_matrix_version_label`, e.g. `24.10.8` or `snapshot`) |
 | **Lab guests** | x86_64 KVM, armsr/armv8 TCG | x86 for daily UI work; armsr for production sign-off |
 | **macOS** | Editor + `fwlive-test.sh` only | No SDK/QEMU in this repo’s supported path |
 
