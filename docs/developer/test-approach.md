@@ -133,8 +133,10 @@ The normal per-PR path is the host suite, real-jshn compatibility and BusyBox
 shell checks, link checking, the required mocked-LuCI view job, Z3 verification,
 and workflow static analysis (`zizmor` and `actionlint`), as defined in
 [`fwlive-test.yml`](../../.github/workflows/fwlive-test.yml). Keep that path
-fast enough for routine development. The project does not use a percentage
-threshold, a broad browser matrix, or routine per-PR QEMU.
+fast enough for routine development. The required `test-ipk-payload` check
+always reports; the three-cell SDK build runs only when packaging-relevant
+paths change, or when path detection fail-closes (#557). The project does not
+use a percentage threshold, a broad browser matrix, or routine per-PR QEMU.
 
 The QEMU lane remains valuable for the narrow path that host and mocked tests
 cannot prove: installed LuCI/rpcd dispatch, real `ubus log.read` to filtering

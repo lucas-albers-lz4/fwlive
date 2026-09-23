@@ -40,13 +40,25 @@ jobs:
   # R9a: inspect real current-version package artifacts, not only the
   # source-shaped host fallback. Keep this job id stable for branch protection;
   # the loop covers both package-manager formats used by supported releases.
+  # Do not put `if:` on this job — a skipped required check blocks merge (#557).
+  # Gate only the SDK build/inspect steps; path detection fail-closes to run.
   test-ipk-payload:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           persist-credentials: false
+      - name: Decide whether packaging matrix is needed
+        id: packaging
+        env:
+          PACKAGING_CI_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          PACKAGING_CI_HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ./scripts/ci-packaging-paths.sh | tee -a "$GITHUB_OUTPUT"
       - name: Build current package artifacts
+        # Skip only after a confirmed non-packaging diff. Empty/garbage output runs.
+        if: steps.packaging.outputs.run_matrix != 'false'
         run: |
           set -euo pipefail
           source ./scripts/lib/sdk-matrix.sh
@@ -67,6 +79,7 @@ jobs:
             OWRT_MAKE_JOBS=4 ./scripts/docker-sdk.sh build --target x86-64 --version "$version_key"
           done
       - name: Inspect real package payloads
+        if: steps.packaging.outputs.run_matrix != 'false'
         run: |
           set -euo pipefail
           source ./scripts/lib/sdk-matrix.sh
