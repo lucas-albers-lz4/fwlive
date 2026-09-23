@@ -9,7 +9,7 @@
 | **Not supported** | OpenWrt **21.02**, **22.03**, and earlier |
 | **Firewall** | **firewall4** / nftables — default on supported images |
 | **LuCI** | Modern JS LuCI (`luci-base`) |
-| **Logging** | `logd` (standard on OpenWrt images) |
+| **Logging** | `logd`, `jsonfilter` (hard deps in package metadata; `opkg install` resolves both) |
 | **RPC** | `rpcd` (for `ubus fwlive poll` / `resolve` / `rules`) |
 
 The menu entry is controlled by the `luci-app-fwlive` ACL and does not require
@@ -37,7 +37,7 @@ The application itself has **no per-SoC binaries** — one build runs on any boa
 
 - Enough free flash/RAM for an extra LuCI app (small — JS + one rpcd script)
 - Firewall rules configured to **log** interesting traffic ([guide](enabling-firewall-logs.md))
-- LuCI login with permission to read logs (default admin)
+- LuCI login with the `luci-app-fwlive` ACL (default admin)
 
 ## What you do not need
 
