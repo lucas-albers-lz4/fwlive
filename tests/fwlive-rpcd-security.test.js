@@ -376,6 +376,56 @@ function testPollUbusFailure() {
 	}
 }
 
+function testPollHungUbusReturnsWithinBudget() {
+	// #491: a wedged log.read must not hold the poll worker for the ubus CLI
+	// default (~30s). POLL_TIMEOUT + run_with_timeout fail as log_read_failed
+	// so adaptive still skips the cold sample.
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const match = src.match(/^POLL_TIMEOUT=([1-9][0-9]*)$/m);
+	assert.ok(match, 'POLL_TIMEOUT must be an integer timeout in seconds');
+	const pollTimeout = Number(match[1]);
+	assert.ok(
+		pollTimeout >= 5 && pollTimeout <= 10,
+		`POLL_TIMEOUT must be 5-10s, got ${pollTimeout}`
+	);
+	assert.match(
+		src,
+		/run_with_timeout "\$POLL_TIMEOUT" ubus call log read/,
+		'poll log.read must run under run_with_timeout POLL_TIMEOUT'
+	);
+
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-491-hung-ubus-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-491-hung-adapt-'));
+	try {
+		makeStub(stubDir, 'ubus', '#!/bin/sh\nexec /bin/sleep 30\n');
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'state.json'),
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+		const started = Date.now();
+		const raw = runCall(['call', 'poll', '{"addresses":["50"]}'], {
+			encoding: 'utf8',
+			env,
+			timeout: (pollTimeout + 8) * 1000
+		});
+		const elapsedMs = Date.now() - started;
+		const res = JSON.parse(raw);
+		assert.ok(Array.isArray(res.log), 'hung log.read must keep the log shape');
+		assertStructuredError(res, 'poll/hung-ubus');
+		assert.equal(res.error, 'log_read_failed');
+		assert.ok(
+			elapsedMs < (pollTimeout + 2) * 1000,
+			`poll must return within POLL_TIMEOUT=${pollTimeout}s (+2s slack), took ${elapsedMs}ms`
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function testPollMessagesReceived() {
 	// The filter must count every logd entry enumerated by jsonfilter, not only
 	// the firewall rows that survive classification.
@@ -981,6 +1031,7 @@ testRulesNftDumpFailure();
 testRulesNoIptablesFallback();
 testPollMessagesReceived();
 testPollUbusFailure();
+testPollHungUbusReturnsWithinBudget();
 testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
 testSummaryErrorValueDoesNotFailHealthGate();

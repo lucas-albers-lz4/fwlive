@@ -6,6 +6,12 @@
 > Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-22 #491 delta:** poll ubus log-read and the firewall filter each
+> run under `POLL_TIMEOUT` (5s) via `run_with_timeout`. Timeout or a missing
+> `timeout` binary fails closed (`log_read_failed` / `filter_failed`) instead
+> of hanging the rpcd worker. Host coverage uses a hung ubus stub. No ACL,
+> DOM sink, or read/write-scope change.
+
 > **2026-09-22 #441 delta:** `FWLIVE_JSHN_SH` defaults to
 > `/usr/share/libubox/jshn.sh`; it is a host-test override, not a
 > LuCI/session-controlled env (rpcd worker env is root-owned, not set by
