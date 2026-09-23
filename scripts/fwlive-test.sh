@@ -214,6 +214,9 @@ bash tests/sdk-matrix-digests.test.sh
 echo "== fwlive SDK cache ownership (runner chown regression) ==" >&2
 bash tests/sdk-matrix-cache-owner.test.sh
 
+echo "== fwlive verify-reproducible --target arch (#518) ==" >&2
+bash tests/verify-reproducible-target-arch.test.sh
+
 echo "== fwlive feed-keys mode (0600) ==" >&2
 bash tests/feed-keys-mode.test.sh
 

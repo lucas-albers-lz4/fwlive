@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-22 #518 delta:** `verify-reproducible-build.sh` locates artifacts
+> under the resolved `SDK_MATRIX_PACKAGE_ARCH` directory and honors
+> `--target` / `OWRT_VERIFY_TARGET`. A missing arch dir fails `artifact_sha`.
+> Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #435 delta:** `sdk_matrix_copy_out` now removes matching
 > luci-app-fwlive ipk/apk files from the destination (`$dest/fwlive` and
 > dest-root globs) before copying, then fail-closes if no matching artifact

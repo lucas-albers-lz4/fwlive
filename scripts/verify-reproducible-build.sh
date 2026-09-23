@@ -3,7 +3,9 @@
 #
 #   ./scripts/verify-reproducible-build.sh
 #   ./scripts/verify-reproducible-build.sh --version 24.10
+#   ./scripts/verify-reproducible-build.sh --target armsr-armv8 --version 24.10
 #   SOURCE_DATE_EPOCH=1700000000 ./scripts/verify-reproducible-build.sh
+#   OWRT_VERIFY_TARGET and --target select the SDK target (default x86-64).
 #
 # Requires: Linux x86_64, Docker, prior or implicit feeds setup via docker-sdk.sh build.
 set -euo pipefail
@@ -16,7 +18,7 @@ TARGET="${OWRT_VERIFY_TARGET:-x86-64}"
 VERSIONS=(23.05 24.10 25.12)
 
 usage() {
-	sed -n '1,12p' "$0"
+	sed -n '1,10p' "$0"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -30,8 +32,11 @@ done
 
 artifact_sha() {
 	local version_label="$1"
+	local arch="${SDK_MATRIX_PACKAGE_ARCH:?}"
+	local dir="${ROOT}/out/${arch}/${version_label}/fwlive"
 	local path
-	path="$(find "${ROOT}/out/x86_64/${version_label}/fwlive" -maxdepth 1 \
+	[[ -d "$dir" ]] || return 1
+	path="$(find "$dir" -maxdepth 1 \
 		\( -name 'luci-app-fwlive_*_all.ipk' -o -name 'luci-app-fwlive-*.apk' \) -print -quit 2>/dev/null || true)"
 	[[ -n "$path" && -f "$path" ]] || return 1
 	sha256sum "$path" | awk '{print $1 " " $2}'
@@ -91,4 +96,6 @@ main() {
 	echo "All requested versions are reproducible." >&2
 }
 
-main
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+	main
+fi
