@@ -39,6 +39,9 @@ RESOLVE_BUDGET=5
 POLL_LINES_MAX=2000
 # Bound nft ruleset dumps (corrupted/hung nft must not block LuCI rules load).
 NFT_TIMEOUT=5
+# Bound poll log.read (wedged logd must not hold an rpcd worker past the UI cadence).
+# Integer seconds — BusyBox timeout truncates fractions to 0 (see RESOLVE_TIMEOUT).
+POLL_TIMEOUT=5
 # Host tests override this to a pinned libubox helper; devices keep the package path.
 : "${FWLIVE_JSHN_SH:=/usr/share/libubox/jshn.sh}"
 
@@ -382,7 +385,7 @@ fetch_firewall_logs() {
 	# Adaptive plan prints: lines shed bucket
 	start_cs=$(fwlive_adaptive_clock_cs)
 	# Drop dead oneshot flag — only consumed on logd's stream branch.
-	if ! raw=$(ubus call log read "{\"lines\":$lines,\"stream\":false}" 2>/dev/null); then
+	if ! raw=$(run_with_timeout "$POLL_TIMEOUT" ubus call log read "{\"lines\":$lines,\"stream\":false}"); then
 		# Do not record ~0 ms as cold: failure is not healthy fast processing
 		# and must not clear an existing hot/shed cap.
 		out='{"log":[],"error":"log_read_failed"}'
@@ -405,7 +408,7 @@ fetch_firewall_logs() {
 	# Empty success is not valid poll JSON — the shipped filter always
 	# prints {"log":[...]}, but a stub/regression must not emit a blank body.
 	_filter_ok=1
-	if ! out=$(printf '%s' "$raw" | "$FILTER_SH" /tmp); then
+	if ! out=$(printf '%s' "$raw" | run_with_timeout "$POLL_TIMEOUT" "$FILTER_SH" /tmp); then
 		_filter_ok=0
 		if [ -z "$out" ]; then
 			out='{"log":[],"error":"filter_failed"}'
