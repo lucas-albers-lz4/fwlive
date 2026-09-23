@@ -4,6 +4,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MAKEFILE="$ROOT/openwrt-feed/luci-app-fwlive/Makefile"
+# shellcheck source=../scripts/lib/sdk-apk.sh
+source "$ROOT/scripts/lib/sdk-apk.sh"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -270,7 +272,7 @@ oracle_ipk() {
 	run_lifecycle_matrix "$2"
 }
 
-inspect_apk_artifact() {
+inspect_apk_payload_dir() {
 	local payload="${FWLIVE_PAYLOAD_DIR:-}"
 	local found=""
 	if [ -n "$payload" ]; then
@@ -280,19 +282,89 @@ inspect_apk_artifact() {
 		# restore_wan_log_baseline (fwlive-logging.sh) as pre-deinstall.
 		found="$(find "$payload" -type f -name 'pre-deinstall' -print 2>/dev/null | LC_ALL=C sort | sed -n '1p' || true)"
 		if [ -n "$found" ]; then
-			grep -Fq 'PKG_UPGRADE' "$found" ||
-				fail "APK pre-deinstall lacks PKG_UPGRADE: $found"
-			grep -Fq 'case "${2-}"' "$found" || grep -Fq 'case "$2"' "$found" ||
-				fail "APK pre-deinstall lacks \$2 action dispatch: $found"
-			grep -Fq 'remove' "$found" ||
-				fail "APK pre-deinstall lacks remove dispatch: $found"
-			ok "APK pre-deinstall $found has PKG_UPGRADE and \$2/remove dispatch"
+			assert_packaged_body_contract "$found" "APK payload pre-deinstall $found"
 			return 0
 		fi
-		echo 'fwlive-package-lifecycle artifact note: APK payload extract has no pre-deinstall (apk extract ships data files; control scripts live in ADB metadata). Skipping APK hook execute; IPK artifacts execute prerm-pkg.'
+		echo 'fwlive-package-lifecycle artifact note: APK payload extract has no pre-deinstall (apk extract ships data files; control scripts live in ADB metadata).'
 		return 0
 	fi
-	echo 'fwlive-package-lifecycle artifact note: APK without FWLIVE_PAYLOAD_DIR; control scripts not executed. IPK artifacts execute prerm-pkg.'
+	echo 'fwlive-package-lifecycle artifact note: no FWLIVE_PAYLOAD_DIR for file-shaped pre-deinstall.'
+}
+
+# Back-compat name used by the synthetic payload-dir cases below.
+inspect_apk_artifact() {
+	inspect_apk_payload_dir
+}
+
+apk_write_script_from_json() {
+	local json="$1"
+	local name="$2"
+	local dest="$3"
+	command -v python3 >/dev/null 2>&1 || fail 'python3 is required to parse apk adbdump JSON'
+	python3 - "$json" "$name" "$dest" <<'PY'
+import json
+import pathlib
+import sys
+
+data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+scripts = data.get("scripts") or {}
+body = scripts.get(sys.argv[2])
+if not isinstance(body, str) or not body.strip():
+	sys.exit(1)
+pathlib.Path(sys.argv[3]).write_text(body)
+PY
+}
+
+extract_apk_package_prerm_body() {
+	local src="$1"
+	local dest="$2"
+	awk '
+		$0 == "default_prerm" || $0 ~ /^default_prerm([[:space:]]|$)/ { take=1; next }
+		take { print }
+	' "$src" >"$dest"
+	[ -s "$dest" ]
+}
+
+assert_apk_adbdump_json() {
+	local json="$1"
+	local dest="$WORK/apk-adbdump"
+	local body="$dest/package-prerm"
+	rm -rf "$dest"
+	mkdir -p "$dest"
+	[ -f "$json" ] || fail "apk adbdump JSON not found: $json"
+	apk_write_script_from_json "$json" pre-deinstall "$dest/pre-deinstall" ||
+		fail "apk adbdump JSON missing scripts.pre-deinstall: $json"
+	apk_write_script_from_json "$json" post-upgrade "$dest/post-upgrade" ||
+		fail "apk adbdump JSON missing scripts.post-upgrade: $json"
+	assert_packaged_body_contract "$dest/pre-deinstall" "apk adbdump pre-deinstall"
+	grep -Fq 'restore_wan_log_baseline' "$dest/pre-deinstall" ||
+		fail "apk adbdump pre-deinstall lacks restore_wan_log_baseline"
+	grep -Eq 'PKG_UPGRADE=1' "$dest/post-upgrade" ||
+		fail "apk adbdump post-upgrade lacks PKG_UPGRADE=1"
+	if grep -Fq 'restore_wan_log_baseline' "$dest/post-upgrade"; then
+		fail "apk adbdump post-upgrade must not restore the WAN log baseline"
+	fi
+	ok "apk adbdump JSON has pre-deinstall hook and post-upgrade PKG_UPGRADE=1"
+	extract_apk_package_prerm_body "$dest/pre-deinstall" "$body" ||
+		fail "apk adbdump pre-deinstall has no package prerm after default_prerm"
+	install_hook_from_body "$body" "$dest/hook"
+	HOOK="$dest/hook"
+	run_lifecycle_matrix apk-adbdump
+	ok "apk adbdump pre-deinstall body executed the lifecycle matrix"
+}
+
+inspect_apk_package() {
+	local pkg="$1"
+	local json="$WORK/adbdump.json"
+	if [ -n "${FWLIVE_ADBDUMP_JSON:-}" ]; then
+		[ -f "$FWLIVE_ADBDUMP_JSON" ] || fail "FWLIVE_ADBDUMP_JSON not found: $FWLIVE_ADBDUMP_JSON"
+		cp "$FWLIVE_ADBDUMP_JSON" "$json"
+	else
+		sdk_apk_adbdump --format json "$pkg" >"$json" ||
+			fail "pinned SDK apk adbdump failed for $pkg"
+	fi
+	assert_apk_adbdump_json "$json"
+	echo "fwlive-package-lifecycle artifact OK: APK adbdump pre-deinstall executed the lifecycle matrix"
 }
 
 run_lifecycle_matrix makefile
@@ -390,6 +462,84 @@ EOF
 FWLIVE_PAYLOAD_DIR="$apk_data" inspect_apk_artifact
 ok 'APK data-only payload extract skips hook execute (logging.sh is not pre-deinstall)'
 
+# Real control metadata is ADB JSON from pinned SDK `apk adbdump --format json`.
+assert_apk_adbdump_json "$ROOT/tests/fixtures/apk-adbdump-control.json"
+ok 'committed apk adbdump fixture passes the control-script contract'
+
+python3 - "$HOOK_RAW" "$WORK/generated-adbdump.json" <<'PY'
+import json
+import pathlib
+import sys
+
+body = pathlib.Path(sys.argv[1]).read_text()
+wrapped = (
+	"#!/bin/sh\n"
+	"[ -s ${IPKG_INSTROOT}/lib/functions.sh ] || exit 0\n"
+	". ${IPKG_INSTROOT}/lib/functions.sh\n"
+	'export root="${IPKG_INSTROOT}"\n'
+	'export pkgname="luci-app-fwlive"\n'
+	"default_prerm\n"
+	+ body
+)
+post = "#!/bin/sh\nexport PKG_UPGRADE=1\ndefault_postinst\n"
+pathlib.Path(sys.argv[2]).write_text(
+	json.dumps(
+		{
+			"info": {"name": "luci-app-fwlive"},
+			"scripts": {"pre-deinstall": wrapped, "post-upgrade": post},
+		}
+	)
+)
+PY
+assert_apk_adbdump_json "$WORK/generated-adbdump.json"
+ok 'current Makefile prerm wrapped as apk adbdump JSON executes the lifecycle matrix'
+
+apk_json_bad="$WORK/adbdump-restore-only.json"
+python3 - "$apk_json_bad" <<'PY'
+import json
+import pathlib
+import sys
+
+pathlib.Path(sys.argv[1]).write_text(
+	json.dumps(
+		{
+			"scripts": {
+				"pre-deinstall": "restore_wan_log_baseline\n",
+				"post-upgrade": "#!/bin/sh\nexport PKG_UPGRADE=1\n",
+			}
+		}
+	)
+)
+PY
+if (
+	fail() { echo "oracle reject: $*" >&2; exit 1; }
+	ok() { :; }
+	assert_apk_adbdump_json "$apk_json_bad"
+); then
+	fail 'restore-only apk adbdump pre-deinstall must fail the control-script contract'
+fi
+ok 'restore-only apk adbdump JSON fails the control-script contract'
+
+python3 - "$ROOT/tests/fixtures/apk-adbdump-control.json" "$WORK/adbdump-upgrade-restore.json" <<'PY'
+import json
+import pathlib
+import sys
+
+data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+data["scripts"]["post-upgrade"] = (
+	"#!/bin/sh\nexport PKG_UPGRADE=1\nrestore_wan_log_baseline\n"
+)
+pathlib.Path(sys.argv[2]).write_text(json.dumps(data))
+PY
+if (
+	fail() { echo "oracle reject: $*" >&2; exit 1; }
+	ok() { :; }
+	assert_apk_adbdump_json "$WORK/adbdump-upgrade-restore.json"
+); then
+	fail 'apk adbdump post-upgrade must not restore the baseline'
+fi
+ok 'apk adbdump post-upgrade restore fails the control-script contract'
+
 PKG="${FWLIVE_PACKAGE:-${FWLIVE_IPK:-}}"
 if [ -z "$PKG" ]; then
 	PKG="$(find "$ROOT/out" -type f -path '*/fwlive/*' \
@@ -403,7 +553,7 @@ if [ -n "$PKG" ]; then
 			echo 'fwlive-package-lifecycle artifact OK: generated IPK prerm-pkg executed the lifecycle matrix'
 			;;
 		*.apk)
-			inspect_apk_artifact
+			inspect_apk_package "$PKG"
 			;;
 		*)
 			fail "unsupported package: $PKG"

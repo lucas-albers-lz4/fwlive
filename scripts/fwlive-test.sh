@@ -140,6 +140,7 @@ echo "== fwlive view fetch budget (#347) ==" >&2
 bash tests/qemu-forwarding-slo-net.test.sh
 bash tests/qemu-forwarding-slo-harness.test.sh
 bash tests/qemu-acl-session-harness.test.sh
+bash tests/qemu-logging-uninstall-smoke.test.sh
 bash tests/qemu-install-artifact-mode.test.sh
 bash tests/qemu-smoke-log-pipeline.test.sh
 
@@ -172,11 +173,14 @@ bash tests/feed-publish-release-assets.test.sh
 echo "== fwlive package payload layout (R9a) ==" >&2
 bash tests/fwlive-package-payload.test.sh
 
-echo "== fwlive package lifecycle hook (#389) ==" >&2
+echo "== fwlive package lifecycle hook (#389 / #420) ==" >&2
 bash tests/fwlive-package-lifecycle.test.sh
 
 echo "== fwlive apk payload refuses host apk ==" >&2
 bash tests/fwlive-package-payload-apk-host.test.sh
+
+echo "== fwlive SDK apk helper (#420) ==" >&2
+bash tests/sdk-apk.test.sh
 
 echo "== fwlive packaging CI path gate (#557) ==" >&2
 bash tests/packaging-ci-paths.test.sh
