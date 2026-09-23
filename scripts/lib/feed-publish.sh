@@ -46,7 +46,9 @@ feed_publish_find_artifact() {
 	local candidates=( "${dir}"/luci-app-fwlive_*_all.ipk "${dir}"/luci-app-fwlive-*.apk "${dir}"/luci-app-fwlive_*.apk )
 	shopt -u nullglob
 	[[ ${#candidates[@]} -ge 1 ]] || return 1
-	ls -1 "${candidates[@]}" 2>/dev/null | head -1
+	# Reused out/ dirs keep older PKG_VERSION files; name order would pick
+	# luci-app-fwlive_0.1.44_all.ipk over 0.1.45. Newest mtime is the latest build.
+	ls -1t "${candidates[@]}" 2>/dev/null | head -1
 }
 
 # Map SDK output dir (e.g. 23.05.5) → feed/release key (e.g. 23.05).
