@@ -117,7 +117,11 @@ function emitAwkProgram() {
 		'\t}',
 		'\treturn n',
 		'}',
+		// Summary decoder is ASCII/Latin-1 oriented: \\uXXXX outside 1..255 is
+		// collapsed (not UTF-8). Invalid \\u appends u. NUL is dropped.
 		'function json_get_msg(obj, s, i, c, esc, out, hex, n) {',
+		'\t# Summary decoder is ASCII/Latin-1 oriented. \\uXXXX outside 1..255 is',
+		'\t# collapsed (not UTF-8). Invalid \\u appends u. NUL is dropped.',
 		'\tif (!match(obj, /"msg"[[:space:]]*:[[:space:]]*"/)) return ""',
 		'\ts = substr(obj, RSTART + RLENGTH)',
 		'\tout = ""',
@@ -133,6 +137,8 @@ function emitAwkProgram() {
 		'\t\t\telse if (c == "u") {',
 		'\t\t\t\thex = substr(s, i + 1, 4)',
 		'\t\t\t\tn = (length(hex) == 4) ? json_unhex4(hex) : -1',
+		'\t\t\t\t# 1..255: Latin-1 %c. n>255: collapse. n<0: append u.',
+		'\t\t\t\t# n==0 (NUL): BusyBox awk strings cannot hold NUL; drop it.',
 		'\t\t\t\tif (n >= 1 && n <= 255) out = out sprintf("%c", n)',
 		'\t\t\t\telse if (n < 0) out = out "u"',
 		'\t\t\t\tif (n >= 0) i += 4',
