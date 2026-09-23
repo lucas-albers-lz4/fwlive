@@ -41,6 +41,18 @@ sdk_matrix_version_label() {
 	fi
 }
 
+# One patch label per supported release cell (not snapshot). CI cache-dir
+# pre-create must use these so a point-release bump cannot drift (#519).
+sdk_matrix_release_version_labels() {
+	local v
+	for v in "${SDK_MATRIX_VERSIONS[@]}"; do
+		case "$v" in
+			snapshot | SNAPSHOT | latest | '') continue ;;
+		esac
+		printf '%s\n' "$(sdk_matrix_version_label "$v")"
+	done
+}
+
 # OpenWrt 25.12 and snapshots use apk; supported older release lines use ipk.
 # Keep this mapping beside the SDK version mapping so package-producing jobs do
 # not guess from filenames or silently inspect the wrong artifact type.

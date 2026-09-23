@@ -11,6 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
@@ -20,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck busybox pipx
-          pipx install ruff
+          pipx install 'ruff==0.16.8'
           pipx install 'ast-grep-cli==0.45.3'
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: npm ci
@@ -44,6 +45,7 @@ jobs:
   # Gate only the SDK build/inspect steps; path detection fail-closes to run.
   test-ipk-payload:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
@@ -95,6 +97,9 @@ jobs:
             esac
             package="$(find "$GITHUB_WORKSPACE/out/x86_64/$version_label/fwlive" \
               -type f -name "$pattern" -print | sed -n '1p')"
+            if [ -z "$package" ]; then
+              echo "no $pattern under out/x86_64/$version_label/fwlive" >&2
+            fi
             test -n "$package"
 
             payload_dir=""
@@ -102,6 +107,9 @@ jobs:
               payload_dir="$RUNNER_TEMP/fwlive-apk-payload-$version_key"
               mkdir -p "$payload_dir"
               sdk_image="$(sdk_matrix_read_digest_cache x86-64 "$version_key")"
+              if [ -z "$sdk_image" ]; then
+                echo "no SDK image digest for x86-64 $version_key" >&2
+              fi
               test -n "$sdk_image"
               docker run --rm \
                 --user "$(id -u):$(id -g)" \
@@ -126,6 +134,7 @@ jobs:
   # Tier 2 mocked LuCI view smoke — required check (add test-view-mock to branch protection).
   test-view-mock:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
@@ -139,6 +148,7 @@ jobs:
 
   zizmor:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       # Digest pins ghcr.io/zizmorcore/zizmor:1.29.0 (multi-arch index).
       ZIZMOR_IMAGE: ghcr.io/zizmorcore/zizmor@sha256:863026d54f91271b10b60b67ad8054cb37120167e162482597db102b3026a284
@@ -171,6 +181,7 @@ jobs:
   # #290 L6: actionlint (docker run, not job container — usrmanage #85 EACCES).
   actionlint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       ACTIONLINT_IMAGE: rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
       ACTIONLINT_VERSION: "1.7.7"
@@ -199,6 +210,7 @@ jobs:
   # #121: authoritative Z3 suite (F1-F4).
   z3-verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
