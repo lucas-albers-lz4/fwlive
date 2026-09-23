@@ -607,6 +607,29 @@ sdk_matrix_clean_package() {
 	sdk_matrix_compose_run sh -ec 'cd /builder && export TERM=dumb && make package/luci-app-fwlive/clean V=s'
 }
 
+# True when dest holds a luci-app-fwlive ipk/apk (fwlive/ subdir or dest root).
+sdk_matrix_out_has_package() {
+	local dest="$1"
+	local -a candidates=()
+	local f nullglob_was=0
+	[[ -d "$dest" ]] || return 1
+	shopt -q nullglob && nullglob_was=1
+	shopt -s nullglob
+	candidates=(
+		"${dest}"/luci-app-fwlive_*_all.ipk
+		"${dest}"/luci-app-fwlive-*.apk
+		"${dest}"/luci-app-fwlive_*.apk
+		"${dest}"/fwlive/luci-app-fwlive_*_all.ipk
+		"${dest}"/fwlive/luci-app-fwlive-*.apk
+		"${dest}"/fwlive/luci-app-fwlive_*.apk
+	)
+	[[ $nullglob_was -eq 1 ]] || shopt -u nullglob
+	for f in "${candidates[@]}"; do
+		[[ -f "$f" ]] && return 0
+	done
+	return 1
+}
+
 sdk_matrix_copy_out() {
 	local root out_mount dest_host
 	root="$(sdk_matrix_root)"
@@ -634,6 +657,11 @@ sdk_matrix_copy_out() {
 			ls -la \"\$dest\"/fwlive/luci-app-fwlive* 2>/dev/null || ls -la \"\$dest\"/luci-app-fwlive* 2>/dev/null || true
 		"
 	)
+	if ! sdk_matrix_out_has_package "$dest_host"; then
+		echo "sdk-matrix: no luci-app-fwlive package artifact under ${dest_host}" >&2
+		echo "sdk-matrix: expected luci-app-fwlive_*_all.ipk or luci-app-fwlive-*.apk (or luci-app-fwlive_*.apk)" >&2
+		return 1
+	fi
 	echo "Packages under: ${SDK_MATRIX_OUT_DIR}/" >&2
 }
 
