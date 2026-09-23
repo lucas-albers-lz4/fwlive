@@ -4,7 +4,9 @@
 > `/usr/share/libubox/jshn.sh`; it is a host-test override, not a
 > LuCI/session-controlled env (rpcd worker env is root-owned, not set by
 > unprivileged ubus callers). Named jshn poll-cap failures go to logger,
-> not poll JSON `error`. No ACL/DOM change.
+> not poll JSON `error`. Leading-zero strip in `poll_clamp_lines` is
+> in-shell so a default-50 poll does not add a `sed` exec. No ACL/DOM
+> change.
 
 > **2026-09-22 #506 delta:** `parse_nslookup_name` treats `name =` as a whole
 > token and rejects the phrase `domain name =` even when `domain` and `name`
