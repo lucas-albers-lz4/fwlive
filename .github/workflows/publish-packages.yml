@@ -27,11 +27,12 @@ env:
 permissions:
   contents: read
 
-# Serialize publishes so two tag/dispatch runs cannot interleave gh-pages
-# and release assets. Queue the second run; never cancel one in progress.
+# Serialize publishes; never cancel in-progress; queue pending runs
+# (`queue: max`) so a third tag is not dropped.
 concurrency:
   group: publish-packages
   cancel-in-progress: false
+  queue: max
 
 jobs:
   build-publish:
@@ -166,13 +167,13 @@ jobs:
           # #208: refuse to mkdir/chown through a symlinked cache path — sudo
           # chmod -R on a symlinked root would modify the target (luna r10).
           source ./scripts/lib/sdk-matrix.sh
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
+          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           mkdir -p .ci-sdk-cache/dl
           while IFS= read -r v; do
             mkdir -p ".ci-sdk-cache/feeds/$v"
           done < <(sdk_matrix_release_version_labels)
-          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
-          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
-          sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           # Least privilege: buildbot owns cache; no group/other write.
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache

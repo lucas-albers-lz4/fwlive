@@ -95,22 +95,25 @@ jobs:
               apk) pattern="luci-app-fwlive-${version}*.apk" ;;
               *) echo "unsupported package format: $package_format" >&2; exit 1 ;;
             esac
-            package="$(find "$GITHUB_WORKSPACE/out/x86_64/$version_label/fwlive" \
-              -type f -name "$pattern" -print | sed -n '1p')"
+            out_dir="$GITHUB_WORKSPACE/out/x86_64/$version_label/fwlive"
+            if [ ! -d "$out_dir" ]; then
+              echo "no package directory $out_dir" >&2
+              exit 1
+            fi
+            package="$(find "$out_dir" -type f -name "$pattern" -print | sed -n '1p')"
             if [ -z "$package" ]; then
               echo "no $pattern under out/x86_64/$version_label/fwlive" >&2
+              exit 1
             fi
-            test -n "$package"
 
             payload_dir=""
             if [ "$package_format" = apk ]; then
               payload_dir="$RUNNER_TEMP/fwlive-apk-payload-$version_key"
               mkdir -p "$payload_dir"
-              sdk_image="$(sdk_matrix_read_digest_cache x86-64 "$version_key")"
-              if [ -z "$sdk_image" ]; then
+              sdk_image="$(sdk_matrix_read_digest_cache x86-64 "$version_key")" || {
                 echo "no SDK image digest for x86-64 $version_key" >&2
-              fi
-              test -n "$sdk_image"
+                exit 1
+              }
               docker run --rm \
                 --user "$(id -u):$(id -g)" \
                 -v "$package:/tmp/fwlive-package.apk:ro" \
