@@ -18,6 +18,14 @@
 > `domain  name =` and tab-space variants. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-22 #503 delta:** WAN-log reload rollback (`restore_wan_zone_log`)
+> now returns non-zero when `uci commit firewall` fails, and reverts its own
+> orphaned staging when the remaining `uci changes` list is only that log
+> option. Callers therefore report failure instead of a false rollback
+> success, and a later toggle is not stuck on `firewall_changes_pending`.
+> Host coverage drives a commit-failure stub and requires the revert. No ACL,
+> DOM sink, or read/write-scope change.
+
 > **2026-09-22 #507 delta:** the JSON summary decoder keeps the BusyBox-awk
 > Latin-1 `%c` path for `\uXXXX` in 1..255 and collapses code points outside
 > that range (no UTF-8 materialization). The generator documents this limit;
