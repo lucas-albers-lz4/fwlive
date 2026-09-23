@@ -178,7 +178,9 @@ function testLocaleCoverageDecision() {
     const withPot = path.join(dir, 'with-pot');
     fs.mkdirSync(path.join(withPot, 'templates'), { recursive: true });
     const withPotFile = path.join(withPot, 'templates', 'luci-app-fwlive.pot');
-    fs.copyFileSync(POT_FILE, withPotFile);
+    // Stub, not a copy of the shipped template: the skip path must still
+    // run when the real .pot is absent.
+    fs.writeFileSync(withPotFile, 'msgid ""\nmsgstr ""\n');
     const failDecision = localeCoverageDecision(withPot, withPotFile);
     if (failDecision.action !== 'fail' || failDecision.langs.length !== 0)
       throw new Error('template with no locale dirs must fail the i18n gate');
