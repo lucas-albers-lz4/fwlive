@@ -205,6 +205,9 @@ bash tests/fwlive-package-payload-apk-host.test.sh
 echo "== fwlive SDK package format mapping ==" >&2
 bash tests/sdk-matrix-package-format.test.sh
 
+echo "== fwlive SDK copy-out artifact check ==" >&2
+bash tests/sdk-matrix-copy-out.test.sh
+
 echo "== fwlive SDK digest pin-cache (R7) ==" >&2
 bash tests/sdk-matrix-digests.test.sh
 

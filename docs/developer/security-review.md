@@ -6,6 +6,14 @@
 > Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-22 #435 delta:** `sdk_matrix_copy_out` now removes matching
+> luci-app-fwlive ipk/apk files from the destination (`$dest/fwlive` and
+> dest-root globs) before copying, then fail-closes if no matching artifact
+> exists after copy. A leftover package from an earlier build cannot satisfy
+> the existence check when this invocation copies nothing. Host coverage
+> plants a stale matching IPK, stubs docker copy as a no-op, and requires
+> copy_out to fail. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #495 delta:** `feed_publish_find_artifact` now selects the
 > newest-mtime luci-app-fwlive ipk/apk under a reused `out/` tree (`ls -1t`)
 > instead of the alphabetically first name (`ls -1`). A leftover
