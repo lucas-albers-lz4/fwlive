@@ -6,6 +6,18 @@
 > Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-22 #502 delta:** post-commit WAN-log verify mismatch now returns
+> rc 2 from `commit_wan_log_change`, still reloads fw4, and reports
+> `firewall_commit_raced` with `ok:false`/`changed:false` instead of rolling
+> back a foreign writer's committed UCI. Host coverage pins the JSON and the
+> reload. No ACL, DOM sink, or read/write-scope change.
+
+> **2026-09-22 #506 delta:** `parse_nslookup_name` treats `name =` as a whole
+> token and rejects the phrase `domain name =` even when `domain` and `name`
+> are separated by repeated whitespace. Host coverage includes
+> `domain  name =` and tab-space variants. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #503 delta:** WAN-log reload rollback (`restore_wan_zone_log`)
 > now returns non-zero when `uci commit firewall` fails, and reverts its own
 > orphaned staging when the remaining `uci changes` list is only that log

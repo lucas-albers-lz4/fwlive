@@ -859,6 +859,35 @@ function testResolveNslookup() {
 	assert.equal(got, '', 'server-only is not a name');
 	assert.equal(emptyStatus, 1, 'empty parse must fail');
 
+	function parseNslookup(input) {
+		try {
+			return {
+				got: execFileSync(RPCD, ['__parse_nslookup', input], { encoding: 'utf8' }).trim(),
+				status: 0,
+			};
+		} catch (e) {
+			return { got: String(e.stdout || '').trim(), status: e.status };
+		}
+	}
+	let parsed = parseNslookup('hostname = evil.example.');
+	assert.equal(parsed.got, '', 'hostname = is not a PTR name field');
+	assert.equal(parsed.status, 1, 'hostname = parse must fail');
+	parsed = parseNslookup('domain name = other.example.');
+	assert.equal(parsed.got, '', 'domain name = is not a PTR name field');
+	assert.equal(parsed.status, 1, 'domain name = parse must fail');
+	parsed = parseNslookup('domain  name = two.example.');
+	assert.equal(parsed.got, '', 'domain  name = (repeated space) is not a PTR name field');
+	assert.equal(parsed.status, 1, 'domain  name = parse must fail');
+	parsed = parseNslookup('domain\t name = tab.example.');
+	assert.equal(parsed.got, '', 'domain<tab> name = is not a PTR name field');
+	assert.equal(parsed.status, 1, 'domain tab-space name = parse must fail');
+	parsed = parseNslookup('8.8.8.8.in-addr.arpa\tname = dns.google.');
+	assert.equal(parsed.got, 'dns.google', 'bind-style name = still parses');
+	assert.equal(parsed.status, 0, 'bind-style name = must succeed');
+	parsed = parseNslookup('name = dns.google. hostname = evil.example.');
+	assert.equal(parsed.got, 'dns.google', 'standalone name = must beat hostname =');
+	assert.equal(parsed.status, 0, 'standalone name = must succeed');
+
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ns-'));
 	try {
 		makeStub(stubDir, 'nslookup', `#!/bin/sh
