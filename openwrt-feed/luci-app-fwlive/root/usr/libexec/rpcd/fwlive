@@ -423,16 +423,28 @@ poll_logs() {
 # "<ptr> name = <host>"; fall back to "Address N: <ip> <host>".
 # Trailing dots are stripped. Empty / server-only output is not a name.
 parse_nslookup_name() {
-	# Prefer "<ptr> name = <host>". The "Address N: ip host" fallback
-	# must ignore the Server block (BusyBox mini nslookup prints the
-	# resolver via the same Address N: format first). Only accept
-	# Address N: after a blank line (the answer section).
+	# Prefer "<ptr> name = <host>". "name =" must be a whole token
+	# (not a suffix of hostname, not the phrase "domain name =").
+	# The "Address N: ip host" fallback must ignore the Server
+	# block (BusyBox mini nslookup prints the resolver via the
+	# same Address N: format first). Only accept Address N: after
+	# a blank line (the answer section).
 	printf '%s\n' "$1" | awk '
-		tolower($0) ~ /name[ \t]*=/ {
-			sub(/.*[Nn][Aa][Mm][Ee][ \t]*=[ \t]*/, "")
-			gsub(/[ \t].*$/, "")
-			gsub(/\.$/, "")
-			if ($0 != "") { print; exit }
+		{
+			low = tolower($0)
+			host = ""
+			if (match(low, /^name[ \t]*=[ \t]*/)) {
+				host = substr($0, RLENGTH + 1)
+			} else if (match(low, /[^a-z0-9_]name[ \t]*=[ \t]*/)) {
+				pre = substr(low, 1, RSTART - 1)
+				if (pre != "domain" && pre !~ /[^a-z0-9_]domain$/)
+					host = substr($0, RSTART + RLENGTH)
+			}
+			if (host != "") {
+				gsub(/[ \t].*$/, "", host)
+				gsub(/\.$/, "", host)
+				if (host != "") { print host; exit }
+			}
 		}
 		NF == 0 { in_answer = 1; next }
 		in_answer && $1 == "Address" && $2 ~ /^[0-9]+:/ && NF >= 4 {
@@ -816,6 +828,12 @@ Address 1: 8.8.8.8 dns.google")
 	got=$(parse_nslookup_name "Server: 127.0.0.1
 Address: 127.0.0.1:53")
 	check_eq parse_nslookup_name "$got" '' "server-only expected empty got '$got'" || return 1
+	got=$(parse_nslookup_name "hostname = evil.example.")
+	check_eq parse_nslookup_name "$got" '' "hostname = must not parse as name got '$got'" || return 1
+	got=$(parse_nslookup_name "domain name = other.example.")
+	check_eq parse_nslookup_name "$got" '' "domain name = must not parse as name got '$got'" || return 1
+	got=$(parse_nslookup_name "name = dns.google. hostname = evil.example.")
+	check_eq parse_nslookup_name "$got" "dns.google" "standalone name = must beat hostname = got '$got'" || return 1
 
 	run_logging_selftest || return 1
 
