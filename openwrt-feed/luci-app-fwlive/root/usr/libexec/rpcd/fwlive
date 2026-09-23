@@ -302,7 +302,8 @@ poll_clamp_lines() {
 			return 0
 			;;
 	esac
-	_digits=$(printf '%s' "$_val" | sed 's/^0*//')
+	# Strip leading zeros in-shell so default-50 poll does not pay for sed.
+	_digits=${_val#${_val%%[!0]*}}
 	if [ -z "$_digits" ]; then
 		printf '%s' "50"
 		return 0
@@ -808,6 +809,10 @@ run_selftest() {
 	check_eq poll_clamp_lines "$got" "$POLL_LINES_MAX" "over-long expected $POLL_LINES_MAX got $got" || return 1
 	got=$(poll_clamp_lines "0")
 	check_eq poll_clamp_lines "$got" "50" "zero expected 50 got $got" || return 1
+	got=$(poll_clamp_lines "000")
+	check_eq poll_clamp_lines "$got" "50" "all-zeros expected 50 got $got" || return 1
+	got=$(poll_clamp_lines "050")
+	check_eq poll_clamp_lines "$got" "50" "leading-zero expected 50 got $got" || return 1
 	got=$(poll_clamp_lines "2001")
 	check_eq poll_clamp_lines "$got" "$POLL_LINES_MAX" "2001 expected $POLL_LINES_MAX got $got" || return 1
 	got=$(poll_clamp_lines "500")
