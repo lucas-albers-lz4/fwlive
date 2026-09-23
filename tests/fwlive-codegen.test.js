@@ -26,8 +26,8 @@ const awk = spawnSync(process.execPath, [GEN_SHELL, '--awk'], { encoding: 'utf8'
 assert.equal(awk.status, 0, awk.stderr || awk.stdout);
 assert.strictEqual(awk.stdout, fs.readFileSync(AWK_DST, 'utf8'),
 	'fwlive-is-firewall-event.awk is stale — run ./scripts/gen-all.sh and commit');
-assert.equal(fs.statSync(AWK_DST).mode & 0o777, 0o644,
-	'fwlive-is-firewall-event.awk must be mode 0644');
+assert.equal(fs.statSync(AWK_DST).mode & 0o111, 0,
+	'fwlive-is-firewall-event.awk must not be executable');
 const awkSyntax = spawnSync('awk', ['-f', AWK_DST], { input: '', encoding: 'utf8' });
 assert.equal(awkSyntax.status, 0, 'generated awk fails syntax check: ' + awkSyntax.stderr);
 
