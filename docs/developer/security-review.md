@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-22 #506 delta:** `parse_nslookup_name` treats `name =` as a whole
+> token and rejects the phrase `domain name =` even when `domain` and `name`
+> are separated by repeated whitespace. Host coverage includes
+> `domain  name =` and tab-space variants. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #503 delta:** WAN-log reload rollback (`restore_wan_zone_log`)
 > now returns non-zero when `uci commit firewall` fails, and reverts its own
 > orphaned staging when the remaining `uci changes` list is only that log
