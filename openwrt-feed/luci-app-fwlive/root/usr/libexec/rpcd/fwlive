@@ -175,15 +175,70 @@ $(uci_rule_names)
 EOF
 }
 
+# One awk pass: prefix<TAB>comment. Last quoted log prefix / comment on
+# the line, including \" units (same capture as the former sed).
+nft_dump_fields() {
+	LC_ALL=C awk '
+	function last_at(s, needle,    p, i, found) {
+		found = 0
+		p = 1
+		while ((i = index(substr(s, p), needle)) > 0) {
+			found = p + i - 1
+			p = found + 1
+		}
+		return found
+	}
+	function quoted_at(s, needle,    i, rest, out, c, n, esc, j) {
+		i = last_at(s, needle)
+		if (i == 0)
+			return ""
+		rest = substr(s, i + length(needle))
+		n = length(rest)
+		out = ""
+		esc = 0
+		for (j = 1; j <= n; j++) {
+			c = substr(rest, j, 1)
+			if (esc) {
+				out = out c
+				esc = 0
+				continue
+			}
+			if (c == "\\") {
+				out = out c
+				esc = 1
+				continue
+			}
+			if (c == "\"")
+				return out
+			out = out c
+		}
+		return ""
+	}
+	{
+		prefix = quoted_at($0, "log prefix \"")
+		comment = quoted_at($0, "comment \"")
+		if (prefix == "" && comment == "")
+			next
+		print prefix "\t" comment
+	}
+	'
+}
+
 # pass=labeled|unlabeled|all — labeled before unlabeled so !fw4: beats
 # an earlier cosmetic for the same prefix under first-wins.
+# Reads TSV from nft_dump_fields; stops once the map cap trips.
 map_from_nft_stream() {
 	pass="${1:-all}"
-	while IFS= read -r line; do
-		# Capture [^"]* plus escaped-quote units (\"...) so a log prefix or
-		# comment containing an escaped quote is not truncated at the quote.
-		prefix=$(echo "$line" | sed -n 's/.*log prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
-		comment=$(echo "$line" | sed -n 's/.*comment "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	_tab=$(printf '\t')
+	# IFS= keeps a leading tab (empty prefix + comment-only !fw4: line).
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$_map_overflow" ] && break
+		[ -n "$line" ] || continue
+		prefix="${line%%${_tab}*}"
+		case "$line" in
+			*"$_tab"*) comment="${line#*"$_tab"}" ;;
+			*) comment="" ;;
+		esac
 		label=''
 
 		case "$comment" in
@@ -252,8 +307,13 @@ enrich_rules_dump() {
 		# (unknown/no_backend, same as a failed detect probe).
 		if nft_list_ruleset >"$_rules_dump" 2>/dev/null; then
 			backend=nft
+			# Rewrite dump to TSV in place (printf %s, no here-doc expand).
+			_nft_parsed=$(nft_dump_fields <"$_rules_dump")
+			printf '%s\n' "$_nft_parsed" >"$_rules_dump"
 			map_from_nft_stream labeled <"$_rules_dump"
-			map_from_nft_stream unlabeled <"$_rules_dump"
+			if [ -z "$_map_overflow" ]; then
+				map_from_nft_stream unlabeled <"$_rules_dump"
+			fi
 		fi
 		rm -f "$_rules_dump"
 	else
@@ -784,19 +844,23 @@ run_selftest() {
 
 	# Escaped-quote capture: a log prefix containing \" must not be truncated
 	# at the escaped quote (nft dumps strings with backslash escapes).
-	got=$(printf '%s\n' 'log prefix "My \" Rule"' | sed -n 's/.*log prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	_tab=$(printf '\t')
+	got=$(printf '%s\n' 'log prefix "My \" Rule"' | nft_dump_fields)
+	got="${got%%${_tab}*}"
 	if [ "$got" != 'My \" Rule' ]; then
 		echo "escaped-quote prefix capture: expected 'My \\\" Rule' got '$got'" >&2
 		return 1
 	fi
 	# Plain prefix still captures unchanged.
-	got=$(printf '%s\n' 'log prefix "Plain Rule"' | sed -n 's/.*log prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	got=$(printf '%s\n' 'log prefix "Plain Rule"' | nft_dump_fields)
+	got="${got%%${_tab}*}"
 	if [ "$got" != 'Plain Rule' ]; then
 		echo "plain prefix capture: expected 'Plain Rule' got '$got'" >&2
 		return 1
 	fi
 	# Empty prefix edge.
-	got=$(printf '%s\n' 'log prefix ""' | sed -n 's/.*log prefix "\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')
+	got=$(printf '%s\n' 'log prefix ""' | nft_dump_fields)
+	got="${got%%${_tab}*}"
 	if [ "$got" != '' ]; then
 		echo "empty prefix capture: expected '' got '$got'" >&2
 		return 1
