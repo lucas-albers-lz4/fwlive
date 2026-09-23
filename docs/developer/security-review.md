@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-22 #507 delta:** the JSON summary decoder keeps the BusyBox-awk
+> Latin-1 `%c` path for `\uXXXX` in 1..255 and collapses code points outside
+> that range (no UTF-8 materialization). The generator documents this limit;
+> host tests pin `euro\u20acrule` → `eurorule`, Latin-1 `\u00e9`, and NUL
+> drop. No classifier, ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #498 delta:** `fwlive-log-filter.sh` now removes its temporary
 > JSON file and exits with the signal status for HUP/INT/QUIT/TERM instead of
 > continuing after a trapped signal. Host coverage interrupts a live

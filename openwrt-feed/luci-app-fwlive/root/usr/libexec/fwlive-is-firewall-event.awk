@@ -63,13 +63,9 @@ function json_unhex4(h, n, i, c, v) {
 	}
 	return n
 }
-function json_utf8(n) {
-	# BMP n>255 as UTF-8. 1..255 stays Latin-1 %c (LC_ALL=C, not UTF-8).
-	if (n <= 2047)
-		return sprintf("%c%c", int(n / 64) + 192, n % 64 + 128)
-	return sprintf("%c%c%c", int(n / 4096) + 224, int(n / 64) % 64 + 128, n % 64 + 128)
-}
 function json_get_msg(obj, s, i, c, esc, out, hex, n) {
+	# Summary decoder is ASCII/Latin-1 oriented. \uXXXX outside 1..255 is
+	# collapsed (not UTF-8). Invalid \u appends u. NUL is dropped.
 	if (!match(obj, /"msg"[[:space:]]*:[[:space:]]*"/)) return ""
 	s = substr(obj, RSTART + RLENGTH)
 	out = ""
@@ -85,10 +81,10 @@ function json_get_msg(obj, s, i, c, esc, out, hex, n) {
 			else if (c == "u") {
 				hex = substr(s, i + 1, 4)
 				n = (length(hex) == 4) ? json_unhex4(hex) : -1
+				# 1..255: Latin-1 %c. n>255: collapse. n<0: append u.
+				# n==0 (NUL): BusyBox awk strings cannot hold NUL; drop it.
 				if (n >= 1 && n <= 255) out = out sprintf("%c", n)
-				else if (n > 255) out = out json_utf8(n)
 				else if (n < 0) out = out "u"
-				# n == 0 (NUL): BusyBox awk strings cannot hold NUL; drop it
 				if (n >= 0) i += 4
 			} else out = out c
 			esc = 0
