@@ -796,6 +796,7 @@ drive_toggle() {
 	LOGGER_MSGS=''
 	CHANGES_CALLS=0
 	REVERTED=0
+	RELOADS=0
 	printf '0\n' > "$CHANGES_FILE"
 	printf '0\n' > "$READ_FILE"
 	CURRENT_LOG="$FWLIVE_CURRENT_LOG"
@@ -915,6 +916,7 @@ drive_toggle() {
 	acquire_wan_log_lock() { return 0; }
 	release_wan_log_lock() { return 0; }
 	reload_firewall() {
+		RELOADS=$((RELOADS + 1))
 		[ "$mode" = rollback_post_stage_foreign ] && return 1
 		return 0
 	}
@@ -1004,12 +1006,13 @@ case "$OUT" in
 	*) die "#191 enable/verify-mismatch: expected ok:false firewall_commit_raced, got: $OUT" ;;
 esac
 [ "$UCI_COMMITS" -eq 1 ] || die "#191 enable/verify-mismatch: expected exactly one commit, got $UCI_COMMITS"
+[ "$RELOADS" -eq 1 ] || die "#191 enable/verify-mismatch: raced commit must still reload, got $RELOADS"
 [ "$STAGED_LOG" = '1' ] || die "#191 enable/verify-mismatch: expected log=1 staged, got '$STAGED_LOG'"
 case "$LOGGER_MSGS" in
 	*'verify FAILED'*) ;;
 	*) die "#191 enable/verify-mismatch: missing loud post-commit warning: $LOGGER_MSGS" ;;
 esac
-ok "#191 post-commit verify mismatch reports firewall_commit_raced, keeps the commit, no blind revert"
+ok "#191 post-commit verify mismatch reports firewall_commit_raced, keeps the commit, still reloads"
 
 FWLIVE_CURRENT_LOG='3'
 drive_toggle disable verify_mismatch
@@ -1018,6 +1021,7 @@ case "$OUT" in
 	*) die "#191 disable/verify-mismatch: expected ok:false firewall_commit_raced, got: $OUT" ;;
 esac
 [ "$UCI_COMMITS" -eq 1 ] || die "#191 disable/verify-mismatch: expected exactly one commit, got $UCI_COMMITS"
+[ "$RELOADS" -eq 1 ] || die "#191 disable/verify-mismatch: raced commit must still reload, got $RELOADS"
 # clear value for current='3' is 3 & ~1 = 2 (set), not a delete — delete only
 # happens when the cleared bit value is 0 (current '1').
 [ "$STAGED_LOG" = '2' ] || die "#191 disable/verify-mismatch: expected log=2 staged, got '$STAGED_LOG'"
