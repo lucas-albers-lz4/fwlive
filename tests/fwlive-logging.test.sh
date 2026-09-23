@@ -433,12 +433,31 @@ esac
 unset -f uci
 ok "restore_wan_zone_log stubs"
 
-# restore_wan_zone_log: commit failure must return non-zero (issue #503)
+# restore_wan_zone_log: commit failure must return non-zero and revert our
+# own orphaned rollback staging (issue #503).
 UCI_LOG=()
+STAGED_FLAG=$(mktemp)
+printf '0\n' >"$STAGED_FLAG"
 uci() {
 	UCI_LOG+=("$*")
 	case "$*" in
+		'-q changes firewall')
+			# Persist across command-substitution subshells: after
+			# our rollback delta is staged, changes lists only it.
+			if [ "$(cat "$STAGED_FLAG")" = 1 ]; then
+				printf '%s\n' 'firewall.@zone[0].log='
+			fi
+			return 0
+			;;
+		'-q delete firewall.@zone[0].log')
+			printf '1\n' >"$STAGED_FLAG"
+			return 0
+			;;
 		'commit firewall') return 1 ;;
+		'-q revert firewall')
+			printf '0\n' >"$STAGED_FLAG"
+			return 0
+			;;
 		*) return 0 ;;
 	esac
 }
@@ -446,9 +465,14 @@ if restore_wan_zone_log '@zone[0]' ''; then
 	die "restore_wan_zone_log expected non-zero when commit fails"
 fi
 joined="${UCI_LOG[*]}"
+rm -f "$STAGED_FLAG"
 case "$joined" in
 	*'commit firewall'*) ;;
 	*) die "restore commit-failure case expected commit attempt, got: $joined" ;;
+esac
+case "$joined" in
+	*'-q revert firewall'*) ;;
+	*) die "restore commit-failure must revert our orphaned staging, got: $joined" ;;
 esac
 unset -f uci
 ok "restore_wan_zone_log returns failure when commit fails"

@@ -701,7 +701,19 @@ restore_wan_zone_log() {
 		logger -t fwlive "WAN log rollback skipped after stage: firewall changes staged by another writer" 2>/dev/null || true
 		return 1
 	fi
-	uci commit firewall 2>/dev/null || return 1
+	if ! uci commit firewall 2>/dev/null; then
+		# Drop our staged rollback delta so a later toggle is not stuck
+		# on firewall_changes_pending from this package's own orphaned
+		# write. Mirror commit_wan_log_change: revert only when the
+		# remaining staging is entirely our log option.
+		_staged=$(uci -q changes firewall 2>/dev/null || true)
+		_total=$(printf '%s\n' "$_staged" | grep -c . 2>/dev/null || true)
+		_ours=$(wan_log_count_our_staged_lines "$zone" "$_staged")
+		if [ "${_total:-0}" -gt 0 ] && [ "${_total:-0}" -eq "${_ours:-0}" ]; then
+			uci -q revert firewall 2>/dev/null || true
+		fi
+		return 1
+	fi
 }
 
 # Stage + commit the WAN log bit. Caller MUST hold the logging lock; this
