@@ -433,6 +433,26 @@ esac
 unset -f uci
 ok "restore_wan_zone_log stubs"
 
+# restore_wan_zone_log: commit failure must return non-zero (issue #503)
+UCI_LOG=()
+uci() {
+	UCI_LOG+=("$*")
+	case "$*" in
+		'commit firewall') return 1 ;;
+		*) return 0 ;;
+	esac
+}
+if restore_wan_zone_log '@zone[0]' ''; then
+	die "restore_wan_zone_log expected non-zero when commit fails"
+fi
+joined="${UCI_LOG[*]}"
+case "$joined" in
+	*'commit firewall'*) ;;
+	*) die "restore commit-failure case expected commit attempt, got: $joined" ;;
+esac
+unset -f uci
+ok "restore_wan_zone_log returns failure when commit fails"
+
 # find_wan_zone_section: named zone + anonymous zone (issue #168)
 uci() {
 	case "$*" in

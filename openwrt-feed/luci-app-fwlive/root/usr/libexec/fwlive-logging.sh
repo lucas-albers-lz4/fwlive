@@ -699,7 +699,7 @@ restore_wan_zone_log() {
 		logger -t fwlive "WAN log rollback skipped after stage: firewall changes staged by another writer" 2>/dev/null || true
 		return 1
 	fi
-	uci commit firewall 2>/dev/null || true
+	uci commit firewall 2>/dev/null || return 1
 }
 
 # Stage + commit the WAN log bit. Caller MUST hold the logging lock; this
