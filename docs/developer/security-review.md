@@ -1,5 +1,10 @@
 # Security review state
 
+> **2026-09-22 #492 delta:** `rules` performs one `nft list ruleset` dump
+> for detect and parse. A missing or failed dump is `unknown`/`no_backend`
+> (`nft_failed` is no longer produced). Host coverage asserts a single dump.
+> No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #491 delta:** poll ubus log-read and the firewall filter each
 > run under `POLL_TIMEOUT` (5s) via `run_with_timeout`. Timeout or a missing
 > `timeout` binary fails closed (`log_read_failed` / `filter_failed`) instead

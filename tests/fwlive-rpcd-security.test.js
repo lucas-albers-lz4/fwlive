@@ -215,14 +215,15 @@ function testUnknownMethod() {
 
 function testRulesNoBackend() {
 	// nft fails, so detection yields unknown. There is no iptables-save
-	// fallback (#378 Phase 2).
+	// fallback (#378 Phase 2). Keep host timeout/mktemp on PATH so the
+	// single dump runs (nft stub exit 1), not a mktemp skip.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-nobe-'));
 	try {
 		makePassthrough(stubDir, 'dirname', '/usr/bin/dirname');
 		makePassthrough(stubDir, 'sed', '/usr/bin/sed');
 		makeStub(stubDir, 'nft', '#!/bin/sh\nexit 1\n');
 		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
-		const env = { ...process.env, PATH: stubDir };
+		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
 		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
 		const res = JSON.parse(raw);
 		assert.equal(res.backend, 'unknown');
@@ -269,21 +270,53 @@ function testRemovedRulesmapIptablesCli() {
 }
 
 function testRulesNftDumpFailure() {
-	// Stateful nft: the detect probe (first call) succeeds empty so the
-	// backend is nft, then the dump (second call) fails. Catches a dump
-	// failure degrading into a silent empty rules map.
+	// Single dump: nft list ruleset fails. Must surface an error, not a
+	// silent empty map. Failed dump is not nft (unknown/no_backend).
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-nftf-'));
 	try {
 		makeStub(
 			stubDir,
 			'nft',
 			`#!/bin/sh
-state="${stubDir}/nft.calls"
-n="$(/bin/cat "$state" 2>/dev/null || echo 0)"
-echo $((n + 1)) >"$state"
+printf '%s\\n' "nft $*" >> "${stubDir}/nft.log"
+exit 1
+`
+		);
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
+		const res = JSON.parse(raw);
+		assert.equal(res.backend, 'unknown');
+		assertStructuredError(res, 'rules/no_backend');
+		assert.equal(res.error, 'no_backend');
+		assert.deepEqual(
+			fs.readFileSync(path.join(stubDir, 'nft.log'), 'utf8').trim().split('\n'),
+			['nft list ruleset'],
+			'failed rules dump must invoke nft list ruleset once'
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testRulesNftListRulesetOnce() {
+	// #492: detect used to dump to /dev/null, then enrich dumped again.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-492-nft-once-'));
+	try {
+		makeStub(
+			stubDir,
+			'nft',
+			`#!/bin/sh
+printf '%s\\n' "nft $*" >> "${stubDir}/nft.log"
 if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
-	if [ "$n" -eq 0 ]; then exit 0; fi
-	exit 1
+	cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "once-prefix" comment "!fw4: Once-Rule"
+	}
+}
+EOF
+	exit 0
 fi
 exit 1
 `
@@ -293,8 +326,13 @@ exit 1
 		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
 		const res = JSON.parse(raw);
 		assert.equal(res.backend, 'nft');
-		assertStructuredError(res, 'rules/nft_failed');
-		assert.equal(res.error, 'nft_failed');
+		assert.equal(res.rules['once-prefix'], 'Once-Rule');
+		assert.equal(res.error, undefined);
+		assert.deepEqual(
+			fs.readFileSync(path.join(stubDir, 'nft.log'), 'utf8').trim().split('\n'),
+			['nft list ruleset'],
+			'one rules call must invoke nft list ruleset once, not twice'
+		);
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 	}
@@ -1028,6 +1066,7 @@ testRulesNoBackend();
 testRulesNftAbsent();
 testRemovedRulesmapIptablesCli();
 testRulesNftDumpFailure();
+testRulesNftListRulesetOnce();
 testRulesNoIptablesFallback();
 testPollMessagesReceived();
 testPollUbusFailure();
