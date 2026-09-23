@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright 2026 Lucas Albers <lucas.b.albers@gmail.com>
 #
-# Host-only checks for the installed-session ACL smoke. The guest run remains
-# manual/lab evidence; this test must not mistake syntax or source checks for
-# proof that rpcd enforced the ACL over HTTP.
+# Source-contract / static wiring checks for the installed-session ACL smoke
+# helper (syntax, ShellCheck, --help, grep pins on helper source). The guest
+# HTTP/rpcd ACL run remains manual/lab evidence; this test must not be read
+# as proof that rpcd enforced the ACL over HTTP.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -36,4 +37,4 @@ grep -Fq -- '-32002' "$SCRIPT" \
 grep -Fq 'cleanup_guest' "$SCRIPT" \
 	|| { echo "helper must restore the guest rpcd config" >&2; exit 1; }
 
-echo "qemu ACL session helper host harness passed"
+echo "qemu ACL session helper source-contract checks passed"

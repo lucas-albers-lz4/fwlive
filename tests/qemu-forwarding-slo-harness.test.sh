@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Copyright 2026 Lucas Albers <lucas.b.albers@gmail.com>
 #
-# Static checks for the forwarding-SLO guest, traffic, viewer, and runner
-# helpers. The full routed run remains a lab/manual test because it needs a
-# booted armsr guest and root-owned namespaces.
+# Source-contract / static wiring checks for the forwarding-SLO guest, traffic,
+# viewer, and runner helpers (syntax, ShellCheck, --help, grep pins). Also
+# runs the host Node report unit test. The full routed guest run remains a
+# lab/manual test because it needs a booted armsr guest and root-owned
+# namespaces; these checks do not prove guest forwarding behavior.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -57,4 +59,4 @@ grep -Fq '[[ -e "$stop" ]] || touch "$stop"' "$ROOT/scripts/qemu-forwarding-slo-
 grep -Fq "fwlive-forwarding-slo/v1" "$ROOT/tests/lib/fwlive-forwarding-slo-report.mjs" ||
 	die "report module must identify its report schema"
 
-echo "qemu-forwarding-slo harness checks passed"
+echo "qemu-forwarding-slo source-contract checks passed"
