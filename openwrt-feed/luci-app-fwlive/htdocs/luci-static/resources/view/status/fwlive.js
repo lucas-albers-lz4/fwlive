@@ -209,13 +209,13 @@ return view.extend({
 		const entries = location.hash.substring(1).split('&');
 		const result = [];
 		for (let i = 0; i < entries.length; i++) {
-			const kv = entries[i].split('=');
-			if (kv.length !== 2) continue;
+			const separator = entries[i].indexOf('=');
+			if (separator === -1) continue;
 			let key;
 			let val;
 			try {
-				key = decodeURIComponent(kv[0]);
-				val = decodeURIComponent(kv[1]);
+				key = decodeURIComponent(entries[i].substring(0, separator));
+				val = decodeURIComponent(entries[i].substring(separator + 1));
 			} catch (_e) {
 				continue;
 			}
