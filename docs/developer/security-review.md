@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-22 #518 delta:** `verify-reproducible-build.sh` locates artifacts
+> under the resolved `SDK_MATRIX_PACKAGE_ARCH` directory and honors
+> `--target` / `OWRT_VERIFY_TARGET`. A missing arch dir fails `artifact_sha`.
+> Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #500 delta:** WAN log baseline remains enable-only. Disable of
 > a pre-existing/foreign log bit is not snapshotted, so uninstall restore
 > will not put that bit back. Package README and the helper comment record
