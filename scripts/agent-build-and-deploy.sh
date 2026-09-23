@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Deploy luci-app-fwlive .ipk to a running OpenWrt guest.
+# Deploy luci-app-fwlive .ipk to a running OpenWrt guest (opkg; 23.05 / 24.10).
+# ipk-only: 25.12/snapshot .apk needs qemu-install-fwlive.sh (or docker-rootfs-x86).
 #
 # Linux x86_64 + run-openwrt-armsr-armv8-qemu.sh: --legacy-hostfwd (127.0.0.1:2222, LuCI :8080).
 # Legacy macOS vmnet: archive/scripts/legacy/ (unmaintained).
 # Usage:
 #   export QEMU_MAC_LAN=52:54:00:44:55:66
-#   ./scripts/agent-build-and-deploy.sh --ipk out/luci-app-fwlive_*.ipk
+#   ./scripts/agent-build-and-deploy.sh --ipk out/aarch64_generic/24.10.8/fwlive/luci-app-fwlive_*_all.ipk
 #
 #   OPENWRT_HOST=192.168.1.1 ./scripts/agent-build-and-deploy.sh --ipk path/to.ipk
 #
-#   ./scripts/agent-build-and-deploy.sh --legacy-hostfwd --lab-only --ipk out/luci-app-fwlive_*.ipk
+#   ./scripts/agent-build-and-deploy.sh --legacy-hostfwd --lab-only \
+#     --ipk out/aarch64_generic/24.10.8/fwlive/luci-app-fwlive_*_all.ipk
 #
 # Host-key verification is ON by default. QEMU/ephemeral guests need an explicit
 # opt-in: ALLOW_INSECURE_SSH=1 or --lab-only (prints a warning).
@@ -52,7 +54,7 @@ apply_ssh_opts() {
 die() { echo "error: $*" >&2; exit 1; }
 
 usage() {
-	sed -n '1,25p' "$0" | tail -n +2
+	awk 'NR == 1 { next } /^set -euo pipefail$/ { exit } { print }' "$0"
 	exit "${1:-0}"
 }
 
@@ -119,7 +121,10 @@ while [[ $# -gt 0 ]]; do
 	shift
 done
 
-[[ -n "$IPK_PATH" ]] || die "required: --ipk path/to/luci-app-fwlive_*.ipk"
+[[ -n "$IPK_PATH" ]] || die "required: --ipk path/to/luci-app-fwlive_*_all.ipk"
+# Suffix before existence: a missing .apk (copied from old snapshot docs)
+# must still print the qemu-install pointer, not only "ipk not found".
+[[ "$IPK_PATH" == *.ipk ]] || die "ipk-only helper (23.05/24.10 opkg); for 25.12/snapshot apk use qemu-install-fwlive.sh"
 [[ -f "$IPK_PATH" ]] || die "ipk not found: $IPK_PATH"
 
 apply_legacy_defaults

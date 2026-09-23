@@ -4,12 +4,12 @@ Cross-build **`luci-app-fwlive`** for multiple OpenWrt releases and CPU targets 
 
 ## Matrix
 
-| OpenWrt version | Image tag suffix | Notes |
-|-----------------|------------------|--------|
-| **snapshot** (latest) | *(none)* | Internal SDK/matrix option only — not published to the feed |
-| **25.12** | `-25.12.5` | Current stable release |
-| **24.10** | `-24.10.8` | Pinned to current 24.10 point release |
-| **23.05** | `-23.05.5` | Pinned to current 23.05 point release |
+| OpenWrt version | Image tag suffix | Artifact | Notes |
+|-----------------|------------------|----------|--------|
+| **snapshot** (latest) | *(none)* | `luci-app-fwlive-*.apk` | Internal SDK/matrix option only — not published to the feed |
+| **25.12** | `-25.12.5` | `luci-app-fwlive-*.apk` | Current stable release |
+| **24.10** | `-24.10.8` | `luci-app-fwlive_*_all.ipk` | Pinned to current 24.10 point release |
+| **23.05** | `-23.05.5` | `luci-app-fwlive_*_all.ipk` | Pinned to current 23.05 point release |
 
 | Target | SDK image prefix | Package arch dir |
 |--------|------------------|------------------|
@@ -38,17 +38,14 @@ OWRT_MAKE_JOBS=16 ./scripts/docker-sdk.sh make --target x86-64
 ./scripts/docker-sdk.sh make -j 4
 ```
 
-Artifacts land under:
+Artifacts land under `out/<package-arch>/<version>/fwlive/`. **23.05** / **24.10** emit `*_all.ipk`; **25.12** / **snapshot** emit `.apk`:
 
 ```text
-out/<package-arch>/<version>/fwlive/luci-app-fwlive-*.apk
+out/aarch64_generic/snapshot/fwlive/luci-app-fwlive-*.apk
+out/aarch64_generic/25.12.5/fwlive/luci-app-fwlive-*.apk
+out/aarch64_generic/24.10.8/fwlive/luci-app-fwlive_*_all.ipk
+out/x86_64/23.05.5/fwlive/luci-app-fwlive_*_all.ipk
 ```
-
-Examples:
-
-- `out/aarch64_generic/snapshot/fwlive/…`
-- `out/aarch64_generic/24.10.8/fwlive/…`
-- `out/x86_64/23.05.5/fwlive/…`
 
 Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; use the versioned subdirs above.
 
@@ -87,14 +84,17 @@ Pass matrix options through them:
 
 ## Deploy hints
 
+`scripts/agent-build-and-deploy.sh` is **ipk-only** (`opkg`, OpenWrt **23.05** / **24.10**). For **25.12** / **snapshot** `.apk`, use `qemu-install-fwlive.sh` or `docker-rootfs-x86-install-fwlive.sh`.
+
 | Runtime | Package path |
 |---------|----------------|
-| QEMU **armsr** guest | `out/aarch64_generic/<version>/fwlive/*.apk` |
-| **x86** Docker experiment | `out/x86_64/<version>/fwlive/*.apk` |
+| QEMU **armsr** guest (**23.05** / **24.10**) | `out/aarch64_generic/<version>/fwlive/luci-app-fwlive_*_all.ipk` |
+| QEMU **armsr** guest (**25.12** / **snapshot**) | `out/aarch64_generic/<version>/fwlive/luci-app-fwlive-*.apk` |
+| **x86** Docker experiment (**25.12** / **snapshot**) | `out/x86_64/<version>/fwlive/luci-app-fwlive-*.apk` |
 
 ```sh
 ./scripts/agent-build-and-deploy.sh --legacy-hostfwd \
-  --ipk out/aarch64_generic/snapshot/fwlive/luci-app-fwlive_*.ipk
+  --ipk out/aarch64_generic/24.10.8/fwlive/luci-app-fwlive_*_all.ipk
 
 ./scripts/docker-rootfs-x86-install-fwlive.sh \
   out/x86_64/snapshot/fwlive/luci-app-fwlive-*.apk
