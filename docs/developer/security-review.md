@@ -6,6 +6,14 @@
 > Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-22 #441 delta:** `FWLIVE_JSHN_SH` defaults to
+> `/usr/share/libubox/jshn.sh`; it is a host-test override, not a
+> LuCI/session-controlled env (rpcd worker env is root-owned, not set by
+> unprivileged ubus callers). Named jshn poll-cap failures go to logger,
+> not poll JSON `error`. Leading-zero strip in `poll_clamp_lines` is
+> in-shell so a default-50 poll does not add a `sed` exec. No ACL/DOM
+> change.
+
 > **2026-09-22 #502 delta:** post-commit WAN-log verify mismatch now returns
 > rc 2 from `commit_wan_log_change`, still reloads fw4, and reports
 > `firewall_commit_raced` with `ok:false`/`changed:false` instead of rolling

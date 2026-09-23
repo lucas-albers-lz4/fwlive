@@ -39,6 +39,8 @@ RESOLVE_BUDGET=5
 POLL_LINES_MAX=2000
 # Bound nft ruleset dumps (corrupted/hung nft must not block LuCI rules load).
 NFT_TIMEOUT=5
+# Host tests override this to a pinned libubox helper; devices keep the package path.
+: "${FWLIVE_JSHN_SH:=/usr/share/libubox/jshn.sh}"
 
 # json_escape lives in fwlive-logging.sh so prerm can source that file alone.
 # shellcheck disable=SC1090,SC1091 # LOGGING_SH resolves to sibling ../fwlive-logging.sh
@@ -301,7 +303,8 @@ poll_clamp_lines() {
 			return 0
 			;;
 	esac
-	_digits=$(printf '%s' "$_val" | sed 's/^0*//')
+	# Strip leading zeros in-shell so default-50 poll does not pay for sed.
+	_digits=${_val#${_val%%[!0]*}}
 	if [ -z "$_digits" ]; then
 		printf '%s' "50"
 		return 0
@@ -317,33 +320,52 @@ poll_clamp_lines() {
 	fi
 }
 
+# Failed jshn reads still default to 50 (silent numeric contract; syslog named cause only).
 poll_lines_from_input() {
 	input="$1"
 	lines=50
+	_cause=
 
 	if ! command -v jshn >/dev/null 2>&1; then
-		printf '%s' "$lines"
-		return 0
+		_cause=jshn_missing
+	else
+		_rc=0
+		# jshn uses intentionally unset state variables. Keep nounset disabled in
+		# this subshell so strict mode is restored automatically on every exit.
+		# exit 2: library missing or source failed; exit 1: JSON parse failed.
+		# Missing addresses[0] is an intentional silent default, not a parse error.
+		_first=$( (
+			set +u
+			# shellcheck disable=SC1090,SC1091
+			. "${FWLIVE_JSHN_SH:-/usr/share/libubox/jshn.sh}" 2>/dev/null || exit 2
+			json_init >/dev/null 2>&1 || exit 2
+			# json_load masks a failing jshn exit through eval. Check the real
+			# parser once, then evaluate only its generated shell assignments.
+			_json_no_warning=1
+			_json_code=$(jshn -r "$input" 2>/dev/null) || exit 1
+			eval "$_json_code" || exit 1
+			first=
+			if json_select addresses 2>/dev/null; then
+				json_get_var first 1 || first=
+			fi
+			printf '%s' "${first:-}"
+		) ) || _rc=$?
+		if [ "$_rc" -eq 2 ]; then
+			_cause=jshn_lib_missing
+		elif [ "$_rc" -ne 0 ]; then
+			_cause=invalid_input
+		else
+			case "${_first:-}" in
+				''|*[!0-9]*) ;;
+				*) lines="$_first" ;;
+			esac
+		fi
 	fi
 
-	# jshn uses intentionally unset state variables. Keep nounset disabled in
-	# this subshell so strict mode is restored automatically on every exit.
-	_first=$( (
-		set +u
-		. /usr/share/libubox/jshn.sh
-		# json_load masks a failing jshn exit through eval. Check the real
-		# parser once, then evaluate only its generated shell assignments.
-		_json_no_warning=1
-		_json_code=$(jshn -r "$input" 2>/dev/null) || exit 1
-		eval "$_json_code" || exit 1
-		if ! json_select addresses 2>/dev/null; then exit 1; fi
-		json_get_var first 1 || exit 1
-		printf '%s' "${first:-}"
-	) ) || _first=
-	case "${_first:-}" in
-		''|*[!0-9]*) ;;
-		*) lines="$_first" ;;
-	esac
+	# Named cause goes to syslog only: poll JSON "error" is connection-lost in the view.
+	if [ -n "$_cause" ]; then
+		logger -t fwlive "$_cause" 2>/dev/null || true
+	fi
 
 	lines=$(poll_clamp_lines "$lines")
 
@@ -588,7 +610,8 @@ resolve_addresses() {
 
 	_addresses=$( (
 		set +u
-		. /usr/share/libubox/jshn.sh
+		# shellcheck disable=SC1090,SC1091
+		. "${FWLIVE_JSHN_SH:-/usr/share/libubox/jshn.sh}"
 		# json_load masks a failing jshn exit through eval. Check the real
 		# parser once, then evaluate only its generated shell assignments.
 		_json_no_warning=1
@@ -787,6 +810,10 @@ run_selftest() {
 	check_eq poll_clamp_lines "$got" "$POLL_LINES_MAX" "over-long expected $POLL_LINES_MAX got $got" || return 1
 	got=$(poll_clamp_lines "0")
 	check_eq poll_clamp_lines "$got" "50" "zero expected 50 got $got" || return 1
+	got=$(poll_clamp_lines "000")
+	check_eq poll_clamp_lines "$got" "50" "all-zeros expected 50 got $got" || return 1
+	got=$(poll_clamp_lines "050")
+	check_eq poll_clamp_lines "$got" "50" "leading-zero expected 50 got $got" || return 1
 	got=$(poll_clamp_lines "2001")
 	check_eq poll_clamp_lines "$got" "$POLL_LINES_MAX" "2001 expected $POLL_LINES_MAX got $got" || return 1
 	got=$(poll_clamp_lines "500")
@@ -857,6 +884,18 @@ Address: 127.0.0.1:53")
 		echo "skip: jshn not available (poll cap via jshn not tested)" >&2
 		return 0
 	fi
+	# Dash rejects libubox `export -n` in json_init. Skip numeric poll-cap
+	# checks unless this interpreter can actually use the helper; poll still
+	# defaults to 50 and logs a named cause in that case.
+	if ! (
+		set +u
+		# shellcheck disable=SC1090,SC1091
+		. "${FWLIVE_JSHN_SH:-/usr/share/libubox/jshn.sh}" 2>/dev/null || exit 1
+		json_init >/dev/null 2>&1
+	); then
+		echo "skip: jshn library not usable (poll cap via jshn not tested)" >&2
+		return 0
+	fi
 
 	got=$(poll_lines_from_input '{"addresses":["999999"]}')
 	check_eq poll_lines_from_input "$got" "$POLL_LINES_MAX" "expected $POLL_LINES_MAX got $got" || return 1
@@ -874,6 +913,64 @@ Address: 127.0.0.1:53")
 	got=$(poll_lines_from_input '{"addresses":["100"]}')
 	check_eq poll_lines_from_input "$got" "100" "expected 100 got $got" || return 1
 
+	# jshn failures must log a named cause; stdout stays the numeric default.
+	# logger() override is inherited by the $() subshell; command -v still finds
+	# the binary, so the unqualified logger call is what this intercepts.
+	_poll_log="/tmp/fwlive-poll-cause.$$"
+	: > "$_poll_log"
+	logger() { printf '%s\n' "$*" >> "$_poll_log"; }
+
+	got=$(poll_lines_from_input '{"addresses":["500"]}')
+	check_eq poll_lines_from_input "$got" "500" "override path expected 500 got $got" || return 1
+	case "$(cat "$_poll_log")" in
+		*jshn_missing*|*jshn_lib_missing*|*invalid_input*)
+			echo "poll_lines_from_input: successful cap must stay silent, got $(cat "$_poll_log")" >&2
+			rm -f "$_poll_log"
+			unset -f logger
+			return 1
+			;;
+	esac
+
+	: > "$_poll_log"
+	got=$(poll_lines_from_input '{}')
+	check_eq poll_lines_from_input "$got" "50" "missing addresses expected 50 got $got" || return 1
+	case "$(cat "$_poll_log")" in
+		*jshn_missing*|*jshn_lib_missing*|*invalid_input*)
+			echo "poll_lines_from_input: missing addresses[0] must stay silent, got $(cat "$_poll_log")" >&2
+			rm -f "$_poll_log"
+			unset -f logger
+			return 1
+			;;
+	esac
+
+	: > "$_poll_log"
+	got=$(poll_lines_from_input 'not-json{{{')
+	check_eq poll_lines_from_input "$got" "50" "invalid JSON expected 50 got $got" || return 1
+	case "$(cat "$_poll_log")" in
+		*invalid_input*) ;;
+		*) echo "poll_lines_from_input: expected invalid_input log, got $(cat "$_poll_log")" >&2
+			rm -f "$_poll_log"
+			unset -f logger
+			return 1 ;;
+	esac
+
+	: > "$_poll_log"
+	_saved_jshn_sh="$FWLIVE_JSHN_SH"
+	FWLIVE_JSHN_SH="/no/such/fwlive-jshn.sh"
+	got=$(poll_lines_from_input '{"addresses":["500"]}')
+	FWLIVE_JSHN_SH="$_saved_jshn_sh"
+	check_eq poll_lines_from_input "$got" "50" "missing library expected 50 got $got" || return 1
+	case "$(cat "$_poll_log")" in
+		*jshn_lib_missing*) ;;
+		*) echo "poll_lines_from_input: expected jshn_lib_missing log, got $(cat "$_poll_log")" >&2
+			rm -f "$_poll_log"
+			unset -f logger
+			return 1 ;;
+	esac
+
+	rm -f "$_poll_log"
+	unset -f logger
+
 	return 0
 }
 
@@ -884,6 +981,10 @@ case "${1:-}" in
 		;;
 	__poll_clamp)
 		poll_clamp_lines "${2:-}"
+		exit $?
+		;;
+	__poll_lines)
+		poll_lines_from_input "${2:-}"
 		exit $?
 		;;
 	__tmp_dir_ok)
