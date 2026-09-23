@@ -38,6 +38,16 @@ flowchart TB
 | **Render policy** | `htdocs/.../fwlive/render-policy.js` | Pure weak-device display-cap and render-cost decisions |
 | **Render scheduler** | `htdocs/.../fwlive/render-scheduler.js` | Epoch-safe frame coalescing and render token-bucket state; invokes the view's paint callback |
 | **Log brain** | `htdocs/.../fwlive/log.js` | `isFirewallEvent`, `normalizeEntry`, filters, display helpers (classify from `CLASSIFY_SPEC`) |
+| **Protocol filter** | `htdocs/.../fwlive/proto.js` | Reads view-created `#fwlive-proto` / `#fwlive-proto-custom`; typed custom wins when non-empty |
+| **Table renderer** | `htdocs/.../fwlive/table.js` | Rebuilds thead; paints tbody rows with keyed reuse (does not own scroll or empty-state) |
+| **Filter chips** | `htdocs/.../fwlive/chips.js` | Clears and rebuilds include/exclude filter chips plus invert/clear controls |
+| **Row buffer** | `htdocs/.../fwlive/buffer.js` | Poll ingest merge/cap: paused grows to `fetchLinesMax`, live caps at `rowLimit`, resume merges |
+| **Link builders** | `htdocs/.../fwlive/links.js` | Returns filter, address, rule, and firewall-zone DOM links (no host element) |
+| **Logging chrome** | `htdocs/.../fwlive/logging.js` | WAN logging toolbar, empty-state/consent panel, and nft manual-test instruction nodes |
+| **Hostname cache** | `htdocs/.../fwlive/hostname.js` | LRU hostname Map plus failure-TTL helpers for reverse-DNS display |
+| **Row tint** | `htdocs/.../fwlive/tint.js` | Classic/accessible/off palettes and paint-delta fallback for row background tint |
+| **View constants** | `htdocs/.../fwlive/constants.js` | Shared limits, poll cadence, column sets, tint options, and `APP_VERSION` |
+| **Inline CSS** | `htdocs/.../fwlive/css.js` | **Generated** `styleText` from `fwlive.css` for `E('style')` injection (do not edit) |
 | **Test twin / SoT** | `core/fwlive-log.js` | Editable source of truth + CLI; `CLASSIFY_SPEC` drives classify |
 | **Shell classifier** | `root/usr/libexec/fwlive-is-firewall-event.sh` | **Generated** from `CLASSIFY_SPEC` via `gen-shell-classifier.js` (committed; SDK does not run Node) |
 | **Rule map** | `root/usr/libexec/rpcd/fwlive` | `rules`, `poll` (filtered log), `resolve` (reverse DNS), `logging_status`, `enable_wan_logging`, `disable_wan_logging` |
