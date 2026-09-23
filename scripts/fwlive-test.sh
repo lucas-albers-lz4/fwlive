@@ -40,23 +40,30 @@ fi
 echo "== fwlive view syntax (node --check) ==" >&2
 "$NODE" --check openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js
 
-echo "== fwlive SPDX headers on shipped surface (#291) ==" >&2
+echo "== fwlive SPDX headers on shipped surface (#291 / #445) ==" >&2
 SPDX_FAIL=0
-SPDX_FILES=(
-	"$ROOT/openwrt-feed/luci-app-fwlive/Makefile"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-adaptive-cap.sh"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.awk"
-	"$ROOT/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js"
-)
+PKG="$ROOT/openwrt-feed/luci-app-fwlive"
+if [[ ! -f "$PKG/Makefile" || ! -d "$PKG/root" || ! -d "$PKG/htdocs" ]]; then
+	echo "FAIL: luci-app-fwlive shipped tree incomplete under $PKG" >&2
+	exit 1
+fi
+# Walk the package tree so a new shipped file is covered by construction (#445).
+# Makefile + overlay root/ + LuCI JS/CSS under htdocs. Skip docs (*.md),
+# tests (outside this tree), po/, and JSON (LuCI ACL/menu must stay strict JSON).
+SPDX_FILES=("$PKG/Makefile")
+while IFS= read -r -d '' f; do
+	case "$f" in
+		*.md | *.json) continue ;;
+		*) SPDX_FILES+=("$f") ;;
+	esac
+done < <(find "$PKG/root" -type f -print0)
 while IFS= read -r -d '' f; do
 	SPDX_FILES+=("$f")
-done < <(find \
-	"$ROOT/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive" \
-	-type f -name '*.js' -print0)
+done < <(find "$PKG/htdocs" -type f \( -name '*.js' -o -name '*.css' \) -print0)
+if [[ "${#SPDX_FILES[@]}" -lt 2 ]]; then
+	echo "FAIL: SPDX walk found no shipped files under $PKG" >&2
+	exit 1
+fi
 for f in "${SPDX_FILES[@]}"; do
 	[[ -f "$f" ]] || { echo "FAIL: expected shipped file missing: $f" >&2; SPDX_FAIL=1; continue; }
 	# Require a comment-form SPDX header in the first 6 lines (# or /* …).
@@ -71,7 +78,7 @@ if [[ "$SPDX_FAIL" -ne 0 ]]; then
 	echo "FAIL: add SPDX-License-Identifier to shipped files (#291 C2)" >&2
 	exit 1
 fi
-echo "OK: SPDX headers present on shipped JS/shell/Makefile" >&2
+echo "OK: SPDX headers present on shipped JS/CSS/shell/Makefile" >&2
 
 echo "== fwlive shellcheck (libexec/rpcd) ==" >&2
 bash "$ROOT/scripts/fwlive-shellcheck.sh"
@@ -80,8 +87,16 @@ echo "== fwlive invariant rules, shipped JS (ast-grep) ==" >&2
 bash "$ROOT/scripts/fwlive-ast-grep.sh"
 bash "$ROOT/tests/fwlive-ast-grep-rules.test.sh"
 
-echo "== fwlive .pot #: paths are repo-relative (#256) ==" >&2
+echo "== fwlive .pot #: paths are repo-relative (#256 / #444) ==" >&2
 POT="$ROOT/openwrt-feed/luci-app-fwlive/po/templates/luci-app-fwlive.pot"
+if [[ ! -f "$POT" || ! -r "$POT" ]]; then
+	echo "FAIL: missing or unreadable .pot template: $POT" >&2
+	exit 1
+fi
+if [[ ! -s "$POT" ]]; then
+	echo "FAIL: empty .pot template: $POT" >&2
+	exit 1
+fi
 if grep -E '^#: /' "$POT" >/dev/null; then
 	echo "FAIL: absolute #: refs in $POT — run ./scripts/normalize-pot-paths.sh" >&2
 	grep -E '^#: /' "$POT" | head -5 >&2
@@ -246,9 +261,6 @@ python3 tests/fwlive-linkcheck-classify.test.py
 
 echo "== fwlive CLI pipeline ==" >&2
 "$NODE" tests/fwlive-cli-pipeline.test.js
-
-echo "== fwlive parser benchmark ==" >&2
-"$NODE" tests/fwlive-parser-bench.js
 
 echo "== fwlive fork census (#308 Phase 0a) ==" >&2
 bash "$ROOT/scripts/fork-census.sh" --skip-parse \

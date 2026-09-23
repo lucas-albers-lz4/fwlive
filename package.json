@@ -4,6 +4,7 @@
   "description": "Dev dependencies for fwlive / luci-app-fwlive tooling (not shipped on router)",
   "scripts": {
     "test": "./scripts/fwlive-test.sh",
+    "bench:parser": "node tests/fwlive-parser-bench.js",
     "test:links": "./scripts/fwlive-linkcheck.sh",
     "test:ui": "node scripts/capture-fwlive-screenshots.mjs",
     "test:view": "node tests/fwlive-view-smoke.mjs",
