@@ -15,9 +15,12 @@ tabs for JS via [`.prettierrc.json`](../../.prettierrc.json) (`useTabs: true`).
 Verify before commit:
 
 ```sh
-npm run lint:format                # shipped JS
-./scripts/fwlive-shellcheck.sh     # shipped shell (also via ./scripts/fwlive-test.sh)
+npm run lint:format                # shipped JS tabs (Prettier useTabs)
+./scripts/fwlive-shellcheck.sh     # shipped shell lint (ShellCheck; not tab indent)
 ```
+
+There is no automated tab gate for shell. Check `root/usr/libexec/` by eye
+(spaces vs tabs) before commit.
 
 ## Change workflow
 
