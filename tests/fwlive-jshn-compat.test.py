@@ -93,6 +93,13 @@ def main():
 
             assert run('resolve', json.dumps({'addresses': ['bad', '192.0.2.1', '2001:db8::1']})) == {
                 'names': {'192.0.2.1': 'host.example', '2001:db8::1': 'host.example'}}
+            # Non-string elements must be skipped; later valid IPs still resolve
+            # and skipped types do not set truncated (#501).
+            mixed = run('resolve', json.dumps({
+                'addresses': ['192.0.2.1', 5, None, True, '198.51.100.2']}))
+            assert mixed == {
+                'names': {'192.0.2.1': 'host.example', '198.51.100.2': 'host.example'}
+            }, (release, mixed)
             lookup_log.unlink()
             assert run('resolve', json.dumps({'addresses': ['192.0.2.1\n192.0.2.2']})) == {'names': {}}
             assert not lookup_log.exists(), 'newline must not become two valid addresses'
