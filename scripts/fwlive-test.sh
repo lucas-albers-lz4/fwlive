@@ -40,38 +40,16 @@ fi
 echo "== fwlive view syntax (node --check) ==" >&2
 "$NODE" --check openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js
 
-echo "== fwlive SPDX headers on shipped surface (#291) ==" >&2
-SPDX_FAIL=0
-SPDX_FILES=(
-	"$ROOT/openwrt-feed/luci-app-fwlive/Makefile"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-adaptive-cap.sh"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh"
-	"$ROOT/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.awk"
-	"$ROOT/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js"
-)
-while IFS= read -r -d '' f; do
-	SPDX_FILES+=("$f")
-done < <(find \
-	"$ROOT/openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive" \
-	-type f -name '*.js' -print0)
-for f in "${SPDX_FILES[@]}"; do
-	[[ -f "$f" ]] || { echo "FAIL: expected shipped file missing: $f" >&2; SPDX_FAIL=1; continue; }
-	# Require a comment-form SPDX header in the first 6 lines (# or /* …).
-	# Reject bare string/prose matches in the header window (Luna on #301).
-	if ! sed -n '1,6p' "$f" | grep -qE \
-		'^[[:space:]]*(#|/\*)[[:space:]]*SPDX-License-Identifier:[[:space:]]+[^[:space:]]+'; then
-		echo "FAIL: missing SPDX-License-Identifier header: $f" >&2
-		SPDX_FAIL=1
-	fi
-done
-if [[ "$SPDX_FAIL" -ne 0 ]]; then
-	echo "FAIL: add SPDX-License-Identifier to shipped files (#291 C2)" >&2
-	exit 1
-fi
-echo "OK: SPDX headers present on shipped JS/shell/Makefile" >&2
+echo "== fwlive SPDX headers on shipped surface (#291 / #445) ==" >&2
+PKG="$ROOT/openwrt-feed/luci-app-fwlive"
+# shellcheck source=lib/fwlive-spdx-pot-gates.sh
+source "$ROOT/scripts/lib/fwlive-spdx-pot-gates.sh"
+# Walk Makefile + root/ + htdocs/ so a new shipped file is covered by
+# construction (#445). Skip docs (*.md) and JSON (LuCI ACL/menu must stay
+# strict JSON). htdocs uses the same skip rule as root/: luci.mk installs
+# the whole tree, not only js/css.
+fwlive_spdx_check_pkg "$PKG"
+echo "OK: SPDX headers present on shipped JS/CSS/shell/Makefile" >&2
 
 echo "== fwlive shellcheck (libexec/rpcd) ==" >&2
 bash "$ROOT/scripts/fwlive-shellcheck.sh"
@@ -80,14 +58,12 @@ echo "== fwlive invariant rules, shipped JS (ast-grep) ==" >&2
 bash "$ROOT/scripts/fwlive-ast-grep.sh"
 bash "$ROOT/tests/fwlive-ast-grep-rules.test.sh"
 
-echo "== fwlive .pot #: paths are repo-relative (#256) ==" >&2
-POT="$ROOT/openwrt-feed/luci-app-fwlive/po/templates/luci-app-fwlive.pot"
-if grep -E '^#: /' "$POT" >/dev/null; then
-	echo "FAIL: absolute #: refs in $POT — run ./scripts/normalize-pot-paths.sh" >&2
-	grep -E '^#: /' "$POT" | head -5 >&2
-	exit 1
-fi
+echo "== fwlive .pot #: paths are repo-relative (#256 / #444) ==" >&2
+fwlive_pot_check_pkg "$PKG"
 echo "OK: no absolute #: refs in luci-app-fwlive.pot" >&2
+
+echo "== fwlive SPDX/.pot fail-closed regression (#444 / #445) ==" >&2
+bash "$ROOT/tests/fwlive-spdx-pot-gates.test.sh"
 
 echo "== fwlive upstream-cut invariants + .pot parity (#273) ==" >&2
 bash "$ROOT/tests/fwlive-upstream-cut.test.sh"
@@ -248,9 +224,6 @@ bash tests/fwlive-linkcheck-external.test.sh
 
 echo "== fwlive CLI pipeline ==" >&2
 "$NODE" tests/fwlive-cli-pipeline.test.js
-
-echo "== fwlive parser benchmark ==" >&2
-"$NODE" tests/fwlive-parser-bench.js
 
 echo "== fwlive fork census (#308 Phase 0a) ==" >&2
 bash "$ROOT/scripts/fork-census.sh" --skip-parse \
