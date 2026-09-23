@@ -202,6 +202,9 @@ bash tests/fwlive-package-lifecycle.test.sh
 echo "== fwlive apk payload refuses host apk ==" >&2
 bash tests/fwlive-package-payload-apk-host.test.sh
 
+echo "== fwlive packaging CI path gate (#557) ==" >&2
+bash tests/packaging-ci-paths.test.sh
+
 echo "== fwlive SDK package format mapping ==" >&2
 bash tests/sdk-matrix-package-format.test.sh
 
