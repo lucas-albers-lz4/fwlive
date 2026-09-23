@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Host proof: verify-reproducible-build.sh locates artifacts under the
-# resolved SDK_MATRIX_PACKAGE_ARCH dir (issue #518). Docker is not required.
+# resolved SDK_MATRIX_PACKAGE_ARCH dir (issue #518) and fails closed when
+# no artifact exists (issue #494). Docker is not required.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -63,6 +64,30 @@ if [[ "$got_path" == *"/out/x86_64/"* ]]; then
 	ok "x86-64 looks under out/x86_64/"
 else
 	bad "x86-64 path: ${got_path:-<empty>}"
+fi
+
+# Issue #494: empty hashes must not compare equal — fail closed with no artifact.
+rm -rf "$TMP/out"
+mkdir -p "$TMP/out"
+sdk_matrix_feeds_ready() { return 0; }
+sdk_matrix_make() { :; }
+sdk_matrix_copy_out() { :; }
+sdk_matrix_clean_package() { :; }
+empty_log="$TMP/empty.log"
+if verify_one 24.10 >"$empty_log" 2>&1; then
+	bad "verify_one succeeded with empty out/"
+else
+	ok "verify_one fails with empty out/"
+fi
+if grep -q '== OK:' "$empty_log"; then
+	bad "verify_one printed reproducible OK with empty out/"
+else
+	ok "verify_one did not print OK with empty out/"
+fi
+if grep -q 'no artifact after pass 1' "$empty_log"; then
+	ok "verify_one reported missing pass-1 artifact"
+else
+	bad "verify_one did not report missing pass-1 artifact"
 fi
 
 [ "$fail" = "0" ] || exit 1
