@@ -1,5 +1,10 @@
 # Security review state
 
+> **2026-09-22 #492 delta:** `rules` performs one `nft list ruleset` dump
+> for detect and parse. A missing or failed dump is `unknown`/`no_backend`
+> (`nft_failed` is no longer produced). Host coverage asserts a single dump.
+> No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-22 #441 delta:** `FWLIVE_JSHN_SH` defaults to
 > `/usr/share/libubox/jshn.sh`; it is a host-test override, not a
 > LuCI/session-controlled env (rpcd worker env is root-owned, not set by
