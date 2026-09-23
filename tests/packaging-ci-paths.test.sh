@@ -38,11 +38,11 @@ expect_match scripts/ci-packaging-paths.sh
 expect_match docker-compose.yml
 expect_match tests/fwlive-package-payload.test.sh
 expect_match tests/fwlive-package-lifecycle.test.sh
+expect_match tests/fwlive-package-payload-apk-host.test.sh
 expect_match .github/workflows/fwlive-test.yml
 expect_match ./openwrt-feed/root/usr/libexec/rpcd/fwlive
 
 expect_skip docs/developer/security-review.md
-expect_skip tests/fwlive-package-payload-apk-host.test.sh
 expect_skip tests/fwlive-ipk-payload.test.sh
 expect_skip scripts/lib/feed-keys.sh
 expect_skip .github/workflows/publish-packages.yml

@@ -22,6 +22,7 @@ packaging_ci_path_matches() {
 		docker-compose.yml) return 0 ;;
 		tests/fwlive-package-payload.test.sh) return 0 ;;
 		tests/fwlive-package-lifecycle.test.sh) return 0 ;;
+		tests/fwlive-package-payload-apk-host.test.sh) return 0 ;;
 		.github/workflows/fwlive-test.yml) return 0 ;;
 	esac
 	return 1
