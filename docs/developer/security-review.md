@@ -3,13 +3,14 @@
 > **2026-09-24 #590 delta:** The publish workflow fetches the live Pages
 > `manifest.json` (cache-bust `?cb=${GITHUB_RUN_ID}`, no-cache headers) and
 > runs `guard-feed-deploy.sh` before deploy. HTTP 404 (no live manifest yet)
-> skips the guard (bootstrap / wiped `gh-pages`). Other non-200 or curl
-> failures fail the job. Tags must be `vMAJOR.MINOR.PATCH` (1–9 digits per
-> component) at Resolve release tag, not only in the guard.
-> `allow_rollback` defaults false. A rejected or failed downgrade guard
-> aborts the `build-publish` job, so GitHub Release assets are also not
-> uploaded for that run; bootstrap 404 skips the guard only. No ACL, DOM
-> sink, or read/write-scope change.
+> still validates the staged manifest `git_tag` against the release tag and
+> skips only the live-version comparison (bootstrap / wiped `gh-pages`).
+> Other non-200 or curl failures fail the job. Tags must be
+> `vMAJOR.MINOR.PATCH` (1–9 digits per component) at Resolve release tag,
+> not only in the guard. `allow_rollback` defaults false. A rejected or
+> failed downgrade guard aborts the `build-publish` job, so GitHub Release
+> assets are also not uploaded for that run. No ACL, DOM sink, or
+> read/write-scope change.
 
 > **2026-09-23 #592 delta:** `feed_publish_find_artifact` requires the
 > expected `PKG_VERSION` and fail-closes when no filename matches that

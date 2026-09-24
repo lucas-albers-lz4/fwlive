@@ -265,29 +265,24 @@ jobs:
           # so a stale copy cannot authorize a real downgrade (#590 luna).
           url="${FWLIVE_FEED_BASE_URL}/manifest.json?cb=${GITHUB_RUN_ID}"
           # Do not use curl -f: HTTP 404 is bootstrap (no live manifest yet)
-          # and must skip the guard. Other non-200 / curl failures still fail.
+          # and is passed as --live-http so staged git_tag is still checked.
           http_code="$(curl -sSL --max-time 30 \
             -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' \
             -o "$live" -w '%{http_code}' "$url")" || {
             echo "error: could not fetch live feed manifest from $url" >&2
             exit 1
           }
-          if [[ "$http_code" == "404" ]]; then
-            echo "warn: live feed manifest not found (HTTP 404); skipping downgrade guard (bootstrap / wiped gh-pages)" >&2
-            exit 0
-          fi
-          if [[ "$http_code" != "200" ]]; then
-            echo "error: live feed manifest fetch returned HTTP ${http_code} from $url" >&2
-            exit 1
-          fi
           extra=()
           if [[ "$ALLOW_ROLLBACK" == "true" ]]; then
             extra+=(--allow-rollback)
           fi
+          # 404 still validates staged git_tag vs --tag; only the live
+          # version compare is skipped (#590 luna re-review).
           ./scripts/guard-feed-deploy.sh \
             --staged feed-staging/manifest.json \
             --live "$live" \
             --tag "$FWLIVE_RELEASE_TAG" \
+            --live-http "$http_code" \
             "${extra[@]}"
 
       - name: Deploy to GitHub Pages (fwlive-packages)

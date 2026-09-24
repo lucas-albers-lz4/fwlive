@@ -6,7 +6,13 @@
 #     --staged feed-staging/manifest.json \
 #     --live /tmp/live-manifest.json \
 #     --tag v0.1.45 \
+#     [--live-http CODE] \
 #     [--allow-rollback]
+#
+# --live-http 404: bootstrap / wiped gh-pages. Validate staged git_tag against
+# --tag and skip the live-version comparison. --live is then unused.
+# --live-http 200 (or omitted): full guard, --live required.
+# Any other --live-http code fails closed.
 #
 # Host/CI only — Bash + python3. Do not execute on the device.
 set -euo pipefail
@@ -16,7 +22,7 @@ FEED_DEPLOY_MIN=
 FEED_DEPLOY_PAT=
 
 feed_deploy_usage() {
-	echo "usage: guard-feed-deploy.sh --staged MANIFEST --live MANIFEST --tag TAG [--allow-rollback]" >&2
+	echo "usage: guard-feed-deploy.sh --staged MANIFEST --tag TAG [--live MANIFEST] [--live-http CODE] [--allow-rollback]" >&2
 }
 
 # Sets FEED_DEPLOY_MAJ/MIN/PAT. Rejects anything that is not vN.N.N
@@ -86,9 +92,10 @@ sys.stdout.write(tag + "\n")
 PY
 }
 
-feed_deploy_guard() {
-	local staged_file="$1" live_file="$2" want_tag="$3" allow="${4:-0}"
-	local staged_tag live_tag cmp
+# Staged-manifest shape + git_tag == --tag. Independent of the live feed.
+feed_deploy_validate_staged() {
+	local staged_file="$1" want_tag="$2"
+	local staged_tag
 
 	if [[ "$want_tag" == *[[:cntrl:]]* ]]; then
 		echo "error: selected tag contains control characters" >&2
@@ -101,20 +108,48 @@ feed_deploy_guard() {
 		echo "error: staged manifest git_tag '${staged_tag}' does not match selected release tag '${want_tag}'" >&2
 		return 1
 	fi
+}
+
+# After curl: 404 validates staged only; 200 compares live; anything else fails.
+feed_deploy_after_live_fetch() {
+	local http_code="$1" live_file="$2" staged_file="$3" want_tag="$4" allow="${5:-0}"
+
+	case "$http_code" in
+		404)
+			echo "warn: live feed manifest not found (HTTP 404); validating staged manifest only (bootstrap / wiped gh-pages)" >&2
+			feed_deploy_validate_staged "$staged_file" "$want_tag"
+			return
+			;;
+		200)
+			feed_deploy_guard "$staged_file" "$live_file" "$want_tag" "$allow"
+			return
+			;;
+		*)
+			echo "error: live feed manifest fetch returned HTTP ${http_code}" >&2
+			return 1
+			;;
+	esac
+}
+
+feed_deploy_guard() {
+	local staged_file="$1" live_file="$2" want_tag="$3" allow="${4:-0}"
+	local live_tag cmp
+
+	feed_deploy_validate_staged "$staged_file" "$want_tag" || return 1
 
 	live_tag="$(feed_deploy_read_git_tag "$live_file")" || return 1
-	cmp="$(feed_deploy_cmp_tags "$staged_tag" "$live_tag")" || return 1
+	cmp="$(feed_deploy_cmp_tags "$want_tag" "$live_tag")" || return 1
 	case "$cmp" in
 		eq|gt)
-			echo "feed deploy guard: staged ${staged_tag} vs live ${live_tag} (${cmp})" >&2
+			echo "feed deploy guard: staged ${want_tag} vs live ${live_tag} (${cmp})" >&2
 			return 0
 			;;
 		lt)
 			if [[ "$allow" == "1" ]]; then
-				echo "warn: deploying older feed tag '${staged_tag}' over live '${live_tag}' because allow_rollback=true" >&2
+				echo "warn: deploying older feed tag '${want_tag}' over live '${live_tag}' because allow_rollback=true" >&2
 				return 0
 			fi
-			echo "error: staged feed tag '${staged_tag}' is older than live '${live_tag}'." >&2
+			echo "error: staged feed tag '${want_tag}' is older than live '${live_tag}'." >&2
 			echo "Refusing to downgrade the published feed. Re-run with allow_rollback=true for a deliberate rollback." >&2
 			return 1
 			;;
@@ -126,7 +161,7 @@ feed_deploy_guard() {
 }
 
 feed_deploy_main() {
-	local staged="" live="" tag="" allow=0
+	local staged="" live="" tag="" http_code="" allow=0
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 			--staged)
@@ -144,6 +179,11 @@ feed_deploy_main() {
 				tag="$2"
 				shift 2
 				;;
+			--live-http)
+				[[ -n "${2:-}" ]] || { echo "error: --live-http requires a status code" >&2; feed_deploy_usage; return 1; }
+				http_code="$2"
+				shift 2
+				;;
 			--allow-rollback)
 				allow=1
 				shift
@@ -159,8 +199,17 @@ feed_deploy_main() {
 				;;
 		esac
 	done
-	if [[ -z "$staged" || -z "$live" || -z "$tag" ]]; then
-		echo "error: --staged, --live, and --tag are required" >&2
+	if [[ -z "$staged" || -z "$tag" ]]; then
+		echo "error: --staged and --tag are required" >&2
+		feed_deploy_usage
+		return 1
+	fi
+	if [[ -n "$http_code" ]]; then
+		feed_deploy_after_live_fetch "$http_code" "$live" "$staged" "$tag" "$allow"
+		return
+	fi
+	if [[ -z "$live" ]]; then
+		echo "error: --live is required unless --live-http 404" >&2
 		feed_deploy_usage
 		return 1
 	fi
