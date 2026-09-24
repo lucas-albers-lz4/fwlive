@@ -25,6 +25,13 @@ if [[ -n "${1:-}" ]]; then
 	STAGING="$1"
 fi
 
+PKG_VER="${FWLIVE_PKG_VERSION:-$(sed -n 's/^PKG_VERSION:=//p' "${ROOT}/openwrt-feed/luci-app-fwlive/Makefile" | head -1)}"
+[[ -n "$PKG_VER" ]] || {
+	echo "PKG_VERSION missing in openwrt-feed/luci-app-fwlive/Makefile" >&2
+	exit 1
+}
+export FWLIVE_PKG_VERSION="$PKG_VER"
+
 mkdir -p "$STAGING"
 STAGING="$(feed_publish_abspath "$STAGING")"
 
@@ -35,14 +42,14 @@ echo "== publish-packages → ${STAGING} (tag: ${GIT_TAG}) ==" >&2
 
 for ver in 23.05 24.10; do
 	echo "→ staging opkg feed ${ver}..." >&2
-	feed_publish_stage_opkg "$ver" "$STAGING"
+	feed_publish_stage_opkg "$ver" "$STAGING" "$PKG_VER"
 done
 
 echo "→ staging apk feed 25.12..." >&2
-feed_publish_stage_apk 25.12 "$STAGING"
+feed_publish_stage_apk 25.12 "$STAGING" "$PKG_VER"
 
 feed_publish_copy_keys "$STAGING"
-feed_publish_write_manifest "$STAGING" "$GIT_TAG"
+feed_publish_write_manifest "$STAGING" "$GIT_TAG" "$PKG_VER"
 
 if [[ -f "${ROOT}/packages-repo/README.md" ]]; then
 	cp "${ROOT}/packages-repo/README.md" "${STAGING}/README.md"
