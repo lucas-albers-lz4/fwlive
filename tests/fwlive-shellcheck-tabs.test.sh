@@ -30,6 +30,7 @@ make_tree() {
 }
 
 # Valid POSIX sh so a ShellCheck-only failure cannot satisfy a negative pin.
+# Command is always line 2 so FAIL pins can assert path:2.
 write_sh() {
 	local dest="$1" prefix="$2"
 	{
@@ -54,8 +55,8 @@ assert_indent_fail() {
 		cat "$dest/stderr" >&2
 		return
 	fi
-	if ! grep -F "FAIL: space indent:" "$dest/stderr" | grep -Fq "$path_needle"; then
-		bad "$why: indent diagnostic did not name $path_needle"
+	if ! grep -F "FAIL: space indent:" "$dest/stderr" | grep -Fq "$path_needle:2"; then
+		bad "$why: indent diagnostic did not name $path_needle:2"
 		cat "$dest/stderr" >&2
 		return
 	fi
