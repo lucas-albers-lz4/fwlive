@@ -12,15 +12,19 @@
 Use tab characters, not spaces, for indentation in shipped shell under
 `root/usr/libexec/` and shipped JavaScript under `htdocs/`. Prettier enforces
 tabs for JS via [`.prettierrc.json`](../../.prettierrc.json) (`useTabs: true`).
+Editors follow [`.editorconfig`](../../.editorconfig) on those shipped paths.
+
+The shell gate is a physical-line check, not a parser: a line whose indent
+prefix starts with a space (`/^ /`) fails, including space-only lines and
+space-leading heredoc text. Empty lines, tab-only lines, and tabs followed
+by alignment spaces pass.
+
 Verify before commit:
 
 ```sh
 npm run lint:format                # shipped JS tabs (Prettier useTabs)
-./scripts/fwlive-shellcheck.sh     # shipped shell lint (ShellCheck; not tab indent)
+./scripts/fwlive-shellcheck.sh     # shipped shell: tab indent + ShellCheck
 ```
-
-There is no automated tab gate for shell. Check `root/usr/libexec/` by eye
-(spaces vs tabs) before commit.
 
 ## Change workflow
 
