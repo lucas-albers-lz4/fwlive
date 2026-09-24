@@ -6,16 +6,19 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 run_arch() {
-	local label="$1" ssh_port="$2" http_port="$3"
-	echo "== full smoke: ${label} ==" >&2
+	local label="$1" ssh_port="$2" http_port="$3" expect_arch="$4"
+	echo "== full smoke: ${label} (expect ${expect_arch}) ==" >&2
+	FWLIVE_EXPECT_ARCH="$expect_arch" \
 	OPENWRT_SSH_PORT="$ssh_port" OWRT_HOSTFWD_HTTP="$http_port" \
 		"${ROOT}/scripts/qemu-smoke-fwlive.sh" --require-log-pipeline
 }
 
 set +e
-run_arch x86_64 "${FWLIVE_X86_SSH_PORT:-2222}" "${FWLIVE_X86_HTTP_PORT:-8080}"
+# Dual-guest ports: x86_64 2222/8080, armsr aarch64 2223/8081.
+# Single-guest run-openwrt-*.sh still defaults both to 2222/8080.
+run_arch x86_64 "${FWLIVE_X86_SSH_PORT:-2222}" "${FWLIVE_X86_HTTP_PORT:-8080}" x86_64
 x86_status=$?
-run_arch armsr-armv8 "${FWLIVE_ARMSR_SSH_PORT:-2223}" "${FWLIVE_ARMSR_HTTP_PORT:-8081}"
+run_arch armsr-armv8 "${FWLIVE_ARMSR_SSH_PORT:-2223}" "${FWLIVE_ARMSR_HTTP_PORT:-8081}" aarch64
 armsr_status=$?
 set -e
 

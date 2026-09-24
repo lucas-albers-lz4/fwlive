@@ -3,6 +3,7 @@
 #
 #   ./scripts/qemu-smoke-fwlive.sh
 #   OPENWRT_SSH_PORT=2222 ./scripts/qemu-smoke-fwlive.sh
+#   FWLIVE_EXPECT_ARCH=x86_64 ./scripts/qemu-smoke-fwlive.sh
 #   ./scripts/qemu-smoke-fwlive.sh --require-log-pipeline
 #
 # Checks: SSH, release, ubus fwlive poll/resolve, fwlive rules, LuCI static assets, optional ping log.
@@ -12,6 +13,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${OPENWRT_HOST:-127.0.0.1}"
 PORT="${OPENWRT_SSH_PORT:-2222}"
 HTTP_PORT="${OWRT_HOSTFWD_HTTP:-8080}"
+EXPECT_ARCH="${FWLIVE_EXPECT_ARCH:-}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
 REQUIRE_LOG_PIPELINE=0
 
@@ -85,6 +87,9 @@ ssh_guest 'echo connected' >/dev/null 2>&1 \
 
 RELEASE="$(ssh_guest '. /etc/openwrt_release 2>/dev/null; echo "${DISTRIB_RELEASE:-unknown}"')"
 ARCH="$(ssh_guest 'uname -m')"
+if [[ -n "$EXPECT_ARCH" && "$ARCH" != "$EXPECT_ARCH" ]]; then
+	die "guest arch ${ARCH} != expected ${EXPECT_ARCH} (wrong QEMU/SSH port?)"
+fi
 ok "guest ${ARCH} OpenWrt ${RELEASE}"
 
 ubus_method_ok poll \

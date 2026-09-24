@@ -26,8 +26,13 @@
 
 ## Ports
 
-- OpenWrt x64 LuCI: `http://localhost:8081`
-- OpenWrt armsr (ARM64 virt) LuCI: `http://localhost:8080` (SSH host **2222** — same as [`run-openwrt-armsr-armv8-qemu.sh`](../scripts/run-openwrt-armsr-armv8-qemu.sh))
-- OPNsense Web UI: `https://localhost:8443`
+Single-guest QEMU (`run-openwrt-*-qemu.sh`): LuCI **8080**, SSH **2222**. Do not
+run both guests on those defaults at once.
+
+Dual-arch matrix (`scripts/qemu-smoke-matrix.sh`) and this compose file:
+
+- OpenWrt x86_64: LuCI `http://localhost:8080`, SSH **2222** (`uname -m` = `x86_64`)
+- OpenWrt armsr/armv8: LuCI `http://localhost:8081`, SSH **2223** (`uname -m` = `aarch64`)
+- OPNsense Web UI: `https://localhost:8443`, SSH **2224**
 
 See [Developer guide → Environment](../docs/developer/environment.md) for the full loop.

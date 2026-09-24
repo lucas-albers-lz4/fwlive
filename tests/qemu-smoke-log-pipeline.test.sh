@@ -189,4 +189,17 @@ grep -Fq 'ubus fwlive rules replied with disallowed error' "$TMP/rules-unexpecte
 	|| die 'unexpected rules error was not rejected'
 ok 'rejects unexpected rules error with a rules object'
 
+if (FWLIVE_EXPECT_ARCH=aarch64; export FWLIVE_EXPECT_ARCH; run_smoke arch-mismatch); then
+	die 'smoke passed when guest uname did not match FWLIVE_EXPECT_ARCH'
+fi
+grep -Fq 'guest arch x86_64 != expected aarch64' "$TMP/arch-mismatch.log" \
+	|| die 'arch mismatch was not reported'
+ok 'rejects uname mismatch vs FWLIVE_EXPECT_ARCH'
+
+grep -Fq 'FWLIVE_EXPECT_ARCH' "$ROOT/scripts/qemu-smoke-matrix.sh" \
+	|| die 'matrix does not pass FWLIVE_EXPECT_ARCH'
+grep -Fq 'aarch64' "$ROOT/scripts/qemu-smoke-matrix.sh" \
+	|| die 'matrix does not expect aarch64 on the armsr leg'
+ok 'matrix passes expected arch per leg'
+
 echo 'qemu smoke log pipeline tests passed'

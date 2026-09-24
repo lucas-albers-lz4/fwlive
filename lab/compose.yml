@@ -4,8 +4,8 @@ services:
     container_name: openwrt-x64
     privileged: true
     ports:
-      - "8081:80"
-      - "2221:22"
+      - "8080:80"
+      - "2222:22"
     volumes:
       - ./images/openwrt-x64.img:/storage/disk.img
     environment:
@@ -20,8 +20,8 @@ services:
     container_name: openwrt-armsr-armv8
     privileged: true
     ports:
-      - "8080:80"
-      - "2222:22"
+      - "8081:80"
+      - "2223:22"
     volumes:
       - ./images/openwrt-armsr-armv8.img:/storage/disk.img
     environment:
@@ -36,7 +36,7 @@ services:
     privileged: true
     ports:
       - "8443:443"
-      - "2223:22"
+      - "2224:22"
     volumes:
       - ./images/opnsense-amd64.img:/storage/disk.img
     environment:
