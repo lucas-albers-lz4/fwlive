@@ -226,6 +226,39 @@ assert.strictEqual(bar.style.display, 'contents');
 assert.strictEqual(bar.childNodes.length, 1, 'off state is Enable CTA only');
 assert.ok(collectText(bar.childNodes[0]).indexOf('Enable logging') >= 0);
 
+let disableCalled = false;
+logging.renderToolbar(
+	bar,
+	{
+		loggingStatus: {
+			wan_log: true,
+			wan_log_limit: 10,
+			blockers: ['nf_log_ipv4_missing']
+		},
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{
+		onEnable: function () {},
+		onDisable: function () {
+			disableCalled = true;
+		}
+	}
+);
+assert.strictEqual(bar.style.display, 'contents');
+assert.strictEqual(bar.childNodes.length, 2, 'blocker status + merged disable control');
+const blockedStatus = bar.childNodes[0];
+const blockedDisable = bar.childNodes[1];
+assert.strictEqual(blockedStatus.tagName, 'span');
+assert.ok(String(blockedStatus._attrs['class']).indexOf('fwlive-logging-status') >= 0);
+assert.ok(collectText(blockedStatus).indexOf('missing kernel log modules') >= 0);
+assert.strictEqual(blockedDisable.tagName, 'button');
+assert.ok(String(blockedDisable._attrs['class']).indexOf('fwlive-log-merged') >= 0);
+assert.ok(collectText(blockedDisable).indexOf('WAN logging on') >= 0);
+assert.ok(blockedDisable._listeners.click && blockedDisable._listeners.click.length === 1);
+blockedDisable._listeners.click[0]();
+assert.strictEqual(disableCalled, true, 'blocked-but-enabled toolbar must wire onDisable');
+
 const emptyHost = luciE.E('div', {}, []);
 logging.renderEmptyState(
 	emptyHost,

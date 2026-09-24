@@ -6,6 +6,18 @@
 > `^(23\\.05|24\\.10|25\\.12)\\.[0-9]+$`. No ACL, DOM sink, or read/write-scope
 > change.
 
+> **2026-09-24 #590 delta:** The publish workflow fetches the live Pages
+> `manifest.json` (cache-bust `?cb=${GITHUB_RUN_ID}`, no-cache headers) and
+> runs `guard-feed-deploy.sh` before deploy. HTTP 404 (no live manifest yet)
+> still validates the staged manifest `git_tag` against the release tag and
+> skips only the live-version comparison (bootstrap / wiped `gh-pages`).
+> Other non-200 or curl failures fail the job. Tags must be
+> `vMAJOR.MINOR.PATCH` (1–9 digits per component) at Resolve release tag,
+> not only in the guard. `allow_rollback` defaults false. A rejected or
+> failed downgrade guard aborts the `build-publish` job, so GitHub Release
+> assets are also not uploaded for that run. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-23 #421 slice 2:** Feed install smoke compares the guest
 > `opkg info` / `apk query` version to the published `Packages.gz` /
 > `packages.adb` index for that cell. No ACL, DOM sink, or read/write-scope
@@ -265,7 +277,7 @@ should carry a note saying what would raise it.
 | JSON filter unescapes libubox string escapes (`\b` `\f` `\n` `\r` `\t` `\u00XX`) before classify | `host` | `tests/fwlive-shell-filter.test.js` `runJsonGetMsgEscapes` / `runJsonParity` |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
-| Reload failure rolls back the UCI write | `host` | same |
+| Reload failure rolls back the UCI write; restore returns non-zero if `uci set`/`uci delete` never staged | `host` | `tests/fwlive-logging.test.sh` |
 | `resolve` bounded by a wall-clock budget | `manual` | `RESOLVE_BUDGET`; no test asserts the bound |
 | `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` (clamp helper tested without jshn) |
 | Rules map temp file created only via `mktemp` (`_fwlive_mktemp`, fixed `/tmp` after a sticky-dir check, `TMPDIR` NOT honoured, no `rm`+reuse) with graceful degradation; accumulation via redirect keeps global first-wins dedup | `host` | `tests/fwlive-rules-map.test.js` production-path stubs under `dash` (and `busybox sh` when BusyBox honours PATH); `testNoMktempGracefulDegradation`; `testTmpDirSticky` |

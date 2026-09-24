@@ -32,6 +32,7 @@ required=(
 	scripts/qemu-install-from-feed.sh
 	scripts/validate-feed-smoke.sh
 	scripts/wait-feed-pages.sh
+	scripts/guard-feed-deploy.sh
 	scripts/feeds.lock/23.05.5/feeds.conf
 	scripts/feeds.lock/24.10.8/feeds.conf
 	scripts/feeds.lock/25.12.5/feeds.conf
