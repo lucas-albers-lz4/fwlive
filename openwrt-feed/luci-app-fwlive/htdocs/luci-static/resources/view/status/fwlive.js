@@ -1372,23 +1372,28 @@ return view.extend({
 		this.updateSummaryUi();
 	},
 
-	updateSummaryUi() {
-		const card = document.getElementById('fwlive-summary');
+	syncEmptyScrollVisibility(rowCount) {
+		const hideTable = this.summaryMode && !this.summaryRowsShown;
 		const scroll = document.getElementById('fwlive-scroll');
 		const empty = document.getElementById('fwlive-empty');
+		if (scroll) {
+			if (!scroll.style) scroll.style = { display: '' };
+			scroll.style.display = hideTable ? 'none' : '';
+		}
+		if (empty) {
+			if (!empty.style) empty.style = { display: '' };
+			empty.style.display = hideTable ? 'none' : (rowCount ? 'none' : 'block');
+		}
+	},
+
+	updateSummaryUi() {
+		const card = document.getElementById('fwlive-summary');
 		const toggle = document.getElementById('fwlive-summary-rows');
 		if (card) {
 			if (!card.style) card.style = { display: '' };
 			card.style.display = this.summaryMode ? 'block' : 'none';
 		}
-		if (scroll) {
-			if (!scroll.style) scroll.style = { display: '' };
-			scroll.style.display = this.summaryMode && !this.summaryRowsShown ? 'none' : '';
-		}
-		if (empty) {
-			if (!empty.style) empty.style = { display: '' };
-			empty.style.display = this.summaryMode && !this.summaryRowsShown ? 'none' : '';
-		}
+		this.syncEmptyScrollVisibility(this.filteredRows().length);
 		if (toggle) {
 			toggle.textContent = this.summaryRowsShown ? _('Hide rows') : _('Show rows');
 			toggle.setAttribute('aria-pressed', this.summaryRowsShown ? 'true' : 'false');
@@ -1409,11 +1414,7 @@ return view.extend({
 		this.summaryData = null;
 		this.updateSummaryUi();
 		if (this.tablePaused) {
-			const empty = document.getElementById('fwlive-empty');
-			if (empty) {
-				const rows = this.filteredRows();
-				empty.style.display = rows.length ? 'none' : 'block';
-			}
+			this.syncEmptyScrollVisibility(this.filteredRows().length);
 			this.updateStatus();
 		} else {
 			this.resolvePaintPending = false;
@@ -1919,7 +1920,6 @@ return view.extend({
 		if (!el || typeof el.querySelector !== 'function') return;
 
 		const body = el.querySelector('tbody');
-		const empty = document.getElementById('fwlive-empty');
 		const scroll = document.getElementById('fwlive-scroll');
 		this.updateHash(this.readFilters());
 
@@ -1933,6 +1933,7 @@ return view.extend({
 
 		if (!paint) {
 			this.updateFloodBanner();
+			this.syncEmptyScrollVisibility(rows.length);
 			this.updateStatus(rows);
 			return;
 		}
@@ -1941,7 +1942,7 @@ return view.extend({
 
 		const prevScroll = scroll ? scroll.scrollTop : 0;
 
-		if (empty) empty.style.display = rows.length ? 'none' : 'block';
+		this.syncEmptyScrollVisibility(rows.length);
 		this.updateStatus(rows);
 		this.renderFilterChips();
 

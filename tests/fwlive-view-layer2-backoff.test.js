@@ -733,6 +733,57 @@ async function testSummaryShowRowsRepaintOnPoll() {
 	console.log('fwlive-view layer2: summary Show rows poll paint OK');
 }
 
+async function testSummaryEmptyStaysHiddenOnRepaint() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return {
+					log: [],
+					adaptive: 1,
+					summary: {
+						scope: 'top of shown sample',
+						top_talkers: [],
+						top_drops: [],
+						top_rules: []
+					}
+				};
+			},
+			'fwlive.resolve': async function () {
+				return { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	const empty = h.document.getElementById('fwlive-empty');
+	const tableEl = h.document.getElementById('fwlive-table');
+	const tbody = { childNodes: [] };
+	tableEl.querySelector = function (sel) {
+		return sel === 'tbody' ? tbody : null;
+	};
+	v.entries = [];
+	v.updateLoggingToolbarUi = function () {};
+	v.renderFilterChips = function () {};
+	v.updateStatus = function () {};
+	v.updateHash = function () {};
+	v.enterSummaryMode({
+		scope: 'top of shown sample',
+		top_talkers: [],
+		top_drops: [],
+		top_rules: []
+	});
+	assert.strictEqual(empty.style.display, 'none', 'summary must hide empty-state');
+	v.renderRows(true);
+	assert.strictEqual(
+		empty.style.display,
+		'none',
+		'summary repaint must not re-reveal empty-state'
+	);
+	v.summaryRowsShown = true;
+	v.updateSummaryUi();
+	assert.strictEqual(empty.style.display, 'block', 'Show rows with no matches shows empty-state');
+	console.log('fwlive-view layer2: summary empty-state stays hidden OK');
+}
+
 async function testStreakResetOnAdaptiveOff() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -1537,6 +1588,7 @@ async function testPausedDisplayControlsPaint() {
 		await testShedSurfacing();
 		await testSummaryFallbackAndRecovery();
 		await testSummaryShowRowsRepaintOnPoll();
+		await testSummaryEmptyStaysHiddenOnRepaint();
 		await testStreakResetOnAdaptiveOff();
 		await testResolveShedCooldown();
 		await testResolveRpcErrorNoFailMark();
