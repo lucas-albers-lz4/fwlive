@@ -1,0 +1,10 @@
+Package: luci-base
+Version: 24.10.0-1
+
+Package: luci-app-fwlive
+Version: 0.1.45-r1
+Depends: luci-base
+Architecture: all
+
+Package: other
+Version: 1.0-1

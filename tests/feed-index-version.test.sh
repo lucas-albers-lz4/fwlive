@@ -21,6 +21,11 @@ ok() {
 
 want='0.1.45-r1'
 stale='0.1.44-r1'
+packages_fix="$ROOT/tests/fixtures/feed-index-packages"
+adbdump_fix="$ROOT/tests/fixtures/feed-index-adbdump.json"
+
+[[ -f "$packages_fix" ]] || fail "missing Packages fixture: $packages_fix"
+[[ -f "$adbdump_fix" ]] || fail "missing adbdump fixture: $adbdump_fix"
 
 feed_index_versions_match "$want" "$want" || fail "matching -r1 forms must succeed"
 ok "matching version succeeds"
@@ -46,19 +51,7 @@ write_packages() {
 	printf '%s\n' "$@" >"$dest"
 }
 
-write_packages "$TMP/Packages" \
-	'Package: luci-base' \
-	'Version: 24.10.0-1' \
-	'' \
-	'Package: luci-app-fwlive' \
-	"Version: $want" \
-	'Depends: luci-base' \
-	'Architecture: all' \
-	'' \
-	'Package: other' \
-	'Version: 1.0-1'
-
-got="$(feed_index_opkg_version "$TMP/Packages")"
+got="$(feed_index_opkg_version "$packages_fix")"
 feed_index_versions_match "$got" "$want" || fail "Packages Version should be $want (got '$got')"
 ok "matching Packages Version succeeds"
 
@@ -70,6 +63,17 @@ if feed_index_versions_match "$got" "$want" >/dev/null 2>&1; then
 	fail "stale Packages Version $stale must not match $want"
 fi
 ok "stale Packages Version fails"
+
+write_packages "$TMP/Packages.wrong" \
+	'Package: luci-app-fwlive-extra' \
+	"Version: $want" \
+	'' \
+	'Package: luci-base' \
+	'Version: 24.10.0-1'
+if feed_index_opkg_version "$TMP/Packages.wrong" >/dev/null 2>&1; then
+	fail "wrong package in Packages must fail"
+fi
+ok "wrong package in Packages fails"
 
 write_packages "$TMP/Packages.missing" \
 	'Package: luci-base' \
@@ -87,7 +91,7 @@ if feed_index_opkg_version "$TMP/Packages.emptyver" >/dev/null 2>&1; then
 fi
 ok "empty Packages Version fails"
 
-gzip -9cn "$TMP/Packages" >"$TMP/Packages.gz"
+gzip -9cn "$packages_fix" >"$TMP/Packages.gz"
 got="$(feed_index_opkg_version "$TMP/Packages.gz")"
 feed_index_versions_match "$got" "$want" || fail "Packages.gz Version should be $want (got '$got')"
 ok "matching Packages.gz Version succeeds"
@@ -132,13 +136,13 @@ write_adb_dump() {
 	printf '%s\n' "$json" >"$dest"
 }
 
-match_json='{"packages":[{"name":"other","version":"1.0-r1"},{"name":"luci-app-fwlive","version":"0.1.45-r1"}]}'
 stale_json='{"packages":[{"name":"luci-app-fwlive","version":"0.1.44-r1"}]}'
+wrong_json='{"packages":[{"name":"luci-app-fwlive-extra","version":"0.1.45-r1"}]}'
 missing_json='{"packages":[{"name":"other","version":"1.0-r1"}]}'
 empty_json='{"packages":[{"name":"luci-app-fwlive","version":""}]}'
+pkgver_json='{"packages":[{"name":"luci-app-fwlive","pkgver":"0.1.45-r1"}]}'
 
-write_adb_dump "$TMP/adbdump-match.json" "$match_json"
-FWLIVE_ADBDUMP_FIXTURE="$TMP/adbdump-match.json"
+FWLIVE_ADBDUMP_FIXTURE="$adbdump_fix"
 export FWLIVE_ADBDUMP_FIXTURE
 : >"$FWLIVE_DOCKER_LOG"
 got="$(feed_index_apk_pkgver "$adb")"
@@ -158,6 +162,13 @@ if feed_index_versions_match "$got" "$want" >/dev/null 2>&1; then
 fi
 ok "stale packages.adb pkgver fails"
 
+write_adb_dump "$TMP/adbdump-wrong.json" "$wrong_json"
+FWLIVE_ADBDUMP_FIXTURE="$TMP/adbdump-wrong.json"
+if feed_index_apk_pkgver "$adb" >/dev/null 2>&1; then
+	fail "wrong package in packages.adb dump must fail"
+fi
+ok "wrong package in packages.adb dump fails"
+
 write_adb_dump "$TMP/adbdump-missing.json" "$missing_json"
 FWLIVE_ADBDUMP_FIXTURE="$TMP/adbdump-missing.json"
 if feed_index_apk_pkgver "$adb" >/dev/null 2>&1; then
@@ -171,6 +182,13 @@ if feed_index_apk_pkgver "$adb" >/dev/null 2>&1; then
 	fail "empty pkgver in packages.adb dump must fail"
 fi
 ok "empty packages.adb pkgver fails"
+
+write_adb_dump "$TMP/adbdump-pkgver.json" "$pkgver_json"
+FWLIVE_ADBDUMP_FIXTURE="$TMP/adbdump-pkgver.json"
+got="$(feed_index_apk_pkgver "$adb")"
+feed_index_versions_match "$got" "$want" || fail "packages.adb pkgver field should be $want (got '$got')"
+ok "packages.adb pkgver field is accepted"
+
 [[ ! -e "$TMP/apk-invoked" ]] || fail "host apk was invoked on fail-closed apk paths"
 
 echo "feed-index-version helper test passed"

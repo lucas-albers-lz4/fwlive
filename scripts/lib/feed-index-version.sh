@@ -48,7 +48,7 @@ feed_index_opkg_version() {
 		return 1
 	}
 	got="$(awk -v want="$FEED_INDEX_PKG" '
-		BEGIN { RS = ""; FS = "\n" }
+		BEGIN { RS = ""; FS = "\n"; found = 0; got = "" }
 		{
 			name = ""
 			ver = ""

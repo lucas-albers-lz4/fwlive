@@ -1,0 +1,12 @@
+{
+  "packages": [
+    {
+      "name": "other",
+      "version": "1.0-r1"
+    },
+    {
+      "name": "luci-app-fwlive",
+      "version": "0.1.45-r1"
+    }
+  ]
+}
