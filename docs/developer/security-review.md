@@ -1,5 +1,9 @@
 # Security review state
 
+> **2026-09-23 #421 delta:** The publish workflow gains a periodic 25.12 feed
+> smoke and the pages wait includes the APK key (`fwlive-feed.rsa.pub`). No
+> ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-23 #458 delta:** The shipped `fwlive-logging.sh` helper comment now
 > matches fd-inheritance (`exec 9>>` + `flock 9`; recovery is until the last
 > fd-9 inheritor exits, not merely the holder) and the reload-failure rollback
