@@ -239,12 +239,14 @@ sdk_matrix_validate_target() {
 sdk_matrix_validate_version() {
 	local v
 	for v in "${SDK_MATRIX_VERSIONS[@]}"; do
-		[[ "$1" == "$v" || "$1" == "$(sdk_matrix_version_patch "$1")" ]] && return 0
+		[[ "$1" == "$v" ]] && return 0
 	done
 	case "$1" in
-		25.12.* | 24.10.* | 23.05.*) return 0 ;;
+		latest | SNAPSHOT) return 0 ;;
 	esac
-	echo "invalid --version $1 (choose: ${SDK_MATRIX_VERSIONS[*]})" >&2
+	# Numeric patch only — `25.12.*` would accept 25.12.foo / 25.12. (#637 luna).
+	[[ "$1" =~ ^(23\.05|24\.10|25\.12)\.[0-9]+$ ]] && return 0
+	echo "invalid --version $1 (choose: snapshot | 23.05 | 24.10 | 25.12 [.<patch>] | latest | SNAPSHOT)" >&2
 	return 1
 }
 

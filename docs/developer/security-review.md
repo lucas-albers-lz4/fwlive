@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-24 #637 delta:** `sdk_matrix_validate_version` now rejects
+> unknown `--version` values and non-numeric patch suffixes; it accepts
+> `SDK_MATRIX_VERSIONS` plus `latest`/`SNAPSHOT` and
+> `^(23\\.05|24\\.10|25\\.12)\\.[0-9]+$`. No ACL, DOM sink, or read/write-scope
+> change.
+
 > **2026-09-24 #590 delta:** The publish workflow fetches the live Pages
 > `manifest.json` (cache-bust `?cb=${GITHUB_RUN_ID}`, no-cache headers) and
 > runs `guard-feed-deploy.sh` before deploy. HTTP 404 (no live manifest yet)
