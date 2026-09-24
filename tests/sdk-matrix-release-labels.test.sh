@@ -23,4 +23,29 @@ test "$(sdk_matrix_version_label 23.05)" = 23.05.5
 test "$(sdk_matrix_version_label 24.10)" = 24.10.8
 test "$(sdk_matrix_version_label 25.12)" = 25.12.5
 
+# Known labels and patch forms must still pass (#637).
+for ver in snapshot latest SNAPSHOT 25.12 24.10 23.05 25.12.5 24.10.8 23.05.5; do
+	if ! sdk_matrix_validate_version "$ver" >/dev/null 2>&1; then
+		echo "known version unexpectedly rejected: $ver" >&2
+		exit 1
+	fi
+done
+
+# Unknown versions must fail immediately with the usage hint (#637).
+# These currently pass on master because validate compared $1 to patch($1).
+for ver in foo 99.99; do
+	err=""
+	if err="$(sdk_matrix_validate_version "$ver" 2>&1)"; then
+		echo "unknown version unexpectedly accepted: $ver" >&2
+		exit 1
+	fi
+	case "$err" in
+		*"invalid --version ${ver}"*"choose: ${SDK_MATRIX_VERSIONS[*]}"*) ;;
+		*)
+			echo "unknown version missing usage hint: $ver ($err)" >&2
+			exit 1
+			;;
+	esac
+done
+
 echo "sdk matrix release version labels test passed"
