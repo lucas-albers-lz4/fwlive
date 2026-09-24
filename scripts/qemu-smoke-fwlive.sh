@@ -40,6 +40,44 @@ ssh_guest() {
 	ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
 }
 
+# ubus exits 0 on method-level refusals. Require the success key. Reject an
+# "error" field except on rules, where no_backend / rules_truncated still
+# return a usable map (fw3/iptables guests).
+ubus_method_ok() {
+	local method="$1"
+	local remote="$2"
+	local key="$3"
+	local allow_error="${4:-}"
+	local body
+	if ! body="$(ssh_guest "$remote")"; then
+		die "ubus fwlive ${method} failed (rpcd plugin / ACL?)"
+	fi
+	if [[ -z "$body" ]]; then
+		die "ubus fwlive ${method} returned an empty body"
+	fi
+	if printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:'; then
+		if [[ "$allow_error" != allow_error ]]; then
+			die "ubus fwlive ${method} replied with error: ${body}"
+		elif ! printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:[[:space:]]*"(no_backend|rules_truncated)"'; then
+			die "ubus fwlive ${method} replied with disallowed error: ${body}"
+		fi
+	fi
+	if ! printf '%s' "$body" | grep -Eq "\"${key}\"[[:space:]]*:"; then
+		die "ubus fwlive ${method} missing ${key}: ${body}"
+	fi
+	case "$key" in
+		log)
+			printf '%s' "$body" | grep -Eq '"log"[[:space:]]*:[[:space:]]*\[' \
+				|| die "ubus fwlive ${method} log is not an array: ${body}"
+			;;
+		names | rules)
+			printf '%s' "$body" | grep -Eq "\"${key}\"[[:space:]]*:[[:space:]]*\{" \
+				|| die "ubus fwlive ${method} ${key} is not an object: ${body}"
+			;;
+	esac
+	ok "ubus fwlive ${method}"
+}
+
 echo "== fwlive QEMU smoke (root@${HOST}:${PORT}) ==" >&2
 
 ssh_guest 'echo connected' >/dev/null 2>&1 \
@@ -49,21 +87,14 @@ RELEASE="$(ssh_guest '. /etc/openwrt_release 2>/dev/null; echo "${DISTRIB_RELEAS
 ARCH="$(ssh_guest 'uname -m')"
 ok "guest ${ARCH} OpenWrt ${RELEASE}"
 
-ssh_guest 'ubus call fwlive poll '"'"'{"addresses":["20"]}'"'"'' >/dev/null \
-	|| die "ubus fwlive poll failed (rpcd plugin / filter scripts?)"
-ok "ubus fwlive poll"
-
-ssh_guest 'ubus call fwlive resolve '"'"'{"addresses":["127.0.0.1"]}'"'"'' >/dev/null \
-	|| die "ubus fwlive resolve failed"
-ok "ubus fwlive resolve"
-
-ssh_guest 'ubus call fwlive rules' >/dev/null \
-	|| die "ubus fwlive rules failed (rpcd plugin / ACL?)"
-ok "ubus fwlive rules"
-
-ssh_guest 'ubus call fwlive logging_status' >/dev/null \
-	|| die "ubus fwlive logging_status failed"
-ok "ubus fwlive logging_status"
+ubus_method_ok poll \
+	'ubus call fwlive poll '"'"'{"addresses":["20"]}'"'"'' \
+	log
+ubus_method_ok resolve \
+	'ubus call fwlive resolve '"'"'{"addresses":["127.0.0.1"]}'"'"'' \
+	names
+ubus_method_ok rules 'ubus call fwlive rules' rules allow_error
+ubus_method_ok logging_status 'ubus call fwlive logging_status' wan_zone
 
 ssh_guest 'test -f /www/luci-static/resources/view/status/fwlive.js' \
 	|| die "missing LuCI view JS"
