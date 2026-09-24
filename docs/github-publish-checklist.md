@@ -112,4 +112,4 @@ Checklist:
 | Workflow | When |
 |----------|------|
 | `fwlive-test.yml` | Every push/PR — parser tests |
-| `publish-packages.yml` | Tag push `v*` — SDK build, reproducibility, Pages deploy, release assets, single-cell QEMU feed smoke (24.10 / TCG) |
+| `publish-packages.yml` | Tag push `v*` or `workflow_dispatch` — SDK build, reproducibility, Pages deploy, release assets, single-cell QEMU feed smoke (24.10 / TCG); weekly schedule (`cron: 17 6 * * 1`) — 25.12 APK live-feed smoke only, does not publish |
