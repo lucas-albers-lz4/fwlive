@@ -55,9 +55,12 @@ ubus_method_ok() {
 	if [[ -z "$body" ]]; then
 		die "ubus fwlive ${method} returned an empty body"
 	fi
-	if [[ "$allow_error" != allow_error ]] &&
-		printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:'; then
-		die "ubus fwlive ${method} replied with error: ${body}"
+	if printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:'; then
+		if [[ "$allow_error" != allow_error ]]; then
+			die "ubus fwlive ${method} replied with error: ${body}"
+		elif ! printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:[[:space:]]*"(no_backend|rules_truncated)"'; then
+			die "ubus fwlive ${method} replied with disallowed error: ${body}"
+		fi
 	fi
 	if ! printf '%s' "$body" | grep -Eq "\"${key}\"[[:space:]]*:"; then
 		die "ubus fwlive ${method} missing ${key}: ${body}"

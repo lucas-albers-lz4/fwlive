@@ -59,6 +59,8 @@ elif [[ "$cmd" == *'ubus call fwlive resolve'* ]]; then
 elif [[ "$cmd" == *'ubus call fwlive rules'* ]]; then
 	if [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == rules ]]; then
 		printf '%s\n' '{"backend":"unknown","error":"no_backend"}'
+	elif [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == rules-unexpected ]]; then
+		printf '%s\n' '{"backend":"nft","rules":{},"error":"permission_denied"}'
 	elif [[ "${FWLIVE_STUB_RULES:-}" == no_backend ]]; then
 		printf '%s\n' '{"backend":"unknown","rules":{},"error":"no_backend"}'
 	else
@@ -178,5 +180,13 @@ fi
 grep -Fq 'smoke OK: ubus fwlive rules' "$TMP/rules-no-backend.log" \
 	|| die 'no_backend rules map was not accepted'
 ok 'accepts rules no_backend with a rules object'
+
+if (FWLIVE_STUB_UBUS_ERROR=rules-unexpected; export FWLIVE_STUB_UBUS_ERROR; \
+	run_smoke rules-unexpected-error); then
+	die 'smoke passed on an unexpected rules error with a rules object'
+fi
+grep -Fq 'ubus fwlive rules replied with disallowed error' "$TMP/rules-unexpected-error.log" \
+	|| die 'unexpected rules error was not rejected'
+ok 'rejects unexpected rules error with a rules object'
 
 echo 'qemu smoke log pipeline tests passed'
