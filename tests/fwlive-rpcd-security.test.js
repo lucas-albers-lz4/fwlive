@@ -723,6 +723,85 @@ function testAdaptiveHotSurvivesFilterFailures() {
 	}
 }
 
+function testAdaptiveMissingMessagesReceivedIsUnhealthy() {
+	// A zero-exit {"log":[]} body without messages_received must not be
+	// recorded as a healthy sample (clears hot/shed). A valid empty ring
+	// includes the count and may record.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-665-count-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-665-count-work-'));
+	const libexec = path.join(work, 'usr', 'libexec');
+	const rpcdDir = path.join(libexec, 'rpcd');
+	const fixtureRpcd = path.join(rpcdDir, 'fwlive');
+	const fixtureFilter = path.join(libexec, 'fwlive-log-filter.sh');
+	const stateFile = path.join(work, 'state.json');
+	try {
+		fs.mkdirSync(rpcdDir, { recursive: true });
+		fs.copyFileSync(RPCD, fixtureRpcd);
+		fs.copyFileSync(
+			path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh'),
+			path.join(libexec, 'fwlive-logging.sh')
+		);
+		fs.copyFileSync(
+			path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-adaptive-cap.sh'),
+			path.join(libexec, 'fwlive-adaptive-cap.sh')
+		);
+		fs.chmodSync(fixtureRpcd, 0o755);
+		makeStub(stubDir, 'ubus', '#!/bin/sh\nprintf \'{"log":[]}\'\n');
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: stateFile,
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+
+		fs.writeFileSync(
+			stateFile,
+			'{"duration_ms":900,"limit":250,"bucket":"hot","warm_halved":0,"shed":1,"completed_cs":1}\n'
+		);
+		fs.writeFileSync(fixtureFilter, '#!/bin/sh\nprintf \'{"log":[]}\'\nexit 0\n', { mode: 0o755 });
+		const missingRaw = execFileSync(
+			'/bin/dash',
+			[fixtureRpcd, 'call', 'poll', '{"addresses":["50"]}'],
+			{ encoding: 'utf8', env }
+		);
+		const missing = JSON.parse(missingRaw);
+		assert.equal(
+			missing.effective_limit,
+			undefined,
+			'missing messages_received must omit effective_limit'
+		);
+		let state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+		assert.equal(state.bucket, 'hot', 'missing messages_received must preserve hot bucket');
+		assert.equal(state.shed, 1, 'missing messages_received must preserve shed');
+
+		fs.writeFileSync(
+			stateFile,
+			'{"duration_ms":900,"limit":250,"bucket":"hot","warm_halved":0,"shed":1,"completed_cs":1}\n'
+		);
+		fs.writeFileSync(
+			fixtureFilter,
+			'#!/bin/sh\nprintf \'{"log":[],"messages_received":0}\'\nexit 0\n',
+			{ mode: 0o755 }
+		);
+		const emptyRaw = execFileSync(
+			'/bin/dash',
+			[fixtureRpcd, 'call', 'poll', '{"addresses":["50"]}'],
+			{ encoding: 'utf8', env }
+		);
+		const empty = JSON.parse(emptyRaw);
+		assert.equal(empty.messages_received, 0, 'valid empty ring keeps messages_received 0');
+		assert.notEqual(
+			empty.effective_limit,
+			undefined,
+			'valid empty ring is a healthy sample and reports effective_limit'
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function testSummaryErrorValueDoesNotFailHealthGate() {
 	// The summary is data: a talker/rule value may literally be "error".
 	// The rpcd health gate must match the structured error key, not that value.
@@ -1151,6 +1230,7 @@ testPollUbusFailure();
 testPollHungUbusReturnsWithinBudget();
 testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
+testAdaptiveMissingMessagesReceivedIsUnhealthy();
 testSummaryErrorValueDoesNotFailHealthGate();
 testResolveJshnMissing();
 testPollLinesJshnCauses();

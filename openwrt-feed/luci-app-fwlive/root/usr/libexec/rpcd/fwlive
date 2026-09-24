@@ -490,6 +490,12 @@ fetch_firewall_logs() {
 	case "$out" in
 		*'"error":'*) _filter_ok=0 ;;
 	esac
+	# Zero-exit JSON without a numeric messages_received is not a healthy
+	# sample. The merge fallback of 0 must not clear hot/shed.
+	case "$out" in
+		*'"messages_received":'[0-9]*) ;;
+		*) _filter_ok=0 ;;
+	esac
 	end_cs=$(fwlive_adaptive_clock_cs)
 	# Uptime wrap / skew: end < start — do not record as cold.
 	if [ "$_filter_ok" = 1 ] && [ "$end_cs" -ge "$start_cs" ]; then
