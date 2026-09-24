@@ -1,13 +1,15 @@
 'use strict';
 
 /**
- * Source-to-POT drift gate (#334).
+ * Source-to-POT drift gate (#334 / #454).
  *
  * The OpenWrt i18n scanner is not available in the normal host checkout, so
  * this gate checks the static string-literal form of every _() call in the
  * shipped JavaScript sources, including template-literal interpolations,
- * against the checked-in POT. It intentionally does not claim coverage for
- * dynamic or concatenated translation arguments.
+ * against the checked-in POT. It also requires each `#:` reference's cited
+ * line to contain that msgid as a quoted string. Nearby `_()` calls must not
+ * satisfy the check. It intentionally does not claim coverage for dynamic or
+ * concatenated translation arguments.
  *
  * Usage:
  *   node tests/fwlive-i18n-source.test.js
@@ -371,29 +373,142 @@ function parsePoQuoted(raw) {
 }
 
 /*
- * This gate currently compares msgid-only catalogs. The shipped sources do
- * not emit ngettext/msgctxt entries; extend this parser if that changes.
+ * This gate compares msgid catalogs and verifies each POT #: reference
+ * resolves to a line containing that msgid. The shipped sources do not emit
+ * ngettext/msgctxt entries; extend this parser if that changes.
  */
 function parsePotMsgids(text) {
 	const ids = new Set();
-	let current = null;
-	let readingId = false;
-	for (const line of text.split('\n')) {
-		const match = line.match(/^msgid "((?:[^"\\]|\\.)*)"$/);
-		if (match) {
-			if (current !== null && current !== '') ids.add(current);
-			current = parsePoQuoted(match[1]);
-			readingId = true;
-			continue;
-		}
-		if (readingId && current !== null && /^"((?:[^"\\]|\\.)*)"$/.test(line)) {
-			current += parsePoQuoted(line.slice(1, -1));
-			continue;
-		}
-		if (/^msgstr(?:\[.*\])? /.test(line) || line === '') readingId = false;
+	for (const entry of parsePotEntries(text)) {
+		if (entry.msgid !== '') ids.add(entry.msgid);
 	}
-	if (current !== null && current !== '') ids.add(current);
 	return ids;
+}
+
+function parsePotEntries(text) {
+	const entries = [];
+	for (const block of text.split(/\n{2,}/)) {
+		if (!block.trim()) continue;
+
+		const refs = [];
+		let msgid = null;
+		let readingId = false;
+		for (const line of block.split('\n')) {
+			const refMatch = line.match(/^#:\s*(.+)$/);
+			if (refMatch) {
+				for (const part of refMatch[1].trim().split(/\s+/)) {
+					const match = part.match(/^(.+):(\d+)$/);
+					if (match) {
+						refs.push({ file: match[1], line: parseInt(match[2], 10) });
+					} else {
+						refs.push({ file: part, line: 0 });
+					}
+				}
+				continue;
+			}
+
+			const idMatch = line.match(/^msgid "((?:[^"\\]|\\.)*)"$/);
+			if (idMatch) {
+				msgid = parsePoQuoted(idMatch[1]);
+				readingId = true;
+				continue;
+			}
+			if (readingId && msgid !== null && /^"((?:[^"\\]|\\.)*)"$/.test(line)) {
+				msgid += parsePoQuoted(line.slice(1, -1));
+				continue;
+			}
+			if (/^msgstr(?:\[.*\])? /.test(line) || line === '') readingId = false;
+		}
+		if (msgid !== null) entries.push({ msgid, refs });
+	}
+	return entries;
+}
+
+function escapeJsString(value, quote) {
+	return value
+		.replace(/\\/g, '\\\\')
+		.replace(/\n/g, '\\n')
+		.replace(/\r/g, '\\r')
+		.replace(quote === "'" ? /'/g : /"/g, quote === "'" ? "\\'" : '\\"');
+}
+
+function escapeRegExp(value) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function lineContainsMsgid(line, msgid) {
+	if (!msgid) return false;
+	const single = escapeRegExp(escapeJsString(msgid, "'"));
+	const double = escapeRegExp(escapeJsString(msgid, '"'));
+	/* xgettext trims edge whitespace; source quotes may keep it. */
+	return new RegExp(`'\\s*${single}\\s*'`).test(line) || new RegExp(`"\\s*${double}\\s*"`).test(line);
+}
+
+function isUnclosedGettextCall(line) {
+	return /_\(\s*$/.test(line);
+}
+
+function verifyPotReference(ref, msgid) {
+	const fullPath = path.join(ROOT, ref.file);
+	if (!fs.existsSync(fullPath)) {
+		return { ok: false, reason: 'file not found' };
+	}
+
+	const lines = fs.readFileSync(fullPath, 'utf8').split('\n');
+	if (ref.line < 1 || ref.line > lines.length) {
+		return { ok: false, reason: 'line out of range' };
+	}
+
+	const referenceLine = lines[ref.line - 1];
+	if (lineContainsMsgid(referenceLine, msgid)) {
+		return { ok: true };
+	}
+
+	/*
+	 * Wrapped `_(\n "msgid")` cites the opening line. Search forward only so a
+	 * nearby closed `_('other')` cannot satisfy this msgid.
+	 */
+	if (!isUnclosedGettextCall(referenceLine) && !msgid.includes('\n')) {
+		return { ok: false, reason: 'referenced line does not contain msgid' };
+	}
+
+	const end = Math.min(lines.length, ref.line + 7);
+	for (let line = ref.line + 1; line <= end; line++) {
+		if (lineContainsMsgid(lines[line - 1], msgid)) return { ok: true };
+	}
+	return { ok: false, reason: 'msgid not found on cited or continuation lines' };
+}
+
+function findNearbyUnrelatedGettextLine(ref, msgid) {
+	const lines = fs.readFileSync(path.join(ROOT, ref.file), 'utf8').split('\n');
+	const start = Math.max(1, ref.line - 5);
+	const end = Math.min(lines.length, ref.line + 5);
+	for (let line = start; line <= end; line++) {
+		if (line === ref.line) continue;
+		const text = lines[line - 1];
+		if (text.includes('_(') && !lineContainsMsgid(text, msgid)) return line;
+	}
+	return 0;
+}
+
+function checkPotReferences(potText) {
+	const mismatches = [];
+
+	for (const entry of parsePotEntries(potText)) {
+		if (!entry.msgid) continue;
+		for (const ref of entry.refs) {
+			const result = verifyPotReference(ref, entry.msgid);
+			if (!result.ok) {
+				mismatches.push({
+					msgid: entry.msgid,
+					ref: `${ref.file}:${ref.line}`,
+					reason: result.reason
+				});
+			}
+		}
+	}
+
+	return mismatches;
 }
 
 function checkSourceToPot(sourceMessages, potText) {
@@ -407,6 +522,15 @@ function removePotEntry(potText, msgid) {
 	const blocks = potText.split(/\n{2,}/);
 	const kept = blocks.filter((block) => !parsePotMsgids(block).has(msgid));
 	return kept.join('\n\n');
+}
+
+function replacePotReference(potText, msgid, fromRef, toRef) {
+	const blocks = potText.split(/\n{2,}/);
+	const updated = blocks.map((block) => {
+		if (!parsePotMsgids(block).has(msgid)) return block;
+		return block.replace(new RegExp(`^#:\\s*${escapeRegExp(fromRef)}\\s*$`, 'm'), `#: ${toRef}`);
+	});
+	return updated.join('\n\n');
 }
 
 function main() {
@@ -456,6 +580,51 @@ function main() {
 		return 1;
 	}
 
+	const referenceMismatches = checkPotReferences(potText);
+	if (referenceMismatches.length) {
+		console.error('Stale POT #: references:');
+		for (const mismatch of referenceMismatches) {
+			console.error(`- ${mismatch.ref} (${mismatch.reason}) -> ${mismatch.msgid}`);
+		}
+		return 1;
+	}
+
+	const referenceFixtureMsgid = 'contains';
+	const referenceFixture = parsePotEntries(potText).find(
+		(entry) => entry.msgid === referenceFixtureMsgid && entry.refs.length
+	);
+	if (!referenceFixture) {
+		console.error(`Reference fixture msgid is missing from POT: ${referenceFixtureMsgid}`);
+		return 1;
+	}
+	const staleRef = referenceFixture.refs[0];
+	const farMutatedPotRefs = replacePotReference(
+		potText,
+		referenceFixtureMsgid,
+		`${staleRef.file}:${staleRef.line}`,
+		`${staleRef.file}:1`
+	);
+	if (farMutatedPotRefs === potText || !checkPotReferences(farMutatedPotRefs).length) {
+		console.error('Mutation did not expose stale #: reference drift');
+		return 1;
+	}
+
+	const nearbyLine = findNearbyUnrelatedGettextLine(staleRef, referenceFixtureMsgid);
+	if (!nearbyLine) {
+		console.error(`No nearby unrelated _() line to mutate #: ${staleRef.file}:${staleRef.line}`);
+		return 1;
+	}
+	const nearbyMutatedPotRefs = replacePotReference(
+		potText,
+		referenceFixtureMsgid,
+		`${staleRef.file}:${staleRef.line}`,
+		`${staleRef.file}:${nearbyLine}`
+	);
+	if (nearbyMutatedPotRefs === potText || !checkPotReferences(nearbyMutatedPotRefs).length) {
+		console.error('Mutation did not expose nearby stale #: reference drift');
+		return 1;
+	}
+
 	for (const id of REGRESSION_MSGIDS) {
 		if (!report.sourceIds.has(id) || !report.potIds.has(id)) {
 			console.error(`Regression fixture is not present in source and POT: ${id}`);
@@ -472,6 +641,7 @@ function main() {
 		'Mutation check: all %d Layer 2 msgids fail when removed from a temporary POT',
 		REGRESSION_MSGIDS.length
 	);
+	console.log('POT #: reference check: all msgid references resolve in tree');
 	console.log('Source-to-POT drift gate passed.');
 	return 0;
 }
