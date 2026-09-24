@@ -1,5 +1,10 @@
 # Security review state
 
+> **2026-09-23 #421 slice 2:** Feed install smoke compares the guest
+> `opkg info` / `apk query` version to the published `Packages.gz` /
+> `packages.adb` index for that cell. No ACL, DOM sink, or read/write-scope
+> change.
+
 > **2026-09-23 #421 delta:** The publish workflow gains a periodic 25.12 feed
 > smoke and the pages wait includes the APK key (`fwlive-feed.rsa.pub`). No
 > ACL, DOM sink, or read/write-scope change.
