@@ -21,6 +21,10 @@ on:
         description: 'OpenWrt version for feed smoke (one cell; default 24.10)'
         type: string
         default: '24.10'
+      allow_rollback:
+        description: 'Allow deploying a feed older than the live GitHub Pages manifest'
+        type: boolean
+        default: false
 
 env:
   FWLIVE_FEED_BASE_URL: https://lucas-albers-lz4.github.io/fwlive-packages
@@ -77,8 +81,8 @@ jobs:
             echo "invalid tag: contains control characters" >&2
             exit 1
           fi
-          if [[ ! "$tag" =~ ^v[0-9] ]]; then
-            echo "invalid tag '$tag' (expected vN…, e.g. v0.1.34)" >&2
+          if [[ ! "$tag" =~ ^v([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$ ]]; then
+            echo "invalid tag '$tag' (expected vMAJOR.MINOR.PATCH, e.g. v0.1.34)" >&2
             exit 1
           fi
           # The checkout above used the raw dispatch input as ref: a v…-shaped
@@ -246,6 +250,39 @@ jobs:
         if: always()
         run: rm -rf "${RUNNER_TEMP}/fwlive-keys"
 
+      # #590: do not replace a newer live feed with an older tag. Fetch the
+      # published manifest, compare parsed vMAJOR.MINOR.PATCH (not string
+      # sort), and require allow_rollback for a deliberate downgrade.
+      - name: Guard against feed downgrade
+        env:
+          ALLOW_ROLLBACK: ${{ github.event.inputs.allow_rollback || 'false' }}
+        run: |
+          set -euo pipefail
+          live="${RUNNER_TEMP}/live-manifest.json"
+          # Pages CDN caches manifest.json (~max-age=600). Bust with run id
+          # so a stale copy cannot authorize a real downgrade (#590 luna).
+          url="${FWLIVE_FEED_BASE_URL}/manifest.json?cb=${GITHUB_RUN_ID}"
+          # Do not use curl -f: HTTP 404 is bootstrap (no live manifest yet)
+          # and is passed as --live-http so staged git_tag is still checked.
+          http_code="$(curl -sSL --max-time 30 \
+            -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' \
+            -o "$live" -w '%{http_code}' "$url")" || {
+            echo "error: could not fetch live feed manifest from $url" >&2
+            exit 1
+          }
+          extra=()
+          if [[ "$ALLOW_ROLLBACK" == "true" ]]; then
+            extra+=(--allow-rollback)
+          fi
+          # 404 still validates staged git_tag vs --tag; only the live
+          # version compare is skipped (#590 luna re-review).
+          ./scripts/guard-feed-deploy.sh \
+            --staged feed-staging/manifest.json \
+            --live "$live" \
+            --tag "$FWLIVE_RELEASE_TAG" \
+            --live-http "$http_code" \
+            "${extra[@]}"
+
       - name: Deploy to GitHub Pages (fwlive-packages)
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453  # v4.1.0
         with:
@@ -360,8 +397,8 @@ jobs:
             echo "invalid tag: contains control characters" >&2
             exit 1
           fi
-          if [[ ! "$tag" =~ ^v[0-9] ]]; then
-            echo "invalid tag '$tag' (expected vN…, e.g. v0.1.34)" >&2
+          if [[ ! "$tag" =~ ^v([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$ ]]; then
+            echo "invalid tag '$tag' (expected vMAJOR.MINOR.PATCH, e.g. v0.1.34)" >&2
             exit 1
           fi
           if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
