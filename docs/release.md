@@ -58,7 +58,7 @@ Before cutting a `v*` tag, make sure that the `peaceiris/actions-gh-pages` SHA i
    - Checks reproducible builds ([`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh))
    - Signs and deploys the feed to **`lucas-albers-lz4/fwlive-packages`** (GitHub Pages)
    - Uploads release assets (one `.ipk` per opkg line, `.apk` for 25.12 — filenames include the OpenWrt line, e.g. `luci-app-fwlive_0.1.34_23.05_all.ipk`)
-   - Runs a QEMU feed smoke (`smoke-from-feed` job) installing from the live feed URL — always on tag pushes (default cell **24.10**; `workflow_dispatch` can override via `feed_smoke` / `smoke_version` inputs)
+   - Runs a QEMU feed smoke (`smoke-from-feed` job) installing from the live feed URL on tag pushes and `workflow_dispatch` (default cell **24.10**; `feed_smoke` / `smoke_version` inputs); weekly schedule (`cron: 17 6 * * 1`) runs **25.12** APK live-feed smoke only and does not publish
 
    GitHub **immutable releases** cannot receive assets after publish. If you already published an empty release, delete it on GitHub (keep the tag) and re-run the workflow from Actions → **Run workflow**, entering the tag name.
 
