@@ -181,9 +181,27 @@ On **tag push** (`v*`) or manual workflow dispatch, [`.github/workflows/publish-
 2. Builds `luci-app-fwlive` for **23.05**, **24.10**, **25.12** (Docker SDK, pinned feeds).
 3. Runs [`verify-reproducible-build.sh`](../scripts/verify-reproducible-build.sh) (double-build sha256 gate).
 4. Stages signed feed via [`publish-packages.sh`](../scripts/publish-packages.sh).
-5. Deploys to **`fwlive-packages`** `gh-pages`.
-6. Uploads `.ipk` / `.apk` to the GitHub Release.
-7. Boots one QEMU x86 reference guest (**24.10** by default) and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh); TCG on hosted runners — [#10](https://github.com/lucas-albers-lz4/fwlive/issues/10)).
+5. Guards against a live-feed downgrade ([`guard-feed-deploy.sh`](../scripts/guard-feed-deploy.sh); HTTP 404 skips for bootstrap).
+6. Deploys to **`fwlive-packages`** `gh-pages`.
+7. Uploads `.ipk` / `.apk` to the GitHub Release.
+8. Boots one QEMU x86 reference guest (**24.10** by default) and installs from the **live Pages URL** ([`validate-feed-smoke.sh`](../scripts/validate-feed-smoke.sh); TCG on hosted runners — [#10](https://github.com/lucas-albers-lz4/fwlive/issues/10)).
+
+### Downgrade guard (#590)
+
+Before Pages deploy, `build-publish` fetches the live `manifest.json`
+(cache-bust `?cb=${GITHUB_RUN_ID}`, `Cache-Control: no-cache`) and runs
+`guard-feed-deploy.sh`. A newer or equal `git_tag` proceeds; an older tag
+is rejected unless workflow_dispatch `allow_rollback=true`.
+
+HTTP 404 (no live `manifest.json` yet — first publish or wiped `gh-pages`)
+prints a warning and **skips** the guard. Any other non-200 or curl
+failure fails the job.
+
+Guard, Deploy, and Upload GitHub Release assets are **sequential steps in
+the same `build-publish` job** (not split jobs). A rejected or failed
+downgrade guard aborts that job, so GitHub Release assets are **not**
+uploaded for that run. Bootstrap 404 skips the guard only; it does not
+skip the rest of the job.
 
 ---
 

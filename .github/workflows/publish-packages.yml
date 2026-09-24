@@ -81,8 +81,8 @@ jobs:
             echo "invalid tag: contains control characters" >&2
             exit 1
           fi
-          if [[ ! "$tag" =~ ^v[0-9] ]]; then
-            echo "invalid tag '$tag' (expected vN…, e.g. v0.1.34)" >&2
+          if [[ ! "$tag" =~ ^v([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$ ]]; then
+            echo "invalid tag '$tag' (expected vMAJOR.MINOR.PATCH, e.g. v0.1.34)" >&2
             exit 1
           fi
           # The checkout above used the raw dispatch input as ref: a v…-shaped
@@ -264,10 +264,20 @@ jobs:
           # Pages CDN caches manifest.json (~max-age=600). Bust with run id
           # so a stale copy cannot authorize a real downgrade (#590 luna).
           url="${FWLIVE_FEED_BASE_URL}/manifest.json?cb=${GITHUB_RUN_ID}"
-          if ! curl -fsSL --max-time 30 \
+          # Do not use curl -f: HTTP 404 is bootstrap (no live manifest yet)
+          # and must skip the guard. Other non-200 / curl failures still fail.
+          http_code="$(curl -sSL --max-time 30 \
             -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' \
-            "$url" -o "$live"; then
+            -o "$live" -w '%{http_code}' "$url")" || {
             echo "error: could not fetch live feed manifest from $url" >&2
+            exit 1
+          }
+          if [[ "$http_code" == "404" ]]; then
+            echo "warn: live feed manifest not found (HTTP 404); skipping downgrade guard (bootstrap / wiped gh-pages)" >&2
+            exit 0
+          fi
+          if [[ "$http_code" != "200" ]]; then
+            echo "error: live feed manifest fetch returned HTTP ${http_code} from $url" >&2
             exit 1
           fi
           extra=()
@@ -394,8 +404,8 @@ jobs:
             echo "invalid tag: contains control characters" >&2
             exit 1
           fi
-          if [[ ! "$tag" =~ ^v[0-9] ]]; then
-            echo "invalid tag '$tag' (expected vN…, e.g. v0.1.34)" >&2
+          if [[ ! "$tag" =~ ^v([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$ ]]; then
+            echo "invalid tag '$tag' (expected vMAJOR.MINOR.PATCH, e.g. v0.1.34)" >&2
             exit 1
           fi
           if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
