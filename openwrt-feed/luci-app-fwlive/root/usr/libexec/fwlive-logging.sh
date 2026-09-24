@@ -406,11 +406,13 @@ maybe_snapshot_wan_log_baseline() {
 
 # Restore WAN zone log from the install-time baseline (package prerm).
 # No-op when baseline is missing. Returns 1 on failure; baseline file is
-# kept until restore commits successfully.
+# kept until restore commits and the post-restore firewall reload succeeds.
 #
-# Hold the logging lock across the current-value read, equality cleanup,
-# commit, and baseline unlink — otherwise a concurrent enable can snapshot
-# the old baseline (or race the unlink) and lose the only restore value.
+# Hold the logging lock across the current-value read, equality check,
+# and commit — otherwise a concurrent enable can snapshot the old baseline
+# (or race the unlink) and lose the only restore value. Reload runs
+# without the lock (BusyBox flock has no -w); unlink after a successful
+# reload.
 restore_wan_log_baseline() {
 	path="$(wan_log_baseline_path)"
 	[ -f "$path" ] || return 0
@@ -428,8 +430,18 @@ restore_wan_log_baseline() {
 	fi
 	current=$(wan_zone_log_value "$zone")
 	if [ "${current:-}" = "${baseline:-}" ]; then
-		rm -f "$path"
+		# UCI already matches; live fw4 may still be stale after a
+		# previous reload failure. Retry reload before dropping the
+		# marker.
+		if firewall_changes_pending; then
+			release_wan_log_lock
+			logger -t fwlive "WAN log baseline restore skipped: firewall changes pending" 2>/dev/null || true
+			return 1
+		fi
 		release_wan_log_lock
+		if ! restore_wan_log_after_reload "$path" "$zone" "$baseline"; then
+			return 1
+		fi
 		return 0
 	fi
 	zone_json=$(json_null_or_string "$zone")
@@ -453,9 +465,36 @@ restore_wan_log_baseline() {
 		logger -t fwlive "WAN log baseline restore: commit gate failed" 2>/dev/null || true
 		return 1
 	fi
+	release_wan_log_lock
+	if ! restore_wan_log_after_reload "$path" "$zone" "$baseline"; then
+		return 1
+	fi
+	return 0
+}
+
+# Reload without the logging lock (BusyBox flock has no -w). Re-acquire
+# before unlinking so a concurrent enable cannot snapshot-skip then leave
+# UCI off the saved baseline while this path still deletes the marker.
+restore_wan_log_after_reload() {
+	path="$1"
+	zone="$2"
+	baseline="$3"
+	if ! reload_firewall; then
+		logger -t fwlive "WAN log baseline restored; firewall reload failed" 2>/dev/null || true
+		return 1
+	fi
+	if ! acquire_wan_log_lock; then
+		logger -t fwlive "WAN log baseline restore: lock unavailable after reload" 2>/dev/null || true
+		return 1
+	fi
+	current=$(wan_zone_log_value "$zone")
+	if [ "${current:-}" != "${baseline:-}" ]; then
+		release_wan_log_lock
+		logger -t fwlive "WAN log baseline restore: post-reload verify raced" 2>/dev/null || true
+		return 1
+	fi
 	rm -f "$path"
 	release_wan_log_lock
-	reload_firewall || logger -t fwlive "WAN log baseline restored; firewall reload failed" 2>/dev/null || true
 	return 0
 }
 

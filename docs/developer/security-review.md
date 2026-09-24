@@ -1,5 +1,13 @@
 # Security review state
 
+> **2026-09-24 #663 delta:** `restore_wan_log_baseline` keeps the recovery
+> marker until the post-restore firewall reload succeeds (including the
+> already-at-baseline retry path) and returns nonzero on reload failure.
+> Reload still runs without the flock; the helper re-acquires before
+> unlinking so a concurrent enable cannot drop the marker while UCI no
+> longer matches. Host coverage stubs failing reload and a post-reload
+> UCI race. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-24 #665 delta:** poll treats a zero-exit filter body without a
 > numeric `messages_received` as unhealthy (`_filter_ok=0`), so the
 > adaptive merge fallback of 0 cannot clear hot/shed. A valid empty ring
