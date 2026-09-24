@@ -144,6 +144,17 @@ awk '
 	/Deploy to GitHub Pages/ { d = NR }
 	END { exit (g && d && g < d) ? 0 : 1 }
 ' "$WF" || fail "guard step must run before Pages deploy"
+awk '
+	/Guard against feed downgrade/ { g = 1 }
+	g && /Deploy to GitHub Pages/ { exit 0 }
+	g { print }
+' "$WF" >"$TMP/guard-step.txt"
+grep -q '404' "$TMP/guard-step.txt" \
+	|| fail "guard step must handle HTTP 404 (bootstrap / wiped gh-pages)"
+grep -Eiq 'skip|warn' "$TMP/guard-step.txt" \
+	|| fail "404 path must warn/skip rather than only exit 1 on curl fail"
+grep -Fq '([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})' "$WF" \
+	|| fail "Resolve release tag must require vMAJOR.MINOR.PATCH with {1,9} digits"
 grep -Fq 'tests/guard-feed-deploy.test.sh' "$ROOT/scripts/fwlive-test.sh" \
 	|| fail "fwlive-test.sh must run this host test"
 ok "publish-packages.yml wires the guard"
