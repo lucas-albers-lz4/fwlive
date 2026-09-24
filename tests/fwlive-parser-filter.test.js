@@ -122,6 +122,35 @@ function run() {
 	assert.equal(ipt2102.action, 'pass');
 	assert.equal(ipt2102.interface_in, 'lo');
 
+	const validFirewall = {
+		time: 1717675740,
+		msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=10.0.0.2 DST=1.1.1.1 PROTO=TCP SPT=49999 DPT=443'
+	};
+	const nonStringMsgs = [42, { nested: true }, ['arr'], true];
+	const mixed = [];
+	for (let i = 0; i < nonStringMsgs.length; i++) {
+		const bad = nonStringMsgs[i];
+		assert.doesNotThrow(() => core.normalizeNetfilterMessage(bad));
+		assert.equal(core.normalizeNetfilterMessage(bad), '');
+		assert.doesNotThrow(() => core.isFirewallEvent({ msg: bad }));
+		assert.equal(core.isFirewallEvent({ msg: bad }), false);
+		assert.doesNotThrow(() => core.normalizeEntry({ msg: bad }));
+		mixed.push({ id: 'bad-' + i, msg: bad });
+		mixed.push({
+			id: 'good-' + i,
+			time: validFirewall.time,
+			msg: validFirewall.msg
+		});
+	}
+	const mixedRows = core.filterLogEntries(mixed);
+	assert.equal(mixedRows.length, nonStringMsgs.length,
+		'one valid firewall row after each non-string msg must survive');
+	for (let i = 0; i < mixedRows.length; i++) {
+		assert.equal(mixedRows[i].id, 'log:good-' + i);
+		assert.equal(mixedRows[i].action, 'drop');
+		assert.equal(mixedRows[i].src, '10.0.0.2');
+	}
+
 	console.log('fwlive parser/filter tests passed');
 }
 

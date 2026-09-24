@@ -83,6 +83,43 @@ async function testPollTransportThrow() {
 	console.log('fwlive-view poll-error: transport throw OK');
 }
 
+async function testPollNonStringMsgSurvives() {
+	const validMsg =
+		'fw4: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP SPT=1234 DPT=443';
+	const shapes = [42, { nested: true }, ['arr'], true];
+	const log = [];
+	const expectedIds = [];
+	for (let i = 0; i < shapes.length; i++) {
+		log.push({ id: 100 + i, msg: shapes[i] });
+		log.push({ id: 200 + i, time: 1704067200, msg: validMsg });
+		expectedIds.push('log:' + (200 + i));
+	}
+
+	const h = loadFwliveView();
+	assert.doesNotThrow(() => h.view.normalizePollBatch(log));
+	const batch = h.view.normalizePollBatch(log);
+	assert.equal(batch.rows.length, shapes.length,
+		'normalizePollBatch must keep one valid row after each non-string msg');
+	assert.deepEqual(batch.rows.map((row) => row.id), expectedIds);
+
+	const poll = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				return { log: log };
+			}
+		}
+	});
+	await poll.view.fetchEntries();
+	assert.strictEqual(poll.view.lastPollError, false,
+		'mixed non-string msg batch must not fail the poll');
+	assert.deepEqual(
+		poll.view.entries.map((row) => row.id),
+		expectedIds,
+		'fetchEntries must keep the valid firewall rows after each non-string msg'
+	);
+	console.log('fwlive-view poll-error: non-string msg batch OK');
+}
+
 async function testSummaryPollErrorRefreshesStatus() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -108,6 +145,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testPollHappyPath();
 		await testPollBadShape();
 		await testPollTransportThrow();
+		await testPollNonStringMsgSurvives();
 		await testSummaryPollErrorRefreshesStatus();
 		console.log('fwlive-view poll-error tests passed');
 	} catch (e) {

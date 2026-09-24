@@ -113,6 +113,19 @@ for (let i = 0; i < classifyMsgs.length; i++) {
 	);
 }
 
+const nonStringMsgs = [42, { nested: true }, ['arr'], true];
+for (let i = 0; i < nonStringMsgs.length; i++) {
+	const msg = nonStringMsgs[i];
+	const entry = { msg: msg };
+	assert.strictEqual(core.normalizeNetfilterMessage(msg), '');
+	assert.strictEqual(luci.normalizeNetfilterMessage(msg), '');
+	assert.strictEqual(core.isFirewallEvent(entry), false);
+	assert.strictEqual(luci.isFirewallEvent(entry), core.isFirewallEvent(entry));
+	assert.doesNotThrow(() => core.normalizeEntry(entry));
+	assert.doesNotThrow(() => luci.normalizeEntry(entry));
+	assert.deepStrictEqual(luci.normalizeEntry(entry), core.normalizeEntry(entry));
+}
+
 const daemonPrefixSamples = [
 	{
 		msg: 'wpad-drop IN=wlan0 SRC=203.0.113.5 DST=192.0.2.1 PROTO=TCP DROP',

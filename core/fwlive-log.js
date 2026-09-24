@@ -72,7 +72,9 @@ const NETFILTER_KV_GLUE = /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|
 
 /** nft log prefixes are concatenated with IN= in kernel lines (e.g. fwlive-pingIN=lo). */
 function normalizeNetfilterMessage(message) {
-	return (message || '').replace(NETFILTER_KV_GLUE, '$1 ');
+	if (typeof message !== 'string')
+		message = '';
+	return message.replace(NETFILTER_KV_GLUE, '$1 ');
 }
 
 function parseKeyValueLog(message) {
