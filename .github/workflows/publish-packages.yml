@@ -181,9 +181,12 @@ jobs:
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/dl" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           sdk_matrix_reject_symlink_path "$PWD/.ci-sdk-cache/feeds" || { echo "cache path must not traverse symlinks" >&2; exit 1; }
           mkdir -p .ci-sdk-cache/dl
-          while IFS= read -r v; do
+          # The workflow checks out the release tag before running this step.
+          # Keep cache labels local to the workflow so an older tag cannot
+          # omit the helper added to a newer sdk-matrix.sh.
+          for v in 23.05.5 24.10.8 25.12.5; do
             mkdir -p ".ci-sdk-cache/feeds/$v"
-          done < <(sdk_matrix_release_version_labels)
+          done
           # Least privilege: buildbot owns cache; no group/other write.
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache
