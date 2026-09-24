@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-24 #664 delta:** `enrich_rules_dump` treats a failing
+> `nft_dump_fields` awk pass as `_enrich_error=tsv_failed` and continues
+> with UCI-only rules instead of exiting under `set -eu` before JSON.
+> Host coverage stubs `awk` exit 7 on `call rules`. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-24 #637 delta:** `sdk_matrix_validate_version` now rejects
 > unknown `--version` values and non-numeric patch suffixes; it accepts
 > `SDK_MATRIX_VERSIONS` plus `latest`/`SNAPSHOT` and

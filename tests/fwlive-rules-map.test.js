@@ -664,6 +664,75 @@ exit 127
 	assert.ok(ran > 0, 'mktemp degradation must run under at least one POSIX shell');
 }
 
+function testTsvAwkFailureKeepsStructuredReply() {
+	// #664: nft_dump_fields awk under set -eu must not abort call rules.
+	// A failing awk is tsv_failed + UCI-only rules, never empty stdout.
+	const nftDump = `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "should-not-appear" comment "!fw4: From-nft"
+	}
+}
+EOF
+else
+	exit 1
+fi
+`;
+	const uciDump = `#!/bin/sh
+if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
+	echo "firewall.@rule[0].name='uci-keep'"
+else
+	exit 0
+fi
+`;
+	let ran = 0;
+	const realAwk = hostCommand('awk');
+	for (const shell of pathHonouringShells('awk')) {
+		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-tsv-awk-'));
+		try {
+			makeStub(stubDir, 'nft', nftDump);
+			makeStub(stubDir, 'uci', uciDump);
+			makeStub(stubDir, 'awk', `#!/bin/sh
+for arg in "$@"; do
+	case "$arg" in
+		*'quoted_at'*)
+			echo "awk stub fail" >&2
+			exit 7
+			;;
+	esac
+done
+exec "${realAwk}" "$@"
+`);
+			const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+			let raw;
+			try {
+				raw = runWithShell(shell, env);
+			} catch (e) {
+				if (e.code === 'ENOENT') continue;
+				throw new Error(`[${shell}] call rules aborted on awk failure: ${e.stdout || ''} ${e.stderr || ''} ${e.message}`);
+			}
+			ran++;
+			let res;
+			try {
+				res = JSON.parse(raw);
+			} catch (e) {
+				throw new Error(`[${shell}] JSON malformed when awk fails: ${raw}: ${e.message}`);
+			}
+			assert.equal(res.backend, 'nft', `[${shell}] backend stays nft when TSV awk fails`);
+			assert.equal(res.error, 'tsv_failed', `[${shell}] awk failure must surface tsv_failed`);
+			assert.equal(res.rules['uci-keep'], 'uci-keep', `[${shell}] UCI names survive TSV awk failure`);
+			assert.equal(res.rules['should-not-appear'], undefined, `[${shell}] nft enrichment must be skipped when awk fails`);
+			assert.equal((raw.match(/"should-not-appear"/g) || []).length, 0,
+				`[${shell}] raw must not contain nft prefix after awk failure`);
+		} finally {
+			fs.rmSync(stubDir, { recursive: true, force: true });
+		}
+	}
+	assert.ok(ran > 0, 'tsv awk degradation must run under at least one POSIX shell');
+}
+
 
 function testGlobMetacharDedup() {
 	// BLOCKER r5: quoted+escaped dedup missed glob keys (foo*, a*b[?c). Must be single key in raw JSON.
@@ -1176,6 +1245,7 @@ function run() {
 	testFw4LabeledBeatsCosmetic();
 	testPollClampLinesContract();
 	testNoMktempGracefulDegradation();
+	testTsvAwkFailureKeepsStructuredReply();
 	testRulesMapKeyBound();
 	testRulesMapByteBound();
 	testGlobMetacharDedup();

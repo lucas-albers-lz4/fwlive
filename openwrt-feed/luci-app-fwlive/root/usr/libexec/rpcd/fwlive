@@ -221,7 +221,7 @@ nft_dump_fields() {
 			next
 		print prefix "\t" comment
 	}
-	'
+	' || return 1
 }
 
 # pass=labeled|unlabeled|all — labeled before unlabeled so !fw4: beats
@@ -313,10 +313,14 @@ enrich_rules_dump() {
 			if [ -z "$_nft_tsv" ]; then
 				_enrich_error='mktemp_failed'
 			else
-				nft_dump_fields <"$_rules_dump" >"$_nft_tsv"
-				map_from_nft_stream labeled <"$_nft_tsv"
-				if [ -z "$_map_overflow" ]; then
-					map_from_nft_stream unlabeled <"$_nft_tsv"
+				# awk under set -eu must not abort the plugin before JSON.
+				if nft_dump_fields <"$_rules_dump" >"$_nft_tsv"; then
+					map_from_nft_stream labeled <"$_nft_tsv"
+					if [ -z "$_map_overflow" ]; then
+						map_from_nft_stream unlabeled <"$_nft_tsv"
+					fi
+				else
+					_enrich_error='tsv_failed'
 				fi
 				rm -f "$_nft_tsv"
 			fi
