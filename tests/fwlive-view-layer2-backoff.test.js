@@ -1356,6 +1356,24 @@ async function testResolveCompletionDefersPaintWhilePaused() {
 	console.log('fwlive-view layer2: resolve completion defers paint while paused OK');
 }
 
+function testLeaveSummaryModeClearsResolvePaintPending() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.summaryMode = true;
+	v.tablePaused = false;
+	v.resolvePaintPending = true;
+	let painted = false;
+	v.renderRows = function (force) {
+		painted = !!force;
+	};
+	v.updateSummaryUi = function () {};
+	v.leaveSummaryMode();
+	assert.strictEqual(v.summaryMode, false);
+	assert.strictEqual(v.resolvePaintPending, false, 'unpaused leaveSummaryMode must clear pending flag');
+	assert.strictEqual(painted, true, 'unpaused leaveSummaryMode must repaint rows');
+	console.log('fwlive-view layer2: leaveSummaryMode clears resolve paint pending OK');
+}
+
 async function testCatchupPollForcesPendingHostnamePaint() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -1498,6 +1516,7 @@ async function testPausedDisplayControlsPaint() {
 		await testLimitRefreshPreservesQueuedForce();
 		await testLimitPaintDoesNotWaitForHostnames();
 		await testResolveCompletionDefersPaintWhilePaused();
+		testLeaveSummaryModeClearsResolvePaintPending();
 		await testCatchupPollForcesPendingHostnamePaint();
 		await testHostnameToggleAsyncResolveDefersPaintWhilePaused();
 		await testPausedDisplayControlsPaint();
