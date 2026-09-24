@@ -740,8 +740,7 @@ return view.extend({
 			const status = await callFwliveLoggingStatus();
 			if (this.viewDisposed) return;
 			this.loggingStatus = status;
-			if (!this._loggingNoticeFromToggle)
-				this.loggingNotice = '';
+			if (!this._loggingNoticeFromToggle) this.loggingNotice = '';
 			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		} catch (_e) {
 			if (this.viewDisposed) return;
