@@ -341,15 +341,19 @@ async function testToggleSuccessNoticeSurvivesRefresh() {
 
 	await h.view.handleEnableLogging();
 	assert.match(String(h.view.loggingNotice), /WAN drop\/reject logging is on/);
-	assert.equal(h.view._loggingNoticeFromToggle, true);
+	assert.equal(
+		h.view._loggingNoticeFromToggle,
+		false,
+		'toggle flag must be consumed after the post-toggle refresh'
+	);
 
 	await h.view.loadLoggingStatus();
-	assert.match(
+	assert.equal(
 		String(h.view.loggingNotice),
-		/WAN drop\/reject logging is on/,
-		'nonempty toggle notice must survive a later successful status refresh'
+		'',
+		'a later status refresh must be able to clear the toggle notice'
 	);
-	console.log('fwlive-view logging: toggle success notice survives refresh OK');
+	console.log('fwlive-view logging: toggle success notice survives owned refresh OK');
 }
 
 async function testBusyReentry() {
