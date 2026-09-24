@@ -35,6 +35,18 @@ run_guard() {
 	set -e
 }
 
+run_guard_http() {
+	local extra=()
+	if [[ "${1:-}" == --allow-rollback ]]; then
+		extra=(--allow-rollback)
+		shift
+	fi
+	set +e
+	"$GUARD" --staged "$1" --live "$2" --tag "$3" --live-http "$4" "${extra[@]}" >"$TMP/out" 2>"$TMP/err"
+	rc=$?
+	set -e
+}
+
 # String order must not match version order for these pairs.
 left=v0.1.9
 right=v0.1.10
@@ -139,20 +151,53 @@ grep -Fq '${FWLIVE_FEED_BASE_URL}/manifest.json?cb=${GITHUB_RUN_ID}' "$WF" \
 	|| fail "workflow must cache-bust the live Pages manifest fetch"
 grep -Fq "Cache-Control: no-cache" "$WF" \
 	|| fail "workflow must send Cache-Control: no-cache when fetching the live manifest"
+# HTTP 404 is bootstrap: still validate staged git_tag, skip live compare.
+write_manifest "$TMP/staged.json" "v0.1.45"
+: >"$TMP/empty-live.json"
+run_guard_http "$TMP/staged.json" "$TMP/empty-live.json" "v0.1.45" 404
+[[ "$rc" -eq 0 ]] || fail "HTTP 404 with matching staged git_tag must succeed ($(cat "$TMP/err"))"
+grep -Fq "validating staged manifest only" "$TMP/err" \
+	|| fail "404 path must warn that only staged validation ran ($(cat "$TMP/err"))"
+ok "HTTP 404 bootstrap validates staged git_tag"
+
+write_manifest "$TMP/staged.json" "v0.1.44"
+run_guard_http "$TMP/staged.json" "$TMP/empty-live.json" "v0.1.45" 404
+[[ "$rc" -ne 0 ]] || fail "HTTP 404 with staged git_tag mismatch must fail"
+grep -Fq "does not match selected release tag" "$TMP/err" \
+	|| fail "404 mismatch must name selected tag ($(cat "$TMP/err"))"
+ok "HTTP 404 still requires staged git_tag to match --tag"
+
+printf 'not-json\n' >"$TMP/bad-staged.json"
+run_guard_http "$TMP/bad-staged.json" "$TMP/empty-live.json" "v0.1.45" 404
+[[ "$rc" -ne 0 ]] || fail "HTTP 404 with invalid staged JSON must fail closed"
+ok "HTTP 404 invalid staged JSON fails closed"
+
+write_manifest "$TMP/staged.json" "v0.1.45"
+run_guard_http "$TMP/staged.json" "$TMP/empty-live.json" "v0.1.45" 500
+[[ "$rc" -ne 0 ]] || fail "HTTP 500 must fail even with a valid staged manifest"
+grep -Fq "HTTP 500" "$TMP/err" \
+	|| fail "non-200 fetch must name the status ($(cat "$TMP/err"))"
+ok "non-200 live fetch fails closed"
+
+write_manifest "$TMP/staged.json" "v0.1.45"
+write_manifest "$TMP/live.json" "v0.1.45"
+run_guard_http "$TMP/staged.json" "$TMP/live.json" "v0.1.45" 200
+[[ "$rc" -eq 0 ]] || fail "HTTP 200 equal tags must succeed ($(cat "$TMP/err"))"
+ok "HTTP 200 equal tags succeed"
+
+write_manifest "$TMP/staged.json" "v0.1.44"
+write_manifest "$TMP/live.json" "v0.1.45"
+run_guard_http "$TMP/staged.json" "$TMP/live.json" "v0.1.44" 200
+[[ "$rc" -ne 0 ]] || fail "HTTP 200 older staged tag must fail"
+ok "HTTP 200 still rejects a downgrade"
+
 awk '
 	/Guard against feed downgrade/ { g = NR }
 	/Deploy to GitHub Pages/ { d = NR }
 	END { exit (g && d && g < d) ? 0 : 1 }
 ' "$WF" || fail "guard step must run before Pages deploy"
-awk '
-	/Guard against feed downgrade/ { g = 1 }
-	g && /Deploy to GitHub Pages/ { exit 0 }
-	g { print }
-' "$WF" >"$TMP/guard-step.txt"
-grep -q '404' "$TMP/guard-step.txt" \
-	|| fail "guard step must handle HTTP 404 (bootstrap / wiped gh-pages)"
-grep -Eiq 'skip|warn' "$TMP/guard-step.txt" \
-	|| fail "404 path must warn/skip rather than only exit 1 on curl fail"
+grep -Fq -- '--live-http' "$WF" \
+	|| fail "workflow must pass curl status as --live-http"
 grep -Fq '([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})' "$WF" \
 	|| fail "Resolve release tag must require vMAJOR.MINOR.PATCH with {1,9} digits"
 grep -Fq 'tests/guard-feed-deploy.test.sh' "$ROOT/scripts/fwlive-test.sh" \
