@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-24 #665 delta:** poll treats a zero-exit filter body without a
+> numeric `messages_received` as unhealthy (`_filter_ok=0`), so the
+> adaptive merge fallback of 0 cannot clear hot/shed. A valid empty ring
+> still includes the count. Host coverage pins missing-count vs
+> `messages_received:0`. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-24 #664 delta:** `enrich_rules_dump` treats a failing
 > `nft_dump_fields` awk pass as `_enrich_error=tsv_failed` and continues
 > with UCI-only rules instead of exiting under `set -eu` before JSON.
