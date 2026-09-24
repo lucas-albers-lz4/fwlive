@@ -2095,7 +2095,7 @@ return view.extend({
 				this.updateStatus();
 			} else {
 				/* Stale resume skips renderRows(true); catch-up polls must still
-				 * flush coalesced hostname paints (#602). */
+				 * flush coalesced hostname paints. */
 				const forceHostnamePaint = this.resolvePaintPending;
 				this.resolvePaintPending = false;
 				this.scheduleRenderRows(forceHostnamePaint);
