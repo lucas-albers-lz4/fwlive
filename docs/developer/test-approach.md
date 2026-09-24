@@ -221,12 +221,14 @@ separate from that artifact. Session identity is R4b, not R8.
 armsr IPK (`opkg remove` via `qemu-logging-uninstall-smoke.sh`, port
 2224 parallel lab), 24.10.8 x86 IPK, and 25.12.5 APK (`apk del`). The
 reusable smoke now branches `opkg remove` vs `apk del` and, on 25.12,
-adds same-version `--force-reinstall` preservation (`post-upgrade`, no
-`pre-deinstall`) using `--artifact-only` installs. Host packaged-hook
-matrix (#405) shows remove restores, while upgrade / `PKG_UPGRADE=1` /
-empty/unknown do not. Same-version reinstall cells are no-op
-preservation, not skip-upgrade hook proof (#406). Version-changing APK
-upgrades stay a residual until a two-version QEMU experiment exists.
+adds a same-version `--force-reinstall` preservation cell (expected:
+`post-upgrade`, no `pre-deinstall`) using `--artifact-only` installs.
+That 25.12 cell has not yet run on QEMU; the host tests model
+`PKG_UPGRADE=1`. Host packaged-hook matrix (#405) shows remove
+restores, while upgrade / `PKG_UPGRADE=1` / empty/unknown do not.
+Same-version reinstall cells are no-op preservation, not skip-upgrade
+hook proof (#406). Version-changing APK upgrades stay a residual
+until a two-version QEMU experiment exists.
 The 23.05 IPK is represented by the architecture-independent `_all`
 24.10 IPK; there is no separate 23.05 rebuild. Armsr
 `poll`/`resolve`/`rules`/enable/disable notes are root-SSH `ubus`
