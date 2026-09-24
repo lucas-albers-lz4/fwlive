@@ -69,6 +69,7 @@ function blockerCode(state) {
 		blockers.indexOf('nf_log_ipv6_missing') >= 0
 	)
 		return 'nf_log_missing';
+	if (blockers.length > 0) return 'unknown';
 	return '';
 }
 
@@ -110,6 +111,13 @@ function appendBlockerStatus(host, blocker, st) {
 			E('span', { 'class': 'fwlive-logging-status' }, [
 				_('WAN logging unavailable: missing kernel log modules')
 			])
+		);
+		return;
+	}
+
+	if (blocker === 'unknown') {
+		host.appendChild(
+			E('span', { 'class': 'fwlive-logging-status' }, [_('WAN logging unavailable')])
 		);
 	}
 }
@@ -283,6 +291,16 @@ function buildEmptyStateNodes(state, callbacks) {
 		nodes.push(
 			E('p', {}, [
 				E('code', {}, ['opkg update && opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6'])
+			])
+		);
+		return nodes;
+	}
+
+	if (blocker === 'unknown') {
+		nodes.push(E('p', { 'class': 'fwlive-empty-title' }, [_('WAN logging unavailable')]));
+		nodes.push(
+			E('p', {}, [
+				_('This router reported a logging blocker that Live View does not recognize yet.')
 			])
 		);
 		return nodes;

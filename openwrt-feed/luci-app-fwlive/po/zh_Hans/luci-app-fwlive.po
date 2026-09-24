@@ -524,6 +524,10 @@ msgid ""
 "if it moves too fast."
 msgstr "é²ç«å¢å"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:303
+msgid "This router reported a logging blocker that Live View does not recognize yet."
+msgstr "此路由器报告了 Live View 尚无法识别的日志阻止项。"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1551
 msgid "Theme tint fallback"
 msgstr "ä¸»é¢çè²åé"
@@ -586,6 +590,11 @@ msgstr "WAN æ¥å¿ï¼å¼"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:94
 msgid "WAN logging on (%s). Click to disable."
 msgstr "WAN æ¥å¿ï¼å¼ï¼%sï¼ãç¹å»å¯"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:120
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:300
+msgid "WAN logging unavailable"
+msgstr "WAN 日志不可用"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:77
 msgid "WAN logging unavailable: missing kernel log modules"
