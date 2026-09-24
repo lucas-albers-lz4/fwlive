@@ -1363,6 +1363,20 @@ fi
 ok "restore_wan_log_baseline keeps baseline when already-at-baseline reload fails"
 reload_firewall() { return 0; }
 
+WAN_ZONE_LOG='3'
+printf '2' >"$WAN_LOG_BASELINE_FILE"
+reload_firewall() {
+	WAN_ZONE_LOG='1'
+	return 0
+}
+if restore_wan_log_baseline; then
+	die "#663 restore expected non-zero when UCI raced during reload"
+fi
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "#663 baseline must remain when post-reload UCI raced"
+[ "$WAN_ZONE_LOG" = "1" ] || die "#663 raced UCI must be left alone, got '$WAN_ZONE_LOG'"
+ok "restore_wan_log_baseline keeps baseline when post-reload UCI raced"
+reload_firewall() { return 0; }
+
 if [ "$(id -u)" -ne 0 ]; then
 	READONLY_WORK=$(mktemp -d)
 	WAN_LOG_BASELINE_FILE="$READONLY_WORK/wan-log-baseline"

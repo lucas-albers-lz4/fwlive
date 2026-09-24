@@ -434,11 +434,9 @@ restore_wan_log_baseline() {
 		# previous reload failure. Retry reload before dropping the
 		# marker.
 		release_wan_log_lock
-		if ! reload_firewall; then
-			logger -t fwlive "WAN log baseline restore: firewall reload failed" 2>/dev/null || true
+		if ! restore_wan_log_after_reload "$path" "$zone" "$baseline"; then
 			return 1
 		fi
-		rm -f "$path"
 		return 0
 	fi
 	zone_json=$(json_null_or_string "$zone")
@@ -463,11 +461,35 @@ restore_wan_log_baseline() {
 		return 1
 	fi
 	release_wan_log_lock
+	if ! restore_wan_log_after_reload "$path" "$zone" "$baseline"; then
+		return 1
+	fi
+	return 0
+}
+
+# Reload without the logging lock (BusyBox flock has no -w). Re-acquire
+# before unlinking so a concurrent enable cannot snapshot-skip then leave
+# UCI off the saved baseline while this path still deletes the marker.
+restore_wan_log_after_reload() {
+	path="$1"
+	zone="$2"
+	baseline="$3"
 	if ! reload_firewall; then
 		logger -t fwlive "WAN log baseline restored; firewall reload failed" 2>/dev/null || true
 		return 1
 	fi
+	if ! acquire_wan_log_lock; then
+		logger -t fwlive "WAN log baseline restore: lock unavailable after reload" 2>/dev/null || true
+		return 1
+	fi
+	current=$(wan_zone_log_value "$zone")
+	if [ "${current:-}" != "${baseline:-}" ]; then
+		release_wan_log_lock
+		logger -t fwlive "WAN log baseline restore: post-reload verify raced" 2>/dev/null || true
+		return 1
+	fi
 	rm -f "$path"
+	release_wan_log_lock
 	return 0
 }
 
