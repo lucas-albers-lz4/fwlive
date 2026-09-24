@@ -2093,6 +2093,11 @@ return view.extend({
 			else if (this.summaryMode) {
 				this.renderSummary();
 				this.updateStatus();
+				if (this.summaryRowsShown) {
+					const forceHostnamePaint = this.resolvePaintPending;
+					this.resolvePaintPending = false;
+					this.scheduleRenderRows(forceHostnamePaint);
+				}
 			} else {
 				/* Stale resume skips renderRows(true); catch-up polls must still
 				 * flush coalesced hostname paints. */

@@ -694,6 +694,45 @@ async function testSummaryFallbackAndRecovery() {
 	console.log('fwlive-view layer2: summary fallback/recovery OK');
 }
 
+async function testSummaryShowRowsRepaintOnPoll() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return {
+					log: [{ id: '1', src: '203.0.113.1', dst: '198.51.100.1' }],
+					adaptive: 1,
+					summary: {
+						scope: 'top of shown sample',
+						top_talkers: [{ value: '203.0.113.1', count: 2 }],
+						top_drops: [{ value: 'drop', count: 2 }],
+						top_rules: []
+					}
+				};
+			},
+			'fwlive.resolve': async function () {
+				return { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	v.summaryMode = true;
+	v.summaryRowsShown = true;
+	v.tablePaused = false;
+	const paints = [];
+	v.scheduleRenderRows = function (force) {
+		paints.push(!!force);
+	};
+
+	await v.runPollRequest(v.currentPollEpoch());
+	assert.ok(paints.length >= 1, 'Show rows in summary must schedule row paint on later polls');
+
+	paints.length = 0;
+	v.summaryRowsShown = false;
+	await v.runPollRequest(v.currentPollEpoch());
+	assert.strictEqual(paints.length, 0, 'summary without Show rows must not paint the table');
+	console.log('fwlive-view layer2: summary Show rows poll paint OK');
+}
+
 async function testStreakResetOnAdaptiveOff() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -1497,6 +1536,7 @@ async function testPausedDisplayControlsPaint() {
 		await testWarmHostnameTogglePaintsCache();
 		await testShedSurfacing();
 		await testSummaryFallbackAndRecovery();
+		await testSummaryShowRowsRepaintOnPoll();
 		await testStreakResetOnAdaptiveOff();
 		await testResolveShedCooldown();
 		await testResolveRpcErrorNoFailMark();
