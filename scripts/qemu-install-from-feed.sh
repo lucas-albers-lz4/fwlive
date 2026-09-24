@@ -12,6 +12,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT}/scripts/lib/sdk-matrix.sh"
 # shellcheck source=lib/feed-publish.sh
 source "${ROOT}/scripts/lib/feed-publish.sh"
+# shellcheck source=lib/feed-index-version.sh
+source "${ROOT}/scripts/lib/feed-index-version.sh"
 
 OPENWRT_HOST="${OPENWRT_HOST:-127.0.0.1}"
 OPENWRT_SSH_PORT="${OPENWRT_SSH_PORT:-2222}"
@@ -84,6 +86,66 @@ install_apk() {
 	ssh_run 'apk add luci-app-fwlive'
 }
 
+# Fetch Packages.gz / packages.adb from the same cell URL the guest uses
+# (https feed or a local file:// index).
+fetch_feed_index() {
+	local dest="$1" url="$2"
+	echo "→ fetch index ${url}" >&2
+	curl -fsSL --connect-timeout 15 --max-time 60 -o "$dest" -- "$url" || {
+		echo "feed-index: failed to fetch $url" >&2
+		return 1
+	}
+	[[ -s "$dest" ]] || {
+		echo "feed-index: empty index at $url" >&2
+		return 1
+	}
+}
+
+assert_opkg_cell() {
+	local tmp="$1" want raw got
+	fetch_feed_index "$tmp/Packages.gz" "${base}/${feed_dir}/Packages.gz" || return 1
+	want="$(feed_index_opkg_version "$tmp/Packages.gz")" || return 1
+	raw="$(ssh_run "$FEED_INDEX_GUEST_OPKG_CMD")" || return 1
+	printf '%s\n' "$raw" >"$tmp/opkg-info" || return 1
+	got="$(feed_index_guest_opkg_version "$tmp/opkg-info")" || return 1
+	feed_index_versions_match "$got" "$want"
+}
+
+assert_apk_cell() {
+	local tmp="$1" want raw got
+	fetch_feed_index "$tmp/packages.adb" "${base}/${feed_dir}/all/packages.adb" || return 1
+	want="$(feed_index_apk_pkgver "$tmp/packages.adb")" || return 1
+	raw="$(ssh_run "$FEED_INDEX_GUEST_APK_CMD")" || return 1
+	printf '%s\n' "$raw" >"$tmp/apk-query.json" || return 1
+	got="$(feed_index_guest_apk_query_pkgver "$tmp/apk-query.json")" || return 1
+	feed_index_versions_match "$got" "$want"
+}
+
+# Fail the smoke when the guest version does not match this cell's index.
+assert_installed_matches_index() {
+	local tmp rc=0 fmt
+	tmp="$(mktemp -d)"
+	fmt="$(sdk_matrix_package_format "$VERSION")" || rc=$?
+	if [[ "$rc" -eq 0 ]]; then
+		case "$fmt" in
+			ipk)
+				echo "→ assert opkg info vs ${base}/${feed_dir}/Packages.gz" >&2
+				assert_opkg_cell "$tmp" || rc=$?
+				;;
+			apk)
+				echo "→ assert apk query vs ${base}/${feed_dir}/all/packages.adb" >&2
+				assert_apk_cell "$tmp" || rc=$?
+				;;
+			*)
+				echo "feed-index: unknown package format '$fmt'" >&2
+				rc=1
+				;;
+		esac
+	fi
+	rm -rf "$tmp"
+	return "$rc"
+}
+
 echo "Installing luci-app-fwlive from ${base} (OpenWrt ${VERSION})..." >&2
 
 if guest_uses_apk; then
@@ -91,6 +153,8 @@ if guest_uses_apk; then
 else
 	install_opkg
 fi
+
+assert_installed_matches_index
 
 if [[ "$RUN_SMOKE" -eq 1 ]]; then
 	"${ROOT}/scripts/qemu-smoke-fwlive.sh" --require-log-pipeline

@@ -1,10 +1,13 @@
 Package: luci-base
 Version: 24.10.0-1
+Status: install user installed
 
 Package: luci-app-fwlive
 Version: 0.1.45-1
 Depends: luci-base
+Status: install user installed
 Architecture: all
 
 Package: other
 Version: 1.0-1
+Status: unknown ok not-installed

@@ -156,6 +156,28 @@ installed behavior can still require QEMU. See
 [`build-and-test.md`](build-and-test.md) and
 [`security-model.md`](security-model.md).
 
+## Feed-index version oracles (#421)
+
+After `qemu-install-from-feed.sh` installs `luci-app-fwlive`, the feed smoke
+compares the guest installed version to the published index for that cell.
+The canonical source is the index the guest will use, including `-r1`. It is
+not `${tag#v}` and not the Makefile. Do not invent a third selected-manifest
+file.
+
+| Cell | Index oracle | Guest query |
+| --- | --- | --- |
+| 23.05 / 24.10 | `Version:` on `luci-app-fwlive` in `Packages.gz` (`feed_index_opkg_version`) | `opkg info luci-app-fwlive` — `Version:` field (`feed_index_guest_opkg_version`; `opkg status` uses the same field) |
+| 25.12 | `pkgver` from that cell's `packages.adb` via pinned SDK `apk adbdump` (`feed_index_apk_pkgver`) | `apk query --installed --format json --fields name,version luci-app-fwlive` (`feed_index_guest_apk_query_pkgver`) |
+
+Compare index vs guest **per cell**. Opkg may spell `0.1.45-1` while APK spells
+`0.1.45-r1`; those forms are not interchangeable.
+
+Host tests cover the guest-query parsers with matching and stale fixtures, and
+drive `qemu-install-from-feed.sh` against a local `file://` index with ssh
+stubs. The 25.12 guest query is pinned in that host test before CI uses it.
+The QEMU feed smoke calls `feed_index_versions_match` after install so a
+stale Pages cell cannot pass.
+
 ## Targeted coverage review
 
 Do not begin by counting tests. Begin with evidence and risk:
@@ -380,6 +402,7 @@ audit ledger.
 | UCI zone identity and staged changes | `tests/fwlive-logging.test.sh` covers named and anonymous WAN-zone lookup, `@zone[N]` versus `cfgXXXX` identity through `uci -X`, duplicate names, and filtering unrelated staged changes. Its host stubs preserve those UCI output shapes but do not prove an installed UCI/rpcd boundary. | Executed and enforced host evidence for the modeled identifier and commit-scope contracts; installed-system behavior remains unproven. | Existing host coverage is sufficient for those contracts. Add a focused QEMU check if an installed UCI/rpcd seam escapes or supported UCI behavior changes. |
 | Existing poll guard and adaptive-cap behavior | Host contracts cover in-flight guarding, cap/degradation, and bounded work without a browser. | Executed and enforced host evidence where the named tests are in the required suite. | Existing coverage is sufficient for those contracts. When a failure escapes or the state machine changes, strengthen the tests. |
 | Client visibility/backoff races in [#306](https://github.com/lucas-albers-lz4/fwlive/issues/306) | This is a feature-specific contract, distinct from the existing poll guard/adaptive-cap tests. Stub DOM, browser smoke, and QEMU prove different seams. | Implemented in #306's branch. Not Executed or Enforced for the shipped surface while #306 remains unshipped. | Defer this feature-specific coverage until the behavior is in the shipped surface. When shipped, add host tests for epoch/backoff and recovery. Add browser coverage only for real DOM/LuCI event wiring, and QEMU coverage only for an installed transport/service boundary. |
+| Feed smoke installed version ([#421](https://github.com/lucas-albers-lz4/fwlive/issues/421)) | After feed install, guest `opkg info` `Version:` (23.05/24.10) or `apk query --installed --format json --fields name,version luci-app-fwlive` (25.12) is compared to that cell's `Packages.gz` / `packages.adb` form, including `-r1`. Host tests cover match vs stale parsers and stubbed `qemu-install-from-feed.sh`. | Host parsers Implemented/Executed/Enforced in the required suite. Live QEMU remains the install boundary; this check fails the smoke on mismatch. | Keep per-cell exact compare. Revisit if OpenWrt changes the `apk query` JSON shape or opkg `Version:` field. |
 
 The host renderer/document shim is not the mocked Playwright job. A fake
 `document` can prove a text-content or state contract. It does not prove
