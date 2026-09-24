@@ -22,8 +22,12 @@ ssh_guest 'echo connected' >/dev/null 2>&1 \
 FWLIVE_INSTALLED=0
 if ssh_guest 'test -x /usr/libexec/rpcd/fwlive'; then
 	FWLIVE_INSTALLED=1
-	if ! ssh_guest 'ubus call fwlive disable_wan_logging' >/dev/null 2>&1; then
+	body="$(ssh_guest 'ubus call fwlive disable_wan_logging' 2>/dev/null || true)"
+	if [[ -z "$body" ]]; then
 		die "disable_wan_logging failed — baseline preserved at /etc/fwlive/wan-log-baseline"
+	fi
+	if ! printf '%s' "$body" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
+		die "disable_wan_logging refused (${body}) — baseline preserved at /etc/fwlive/wan-log-baseline"
 	fi
 	ok "disable_wan_logging (when fwlive installed)"
 else
