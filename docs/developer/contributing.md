@@ -101,6 +101,7 @@ to be built against (#137).
 | [pr-cycle.md](pr-cycle.md) | Agent PR sequence: luna/Bugbot → human → file → CodeRabbit → triage → merge |
 | [upstream-openwrt.md](upstream-openwrt.md) | Cut into `openwrt/luci`, FormalityCheck, `.pot`/Weblate, dual-track feed |
 | [coderabbit.md](coderabbit.md) | CodeRabbit draft/Ready behavior, rate limits, round completion protocol |
+| [issue-authoring.md](issue-authoring.md) | Review findings filed as issues — body skeleton, policy, example; implementation issues stay free-form |
 | `.cursor/skills/security-audit/SKILL.md` | Audit procedure and re-verification commands |
 | [`../../CHANGELOG.md`](../../CHANGELOG.md) | Release history — a record, never a rule source |
 
