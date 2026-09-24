@@ -775,7 +775,7 @@ return view.extend({
 			}
 
 			this.loggingNotice = opts.successNotice(res);
-			this._loggingNoticeFromToggle = true;
+			this._loggingNoticeFromToggle = !!this.loggingNotice;
 			if (opts.onSuccess) opts.onSuccess(res);
 			if (this.loggingStatus && typeof opts.wanLog === 'boolean')
 				this.loggingStatus = Object.assign({}, this.loggingStatus, {

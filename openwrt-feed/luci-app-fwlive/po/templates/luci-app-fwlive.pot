@@ -31,7 +31,7 @@ msgstr ""
 msgid "Action"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:831
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:837
 msgid "Administrator access is required to disable logging."
 msgstr ""
 
@@ -44,7 +44,7 @@ msgid "Also seen"
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:808
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:808
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:831
 msgid "Another change is staged for the firewall; apply or revert it first."
 msgstr ""
 
@@ -57,7 +57,7 @@ msgid "Any protocol"
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1256
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1256
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1316
 msgid "Auto"
 msgstr ""
 
@@ -115,7 +115,7 @@ msgstr ""
 msgid "Connection lost — retrying…"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:831
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:834
 msgid "Could not disable logging."
 msgstr ""
 
@@ -351,7 +351,7 @@ msgid "Logging is off on this router"
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1256
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1256
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1317
 msgid "Manual"
 msgstr ""
 
@@ -376,7 +376,7 @@ msgstr ""
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:49
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:313
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2371
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2371
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2378
 msgid "Message"
 msgstr ""
 
@@ -429,7 +429,7 @@ msgid "Palette"
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1532
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1532
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2325
 msgid "Pause"
 msgstr ""
 
@@ -518,7 +518,6 @@ msgstr ""
 msgid "Show pass/deny row background colors"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1389
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1389
 msgid "Show rows"
 msgstr ""
@@ -616,11 +615,11 @@ msgid "Use Detail for all columns (flags, length, raw message)."
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2330
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2330
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2336
 msgid "View"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:831
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:836
 msgid "WAN drop/reject logging is off."
 msgstr ""
 
@@ -661,7 +660,7 @@ msgid "Waiting for firewall events"
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1531
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1531
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2300
 msgid "Watching"
 msgstr ""
 
@@ -701,8 +700,8 @@ msgstr ""
 msgid "loading…"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:530
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:530
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1333
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1342
 msgid "none"
 msgstr ""
 
