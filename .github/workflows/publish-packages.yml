@@ -410,7 +410,7 @@ jobs:
           sudo apt-get install -y qemu-system-x86 ovmf openssh-client curl
 
       - name: Wait for GitHub Pages propagation
-        run: ./scripts/wait-feed-pages.sh "$FWLIVE_FEED_BASE_URL"
+        run: ./scripts/wait-feed-pages.sh --apk-25.12 "$FWLIVE_FEED_BASE_URL"
 
       - name: Feed smoke (25.12 APK)
         run: ./scripts/validate-feed-smoke.sh --version 25.12
