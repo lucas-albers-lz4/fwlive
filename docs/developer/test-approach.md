@@ -220,12 +220,19 @@ separate from that artifact. Session identity is R4b, not R8.
 [issue-389-2026-09-20.md](../evidence/issue-389-2026-09-20.md): 24.10.8
 armsr IPK (`opkg remove` via `qemu-logging-uninstall-smoke.sh`, port
 2224 parallel lab), 24.10.8 x86 IPK, and 25.12.5 APK (`apk del`). The
-host packaged-hook matrix (#405) shows remove restores, while upgrade /
-`PKG_UPGRADE=1` / empty/unknown do not. Same-version reinstall cells are
-no-op preservation, not skip-upgrade hook proof (#406). The 23.05 IPK is
-represented by the architecture-independent `_all` 24.10 IPK; there is
-no separate 23.05 rebuild. Armsr `poll`/`resolve`/`rules`/enable/disable
-notes are root-SSH `ubus` observations, **not** session proof.
+reusable smoke now branches `opkg remove` vs `apk del` and, on 25.12,
+adds a same-version `--force-reinstall` preservation cell (expected:
+`post-upgrade`, no `pre-deinstall`) using `--artifact-only` installs.
+That 25.12 cell has not yet run on QEMU; the host tests model
+`PKG_UPGRADE=1`. Host packaged-hook matrix (#405) shows remove
+restores, while upgrade / `PKG_UPGRADE=1` / empty/unknown do not.
+Same-version reinstall cells are no-op preservation, not skip-upgrade
+hook proof (#406). Version-changing APK upgrades stay a residual
+until a two-version QEMU experiment exists.
+The 23.05 IPK is represented by the architecture-independent `_all`
+24.10 IPK; there is no separate 23.05 rebuild. Armsr
+`poll`/`resolve`/`rules`/enable/disable notes are root-SSH `ubus`
+observations, **not** session proof.
 
 R8 required two package-lifecycle cells (24.10 armsr + 25.12 apk), not a
 second session-ACL matrix. R8 is **not** session-complete. Do not claim
@@ -261,9 +268,10 @@ payload inspector.
   Repeating it on armsr or 25.12 apk is not required because the shipped
   ACL/rpcd object is architecture-independent. Armsr read/write notes
   remain root-SSH `ubus`, not session proof.
-- **R9b:** 25.12 APK **control** inspection is described (`apk adbdump`
-  in the #389 record) plus the installed uninstall run. There is no
-  retained payload dump.
+- **R9b:** 25.12 APK **control** inspection is the host lifecycle test
+  against pinned SDK `apk adbdump --format json` (`pre-deinstall` hook
+  plus `post-upgrade` `PKG_UPGRADE=1`). Payload `apk extract` remains
+  data files only. Version-changing upgrades are still not a QEMU cell.
 - **G2:** per-PR `qemu-forwarding-slo-harness` / `-net` tests are
   harness/static (`bash -n`, ShellCheck, helper unit checks). The routed
   guest run (`qemu-forwarding-slo-run.sh` plus traffic) stays manual/lab.

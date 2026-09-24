@@ -1,0 +1,12 @@
+{
+  "info": {
+    "name": "luci-app-fwlive",
+    "version": "0.1.45-r1",
+    "arch": "noarch"
+  },
+  "scripts": {
+    "post-install": "#!/bin/sh\n[ \"${IPKG_NO_SCRIPT}\" = \"1\" ] && exit 0\ndefault_postinst\n",
+    "pre-deinstall": "#!/bin/sh\n[ -s ${IPKG_INSTROOT}/lib/functions.sh ] || exit 0\n. ${IPKG_INSTROOT}/lib/functions.sh\nexport root=\"${IPKG_INSTROOT}\"\nexport pkgname=\"luci-app-fwlive\"\ndefault_prerm\ncase \"${IPKG_INSTROOT}\" in\n\t''|/) ;;\n\t*) exit 0 ;;\nesac\n[ \"${PKG_UPGRADE:-}\" = 1 ] && exit 0\ncase \"${2-}\" in\n\tremove) ;;\n\tupgrade) exit 0 ;;\n\t'')\n\t\tcase \"${1-}\" in\n\t\t\tremove) ;;\n\t\t\tupgrade|''|[!0-9]*) exit 0 ;;\n\t\t\t[0-9]*[.][0-9]*) ;;\n\t\t\t*) exit 0 ;;\n\t\tesac\n\t\t;;\n\t*) exit 0 ;;\nesac\n. /usr/libexec/fwlive-logging.sh\nrestore_wan_log_baseline || logger -t fwlive \"WAN log baseline restore failed during uninstall\"\nexit 0\n",
+    "post-upgrade": "#!/bin/sh\nexport PKG_UPGRADE=1\n[ \"${IPKG_NO_SCRIPT}\" = \"1\" ] && exit 0\n[ -s ${IPKG_INSTROOT}/lib/functions.sh ] || exit 0\n. ${IPKG_INSTROOT}/lib/functions.sh\nexport root=\"${IPKG_INSTROOT}\"\nexport pkgname=\"luci-app-fwlive\"\nadd_group_and_user\ndefault_postinst\n"
+  }
+}

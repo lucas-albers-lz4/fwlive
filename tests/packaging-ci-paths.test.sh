@@ -39,6 +39,7 @@ expect_match docker-compose.yml
 expect_match tests/fwlive-package-payload.test.sh
 expect_match tests/fwlive-package-lifecycle.test.sh
 expect_match tests/fwlive-package-payload-apk-host.test.sh
+expect_match scripts/lib/sdk-apk.sh
 expect_match .github/workflows/fwlive-test.yml
 expect_match ./openwrt-feed/root/usr/libexec/rpcd/fwlive
 
