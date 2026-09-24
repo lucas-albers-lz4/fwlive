@@ -214,6 +214,9 @@ bash tests/validate-feed-keys-mode.test.sh
 echo "== fwlive wait-feed-pages APK key (#421) ==" >&2
 bash tests/wait-feed-pages.test.sh
 
+echo "== fwlive feed-index version oracles (#421) ==" >&2
+bash tests/feed-index-version.test.sh
+
 echo "== fwlive agent-build-and-deploy ipk-only (#434) ==" >&2
 bash tests/agent-build-and-deploy-ipk.test.sh
 
