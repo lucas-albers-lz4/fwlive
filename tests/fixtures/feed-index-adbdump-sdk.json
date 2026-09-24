@@ -1,0 +1,26 @@
+{
+  "packages": [
+    {
+      "name": "luci-app-fwlive",
+      "version": "0.1.45-r1",
+      "hashes": "b48a9d41645e83c942343f4fe69e3fa9bbc18b4b2a8e7c0504b90397f4304c7c",
+      "description": "Live firewall log table (firewall4/nft; iptables-tagged lines still classify) with filters",
+      "arch": "noarch",
+      "license": "Apache-2.0",
+      "origin": "/work/fwlive/openwrt-feed/luci-app-fwlive",
+      "maintainer": "OpenWrt LuCI community",
+      "url": "https://github.com/openwrt/luci",
+      "installed-size": 233055,
+      "file-size": 63150,
+      "depends": [
+        "jsonfilter",
+        "libc",
+        "logd",
+        "luci-base"
+      ],
+      "provides": [
+        "luci-app-fwlive-any"
+      ]
+    }
+  ]
+}

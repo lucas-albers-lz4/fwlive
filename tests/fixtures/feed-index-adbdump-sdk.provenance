@@ -1,0 +1,6 @@
+# Real pinned-SDK apk adbdump output for tests/fixtures/feed-index-packages.adb (#676).
+# Regenerate feed-index-adbdump-sdk.json with the capture command below; do not hand-edit.
+image=ghcr.io/openwrt/sdk:x86-64-25.12.5
+digest=sha256:cadf58f9fccd45be11c74579575528faf05ef6f661d5e4bdfeb270603c3650e0
+packages.adb_source=https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb
+capture_command=source scripts/lib/sdk-apk.sh && sdk_apk_adbdump --format json tests/fixtures/feed-index-packages.adb >tests/fixtures/feed-index-adbdump-sdk.json
