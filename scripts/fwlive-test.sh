@@ -173,6 +173,9 @@ bash tests/feed-publish-find-artifact.test.sh
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh
 
+echo "== fwlive feed deploy downgrade guard (#590) ==" >&2
+bash tests/guard-feed-deploy.test.sh
+
 echo "== fwlive package payload layout (R9a) ==" >&2
 bash tests/fwlive-package-payload.test.sh
 
