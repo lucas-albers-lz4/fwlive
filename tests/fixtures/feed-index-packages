@@ -2,7 +2,7 @@ Package: luci-base
 Version: 24.10.0-1
 
 Package: luci-app-fwlive
-Version: 0.1.45-r1
+Version: 0.1.45-1
 Depends: luci-base
 Architecture: all
 

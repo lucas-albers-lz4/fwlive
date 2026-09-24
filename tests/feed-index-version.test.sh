@@ -73,7 +73,7 @@ write_packages() {
 }
 
 got="$(feed_index_opkg_version "$packages_fix")"
-feed_index_versions_match "$got" "$want" || fail "Packages Version should be $want (got '$got')"
+feed_index_versions_match "$got" "$opkg_want" || fail "Packages Version should be $opkg_want (got '$got')"
 ok "matching Packages Version succeeds"
 
 write_packages "$TMP/Packages.stale" \
@@ -114,7 +114,7 @@ ok "empty Packages Version fails"
 
 gzip -9cn "$packages_fix" >"$TMP/Packages.gz"
 got="$(feed_index_opkg_version "$TMP/Packages.gz")"
-feed_index_versions_match "$got" "$want" || fail "Packages.gz Version should be $want (got '$got')"
+feed_index_versions_match "$got" "$opkg_want" || fail "Packages.gz Version should be $opkg_want (got '$got')"
 ok "matching Packages.gz Version succeeds"
 
 mkdir -p "$TMP/bin"
@@ -235,6 +235,15 @@ if feed_index_guest_opkg_version "$TMP/opkg-info.notinst" >/dev/null 2>&1; then
 	fail "opkg info not-installed Status must fail"
 fi
 ok "opkg info not-installed fails"
+
+write_packages "$TMP/opkg-info.half" \
+	'Package: luci-app-fwlive' \
+	"Version: $opkg_want" \
+	'Status: install ok half-installed'
+if feed_index_guest_opkg_version "$TMP/opkg-info.half" >/dev/null 2>&1; then
+	fail "opkg info half-installed Status must fail"
+fi
+ok "opkg info half-installed fails"
 
 write_packages "$TMP/opkg-info.nostatus" \
 	'Package: luci-app-fwlive' \

@@ -183,9 +183,8 @@ feed_index_guest_opkg_version() {
 			gsub(/^[[:space:]]+|[[:space:]]+$/, "", st)
 			if (name != want)
 				next
-			if (st ~ /not-installed/)
-				next
-			if (st !~ /installed/)
+			n = split(st, stw, /[[:space:]]+/)
+			if (n < 3 || stw[3] != "installed")
 				next
 			if (ver == "")
 				next

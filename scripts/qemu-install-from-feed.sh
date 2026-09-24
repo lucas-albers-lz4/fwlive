@@ -91,7 +91,7 @@ install_apk() {
 fetch_feed_index() {
 	local dest="$1" url="$2"
 	echo "→ fetch index ${url}" >&2
-	curl -fsSL -o "$dest" -- "$url" || {
+	curl -fsSL --connect-timeout 15 --max-time 60 -o "$dest" -- "$url" || {
 		echo "feed-index: failed to fetch $url" >&2
 		return 1
 	}
