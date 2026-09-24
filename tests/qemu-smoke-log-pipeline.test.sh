@@ -58,7 +58,9 @@ elif [[ "$cmd" == *'ubus call fwlive resolve'* ]]; then
 	fi
 elif [[ "$cmd" == *'ubus call fwlive rules'* ]]; then
 	if [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == rules ]]; then
-		printf '%s\n' '{"backend":"nft","rules":{},"error":"nft_dump_failed"}'
+		printf '%s\n' '{"backend":"unknown","error":"no_backend"}'
+	elif [[ "${FWLIVE_STUB_RULES:-}" == no_backend ]]; then
+		printf '%s\n' '{"backend":"unknown","rules":{},"error":"no_backend"}'
 	else
 		printf '%s\n' '{"backend":"nft","rules":{}}'
 	fi
@@ -100,6 +102,7 @@ run_smoke() {
 		FWLIVE_STUB_RULE_FAIL="${FWLIVE_STUB_RULE_FAIL:-0}" \
 		FWLIVE_STUB_TRAFFIC_FAIL="${FWLIVE_STUB_TRAFFIC_FAIL:-0}" \
 		FWLIVE_STUB_UBUS_ERROR="${FWLIVE_STUB_UBUS_ERROR:-}" \
+		FWLIVE_STUB_RULES="${FWLIVE_STUB_RULES:-}" \
 		bash "$SCRIPT" "$@" >"$output" 2>&1; then
 		return 0
 	fi
@@ -156,9 +159,24 @@ for method in poll resolve rules logging_status; do
 		run_smoke "ubus-error-${method}"); then
 			die "smoke passed when ubus ${method} returned error JSON"
 		fi
-	grep -Fq "ubus fwlive ${method} replied with error" "$TMP/ubus-error-${method}.log" \
-		|| die "error JSON for ${method} was not reported"
+	if [[ "$method" == rules ]]; then
+		grep -Fq "ubus fwlive rules missing rules" "$TMP/ubus-error-rules.log" \
+			|| die "rules reply without a rules object was not reported"
+	else
+		grep -Fq "ubus fwlive ${method} replied with error" "$TMP/ubus-error-${method}.log" \
+			|| die "error JSON for ${method} was not reported"
+	fi
 	ok "rejects ubus ${method} error JSON"
 done
+
+if (FWLIVE_STUB_RULES=no_backend; export FWLIVE_STUB_RULES; \
+	run_smoke rules-no-backend); then
+	:
+else
+	die 'smoke failed on rules no_backend with a rules object'
+fi
+grep -Fq 'smoke OK: ubus fwlive rules' "$TMP/rules-no-backend.log" \
+	|| die 'no_backend rules map was not accepted'
+ok 'accepts rules no_backend with a rules object'
 
 echo 'qemu smoke log pipeline tests passed'

@@ -40,12 +40,14 @@ ssh_guest() {
 	ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
 }
 
-# ubus exits 0 on method-level refusals. Require the success key and reject an
-# "error" field the same way qemu-reload-revert-smoke.sh reads ok:true/false.
+# ubus exits 0 on method-level refusals. Require the success key. Reject an
+# "error" field except on rules, where no_backend / rules_truncated still
+# return a usable map (fw3/iptables guests).
 ubus_method_ok() {
 	local method="$1"
 	local remote="$2"
 	local key="$3"
+	local allow_error="${4:-}"
 	local body
 	if ! body="$(ssh_guest "$remote")"; then
 		die "ubus fwlive ${method} failed (rpcd plugin / ACL?)"
@@ -53,7 +55,8 @@ ubus_method_ok() {
 	if [[ -z "$body" ]]; then
 		die "ubus fwlive ${method} returned an empty body"
 	fi
-	if printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:'; then
+	if [[ "$allow_error" != allow_error ]] &&
+		printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:'; then
 		die "ubus fwlive ${method} replied with error: ${body}"
 	fi
 	if ! printf '%s' "$body" | grep -Eq "\"${key}\"[[:space:]]*:"; then
@@ -87,7 +90,7 @@ ubus_method_ok poll \
 ubus_method_ok resolve \
 	'ubus call fwlive resolve '"'"'{"addresses":["127.0.0.1"]}'"'"'' \
 	names
-ubus_method_ok rules 'ubus call fwlive rules' rules
+ubus_method_ok rules 'ubus call fwlive rules' rules allow_error
 ubus_method_ok logging_status 'ubus call fwlive logging_status' wan_zone
 
 ssh_guest 'test -f /www/luci-static/resources/view/status/fwlive.js' \
