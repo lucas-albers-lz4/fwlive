@@ -1,5 +1,12 @@
 # Security review state
 
+> **2026-09-23 #592 delta:** `feed_publish_find_artifact` requires the
+> expected `PKG_VERSION` and fail-closes when no filename matches that
+> version. Mtime ordering applies only among matches; equal-mtime
+> lexicographic `ls -1t` order is a secondary pick, not a version
+> substitute. Host coverage includes equal-mtime and version-mismatch
+> cases. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-23 #421 slice 2:** Feed install smoke compares the guest
 > `opkg info` / `apk query` version to the published `Packages.gz` /
 > `packages.adb` index for that cell. No ACL, DOM sink, or read/write-scope

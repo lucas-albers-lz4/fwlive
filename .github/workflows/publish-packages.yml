@@ -117,6 +117,7 @@ jobs:
             exit 1
           fi
           echo "feed PKG_VERSION $pkg matches tag $FWLIVE_RELEASE_TAG" >&2
+          echo "FWLIVE_PKG_VERSION=$pkg" >> "$GITHUB_ENV"
 
       - name: Install real jshn release variants
         run: |
@@ -240,6 +241,7 @@ jobs:
           APK_FEED_SECRET_KEY: ${{ runner.temp }}/fwlive-keys/apk-secret.rsa
           APK_FEED_PUBLIC_KEY: ${{ runner.temp }}/fwlive-keys/fwlive-feed.rsa.pub
           FWLIVE_GIT_TAG: ${{ env.FWLIVE_RELEASE_TAG }}
+          FWLIVE_PKG_VERSION: ${{ env.FWLIVE_PKG_VERSION }}
         run: ./scripts/publish-packages.sh feed-staging
 
       # #269 (CodeRabbit): scrub the signing-key directory as soon as staging is
@@ -296,7 +298,7 @@ jobs:
           staging="${RUNNER_TEMP}/fwlive-release-assets"
           # shellcheck source=scripts/lib/feed-publish.sh
           source ./scripts/lib/feed-publish.sh
-          feed_publish_stage_release_assets "$staging"
+          feed_publish_stage_release_assets "$staging" "${FWLIVE_PKG_VERSION}"
           mapfile -t assets < <(find "$staging" -type f | sort)
           if ((${#assets[@]} == 0)); then
             echo "No .ipk/.apk artifacts under out/x86_64/" >&2
