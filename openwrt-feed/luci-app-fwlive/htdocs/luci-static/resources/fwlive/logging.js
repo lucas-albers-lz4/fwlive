@@ -92,6 +92,56 @@ function appendLoggingNotice(host, state) {
 	host.appendChild(E('span', { 'class': 'fwlive-logging-notice' }, [state.loggingNotice]));
 }
 
+function appendBlockerStatus(host, blocker, st) {
+	if (blocker === 'no_wan_zone') {
+		host.appendChild(
+			E(
+				'span',
+				{ 'class': 'fwlive-logging-status' },
+				labelWithZoneCandidates(_('WAN logging unavailable: no WAN zone'), st)
+			)
+		);
+		host.appendChild(links.firewallZonesLink());
+		return;
+	}
+
+	if (blocker === 'nf_log_missing') {
+		host.appendChild(
+			E('span', { 'class': 'fwlive-logging-status' }, [
+				_('WAN logging unavailable: missing kernel log modules')
+			])
+		);
+	}
+}
+
+function appendWanLogDisableControl(host, state, callbacks) {
+	const st = state.loggingStatus;
+	const limit = st.wan_log_limit || _('default 10/minute');
+	const busy = !!state.loggingBusy;
+	const children = busy
+		? [_('Disabling…')]
+		: [
+				E('span', { 'class': 'fwlive-log-on-dot', 'aria-hidden': 'true' }, ['']),
+				E('span', { 'class': 'fwlive-log-label' }, [_('WAN logging on')]),
+				E('span', { 'class': 'fwlive-log-rate' }, [_('· %s').format(limit)])
+			];
+	host.appendChild(
+		E(
+			'button',
+			{
+				'class': 'cbi-button fwlive-log-merged',
+				'type': 'button',
+				'title': _('WAN logging on (%s). Click to disable.').format(limit),
+				'disabled': busy ? '' : null,
+				'click': function () {
+					callbacks.onDisable();
+				}
+			},
+			children
+		)
+	);
+}
+
 function renderToolbar(host, state, callbacks) {
 	host.innerHTML = '';
 	const st = state.loggingStatus;
@@ -103,54 +153,15 @@ function renderToolbar(host, state, callbacks) {
 	host.style.display = 'contents';
 	const blocker = blockerCode(state);
 
-	if (blocker === 'no_wan_zone') {
-		host.appendChild(
-			E(
-				'span',
-				{ 'class': 'fwlive-logging-status' },
-				labelWithZoneCandidates(_('WAN logging unavailable: no WAN zone'), st)
-			)
-		);
-		host.appendChild(links.firewallZonesLink());
-		appendLoggingNotice(host, state);
-		return;
-	}
+	if (blocker) appendBlockerStatus(host, blocker, st);
 
-	if (blocker === 'nf_log_missing') {
-		host.appendChild(
-			E('span', { 'class': 'fwlive-logging-status' }, [
-				_('WAN logging unavailable: missing kernel log modules')
-			])
-		);
-		appendLoggingNotice(host, state);
-		return;
-	}
-
-	const limit = st.wan_log_limit || _('default 10/minute');
 	if (st.wan_log) {
-		const busy = !!state.loggingBusy;
-		const children = busy
-			? [_('Disabling…')]
-			: [
-					E('span', { 'class': 'fwlive-log-on-dot', 'aria-hidden': 'true' }, ['']),
-					E('span', { 'class': 'fwlive-log-label' }, [_('WAN logging on')]),
-					E('span', { 'class': 'fwlive-log-rate' }, [_('· %s').format(limit)])
-				];
-		host.appendChild(
-			E(
-				'button',
-				{
-					'class': 'cbi-button fwlive-log-merged',
-					'type': 'button',
-					'title': _('WAN logging on (%s). Click to disable.').format(limit),
-					'disabled': busy ? '' : null,
-					'click': function () {
-						callbacks.onDisable();
-					}
-				},
-				children
-			)
-		);
+		appendWanLogDisableControl(host, state, callbacks);
+		appendLoggingNotice(host, state);
+		return;
+	}
+
+	if (blocker) {
 		appendLoggingNotice(host, state);
 		return;
 	}
