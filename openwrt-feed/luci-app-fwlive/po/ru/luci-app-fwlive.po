@@ -557,6 +557,10 @@ msgstr ""
 "ÑÐ°Ð¹ÑÐ²Ð¾Ð» Ð¿Ð¸ÑÐµÑ Ð² Ð¶ÑÑÐ½Ð°Ð». ÐÑÐ¿Ð¾Ð»ÑÐ·ÑÐ¹ÑÐµ ÐÐ°ÑÐ·Ñ, ÐµÑÐ»Ð¸ "
 "ÑÐ»Ð¸ÑÐºÐ¾Ð¼ Ð±ÑÑÑÑÐ¾."
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:303
+msgid "This router reported a logging blocker that Live View does not recognize yet."
+msgstr "Этот маршрутизатор сообщил о блоке журналирования, который Live View пока не распознаёт."
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1551
 msgid "Theme tint fallback"
 msgstr "ÐÐ°Ð¿Ð°ÑÐ½Ð¾Ð¹ ÑÐ²ÐµÑ ÑÐµÐ¼Ñ"
@@ -620,6 +624,11 @@ msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»: ÐÐÐ"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:94
 msgid "WAN logging on (%s). Click to disable."
 msgstr "WAN-Ð¶ÑÑÐ½Ð°Ð»: ÐÐÐ (%s). ÐÐ°Ð¶Ð¼Ð¸ÑÐµ, ÑÑÐ¾Ð±Ñ Ð¾ÑÐºÐ»ÑÑÐ¸ÑÑ."
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:120
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:300
+msgid "WAN logging unavailable"
+msgstr "WAN-журналирование недоступно"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:77
 msgid "WAN logging unavailable: missing kernel log modules"
