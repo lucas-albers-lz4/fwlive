@@ -482,6 +482,46 @@ esac
 unset -f uci
 ok "restore_wan_zone_log returns failure when commit fails"
 
+# restore_wan_zone_log: staging set/delete failure must return non-zero
+# without committing a no-op (issue #618).
+UCI_LOG=()
+uci() {
+	UCI_LOG+=("$*")
+	case "$*" in
+		'-q delete firewall.@zone[0].log') return 1 ;;
+		'commit firewall') die "restore must not commit when delete staging failed" ;;
+		*) return 0 ;;
+	esac
+}
+if restore_wan_zone_log '@zone[0]' ''; then
+	die "restore_wan_zone_log expected non-zero when delete staging fails"
+fi
+joined="${UCI_LOG[*]}"
+case "$joined" in
+	*'commit firewall'*) die "restore delete-staging-failure must not commit, got: $joined" ;;
+esac
+unset -f uci
+ok "restore_wan_zone_log returns failure when delete staging fails"
+
+UCI_LOG=()
+uci() {
+	UCI_LOG+=("$*")
+	case "$*" in
+		'-q set firewall.@zone[1].log=3') return 1 ;;
+		'commit firewall') die "restore must not commit when set staging failed" ;;
+		*) return 0 ;;
+	esac
+}
+if restore_wan_zone_log '@zone[1]' '3'; then
+	die "restore_wan_zone_log expected non-zero when set staging fails"
+fi
+joined="${UCI_LOG[*]}"
+case "$joined" in
+	*'commit firewall'*) die "restore set-staging-failure must not commit, got: $joined" ;;
+esac
+unset -f uci
+ok "restore_wan_zone_log returns failure when set staging fails"
+
 # find_wan_zone_section: named zone + anonymous zone (issue #168)
 uci() {
 	case "$*" in
@@ -897,6 +937,7 @@ drive_toggle() {
 				;;
 			'set firewall.@zone[0].log='*|'-q set firewall.@zone[0].log='*)
 				[ "$mode" = uci_set_fail ] && return 1
+				[ "$mode" = rollback_uci_set_fail ] && [ "$UCI_COMMITS" -ge 1 ] && return 1
 				STAGED_LOG="${2#*=}"
 				[ "${2:-}" = set ] && STAGED_LOG="${3#*=}"
 				STAGED_PENDING=1
@@ -908,6 +949,7 @@ drive_toggle() {
 				;;
 			'delete firewall.@zone[0].log'|'-q delete firewall.@zone[0].log')
 				[ "$mode" = uci_delete_fail ] && return 1
+				[ "$mode" = rollback_uci_delete_fail ] && [ "$UCI_COMMITS" -ge 1 ] && return 1
 				if [ -z "$CURRENT_LOG" ]; then
 					STAGED_LOG='__unset__'
 				else
@@ -922,6 +964,8 @@ drive_toggle() {
 						die "#191: uci commit issued while a foreign delta was staged" ;;
 					rollback_post_stage_foreign)
 						[ "$UCI_COMMITS" -ge 1 ] && die "#457: rollback commit issued while a foreign delta was staged" ;;
+					rollback_uci_delete_fail|rollback_uci_set_fail)
+						[ "$UCI_COMMITS" -ge 1 ] && die "#618: restore must not commit when staging failed" ;;
 					commit_fail_foreign|commit_fail_ours)
 						# commit fails; the caller decides whether to revert
 						return 1 ;;
@@ -946,7 +990,10 @@ drive_toggle() {
 	release_wan_log_lock() { return 0; }
 	reload_firewall() {
 		RELOADS=$((RELOADS + 1))
-		[ "$mode" = rollback_post_stage_foreign ] && return 1
+		case "$mode" in
+			rollback_post_stage_foreign|rollback_uci_delete_fail|rollback_uci_set_fail)
+				return 1 ;;
+		esac
 		return 0
 	}
 	logger() { LOGGER_MSGS="$LOGGER_MSGS|$*"; }
@@ -1104,6 +1151,42 @@ case "$LOGGER_MSGS" in
 	*) die "#457 rollback/post-stage-foreign: missing guard log: $LOGGER_MSGS" ;;
 esac
 ok "#457 rollback aborts on foreign delta staged after restore"
+
+# --- issue #618: rollback staging failure is not a successful restore ---
+# Failed uci set/delete in restore_wan_zone_log must return non-zero so the
+# caller logs rollback skip, not "reverted UCI WAN log". JSON stays
+# firewall_reload_failed.
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable rollback_uci_delete_fail
+case "$OUT" in
+	*'"error":"firewall_reload_failed"'*) ;;
+	*) die "#618 enable/rollback-delete-fail: expected firewall_reload_failed, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 1 ] || die "#618 enable/rollback-delete-fail: restore must not commit ($UCI_COMMITS)"
+case "$LOGGER_MSGS" in
+	*'reverted UCI WAN log'*) die "#618 enable/rollback-delete-fail: success rollback log: $LOGGER_MSGS" ;;
+esac
+case "$LOGGER_MSGS" in
+	*'rollback skipped (pending changes or restore failed)'*) ;;
+	*) die "#618 enable/rollback-delete-fail: missing restore-failure skip log: $LOGGER_MSGS" ;;
+esac
+ok "#618 reload-failure restore returns skip (not success) when delete staging fails"
+
+FWLIVE_CURRENT_LOG='1'
+drive_toggle disable rollback_uci_set_fail
+case "$OUT" in
+	*'"error":"firewall_reload_failed"'*) ;;
+	*) die "#618 disable/rollback-set-fail: expected firewall_reload_failed, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 1 ] || die "#618 disable/rollback-set-fail: restore must not commit ($UCI_COMMITS)"
+case "$LOGGER_MSGS" in
+	*'reverted UCI WAN log'*) die "#618 disable/rollback-set-fail: success rollback log: $LOGGER_MSGS" ;;
+esac
+case "$LOGGER_MSGS" in
+	*'rollback skipped (pending changes or restore failed)'*) ;;
+	*) die "#618 disable/rollback-set-fail: missing restore-failure skip log: $LOGGER_MSGS" ;;
+esac
+ok "#618 reload-failure restore returns skip (not success) when set staging fails"
 
 # --- commit-failure paths (#191, CodeRabbit/luna fold) ---
 # Commit fails with a FOREIGN delta now visible: must NOT revert (config-wide
