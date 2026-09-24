@@ -166,6 +166,7 @@ return view.extend({
 	loggingStatus: null,
 	loggingBusy: false,
 	loggingNotice: '',
+	_loggingNoticeFromToggle: false,
 	/* Session-only dismiss of first-run consent (Not now without checkbox). */
 	consentDismissedSession: false,
 	_loggingToolbarSig: '',
@@ -739,7 +740,8 @@ return view.extend({
 			const status = await callFwliveLoggingStatus();
 			if (this.viewDisposed) return;
 			this.loggingStatus = status;
-			this.loggingNotice = '';
+			if (!this._loggingNoticeFromToggle)
+				this.loggingNotice = '';
 			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		} catch (_e) {
 			if (this.viewDisposed) return;
@@ -761,17 +763,20 @@ return view.extend({
 
 		this.loggingBusy = true;
 		this.loggingNotice = '';
+		this._loggingNoticeFromToggle = false;
 		opts.initialUi();
 
 		try {
 			const res = await opts.call();
 			if (!res || !res.ok) {
 				this.loggingNotice = opts.failureNotice(res);
+				this._loggingNoticeFromToggle = true;
 				await this.loadLoggingStatus();
 				return;
 			}
 
 			this.loggingNotice = opts.successNotice(res);
+			this._loggingNoticeFromToggle = true;
 			if (opts.onSuccess) opts.onSuccess(res);
 			if (this.loggingStatus && typeof opts.wanLog === 'boolean')
 				this.loggingStatus = Object.assign({}, this.loggingStatus, {
@@ -780,6 +785,7 @@ return view.extend({
 			await this.loadLoggingStatus();
 		} catch (_e) {
 			this.loggingNotice = opts.catchNotice();
+			this._loggingNoticeFromToggle = true;
 			await this.loadLoggingStatus();
 		} finally {
 			this.loggingBusy = false;

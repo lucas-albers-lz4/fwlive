@@ -12,9 +12,23 @@ const { loadFwliveView } = require('./lib/load-fwlive-view');
 const STORAGE_KEY = 'fwlive-logging-consent-v1';
 const WRONG_TYPE_REPLIES = [null, [], 'bad', 7];
 
+const LOGGING_STATUS_DEFAULT = {
+	wan_zone: null,
+	wan_zone_candidates: [],
+	wan_log: false,
+	wan_log_limit: null,
+	nf_log_ipv4: false,
+	nf_log_ipv6: false,
+	ready: false,
+	weak_device: false,
+	blockers: [],
+	warnings: []
+};
+
 function makeHarness(method, reply, storage, options) {
 	options = options || {};
 	let calls = 0;
+	let statusLoads = 0;
 	const h = loadFwliveView({
 		storage: storage,
 		rawRpcKeys: options.rawReply ? { ['fwlive.' + method]: true } : undefined,
@@ -23,16 +37,17 @@ function makeHarness(method, reply, storage, options) {
 				calls++;
 				if (reply instanceof Error) throw reply;
 				return reply;
+			},
+			'fwlive.logging_status': async function () {
+				statusLoads++;
+				return LOGGING_STATUS_DEFAULT;
 			}
 		}
 	});
 
-	let statusLoads = 0;
 	let emptyUpdates = 0;
 	let toolbarUpdates = 0;
-	h.view.loadLoggingStatus = async function () {
-		statusLoads++;
-	};
+	h.view.updateBackendUi = function () {};
 	h.view.updateEmptyStateUi = function () {
 		emptyUpdates++;
 	};
@@ -70,8 +85,8 @@ async function testEnableReply(reply, expectedNotice, shouldPersist) {
 	assert.equal(notice(x.view), expectedNotice);
 	assert.equal(x.view.loggingBusy, false, 'enable finally must clear busy');
 	assert.equal(x.statusLoads(), 1, 'enable must refresh status once');
-	assert.equal(x.emptyUpdates(), 2, 'enable updates empty state in preamble and finally');
-	assert.equal(x.toolbarUpdates(), 2, 'enable updates toolbar in preamble and finally');
+	assert.equal(x.emptyUpdates(), 3, 'enable updates empty state in preamble, refresh, and finally');
+	assert.equal(x.toolbarUpdates(), 3, 'enable updates toolbar in preamble, refresh, and finally');
 	if (shouldPersist) assert.equal(x.h.localStorage.getItem(STORAGE_KEY), '1');
 	else assert.equal(x.h.localStorage.getItem(STORAGE_KEY), null);
 }
@@ -122,8 +137,8 @@ async function testDisableReply(reply, expectedNotice) {
 	assert.equal(notice(x.view), expectedNotice);
 	assert.equal(x.view.loggingBusy, false, 'disable finally must clear busy');
 	assert.equal(x.statusLoads(), 1, 'disable must refresh status once');
-	assert.equal(x.emptyUpdates(), 1, 'disable only updates empty state in finally');
-	assert.equal(x.toolbarUpdates(), 2, 'disable updates toolbar in preamble and finally');
+	assert.equal(x.emptyUpdates(), 2, 'disable updates empty state in refresh and finally');
+	assert.equal(x.toolbarUpdates(), 3, 'disable updates toolbar in preamble, refresh, and finally');
 	assert.equal(x.h.localStorage.getItem(STORAGE_KEY), null, 'disable never persists consent');
 }
 
@@ -143,19 +158,6 @@ async function testDisableVariants() {
 	);
 	console.log('fwlive-view logging: disable variants and no-change behavior OK');
 }
-
-const LOGGING_STATUS_DEFAULT = {
-	wan_zone: null,
-	wan_zone_candidates: [],
-	wan_log: false,
-	wan_log_limit: null,
-	nf_log_ipv4: false,
-	nf_log_ipv6: false,
-	ready: false,
-	weak_device: false,
-	blockers: [],
-	warnings: []
-};
 
 async function testLoggingStatusDefaultReply() {
 	for (const reply of WRONG_TYPE_REPLIES) {
