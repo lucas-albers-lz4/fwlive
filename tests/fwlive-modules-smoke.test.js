@@ -259,6 +259,33 @@ assert.ok(blockedDisable._listeners.click && blockedDisable._listeners.click.len
 blockedDisable._listeners.click[0]();
 assert.strictEqual(disableCalled, true, 'blocked-but-enabled toolbar must wire onDisable');
 
+logging.renderToolbar(
+	bar,
+	{
+		loggingStatus: {
+			wan_log: false,
+			wan_log_limit: null,
+			blockers: ['weird_new_gate'],
+			ready: true
+		},
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+assert.strictEqual(bar.style.display, 'contents');
+assert.strictEqual(bar.childNodes.length, 1, 'unknown blocker is status only');
+const unknownStatus = bar.childNodes[0];
+assert.strictEqual(unknownStatus.tagName, 'span');
+assert.ok(String(unknownStatus._attrs['class']).indexOf('fwlive-logging-status') >= 0);
+assert.ok(collectText(unknownStatus).indexOf('WAN logging unavailable') >= 0);
+assert.ok(
+	bar.childNodes.every(function (n) {
+		return n.tagName !== 'button';
+	}),
+	'unknown blocker must not render Enable CTA'
+);
+
 const emptyHost = luciE.E('div', {}, []);
 logging.renderEmptyState(
 	emptyHost,
