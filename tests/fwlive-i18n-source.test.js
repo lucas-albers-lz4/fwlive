@@ -40,7 +40,10 @@ const REGRESSION_MSGIDS = [
 	'Degraded — sampling (slow poll RTT; cadence reduced).',
 	'Server shedding — at most %d log lines per poll.',
 	'Server truncated this poll (adaptive cap).',
-	'Hostname resolve paused while the router is under load.'
+	'Hostname resolve paused while the router is under load.',
+	/* Chip format/connector (#511): the scanner only sees existing _() literals. */
+	'%s: %s',
+	'contains'
 ];
 
 function isIdentifierStart(ch) {
