@@ -1,5 +1,11 @@
 # Security review state
 
+> **2026-09-24 #637 delta:** `sdk_matrix_validate_version` now rejects
+> unknown `--version` values and non-numeric patch suffixes; it accepts
+> `SDK_MATRIX_VERSIONS` plus `latest`/`SNAPSHOT` and
+> `^(23.05|24.10|25.12).[0-9]+$`. No ACL, DOM sink, or read/write-scope
+> change.
+
 > **2026-09-23 #421 slice 2:** Feed install smoke compares the guest
 > `opkg info` / `apk query` version to the published `Packages.gz` /
 > `packages.adb` index for that cell. No ACL, DOM sink, or read/write-scope

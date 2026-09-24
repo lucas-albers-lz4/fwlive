@@ -32,20 +32,20 @@ for ver in snapshot latest SNAPSHOT 25.12 24.10 23.05 25.12.5 24.10.8 23.05.5; d
 done
 
 # Unknown versions must fail immediately with the usage hint (#637).
-# These currently pass on master because validate compared $1 to patch($1).
+# On master, identity compare against SDK_MATRIX_VERSIONS accepted unknowns
+# such as foo / 99.99, and the old 23.05|24.10|25.12-* glob accepted any
+# prefixed suffix (25.12.foo, 25.12., 24.10.*).
 for ver in foo 99.99 25.12.foo 25.12. 24.10.\*; do
 	err=""
 	if err="$(sdk_matrix_validate_version "$ver" 2>&1)"; then
 		echo "unknown version unexpectedly accepted: $ver" >&2
 		exit 1
 	fi
-	case "$err" in
-		*"invalid --version ${ver}"*"choose: ${SDK_MATRIX_VERSIONS[*]}"*) ;;
-		*)
-			echo "unknown version missing usage hint: $ver ($err)" >&2
-			exit 1
-			;;
-	esac
+	if [[ "$err" != *"invalid --version ${ver}"* ]] ||
+		[[ "$err" != *'choose: snapshot | 23.05 | 24.10 | 25.12 [.<patch>] | latest | SNAPSHOT'* ]]; then
+		echo "unknown version missing usage hint: $ver ($err)" >&2
+		exit 1
+	fi
 done
 
 echo "sdk matrix release version labels test passed"

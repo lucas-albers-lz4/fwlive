@@ -246,7 +246,7 @@ sdk_matrix_validate_version() {
 	esac
 	# Numeric patch only — `25.12.*` would accept 25.12.foo / 25.12. (#637 luna).
 	[[ "$1" =~ ^(23\.05|24\.10|25\.12)\.[0-9]+$ ]] && return 0
-	echo "invalid --version $1 (choose: ${SDK_MATRIX_VERSIONS[*]})" >&2
+	echo "invalid --version $1 (choose: snapshot | 23.05 | 24.10 | 25.12 [.<patch>] | latest | SNAPSHOT)" >&2
 	return 1
 }
 
