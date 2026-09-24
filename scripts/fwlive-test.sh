@@ -147,6 +147,7 @@ bash tests/qemu-logging-uninstall-smoke.test.sh
 bash tests/qemu-install-artifact-mode.test.sh
 bash tests/qemu-smoke-log-pipeline.test.sh
 bash tests/qemu-reset-wan-logging.test.sh
+bash tests/qemu-security-gaps-smoke.test.sh
 
 echo "== fwlive LuCI-accurate E() harness (#149) ==" >&2
 "$NODE" tests/fwlive-e-harness.test.js
