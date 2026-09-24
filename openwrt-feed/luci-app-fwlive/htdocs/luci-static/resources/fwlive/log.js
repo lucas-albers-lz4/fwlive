@@ -463,7 +463,7 @@ return baseclass.extend({
 		const p = this.parseFilterValue(val);
 		if (!p.value) return '';
 
-		return '%s: %s'.format(field, val);
+		return _('%s: %s').format(field, val);
 	},
 
 	matchesTextField: function (haystack, spec) {

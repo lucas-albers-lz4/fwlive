@@ -5,6 +5,10 @@ msgstr "Content-Type: text/plain; charset=UTF-8"
 msgid "%d matching · %d/%d stored"
 msgstr ""
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:466
+msgid "%s: %s"
+msgstr ""
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:929
 msgid "0 matching · %d/%d stored"
 msgstr ""
@@ -575,6 +579,10 @@ msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:828
 msgid "buffer full"
+msgstr ""
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:40
+msgid "contains"
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:81
