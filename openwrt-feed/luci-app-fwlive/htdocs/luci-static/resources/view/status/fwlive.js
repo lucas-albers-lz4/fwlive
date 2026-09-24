@@ -156,6 +156,8 @@ return view.extend({
 	hostnameFailed: null,
 	resolveInFlight: false,
 	resolveGeneration: 0,
+	/* Coalesce hostname-cache paints deferred while tablePaused. */
+	resolvePaintPending: false,
 	lastPollError: false,
 	lastRulesError: null,
 	followLive: true,
@@ -1425,6 +1427,16 @@ return view.extend({
 		this.ensureRenderScheduler().schedule(!!force);
 	},
 
+	scheduleResolvePaint() {
+		if (this.tablePaused) {
+			this.resolvePaintPending = true;
+			this.updateStatus();
+			return;
+		}
+		this.resolvePaintPending = false;
+		this.scheduleRenderRows(true);
+	},
+
 	updateFloodBanner() {
 		const el = document.getElementById('fwlive-flood');
 		if (!el) return;
@@ -1606,7 +1618,10 @@ return view.extend({
 			this.requestPoll()
 				.then(() => {
 					/* A hide/show bump abandons this epoch; the catch-up poll paints. */
-					if (epoch === this.currentPollEpoch()) this.renderRows(true);
+					if (epoch === this.currentPollEpoch()) {
+						this.resolvePaintPending = false;
+						this.renderRows(true);
+					}
 				})
 				.catch(function () {});
 		}
@@ -1772,7 +1787,7 @@ return view.extend({
 			}
 
 			this.updateAdaptiveBanner();
-			if (updated) this.scheduleRenderRows(true);
+			if (updated) this.scheduleResolvePaint();
 		} catch (_e) {
 			/* resolve unavailable — show IPs */
 		} finally {

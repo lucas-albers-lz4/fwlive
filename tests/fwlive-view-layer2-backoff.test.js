@@ -1220,6 +1220,112 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 	console.log('fwlive-view layer2: Limit paints before hostname completion OK');
 }
 
+async function testResolveCompletionDefersPaintWhilePaused() {
+	let release;
+	const gate = new Promise(function (r) {
+		release = r;
+	});
+	const ip = '192.0.2.1';
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				await gate;
+				return { names: { [ip]: 'router.example' } };
+			}
+		}
+	});
+	const v = h.view;
+	v.showHostnames = true;
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	v.entries = [{ id: '1', src: ip, dst: '198.51.100.1' }];
+	v.tablePaused = true;
+
+	const renders = [];
+	const scheduled = [];
+	v.renderRows = function (force) {
+		renders.push(force);
+	};
+	v.scheduleRenderRows = function (force) {
+		scheduled.push(force);
+	};
+
+	const resolve = v.resolveHostnamesForEntries(v.filteredRows());
+	await sleep(10);
+	assert.strictEqual(renders.length, 0, 'resolve must not paint while paused and in flight');
+	assert.strictEqual(scheduled.length, 0, 'resolve must not schedule paint while paused and in flight');
+	assert.strictEqual(v.resolvePaintPending, false, 'pending flag waits for resolve completion');
+
+	release();
+	await resolve;
+	assert.strictEqual(renders.length, 0, 'resolve completion must not paint while paused');
+	assert.strictEqual(scheduled.length, 0, 'resolve completion must not schedule paint while paused');
+	assert.strictEqual(v.resolvePaintPending, true, 'resolve completion must coalesce while paused');
+	assert.strictEqual(v.hostnameCache.get(ip), 'router.example', 'cache must still update while paused');
+
+	v.updateStreamControlsUi = function () {};
+	v.requestPoll = function () {
+		return Promise.resolve();
+	};
+	v.onPauseClick();
+	assert.strictEqual(v.tablePaused, false, 'resume must unpause');
+	await sleep(10);
+	assert.strictEqual(renders.length, 1, 'resume must apply coalesced hostname paint');
+	assert.strictEqual(v.resolvePaintPending, false, 'resume paint must clear pending flag');
+	console.log('fwlive-view layer2: resolve completion defers paint while paused OK');
+}
+
+async function testHostnameToggleAsyncResolveDefersPaintWhilePaused() {
+	let release;
+	const gate = new Promise(function (r) {
+		release = r;
+	});
+	const ip = '192.0.2.1';
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				await gate;
+				return { names: { [ip]: 'router.example' } };
+			}
+		}
+	});
+	const v = h.view;
+	v.entries = [{ id: '1', src: ip, dst: '198.51.100.1' }];
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	v.tablePaused = true;
+
+	const renders = [];
+	const scheduled = [];
+	v.renderRows = function (force) {
+		renders.push(force);
+	};
+	v.scheduleRenderRows = function (force) {
+		scheduled.push(force);
+	};
+
+	v.onShowHostnamesChange({ target: { checked: true } });
+	assert.strictEqual(renders.length, 0, 'toggle-on must not paint while paused');
+	assert.strictEqual(scheduled.length, 0, 'toggle-on must not schedule paint while paused');
+
+	await sleep(10);
+	assert.strictEqual(renders.length, 0, 'toggle async resolve must not paint while paused and in flight');
+
+	release();
+	await sleep(20);
+	assert.strictEqual(renders.length, 0, 'toggle async resolve completion must not paint while paused');
+	assert.strictEqual(scheduled.length, 0, 'toggle async resolve completion must not schedule paint while paused');
+	assert.strictEqual(v.resolvePaintPending, true, 'toggle async resolve must coalesce while paused');
+	assert.strictEqual(v.hostnameCache.get(ip), 'router.example');
+	console.log('fwlive-view layer2: hostname toggle async resolve defers paint while paused OK');
+}
+
 async function testPausedDisplayControlsPaint() {
 	const h = loadFwliveView();
 	const v = h.view;
@@ -1267,6 +1373,8 @@ async function testPausedDisplayControlsPaint() {
 		await testAnimationFrameAdaptersPreserveWindowReceiver();
 		await testLimitRefreshPreservesQueuedForce();
 		await testLimitPaintDoesNotWaitForHostnames();
+		await testResolveCompletionDefersPaintWhilePaused();
+		await testHostnameToggleAsyncResolveDefersPaintWhilePaused();
 		await testPausedDisplayControlsPaint();
 		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
