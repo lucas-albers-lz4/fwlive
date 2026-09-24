@@ -33,7 +33,7 @@ done
 
 # Unknown versions must fail immediately with the usage hint (#637).
 # These currently pass on master because validate compared $1 to patch($1).
-for ver in foo 99.99; do
+for ver in foo 99.99 25.12.foo 25.12. 24.10.\*; do
 	err=""
 	if err="$(sdk_matrix_validate_version "$ver" 2>&1)"; then
 		echo "unknown version unexpectedly accepted: $ver" >&2
