@@ -2088,7 +2088,13 @@ return view.extend({
 			else if (this.summaryMode) {
 				this.renderSummary();
 				this.updateStatus();
-			} else this.scheduleRenderRows();
+			} else {
+				/* Stale resume skips renderRows(true); catch-up polls must still
+				 * flush coalesced hostname paints (#602). */
+				const forceHostnamePaint = this.resolvePaintPending;
+				this.resolvePaintPending = false;
+				this.scheduleRenderRows(forceHostnamePaint);
+			}
 
 			try {
 				await this.resolveHostnamesForEntries(this.filteredRows());
