@@ -1354,6 +1354,20 @@ fi
 [ "$WAN_ZONE_LOG" = "2" ] || die "#663 UCI should be restored even if reload fails, got '$WAN_ZONE_LOG'"
 ok "restore_wan_log_baseline keeps baseline when post-commit reload fails"
 
+# A retry when UCI already matches the baseline must not reload over another
+# writer's staged firewall changes.
+WAN_ZONE_LOG='2'
+printf '2' >"$WAN_LOG_BASELINE_FILE"
+firewall_changes_pending() { return 0; }
+reload_firewall() { die "#663 retry must not reload while firewall changes are pending"; }
+if restore_wan_log_baseline; then
+	die "#663 retry expected non-zero when firewall changes are pending"
+fi
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "#663 pending retry must keep baseline marker"
+ok "restore_wan_log_baseline skips pending retry reload"
+firewall_changes_pending() { return 1; }
+reload_firewall() { return 1; }
+
 WAN_ZONE_LOG='2'
 if restore_wan_log_baseline; then
 	die "#663 already-at-baseline restore expected non-zero when reload fails"

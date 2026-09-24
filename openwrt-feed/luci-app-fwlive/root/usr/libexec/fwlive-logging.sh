@@ -433,6 +433,11 @@ restore_wan_log_baseline() {
 		# UCI already matches; live fw4 may still be stale after a
 		# previous reload failure. Retry reload before dropping the
 		# marker.
+		if firewall_changes_pending; then
+			release_wan_log_lock
+			logger -t fwlive "WAN log baseline restore skipped: firewall changes pending" 2>/dev/null || true
+			return 1
+		fi
 		release_wan_log_lock
 		if ! restore_wan_log_after_reload "$path" "$zone" "$baseline"; then
 			return 1
