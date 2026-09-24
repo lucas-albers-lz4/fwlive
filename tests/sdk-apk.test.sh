@@ -48,7 +48,10 @@ chmod 755 "$TMP/bin/docker"
 FWLIVE_DOCKER_LOG="$TMP/docker.log"
 FWLIVE_ADBDUMP_FIXTURE="$ROOT/tests/fixtures/apk-adbdump-control.json"
 FWLIVE_SDK_APK_IMAGE="ghcr.io/openwrt/sdk:test-pin"
+SDK_MATRIX_DIGEST_CACHE_DIR="$TMP/sdk-digests"
 export FWLIVE_DOCKER_LOG FWLIVE_ADBDUMP_FIXTURE FWLIVE_SDK_APK_IMAGE
+export SDK_MATRIX_DIGEST_CACHE_DIR
+mkdir -p "$SDK_MATRIX_DIGEST_CACHE_DIR"
 PATH="$TMP/bin:$PATH"
 pkg="$TMP/luci-app-fwlive-0.1.45-r1.apk"
 : >"$pkg"
@@ -69,5 +72,30 @@ if sdk_apk_adbdump "$TMP/missing.apk" >/dev/null 2>&1; then
 	fail "missing file must fail before docker"
 fi
 ok "missing adbdump input fails closed"
+
+unset FWLIVE_SDK_APK_IMAGE
+pin='ghcr.io/openwrt/sdk@sha256:dddd4444dddd4444dddd4444dddd4444dddd4444dddd4444dddd4444dddd4444'
+cache="$(sdk_matrix_digest_cache_path x86-64 25.12)"
+printf '%s\n' "$pin" >"$cache"
+got="$(sdk_apk_image x86-64 25.12)"
+[[ "$got" == "$pin" ]] || fail "sdk_apk_image must use a repository-qualified digest pin (got '$got')"
+: >"$FWLIVE_DOCKER_LOG"
+sdk_apk_adbdump --format json "$pkg" >/dev/null
+grep -Fq "$pin" "$FWLIVE_DOCKER_LOG" \
+	|| fail "sdk_apk_run must pass the cached repository digest to docker"
+ok "sdk_apk_image uses a repository-qualified digest cache pin"
+
+id_only='@sha256:feedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+printf '%s\n' "$id_only" >"$cache"
+got="$(sdk_apk_image x86-64 25.12)"
+[[ "$got" == "$id_only" ]] && fail "sdk_apk_image must not use an image-ID-only digest pin"
+[[ "$got" == ghcr.io/openwrt/sdk:* ]] || fail "image-ID-only pin must fall back to SDK_MATRIX_IMAGE (got '$got')"
+: >"$FWLIVE_DOCKER_LOG"
+sdk_apk_adbdump --format json "$pkg" >/dev/null
+grep -Fq "$got" "$FWLIVE_DOCKER_LOG" \
+	|| fail "sdk_apk_run must pass the tag fallback, not an image-ID-only digest"
+grep -Fq '@sha256:feedfeed' "$FWLIVE_DOCKER_LOG" \
+	&& fail "sdk_apk_run must not pass an image-ID-only digest to docker"
+ok "sdk_apk_image rejects image-ID-only digest cache pins"
 
 echo "sdk-apk helper test passed"

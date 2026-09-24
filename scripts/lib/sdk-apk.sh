@@ -21,7 +21,8 @@ sdk_apk_image() {
 		return 0
 	fi
 	sdk_matrix_resolve "$target" "$version"
-	if digest="$(sdk_matrix_read_digest_cache "$target" "$version")"; then
+	if digest="$(sdk_matrix_read_digest_cache "$target" "$version")" \
+		&& sdk_matrix_digest_is_repo_qualified "$digest"; then
 		printf '%s' "$digest"
 		return 0
 	fi

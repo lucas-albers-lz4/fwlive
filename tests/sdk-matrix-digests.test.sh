@@ -124,6 +124,22 @@ else
 	bad "fallback digest: got '$got'"
 fi
 grep -qi 'RepoDigest' "$warn" && ok "fallback emitted WARNING" || bad "no WARNING for fallback"
+fallback_cache="$(sdk_matrix_digest_cache_path x86-64 23.05)"
+if [[ -f "$fallback_cache" ]] && grep -q '@sha256:feedfeed' "$fallback_cache"; then
+	bad "image-ID-only digest must not be persisted in the pin cache"
+else
+	ok "image-ID-only digest is not persisted in the pin cache"
+fi
+if sdk_matrix_digest_is_repo_qualified "$got"; then
+	bad "image-ID-only digest must not count as repository-qualified"
+else
+	ok "image-ID-only digest is not repository-qualified"
+fi
+if sdk_matrix_digest_is_repo_qualified "$want"; then
+	ok "ghcr RepoDigest counts as repository-qualified"
+else
+	bad "expected $want to be repository-qualified"
+fi
 
 # Abort: pull fails → non-zero
 rm -rf "${SDK_MATRIX_DIGEST_CACHE_DIR:?}"/*

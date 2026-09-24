@@ -128,10 +128,20 @@ sdk_matrix_digest_cache_path() {
 	printf '%s' "${base}/${target}_${patch}"
 }
 
+sdk_matrix_digest_is_repo_qualified() {
+	# Docker needs repo@sha256:<hex>, not a bare @sha256:<image-id>.
+	case "$1" in
+		?*@sha256:?*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
 sdk_matrix_inspect_repo_digest() {
 	# Inspect already-local image ref; print matching RepoDigest or fail.
 	# RepoDigests[0] is not trusted: match THIS repo prefix literally
 	# (index()==1; dots in ghcr.io are not wildcards).
+	# Image-ID fallback (@sha256:<id>) is for manifest recording only and
+	# must not be persisted as a docker image ref.
 	local image="$1" repo digests digest id
 	if [[ "$image" == *@sha256:* ]]; then
 		repo="${image%%@*}"
@@ -182,11 +192,13 @@ sdk_matrix_pull_and_pin() {
 		return 1
 	}
 	digest="$(sdk_matrix_inspect_repo_digest "$SDK_MATRIX_IMAGE")" || return 1
-	cache="$(sdk_matrix_digest_cache_path "$target" "$version")"
-	mkdir -p "$(dirname "$cache")"
-	printf '%s\n' "$digest" > "$cache"
-	chmod 0644 "$cache" 2>/dev/null || true
-	SDK_MATRIX_IMAGE="$digest"
+	if sdk_matrix_digest_is_repo_qualified "$digest"; then
+		cache="$(sdk_matrix_digest_cache_path "$target" "$version")"
+		mkdir -p "$(dirname "$cache")"
+		printf '%s\n' "$digest" > "$cache"
+		chmod 0644 "$cache" 2>/dev/null || true
+		SDK_MATRIX_IMAGE="$digest"
+	fi
 	printf '%s' "$digest"
 }
 
