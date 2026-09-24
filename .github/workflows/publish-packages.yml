@@ -256,6 +256,22 @@ jobs:
         if: always()
         run: rm -rf "${RUNNER_TEMP}/fwlive-keys"
 
+      # The workflow checks out the release tag, which may predate this guard.
+      # Fetch the current helper without changing the tag-backed build tree.
+      - name: Fetch feed deploy guard helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          repository: lucas-albers-lz4/fwlive
+          ref: master
+          path: .ci-workflow-tools
+          sparse-checkout: scripts/guard-feed-deploy.sh
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install feed deploy guard helper
+        run: install -m 0755 .ci-workflow-tools/scripts/guard-feed-deploy.sh scripts/guard-feed-deploy.sh
+
       # #590: do not replace a newer live feed with an older tag. Fetch the
       # published manifest, compare parsed vMAJOR.MINOR.PATCH (not string
       # sort), and require allow_rollback for a deliberate downgrade.
