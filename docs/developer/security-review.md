@@ -1,5 +1,12 @@
 # Security review state
 
+> **2026-09-24 #606 delta:** `wan_filter_log_decimal` rejects digit runs
+> longer than 10 before `$ (( ))`, so a 20-digit UCI `log` value cannot
+> kill dash or wrap on BusyBox. Enable/disable/status keep the existing
+> non-numeric fallbacks. Selftest pins oversized and malformed inputs
+> without asserting a wrap integer. No ACL, DOM sink, or read/write-scope
+> change.
+
 > **2026-09-24 #663 delta:** `restore_wan_log_baseline` keeps the recovery
 > marker until the post-restore firewall reload succeeds (including the
 > already-at-baseline retry path) and returns nonzero on reload failure.

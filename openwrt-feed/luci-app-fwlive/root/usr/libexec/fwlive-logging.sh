@@ -508,6 +508,11 @@ wan_filter_log_decimal() {
 	case "$_log_val" in
 		''|*[!0-9]*) return 1 ;;
 	esac
+	# Bitmask option. Reject oversized digit runs before $(( )) so a
+	# 20-digit UCI value cannot kill dash or wrap on BusyBox.
+	if [ "${#_log_val}" -gt 10 ]; then
+		return 1
+	fi
 	while [ "${_log_val#0}" != "$_log_val" ]; do
 		_log_val=${_log_val#0}
 	done
@@ -1168,6 +1173,27 @@ run_logging_selftest() {
 	got=$(wan_filter_log_clear_value '0')
 	if [ -n "$got" ]; then
 		echo "wan_filter_log_clear_value 0: expected empty got $got" >&2
+		return 1
+	fi
+
+	# Oversized/malformed digit runs reject before arithmetic.
+	# Do not assert a host-specific wrap integer.
+	if wan_filter_log_decimal '12345678901234567890' >/dev/null; then
+		echo 'wan_filter_log_decimal 20-digit: expected reject' >&2
+		return 1
+	fi
+	if wan_filter_log_decimal '12a3' >/dev/null; then
+		echo 'wan_filter_log_decimal malformed: expected reject' >&2
+		return 1
+	fi
+	got=$(wan_filter_log_target_value '12345678901234567890')
+	if [ "$got" != '1' ]; then
+		echo "enable oversized log: expected 1 got $got" >&2
+		return 1
+	fi
+	got=$(wan_filter_log_clear_value '12345678901234567890')
+	if [ -n "$got" ]; then
+		echo "disable oversized log: expected empty got $got" >&2
 		return 1
 	fi
 
