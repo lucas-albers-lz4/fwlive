@@ -536,6 +536,18 @@ function hasMessageWrapDiv(td) {
 	});
 }
 
+function findExpansionPre(host) {
+	const tr = (host.childNodes || []).find(function (c) {
+		return c.tagName === 'tr' && c._attrs && c._attrs.class === 'fwlive-msg-expand';
+	});
+	if (!tr) return null;
+	const td = (tr.childNodes || [])[0];
+	if (!td) return null;
+	return (td.childNodes || []).find(function (c) {
+		return c.tagName === 'pre' && c._attrs && c._attrs.class === 'fwlive-msg-expand-body';
+	});
+}
+
 function renderMessageRow(message, layout, extra) {
 	const tbl = loadFwliveModule('table', { log: log, links: links, E: luciE.E });
 	const body = luciE.E('tbody', {}, []);
@@ -597,6 +609,37 @@ const wrapLong = renderMessageRow(overlongRaw, 'wrap', { expandedRowId: null });
 assert.ok(collectText(wrapLong).indexOf(wrapShown) >= 0, 'wrap cell shows truncated text');
 assert.ok(collectText(wrapLong).indexOf('x'.repeat(300)) < 0, 'wrap cell must not show the full tail');
 assertSinkOnlyTbodyClear(wrapLong, '<img');
+
+const wrapExpanded = renderMessageRow(overlongRaw, 'wrap');
+const expansionPre = findExpansionPre(wrapExpanded);
+assert.ok(expansionPre, 'wrap layout with expandedRowId renders an expansion row');
+const expansionText = collectText(expansionPre);
+assert.strictEqual(
+	expansionText,
+	onelineShown,
+	'expansion shows the full uncapped message'
+);
+assert.ok(!expansionText.endsWith('…'), 'expansion must not ellipsize');
+assert.ok(expansionText.length > 240, 'expansion keeps the full length');
+assert.ok(
+	expansionText.indexOf('x'.repeat(300)) >= 0,
+	'expansion includes the overlong tail'
+);
+assert.strictEqual(
+	expansionPre.childNodes[0] && expansionPre.childNodes[0].nodeType,
+	3,
+	'expansion message is a text node'
+);
+const wrapExpandedTd = findMessageTd(wrapExpanded);
+assert.ok(
+	collectText(wrapExpandedTd).indexOf(wrapShown) >= 0,
+	'wrap cell stays truncated when expanded'
+);
+assert.ok(
+	collectText(wrapExpandedTd).indexOf('x'.repeat(300)) < 0,
+	'wrap cell must not show the full tail when expanded'
+);
+assertSinkOnlyTbodyClear(wrapExpanded, '<img');
 
 const onelineLong = renderMessageRow(overlongRaw, 'oneline');
 assert.ok(collectText(onelineLong).indexOf(onelineShown) >= 0, 'oneline cell shows the full string');
