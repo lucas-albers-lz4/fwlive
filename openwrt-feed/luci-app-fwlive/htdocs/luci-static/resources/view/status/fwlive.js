@@ -1382,7 +1382,7 @@ return view.extend({
 		}
 		if (empty) {
 			if (!empty.style) empty.style = { display: '' };
-			empty.style.display = hideTable ? 'none' : (rowCount ? 'none' : 'block');
+			empty.style.display = hideTable ? 'none' : rowCount ? 'none' : 'block';
 		}
 	},
 
