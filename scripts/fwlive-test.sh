@@ -17,6 +17,11 @@ if [[ -z "$NODE" ]]; then
 	fi
 fi
 
+if ! command -v busybox >/dev/null 2>&1; then
+	echo "FAIL: busybox not found on PATH (Linux host: apt install busybox)" >&2
+	exit 1
+fi
+
 echo "== fwlive JS/CSS lint stack (#290) ==" >&2
 if [[ ! -x "$ROOT/node_modules/.bin/eslint" ||
 	! -x "$ROOT/node_modules/.bin/prettier" ||
@@ -90,6 +95,12 @@ echo "== fwlive classify spec ==" >&2
 
 echo "== fwlive parser corpus pin (#240 C1) ==" >&2
 "$NODE" tests/fwlive-parser-corpus.test.js
+
+echo "== fwlive shell filter parity (busybox sh) ==" >&2
+SH='busybox sh' "$NODE" tests/fwlive-shell-filter.test.js
+
+echo "== fwlive parser corpus pin (#240 C1, busybox sh) ==" >&2
+SH='busybox sh' "$NODE" tests/fwlive-parser-corpus.test.js
 
 echo "== fwlive codegen freshness ==" >&2
 "$NODE" tests/fwlive-codegen.test.js

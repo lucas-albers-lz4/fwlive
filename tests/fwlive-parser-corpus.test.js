@@ -22,7 +22,7 @@ const ROOT = path.join(__dirname, '..');
 const FILTER_SH = path.join(ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh');
 const FIXTURE_DIR = path.join(__dirname, 'fixtures');
-/* Override with SH=busybox or SH='busybox sh' for ash parity. */
+/* Override with SH='busybox sh' for ash parity (#103). */
 const SH = process.env.SH || 'sh';
 
 const FIXTURES = [ 'logread-mixed.json', 'logread-iptables.json' ];
