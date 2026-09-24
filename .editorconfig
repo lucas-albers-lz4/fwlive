@@ -1,0 +1,13 @@
+root = true
+
+# Shipped libexec shell (same surface as scripts/fwlive-shellcheck.sh).
+[openwrt-feed/luci-app-fwlive/root/usr/libexec/**.sh]
+indent_style = tab
+
+# Extensionless rpcd plugin (find -name fwlive); **.sh does not match it.
+[openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive]
+indent_style = tab
+
+# Shipped LuCI JS (Prettier useTabs). Not host scripts/ or tests/.
+[openwrt-feed/luci-app-fwlive/htdocs/**/*.js]
+indent_style = tab

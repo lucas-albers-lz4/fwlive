@@ -53,6 +53,7 @@ echo "OK: SPDX headers present on shipped JS/CSS/shell/Makefile" >&2
 
 echo "== fwlive shellcheck (libexec/rpcd) ==" >&2
 bash "$ROOT/scripts/fwlive-shellcheck.sh"
+bash "$ROOT/tests/fwlive-shellcheck-tabs.test.sh"
 
 echo "== fwlive invariant rules, shipped JS (ast-grep) ==" >&2
 bash "$ROOT/scripts/fwlive-ast-grep.sh"
