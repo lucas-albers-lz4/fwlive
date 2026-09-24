@@ -171,7 +171,11 @@ async function testLoggingStatusFailurePreservesToolbar() {
 
 	rejectStatus = true;
 	await v.loadLoggingStatus();
-	assert.deepStrictEqual(v.loggingStatus, goodStatus, 'status failure must keep the last good state');
+	assert.deepStrictEqual(
+		v.loggingStatus,
+		goodStatus,
+		'status failure must keep the last good state'
+	);
 	assert.match(String(v.loggingNotice), /last known state/);
 	assert.strictEqual(bar.childNodes[0].tagName, 'button', 'toolbar must remain actionable');
 	assert.match(collectText(bar), /last known state/, 'toolbar must show the last-known notice');
@@ -181,7 +185,11 @@ async function testLoggingStatusFailurePreservesToolbar() {
 	assert.deepEqual(noticeEl._innerHTMLWrites || [], [], 'toolbar notice must be a text node');
 
 	await v.handleEnableLogging();
-	assert.equal(v.loggingStatus && v.loggingStatus.wan_log, true, 'failed refresh after enable must keep wan_log true');
+	assert.equal(
+		v.loggingStatus && v.loggingStatus.wan_log,
+		true,
+		'failed refresh after enable must keep wan_log true'
+	);
 	assert.match(collectText(bar), /WAN logging on/, 'toolbar must still look enabled');
 	assert.match(String(v.loggingNotice), /WAN drop\/reject logging is on/);
 	assert.doesNotMatch(
@@ -189,7 +197,11 @@ async function testLoggingStatusFailurePreservesToolbar() {
 		/last known state/,
 		'toggle success notice must not be replaced by the generic last-known string'
 	);
-	assert.match(collectText(bar), /WAN drop\/reject logging is on/, 'toolbar must keep the toggle success notice');
+	assert.match(
+		collectText(bar),
+		/WAN drop\/reject logging is on/,
+		'toolbar must keep the toggle success notice'
+	);
 
 	rejectStatus = false;
 	goodStatus.wan_log = true;
@@ -230,7 +242,11 @@ async function testVisibilityStopsPoll() {
 	);
 
 	await v.requestPoll();
-	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'hidden request is a no-op');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().inFlight,
+		false,
+		'hidden request is a no-op'
+	);
 
 	h.poll.clearOps();
 	h.setHidden(false);
@@ -280,7 +296,11 @@ async function testEpochDiscardsStale() {
 	assert.strictEqual(v.entries.length, 0, 'stale epoch must not apply rows');
 	/* The stale request is still the only request, so its completion releases
 	 * the coordinator. A later visible catch-up can then start normally. */
-	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'completed stale poll must release the guard');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().inFlight,
+		false,
+		'completed stale poll must release the guard'
+	);
 
 	/* Control: visible catch-up ingests. */
 	h.setRpcMock('fwlive.poll', async function () {
@@ -336,17 +356,29 @@ async function testHideShowWhileInFlightNoOverlap() {
 	h.setHidden(false);
 	await sleep(10);
 	assert.strictEqual(calls, 1, 'resume catch-up must not overlap the hidden request');
-	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, true, 'hidden request retains the in-flight guard');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().inFlight,
+		true,
+		'hidden request retains the in-flight guard'
+	);
 
 	/* Stale first completes — the queued catch-up may now start. */
 	release1();
 	await first;
-	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, true, 'queued catch-up owns the in-flight guard');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().inFlight,
+		true,
+		'queued catch-up owns the in-flight guard'
+	);
 	assert.strictEqual(calls, 2, 'stale completion must start the queued catch-up');
 
 	release2();
 	await sleep(30);
-	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'catch-up finally clears its own guard');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().inFlight,
+		false,
+		'catch-up finally clears its own guard'
+	);
 	assert.ok(v.entries.length >= 1);
 	const ids = {};
 	for (let i = 0; i < v.entries.length; i++) ids[v.entries[i].id] = true;
@@ -407,7 +439,11 @@ async function testRefreshTriggersSerialize() {
 	assert.strictEqual(calls, 3, 'Resume must start only after the prior request completes');
 	releases[2]();
 	await sleep(20);
-	assert.strictEqual(v.ensurePollCoordinator().getState().inFlight, false, 'all serialized requests must settle');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().inFlight,
+		false,
+		'all serialized requests must settle'
+	);
 
 	/* Startup uses the same coordinator entry point. */
 	const h2 = loadFwliveView();
@@ -483,7 +519,11 @@ async function testAdaptiveOffDisablesBackoff() {
 	v.notePollRtt(5000, false);
 	v.notePollRtt(5000, false);
 	v.notePollRtt(5000, false);
-	assert.strictEqual(v.ensurePollCoordinator().getState().cadenceSec, c.POLL_CADENCE_FAST_S, 'adaptive:0 keeps 1s');
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().cadenceSec,
+		c.POLL_CADENCE_FAST_S,
+		'adaptive:0 keeps 1s'
+	);
 	assert.strictEqual(v.degradedSampling, false);
 	v.updateAdaptiveBanner();
 	const el = h.document.getElementById('fwlive-adaptive');
@@ -518,14 +558,12 @@ async function testResolveLoadShed() {
 async function testResolveReplyShapes() {
 	const h = loadFwliveView();
 	const v = h.view;
-	assert.deepStrictEqual(
-		v.resolveNamesFromReply({ names: { '192.0.2.1': 'router.example' } }),
-		{ '192.0.2.1': 'router.example' }
-	);
-	assert.deepStrictEqual(
-		v.resolveNamesFromReply({ '198.51.100.1': 'host.example' }),
-		{ '198.51.100.1': 'host.example' }
-	);
+	assert.deepStrictEqual(v.resolveNamesFromReply({ names: { '192.0.2.1': 'router.example' } }), {
+		'192.0.2.1': 'router.example'
+	});
+	assert.deepStrictEqual(v.resolveNamesFromReply({ '198.51.100.1': 'host.example' }), {
+		'198.51.100.1': 'host.example'
+	});
 	assert.strictEqual(v.resolveNamesFromReply(null), null);
 	assert.strictEqual(v.resolveNamesFromReply([]), null);
 	console.log('fwlive-view layer2: resolve reply shapes OK');
@@ -540,7 +578,9 @@ async function testWarmHostnameTogglePaintsCache() {
 	v.entries = [{ id: 'warm', src: ip, dst: '198.51.100.1' }];
 	v.hostnameCache = new Map([[ip, 'router.example']]);
 	v.hostnameFailed = new Map();
-	v.renderRows = function (force) { renders.push(force); };
+	v.renderRows = function (force) {
+		renders.push(force);
+	};
 	v.resolveHostnamesForEntries = function () {
 		resolves++;
 		return Promise.resolve();
@@ -1053,15 +1093,20 @@ async function testResumeClearsPauseBufferLoading() {
 	const v = h.view;
 	v.updateStreamControlsUi = function () {};
 	v.renderRows = function () {};
-	v.requestPoll = function () { return gate; };
+	v.requestPoll = function () {
+		return gate;
+	};
 	v.tablePaused = false;
 	v.entries = [];
 
 	v.onPauseClick();
 	assert.strictEqual(v.pauseBufferLoading, true, 'Pause must mark the empty buffer as loading');
 	v.onPauseClick();
-	assert.strictEqual(v.pauseBufferLoading, false,
-		'Resume must clear the pause loading state before the gated poll settles');
+	assert.strictEqual(
+		v.pauseBufferLoading,
+		false,
+		'Resume must clear the pause loading state before the gated poll settles'
+	);
 
 	release();
 	await gate;
@@ -1153,10 +1198,12 @@ async function testAnimationFrameAdaptersPreserveWindowReceiver() {
 
 async function testLimitRefreshPreservesQueuedForce() {
 	const frames = [];
-	const h = loadFwliveView({ requestAnimationFrame: (fn) => {
-		frames.push(fn);
-		return frames.length;
-	} });
+	const h = loadFwliveView({
+		requestAnimationFrame: (fn) => {
+			frames.push(fn);
+			return frames.length;
+		}
+	});
 	const v = h.view;
 	const renders = [];
 	v.renderRows = (force) => renders.push(force);
@@ -1183,15 +1230,19 @@ async function testLimitRefreshPreservesQueuedForce() {
 
 async function testLimitPaintDoesNotWaitForHostnames() {
 	const frames = [];
-	const h = loadFwliveView({ requestAnimationFrame: (fn) => {
-		frames.push(fn);
-		return frames.length;
-	} });
+	const h = loadFwliveView({
+		requestAnimationFrame: (fn) => {
+			frames.push(fn);
+			return frames.length;
+		}
+	});
 	const v = h.view;
 	const renders = [];
 	let releaseNames;
 	let resolving = false;
-	const names = new Promise(resolve => { releaseNames = resolve; });
+	const names = new Promise((resolve) => {
+		releaseNames = resolve;
+	});
 	v.fetchEntries = async () => {};
 	v.resolveHostnamesForEntries = () => {
 		resolving = true;
@@ -1200,19 +1251,213 @@ async function testLimitPaintDoesNotWaitForHostnames() {
 	v.renderRows = (force) => renders.push(force);
 	const requestPoll = v.requestPoll.bind(v);
 	let refresh;
-	v.requestPoll = () => { refresh = requestPoll(); return refresh; };
+	v.requestPoll = () => {
+		refresh = requestPoll();
+		return refresh;
+	};
 
 	v.onRowLimitChange({ target: { value: '500' } });
 	await Promise.resolve();
 	assert.strictEqual(resolving, true, 'poll must be waiting for hostname resolution');
 	assert.strictEqual(frames.length, 1, 'fresh rows have a frame before names return');
 	frames.shift()();
-	assert.deepStrictEqual(renders, [true, true], 'Limit refresh bypasses throttle before names return');
+	assert.deepStrictEqual(
+		renders,
+		[true, true],
+		'Limit refresh bypasses throttle before names return'
+	);
 	releaseNames();
 	await refresh;
 	await Promise.resolve();
-	assert.deepStrictEqual(renders, [true, true, true], 'completion preserves the final forced paint');
+	assert.deepStrictEqual(
+		renders,
+		[true, true, true],
+		'completion preserves the final forced paint'
+	);
 	console.log('fwlive-view layer2: Limit paints before hostname completion OK');
+}
+
+async function testResolveCompletionDefersPaintWhilePaused() {
+	let release;
+	const gate = new Promise(function (r) {
+		release = r;
+	});
+	const ip = '192.0.2.1';
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				await gate;
+				return { names: { [ip]: 'router.example' } };
+			}
+		}
+	});
+	const v = h.view;
+	v.showHostnames = true;
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	v.entries = [{ id: '1', src: ip, dst: '198.51.100.1' }];
+	v.tablePaused = true;
+
+	const renders = [];
+	const scheduled = [];
+	v.renderRows = function (force) {
+		renders.push(force);
+	};
+	v.scheduleRenderRows = function (force) {
+		scheduled.push(force);
+	};
+
+	const resolve = v.resolveHostnamesForEntries(v.filteredRows());
+	await sleep(10);
+	assert.strictEqual(renders.length, 0, 'resolve must not paint while paused and in flight');
+	assert.strictEqual(
+		scheduled.length,
+		0,
+		'resolve must not schedule paint while paused and in flight'
+	);
+	assert.strictEqual(v.resolvePaintPending, false, 'pending flag waits for resolve completion');
+
+	release();
+	await resolve;
+	assert.strictEqual(renders.length, 0, 'resolve completion must not paint while paused');
+	assert.strictEqual(
+		scheduled.length,
+		0,
+		'resolve completion must not schedule paint while paused'
+	);
+	assert.strictEqual(
+		v.resolvePaintPending,
+		true,
+		'resolve completion must coalesce while paused'
+	);
+	assert.strictEqual(
+		v.hostnameCache.get(ip),
+		'router.example',
+		'cache must still update while paused'
+	);
+
+	v.updateStreamControlsUi = function () {};
+	v.requestPoll = function () {
+		return Promise.resolve();
+	};
+	v.onPauseClick();
+	assert.strictEqual(v.tablePaused, false, 'resume must unpause');
+	await sleep(10);
+	assert.strictEqual(renders.length, 1, 'resume must apply coalesced hostname paint');
+	assert.strictEqual(v.resolvePaintPending, false, 'resume paint must clear pending flag');
+	console.log('fwlive-view layer2: resolve completion defers paint while paused OK');
+}
+
+function testLeaveSummaryModeClearsResolvePaintPending() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.summaryMode = true;
+	v.tablePaused = false;
+	v.resolvePaintPending = true;
+	let painted = false;
+	v.renderRows = function (force) {
+		painted = !!force;
+	};
+	v.updateSummaryUi = function () {};
+	v.leaveSummaryMode();
+	assert.strictEqual(v.summaryMode, false);
+	assert.strictEqual(v.resolvePaintPending, false, 'unpaused leaveSummaryMode must clear pending flag');
+	assert.strictEqual(painted, true, 'unpaused leaveSummaryMode must repaint rows');
+	console.log('fwlive-view layer2: leaveSummaryMode clears resolve paint pending OK');
+}
+
+async function testCatchupPollForcesPendingHostnamePaint() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				return { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	v.tablePaused = false;
+	v.summaryMode = false;
+	v.resolvePaintPending = true;
+	const scheduled = [];
+	v.scheduleRenderRows = function (force) {
+		scheduled.push(!!force);
+	};
+	v.fetchEntries = async function () {};
+	v.resolveHostnamesForEntries = async function () {};
+	await v.runPollRequest(v.currentPollEpoch());
+	assert.deepStrictEqual(scheduled, [true], 'catch-up poll must force coalesced hostname paint');
+	assert.strictEqual(v.resolvePaintPending, false, 'catch-up poll must clear pending flag');
+	console.log('fwlive-view layer2: catch-up poll forces pending hostname paint OK');
+}
+
+async function testHostnameToggleAsyncResolveDefersPaintWhilePaused() {
+	let release;
+	const gate = new Promise(function (r) {
+		release = r;
+	});
+	const ip = '192.0.2.1';
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				await gate;
+				return { names: { [ip]: 'router.example' } };
+			}
+		}
+	});
+	const v = h.view;
+	v.entries = [{ id: '1', src: ip, dst: '198.51.100.1' }];
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	v.tablePaused = true;
+
+	const renders = [];
+	const scheduled = [];
+	v.renderRows = function (force) {
+		renders.push(force);
+	};
+	v.scheduleRenderRows = function (force) {
+		scheduled.push(force);
+	};
+
+	v.onShowHostnamesChange({ target: { checked: true } });
+	assert.strictEqual(renders.length, 0, 'toggle-on must not paint while paused');
+	assert.strictEqual(scheduled.length, 0, 'toggle-on must not schedule paint while paused');
+
+	await sleep(10);
+	assert.strictEqual(
+		renders.length,
+		0,
+		'toggle async resolve must not paint while paused and in flight'
+	);
+
+	release();
+	await sleep(20);
+	assert.strictEqual(
+		renders.length,
+		0,
+		'toggle async resolve completion must not paint while paused'
+	);
+	assert.strictEqual(
+		scheduled.length,
+		0,
+		'toggle async resolve completion must not schedule paint while paused'
+	);
+	assert.strictEqual(
+		v.resolvePaintPending,
+		true,
+		'toggle async resolve must coalesce while paused'
+	);
+	assert.strictEqual(v.hostnameCache.get(ip), 'router.example');
+	console.log('fwlive-view layer2: hostname toggle async resolve defers paint while paused OK');
 }
 
 async function testPausedDisplayControlsPaint() {
@@ -1227,8 +1472,11 @@ async function testPausedDisplayControlsPaint() {
 	v.onRowLimitChange({ target: { value: '500' } });
 	assert.deepStrictEqual(renders, [true], 'paused Limit changes must repaint immediately');
 	v.setMessageLayout('oneline');
-	assert.deepStrictEqual(renders, [true, true],
-		'paused message-layout changes must repaint immediately');
+	assert.deepStrictEqual(
+		renders,
+		[true, true],
+		'paused message-layout changes must repaint immediately'
+	);
 	console.log('fwlive-view layer2: paused display controls paint OK');
 }
 
@@ -1262,6 +1510,10 @@ async function testPausedDisplayControlsPaint() {
 		await testAnimationFrameAdaptersPreserveWindowReceiver();
 		await testLimitRefreshPreservesQueuedForce();
 		await testLimitPaintDoesNotWaitForHostnames();
+		await testResolveCompletionDefersPaintWhilePaused();
+		testLeaveSummaryModeClearsResolvePaintPending();
+		await testCatchupPollForcesPendingHostnamePaint();
+		await testHostnameToggleAsyncResolveDefersPaintWhilePaused();
 		await testPausedDisplayControlsPaint();
 		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
