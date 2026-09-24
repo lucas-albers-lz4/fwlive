@@ -90,6 +90,14 @@ touch -t 202601080000 "$apk_new"
 got="$(feed_publish_find_artifact 23.05.5 0.1.45)"
 assert_eq "$got" "$apk_new" "mtime ordering still applies among version-matched candidates"
 
+# OpenWrt IPK: luci-app-fwlive_${PKG_VERSION}-${PKG_RELEASE}_all.ipk
+rm -f "$apk_old" "$apk_new"
+ipk_rel="${dir}/luci-app-fwlive_0.1.45-1_all.ipk"
+echo ipk-rel > "$ipk_rel"
+got="$(feed_publish_find_artifact 23.05.5 0.1.45)"
+assert_eq "$got" "$ipk_rel" "IPK PKG_RELEASE suffix -1 must match PKG_VERSION"
+rm -f "$ipk_rel"
+
 # No matching artifact → fail closed with a clear error.
 err="$(assert_fails "missing PKG_VERSION fails closed" feed_publish_find_artifact 23.05.5 0.1.99)"
 grep -q 'PKG_VERSION 0.1.99' "$err" || {

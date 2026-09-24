@@ -74,7 +74,7 @@ feed_publish_find_artifact() {
 	for f in "${candidates[@]}"; do
 		base="${f##*/}"
 		case "$base" in
-			*"_${pkg_version}_"*|*"-${pkg_version}-"*|*"_${pkg_version}."*|*"-${pkg_version}."*)
+			*"_${pkg_version}_"*|*"_${pkg_version}-"*|*"-${pkg_version}-"*|*"_${pkg_version}."*|*"-${pkg_version}."*)
 				matched+=("$f")
 				;;
 		esac
