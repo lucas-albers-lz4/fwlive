@@ -789,6 +789,8 @@ return view.extend({
 			this._loggingNoticeFromToggle = true;
 			await this.loadLoggingStatus();
 		} finally {
+			/* Survive only the refresh owned by this toggle (#601 luna). */
+			this._loggingNoticeFromToggle = false;
 			this.loggingBusy = false;
 			this.updateEmptyStateUi();
 			this.updateLoggingToolbarUi();
