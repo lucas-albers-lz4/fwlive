@@ -21,6 +21,10 @@ on:
         description: 'OpenWrt version for feed smoke (one cell; default 24.10)'
         type: string
         default: '24.10'
+      allow_rollback:
+        description: 'Allow deploying a feed older than the live GitHub Pages manifest'
+        type: boolean
+        default: false
 
 env:
   FWLIVE_FEED_BASE_URL: https://lucas-albers-lz4.github.io/fwlive-packages
@@ -245,6 +249,30 @@ jobs:
       - name: Remove temporary signing keys
         if: always()
         run: rm -rf "${RUNNER_TEMP}/fwlive-keys"
+
+      # #590: do not replace a newer live feed with an older tag. Fetch the
+      # published manifest, compare parsed vMAJOR.MINOR.PATCH (not string
+      # sort), and require allow_rollback for a deliberate downgrade.
+      - name: Guard against feed downgrade
+        env:
+          ALLOW_ROLLBACK: ${{ github.event.inputs.allow_rollback || 'false' }}
+        run: |
+          set -euo pipefail
+          live="${RUNNER_TEMP}/live-manifest.json"
+          url="${FWLIVE_FEED_BASE_URL}/manifest.json"
+          if ! curl -fsSL --max-time 30 "$url" -o "$live"; then
+            echo "error: could not fetch live feed manifest from $url" >&2
+            exit 1
+          fi
+          extra=()
+          if [[ "$ALLOW_ROLLBACK" == "true" ]]; then
+            extra+=(--allow-rollback)
+          fi
+          ./scripts/guard-feed-deploy.sh \
+            --staged feed-staging/manifest.json \
+            --live "$live" \
+            --tag "$FWLIVE_RELEASE_TAG" \
+            "${extra[@]}"
 
       - name: Deploy to GitHub Pages (fwlive-packages)
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453  # v4.1.0
