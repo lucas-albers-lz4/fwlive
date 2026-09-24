@@ -698,10 +698,16 @@ restore_wan_zone_log() {
 	# below must be able to undo only our rollback staging without reverting
 	# the other writer's change.
 	committed=$(wan_zone_log_value "$zone")
+	# Fail closed if set/delete never staged. Swallowed rc plus an empty
+	# changes list would make `uci commit` succeed as a no-op.
 	if [ -z "$previous" ]; then
-		uci -q delete "firewall.${zone}.log" 2>/dev/null || true
+		if ! uci -q delete "firewall.${zone}.log" 2>/dev/null; then
+			return 1
+		fi
 	else
-		uci -q set "firewall.${zone}.log=${previous}" 2>/dev/null || true
+		if ! uci -q set "firewall.${zone}.log=${previous}" 2>/dev/null; then
+			return 1
+		fi
 	fi
 	_staged=$(uci -q changes firewall 2>/dev/null || true)
 	_foreign=$(wan_log_foreign_staged_lines "$zone" "$_staged")

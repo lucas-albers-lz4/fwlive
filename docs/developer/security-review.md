@@ -259,7 +259,7 @@ should carry a note saying what would raise it.
 | JSON filter unescapes libubox string escapes (`\b` `\f` `\n` `\r` `\t` `\u00XX`) before classify | `host` | `tests/fwlive-shell-filter.test.js` `runJsonGetMsgEscapes` / `runJsonParity` |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
-| Reload failure rolls back the UCI write | `host` | same |
+| Reload failure rolls back the UCI write; restore returns non-zero if `uci set`/`uci delete` never staged | `host` | `tests/fwlive-logging.test.sh` |
 | `resolve` bounded by a wall-clock budget | `manual` | `RESOLVE_BUDGET`; no test asserts the bound |
 | `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` (clamp helper tested without jshn) |
 | Rules map temp file created only via `mktemp` (`_fwlive_mktemp`, fixed `/tmp` after a sticky-dir check, `TMPDIR` NOT honoured, no `rm`+reuse) with graceful degradation; accumulation via redirect keeps global first-wins dedup | `host` | `tests/fwlive-rules-map.test.js` production-path stubs under `dash` (and `busybox sh` when BusyBox honours PATH); `testNoMktempGracefulDegradation`; `testTmpDirSticky` |
