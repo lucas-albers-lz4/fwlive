@@ -12,9 +12,24 @@ const { loadFwliveView } = require('./lib/load-fwlive-view');
 const STORAGE_KEY = 'fwlive-logging-consent-v1';
 const WRONG_TYPE_REPLIES = [null, [], 'bad', 7];
 
+const LOGGING_STATUS_DEFAULT = {
+	wan_zone: null,
+	wan_zone_candidates: [],
+	wan_log: false,
+	wan_log_limit: null,
+	nf_log_ipv4: false,
+	nf_log_ipv6: false,
+	ready: false,
+	weak_device: false,
+	blockers: [],
+	warnings: []
+};
+
 function makeHarness(method, reply, storage, options) {
 	options = options || {};
 	let calls = 0;
+	let statusLoads = 0;
+	let mockWanLog = LOGGING_STATUS_DEFAULT.wan_log;
 	const h = loadFwliveView({
 		storage: storage,
 		rawRpcKeys: options.rawReply ? { ['fwlive.' + method]: true } : undefined,
@@ -22,17 +37,22 @@ function makeHarness(method, reply, storage, options) {
 			['fwlive.' + method]: async function () {
 				calls++;
 				if (reply instanceof Error) throw reply;
+				if (reply && reply.ok) {
+					if (method === 'enable_wan_logging') mockWanLog = true;
+					if (method === 'disable_wan_logging') mockWanLog = false;
+				}
 				return reply;
+			},
+			'fwlive.logging_status': async function () {
+				statusLoads++;
+				return Object.assign({}, LOGGING_STATUS_DEFAULT, { wan_log: mockWanLog });
 			}
 		}
 	});
 
-	let statusLoads = 0;
 	let emptyUpdates = 0;
 	let toolbarUpdates = 0;
-	h.view.loadLoggingStatus = async function () {
-		statusLoads++;
-	};
+	h.view.updateBackendUi = function () {};
 	h.view.updateEmptyStateUi = function () {
 		emptyUpdates++;
 	};
@@ -70,8 +90,8 @@ async function testEnableReply(reply, expectedNotice, shouldPersist) {
 	assert.equal(notice(x.view), expectedNotice);
 	assert.equal(x.view.loggingBusy, false, 'enable finally must clear busy');
 	assert.equal(x.statusLoads(), 1, 'enable must refresh status once');
-	assert.equal(x.emptyUpdates(), 2, 'enable updates empty state in preamble and finally');
-	assert.equal(x.toolbarUpdates(), 2, 'enable updates toolbar in preamble and finally');
+	assert.equal(x.emptyUpdates(), 3, 'enable updates empty state in preamble, refresh, and finally');
+	assert.equal(x.toolbarUpdates(), 3, 'enable updates toolbar in preamble, refresh, and finally');
 	if (shouldPersist) assert.equal(x.h.localStorage.getItem(STORAGE_KEY), '1');
 	else assert.equal(x.h.localStorage.getItem(STORAGE_KEY), null);
 }
@@ -95,6 +115,9 @@ async function testEnableVariants() {
 		'WAN drop/reject logging is on. Blocked inbound traffic should appear here as it happens — not normal LAN browsing.',
 		true
 	);
+	const enabled = makeHarness('enable_wan_logging', { ok: true, changed: true }, {});
+	await enabled.view.handleEnableLogging();
+	assert.equal(enabled.view.loggingStatus && enabled.view.loggingStatus.wan_log, true);
 	await testEnableReply({ ok: true, changed: false }, 'WAN logging is already enabled.', true);
 	await testEnableReply(
 		new Error('permission denied'),
@@ -122,8 +145,8 @@ async function testDisableReply(reply, expectedNotice) {
 	assert.equal(notice(x.view), expectedNotice);
 	assert.equal(x.view.loggingBusy, false, 'disable finally must clear busy');
 	assert.equal(x.statusLoads(), 1, 'disable must refresh status once');
-	assert.equal(x.emptyUpdates(), 1, 'disable only updates empty state in finally');
-	assert.equal(x.toolbarUpdates(), 2, 'disable updates toolbar in preamble and finally');
+	assert.equal(x.emptyUpdates(), 2, 'disable updates empty state in refresh and finally');
+	assert.equal(x.toolbarUpdates(), 3, 'disable updates toolbar in preamble, refresh, and finally');
 	assert.equal(x.h.localStorage.getItem(STORAGE_KEY), null, 'disable never persists consent');
 }
 
@@ -137,25 +160,15 @@ async function testDisableVariants() {
 	await testDisableReply({ ok: false, error: 'other' }, 'Could not disable logging.');
 	await testDisableReply({ ok: true, changed: true }, 'WAN drop/reject logging is off.');
 	await testDisableReply({ ok: true, changed: false }, '');
+	const disabled = makeHarness('disable_wan_logging', { ok: true, changed: true }, {});
+	await disabled.view.handleDisableLogging();
+	assert.equal(disabled.view.loggingStatus && disabled.view.loggingStatus.wan_log, false);
 	await testDisableReply(
 		new Error('permission denied'),
 		'Administrator access is required to disable logging.'
 	);
 	console.log('fwlive-view logging: disable variants and no-change behavior OK');
 }
-
-const LOGGING_STATUS_DEFAULT = {
-	wan_zone: null,
-	wan_zone_candidates: [],
-	wan_log: false,
-	wan_log_limit: null,
-	nf_log_ipv4: false,
-	nf_log_ipv6: false,
-	ready: false,
-	weak_device: false,
-	blockers: [],
-	warnings: []
-};
 
 async function testLoggingStatusDefaultReply() {
 	for (const reply of WRONG_TYPE_REPLIES) {
@@ -280,6 +293,69 @@ function testLegacyIptablesWarning() {
 	console.log('fwlive-view logging: legacy_iptables_detected warning OK');
 }
 
+async function testDisableNoChangeClearsLastKnownNotice() {
+	let rejectStatus = true;
+	const goodStatus = Object.assign({}, LOGGING_STATUS_DEFAULT, { ready: true });
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.logging_status': async function () {
+				if (rejectStatus) throw new Error('logging status unavailable');
+				return goodStatus;
+			},
+			'fwlive.disable_wan_logging': async function () {
+				return { ok: true, changed: false };
+			}
+		}
+	});
+	h.view.updateBackendUi = function () {};
+	h.view.updateEmptyStateUi = function () {};
+	h.view.updateLoggingToolbarUi = function () {};
+
+	await h.view.loadLoggingStatus();
+	assert.match(String(h.view.loggingNotice), /last known state/);
+
+	rejectStatus = false;
+	await h.view.handleDisableLogging();
+	assert.equal(String(h.view.loggingNotice), '');
+	assert.equal(h.view._loggingNoticeFromToggle, false);
+
+	await h.view.loadLoggingStatus();
+	assert.equal(String(h.view.loggingNotice), '');
+	console.log('fwlive-view logging: disable no-change clears last-known notice OK');
+}
+
+async function testToggleSuccessNoticeSurvivesRefresh() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.enable_wan_logging': async function () {
+				return { ok: true, changed: true };
+			},
+			'fwlive.logging_status': async function () {
+				return Object.assign({}, LOGGING_STATUS_DEFAULT, { wan_log: true, ready: true });
+			}
+		}
+	});
+	h.view.updateBackendUi = function () {};
+	h.view.updateEmptyStateUi = function () {};
+	h.view.updateLoggingToolbarUi = function () {};
+
+	await h.view.handleEnableLogging();
+	assert.match(String(h.view.loggingNotice), /WAN drop\/reject logging is on/);
+	assert.equal(
+		h.view._loggingNoticeFromToggle,
+		false,
+		'toggle flag must be consumed after the post-toggle refresh'
+	);
+
+	await h.view.loadLoggingStatus();
+	assert.equal(
+		String(h.view.loggingNotice),
+		'',
+		'a later status refresh must be able to clear the toggle notice'
+	);
+	console.log('fwlive-view logging: toggle success notice survives owned refresh OK');
+}
+
 async function testBusyReentry() {
 	let rpcCalled = false;
 	const h = loadFwliveView({
@@ -312,6 +388,8 @@ async function testBusyReentry() {
 		await testEnableVariants();
 		await testRawFalsyReply();
 		await testDisableVariants();
+		await testDisableNoChangeClearsLastKnownNotice();
+		await testToggleSuccessNoticeSurvivesRefresh();
 		await testLoggingStatusDefaultReply();
 		testMktempFailedBackendLabel();
 		testBackendDisplayLabels();

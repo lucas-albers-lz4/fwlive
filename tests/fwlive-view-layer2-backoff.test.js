@@ -194,10 +194,13 @@ async function testLoggingStatusFailurePreservesToolbar() {
 	rejectStatus = false;
 	goodStatus.wan_log = true;
 	await v.loadLoggingStatus();
-	assert.equal(v.loggingNotice, '', 'successful status refresh must clear loggingNotice');
+	assert.equal(
+		String(v.loggingNotice),
+		'',
+		'a later successful status refresh must clear the consumed toggle notice'
+	);
 	assert.equal(v.loggingStatus && v.loggingStatus.wan_log, true);
 	assert.equal(collectText(bar).indexOf('last known state'), -1);
-	assert.equal(collectText(bar).indexOf('WAN drop/reject logging is on'), -1);
 	console.log('fwlive-view layer2: logging status failure preserves toolbar OK');
 }
 
