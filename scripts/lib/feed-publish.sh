@@ -37,18 +37,55 @@ feed_publish_feed_dir() {
 	esac
 }
 
+# Expected luci-app-fwlive PKG_VERSION for artifact selection.
+# FWLIVE_PKG_VERSION overrides the Makefile (publish callers / host tests).
+feed_publish_pkg_version() {
+	if [[ -n "${FWLIVE_PKG_VERSION:-}" ]]; then
+		printf '%s' "$FWLIVE_PKG_VERSION"
+		return 0
+	fi
+	local makefile ver
+	# Read the source tree, not FEED_PUBLISH_ROOT (that is the out/ fixture).
+	makefile="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/openwrt-feed/luci-app-fwlive/Makefile"
+	ver="$(sed -n 's/^PKG_VERSION:=//p' "$makefile" | head -1)"
+	[[ -n "$ver" ]] || {
+		echo "feed_publish_pkg_version: PKG_VERSION missing in ${makefile}" >&2
+		return 1
+	}
+	printf '%s' "$ver"
+}
+
+# $1 = SDK version label (out/x86_64/<label>/fwlive). $2 = expected PKG_VERSION.
 feed_publish_find_artifact() {
 	local version_label="$1"
-	local root dir base f
+	local pkg_version="${2:-}"
+	local root dir f base
 	root="$(feed_publish_root)"
 	dir="${root}/out/x86_64/${version_label}/fwlive"
+	if [[ -z "$pkg_version" ]]; then
+		echo "feed_publish_find_artifact: expected package version is required" >&2
+		return 1
+	fi
 	shopt -s nullglob
 	local candidates=( "${dir}"/luci-app-fwlive_*_all.ipk "${dir}"/luci-app-fwlive-*.apk "${dir}"/luci-app-fwlive_*.apk )
 	shopt -u nullglob
-	[[ ${#candidates[@]} -ge 1 ]] || return 1
-	# Reused out/ dirs keep older PKG_VERSION files; name order would pick
-	# luci-app-fwlive_0.1.44_all.ipk over 0.1.45. Newest mtime is the latest build.
-	ls -1t "${candidates[@]}" 2>/dev/null | head -1
+	# Delimited token so 0.1.4 cannot match luci-app-fwlive_0.1.44_all.ipk.
+	local matched=()
+	for f in "${candidates[@]}"; do
+		base="${f##*/}"
+		case "$base" in
+			*"_${pkg_version}_"*|*"_${pkg_version}-"*|*"-${pkg_version}-"*|*"_${pkg_version}."*|*"-${pkg_version}."*)
+				matched+=("$f")
+				;;
+		esac
+	done
+	if [[ ${#matched[@]} -lt 1 ]]; then
+		echo "no luci-app-fwlive artifact matching PKG_VERSION ${pkg_version} under out/x86_64/${version_label}/fwlive/" >&2
+		return 1
+	fi
+	# Newest mtime among version-matched candidates only. Equal mtimes keep
+	# ls -1t name order as a secondary pick, not a version substitute.
+	ls -1t "${matched[@]}" 2>/dev/null | head -1
 }
 
 # Map SDK output dir (e.g. 23.05.5) → feed/release key (e.g. 23.05).
@@ -78,12 +115,16 @@ feed_publish_release_asset_basename() {
 # Copy built artifacts into a flat dir with unique release asset names.
 feed_publish_stage_release_assets() {
 	local dest="$1"
+	local pkg_version="${2:-}"
 	local ver ver_label path name
+	if [[ -z "$pkg_version" ]]; then
+		pkg_version="$(feed_publish_pkg_version)" || return 1
+	fi
 	mkdir -p "$dest"
 	find "$dest" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 	for ver in 23.05 24.10 25.12; do
 		ver_label="$(sdk_matrix_version_label "$ver")"
-		path="$(feed_publish_find_artifact "$ver_label" 2>/dev/null || true)"
+		path="$(feed_publish_find_artifact "$ver_label" "$pkg_version" 2>/dev/null || true)"
 		[[ -n "$path" ]] || continue
 		name="$(feed_publish_release_asset_basename "$path")"
 		if [[ -e "${dest}/${name}" ]]; then
@@ -376,10 +417,14 @@ feed_publish_stage_opkg_sdk() {
 
 feed_publish_stage_opkg() {
 	local version_key="$1" staging="$2"
+	local pkg_version="${3:-}"
 	local ver_label feed_dir artifact pkg_dir ready_rc ready_out
+	if [[ -z "$pkg_version" ]]; then
+		pkg_version="$(feed_publish_pkg_version)" || return 1
+	fi
 	ver_label="$(sdk_matrix_version_label "$version_key")"
 	feed_dir="${staging}/$(feed_publish_feed_dir "$version_key")"
-	artifact="$(feed_publish_find_artifact "$ver_label")" || {
+	artifact="$(feed_publish_find_artifact "$ver_label" "$pkg_version")" || {
 		echo "missing built ipk for ${ver_label} under out/x86_64/${ver_label}/fwlive/" >&2
 		return 1
 	}
@@ -410,10 +455,14 @@ feed_publish_stage_opkg() {
 
 feed_publish_stage_apk() {
 	local version_key="$1" staging="$2"
+	local pkg_version="${3:-}"
 	local ver_label feed_dir artifact pkg_dir
+	if [[ -z "$pkg_version" ]]; then
+		pkg_version="$(feed_publish_pkg_version)" || return 1
+	fi
 	ver_label="$(sdk_matrix_version_label "$version_key")"
 	feed_dir="${staging}/$(feed_publish_feed_dir "$version_key")/all"
-	artifact="$(feed_publish_find_artifact "$ver_label")" || {
+	artifact="$(feed_publish_find_artifact "$ver_label" "$pkg_version")" || {
 		echo "missing built apk for ${ver_label} under out/x86_64/${ver_label}/fwlive/" >&2
 		return 1
 	}
@@ -506,14 +555,18 @@ EOF
 
 feed_publish_write_manifest() {
 	local staging="$1" git_tag="${2:-unknown}"
+	local pkg_version="${3:-}"
 	local manifest ver artifact ver_label sum sdk_digest sdk_image
+	if [[ -z "$pkg_version" ]]; then
+		pkg_version="$(feed_publish_pkg_version)" || return 1
+	fi
 	manifest="${staging}/manifest.json"
 	: > "$manifest"
 	printf '{\n  "git_tag": "%s",\n  "packages": [\n' "${git_tag//\"/\\\"}" >> "$manifest"
 	local first=1
 	for ver in 23.05 24.10 25.12; do
 		ver_label="$(sdk_matrix_version_label "$ver")"
-		artifact="$(feed_publish_find_artifact "$ver_label" 2>/dev/null || true)"
+		artifact="$(feed_publish_find_artifact "$ver_label" "$pkg_version" 2>/dev/null || true)"
 		[[ -n "$artifact" ]] || continue
 		sum="$(sha256sum "$artifact" | awk '{print $1}')"
 		# Record the immutable digest of the SDK image this cell was built from

@@ -32,6 +32,7 @@ mkdir -p "${fixture}/out/x86_64"/{23.05.5,24.10.8,25.12.5}/fwlive
 echo ipk23 > "${fixture}/out/x86_64/23.05.5/fwlive/luci-app-fwlive_0.1.16_all.ipk"
 echo ipk24 > "${fixture}/out/x86_64/24.10.8/fwlive/luci-app-fwlive_0.1.16_all.ipk"
 echo apk25 > "${fixture}/out/x86_64/25.12.5/fwlive/luci-app-fwlive-0.1.16-r1.apk"
+export FWLIVE_PKG_VERSION=0.1.16
 feed_publish_stage_release_assets "$staging"
 test -f "$staging/luci-app-fwlive_0.1.16_23.05_all.ipk"
 test -f "$staging/luci-app-fwlive_0.1.16_24.10_all.ipk"

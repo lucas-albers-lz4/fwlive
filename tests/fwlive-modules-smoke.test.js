@@ -226,6 +226,95 @@ assert.strictEqual(bar.style.display, 'contents');
 assert.strictEqual(bar.childNodes.length, 1, 'off state is Enable CTA only');
 assert.ok(collectText(bar.childNodes[0]).indexOf('Enable logging') >= 0);
 
+let disableCalled = false;
+logging.renderToolbar(
+	bar,
+	{
+		loggingStatus: {
+			wan_log: true,
+			wan_log_limit: 10,
+			blockers: ['nf_log_ipv4_missing']
+		},
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{
+		onEnable: function () {},
+		onDisable: function () {
+			disableCalled = true;
+		}
+	}
+);
+assert.strictEqual(bar.style.display, 'contents');
+assert.strictEqual(bar.childNodes.length, 2, 'blocker status + merged disable control');
+const blockedStatus = bar.childNodes[0];
+const blockedDisable = bar.childNodes[1];
+assert.strictEqual(blockedStatus.tagName, 'span');
+assert.ok(String(blockedStatus._attrs['class']).indexOf('fwlive-logging-status') >= 0);
+assert.ok(collectText(blockedStatus).indexOf('missing kernel log modules') >= 0);
+assert.strictEqual(blockedDisable.tagName, 'button');
+assert.ok(String(blockedDisable._attrs['class']).indexOf('fwlive-log-merged') >= 0);
+assert.ok(collectText(blockedDisable).indexOf('WAN logging on') >= 0);
+assert.ok(blockedDisable._listeners.click && blockedDisable._listeners.click.length === 1);
+blockedDisable._listeners.click[0]();
+assert.strictEqual(disableCalled, true, 'blocked-but-enabled toolbar must wire onDisable');
+
+logging.renderToolbar(
+	bar,
+	{
+		loggingStatus: {
+			wan_log: false,
+			wan_log_limit: null,
+			blockers: ['weird_new_gate'],
+			ready: true
+		},
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+assert.strictEqual(bar.style.display, 'contents');
+assert.strictEqual(bar.childNodes.length, 1, 'unknown blocker is status only');
+const unknownStatus = bar.childNodes[0];
+assert.strictEqual(unknownStatus.tagName, 'span');
+assert.ok(String(unknownStatus._attrs['class']).indexOf('fwlive-logging-status') >= 0);
+assert.ok(collectText(unknownStatus).indexOf('WAN logging unavailable') >= 0);
+assert.ok(
+	bar.childNodes.every(function (n) {
+		return n.tagName !== 'button';
+	}),
+	'unknown blocker must not render Enable CTA'
+);
+
+const unknownEmptyHost = luciE.E('div', {}, []);
+logging.renderEmptyState(
+	unknownEmptyHost,
+	{
+		loggingStatus: {
+			wan_log: false,
+			wan_log_limit: null,
+			blockers: ['weird_new_gate'],
+			ready: true
+		},
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+const unknownEmptyText = collectText(unknownEmptyHost);
+assert.ok(unknownEmptyText.indexOf('WAN logging unavailable') >= 0);
+assert.ok(unknownEmptyText.indexOf('does not recognize') >= 0);
+assert.ok(
+	unknownEmptyHost.childNodes.every(function (n) {
+		return n.tagName !== 'button';
+	}),
+	'unknown-blocker empty state must not render buttons'
+);
+assert.ok(
+	unknownEmptyText.indexOf('Before you enable logging') === -1,
+	'unknown-blocker empty state must not render consent panel'
+);
+
 const emptyHost = luciE.E('div', {}, []);
 logging.renderEmptyState(
 	emptyHost,
