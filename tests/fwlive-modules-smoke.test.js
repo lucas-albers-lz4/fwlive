@@ -286,6 +286,35 @@ assert.ok(
 	'unknown blocker must not render Enable CTA'
 );
 
+const unknownEmptyHost = luciE.E('div', {}, []);
+logging.renderEmptyState(
+	unknownEmptyHost,
+	{
+		loggingStatus: {
+			wan_log: false,
+			wan_log_limit: null,
+			blockers: ['weird_new_gate'],
+			ready: true
+		},
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+const unknownEmptyText = collectText(unknownEmptyHost);
+assert.ok(unknownEmptyText.indexOf('WAN logging unavailable') >= 0);
+assert.ok(unknownEmptyText.indexOf('does not recognize') >= 0);
+assert.ok(
+	unknownEmptyHost.childNodes.every(function (n) {
+		return n.tagName !== 'button';
+	}),
+	'unknown-blocker empty state must not render buttons'
+);
+assert.ok(
+	unknownEmptyText.indexOf('Before you enable logging') === -1,
+	'unknown-blocker empty state must not render consent panel'
+);
+
 const emptyHost = luciE.E('div', {}, []);
 logging.renderEmptyState(
 	emptyHost,
