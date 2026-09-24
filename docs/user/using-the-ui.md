@@ -86,7 +86,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | Control | Behavior |
 |---------|----------|
 | **Pause / Resume** | Live updates run until you Pause. Resume continues the table. Polling never stops. |
-| **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall). No allow/deny rules are added. Concurrent toggles from multiple admins are last-writer-wins. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
+| **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall). No allow/deny rules are added. Concurrent toggles from multiple admins serialize under an exclusive file lock: waiters block until the holder finishes, then each toggle re-reads WAN state before committing (not a lost-update race). If a toggle appears to hang, the lock may be held — not a silently dropped write. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
 | **WAN logging on · rate** | When logging is on, one merged control shows status and rate. Click it to disable. |
 | **Simple / Detail** | Segmented pair on the watch strip. The active segment is highlighted. Preferences saved in `localStorage`. |
 | **Wrap / One line** | Segmented pair next to Simple / Detail. Visible in Detailed view only. |
