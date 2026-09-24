@@ -259,8 +259,12 @@ jobs:
         run: |
           set -euo pipefail
           live="${RUNNER_TEMP}/live-manifest.json"
-          url="${FWLIVE_FEED_BASE_URL}/manifest.json"
-          if ! curl -fsSL --max-time 30 "$url" -o "$live"; then
+          # Pages CDN caches manifest.json (~max-age=600). Bust with run id
+          # so a stale copy cannot authorize a real downgrade (#590 luna).
+          url="${FWLIVE_FEED_BASE_URL}/manifest.json?cb=${GITHUB_RUN_ID}"
+          if ! curl -fsSL --max-time 30 \
+            -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' \
+            "$url" -o "$live"; then
             echo "error: could not fetch live feed manifest from $url" >&2
             exit 1
           fi

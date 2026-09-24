@@ -19,10 +19,11 @@ feed_deploy_usage() {
 	echo "usage: guard-feed-deploy.sh --staged MANIFEST --live MANIFEST --tag TAG [--allow-rollback]" >&2
 }
 
-# Sets FEED_DEPLOY_MAJ/MIN/PAT. Rejects anything that is not vN.N.N.
+# Sets FEED_DEPLOY_MAJ/MIN/PAT. Rejects anything that is not vN.N.N
+# with each component at most 9 digits (fits signed 64-bit Bash arithmetic).
 feed_deploy_parse_version() {
 	local tag="${1:-}"
-	if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+	if [[ ! "$tag" =~ ^v([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$ ]]; then
 		echo "error: not a vMAJOR.MINOR.PATCH tag: '${tag}'" >&2
 		return 1
 	fi

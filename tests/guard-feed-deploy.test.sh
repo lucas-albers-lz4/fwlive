@@ -122,13 +122,23 @@ run_guard "$TMP/staged.json" "$TMP/live.json" "v1"
 [[ "$rc" -ne 0 ]] || fail "non-semver selected tag must fail"
 ok "non-semver tag fails"
 
+# 19-digit components overflow signed 64-bit Bash arithmetic (luna #590).
+huge=v9223372036854775808.0.0
+write_manifest "$TMP/staged.json" "$huge"
+write_manifest "$TMP/live.json" "v0.1.45"
+run_guard "$TMP/staged.json" "$TMP/live.json" "$huge"
+[[ "$rc" -ne 0 ]] || fail "19-digit major must be rejected before Bash arithmetic"
+ok "oversized version component fails"
+
 WF="$ROOT/.github/workflows/publish-packages.yml"
 grep -A5 'allow_rollback:' "$WF" | grep -q 'default: false' \
 	|| fail "allow_rollback must default off"
 grep -Fq './scripts/guard-feed-deploy.sh' "$WF" \
 	|| fail "workflow must invoke guard-feed-deploy.sh"
-grep -Fq '${FWLIVE_FEED_BASE_URL}/manifest.json' "$WF" \
-	|| fail "workflow must fetch live \${FWLIVE_FEED_BASE_URL}/manifest.json"
+grep -Fq '${FWLIVE_FEED_BASE_URL}/manifest.json?cb=${GITHUB_RUN_ID}' "$WF" \
+	|| fail "workflow must cache-bust the live Pages manifest fetch"
+grep -Fq "Cache-Control: no-cache" "$WF" \
+	|| fail "workflow must send Cache-Control: no-cache when fetching the live manifest"
 awk '
 	/Guard against feed downgrade/ { g = NR }
 	/Deploy to GitHub Pages/ { d = NR }
