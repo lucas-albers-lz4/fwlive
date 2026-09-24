@@ -43,10 +43,30 @@ elif [[ "$cmd" == *"cat '/usr/share/luci/menu.d/luci-app-fwlive.json'"* ]]; then
 elif [[ "$cmd" == *'cat '*luci-indexcache* ]]; then
 	printf '%s\n' 'Firewall Live View'
 elif [[ "$cmd" == *'ubus call fwlive poll'* ]]; then
-	if [[ "${FWLIVE_STUB_ROWS:-zero}" == rows ]]; then
+	if [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == poll ]]; then
+		printf '%s\n' '{"log":[],"error":"log_read_failed"}'
+	elif [[ "${FWLIVE_STUB_ROWS:-zero}" == rows ]]; then
 		printf '%s\n' '{"log":[{"time":1717675742,"msg":"fw4: DROP IN=br-lan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP DPT=443"}]}'
 	else
 		printf '%s\n' '{"log":[]}'
+	fi
+elif [[ "$cmd" == *'ubus call fwlive resolve'* ]]; then
+	if [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == resolve ]]; then
+		printf '%s\n' '{"names":{},"error":"no_resolver"}'
+	else
+		printf '%s\n' '{"names":{}}'
+	fi
+elif [[ "$cmd" == *'ubus call fwlive rules'* ]]; then
+	if [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == rules ]]; then
+		printf '%s\n' '{"backend":"nft","rules":{},"error":"nft_dump_failed"}'
+	else
+		printf '%s\n' '{"backend":"nft","rules":{}}'
+	fi
+elif [[ "$cmd" == *'ubus call fwlive logging_status'* ]]; then
+	if [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == logging_status ]]; then
+		printf '%s\n' '{"error":"status_failed"}'
+	else
+		printf '%s\n' '{"wan_zone":"wan","wan_log":false,"ready":false,"blockers":[],"warnings":[]}'
 	fi
 else
 	:
@@ -79,6 +99,7 @@ run_smoke() {
 		OWRT_HOSTFWD_HTTP=8080 FWLIVE_STUB_ROWS="${FWLIVE_STUB_ROWS:-zero}" \
 		FWLIVE_STUB_RULE_FAIL="${FWLIVE_STUB_RULE_FAIL:-0}" \
 		FWLIVE_STUB_TRAFFIC_FAIL="${FWLIVE_STUB_TRAFFIC_FAIL:-0}" \
+		FWLIVE_STUB_UBUS_ERROR="${FWLIVE_STUB_UBUS_ERROR:-}" \
 		bash "$SCRIPT" "$@" >"$output" 2>&1; then
 		return 0
 	fi
@@ -129,5 +150,15 @@ FWLIVE_STUB_ROWS=rows run_smoke required-rows --require-log-pipeline \
 grep -Fq '1 parsed row(s)' "$TMP/required-rows.log" \
 	|| die 'required mode did not report parsed row count'
 ok 'required mode accepts parsed firewall rows'
+
+for method in poll resolve rules logging_status; do
+	if (FWLIVE_STUB_UBUS_ERROR="$method"; export FWLIVE_STUB_UBUS_ERROR; \
+		run_smoke "ubus-error-${method}"); then
+			die "smoke passed when ubus ${method} returned error JSON"
+		fi
+	grep -Fq "ubus fwlive ${method} replied with error" "$TMP/ubus-error-${method}.log" \
+		|| die "error JSON for ${method} was not reported"
+	ok "rejects ubus ${method} error JSON"
+done
 
 echo 'qemu smoke log pipeline tests passed'
