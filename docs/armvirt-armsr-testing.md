@@ -68,11 +68,11 @@ OWRT_RELEASE=24.10.8 ./scripts/run-openwrt-armsr-armv8-qemu.sh
 
 For the pinned 24.10.8 release, the helper creates compatibility symlinks at **`lab/images/openwrt-armsr-armv8.img`** and **`lab/images/u-boot-qemu_armv8.bin`**. You can select another downloaded release with `OWRT_RELEASE=<release>` or override with `OWRT_IMG` / `OWRT_UBOOT`.
 
-The script picks **QEMU networking by OS**:
+**`run-openwrt-armsr-armv8-qemu.sh`** supports **Linux x86_64 only** (other hosts exit with an error). Default QEMU networking matches the **x86 lab**: one **`-nic user,hostfwd=...`** (**8080→80**, **2222→22**) with guest **LAN DHCP** after **`qemu-lab-prepare-image.sh`**. **`-accel tcg`**, no **sudo**. **LuCI:** `http://localhost:8080/cgi-bin/luci/` · **SSH:** `ssh -p 2222 root@localhost`.
 
-- **Linux (e.g. Linux Mint x64):** two **`-netdev user`** instances (**WAN** then **LAN**), same **MAC** order as macOS (**`52:54:00:11:22:33`**, **`52:54:00:44:55:66`**). **hostfwd** (**8080→80**, **2222→22**) is on the **LAN** netdev only. **`-accel tcg`**, no **sudo**. Deploy with **`./scripts/agent-build-and-deploy.sh --legacy-hostfwd`**. **LuCI:** `http://127.0.0.1:8080` · **SSH:** `ssh -p 2222 root@127.0.0.1`.
+**Legacy override (not recommended):** **`OWRT_QEMU_DUAL_NIC=1`** adds a second **`-netdev user`** (**WAN** + **LAN**, MACs **`52:54:00:11:22:33`** / **`52:54:00:44:55:66`**); **hostfwd** stays on the LAN netdev only.
 
-Equivalent manual command for **Linux** user networking:
+Equivalent manual command (default single-NIC layout):
 
 ```sh
 qemu-system-aarch64 -nographic \
@@ -81,13 +81,10 @@ qemu-system-aarch64 -nographic \
   -smp 1 -m 1024 \
   -device virtio-rng-pci \
   -drive file=/path/to/openwrt-armsr-armv8-24.10.8.img,format=raw,index=0,media=disk \
-  -netdev user,id=wan0 \
-  -device virtio-net-pci,netdev=wan0,mac=52:54:00:11:22:33 \
-  -netdev user,id=lan0,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22 \
-  -device virtio-net-pci,netdev=lan0,mac=52:54:00:44:55:66
+  -nic user,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22
 ```
 
-On **Apple Silicon macOS**, **aarch64** guests use **TCG** (or **hvf** only in the macOS/vmnet path above—**not** the same as **KVM** on Linux). On **x86_64 Linux**, this **armsr** guest is **emulated** (**TCG**); boot is CPU-heavy but avoids macOS/Docker SDK issues when you build **on the host**.
+On **x86_64 Linux**, this **armsr** guest is **emulated** (**TCG**); boot is CPU-heavy compared to **x86_64 + KVM**, but matches the production ARM target.
 
 ## 4. Initramfs quick boot (optional, download only)
 
