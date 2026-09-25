@@ -181,7 +181,8 @@ if grep -n 'log_read_failed' -A6 "$RPCD" | grep -q 'fwlive_adaptive_record'; the
 fi
 ok "failed-read keeps prior bucket (no record)"
 
-# Lock path unopenable → fail-open still records (CodeRabbit CR1).
+# Lock path is a directory: early branch still fail-opens unlocked (not the
+# fd-9 redirect). Busy-lock fail-open is unchanged; this is the sibling case.
 fwlive_adaptive_write_state 0 2000 cold 0 0 0
 _lock_dir="$WORKDIR/lock-as-dir"
 mkdir -p "$_lock_dir"
@@ -189,13 +190,39 @@ _saved_lock=${FWLIVE_ADAPTIVE_LOCK_FILE:-}
 export FWLIVE_ADAPTIVE_LOCK_FILE="$_lock_dir"
 fwlive_adaptive_record 900 2000
 set -- $(fwlive_adaptive_read_state)
-[ "$3" = hot ] || die "record must run when lock open fails, bucket=$3"
+[ "$3" = hot ] || die "directory lock path must fail-open unlocked, bucket=$3"
 if [ -n "$_saved_lock" ]; then
 	export FWLIVE_ADAPTIVE_LOCK_FILE="$_saved_lock"
 else
 	unset FWLIVE_ADAPTIVE_LOCK_FILE
 fi
-ok "lock-open failure fail-opens record"
+ok "directory lock path fail-opens record"
+
+# Unopenable lock (unix socket: >> fails; not a dir/symlink) → skip write.
+# Do not use ulimit -n: bash vs ash abort is environment-dependent (#619).
+fwlive_adaptive_write_state 0 2000 cold 0 0 0
+_sock="$WORKDIR/lock.sock"
+rm -f "$_sock"
+command -v python3 >/dev/null 2>&1 || die "python3 required for unopenable lock fixture"
+python3 -c 'import socket,sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "$_sock" \
+	|| die "could not create unix socket lock fixture"
+[ -L "$_sock" ] && die "socket fixture must not be a symlink"
+[ -d "$_sock" ] && die "socket fixture must not be a directory"
+[ -w "$_sock" ] || die "socket fixture must be -w so the fd-9 probe runs"
+# Confirm fd-9 append open fails so this hits the probe, not an early branch.
+( exec 9>>"$_sock" ) 2>/dev/null && die "socket fixture must be unopenable for append"
+_saved_lock=${FWLIVE_ADAPTIVE_LOCK_FILE:-}
+export FWLIVE_ADAPTIVE_LOCK_FILE="$_sock"
+fwlive_adaptive_record 900 2000
+set -- $(fwlive_adaptive_read_state)
+[ "$3" = cold ] || die "unopenable lock must skip write, bucket=$3 want cold"
+[ "$2" = 2000 ] || die "unopenable lock must not record unlocked, limit=$2"
+if [ -n "$_saved_lock" ]; then
+	export FWLIVE_ADAPTIVE_LOCK_FILE="$_saved_lock"
+else
+	unset FWLIVE_ADAPTIVE_LOCK_FILE
+fi
+ok "unopenable lock skips write"
 
 # merge_reply shape
 got=$(fwlive_adaptive_merge_reply '{}' 0 50 0 0)
