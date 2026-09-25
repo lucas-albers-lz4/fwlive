@@ -135,7 +135,7 @@ and rejects later paints. DOM construction, scroll position, and banner text sta
 
 | Question | Answer |
 |----------|--------|
-| Premature? | **Yes** — ship surface is ~11 files; monorepo bulk is docs/tests/tooling |
+| Premature? | **Yes** — ship surface is 30 tracked files under `openwrt-feed/luci-app-fwlive`; monorepo bulk is docs/tests/tooling |
 | Helps build/ship? | **No** — Releases + binary feed + `src-link` already cover it |
 | Helps OpenWrt/LuCI upstream? | **No** — upstream wants a PR into `luci/applications/`, not a third-party feed repo |
 | When to revisit | Many external image builders need `src-git`, or we grow multiple packages needing a stable feed root |
