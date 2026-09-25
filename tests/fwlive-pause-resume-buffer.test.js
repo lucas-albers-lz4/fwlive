@@ -52,9 +52,7 @@ const cappedPaused = buffer.applyFetchedEntries(hugePaused, [], {
 	rowLimit: ROW,
 	fetchLinesMax: MAX
 });
-assert.strictEqual(cappedPaused.length, MAX);
-assert.deepStrictEqual(ids(cappedPaused)[0], '501');
-assert.deepStrictEqual(ids(cappedPaused)[MAX - 1], '2500');
+assert.deepStrictEqual(ids(cappedPaused), ids(hugePaused.slice(-MAX)));
 
 let atCap = [];
 for (let i = 1; i <= MAX; i++)
@@ -65,9 +63,7 @@ const stillMax = buffer.applyFetchedEntries(atCap, [], {
 	rowLimit: ROW,
 	fetchLinesMax: MAX
 });
-assert.strictEqual(stillMax.length, MAX);
-assert.deepStrictEqual(ids(stillMax)[0], '1');
-assert.deepStrictEqual(ids(stillMax)[MAX - 1], String(MAX));
+assert.deepStrictEqual(ids(stillMax), ids(atCap));
 
 const oneOver = buffer.applyFetchedEntries(atCap, [ row(MAX + 1) ], {
 	paused: true,
@@ -75,9 +71,10 @@ const oneOver = buffer.applyFetchedEntries(atCap, [ row(MAX + 1) ], {
 	rowLimit: ROW,
 	fetchLinesMax: MAX
 });
-assert.strictEqual(oneOver.length, MAX);
-assert.deepStrictEqual(ids(oneOver)[0], '2');
-assert.deepStrictEqual(ids(oneOver)[MAX - 1], String(MAX + 1));
+assert.deepStrictEqual(
+	ids(oneOver),
+	ids(atCap.slice(1).concat([ row(MAX + 1) ]))
+);
 
 /* Bug #43 scenario: large pause buffer + resume must keep recent pause rows. */
 const big = [];
