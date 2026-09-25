@@ -26,7 +26,7 @@ See **[ROADMAP.md](ROADMAP.md)** for stages, CLI test commands, and exit criteri
 - Implemented (stage 1): **firewall-only feed** — `isFirewallEvent()` drops dnsmasq/procd/etc.; CLI: `./scripts/fwlive-test.sh`.
 - Implemented (stage 2): **schema hardening** — unix `timestamp`, normalized `action` enum, `interface_in`/`out`, `flags`, `length`; tests: `tests/fwlive-schema.test.js`.
 - Implemented (stage 3): `rule_hint` from log prefix; LuCI **Rule** column (click filters).
-- Implemented (stage 3.3): Rule links to firewall admin (`fw4` → traffic rules; else nftables).
+- Implemented (stage 3.3): Rule links to firewall admin (`ruleAdminPath()` → constant `admin/network/firewall/rules`).
 - Implemented (stage 3.4b): UCI rule name resolve (`rule_label`) via `ubus fwlive rules`.
 - Implemented (stage 4): **pause/resume** — buffer ingests while table frozen; resume redraws; message wrap/one-line toggle.
 - Implemented (stage 4b): **Pause/Resume** button + **limit** dropdown (25…2000, default 100).
