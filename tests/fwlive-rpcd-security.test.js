@@ -38,9 +38,9 @@ function assertSelftestResult(result) {
 	return output;
 }
 
-function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEASE || '24.10') {
-	const busybox = 'busybox';
+function resolveMatchedJshnPair(prefix, release) {
 	prefix = prefix || process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	release = release || process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	assert.match(release, /^(23\.05|24\.10|25\.12)$/, 'unsupported FWLIVE_JSHN_RELEASE');
 
 	const pair = path.join(prefix, release);
@@ -51,6 +51,12 @@ function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEAS
 	assert.ok((jshnStat.mode & 0o111) !== 0, `matched jshn binary is not executable: ${jshn}`);
 	const jshnShStat = fs.existsSync(jshnSh) && fs.statSync(jshnSh);
 	assert.ok(jshnShStat && jshnShStat.isFile(), `matched jshn shell library missing: ${jshnSh}`);
+	return { prefix, release, pair, jshn, jshnSh };
+}
+
+function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEASE || '24.10') {
+	const busybox = 'busybox';
+	const { jshn, jshnSh } = resolveMatchedJshnPair(prefix, release);
 
 	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-rpcd-selftest-'));
 	try {
@@ -77,9 +83,18 @@ function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEAS
 }
 
 function testSelftestHarnessBoundaries() {
-	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
-	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
-	const sourcePair = path.join(prefix, release);
+	assert.throws(
+		() => resolveMatchedJshnPair('/nonexistent-dir', '24.10'),
+		/matched jshn binary missing/,
+		'missing prefix must diagnose, not leak cpSync ENOENT'
+	);
+	assert.throws(
+		() => resolveMatchedJshnPair(undefined, '99.99'),
+		/unsupported FWLIVE_JSHN_RELEASE/,
+		'unsupported release must diagnose before copy'
+	);
+
+	const { release, pair: sourcePair } = resolveMatchedJshnPair();
 	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-rpcd-harness-'));
 	try {
 		const spacedPrefix = path.join(work, "prefix with spaces $& $$ 'quote'");
