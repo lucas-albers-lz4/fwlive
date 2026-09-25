@@ -37,7 +37,7 @@ const FULL_EXTRA = [
 	'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP',
 	' '.repeat(200),
 	'IN=' + 'A'.repeat(120),
-	'SYN ACK FIN RST PSH URG SYN ACK',
+	'SYN ACK FIN RST PSH URG ECE CWR SYN ACK',
 	'dead.beef.cafe.baad',
 	'192.0.2.1\nextra',
 	'aCcEpT IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP',

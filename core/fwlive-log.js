@@ -65,9 +65,10 @@ const DENY_ACTION_UNDERSCORE = new RegExp(
 const MAX_DATE_SECONDS = 8640000000000;
 
 /* Kernel nf_log may append trailer KVs such as WINDOW=… RES=0x00 URGP=0
- * after the TCP flag words. Keep the capture limited to a final flag run and
- * return only group 1, never the trailer fields. */
-const TCP_FLAG_TAIL = /\b((?:SYN|ACK|FIN|RST|PSH|URG)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG))*)(?:\s+[A-Z][A-Z0-9_]*=[^\s]+)*\s*$/i;
+ * after the TCP flag words (CWR ECE URG ACK PSH RST SYN FIN). Keep the
+ * capture limited to a final flag run and return only group 1, never the
+ * trailer fields. */
+const TCP_FLAG_TAIL = /\b((?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR))*)(?:\s+[A-Z][A-Z0-9_]*=[^\s]+)*\s*$/i;
 const NETFILTER_KV_GLUE = /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=)/g;
 
 /** nft log prefixes are concatenated with IN= in kernel lines (e.g. fwlive-pingIN=lo). */

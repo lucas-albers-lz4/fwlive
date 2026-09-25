@@ -1,0 +1,20 @@
+{
+  "log": [
+    {
+      "time": 1717675748,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 ECE"
+    },
+    {
+      "time": 1717675749,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 CWR"
+    },
+    {
+      "time": 1717675750,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 WINDOW=65535 RES=0x00 SYN ACK ECE CWR URGP=0"
+    },
+    {
+      "time": 1717675751,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 WINDOW=65535 RES=0x00 SYN ACK URGP=0"
+    }
+  ]
+}

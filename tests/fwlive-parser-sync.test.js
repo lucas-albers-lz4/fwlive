@@ -55,6 +55,26 @@ const tcpTrailer = {
 assert.strictEqual(core.normalizeEntry(tcpTrailer).flags, 'SYN');
 assert.strictEqual(luci.normalizeEntry(tcpTrailer).flags, 'SYN');
 
+const flagTails = [
+	{ msg: 'SRC=1.2.3.4 ECE', flags: 'ECE' },
+	{ msg: 'SRC=1.2.3.4 CWR', flags: 'CWR' },
+	{ msg: 'SRC=1.2.3.4 ECE CWR', flags: 'ECE,CWR' },
+	{ msg: 'SRC=1.2.3.4 SYN ACK URGP=0', flags: 'SYN,ACK' },
+	{ msg: 'SRC=1.2.3.4 SYN ACK ECE CWR URGP=0', flags: 'SYN,ACK,ECE,CWR' }
+];
+for (let i = 0; i < flagTails.length; i++) {
+	const sample = flagTails[i];
+	const entry = {
+		time: 1717675747,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 ' +
+			sample.msg.replace(/^SRC=\S+\s+/, '')
+	};
+	assert.strictEqual(core.parseFlags(sample.msg, {}), sample.flags);
+	assert.strictEqual(luci.parseFlags(sample.msg, {}), sample.flags);
+	assert.strictEqual(core.normalizeEntry(entry).flags, sample.flags);
+	assert.strictEqual(luci.normalizeEntry(entry).flags, sample.flags);
+}
+
 const underscoreDeny = {
 	time: 1717675807,
 	msg: 'reject_from_wan IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22'
