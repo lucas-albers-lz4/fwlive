@@ -53,6 +53,13 @@ msgstr ""
 "Eine andere Änderung an der Firewall ist vorgemerkt; zuerst anwenden oder "
 "verwerfen."
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:818
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:849
+msgid "Another logging toggle is in progress; try again."
+msgstr ""
+"Ein anderer Protokollierungswechsel läuft bereits; bitte erneut "
+"versuchen."
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1658
 msgid "Any action"
 msgstr "Beliebige Aktion"
@@ -132,6 +139,10 @@ msgstr "Protokollierung konnte nicht deaktiviert werden."
 msgid "Could not refresh logging status; showing the last known state."
 msgstr "Could not refresh logging status; showing the last known state."
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:820
+msgid "Could not snapshot the current logging state."
+msgstr "Der aktuelle Protokollierungszustand konnte nicht gesichert werden."
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:573
 msgid "Could not enable logging."
 msgstr "Protokollierung konnte nicht aktiviert werden."
@@ -204,6 +215,13 @@ msgstr "Für eine responsive Tabelle auf einem schwachen Gerät sollte Limit auf
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2245
 msgid "Switching tabs pauses polling; returning performs one catch-up poll. Hostnames are off by default because lookups add work."
 msgstr "Beim Wechseln des Tabs wird das Polling pausiert; bei der Rückkehr erfolgt eine einmalige Aufholabfrage. Hostnamen sind standardmäßig deaktiviert, da Auflösungen zusätzliche Arbeit verursachen."
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:822
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:851
+msgid "The firewall did not reload; the change was reverted."
+msgstr ""
+"Die Firewall wurde nicht neu geladen; die Änderung wurde rückgängig "
+"gemacht."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2250
 msgid "The router log ring may evict older events before fwlive reads them. fwlive cannot recover evicted entries or change forwarding behavior."
@@ -402,6 +420,13 @@ msgstr ""
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:185
 msgid "No WAN zone found"
 msgstr "No WAN zone found"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:816
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:847
+msgid "No WAN zone found; cannot toggle logging without one."
+msgstr ""
+"Keine WAN-Zone gefunden; Protokollierung kann ohne eine solche nicht "
+"umgeschaltet werden."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:163
 msgid "Not now"

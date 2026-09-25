@@ -109,6 +109,26 @@ async function testEnableVariants() {
 		'Another change is staged for the firewall; apply or revert it first.',
 		false
 	);
+	await testEnableReply(
+		{ ok: false, error: 'no_wan_zone' },
+		'No WAN zone found; cannot toggle logging without one.',
+		false
+	);
+	await testEnableReply(
+		{ ok: false, error: 'lock_failed' },
+		'Another logging toggle is in progress; try again.',
+		false
+	);
+	await testEnableReply(
+		{ ok: false, error: 'baseline_snapshot_failed' },
+		'Could not snapshot the current logging state.',
+		false
+	);
+	await testEnableReply(
+		{ ok: false, error: 'firewall_reload_failed' },
+		'The firewall did not reload; the change was reverted.',
+		false
+	);
 	await testEnableReply({ ok: false, error: 'other' }, 'Could not enable logging.', false);
 	await testEnableReply(
 		{ ok: true, changed: true },
@@ -156,6 +176,18 @@ async function testDisableVariants() {
 	await testDisableReply(
 		{ ok: false, error: 'firewall_changes_pending' },
 		'Another change is staged for the firewall; apply or revert it first.'
+	);
+	await testDisableReply(
+		{ ok: false, error: 'no_wan_zone' },
+		'No WAN zone found; cannot toggle logging without one.'
+	);
+	await testDisableReply(
+		{ ok: false, error: 'lock_failed' },
+		'Another logging toggle is in progress; try again.'
+	);
+	await testDisableReply(
+		{ ok: false, error: 'firewall_reload_failed' },
+		'The firewall did not reload; the change was reverted.'
 	);
 	await testDisableReply({ ok: false, error: 'other' }, 'Could not disable logging.');
 	await testDisableReply({ ok: true, changed: true }, 'WAN drop/reject logging is off.');

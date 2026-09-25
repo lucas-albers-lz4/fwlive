@@ -56,6 +56,11 @@ msgstr ""
 "В брандмауэре уже есть другое незафиксированное изменение; сначала примените "
 "или отмените его."
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:818
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:849
+msgid "Another logging toggle is in progress; try again."
+msgstr "Другое переключение журналирования уже выполняется; попробуйте снова."
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1658
 msgid "Any action"
 msgstr "ÐÑÐ±Ð¾Ðµ Ð´ÐµÐ¹ÑÑÐ²Ð¸Ðµ"
@@ -137,6 +142,10 @@ msgstr "ÐÐµ ÑÐ´Ð°Ð»Ð¾ÑÑ Ð¾ÑÐºÐ»ÑÑÐ¸ÑÑ
 msgid "Could not refresh logging status; showing the last known state."
 msgstr "Could not refresh logging status; showing the last known state."
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:820
+msgid "Could not snapshot the current logging state."
+msgstr "Не удалось сохранить снимок текущего состояния журналирования."
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:573
 msgid "Could not enable logging."
 msgstr "ÐÐµ ÑÐ´Ð°Ð»Ð¾ÑÑ Ð²ÐºÐ»ÑÑÐ¸ÑÑ Ð¶ÑÑÐ½Ð°Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð¸Ðµ."
@@ -206,6 +215,11 @@ msgstr "Для отзывчивой таблицы на слабом устро�
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2245
 msgid "Switching tabs pauses polling; returning performs one catch-up poll. Hostnames are off by default because lookups add work."
 msgstr "При переключении вкладки опрос приостанавливается; при возврате выполняется один догоняющий опрос. Имена хостов по умолчанию отключены, поскольку их разрешение создаёт дополнительную нагрузку."
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:822
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:851
+msgid "The firewall did not reload; the change was reverted."
+msgstr "Брандмауэр не перезагрузился; изменение отменено."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2250
 msgid "The router log ring may evict older events before fwlive reads them. fwlive cannot recover evicted entries or change forwarding behavior."
@@ -403,6 +417,11 @@ msgstr ""
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:185
 msgid "No WAN zone found"
 msgstr "No WAN zone found"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:816
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:847
+msgid "No WAN zone found; cannot toggle logging without one."
+msgstr "WAN-зона не найдена; без неё нельзя переключить журналирование."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:163
 msgid "Not now"

@@ -49,6 +49,11 @@ msgstr "其他常见"
 msgid "Another change is staged for the firewall; apply or revert it first."
 msgstr "防火墙另有未提交的更改；请先应用或还原。"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:818
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:849
+msgid "Another logging toggle is in progress; try again."
+msgstr "另有日志开关操作正在进行；请重试。"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1658
 msgid "Any action"
 msgstr "ææå¨ä½"
@@ -123,6 +128,10 @@ msgstr "æ æ³"
 msgid "Could not refresh logging status; showing the last known state."
 msgstr "Could not refresh logging status; showing the last known state."
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:820
+msgid "Could not snapshot the current logging state."
+msgstr "无法快照当前日志记录状态。"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:573
 msgid "Could not enable logging."
 msgstr "æ æ³å¼å¯æ¥å¿è®°å½ã"
@@ -190,6 +199,11 @@ msgstr "要让弱设备上的表格保持响应，请将 Limit 保持在 250 行
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2245
 msgid "Switching tabs pauses polling; returning performs one catch-up poll. Hostnames are off by default because lookups add work."
 msgstr "切换到其他标签页会暂停轮询；返回时执行一次追赶轮询。主机名默认关闭，因为解析会增加工作量。"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:822
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:851
+msgid "The firewall did not reload; the change was reverted."
+msgstr "防火墙未能重新加载；更改已还原。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2250
 msgid "The router log ring may evict older events before fwlive reads them. fwlive cannot recover evicted entries or change forwarding behavior."
@@ -380,6 +394,11 @@ msgstr "在 /etc/config/firewall 中未找到 WAN 防火墙区域。请在以下
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:185
 msgid "No WAN zone found"
 msgstr "No WAN zone found"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:816
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:847
+msgid "No WAN zone found; cannot toggle logging without one."
+msgstr "未找到 WAN 区域；没有它无法切换日志记录。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:163
 msgid "Not now"
