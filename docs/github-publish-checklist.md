@@ -10,7 +10,7 @@ Use before making this repo public upstream.
 - [ ] `./scripts/validate-baseline.sh`
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
 - [ ] Make sure that nothing in the removed `archive/` tree (deleted in #98) is required for new users
-- [ ] `rg -n "archive" .` must return no dead references
+- [ ] `rg -n 'archive/' docs scripts docker-compose.yml --glob '!CHANGELOG.md' --glob '!docs/github-publish-checklist.md'` must return no live path hints (historical `archive/` mentions in CHANGELOG and this checklist are expected)
 
 ### Security (pre-release)
 
