@@ -294,7 +294,7 @@ msgid ""
 "For a responsive table on a weak device, keep Limit at 250 rows or below. "
 "The weak-device cap affects rendered rows; the buffer can still retain more."
 msgstr ""
-"要让弱设备上的表格保持响应，请将 Limit 保持在 250 行或更少。弱设备限制影响渲"
+"要让弱设备上的表格保持响应，请将 行数限制 保持在 250 行或更少。弱设备限制影响渲"
 "染的行数；缓冲区仍可保留更多行。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:59

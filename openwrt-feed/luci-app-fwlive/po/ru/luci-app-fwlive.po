@@ -277,7 +277,7 @@ msgid ""
 "Fetch budget controls raw log lines per poll. Auto derives from Limit; "
 "Manual selects a bounded maximum."
 msgstr ""
-"Бюджет выборки задаёт число сырых строк журнала за опрос. «Авто» выводитсяиз "
+"Бюджет выборки задаёт число сырых строк журнала за опрос. «Авто» выводится из "
 "лимита; «Вручную» задаёт ограниченный максимум."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:63
@@ -310,7 +310,7 @@ msgid ""
 "For a responsive table on a weak device, keep Limit at 250 rows or below. "
 "The weak-device cap affects rendered rows; the buffer can still retain more."
 msgstr ""
-"Для отзывчивой таблицы на слабом устройстве установите Limit не выше 250 "
+"Для отзывчивой таблицы на слабом устройстве установите Лимит не выше 250 "
 "строк. Ограничение слабого устройства влияет на отображаемые строки; буфер "
 "всё ещё может хранить больше."
 
