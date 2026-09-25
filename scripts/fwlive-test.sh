@@ -125,6 +125,9 @@ echo "== fwlive theme CSS (LuCI dark mode / tint resilience) ==" >&2
 echo "== fwlive theme tint helpers ==" >&2
 "$NODE" tests/fwlive-theme-tint.test.js
 
+echo "== fwlive view tint persistence ==" >&2
+"$NODE" tests/fwlive-view-tint-persistence.test.js
+
 echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js
 
