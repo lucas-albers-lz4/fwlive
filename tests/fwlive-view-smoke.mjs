@@ -24,6 +24,22 @@ async function waitForHarness(page) {
 	await page.waitForSelector('#fwlive-table tbody tr', { timeout: 30000 });
 }
 
+async function requireControl(page, selector) {
+	const loc = page.locator(selector);
+	if (await loc.count() !== 1)
+		throw new Error(`required control missing: ${selector}`);
+	return loc;
+}
+
+async function requireSegmentButtons(page) {
+	return {
+		simple: await requireControl(page, '#fwlive-view-simple'),
+		detail: await requireControl(page, '#fwlive-view-detail'),
+		wrap: await requireControl(page, '#fwlive-msg-wrap'),
+		oneline: await requireControl(page, '#fwlive-msg-oneline')
+	};
+}
+
 async function testInitialRender(page) {
 	const rows = await page.locator('#fwlive-table tbody tr').count();
 	if (rows < 1)
@@ -32,7 +48,7 @@ async function testInitialRender(page) {
 }
 
 async function testPauseResume(page) {
-	const pauseBtn = page.locator('#fwlive-pause');
+	const pauseBtn = await requireControl(page, '#fwlive-pause');
 	await pauseBtn.click();
 	await page.waitForFunction(() => {
 		const map = document.querySelector('.fwlive-map');
@@ -108,26 +124,23 @@ async function testChipInvert(page) {
 }
 
 async function testSegmentToggles(page) {
-	const detail = page.locator('#fwlive-view-detail');
+	const { detail, oneline } = await requireSegmentButtons(page);
 	await detail.click();
 	await page.waitForFunction(() => {
 		const el = document.getElementById('fwlive-view-detail');
 		return el && el.getAttribute('aria-pressed') === 'true';
 	}, { timeout: 5000 });
 
-	const oneline = page.locator('#fwlive-msg-oneline');
-	if (await oneline.count()) {
-		await oneline.click();
-		await page.waitForFunction(() => {
-			const el = document.getElementById('fwlive-msg-oneline');
-			return el && el.getAttribute('aria-pressed') === 'true';
-		}, { timeout: 5000 });
-	}
+	await oneline.click();
+	await page.waitForFunction(() => {
+		const el = document.getElementById('fwlive-msg-oneline');
+		return el && el.getAttribute('aria-pressed') === 'true';
+	}, { timeout: 5000 });
 	console.log('OK: segment aria-pressed toggles');
 }
 
 async function ensureDetailedOneLine(page) {
-	const detail = page.locator('#fwlive-view-detail');
+	const { detail, oneline } = await requireSegmentButtons(page);
 	if (await detail.getAttribute('aria-pressed') !== 'true') {
 		await detail.click();
 		await page.waitForFunction(() => {
@@ -136,8 +149,7 @@ async function ensureDetailedOneLine(page) {
 		}, { timeout: 5000 });
 	}
 
-	const oneline = page.locator('#fwlive-msg-oneline');
-	if (await oneline.count() && await oneline.getAttribute('aria-pressed') !== 'true') {
+	if (await oneline.getAttribute('aria-pressed') !== 'true') {
 		await oneline.click();
 		await page.waitForFunction(() => {
 			const el = document.getElementById('fwlive-msg-oneline');
@@ -181,9 +193,8 @@ async function testFixtureRowsAndTextSafety(page) {
 async function testHostnamesToggle(page) {
 	await clearFilters(page);
 	/* Simple view so filteredRows() still has the canned log IPs. */
-	const simple = page.locator('#fwlive-view-simple');
-	if (await simple.count())
-		await simple.click();
+	const simple = await requireControl(page, '#fwlive-view-simple');
+	await simple.click();
 
 	await page.evaluate(() => {
 		window.fwliveResolveCalls = [];
@@ -310,7 +321,8 @@ async function testAdaptiveSummaryAndWarnings(page) {
 }
 
 async function testStorageFailure(page) {
-	await page.evaluate(() => {
+	/* No-throw smoke: save* swallow storage denial; no visible fallback exists. */
+	const completed = await page.evaluate(() => {
 		const proto = Storage.prototype;
 		const desc = Object.getOwnPropertyDescriptor(proto, 'setItem');
 		Object.defineProperty(proto, 'setItem', {
@@ -322,11 +334,15 @@ async function testStorageFailure(page) {
 			view.saveViewMode();
 			view.saveShowHostnames();
 			view.saveRowTint();
+			return true;
 		} finally {
 			Object.defineProperty(proto, 'setItem', desc);
 		}
 	});
-	console.log('OK: storage failure paths are best effort');
+	if (completed !== true)
+		throw new Error('storage failure no-throw smoke: page.evaluate did not complete');
+	await requireSegmentButtons(page);
+	console.log('OK: storage failure no-throw smoke (best-effort; no visible fallback asserted)');
 }
 
 async function testResolverError(page) {
@@ -373,7 +389,7 @@ async function testResolverError(page) {
 async function testRulesTruncatedDegraded(page) {
 	/* Tier-2 Gap 1 (#274): a truncated rules reply degrades the backend span
 	 * while the counter and paused class still render (~256-rules shape). */
-	const pauseBtn = page.locator('#fwlive-pause');
+	const pauseBtn = await requireControl(page, '#fwlive-pause');
 	await pauseBtn.click();
 	await page.waitForFunction(() => {
 		const map = document.querySelector('.fwlive-map');
