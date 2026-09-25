@@ -51,7 +51,7 @@ function assertPayloadNeverInSink(host, payload) {
 	}
 }
 
-function renderChips(filters) {
+function renderChips(filters, chipFields) {
 	const log = loadFwliveModule('log');
 	const chips = loadFwliveModule('chips', {
 		log: log,
@@ -62,10 +62,40 @@ function renderChips(filters) {
 	host.style = { display: '' };
 	chips.renderFilterChips(
 		host,
-		{ filters: filters, chipFields: CHIP_FIELDS },
+		{ filters: filters, chipFields: chipFields || CHIP_FIELDS },
 		NOOP
 	);
 	return host;
+}
+
+function testIdentityChipFieldLabels() {
+	const includeHost = renderChips({ q: 'wan' });
+	const includeText = collectText(includeHost);
+	assert.ok(
+		includeText.indexOf('Search: wan') >= 0,
+		'include q chip must use Search via formatFilterChipLabel, got: ' + includeText
+	);
+
+	const qHost = renderChips({ q: '!drop' });
+	const qText = collectText(qHost);
+	assert.ok(qText.indexOf('Search') >= 0, 'negated q chip must show Search, got: ' + qText);
+	assert.ok(qText.indexOf('not') >= 0, 'negated q chip must show not');
+	assert.ok(qText.indexOf('contains') >= 0, 'negated q chip must show contains');
+
+	const srcHost = renderChips({ src: '!192.0.2.1' });
+	const srcText = collectText(srcHost);
+	assert.ok(srcText.indexOf('Source') >= 0, 'negated src chip must show Source, got: ' + srcText);
+	assert.ok(srcText.indexOf('not') >= 0, 'negated src chip must show not');
+	assert.ok(srcText.indexOf('contains') >= 0, 'negated src chip must show contains');
+}
+
+function testUnknownChipFieldLabel() {
+	const host = renderChips({ custom: 'x' }, [{ key: 'custom', label: 'widget' }]);
+	const text = collectText(host);
+	assert.ok(
+		text.indexOf('widget') >= 0,
+		'unknown spec.key must honor spec.label, got: ' + text
+	);
 }
 
 function testRecursiveProtoSink() {
@@ -197,6 +227,8 @@ function testApplyHashHostileAsText() {
 testRecursiveProtoSink();
 testNegatedTextChips();
 testHostileTextChipSink();
+testIdentityChipFieldLabels();
+testUnknownChipFieldLabel();
 testApplyHashValidAndMalformed();
 testApplyHashPreservesEqualsInValue();
 testUpdateHashRoundTripsEqualsAndAmpersand();
