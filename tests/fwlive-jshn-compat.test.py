@@ -161,7 +161,9 @@ def main():
                                             env=env, capture_output=True, text=True, timeout=15)
                     assert result.returncode == 0 and result.stdout.strip() == 'restored', (release, function, data, result.stderr)
             result = subprocess.run([busybox, 'sh', str(plugin), '__selftest'], env=env, capture_output=True, text=True, timeout=30)
+            output = f"{result.stdout or ''}\n{result.stderr or ''}"
             assert result.returncode == 0, (release, result.stderr)
+            assert 'skip:' not in output, (release, output)
         print(f'jshn compat: {release} poll, resolve, invalid input, boundaries, strict mode, selftest PASS')
 
 
