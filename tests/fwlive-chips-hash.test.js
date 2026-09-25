@@ -36,7 +36,7 @@ const NOOP = {
 const TRANSLATED_CHIP_CATALOG = {
 	'%s: %s': '[%s|%s]',
 	'not': 'NICHT',
-	'contains': 'ENTHAELT',
+	'does not contain': 'ENTHAELT-NICHT',
 	'Search': 'SUCHE',
 	'Source': 'QUELLE',
 	'is': 'IST',
@@ -109,14 +109,18 @@ function testIdentityChipFieldLabels() {
 	const qHost = renderChips({ q: '!drop' });
 	const qText = collectText(qHost);
 	assert.ok(qText.indexOf('Search') >= 0, 'negated q chip must show Search, got: ' + qText);
-	assert.ok(qText.indexOf('not') >= 0, 'negated q chip must show not');
-	assert.ok(qText.indexOf('contains') >= 0, 'negated q chip must show contains');
+	assert.ok(
+		qText.indexOf('does not contain') >= 0,
+		'negated q chip must show the full phrase, got: ' + qText
+	);
 
 	const srcHost = renderChips({ src: '!192.0.2.1' });
 	const srcText = collectText(srcHost);
 	assert.ok(srcText.indexOf('Source') >= 0, 'negated src chip must show Source, got: ' + srcText);
-	assert.ok(srcText.indexOf('not') >= 0, 'negated src chip must show not');
-	assert.ok(srcText.indexOf('contains') >= 0, 'negated src chip must show contains');
+	assert.ok(
+		srcText.indexOf('does not contain') >= 0,
+		'negated src chip must show the full phrase, got: ' + srcText
+	);
 }
 
 function testTranslatedChipCatalog() {
@@ -133,11 +137,13 @@ function testTranslatedChipCatalog() {
 
 	const qHost = renderChips({ q: '!drop' }, CHIP_FIELDS, translatedGettext);
 	const qText = collectText(qHost);
-	assert.ok(qText.indexOf('SUCHE') >= 0, 'negated q chip must show translated Search, got: ' + qText);
-	assert.ok(qText.indexOf('NICHT') >= 0, 'negated q chip must show translated not, got: ' + qText);
 	assert.ok(
-		qText.indexOf('ENTHAELT') >= 0,
-		'negated q chip must show translated contains, got: ' + qText
+		qText.indexOf('SUCHE') >= 0,
+		'negated q chip must show translated Search, got: ' + qText
+	);
+	assert.ok(
+		qText.indexOf('ENTHAELT-NICHT') >= 0,
+		'negated q chip must show translated does not contain, got: ' + qText
 	);
 
 	const srcHost = renderChips({ src: '!192.0.2.1' }, CHIP_FIELDS, translatedGettext);
@@ -146,20 +152,16 @@ function testTranslatedChipCatalog() {
 		srcText.indexOf('QUELLE') >= 0,
 		'negated src chip must show translated Source, got: ' + srcText
 	);
-	assert.ok(srcText.indexOf('NICHT') >= 0, 'negated src chip must show translated not, got: ' + srcText);
 	assert.ok(
-		srcText.indexOf('ENTHAELT') >= 0,
-		'negated src chip must show translated contains, got: ' + srcText
+		srcText.indexOf('ENTHAELT-NICHT') >= 0,
+		'negated src chip must show translated does not contain, got: ' + srcText
 	);
 }
 
 function testUnknownChipFieldLabel() {
 	const host = renderChips({ custom: 'x' }, [{ key: 'custom', label: 'widget' }]);
 	const text = collectText(host);
-	assert.ok(
-		text.indexOf('widget') >= 0,
-		'unknown spec.key must honor spec.label, got: ' + text
-	);
+	assert.ok(text.indexOf('widget') >= 0, 'unknown spec.key must honor spec.label, got: ' + text);
 }
 
 function testRecursiveProtoSink() {
@@ -181,16 +183,12 @@ function testNegatedTextChips() {
 		filters[spec.key] = spec.value;
 		const host = renderChips(filters);
 		const text = collectText(host);
-		assert.ok(text.indexOf('not') >= 0, spec.key + ' must show not');
 		assert.ok(text.indexOf('≠') >= 0, spec.key + ' must show ≠');
 		assert.ok(
-			text.indexOf('contains') >= 0,
-			spec.key + ' must show contains, got: ' + text
+			text.indexOf('does not contain') >= 0,
+			spec.key + ' must show the full negated phrase, got: ' + text
 		);
-		assert.ok(
-			text.indexOf(spec.value.slice(1)) >= 0,
-			spec.key + ' value must remain visible'
-		);
+		assert.ok(text.indexOf(spec.value.slice(1)) >= 0, spec.key + ' value must remain visible');
 		assertPayloadNeverInSink(host, spec.value);
 	}
 }
@@ -200,7 +198,10 @@ function testHostileTextChipSink() {
 	assertPayloadNeverInSink(host, HOSTILE);
 	const text = collectText(host);
 	assert.ok(text.indexOf(HOSTILE) >= 0, 'hostile filter text must remain visible');
-	assert.ok(text.indexOf('contains') >= 0, 'negated address/search chips use contains');
+	assert.ok(
+		text.indexOf('does not contain') >= 0,
+		'negated address/search chips use the full phrase'
+	);
 }
 
 function valueOf(h, id) {
