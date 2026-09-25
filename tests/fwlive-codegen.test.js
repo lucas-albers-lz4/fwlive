@@ -38,6 +38,8 @@ const out2 = spawnSync(process.execPath, [GEN_LUCI], { encoding: 'utf8' });
 assert.equal(out2.status, 0, out2.stderr || out2.stdout);
 assert.strictEqual(out2.stdout, fs.readFileSync(LUCI_DST, 'utf8'),
 	'fwlive/log.js failed gen-luci-wrapper checks');
+assert.equal((fs.statSync(LUCI_DST).mode & 0o044), 0o044,
+	'fwlive/log.js must be world-readable');
 assert.ok(out2.stdout.indexOf('.includes(') < 0 && out2.stdout.indexOf('Object.values') < 0,
 	'generated LuCI wrapper must not use Array.includes or Object.values');
 
