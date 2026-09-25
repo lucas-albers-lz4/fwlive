@@ -815,11 +815,11 @@ return view.extend({
 				if (res && res.error === 'no_wan_zone')
 					return _('No WAN zone found; cannot toggle logging without one.');
 				if (res && res.error === 'lock_failed')
-					return _('Another logging toggle is in progress; try again.');
+					return _('Could not acquire the logging lock.');
 				if (res && res.error === 'baseline_snapshot_failed')
 					return _('Could not snapshot the current logging state.');
 				if (res && res.error === 'firewall_reload_failed')
-					return _('The firewall did not reload; the change was reverted.');
+					return _('The firewall did not reload; saved and live logging may differ.');
 				return _('Could not enable logging.');
 			},
 			successNotice: (res) =>
@@ -846,9 +846,9 @@ return view.extend({
 				if (res && res.error === 'no_wan_zone')
 					return _('No WAN zone found; cannot toggle logging without one.');
 				if (res && res.error === 'lock_failed')
-					return _('Another logging toggle is in progress; try again.');
+					return _('Could not acquire the logging lock.');
 				if (res && res.error === 'firewall_reload_failed')
-					return _('The firewall did not reload; the change was reverted.');
+					return _('The firewall did not reload; saved and live logging may differ.');
 				return _('Could not disable logging.');
 			},
 			successNotice: (res) => (res.changed ? _('WAN drop/reject logging is off.') : ''),

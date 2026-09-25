@@ -53,13 +53,6 @@ msgstr ""
 "Eine andere Änderung an der Firewall ist vorgemerkt; zuerst anwenden oder "
 "verwerfen."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:818
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:849
-msgid "Another logging toggle is in progress; try again."
-msgstr ""
-"Ein anderer Protokollierungswechsel läuft bereits; bitte erneut "
-"versuchen."
-
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1658
 msgid "Any action"
 msgstr "Beliebige Aktion"
@@ -130,6 +123,11 @@ msgstr "Häufig"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:944
 msgid "Connection lost — retrying…"
 msgstr "Connection lost — retrying…"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:818
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:849
+msgid "Could not acquire the logging lock."
+msgstr "Die Protokollierungssperre konnte nicht erworben werden."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:609
 msgid "Could not disable logging."
@@ -218,10 +216,8 @@ msgstr "Beim Wechseln des Tabs wird das Polling pausiert; bei der Rückkehr erfo
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:822
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:851
-msgid "The firewall did not reload; the change was reverted."
-msgstr ""
-"Die Firewall wurde nicht neu geladen; die Änderung wurde rückgängig "
-"gemacht."
+msgid "The firewall did not reload; saved and live logging may differ."
+msgstr "Die Firewall wurde nicht neu geladen; gespeicherte und aktive Protokollierung können voneinander abweichen."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2250
 msgid "The router log ring may evict older events before fwlive reads them. fwlive cannot recover evicted entries or change forwarding behavior."

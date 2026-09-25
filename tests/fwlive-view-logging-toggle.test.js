@@ -116,7 +116,7 @@ async function testEnableVariants() {
 	);
 	await testEnableReply(
 		{ ok: false, error: 'lock_failed' },
-		'Another logging toggle is in progress; try again.',
+		'Could not acquire the logging lock.',
 		false
 	);
 	await testEnableReply(
@@ -126,7 +126,7 @@ async function testEnableVariants() {
 	);
 	await testEnableReply(
 		{ ok: false, error: 'firewall_reload_failed' },
-		'The firewall did not reload; the change was reverted.',
+		'The firewall did not reload; saved and live logging may differ.',
 		false
 	);
 	await testEnableReply({ ok: false, error: 'other' }, 'Could not enable logging.', false);
@@ -183,11 +183,11 @@ async function testDisableVariants() {
 	);
 	await testDisableReply(
 		{ ok: false, error: 'lock_failed' },
-		'Another logging toggle is in progress; try again.'
+		'Could not acquire the logging lock.'
 	);
 	await testDisableReply(
 		{ ok: false, error: 'firewall_reload_failed' },
-		'The firewall did not reload; the change was reverted.'
+		'The firewall did not reload; saved and live logging may differ.'
 	);
 	await testDisableReply({ ok: false, error: 'other' }, 'Could not disable logging.');
 	await testDisableReply({ ok: true, changed: true }, 'WAN drop/reject logging is off.');

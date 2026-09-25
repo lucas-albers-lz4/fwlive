@@ -56,11 +56,6 @@ msgstr ""
 "В брандмауэре уже есть другое незафиксированное изменение; сначала примените "
 "или отмените его."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:818
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:849
-msgid "Another logging toggle is in progress; try again."
-msgstr "Другое переключение журналирования уже выполняется; попробуйте снова."
-
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1658
 msgid "Any action"
 msgstr "ÐÑÐ±Ð¾Ðµ Ð´ÐµÐ¹ÑÑÐ²Ð¸Ðµ"
@@ -133,6 +128,11 @@ msgstr "Частые"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:944
 msgid "Connection lost — retrying…"
 msgstr "Connection lost — retrying…"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:818
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:849
+msgid "Could not acquire the logging lock."
+msgstr "Не удалось получить блокировку журналирования."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:609
 msgid "Could not disable logging."
@@ -218,8 +218,8 @@ msgstr "При переключении вкладки опрос приоста
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:822
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:851
-msgid "The firewall did not reload; the change was reverted."
-msgstr "Брандмауэр не перезагрузился; изменение отменено."
+msgid "The firewall did not reload; saved and live logging may differ."
+msgstr "Брандмауэр не перезагрузился; сохранённые и активные настройки журналирования могут различаться."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2250
 msgid "The router log ring may evict older events before fwlive reads them. fwlive cannot recover evicted entries or change forwarding behavior."
