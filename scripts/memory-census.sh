@@ -513,6 +513,6 @@ while [ "$i" -le 5 ]; do
 	i=$((i + 1))
 done
 
-echo "MEMORY_SKIP case=adaptive reason=needs_306"
-echo "MEMORY_SKIP case=visibility reason=needs_306"
+echo "MEMORY_SKIP case=adaptive reason=no_adaptive_cap_census_harness"
+echo "MEMORY_SKIP case=visibility reason=no_visibility_pause_census_harness"
 REMOTE
