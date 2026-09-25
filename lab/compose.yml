@@ -7,7 +7,7 @@ services:
       - "8080:80"
       - "2222:22"
     volumes:
-      - ./images/openwrt-x64.img:/storage/disk.img
+      - ./images/openwrt-x86-64.img:/storage/disk.img
     environment:
       BOOT: "c"
       RAM_SIZE: "1024M"
