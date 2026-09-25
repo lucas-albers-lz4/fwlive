@@ -5,7 +5,7 @@
 #
 # Optional profiles (avoid port 8080/2222 conflicts with QEMU):
 #   docker compose --profile experimental up -d rootfs-x86
-#   docker compose --profile legacy run --rm sdk-legacy   # archived path — see archive/
+#   docker compose --profile legacy run --rm sdk-legacy   # legacy fwlive-built SDK profile
 
 volumes:
   # armsr-armv8 × snapshot (legacy default; same as OWRT_SDK_* unset)
@@ -80,7 +80,7 @@ services:
     stdin_open: true
     tty: true
 
-  # Archived: fwlive-built SDK + tarball import — see archive/scripts/
+  # Legacy profile: fwlive-built SDK + tarball import (build/openwrt-sdk.Dockerfile)
   sdk-legacy:
     profiles: ["legacy"]
     build:
