@@ -15,8 +15,8 @@ function normalize(s, keys, n, i, k) {
 	return s
 }
 function trim(s) {
-	sub(/^[[:space:]]+/, "", s)
-	sub(/[[:space:]]+$/, "", s)
+	sub(/^([ \t\n\r]|\302\240)+/, "", s)
+	sub(/([ \t\n\r]|\302\240)+$/, "", s)
 	return s
 }
 function has_kv(s, key) {
