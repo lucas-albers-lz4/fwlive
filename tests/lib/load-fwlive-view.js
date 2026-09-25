@@ -73,6 +73,24 @@ function createHarnessDocument() {
 	return { document: document, idMap: idMap };
 }
 
+function createHarnessHistory(location) {
+	const calls = [];
+	return {
+		state: null,
+		calls: calls,
+		replaceState: function (state, title, url) {
+			calls.push({ state: state, title: title, url: url });
+			this.state = state;
+			const href = String(url == null ? '' : url);
+			const hashIndex = href.indexOf('#');
+			if (hashIndex === -1)
+				location.hash = '';
+			else
+				location.hash = href.substring(hashIndex);
+		}
+	};
+}
+
 function indexElementIds(node, idMap) {
 	if (!node)
 		return;
@@ -116,6 +134,7 @@ function loadFwliveView(options) {
 	const rawRpcKeys = options.rawRpcKeys || Object.create(null);
 	const storage = Object.assign(Object.create(null), options.storage || {});
 	const location = options.location || { hash: '' };
+	const history = options.history || createHarnessHistory(location);
 
 	const harness = options.document
 		? { document: options.document, idMap: Object.create(null) }
@@ -222,7 +241,7 @@ function loadFwliveView(options) {
 	const fn = new Function(
 		'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
 		'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'renderScheduler', 'E', '_', 'document', 'window', 'localStorage',
-		'performance', 'requestAnimationFrame', 'location',
+		'performance', 'requestAnimationFrame', 'location', 'history',
 		body
 	);
 
@@ -231,7 +250,7 @@ function loadFwliveView(options) {
 		pollCoordinator, renderPolicy, renderScheduler,
 		luciE.E, fakeGettext, document, win, localStorage,
 		{ now: function() { return Date.now(); } },
-		requestAnimationFrame, location
+		requestAnimationFrame, location, history
 	);
 
 	if (viewDesc.render) {
@@ -247,6 +266,7 @@ function loadFwliveView(options) {
 		window: win,
 		localStorage: localStorage,
 		location: location,
+		history: history,
 		poll: poll,
 		rpcMocks: rpcMocks,
 		setRpcMock: function(key, fn) {

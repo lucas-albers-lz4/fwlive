@@ -263,12 +263,50 @@ function testApplyHashPreservesEqualsInValue() {
 function testUpdateHashRoundTripsEqualsAndAmpersand() {
 	const h = loadFwliveView({ location: { hash: '' } });
 	h.view.updateHash({ q: 'a=b&c' });
-	// A browser prefixes the assigned hash with '#'; the harness is a plain object.
-	h.location.hash = '#' + h.location.hash;
 	const q = h.view.hashEntries().filter(function (entry) {
 		return entry.key === 'q';
 	})[0];
 	assert.deepStrictEqual(q, { key: 'q', val: 'a=b&c' });
+}
+
+function testUpdateHashUsesReplaceState() {
+	let hashAssigns = 0;
+	let hashValue = '';
+	const location = {};
+	Object.defineProperty(location, 'hash', {
+		configurable: true,
+		enumerable: true,
+		get: function () {
+			return hashValue;
+		},
+		set: function (v) {
+			hashAssigns++;
+			hashValue = String(v);
+		}
+	});
+	const h = loadFwliveView({ location: location });
+	hashAssigns = 0;
+	h.history.calls.length = 0;
+	h.view.updateHash({ q: 'wan' });
+	assert.strictEqual(h.history.calls.length, 1, 'replaceState must write the fragment');
+	assert.strictEqual(
+		hashAssigns,
+		h.history.calls.length,
+		'location.hash must change only via replaceState'
+	);
+	assert.match(h.location.hash, /^#q=wan$/);
+	assert.strictEqual(h.history.calls[0].url, '#q=wan');
+
+	hashAssigns = 0;
+	h.history.calls.length = 0;
+	h.view.updateHash({ q: '' });
+	assert.strictEqual(h.history.calls.length, 1, 'empty filters still replaceState');
+	assert.strictEqual(hashAssigns, 1, 'empty filters must not assign location.hash directly');
+	assert.ok(
+		!h.location.hash || h.location.hash.length < 2,
+		'empty filters keep empty-hash handling'
+	);
+	assert.deepStrictEqual(h.view.hashEntries(), []);
 }
 
 function testApplyHashHostileAsText() {
@@ -297,5 +335,6 @@ testUnknownChipFieldLabel();
 testApplyHashValidAndMalformed();
 testApplyHashPreservesEqualsInValue();
 testUpdateHashRoundTripsEqualsAndAmpersand();
+testUpdateHashUsesReplaceState();
 testApplyHashHostileAsText();
 console.log('fwlive chips/hash sink tests passed');
