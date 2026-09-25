@@ -335,6 +335,21 @@ return baseclass.extend({
 
 		return m;
 	},
+
+	filterFieldLabel: function (field) {
+		const labels = {
+			'q': _('Search'),
+			'action': _('Action'),
+			'interface': _('Interface'),
+			'proto': _('Proto'),
+			'src': _('Source'),
+			'dst': _('Destination'),
+			'sport': _('Source port'),
+			'dport': _('Destination port')
+		};
+
+		return labels[field] || field;
+	},
 	/* @fwlive-codegen:luci-preserve-end */
 
 	isFirewallEvent: function (entry) {

@@ -51,11 +51,17 @@ assert.ok(
 	'Auto poll must scale raw fetch with rowLimit and use FETCH_LINES_MAX as its paused compatibility budget'
 );
 assert.ok(
-	/requestedFetchLines\(\)[\s\S]*?this\.tablePaused[\s\S]*?constants\.FETCH_LINES_MAX/.test(viewSrc),
+	/requestedFetchLines\(\)[\s\S]*?this\.tablePaused[\s\S]*?constants\.FETCH_LINES_MAX/.test(
+		viewSrc
+	),
 	'poll must route fetch sizing through the budget decision helper'
 );
 assert.match(viewSrc, /\btablePaused\b/, 'view state must name the table rendering pause');
-assert.doesNotMatch(viewSrc, /\bthis\.paused\b/, 'view must not use the ambiguous paused state name');
+assert.doesNotMatch(
+	viewSrc,
+	/\bthis\.paused\b/,
+	'view must not use the ambiguous paused state name'
+);
 assert.match(
 	viewSrc,
 	/\blastBatchNewIdCount\b/,
@@ -96,6 +102,11 @@ assert.ok(
 	/const raw = reply\.log/.test(viewSrc),
 	'fetchEntries must read log array from the full poll reply object'
 );
+assert.match(
+	viewSrc,
+	/logging\.renderManualTestNodes\(testLi,\s*\{\s*firewallBackend:\s*this\.firewallBackend\s*\},\s*\{\}\)/,
+	'manual test renderer must receive the detected firewall backend'
+);
 console.log('fwlive-modules smoke: constants OK');
 
 /* --- poll coordinator --- */
@@ -108,6 +119,7 @@ const log = loadFwliveModule('log');
 assert.strictEqual(typeof log.formatCell, 'function');
 assert.strictEqual(typeof log.parseFilterValue, 'function');
 assert.strictEqual(typeof log.formatFilterChipLabel, 'function');
+assert.strictEqual(typeof log.filterFieldLabel, 'function');
 
 /* --- links --- */
 const links = loadFwliveModule('links', { log: log });
@@ -174,13 +186,29 @@ const logging = loadFwliveModule('logging', {
 assert.strictEqual(typeof logging.renderToolbar, 'function');
 assert.strictEqual(typeof logging.renderEmptyState, 'function');
 assert.strictEqual(typeof logging.renderManualTestNodes, 'function');
-const manualHost = luciE.E('li', { 'id': 'fwlive-manual-test' }, []);
-logging.renderManualTestNodes(manualHost, {}, {});
-const manualText = collectText(manualHost);
-assert.ok(manualText.indexOf('nft insert rule') >= 0, 'manual test is nft-only');
-assert.ok(manualText.indexOf('iptables') < 0, 'manual test must not emit iptables');
-assert.strictEqual(manualHost._innerHTMLWrites.length, 1, 'host clear is the only innerHTML write');
-assert.strictEqual(manualHost._innerHTMLWrites[0], '', 'innerHTML write is a clear, not a payload');
+const manualNftHost = luciE.E('li', { 'id': 'fwlive-manual-test' }, []);
+logging.renderManualTestNodes(manualNftHost, { firewallBackend: 'nft' }, {});
+const manualNftText = collectText(manualNftHost);
+assert.ok(manualNftText.indexOf('nft insert rule') >= 0, 'nft backend uses an nft manual test');
+assert.ok(manualNftText.indexOf('iptables') < 0, 'nft backend must not emit iptables');
+assert.strictEqual(
+	manualNftHost._innerHTMLWrites.length,
+	1,
+	'nft host clear is the only innerHTML write'
+);
+assert.strictEqual(manualNftHost._innerHTMLWrites[0], '', 'nft host clear is not a payload');
+
+const manualIptablesHost = luciE.E('li', { 'id': 'fwlive-manual-test' }, []);
+logging.renderManualTestNodes(manualIptablesHost, { firewallBackend: 'iptables' }, {});
+const manualIptablesText = collectText(manualIptablesHost);
+assert.ok(
+	manualIptablesText.indexOf('nft insert rule') >= 0,
+	'injected iptables backend still uses the nft-only manual test'
+);
+assert.ok(
+	manualIptablesText.indexOf('iptables') < 0,
+	'manual test must not emit iptables (rpcd never reports that backend)'
+);
 
 function collectText(node) {
 	if (!node) return '';
@@ -442,7 +470,9 @@ const outboundOnlyBody = {
 table.renderRows(
 	outboundOnlyBody,
 	{
-		rows: [Object.assign({}, row, { interface_in: '', interface_out: 'eth0', interface: 'eth0' })],
+		rows: [
+			Object.assign({}, row, { interface_in: '', interface_out: 'eth0', interface: 'eth0' })
+		],
 		columns: ['iface'],
 		viewMode: 'simple',
 		messageLayout: 'wrap',
@@ -459,7 +489,11 @@ table.renderRows(
 		}
 	}
 );
-assert.match(JSON.stringify(outboundOnlyBody.children[0]), /eth0/, 'simple view should show OUT-only interface');
+assert.match(
+	JSON.stringify(outboundOnlyBody.children[0]),
+	/eth0/,
+	'simple view should show OUT-only interface'
+);
 
 const keyedTable = loadFwliveModule('table', {
 	log: log,
@@ -520,7 +554,9 @@ function findMessageTd(host) {
 	const tr = host.childNodes[0];
 	assert.ok(tr, 'message row must render');
 	return (tr.childNodes || []).find(function (c) {
-		return c.tagName === 'td' && c._attrs && String(c._attrs.class).indexOf('fwlive-message') >= 0;
+		return (
+			c.tagName === 'td' && c._attrs && String(c._attrs.class).indexOf('fwlive-message') >= 0
+		);
 	});
 }
 
@@ -595,29 +631,28 @@ const wrapShown = log.formatMessageDisplay(overlongRaw, 'wrap');
 const onelineShown = log.formatMessageDisplay(overlongRaw, 'oneline');
 assert.ok(wrapShown.endsWith('…'), 'wrap overlong must ellipsize');
 assert.strictEqual(wrapShown.length, 238, 'wrap cap is 237 chars plus ellipsis');
-assert.ok(!onelineShown.endsWith('…') || onelineShown.length > 238, 'oneline keeps the full string');
+assert.ok(
+	!onelineShown.endsWith('…') || onelineShown.length > 238,
+	'oneline keeps the full string'
+);
 assert.ok(onelineShown.indexOf('x'.repeat(40)) >= 0);
 
 const wrapLong = renderMessageRow(overlongRaw, 'wrap', { expandedRowId: null });
 assert.ok(collectText(wrapLong).indexOf(wrapShown) >= 0, 'wrap cell shows truncated text');
-assert.ok(collectText(wrapLong).indexOf('x'.repeat(300)) < 0, 'wrap cell must not show the full tail');
+assert.ok(
+	collectText(wrapLong).indexOf('x'.repeat(300)) < 0,
+	'wrap cell must not show the full tail'
+);
 assertSinkOnlyTbodyClear(wrapLong, '<img');
 
 const wrapExpanded = renderMessageRow(overlongRaw, 'wrap');
 const expansionPre = findExpansionPre(wrapExpanded);
 assert.ok(expansionPre, 'wrap layout with expandedRowId renders an expansion row');
 const expansionText = collectText(expansionPre);
-assert.strictEqual(
-	expansionText,
-	onelineShown,
-	'expansion shows the full uncapped message'
-);
+assert.strictEqual(expansionText, onelineShown, 'expansion shows the full uncapped message');
 assert.ok(!expansionText.endsWith('…'), 'expansion must not ellipsize');
 assert.ok(expansionText.length > 240, 'expansion keeps the full length');
-assert.ok(
-	expansionText.indexOf('x'.repeat(300)) >= 0,
-	'expansion includes the overlong tail'
-);
+assert.ok(expansionText.indexOf('x'.repeat(300)) >= 0, 'expansion includes the overlong tail');
 assert.strictEqual(
 	expansionPre.childNodes[0] && expansionPre.childNodes[0].nodeType,
 	3,
@@ -635,7 +670,10 @@ assert.ok(
 assertSinkOnlyTbodyClear(wrapExpanded, '<img');
 
 const onelineLong = renderMessageRow(overlongRaw, 'oneline');
-assert.ok(collectText(onelineLong).indexOf(onelineShown) >= 0, 'oneline cell shows the full string');
+assert.ok(
+	collectText(onelineLong).indexOf(onelineShown) >= 0,
+	'oneline cell shows the full string'
+);
 assert.ok(!hasMessageWrapDiv(findMessageTd(onelineLong)), 'overlong oneline has no wrap div');
 assertSinkOnlyTbodyClear(onelineLong, '<img');
 console.log('fwlive-modules smoke: table OK');

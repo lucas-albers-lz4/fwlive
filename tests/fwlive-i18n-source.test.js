@@ -47,7 +47,7 @@ const REGRESSION_MSGIDS = [
 	'Hostname resolve paused while the router is under load.',
 	/* Chip format/connector (#511): the scanner only sees existing _() literals. */
 	'%s: %s',
-	'contains'
+	'does not contain'
 ];
 
 function isIdentifierStart(ch) {
@@ -799,7 +799,7 @@ function main() {
 		return 1;
 	}
 
-	const referenceFixtureMsgid = 'contains';
+	const referenceFixtureMsgid = 'does not contain';
 	const referenceFixture = parsePotEntries(potText).find(
 		(entry) => entry.msgid === referenceFixtureMsgid && entry.refs.length
 	);
