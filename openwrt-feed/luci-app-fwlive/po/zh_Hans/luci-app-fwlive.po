@@ -150,7 +150,7 @@ msgstr "无法启用日志记录。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:751
 msgid "Could not refresh logging status; showing the last known state."
-msgstr "Could not refresh logging status; showing the last known state."
+msgstr "无法刷新日志状态；显示上次已知状态。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:820
 msgid "Could not snapshot the current logging state."
@@ -397,7 +397,7 @@ msgstr "诊断功能受限 — 缺少 timeout 命令"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:726
 msgid "Live view may be incomplete — a legacy iptables table is registered"
-msgstr "Live view may be incomplete — a legacy iptables table is registered"
+msgstr "实时视图可能不完整 — 已注册旧版 iptables 表"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:330
 msgid "Logging is off on this router"
@@ -419,8 +419,7 @@ msgid ""
 msgstr ""
 "手动模式仍受服务器保护和轮询节奏约束；它改变的是抓取配额，而不是轮询间隔。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:379
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:389
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:378
 msgid "Manual test (System → Terminal):"
 msgstr "手动测试（系统 → 终端）："
 
@@ -674,8 +673,7 @@ msgstr "防火墙记录流量时表格会自动更新。如果滚动太快，请
 msgid "Theme tint fallback"
 msgstr "主题着色回退"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:387
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:397
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:386
 msgid "Then ping the router."
 msgstr "然后 ping 路由器。"
 

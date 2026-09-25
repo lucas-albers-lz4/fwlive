@@ -162,7 +162,7 @@ msgstr "Protokollierung konnte nicht aktiviert werden."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:751
 msgid "Could not refresh logging status; showing the last known state."
-msgstr "Could not refresh logging status; showing the last known state."
+msgstr "Protokollstatus konnte nicht aktualisiert werden; zeige den zuletzt bekannten Zustand."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:820
 msgid "Could not snapshot the current logging state."
@@ -424,7 +424,7 @@ msgstr "Eingeschränkte Diagnose — timeout-Befehl fehlt"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:726
 msgid "Live view may be incomplete — a legacy iptables table is registered"
-msgstr "Live view may be incomplete — a legacy iptables table is registered"
+msgstr "Die Live-Ansicht kann unvollständig sein — eine veraltete iptables-Tabelle ist registriert"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:330
 msgid "Logging is off on this router"
@@ -447,8 +447,7 @@ msgstr ""
 "Manuell nutzt weiterhin Serverschutz und Abfrageintervall; es ändert das "
 "Abrufbudget, nicht das Abfrageintervall."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:379
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:389
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:378
 msgid "Manual test (System → Terminal):"
 msgstr "Manueller Test (System → Terminal):"
 
@@ -720,8 +719,7 @@ msgstr ""
 msgid "Theme tint fallback"
 msgstr "Theme-Farb-Fallback"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:387
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:397
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:386
 msgid "Then ping the router."
 msgstr "Dann den Router anpingen."
 

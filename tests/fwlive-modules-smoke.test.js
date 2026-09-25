@@ -202,19 +202,12 @@ const manualIptablesHost = luciE.E('li', { 'id': 'fwlive-manual-test' }, []);
 logging.renderManualTestNodes(manualIptablesHost, { firewallBackend: 'iptables' }, {});
 const manualIptablesText = collectText(manualIptablesHost);
 assert.ok(
-	manualIptablesText.indexOf('iptables -I INPUT') >= 0,
-	'iptables backend uses an iptables manual test'
+	manualIptablesText.indexOf('nft insert rule') >= 0,
+	'injected iptables backend still uses the nft-only manual test'
 );
-assert.ok(manualIptablesText.indexOf('nft insert rule') < 0, 'iptables backend must not emit nft');
-assert.strictEqual(
-	manualIptablesHost._innerHTMLWrites.length,
-	1,
-	'iptables host clear is the only innerHTML write'
-);
-assert.strictEqual(
-	manualIptablesHost._innerHTMLWrites[0],
-	'',
-	'iptables host clear is not a payload'
+assert.ok(
+	manualIptablesText.indexOf('iptables') < 0,
+	'manual test must not emit iptables (rpcd never reports that backend)'
 );
 
 function collectText(node) {

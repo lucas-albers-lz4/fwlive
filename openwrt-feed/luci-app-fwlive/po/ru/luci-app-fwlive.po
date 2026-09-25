@@ -159,7 +159,7 @@ msgstr "Не удалось включить журналирование."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:751
 msgid "Could not refresh logging status; showing the last known state."
-msgstr "Could not refresh logging status; showing the last known state."
+msgstr "Не удалось обновить состояние журналирования; показан последний известный статус."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:820
 msgid "Could not snapshot the current logging state."
@@ -316,7 +316,7 @@ msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:59
 msgid "Forwarded"
-msgstr "Перенаправленный"
+msgstr "Транзитный"
 
 #: openwrt-feed/luci-app-fwlive/root/usr/share/rpcd/acl.d/luci-app-fwlive.json:3
 msgid "Grant access to firewall live log view"
@@ -417,7 +417,7 @@ msgstr "Ограниченная диагностика — отсутствуе
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:726
 msgid "Live view may be incomplete — a legacy iptables table is registered"
-msgstr "Live view may be incomplete — a legacy iptables table is registered"
+msgstr "Живой просмотр может быть неполным — зарегистрирована устаревшая таблица iptables"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:330
 msgid "Logging is off on this router"
@@ -440,8 +440,7 @@ msgstr ""
 "«Вручную» по-прежнему использует защиту сервера и частоту опроса; меняется "
 "бюджет выборки, а не интервал опроса."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:379
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:389
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:378
 msgid "Manual test (System → Terminal):"
 msgstr "Ручной тест (Система → Терминал):"
 
@@ -612,7 +611,7 @@ msgstr "Сервер сократил этот опрос (адаптивный 
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2232
 msgid "Show hostnames"
-msgstr "Показывать имена "
+msgstr "Показывать имена узлов"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2203
 msgid "Show pass/deny row background colors"
@@ -706,8 +705,7 @@ msgstr ""
 msgid "Theme tint fallback"
 msgstr "Запасной цвет темы"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:387
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:397
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:386
 msgid "Then ping the router."
 msgstr "Затем отправьте ping на роутер."
 
