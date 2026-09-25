@@ -36,14 +36,20 @@ assert.equal(syn.status, 0, 'generated shell fails sh -n: ' + syn.stderr);
 
 const out2 = spawnSync(process.execPath, [GEN_LUCI], { encoding: 'utf8' });
 assert.equal(out2.status, 0, out2.stderr || out2.stdout);
-assert.strictEqual(out2.stdout, fs.readFileSync(LUCI_DST, 'utf8'),
-	'fwlive/log.js failed gen-luci-wrapper checks');
-assert.equal((fs.statSync(LUCI_DST).mode & 0o044), 0o044,
-	'fwlive/log.js must be world-readable');
 assert.ok(out2.stdout.indexOf('.includes(') < 0 && out2.stdout.indexOf('Object.values') < 0,
 	'generated LuCI wrapper must not use Array.includes or Object.values');
 
-const luciSrc = fs.readFileSync(LUCI_DST, 'utf8');
+const luciFd = fs.openSync(LUCI_DST, 'r');
+let luciSrc;
+try {
+	assert.equal((fs.fstatSync(luciFd).mode & 0o044), 0o044,
+		'fwlive/log.js must be world-readable');
+	luciSrc = fs.readFileSync(luciFd, 'utf8');
+} finally {
+	fs.closeSync(luciFd);
+}
+assert.strictEqual(out2.stdout, luciSrc,
+	'fwlive/log.js failed gen-luci-wrapper checks');
 const luciTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-luci-gate-'));
 try {
 	const stalePrefixSrc = luciSrc.replace(
