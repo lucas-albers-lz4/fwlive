@@ -17,8 +17,67 @@ const path = require('node:path');
 const core = require(path.join(__dirname, '..', 'core', 'fwlive-log.js'));
 const SPEC = core.CLASSIFY_SPEC;
 
+/**
+ * Pull token/lookahead atoms from parseRuleHint() so awk summary_rule cannot
+ * list a prefix the table Rule column would leave blank. POSIX awk has no
+ * lookahead; (?=KV) becomes a consuming KV match. Do not edit parseRuleHint.
+ */
+function ruleHintFromParseRuleHint() {
+	const src = core.parseRuleHint.toString();
+	const beforeKv = src.match(/msg\.match\(\/\^\(\[([^\]]+)\]\+\)\(\?::\|\\s\+\)\(\?=([^)]+)\)\/\)/);
+	if (!beforeKv)
+		throw new Error('parseRuleHint beforeKv lookahead regex not found');
+	const colon = src.match(/msg\.match\(\/\^\(\[([^\]]+)\]\+\):\/\)/);
+	if (!colon)
+		throw new Error('parseRuleHint colon-tag regex not found');
+	if (colon[1] !== beforeKv[1])
+		throw new Error('parseRuleHint token class mismatch (beforeKv vs colon)');
+	if (!/tag !== 'kernel' && tag !== 'iptables'/.test(src))
+		throw new Error('parseRuleHint kernel/iptables colon reject not found');
+	return {
+		tokenClassAwk: '[' + beforeKv[1] + ']',
+		lookaheadKv: beforeKv[2]
+	};
+}
+
 function awkEscapeAlt(words) {
 	return words.join('|');
+}
+
+/** CLASSIFY_SPEC.trimWhitespace → awk regex atom. ASCII in a class; UTF-8 as octal bytes. */
+function awkTrimPattern(chars) {
+	const ascii = [];
+	const multi = [];
+	for (let i = 0; i < chars.length; i++) {
+		const ch = chars[i];
+		const code = ch.charCodeAt(0);
+		if (code < 128) {
+			if (ch === '\t')
+				ascii.push('\\t');
+			else if (ch === '\n')
+				ascii.push('\\n');
+			else if (ch === '\r')
+				ascii.push('\\r');
+			else
+				ascii.push(ch);
+		} else {
+			const buf = Buffer.from(ch, 'utf8');
+			let oct = '';
+			for (let j = 0; j < buf.length; j++) {
+				let o = buf[j].toString(8);
+				while (o.length < 3)
+					o = '0' + o;
+				oct += '\\' + o;
+			}
+			multi.push(oct);
+		}
+	}
+	const parts = [];
+	if (ascii.length)
+		parts.push('[' + ascii.join('') + ']');
+	for (let i = 0; i < multi.length; i++)
+		parts.push(multi[i]);
+	return '(' + parts.join('|') + ')';
 }
 
 function emitAwkPred(node) {
@@ -57,6 +116,8 @@ function emitAwkProgram() {
 	const prefixBoundary = SPEC.nonFirewallPrefixHyphenContinuation ? '[^a-z0-9_-]' : '[^a-z0-9_]';
 	const hints = awkEscapeAlt(SPEC.firewallHints.map(function(w) { return w.toLowerCase(); }));
 	const actions = SPEC.actionWords.join(' ');
+	const trimWs = awkTrimPattern(SPEC.trimWhitespace);
+	const ruleHint = ruleHintFromParseRuleHint();
 
 	return [
 		'function normalize(s, keys, n, i, k) {',
@@ -69,8 +130,8 @@ function emitAwkProgram() {
 		'\treturn s',
 		'}',
 		'function trim(s) {',
-		'\tsub(/^[[:space:]]+/, "", s)',
-		'\tsub(/[[:space:]]+$/, "", s)',
+		'\tsub(/^' + trimWs + '+/, "", s)',
+		'\tsub(/' + trimWs + '+$/, "", s)',
 		'\treturn s',
 		'}',
 		'function has_kv(s, key) {',
@@ -188,11 +249,17 @@ function emitAwkProgram() {
 		'\ts = trim(normalize(s))',
 		'\tsub(/^\\[[[:space:]]*[0-9.]+\\][[:space:]]*/, "", s)',
 		'\tif (tolower(s) ~ /^fw4:[[:space:]]*/) return "fw4"',
-		'\tfirst = s',
-		'\tsub(/[[:space:]:].*/, "", first)',
-		'\tif (first == "" || first ~ /^(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=/) return ""',
-		'\tif (tolower(first) == "kernel" || tolower(first) == "iptables") return ""',
-		'\treturn utf8_prefix(first, 64)',
+		'\t# Shared with parseRuleHint: token then IN=/OUT=/SRC=/DST=/PROTO=, else colon tag.',
+		'\tif (match(s, "^' + ruleHint.tokenClassAwk + '+(:|[[:space:]]+)(' + ruleHint.lookaheadKv + ')")) {',
+		'\t\tmatch(s, "^' + ruleHint.tokenClassAwk + '+")',
+		'\t\treturn utf8_prefix(substr(s, RSTART, RLENGTH), 64)',
+		'\t}',
+		'\tif (match(s, "^' + ruleHint.tokenClassAwk + '+:")) {',
+		'\t\tfirst = substr(s, RSTART, RLENGTH - 1)',
+		'\t\tif (tolower(first) == "kernel" || tolower(first) == "iptables") return ""',
+		'\t\treturn utf8_prefix(first, 64)',
+		'\t}',
+		'\treturn ""',
 		'}',
 		'function summary_add_count(counts, key) {',
 		'\tif (key != "") counts[key]++',

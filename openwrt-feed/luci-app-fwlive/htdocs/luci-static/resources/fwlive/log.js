@@ -26,6 +26,8 @@ const CLASSIFY_SPEC = {
 		'PREC',
 		'DF'
 	],
+	/* Classify trim (not JS String#trim): ASCII space/tab/LF/CR + NBSP (U+00A0). */
+	trimWhitespace: [' ', '\t', '\n', '\r', '\u00a0'],
 	nonFirewallPrefixes: [
 		'dnsmasq',
 		'procd',
@@ -62,6 +64,15 @@ const CLASSIFY_SPEC = {
 function wordPattern(words) {
 	const alt = words.join('|');
 	return new RegExp('(^|[^A-Za-z0-9_])(' + alt + ')([^A-Za-z0-9_]|$)', 'i');
+}
+
+function classifyTrim(s) {
+	const ws = CLASSIFY_SPEC.trimWhitespace;
+	let start = 0;
+	let end = s.length;
+	while (start < end && ws.indexOf(s.charAt(start)) >= 0) start++;
+	while (end > start && ws.indexOf(s.charAt(end - 1)) >= 0) end--;
+	return s.slice(start, end);
 }
 
 /* ---- spec-derived classification regexes (mirror core/fwlive-log.js) ---- */
@@ -353,7 +364,7 @@ return baseclass.extend({
 	/* @fwlive-codegen:luci-preserve-end */
 
 	isFirewallEvent: function (entry) {
-		const msg = this.normalizeNetfilterMessage((entry && entry.msg) || '').trim();
+		const msg = classifyTrim(this.normalizeNetfilterMessage((entry && entry.msg) || ''));
 		if (!msg) return false;
 
 		if (this.NON_FIREWALL_PREFIX.test(msg)) return false;

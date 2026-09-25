@@ -61,7 +61,7 @@ async function ensureWanLoggingOff(page) {
 	/* Guest may leave /tmp/.uci staged (@zone vs cfgXXXX) so the UI toggle
 	 * returns firewall_changes_pending. Force off via UCI for shot 1. */
 	if (await page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' }).count()) {
-		requireOk(guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; uci set \"firewall.$zid.log=0\"; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci"), 'force WAN logging off');
+		requireOk(guestSetWanLog('0'), 'force WAN logging off');
 		await openFwlive(page);
 	}
 }
@@ -82,6 +82,27 @@ function requireOk(r, label) {
 	throw new Error(`${label}: ${detail}`);
 }
 
+/* Keep the first failing status, then always recreate /tmp/.uci. */
+function guestUciFirewall(inner) {
+	return guestSsh(
+		'st=0; keep() { e=$?; [ "$st" -eq 0 ] && st=$e; return 0; }; ' +
+		'rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci || exit 1; ' +
+		inner +
+		'; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci || keep; exit "$st"'
+	);
+}
+
+function guestSetWanLog(value) {
+	if (value !== '0' && value !== '1')
+		throw new Error(`guestSetWanLog: unexpected value ${JSON.stringify(value)}`);
+	return guestUciFirewall(
+		'zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e \'$.wan_zone\' 2>/dev/null); ' +
+		'if [ -z "$zid" ]; then echo \'fwlive: WAN zone lookup failed\' >&2; st=1; ' +
+		'else uci set "firewall.$zid.log=' + value + '" || keep; ' +
+		'uci commit firewall || keep; /etc/init.d/firewall reload || keep; fi'
+	);
+}
+
 function snapshotGuestWanLogging() {
 	const r = guestSsh("zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; printf '%s\\n' \"$zid\"; uci -q get \"firewall.$zid.log\" || true");
 	requireOk(r, 'snapshot guest WAN logging');
@@ -100,8 +121,13 @@ function restoreGuestWanLogging(snap) {
 		throw new Error(`restore guest WAN logging: unexpected log value ${JSON.stringify(snap.logValue)}`);
 	const uciOp = snap.logValue == null
 		? 'uci -q delete "firewall.$zid.log" || true'
-		: 'uci set "firewall.$zid.log=' + snap.logValue + '"';
-	const r = guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || zid=" + JSON.stringify(snap.zid) + "; [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; " + uciOp + "; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci");
+		: 'uci set "firewall.$zid.log=' + snap.logValue + '" || keep';
+	const r = guestUciFirewall(
+		'zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e \'$.wan_zone\' 2>/dev/null); ' +
+		'[ -n "$zid" ] || zid=' + JSON.stringify(snap.zid) + '; ' +
+		'if [ -z "$zid" ]; then echo \'fwlive: WAN zone lookup failed\' >&2; st=1; ' +
+		'else ' + uciOp + '; uci commit firewall || keep; /etc/init.d/firewall reload || keep; fi'
+	);
 	requireOk(r, 'restore guest WAN logging');
 }
 
@@ -111,7 +137,7 @@ function resetGuestLogs() {
 		cwd: ROOT, encoding: 'utf8'
 	});
 	requireOk(rm, 'fwlive-nft-ping-log remove');
-	requireOk(guestSsh('/etc/init.d/log restart; sleep 2; logread -c 2>/dev/null || true'), 'guest log reset');
+	requireOk(guestSsh('st=0; /etc/init.d/log restart || st=$?; sleep 2; logread -c 2>/dev/null || true; exit "$st"'), 'guest log reset');
 }
 
 function runPingHelper() {
@@ -179,7 +205,7 @@ async function main() {
 		const loggingOnBtn = page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' });
 		if (!(await loggingOnBtn.count())) {
 			/* Same UCI fallback when enable_wan_logging hits firewall_changes_pending. */
-			requireOk(guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; uci set \"firewall.$zid.log=1\"; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci"), 'force WAN logging on');
+			requireOk(guestSetWanLog('1'), 'force WAN logging on');
 			await openFwlive(page);
 		}
 		await loggingOnBtn.waitFor({ state: 'visible', timeout: 20000 });

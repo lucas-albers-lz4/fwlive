@@ -9,6 +9,9 @@ const CLASSIFY_SPEC = {
 	/* Normalization: KV keys whose glued prefix needs a space (fwlive-pingIN=lo → fwlive-ping IN=lo) */
 	glueKeys: ['IN', 'OUT', 'SRC', 'DST', 'PROTO', 'SPT', 'DPT', 'LEN', 'MAC', 'TYPE', 'CODE', 'TTL', 'TOS', 'PREC', 'DF'],
 
+	/* Classify trim (not JS String#trim): ASCII space/tab/LF/CR + NBSP (U+00A0). */
+	trimWhitespace: [' ', '\t', '\n', '\r', '\u00a0'],
+
 	/* NON_FIREWALL_PREFIX daemon names (matched at message start) */
 	nonFirewallPrefixes: ['dnsmasq', 'procd', 'ubusd', 'netifd', 'odhcpd', 'logd', 'dropbear', 'uhttpd', 'hostapd', 'wpad'],
 	/* Hyphenated custom nft prefixes (wpad-drop) are firewall names, not daemon tags. */
@@ -270,8 +273,19 @@ function formatTimestampDisplay(entry) {
 	return new Date(unix * 1000).toISOString();
 }
 
+function classifyTrim(s) {
+	const ws = CLASSIFY_SPEC.trimWhitespace;
+	let start = 0;
+	let end = s.length;
+	while (start < end && ws.indexOf(s.charAt(start)) >= 0)
+		start++;
+	while (end > start && ws.indexOf(s.charAt(end - 1)) >= 0)
+		end--;
+	return s.slice(start, end);
+}
+
 function isFirewallEvent(entry) {
-	const msg = normalizeNetfilterMessage((entry && entry.msg) || '').trim();
+	const msg = classifyTrim(normalizeNetfilterMessage((entry && entry.msg) || ''));
 	if (!msg)
 		return false;
 

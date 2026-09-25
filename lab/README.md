@@ -16,7 +16,12 @@
 
   **Version validation:** [supported releases](../docs/supported-releases.md) · `./scripts/validate-openwrt-23.05.sh` · `./scripts/validate-openwrt.sh --version 24.10`
 
-- `lab/images/openwrt-x64.img` — x86_64 (future; download from `targets/x86/64/` when needed)
+- **`lab/images/openwrt-x86-64-<RELEASE>.img`** — official x86/64 QEMU disk (`targets/x86/64/`). Default symlink `openwrt-x86-64.img` → 24.10.8 (what compose mounts).
+
+  ```sh
+  RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh
+  RELEASE=23.05.5 ./scripts/download-openwrt-x86-64.sh
+  ```
 - `lab/images/opnsense-amd64.img` — optional reference VM
 
 ## Usage

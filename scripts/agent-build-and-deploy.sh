@@ -3,7 +3,7 @@
 # ipk-only: 25.12/snapshot .apk needs qemu-install-fwlive.sh (or docker-rootfs-x86).
 #
 # Linux x86_64 + run-openwrt-armsr-armv8-qemu.sh: --legacy-hostfwd (127.0.0.1:2222, LuCI :8080).
-# Legacy macOS vmnet: archive/scripts/legacy/ (unmaintained).
+# Legacy macOS vmnet QEMU removed in #98 (see git history).
 # Usage:
 #   export QEMU_MAC_LAN=52:54:00:44:55:66
 #   ./scripts/agent-build-and-deploy.sh --ipk out/aarch64_generic/24.10.8/fwlive/luci-app-fwlive_*_all.ipk

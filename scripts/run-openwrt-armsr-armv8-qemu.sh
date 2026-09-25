@@ -12,13 +12,13 @@
 # LuCI http://localhost:8080/cgi-bin/luci/
 # SSH   ssh -p 2222 root@localhost
 #
-# Legacy macOS (unmaintained): archive/scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh
+# macOS is not supported (legacy QEMU path removed in #98 — see git history).
 #
 set -euo pipefail
 
 if [[ "$(uname -s)" != Linux ]]; then
 	echo "Supported platform: Linux x86_64 only." >&2
-	echo "Legacy macOS: archive/scripts/legacy/run-openwrt-armsr-armv8-qemu-macos.sh" >&2
+	echo "Legacy macOS QEMU was removed in #98; see git history." >&2
 	exit 1
 fi
 
