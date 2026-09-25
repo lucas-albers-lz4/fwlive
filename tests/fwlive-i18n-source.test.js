@@ -7,9 +7,11 @@
  * this gate checks the static string-literal form of every _() call in the
  * shipped JavaScript sources, including template-literal interpolations,
  * against the checked-in POT. It also requires each `#:` reference's cited
- * line to contain that msgid as a quoted string. Nearby `_()` calls must not
- * satisfy the check. It intentionally does not claim coverage for dynamic or
- * concatenated translation arguments.
+ * line to contain that msgid as a quoted string, and requires JS `#:` refs to
+ * occupy extracted `_()` occurrences rather than merely resolving on a
+ * containing line. Nearby `_()` calls must not satisfy resolvability. It
+ * intentionally does not claim coverage for dynamic or concatenated
+ * translation arguments.
  *
  * Usage:
  *   node tests/fwlive-i18n-source.test.js
@@ -332,7 +334,8 @@ function extractI18nLiterals(source, filePath, start = 0, end = source.length) {
 						found.push({
 							msgid: normalizeSourceMsgid(string.value),
 							file: filePath,
-							line: lineNumber(source, start)
+							line: lineNumber(source, start),
+							msgidLine: lineNumber(source, arg)
 						});
 					}
 				}
@@ -511,6 +514,73 @@ function checkPotReferences(potText) {
 	return mismatches;
 }
 
+function occupancyKey(msgid, file) {
+	return `${msgid}\0${file}`;
+}
+
+function slotAcceptsLine(slot, line) {
+	return line === slot.line || line === slot.msgidLine;
+}
+
+/*
+ * Assumption: 0 same-line duplicate `_()` of one msgid on master. Do not
+ * collapse those slots. If i18n-scan.pl ever emits one `#:` for two same-line
+ * calls, occupancy would false-red; revisit then.
+ */
+function checkPotReferenceLocations(sourceMessages, potText) {
+	const extras = [];
+	const missing = [];
+	const slotsByKey = new Map();
+	const refsByKey = new Map();
+
+	for (const message of sourceMessages) {
+		const key = occupancyKey(message.msgid, message.file);
+		if (!slotsByKey.has(key)) slotsByKey.set(key, []);
+		slotsByKey.get(key).push(message);
+	}
+
+	for (const entry of parsePotEntries(potText)) {
+		if (!entry.msgid) continue;
+		for (const ref of entry.refs) {
+			if (!ref.file.endsWith('.js')) continue;
+			const key = occupancyKey(entry.msgid, ref.file);
+			if (!refsByKey.has(key)) refsByKey.set(key, []);
+			refsByKey.get(key).push(ref);
+		}
+	}
+
+	const keys = new Set([...slotsByKey.keys(), ...refsByKey.keys()]);
+	for (const key of keys) {
+		const slots = (slotsByKey.get(key) || []).map((slot) => ({
+			file: slot.file,
+			line: slot.line,
+			msgidLine: slot.msgidLine,
+			used: false
+		}));
+		const refs = refsByKey.get(key) || [];
+
+		for (const ref of refs) {
+			const candidates = slots.filter(
+				(slot) => !slot.used && slotAcceptsLine(slot, ref.line)
+			);
+			if (candidates.length > 1) {
+				throw new Error('ambiguous slots');
+			}
+			if (candidates.length === 1) {
+				candidates[0].used = true;
+				continue;
+			}
+			extras.push(`${ref.file}:${ref.line}`);
+		}
+
+		for (const slot of slots) {
+			if (!slot.used) missing.push(`${slot.file}:${slot.msgidLine}`);
+		}
+	}
+
+	return { extras, missing };
+}
+
 function checkSourceToPot(sourceMessages, potText) {
 	const sourceIds = new Set(sourceMessages.map((message) => message.msgid));
 	const potIds = parsePotMsgids(potText);
@@ -529,6 +599,19 @@ function replacePotReference(potText, msgid, fromRef, toRef) {
 	const updated = blocks.map((block) => {
 		if (!parsePotMsgids(block).has(msgid)) return block;
 		return block.replace(new RegExp(`^#:\\s*${escapeRegExp(fromRef)}\\s*$`, 'm'), `#: ${toRef}`);
+	});
+	return updated.join('\n\n');
+}
+
+function removePotReference(potText, msgid, fileLine) {
+	const pattern = new RegExp(`^#:\\s*${escapeRegExp(fileLine)}\\s*$`);
+	const blocks = potText.split(/\n{2,}/);
+	const updated = blocks.map((block) => {
+		if (!parsePotMsgids(block).has(msgid)) return block;
+		return block
+			.split('\n')
+			.filter((line) => !pattern.test(line))
+			.join('\n');
 	});
 	return updated.join('\n\n');
 }
@@ -589,6 +672,133 @@ function main() {
 		return 1;
 	}
 
+	let occupancy;
+	try {
+		occupancy = checkPotReferenceLocations(sourceMessages, potText);
+	} catch (err) {
+		if (err && err.message === 'ambiguous slots') {
+			console.error('POT #: occupancy mismatches: ambiguous slots');
+			return 1;
+		}
+		throw err;
+	}
+	if (occupancy.extras.length || occupancy.missing.length) {
+		console.error('POT #: occupancy mismatches:');
+		for (const extra of occupancy.extras) {
+			console.error(`- extra ${extra}`);
+		}
+		for (const miss of occupancy.missing) {
+			console.error(`- missing ${miss}`);
+		}
+		return 1;
+	}
+
+	const occupancyMsgid =
+		'Another change is staged for the firewall; apply or revert it first.';
+	const occupancySlotsByFile = new Map();
+	for (const message of sourceMessages) {
+		if (message.msgid !== occupancyMsgid) continue;
+		if (!occupancySlotsByFile.has(message.file)) occupancySlotsByFile.set(message.file, []);
+		occupancySlotsByFile.get(message.file).push(message);
+	}
+	let occupancyFile = '';
+	let occupancyFileSlots = [];
+	for (const [file, slots] of occupancySlotsByFile) {
+		const ordered = slots.slice().sort((a, b) => a.line - b.line);
+		if (ordered.length >= 2 && ordered[0].line !== ordered[0].msgidLine) {
+			occupancyFile = file;
+			occupancyFileSlots = ordered;
+			break;
+		}
+	}
+	if (!occupancyFile) {
+		console.error(
+			'Occupancy mutation fixture missing: expected one file with ≥2 slots and a wrapped first slot'
+		);
+		return 1;
+	}
+	const firstSlot = occupancyFileSlots[0];
+	const secondSlot = occupancyFileSlots[1];
+	const firstTokenRef = `${occupancyFile}:${firstSlot.line}`;
+	const firstMsgidRef = `${occupancyFile}:${firstSlot.msgidLine}`;
+	const secondTokenRef = `${occupancyFile}:${secondSlot.line}`;
+	const secondMsgidRef = `${occupancyFile}:${secondSlot.msgidLine}`;
+
+	const occupancyResolvable = (mutated, label) => {
+		if (checkPotReferences(mutated).length) {
+			console.error(`Occupancy ${label} mutation failed resolvability`);
+			return false;
+		}
+		return true;
+	};
+	const occupancyKind = (mutated) => checkPotReferenceLocations(sourceMessages, mutated);
+
+	const insertedPot = replacePotReference(
+		potText,
+		occupancyMsgid,
+		firstTokenRef,
+		`${firstTokenRef}\n#: ${firstTokenRef}`
+	);
+	if (insertedPot === potText || !occupancyResolvable(insertedPot, 'insert-duplicate')) return 1;
+	const insertedOccupancy = occupancyKind(insertedPot);
+	if (
+		insertedOccupancy.extras.join('|') !== firstTokenRef ||
+		insertedOccupancy.missing.length
+	) {
+		console.error(
+			'Occupancy insert-duplicate mutation did not fail extra-only at the duplicated token line'
+		);
+		return 1;
+	}
+
+	const droppedPot = removePotReference(potText, occupancyMsgid, secondTokenRef);
+	if (droppedPot === potText || !occupancyResolvable(droppedPot, 'drop')) return 1;
+	const droppedOccupancy = occupancyKind(droppedPot);
+	if (
+		droppedOccupancy.extras.length ||
+		droppedOccupancy.missing.join('|') !== secondMsgidRef
+	) {
+		console.error(
+			'Occupancy drop mutation did not fail missing-only at the second slot msgidLine'
+		);
+		return 1;
+	}
+
+	const wrapTwicePot = removePotReference(
+		replacePotReference(
+			potText,
+			occupancyMsgid,
+			firstTokenRef,
+			`${firstTokenRef}\n#: ${firstMsgidRef}`
+		),
+		occupancyMsgid,
+		secondTokenRef
+	);
+	if (wrapTwicePot === potText || !occupancyResolvable(wrapTwicePot, 'wrap-twice')) return 1;
+	const wrapTwiceOccupancy = occupancyKind(wrapTwicePot);
+	if (
+		wrapTwiceOccupancy.extras.join('|') !== firstMsgidRef ||
+		wrapTwiceOccupancy.missing.join('|') !== secondMsgidRef
+	) {
+		console.error(
+			'Occupancy wrap-twice mutation did not fail extra first msgidLine and missing second msgidLine'
+		);
+		return 1;
+	}
+
+	const wrapPassPot = replacePotReference(
+		potText,
+		occupancyMsgid,
+		firstTokenRef,
+		firstMsgidRef
+	);
+	if (wrapPassPot === potText || !occupancyResolvable(wrapPassPot, 'wrap-pass')) return 1;
+	const wrapPassOccupancy = occupancyKind(wrapPassPot);
+	if (wrapPassOccupancy.extras.length || wrapPassOccupancy.missing.length) {
+		console.error('Occupancy wrap-pass mutation failed after citing the first slot msgidLine');
+		return 1;
+	}
+
 	const referenceFixtureMsgid = 'contains';
 	const referenceFixture = parsePotEntries(potText).find(
 		(entry) => entry.msgid === referenceFixtureMsgid && entry.refs.length
@@ -642,6 +852,7 @@ function main() {
 		REGRESSION_MSGIDS.length
 	);
 	console.log('POT #: reference check: all msgid references resolve in tree');
+	console.log('POT #: occupancy check: JS refs occupy extracted _() slots');
 	console.log('Source-to-POT drift gate passed.');
 	return 0;
 }
