@@ -389,12 +389,12 @@ function runJsonGetMsgUnicodeSummary() {
 		'\\u20ac outside 1..255 is collapsed; summary is ASCII/Latin-1 oriented');
 
 	const e9 = jsonGetMsgReply(
-		'{"msg":"cafe\\u00e9rule IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DROP"}'
+		'{"msg":"fw4: DROP IN=wan OUT= SRC=cafe\\u00e9host DST=192.0.2.1 PROTO=TCP"}'
 	);
-	assert.ok(!e9.includes('"value":"caferule"'),
-		'\\u00e9 must not vanish from summary top_rules');
-	assert.ok(/"value":"cafe.+rule"/.test(e9),
-		'\\u00e9 Latin-1 fast path must keep cafe…rule');
+	assert.ok(!e9.includes('"value":"cafehost"'),
+		'\\u00e9 must not vanish from summary top_talkers');
+	assert.ok(/"value":"cafe.+host"/.test(e9),
+		'\\u00e9 Latin-1 fast path must keep cafe…host');
 
 	const nul = JSON.parse(jsonGetMsgReply(
 		'{"msg":"AB\\u0000CD IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DROP"}'
@@ -451,6 +451,50 @@ function runSummaryContract() {
 		assert.equal(disabled.status, 0, disabled.stderr || disabled.stdout);
 		assert.equal(JSON.parse(disabled.stdout).summary, undefined,
 			'adaptive-off filter reply must omit summary');
+	} finally {
+		jf.cleanup();
+	}
+}
+
+function runSummaryRuleHintParity() {
+	/* #622 — awk used to keep first space/colon token; JS parseRuleHint does not. */
+	const jf = jsonfilterPathEnv();
+	const msgs = [
+		'reject wan in: IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22',
+		'$(id); DROP IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP'
+	];
+	const payload = JSON.stringify({
+		log: msgs.map(function(msg) { return { msg: msg }; })
+	});
+	try {
+		const filtered = shSpawn(null, {
+			argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
+		const out = JSON.parse(filtered.stdout);
+		assert.equal(out.log.length, msgs.length,
+			'disagreeing rule-hint shapes must still classify');
+		const topRules = (out.summary && out.summary.top_rules) || [];
+		const listed = {};
+		for (let i = 0; i < topRules.length; i++)
+			listed[topRules[i].value] = topRules[i].count;
+		for (let i = 0; i < msgs.length; i++) {
+			const msg = msgs[i];
+			const hint = core.normalizeEntry({ msg: msg }).rule_hint;
+			assert.equal(hint, core.parseRuleHint(msg),
+				'normalizeEntry.rule_hint must be parseRuleHint for ' + JSON.stringify(msg));
+			if (hint === '')
+				assert.equal(listed[hint], undefined);
+			else
+				assert.ok(listed[hint] > 0,
+					'top_rules must list JS rule_hint ' + JSON.stringify(hint));
+		}
+		assert.equal(listed.reject, undefined,
+			'reject without IN=/OUT=/SRC=/DST=/PROTO= lookahead is not a rule hint');
+		assert.equal(listed['$(id);'], undefined,
+			'$(id); prefix is not a parseRuleHint token');
+		assert.deepEqual(topRules, [],
+			'top_rules must match the blank Rule column for both #622 shapes');
 	} finally {
 		jf.cleanup();
 	}
@@ -612,6 +656,7 @@ function run() {
 	runJsonGetMsgUnicodeSummary();
 	runEmptyMalformedInput();
 	runSummaryContract();
+	runSummaryRuleHintParity();
 	runMetacharSafety();
 	runUnicodeSummaryBound();
 	runUnicodeFieldTruncation();
