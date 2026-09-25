@@ -22,6 +22,7 @@ Run the checks again after changes — see [Build & test](developer/build-and-te
 | **24.10.8** | ✓ | **x86_64** (fast KVM lab) | ✓ primary dev loop |
 | **23.05.5** | ✓ armsr-armv8 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` |
 | **23.05.5** | ✓ (same `_all` ipk) | armsr/armv8 | Same package; TCG QEMU boot slow — not re-signed in lab |
+| **25.12.5** | ✓ armsr-armv8, x86-64 | x86 + armsr (QEMU) | **supported-but-not-signed-off** — [validation matrix](validation-matrix.md) |
 | **snapshot** | ✓ matrix | — | Best-effort; not formally signed off |
 
 **Production target:** armsr **24.10.8**. **23.05.5** is supported (EOL). **22.03.7** / **21.02.7** are historical lab notes only — see [supported releases](supported-releases.md#2305x), [22.03 notes](supported-releases.md#2203x-historical), and [21.02 notes](supported-releases.md#2102x-historical).
