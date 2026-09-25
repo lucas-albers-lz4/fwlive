@@ -18,15 +18,24 @@
 
 function chipFieldLabel(spec) {
 	switch (spec.key) {
-	case 'q': return _('Search');
-	case 'action': return _('Action');
-	case 'interface': return _('Interface');
-	case 'proto': return _('Proto');
-	case 'src': return _('Source');
-	case 'dst': return _('Destination');
-	case 'sport': return _('Source port');
-	case 'dport': return _('Destination port');
-	default: return spec.label || spec.key;
+		case 'q':
+			return _('Search');
+		case 'action':
+			return _('Action');
+		case 'interface':
+			return _('Interface');
+		case 'proto':
+			return _('Proto');
+		case 'src':
+			return _('Source');
+		case 'dst':
+			return _('Destination');
+		case 'sport':
+			return _('Source port');
+		case 'dport':
+			return _('Destination port');
+		default:
+			return spec.label || spec.key;
 	}
 }
 

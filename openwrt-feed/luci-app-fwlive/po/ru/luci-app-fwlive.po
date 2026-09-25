@@ -88,7 +88,7 @@ msgstr ""
 "ÐÐ»Ð°ÑÑÐ¸ÑÐµÑÐºÐ¸Ð¹ â Ð·ÐµÐ»ÑÐ½ÑÐ¹/ÐºÑÐ°ÑÐ½ÑÐ¹; Ð´Ð¾ÑÑÑÐ¿Ð½ÑÐ¹ â "
 "Ð±Ð¸ÑÑÐ·Ð¾Ð²ÑÐ¹/Ð¾ÑÐ°Ð½Ð¶ÐµÐ²ÑÐ¹"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:116
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:169
 msgid "Clear all"
 msgstr "ÐÑÐ¸ÑÑÐ¸ÑÑ Ð²ÑÑ"
 
@@ -169,7 +169,7 @@ msgstr "ÐÐ°Ð·Ð½Ð°ÑÐµÐ½Ð¸Ðµ"
 msgid "Destination IP contains (! to exclude)"
 msgstr "IP Ð½Ð°Ð·Ð½Ð°ÑÐµÐ½Ð¸Ñ ÑÐ¾Ð´ÐµÑÐ¶Ð¸Ñ (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:28
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:36
 msgid "Destination port"
 msgstr "Порт назначения"
 
@@ -250,7 +250,7 @@ msgstr "Enabling…"
 msgid "Exclude"
 msgstr "Исключить"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:80
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:105
 msgid "Exclude instead"
 msgstr "ÐÑÐºÐ»ÑÑÐ¸ÑÑ Ð²Ð¼ÐµÑÑÐ¾ ÑÑÐ¾Ð³Ð¾"
 
@@ -328,7 +328,7 @@ msgstr ""
 "If the WAN is quiet, wait for probes or use the optional ping check in "
 "Help / the enabling-logs guide."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:80
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:105
 msgid "Include instead"
 msgstr "ÐÐºÐ»ÑÑÐ¸ÑÑ Ð²Ð¼ÐµÑÑÐ¾ ÑÑÐ¾Ð³Ð¾"
 
@@ -459,7 +459,7 @@ msgstr "Протокол — частые значения"
 msgid "Quick search"
 msgstr "ÐÑÑÑÑÑÐ¹ Ð¿Ð¾Ð¸ÑÐº"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:91
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:128
 msgid "Remove filter"
 msgstr "Ð£Ð´Ð°Ð»Ð¸ÑÑ ÑÐ¸Ð»ÑÑÑ"
 
@@ -518,7 +518,7 @@ msgstr "Сервер сократил этот опрос (адаптивный 
 msgid "SPort"
 msgstr "ÐÐ¾ÑÑ Ð¸ÑÑ."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:21
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:22
 msgid "Search"
 msgstr "Поиск"
 
@@ -542,7 +542,7 @@ msgstr "ÐÑÑÐ¾ÑÐ½Ð¸Ðº"
 msgid "Source IP contains (! to exclude)"
 msgstr "IP Ð¸ÑÑÐ¾ÑÐ½Ð¸ÐºÐ° ÑÐ¾Ð´ÐµÑÐ¶Ð¸Ñ (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:27
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:34
 msgid "Source port"
 msgstr "Порт источника"
 
@@ -673,7 +673,7 @@ msgstr "allow/deny rules, LAN logging, or anything else."
 msgid "buffer full"
 msgstr "Ð±ÑÑÐµÑ Ð·Ð°Ð¿Ð¾Ð»Ð½ÐµÐ½"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:40
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:63
 msgid "contains"
 msgstr "содержит"
 
@@ -681,7 +681,7 @@ msgstr "содержит"
 msgid "default 10/minute"
 msgstr "Ð¿Ð¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ 10/Ð¼Ð¸Ð½"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:28
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:52
 msgid "is"
 msgstr "ÐµÑÑÑ"
 
@@ -693,8 +693,8 @@ msgstr "Ð·Ð°Ð³ÑÑÐ·ÐºÐ° Ð±ÑÑÐµÑÐ°"
 msgid "loading…"
 msgstr "loading…"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:37
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:44
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:61
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:68
 msgid "not"
 msgstr "Ð½Ðµ"
 
