@@ -468,7 +468,7 @@ msgstr "点击「启用」之前不会有任何更改。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:39
 msgid "OUT"
-msgstr "åºæ¥å£"
+msgstr "出接口"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2447
 msgid "One line"
