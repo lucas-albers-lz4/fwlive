@@ -79,8 +79,8 @@ function runMsgParity() {
 		{ msg: '  dnsmasq[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP' },
 		{ msg: ' wpad[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP DROP' },
 		{ msg: ' IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP' },
-		/* #620 — NBSP (U+00A0) is in CLASSIFY_SPEC trim, so prefix guard fires */
-		{ msg: '\u00a0dnsmasq[1]: query ...' }
+		/* #620 — NBSP + daemon + netfilter KVs: JS-false/awk-true without spec trim */
+		{ msg: '\u00a0dnsmasq[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP DROP' }
 	];
 
 	for (const entry of fixture.log.concat(extra)) {
