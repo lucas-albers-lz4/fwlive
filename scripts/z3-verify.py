@@ -55,12 +55,14 @@ ADDR_MAX_LEN = 64
 
 # ---------------------------------------------------------------------------
 # F2 pins from core/fwlive-log.js CLASSIFY_SPEC / derived regexes (#198).
-# If the JS spec changes, update these tuples. z3-solver==5.0.0.
+# TCP_FLAG_TAIL is parseFlags vocabulary, not CLASSIFY_SPEC (#667).
+# If the JS spec or TCP_FLAG_TAIL tokens change, update these tuples.
+# z3-solver==5.0.0.
 # JS ACTION_RE / DENY_ACTION / NON_FIREWALL_PREFIX / TCP_FLAG_TAIL are /i;
 # F2 enumerates upper+lower tokens (mixed-case is outside this model).
 # Glue keys are exact-case in NETFILTER_KV_GLUE (not /i).
 # ---------------------------------------------------------------------------
-TCP_FLAG_TOKENS = ("SYN", "ACK", "FIN", "RST", "PSH", "URG")
+TCP_FLAG_TOKENS = ("SYN", "ACK", "FIN", "RST", "PSH", "URG", "ECE", "CWR")
 ACTION_WORDS = ("ACCEPT", "ALLOW", "PASS", "DROP", "REJECT", "DENY", "BLOCK")
 DENY_WORDS = ACTION_WORDS[3:]  # DROP|REJECT|DENY|BLOCK — CLASSIFY_SPEC slice(3)
 NON_FIREWALL_PREFIXES = (
@@ -479,6 +481,8 @@ def run_f2_fast() -> int:
 		("F2 flag tail SYN", "SYN", True),
 		("F2 flag tail SYN ACK", "SYN ACK", True),
 		("F2 flag tail syn ack (lower)", "syn ack", True),
+		("F2 flag tail ECE CWR", "ECE CWR", True),
+		("F2 flag tail SYN ACK ECE CWR", "SYN ACK ECE CWR", True),
 		("F2 flag tail reject SYNACK", "SYNACK", False),
 		("F2 flag tail reject SYN=", "SYN=", False),
 	):

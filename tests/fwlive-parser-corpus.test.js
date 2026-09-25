@@ -25,7 +25,7 @@ const FIXTURE_DIR = path.join(__dirname, 'fixtures');
 /* Override with SH='busybox sh' for ash parity (#103). */
 const SH = process.env.SH || 'sh';
 
-const FIXTURES = [ 'logread-mixed.json', 'logread-iptables.json' ];
+const FIXTURES = [ 'logread-mixed.json', 'logread-iptables.json', 'logread-tcp-flags.json' ];
 
 const ROW_FIELDS = [
 	'action', 'action_raw', 'proto', 'src', 'dst', 'sport', 'dport',
@@ -85,6 +85,38 @@ const GOLDEN = [
 		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
 		interface_in: 'eth0', interface_out: '', rule_hint: '',
 		flags: 'SYN', length: 60, timestamp: 1717675747
+	},
+	{
+		fixture: 'logread-tcp-flags.json', i: 0, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 ECE',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		flags: 'ECE', length: 60, timestamp: 1717675748
+	},
+	{
+		fixture: 'logread-tcp-flags.json', i: 1, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 CWR',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		flags: 'CWR', length: 60, timestamp: 1717675749
+	},
+	{
+		fixture: 'logread-tcp-flags.json', i: 2, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 WINDOW=65535 RES=0x00 SYN ACK ECE CWR URGP=0',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		flags: 'SYN,ACK,ECE,CWR', length: 60, timestamp: 1717675750
+	},
+	{
+		fixture: 'logread-tcp-flags.json', i: 3, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 WINDOW=65535 RES=0x00 SYN ACK URGP=0',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		flags: 'SYN,ACK', length: 60, timestamp: 1717675751
 	},
 	{
 		fixture: 'logread-iptables.json', i: 0, firewall: true,

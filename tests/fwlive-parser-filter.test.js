@@ -97,6 +97,12 @@ function run() {
 	const kernelRow = core.normalizeEntry(kernelOnly);
 	assert.equal(kernelRow.action, 'unknown');
 
+	assert.equal(core.parseFlags('SRC=1.2.3.4 ECE', {}), 'ECE');
+	assert.equal(core.parseFlags('SRC=1.2.3.4 CWR', {}), 'CWR');
+	assert.equal(core.parseFlags('SRC=1.2.3.4 ECE CWR', {}), 'ECE,CWR');
+	assert.equal(core.parseFlags('SRC=1.2.3.4 SYN ACK URGP=0', {}), 'SYN,ACK');
+	assert.equal(core.parseFlags('SRC=1.2.3.4 SYN ACK ECE CWR URGP=0', {}), 'SYN,ACK,ECE,CWR');
+
 	// iptables LOG samples (issue #7).
 	const iptFixture = path.join(__dirname, 'fixtures', 'logread-iptables.json');
 	const iptPayload = JSON.parse(fs.readFileSync(iptFixture, 'utf8'));
