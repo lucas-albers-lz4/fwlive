@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Host proof: luci-app-fwlive Version/pkgver from feed indexes (#421).
 # APK path stubs docker like sdk-apk.test.sh — never host apk, no live SDK.
+# tests/fixtures/feed-index-adbdump.json is hand-written for stub error paths (#676).
+# Real SDK shape: tests/fixtures/feed-index-adbdump-sdk.json (+ packages.adb input).
+# Opt-in integration: FWLIVE_SDK_ADBDUMP=1 (Docker + pinned SDK; not fwlive-test.sh).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,11 +28,16 @@ opkg_want='0.1.45-1'
 opkg_stale='0.1.44-1'
 packages_fix="$ROOT/tests/fixtures/feed-index-packages"
 adbdump_fix="$ROOT/tests/fixtures/feed-index-adbdump.json"
+adbdump_sdk_fix="$ROOT/tests/fixtures/feed-index-adbdump-sdk.json"
+packages_adb_fix="$ROOT/tests/fixtures/feed-index-packages.adb"
 opkg_info_fix="$ROOT/tests/fixtures/feed-index-opkg-info"
 apk_query_fix="$ROOT/tests/fixtures/feed-index-apk-query.json"
+ORIG_PATH="$PATH"
 
 [[ -f "$packages_fix" ]] || fail "missing Packages fixture: $packages_fix"
 [[ -f "$adbdump_fix" ]] || fail "missing adbdump fixture: $adbdump_fix"
+[[ -f "$adbdump_sdk_fix" ]] || fail "missing SDK adbdump fixture: $adbdump_sdk_fix"
+[[ -f "$packages_adb_fix" ]] || fail "missing packages.adb fixture: $packages_adb_fix"
 [[ -f "$opkg_info_fix" ]] || fail "missing opkg info fixture: $opkg_info_fix"
 [[ -f "$apk_query_fix" ]] || fail "missing apk query fixture: $apk_query_fix"
 
@@ -307,5 +315,55 @@ ok "apk query pkgver field is accepted"
 
 [[ ! -s "$FWLIVE_DOCKER_LOG" ]] || fail "guest apk query path invoked docker"
 [[ ! -e "$TMP/apk-invoked" ]] || fail "host apk was invoked on guest query paths"
+
+got="$(python3 - "$adbdump_sdk_fix" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path, encoding="utf-8") as fh:
+	data = json.load(fh)
+pkgs = data.get("packages") if isinstance(data, dict) else None
+if not isinstance(pkgs, list) or not pkgs:
+	raise SystemExit("SDK adbdump fixture must have packages[]")
+pkg = pkgs[0]
+if not isinstance(pkg, dict):
+	raise SystemExit("SDK adbdump packages[0] must be an object")
+name = str(pkg.get("name") or "").strip()
+ver = str(pkg.get("version") or pkg.get("pkgver") or "").strip()
+if name != "luci-app-fwlive" or not ver:
+	raise SystemExit("SDK adbdump fixture missing luci-app-fwlive version")
+print(ver)
+PY
+)" || fail "SDK adbdump fixture shape check failed"
+feed_index_versions_match "$got" "$want" \
+	|| fail "SDK adbdump fixture pkgver should be $want (got '$got')"
+if cmp -s "$adbdump_fix" "$adbdump_sdk_fix"; then
+	fail "SDK adbdump fixture must not duplicate hand-written stub JSON"
+fi
+ok "committed SDK-shaped adbdump fixture is parseable"
+
+if [[ "${FWLIVE_SDK_ADBDUMP:-}" == 1 ]]; then
+	PATH="$ORIG_PATH"
+	unset FWLIVE_SDK_APK_IMAGE FWLIVE_ADBDUMP_FIXTURE
+	command -v docker >/dev/null 2>&1 || fail "FWLIVE_SDK_ADBDUMP=1 requires docker"
+	[[ ! -e "$TMP/apk-invoked" ]] || fail "host apk must not run before SDK adbdump gate"
+	live_dump="$TMP/adbdump-live.json"
+	sdk_apk_adbdump --format json "$packages_adb_fix" >"$live_dump" \
+		|| fail "pinned SDK sdk_apk_adbdump failed for packages.adb fixture"
+	[[ ! -e "$TMP/apk-invoked" ]] || fail "host apk was invoked during SDK adbdump gate"
+	python3 - "$live_dump" "$adbdump_sdk_fix" <<'PY' \
+		|| fail "live SDK adbdump JSON does not match committed fixture"
+import json, sys
+def load(path):
+	with open(path, encoding="utf-8") as fh:
+		return json.load(fh)
+live, want = load(sys.argv[1]), load(sys.argv[2])
+if live != want:
+	raise SystemExit("live SDK adbdump JSON drifted from feed-index-adbdump-sdk.json")
+PY
+	got="$(feed_index_apk_pkgver "$packages_adb_fix")"
+	feed_index_versions_match "$got" "$want" \
+		|| fail "live packages.adb pkgver should be $want (got '$got')"
+	ok "FWLIVE_SDK_ADBDUMP pinned SDK adbdump matches fixture and parser"
+fi
 
 echo "feed-index-version helper test passed"
