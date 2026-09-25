@@ -42,6 +42,40 @@ const afterPausePoll = buffer.applyFetchedEntries(
 assert.strictEqual(afterPausePoll.length, 152);
 assert.deepStrictEqual(ids(afterPausePoll.slice(-3)), [ '150', '151', '152' ]);
 
+/* Paused: cap at fetchLinesMax — newest rows survive overflow. */
+const hugePaused = [];
+for (let i = 1; i <= 2500; i++)
+	hugePaused.push(row(i));
+const cappedPaused = buffer.applyFetchedEntries(hugePaused, [], {
+	paused: true,
+	resumeMerge: false,
+	rowLimit: ROW,
+	fetchLinesMax: MAX
+});
+assert.deepStrictEqual(ids(cappedPaused), ids(hugePaused.slice(-MAX)));
+
+let atCap = [];
+for (let i = 1; i <= MAX; i++)
+	atCap.push(row(i));
+const stillMax = buffer.applyFetchedEntries(atCap, [], {
+	paused: true,
+	resumeMerge: false,
+	rowLimit: ROW,
+	fetchLinesMax: MAX
+});
+assert.deepStrictEqual(ids(stillMax), ids(atCap));
+
+const oneOver = buffer.applyFetchedEntries(atCap, [ row(MAX + 1) ], {
+	paused: true,
+	resumeMerge: false,
+	rowLimit: ROW,
+	fetchLinesMax: MAX
+});
+assert.deepStrictEqual(
+	ids(oneOver),
+	ids(atCap.slice(1).concat([ row(MAX + 1) ]))
+);
+
 /* Bug #43 scenario: large pause buffer + resume must keep recent pause rows. */
 const big = [];
 for (let i = 1; i <= 500; i++)
