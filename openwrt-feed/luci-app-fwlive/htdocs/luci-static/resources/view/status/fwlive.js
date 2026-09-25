@@ -215,7 +215,7 @@ return view.extend({
 			parts.push('maxraw=%s'.format(encodeURIComponent(this.manualFetchLines)));
 		}
 		if (this.viewMode === 'detailed') parts.push('view=detailed');
-		location.hash = parts.join('&');
+		history.replaceState(history.state, '', '#' + parts.join('&'));
 	},
 
 	hashEntries() {

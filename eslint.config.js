@@ -15,6 +15,7 @@ const luciBrowserGlobals = {
 	globalThis: 'readonly',
 	localStorage: 'readonly',
 	location: 'readonly',
+	history: 'readonly',
 	setTimeout: 'readonly',
 	clearTimeout: 'readonly',
 	requestAnimationFrame: 'readonly',
