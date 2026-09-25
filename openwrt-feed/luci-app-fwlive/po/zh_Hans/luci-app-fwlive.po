@@ -155,6 +155,10 @@ msgstr "ç®æ å°å"
 msgid "Destination IP contains (! to exclude)"
 msgstr "ç®æ  IP å"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:28
+msgid "Destination port"
+msgstr "目标端口"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1692
 msgid "Destination port (! to exclude)"
 msgstr "ç®æ ç«¯å£ï¼! è¡¨ç¤ºæé¤ï¼"
@@ -487,6 +491,10 @@ msgstr "服务器已截断本次轮询（自适应上限）。"
 msgid "SPort"
 msgstr "æºç«¯å£"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:21
+msgid "Search"
+msgstr "搜索"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1650
 msgid "Show hostnames"
 msgstr "æ¾ç¤ºä¸»æºå"
@@ -506,6 +514,10 @@ msgstr "æºå°å"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1689
 msgid "Source IP contains (! to exclude)"
 msgstr "æº IP å"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:27
+msgid "Source port"
+msgstr "源端口"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1690
 msgid "Source port (! to exclude)"

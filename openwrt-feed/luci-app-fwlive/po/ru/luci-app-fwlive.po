@@ -169,6 +169,10 @@ msgstr "ÐÐ°Ð·Ð½Ð°ÑÐµÐ½Ð¸Ðµ"
 msgid "Destination IP contains (! to exclude)"
 msgstr "IP Ð½Ð°Ð·Ð½Ð°ÑÐµÐ½Ð¸Ñ ÑÐ¾Ð´ÐµÑÐ¶Ð¸Ñ (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:28
+msgid "Destination port"
+msgstr "Порт назначения"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1692
 msgid "Destination port (! to exclude)"
 msgstr "ÐÐ¾ÑÑ Ð½Ð°Ð·Ð½Ð°ÑÐµÐ½Ð¸Ñ (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
@@ -514,6 +518,10 @@ msgstr "Сервер сократил этот опрос (адаптивный 
 msgid "SPort"
 msgstr "ÐÐ¾ÑÑ Ð¸ÑÑ."
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:21
+msgid "Search"
+msgstr "Поиск"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1650
 msgid "Show hostnames"
 msgstr "ÐÐ¾ÐºÐ°Ð·ÑÐ²Ð°ÑÑ Ð¸Ð¼ÐµÐ½Ð° "
@@ -533,6 +541,10 @@ msgstr "ÐÑÑÐ¾ÑÐ½Ð¸Ðº"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1689
 msgid "Source IP contains (! to exclude)"
 msgstr "IP Ð¸ÑÑÐ¾ÑÐ½Ð¸ÐºÐ° ÑÐ¾Ð´ÐµÑÐ¶Ð¸Ñ (! Ð´Ð»Ñ Ð¸ÑÐºÐ»ÑÑÐµÐ½Ð¸Ñ)"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:27
+msgid "Source port"
+msgstr "Порт источника"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1690
 msgid "Source port (! to exclude)"

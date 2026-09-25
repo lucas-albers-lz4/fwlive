@@ -176,7 +176,7 @@ return view.extend({
 	tintFallbackActive: false,
 	tintProbeDone: false,
 
-	FILTER_CHIP_FIELDS: [
+	FILTER_CHIP_FIELDS: [ /* chip UI labels are translated in chips.js */
 		{ key: 'q', label: 'search' },
 		{ key: 'action', label: 'action' },
 		{ key: 'interface', label: 'iface' },

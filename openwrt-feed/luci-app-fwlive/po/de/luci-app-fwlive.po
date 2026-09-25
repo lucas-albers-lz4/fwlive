@@ -167,6 +167,10 @@ msgstr "Ziel"
 msgid "Destination IP contains (! to exclude)"
 msgstr "Ziel-IP enthÃ¤lt (! zum AusschlieÃen)"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:28
+msgid "Destination port"
+msgstr "Ziel-Port"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1692
 msgid "Destination port (! to exclude)"
 msgstr "Ziel-Port (! zum AusschlieÃen)"
@@ -512,6 +516,10 @@ msgstr "Server hat diese Abfrage gekürzt (adaptives Limit)."
 msgid "SPort"
 msgstr "Quell-Port"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:21
+msgid "Search"
+msgstr "Suche"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1650
 msgid "Show hostnames"
 msgstr "Hostnamen anzeigen"
@@ -531,6 +539,10 @@ msgstr "Quelle"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1689
 msgid "Source IP contains (! to exclude)"
 msgstr "Quell-IP enthÃ¤lt (! zum AusschlieÃen)"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:27
+msgid "Source port"
+msgstr "Quell-Port"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1690
 msgid "Source port (! to exclude)"
