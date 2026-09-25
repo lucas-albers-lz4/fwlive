@@ -120,9 +120,7 @@ const fl = links.filterLink('proto', 'TCP', null, function (f, v) {
 assert.strictEqual(fl.tag, 'a');
 fl.attrs.click({ preventDefault: function () {} });
 assert.deepStrictEqual(clicks[0], ['proto', 'TCP']);
-assert.strictEqual(links.ruleAdminPath('fw4', 'nft'), 'admin/network/firewall/rules');
-assert.strictEqual(links.ruleAdminPath('custom', 'iptables'), 'admin/network/firewall/rules');
-assert.strictEqual(links.ruleAdminPath('fw4', 'unknown'), 'admin/network/firewall/rules');
+assert.strictEqual(links.ruleAdminPath(), 'admin/network/firewall/rules');
 console.log('fwlive-modules smoke: links OK');
 
 /* --- chips --- */
@@ -177,7 +175,7 @@ assert.strictEqual(typeof logging.renderToolbar, 'function');
 assert.strictEqual(typeof logging.renderEmptyState, 'function');
 assert.strictEqual(typeof logging.renderManualTestNodes, 'function');
 const manualHost = luciE.E('li', { 'id': 'fwlive-manual-test' }, []);
-logging.renderManualTestNodes(manualHost, { firewallBackend: 'iptables' }, {});
+logging.renderManualTestNodes(manualHost, {}, {});
 const manualText = collectText(manualHost);
 assert.ok(manualText.indexOf('nft insert rule') >= 0, 'manual test is nft-only');
 assert.ok(manualText.indexOf('iptables') < 0, 'manual test must not emit iptables');
@@ -383,8 +381,7 @@ table.renderRows(
 		expandedRowId: null,
 		rowTint: false,
 		showHostnames: false,
-		hostnameCache: null,
-		firewallBackend: 'nft'
+		hostnameCache: null
 	},
 	{
 		onRowClick: function () {},
@@ -415,8 +412,7 @@ table.renderRows(
 		expandedRowId: null,
 		rowTint: false,
 		showHostnames: false,
-		hostnameCache: null,
-		firewallBackend: 'nft'
+		hostnameCache: null
 	},
 	{
 		onRowClick: function () {},
@@ -453,8 +449,7 @@ table.renderRows(
 		expandedRowId: null,
 		rowTint: false,
 		showHostnames: false,
-		hostnameCache: null,
-		firewallBackend: 'nft'
+		hostnameCache: null
 	},
 	{
 		onRowClick: function () {},
@@ -481,8 +476,7 @@ const keyedState = {
 	expandedRowId: null,
 	rowTint: false,
 	showHostnames: false,
-	hostnameCache: null,
-	firewallBackend: 'nft'
+	hostnameCache: null
 };
 const keyedCallbacks = {
 	onRowClick: function () {},
@@ -563,8 +557,7 @@ function renderMessageRow(message, layout, extra) {
 				expandedRowId: layout === 'wrap' ? 'sink' : null,
 				rowTint: false,
 				showHostnames: false,
-				hostnameCache: null,
-				firewallBackend: 'nft'
+				hostnameCache: null
 			},
 			extra || {}
 		),

@@ -230,16 +230,16 @@ msgid ""
 "Manual selects a bounded maximum."
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:60
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:88
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:63
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:91
 msgid "Filter by %s"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:153
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:156
 msgid "Filter by interface"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:126
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:129
 msgid "Filter logs by rule (hint: %s). Ctrl+click to open firewall settings."
 msgstr ""
 
@@ -386,7 +386,7 @@ msgstr ""
 msgid "More filters"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:42
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:45
 msgid "Network → Firewall"
 msgstr ""
 
