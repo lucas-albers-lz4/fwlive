@@ -310,13 +310,21 @@ ok "opkg install failure propagates"
 FWLIVE_STUB_FAIL_OPKG_INSTALL=0
 export FWLIVE_STUB_FAIL_OPKG_INSTALL
 
-wrong_opkg_script="$TMP/qemu-install-wrong-opkg-feed.sh"
+# Keep scripts/… layout so BASH_SOURCE ROOT still finds scripts/lib.
+wrong_opkg_root="$TMP/wrong-opkg-feed"
+mkdir -p "$wrong_opkg_root/scripts"
+ln -s "$ROOT/scripts/lib" "$wrong_opkg_root/scripts/lib"
+wrong_opkg_script="$wrong_opkg_root/scripts/qemu-install-from-feed.sh"
 sed 's|local feed_url="${base}/${feed_dir}"|local feed_url="${base}/wrong-feed"|' \
 	"$SCRIPT" >"$wrong_opkg_script"
 chmod +x "$wrong_opkg_script"
 FWLIVE_INSTALL_SCRIPT="$wrong_opkg_script"
 export FWLIVE_INSTALL_SCRIPT
 run_install "$TMP/wrong-opkg-feed.log" --version 24.10 || true
+[[ -s "$FWLIVE_STUB_LOG" ]] ||
+	fail "mutated opkg installer must reach ssh_run ($(cat "$TMP/wrong-opkg-feed.log"))"
+grep -Fq 'wrong-feed' "$FWLIVE_STUB_LOG" ||
+	fail "mutated opkg installer must use wrong-feed URL ($(cat "$FWLIVE_STUB_LOG"))"
 if opkg_install_urls_ok "$FWLIVE_STUB_LOG" 24.10; then
 	fail "mutated opkg feed_url must fail URL assertions (issue #671 red-proof)"
 fi
@@ -372,13 +380,20 @@ ok "apk add failure propagates"
 FWLIVE_STUB_FAIL_APK_ADD=0
 export FWLIVE_STUB_FAIL_APK_ADD
 
-wrong_apk_script="$TMP/qemu-install-wrong-apk-index.sh"
+wrong_apk_root="$TMP/wrong-apk-index"
+mkdir -p "$wrong_apk_root/scripts"
+ln -s "$ROOT/scripts/lib" "$wrong_apk_root/scripts/lib"
+wrong_apk_script="$wrong_apk_root/scripts/qemu-install-from-feed.sh"
 sed 's|local index_url="${base}/${feed_dir}/all/packages.adb"|local index_url="${base}/wrong-feed/all/packages.adb"|' \
 	"$SCRIPT" >"$wrong_apk_script"
 chmod +x "$wrong_apk_script"
 FWLIVE_INSTALL_SCRIPT="$wrong_apk_script"
 export FWLIVE_INSTALL_SCRIPT
 run_install "$TMP/wrong-apk-index.log" --version 25.12 || true
+[[ -s "$FWLIVE_STUB_LOG" ]] ||
+	fail "mutated apk installer must reach ssh_run ($(cat "$TMP/wrong-apk-index.log"))"
+grep -Fq 'wrong-feed' "$FWLIVE_STUB_LOG" ||
+	fail "mutated apk installer must use wrong-feed URL ($(cat "$FWLIVE_STUB_LOG"))"
 if apk_install_urls_ok "$FWLIVE_STUB_LOG" 25.12; then
 	fail "mutated apk index_url must fail URL assertions (issue #671 red-proof)"
 fi
