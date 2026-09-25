@@ -112,7 +112,7 @@ ssh -p 2222 root@127.0.0.1 'ping 127.0.0.1'   # 1 pkt/s baseline
 | Src **!127.0.0.1** excludes loopback pings | ✓ |
 | Limit 250 + 1 pkt/s: **no** flood banner | ✓ |
 | `ping -A 127.0.0.1`: flood banner appears, UI stays responsive | ✓ |
-| Click **Pause**: ingest count rises ~1/s | ✓ |
+| Click **Pause**: ingest count rises (~1/s fast path) | ✓ |
 | Headless smoke (`qemu-smoke-fwlive.sh`) on 23.05.5 x86 | ✓ |
 | armsr 24.10.8 LuCI page loads in browser | ✓ |
 
