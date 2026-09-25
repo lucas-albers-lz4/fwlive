@@ -32,6 +32,35 @@ const NOOP = {
 	onClearAll: function () {}
 };
 
+/** #674: sparse catalog — identity fakeGettext cannot catch composition regressions. */
+const TRANSLATED_CHIP_CATALOG = {
+	'%s: %s': '[%s|%s]',
+	'not': 'NICHT',
+	'contains': 'ENTHAELT',
+	'Search': 'SUCHE',
+	'Source': 'QUELLE',
+	'is': 'IST',
+	'Clear all': 'ALLES-LOESCHEN',
+	'Include instead': 'STATTDESSEN-EIN',
+	'Exclude instead': 'STATTDESSEN-AUS',
+	'Remove filter': 'FILTER-ENTFERNEN'
+};
+
+function translatedGettext(msgid) {
+	const mapped = Object.prototype.hasOwnProperty.call(TRANSLATED_CHIP_CATALOG, msgid)
+		? TRANSLATED_CHIP_CATALOG[msgid]
+		: String(msgid);
+	const out = Object(String(mapped));
+	out.format = function () {
+		let i = 0;
+		const args = arguments;
+		return String(out).replace(/%s|%d/g, function () {
+			return String(args[i++]);
+		});
+	};
+	return out;
+}
+
 function collectText(node) {
 	if (!node) return '';
 	if (node.nodeType === 3) return String(node.textContent || '');
@@ -51,12 +80,13 @@ function assertPayloadNeverInSink(host, payload) {
 	}
 }
 
-function renderChips(filters, chipFields) {
-	const log = loadFwliveModule('log');
+function renderChips(filters, chipFields, gettext) {
+	const log = loadFwliveModule('log', gettext ? { _: gettext } : {});
 	const chips = loadFwliveModule('chips', {
 		log: log,
 		E: luciE.E,
-		document: luciE.document
+		document: luciE.document,
+		_: gettext
 	});
 	const host = luciE.E('div', { 'class': 'fwlive-chips' }, []);
 	host.style = { display: '' };
@@ -87,6 +117,40 @@ function testIdentityChipFieldLabels() {
 	assert.ok(srcText.indexOf('Source') >= 0, 'negated src chip must show Source, got: ' + srcText);
 	assert.ok(srcText.indexOf('not') >= 0, 'negated src chip must show not');
 	assert.ok(srcText.indexOf('contains') >= 0, 'negated src chip must show contains');
+}
+
+function testTranslatedChipCatalog() {
+	const includeHost = renderChips({ q: 'wan' }, CHIP_FIELDS, translatedGettext);
+	const includeText = collectText(includeHost);
+	assert.ok(
+		includeText.indexOf('[SUCHE|wan]') >= 0,
+		'include q chip must use translated connector and Search, got: ' + includeText
+	);
+	assert.ok(
+		includeText.indexOf('IST') >= 0,
+		'include q chip must use translated polarity is, got: ' + includeText
+	);
+
+	const qHost = renderChips({ q: '!drop' }, CHIP_FIELDS, translatedGettext);
+	const qText = collectText(qHost);
+	assert.ok(qText.indexOf('SUCHE') >= 0, 'negated q chip must show translated Search, got: ' + qText);
+	assert.ok(qText.indexOf('NICHT') >= 0, 'negated q chip must show translated not, got: ' + qText);
+	assert.ok(
+		qText.indexOf('ENTHAELT') >= 0,
+		'negated q chip must show translated contains, got: ' + qText
+	);
+
+	const srcHost = renderChips({ src: '!192.0.2.1' }, CHIP_FIELDS, translatedGettext);
+	const srcText = collectText(srcHost);
+	assert.ok(
+		srcText.indexOf('QUELLE') >= 0,
+		'negated src chip must show translated Source, got: ' + srcText
+	);
+	assert.ok(srcText.indexOf('NICHT') >= 0, 'negated src chip must show translated not, got: ' + srcText);
+	assert.ok(
+		srcText.indexOf('ENTHAELT') >= 0,
+		'negated src chip must show translated contains, got: ' + srcText
+	);
 }
 
 function testUnknownChipFieldLabel() {
@@ -228,6 +292,7 @@ testRecursiveProtoSink();
 testNegatedTextChips();
 testHostileTextChipSink();
 testIdentityChipFieldLabels();
+testTranslatedChipCatalog();
 testUnknownChipFieldLabel();
 testApplyHashValidAndMalformed();
 testApplyHashPreservesEqualsInValue();
