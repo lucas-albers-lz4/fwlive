@@ -61,7 +61,7 @@ async function ensureWanLoggingOff(page) {
 	/* Guest may leave /tmp/.uci staged (@zone vs cfgXXXX) so the UI toggle
 	 * returns firewall_changes_pending. Force off via UCI for shot 1. */
 	if (await page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' }).count()) {
-		guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; uci set \"firewall.$zid.log=0\"; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci");
+		requireOk(guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; uci set \"firewall.$zid.log=0\"; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci"), 'force WAN logging off');
 		await openFwlive(page);
 	}
 }
@@ -69,32 +69,55 @@ async function ensureWanLoggingOff(page) {
 function guestSsh(cmd) {
 	return spawnSync('ssh', [
 		'-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null',
-		'-p', process.env.OPENWRT_SSH_PORT || '2222', 'root@127.0.0.1', cmd
+		'-p', process.env.OPENWRT_SSH_PORT || '2222',
+		`root@${process.env.OPENWRT_HOST || '127.0.0.1'}`,
+		cmd
 	], { encoding: 'utf8' });
+}
+
+function requireOk(r, label) {
+	if (r.status === 0)
+		return r;
+	const detail = (r.stderr || r.stdout || r.error?.message || `exit ${r.status}`).trim();
+	throw new Error(`${label}: ${detail}`);
+}
+
+function snapshotGuestWanLogging() {
+	const r = guestSsh("zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; printf '%s\\n' \"$zid\"; uci -q get \"firewall.$zid.log\" || true");
+	requireOk(r, 'snapshot guest WAN logging');
+	const lines = (r.stdout || '').replace(/\r/g, '').split('\n');
+	const zid = (lines[0] || '').trim();
+	if (!zid)
+		throw new Error('snapshot guest WAN logging: empty wan_zone');
+	const logValue = (lines[1] || '').trim();
+	return { zid, logValue: logValue === '' ? null : logValue };
+}
+
+function restoreGuestWanLogging(snap) {
+	if (!snap || !snap.zid)
+		return;
+	if (snap.logValue != null && !/^[0-9]+$/.test(snap.logValue))
+		throw new Error(`restore guest WAN logging: unexpected log value ${JSON.stringify(snap.logValue)}`);
+	const uciOp = snap.logValue == null
+		? 'uci -q delete "firewall.$zid.log" || true'
+		: 'uci set "firewall.$zid.log=' + snap.logValue + '"';
+	const r = guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || zid=" + JSON.stringify(snap.zid) + "; [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; " + uciOp + "; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci");
+	requireOk(r, 'restore guest WAN logging');
 }
 
 /* Shot 1 needs a genuinely empty table: drop the ping rule and the log buffer. */
 function resetGuestLogs() {
-	spawnSync(path.join(ROOT, 'scripts/fwlive-nft-ping-log.sh'), ['remove', '--ssh'], {
+	const rm = spawnSync(path.join(ROOT, 'scripts/fwlive-nft-ping-log.sh'), ['remove', '--ssh'], {
 		cwd: ROOT, encoding: 'utf8'
 	});
-	const r = guestSsh('/etc/init.d/log restart; sleep 2; logread -c 2>/dev/null || true');
-	if (r.status !== 0)
-		console.warn('guest log reset:', r.stderr || r.stdout);
+	requireOk(rm, 'fwlive-nft-ping-log remove');
+	requireOk(guestSsh('/etc/init.d/log restart; sleep 2; logread -c 2>/dev/null || true'), 'guest log reset');
 }
 
 function runPingHelper() {
 	const script = path.join(ROOT, 'scripts/fwlive-nft-ping-log.sh');
-	let r = spawnSync(script, ['add', '--ssh'], { cwd: ROOT, encoding: 'utf8' });
-	if (r.status !== 0)
-		console.warn('fwlive-nft-ping-log add:', r.stderr || r.stdout);
-	r = spawnSync('ssh', [
-		'-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null',
-		'-p', process.env.OPENWRT_SSH_PORT || '2222', 'root@127.0.0.1',
-		'ping -c 15 127.0.0.1'
-	], { encoding: 'utf8' });
-	if (r.status !== 0)
-		console.warn('guest ping:', r.stderr || r.stdout);
+	requireOk(spawnSync(script, ['add', '--ssh'], { cwd: ROOT, encoding: 'utf8' }), 'fwlive-nft-ping-log add');
+	requireOk(guestSsh('ping -c 15 127.0.0.1'), 'guest ping');
 }
 
 /* Row clicks can toggle a filter chip instead of expanding, so try a few rows. */
@@ -110,6 +133,13 @@ async function expandFirstRow(page) {
 	return false;
 }
 
+async function assertTableHasRows(page) {
+	const count = await page.locator('#fwlive-table tbody tr').count()
+		|| await page.locator('.fwlive-row-clickable').count();
+	if (count === 0)
+		throw new Error('fwlive table has no rendered rows; refusing row-bearing screenshots');
+}
+
 async function enableDarkMode(page) {
 	await page.evaluate(() => {
 		document.documentElement.setAttribute('data-darkmode', 'true');
@@ -119,107 +149,130 @@ async function enableDarkMode(page) {
 async function main() {
 	await mkdir(OUT, { recursive: true });
 
-	const browser = await chromium.launch({ headless: true });
-	const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-
-	await login(page);
-	await openFwlive(page);
-	await clearConsent(page);
-	await ensureWanLoggingOff(page);
-	resetGuestLogs();
-	await clearConsent(page);
-	await openFwlive(page);
-
-	// Shot 1 — first visit: consent + logging off
-	await page.waitForSelector('#fwlive-empty', { state: 'visible', timeout: 15000 });
-	await page.waitForSelector('#fwlive-consent', { timeout: 10000 }).catch(() => {});
-	await page.screenshot({ path: path.join(OUT, 'fwlive-empty-logging-off.png'), fullPage: true });
-
-	// Shot 2 — Enable logging
-	const enableBtn = page.locator('#fwlive-empty button.cbi-button-action').first();
-	await enableBtn.click();
-	await page.waitForTimeout(3000);
-	const loggingOnBtn = page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' });
-	if (!(await loggingOnBtn.count())) {
-		/* Same UCI fallback when enable_wan_logging hits firewall_changes_pending. */
-		guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; uci set \"firewall.$zid.log=1\"; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci");
+	const wanLog = snapshotGuestWanLogging();
+	let browser;
+	try {
+		browser = await chromium.launch({ headless: true });
+		const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+		await login(page);
 		await openFwlive(page);
-	}
-	await loggingOnBtn.waitFor({ state: 'visible', timeout: 20000 });
-	await page.screenshot({ path: path.join(OUT, 'fwlive-after-enable.png'), fullPage: true });
+		await clearConsent(page);
+		await ensureWanLoggingOff(page);
+		let logResetErr = null;
+		try {
+			resetGuestLogs();
+		} catch (err) {
+			logResetErr = err;
+		}
+		await clearConsent(page);
+		await openFwlive(page);
 
-	// Generate visible rows
-	runPingHelper();
-	await openFwlive(page, '#proto=icmp');
-	await page.waitForTimeout(3000);
+		// Shot 1 — first visit: consent + logging off
+		await page.waitForSelector('#fwlive-empty', { state: 'visible', timeout: 15000 });
+		await page.waitForSelector('#fwlive-consent', { timeout: 10000 }).catch(() => {});
+		await page.screenshot({ path: path.join(OUT, 'fwlive-empty-logging-off.png'), fullPage: true });
 
-	await page.screenshot({ path: path.join(OUT, 'fwlive-simple-view.png'), fullPage: true });
+		// Shot 2 — Enable logging
+		const enableBtn = page.locator('#fwlive-empty button.cbi-button-action').first();
+		await enableBtn.click();
+		await page.waitForTimeout(3000);
+		const loggingOnBtn = page.locator('#fwlive-logging-bar button', { hasText: 'WAN logging on' });
+		if (!(await loggingOnBtn.count())) {
+			/* Same UCI fallback when enable_wan_logging hits firewall_changes_pending. */
+			requireOk(guestSsh("rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci; zid=$(ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '$.wan_zone' 2>/dev/null); [ -n \"$zid\" ] || { echo 'fwlive: WAN zone lookup failed' >&2; exit 1; }; uci set \"firewall.$zid.log=1\"; uci commit firewall; /etc/init.d/firewall reload; rm -rf /tmp/.uci; mkdir -m 0700 /tmp/.uci"), 'force WAN logging on');
+			await openFwlive(page);
+		}
+		await loggingOnBtn.waitFor({ state: 'visible', timeout: 20000 });
+		await page.screenshot({ path: path.join(OUT, 'fwlive-after-enable.png'), fullPage: true });
 
-	await page.locator('#fwlive-more-filters').evaluate((el) => { el.open = true; });
-	await page.waitForTimeout(300);
-	if (!(await page.locator('#fwlive-chips .fwlive-chip').count())) {
-		const cell = page.locator('#fwlive-table tbody tr td.fwlive-action').first();
-		if (await cell.count())
-			await cell.click();
-		await page.waitForTimeout(400);
-	}
-	const filterBox = await page.locator('#fwlive-filter-panel').boundingBox().catch(() => null);
-	const chipsBox = await page.locator('#fwlive-chips').boundingBox().catch(() => null);
-	const hintBox = await page.locator('.fwlive-hint-line').boundingBox().catch(() => null);
-	if (filterBox) {
-		const y = Math.max(0, filterBox.y - 8);
-		const bottom = Math.max(
-			filterBox.y + filterBox.height,
-			chipsBox ? chipsBox.y + chipsBox.height : 0,
-			hintBox ? hintBox.y + hintBox.height : 0
-		);
-		await page.screenshot({
-			path: path.join(OUT, 'fwlive-filters.png'),
-			fullPage: false,
-			clip: { x: 0, y, width: 1440, height: Math.min(500, bottom - y + 16) }
-		});
-	} else {
-		await page.screenshot({
-			path: path.join(OUT, 'fwlive-filters.png'),
-			fullPage: false,
-			clip: { x: 0, y: 100, width: 1440, height: 320 }
-		});
-	}
+		// Generate visible rows — seed failures are fatal for this group
+		if (logResetErr)
+			throw logResetErr;
+		runPingHelper();
+		await openFwlive(page, '#proto=icmp');
+		await page.waitForTimeout(3000);
 
-	runPingHelper();
-	await openFwlive(page, '#proto=icmp');
-	if (await expandFirstRow(page)) {
-		await page.locator('.fwlive-msg-expand').scrollIntoViewIfNeeded();
-		await page.waitForTimeout(400);
-		const expandBox = await page.locator('#fwlive-scroll').boundingBox();
-		if (expandBox) {
+		await assertTableHasRows(page);
+		await page.screenshot({ path: path.join(OUT, 'fwlive-simple-view.png'), fullPage: true });
+
+		await page.locator('#fwlive-more-filters').evaluate((el) => { el.open = true; });
+		await page.waitForTimeout(300);
+		if (!(await page.locator('#fwlive-chips .fwlive-chip').count())) {
+			const cell = page.locator('#fwlive-table tbody tr td.fwlive-action').first();
+			if (await cell.count())
+				await cell.click();
+			await page.waitForTimeout(400);
+		}
+		const filterBox = await page.locator('#fwlive-filter-panel').boundingBox().catch(() => null);
+		const chipsBox = await page.locator('#fwlive-chips').boundingBox().catch(() => null);
+		const hintBox = await page.locator('.fwlive-hint-line').boundingBox().catch(() => null);
+		await assertTableHasRows(page);
+		if (filterBox) {
+			const y = Math.max(0, filterBox.y - 8);
+			const bottom = Math.max(
+				filterBox.y + filterBox.height,
+				chipsBox ? chipsBox.y + chipsBox.height : 0,
+				hintBox ? hintBox.y + hintBox.height : 0
+			);
 			await page.screenshot({
-				path: path.join(OUT, 'fwlive-expanded-message.png'),
+				path: path.join(OUT, 'fwlive-filters.png'),
 				fullPage: false,
-				clip: {
-					x: 0,
-					y: Math.max(0, expandBox.y - 40),
-					width: 1440,
-					height: Math.min(480, expandBox.height + 60)
-				}
+				clip: { x: 0, y, width: 1440, height: Math.min(500, bottom - y + 16) }
 			});
 		} else {
-			await page.screenshot({ path: path.join(OUT, 'fwlive-expanded-message.png'), fullPage: true });
+			await page.screenshot({
+				path: path.join(OUT, 'fwlive-filters.png'),
+				fullPage: false,
+				clip: { x: 0, y: 100, width: 1440, height: 320 }
+			});
 		}
-	} else {
-		console.warn('no expandable row found; kept previous fwlive-expanded-message.png');
+
+		runPingHelper();
+		await openFwlive(page, '#proto=icmp');
+		await assertTableHasRows(page);
+		if (await expandFirstRow(page)) {
+			await page.locator('.fwlive-msg-expand').scrollIntoViewIfNeeded();
+			await page.waitForTimeout(400);
+			const expandBox = await page.locator('#fwlive-scroll').boundingBox();
+			if (expandBox) {
+				await page.screenshot({
+					path: path.join(OUT, 'fwlive-expanded-message.png'),
+					fullPage: false,
+					clip: {
+						x: 0,
+						y: Math.max(0, expandBox.y - 40),
+						width: 1440,
+						height: Math.min(480, expandBox.height + 60)
+					}
+				});
+			} else {
+				await page.screenshot({ path: path.join(OUT, 'fwlive-expanded-message.png'), fullPage: true });
+			}
+		} else {
+			console.warn('no expandable row found; kept previous fwlive-expanded-message.png');
+		}
+
+		await page.locator('#fwlive-view-detail').click();
+		await page.waitForTimeout(1500);
+		await assertTableHasRows(page);
+		await page.screenshot({ path: path.join(OUT, 'fwlive-main-view.png'), fullPage: true });
+
+		await enableDarkMode(page);
+		await openFwlive(page, '#proto=icmp');
+		await assertTableHasRows(page);
+		await page.screenshot({ path: path.join(OUT, 'fwlive-dark-mode.png'), fullPage: true });
+
+		console.log('Screenshots written to', OUT);
+	} finally {
+		try {
+			restoreGuestWanLogging(wanLog);
+		} catch (err) {
+			console.error(err);
+			process.exitCode = 1;
+		}
+		if (browser)
+			await browser.close();
 	}
-
-	await page.locator('#fwlive-view-detail').click();
-	await page.waitForTimeout(1500);
-	await page.screenshot({ path: path.join(OUT, 'fwlive-main-view.png'), fullPage: true });
-
-	await enableDarkMode(page);
-	await openFwlive(page, '#proto=icmp');
-	await page.screenshot({ path: path.join(OUT, 'fwlive-dark-mode.png'), fullPage: true });
-
-	await browser.close();
-	console.log('Screenshots written to', OUT);
 }
 
 main().catch((err) => {
