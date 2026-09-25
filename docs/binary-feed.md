@@ -45,7 +45,7 @@ making a release attributable to the exact image despite the moving tag.
   "packages": [
     {
       "openwrt": "23.05",
-      "file": "luci-app-fwlive_0.1.16_23.05_all.ipk",
+      "file": "luci-app-fwlive_0.1.16_all.ipk",
       "sha256": "…",
       "sdk_image": "ghcr.io/openwrt/sdk:x86-64-23.05.5",
       "sdk_digest": "ghcr.io/openwrt/sdk@sha256:…",
@@ -60,6 +60,10 @@ making a release attributable to the exact image despite the moving tag.
   ]
 }
 ```
+
+The `file` field is the feed artifact basename (the `.ipk` / `.apk` under
+each OpenWrt line on gh-pages), not the GitHub Release download name, which
+may add a line suffix such as `_23.05` to disambiguate assets.
 
 Each cell records the package hash, the SDK image and digest, the feeds lock
 hash, and the `base` / `packages` / `luci` commits from that lock. Those SHAs
