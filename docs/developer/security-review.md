@@ -343,7 +343,7 @@ should carry a note saying what would raise it.
 | Rules map prefers `!fw4:` labels over earlier cosmetics for the same prefix (UCI still first-wins) | `host` | labeled-then-unlabeled passes; `tests/fwlive-rules-map.test.js` `testFw4LabeledBeatsCosmetic` |
 | `nft list ruleset` bounded by `NFT_TIMEOUT`; rules map key/byte capped | `host` | `testRulesMapKeyBound`, `testRulesMapByteBound` |
 | mktemp-skip on rules map surfaces `error:mktemp_failed` | `host` | `testNoMktempGracefulDegradation` |
-| `rules` dump failure surfaces `error:nft_failed`, never a silent empty map | `host` | `tests/fwlive-rpcd-security.test.js` `testRulesNftDumpFailure` |
+| `rules` dump failure surfaces `error:no_backend`, never a silent empty map | `host` | `tests/fwlive-rpcd-security.test.js` `testRulesNftDumpFailure` |
 | `rules` is nft-only: missing nft or a failed detect dump is `unknown`/`no_backend`; `iptables-save` on PATH is not invoked | `host` | same file `testRulesNoBackend` / `testRulesNoIptablesFallback` |
 | Dead `logd` on `poll` returns `error:log_read_failed`, not an empty table | `host` | same file `testPollUbusFailure` |
 | Adaptive poll cap always on; no UCI; disable only via `FWLIVE_ADAPTIVE=0` or sentinel next to state under `/var/run` (not world-writable `/tmp`) | `host` | `tests/fwlive-adaptive-cap.test.sh`; reply carries `adaptive` |
