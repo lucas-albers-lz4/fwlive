@@ -19,7 +19,7 @@ See **[ROADMAP.md](ROADMAP.md)** for stages, CLI test commands, and exit criteri
 
 ## LuCI MVP parity mapping
 
-- Implemented: poll-based live view with one-second refresh.
+- Implemented: poll-based live view with adaptive refresh (fast path ~1s; see [architecture](developer/architecture.md#design-choices) for 1/2/5s cadence).
 - Implemented: in-memory bounded history + visible-row caps.
 - Implemented: quick search + field filters for action/interface/protocol/src/dst/ports.
 - Implemented: URL hash filter persistence for shareable troubleshooting context.

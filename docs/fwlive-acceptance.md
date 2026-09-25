@@ -34,7 +34,7 @@ Build: see [SDK build matrix](sdk-build-matrix.md) for the full command referenc
 
 ## Functional
 
-- Live view refresh interval is approximately one second.
+- Live view uses **adaptive** poll cadence (fast path ~1s; see [architecture](developer/architecture.md#design-choices) for 1/2/5s).
 - New firewall log lines appear without page reload.
 - Only firewall-shaped `log.read` lines are shown (stage 1).
 - Normalized schema: unix `timestamp`, `action` enum, `interface_in`/`out`, `flags`, `length` (stage 2).
@@ -49,7 +49,7 @@ Build: see [SDK build matrix](sdk-build-matrix.md) for the full command referenc
 - **Simple view** (default): Action, Time (compact), Interface, Flow, Proto, Rule; no horizontal scroll on typical laptop widths.
 - **Detailed view**: 14-column table including Message, Flags, Len, Dir (via the **Detail** view control).
 - **Detail toggle** persists in `localStorage` after user toggles; `view=detailed` in URL hash restores Detailed mode.
-- **Zero-configuration**: first visit shows live table with polling (~1/s); empty state and **Help** are on-router (no build-host doc paths).
+- **Zero-configuration**: first visit shows live table with adaptive polling (fast path ~1/s; see [architecture](developer/architecture.md#design-choices)); empty state and **Help** are on-router (no build-host doc paths).
 - **Simple row expand**: click row shows full netfilter message; second click collapses; filter links do not toggle expand.
 
 ---
@@ -59,7 +59,7 @@ Build: see [SDK build matrix](sdk-build-matrix.md) for the full command referenc
 - Parser benchmark target: >= 100k rows/sec on development host.
 - Browser render cap: ~250 new events/sec before throttle banner; normal 1 pkt/s must not trigger it.
 - History cap: 2000 rows in memory.
-- Typical update processing stays under one second poll interval.
+- Typical update processing stays within the active poll interval (see [architecture](developer/architecture.md#design-choices)).
 
 ---
 
@@ -112,7 +112,7 @@ ssh -p 2222 root@127.0.0.1 'ping 127.0.0.1'   # 1 pkt/s baseline
 | Src **!127.0.0.1** excludes loopback pings | ✓ |
 | Limit 250 + 1 pkt/s: **no** flood banner | ✓ |
 | `ping -A 127.0.0.1`: flood banner appears, UI stays responsive | ✓ |
-| Click **Pause**: ingest count rises ~1/s | ✓ |
+| Click **Pause**: ingest count rises (~1/s fast path) | ✓ |
 | Headless smoke (`qemu-smoke-fwlive.sh`) on 23.05.5 x86 | ✓ |
 | armsr 24.10.8 LuCI page loads in browser | ✓ |
 
