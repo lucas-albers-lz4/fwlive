@@ -50,7 +50,9 @@ flowchart TB
 | **Inline CSS** | `htdocs/.../fwlive/css.js` | **Generated** `styleText` from `fwlive.css` for `E('style')` injection (do not edit) |
 | **Test twin / SoT** | `core/fwlive-log.js` | Editable source of truth + CLI; `CLASSIFY_SPEC` drives classify |
 | **Shell classifier** | `root/usr/libexec/fwlive-is-firewall-event.sh` | **Generated** from `CLASSIFY_SPEC` via `gen-shell-classifier.js` (committed; SDK does not run Node) |
+| **Classifier awk** | `root/usr/libexec/fwlive-is-firewall-event.awk` | **Generated** standalone awk from `CLASSIFY_SPEC`; loaded by `fwlive-is-firewall-event.sh` |
 | **Rule map** | `root/usr/libexec/rpcd/fwlive` | `rules`, `poll` (filtered log), `resolve` (reverse DNS), `logging_status`, `enable_wan_logging`, `disable_wan_logging` |
+| **Adaptive poll cap** | `root/usr/libexec/fwlive-adaptive-cap.sh` | Layer 1 server-side poll line cap from processing duration (sourced by `rpcd/fwlive`) |
 | **WAN logging** | `root/usr/libexec/fwlive-logging.sh` | WAN zone `log=1` helpers (sourced by rpcd) |
 | **Log filter** | `root/usr/libexec/fwlive-log-filter.sh` | Shell `isFirewallEvent` parity before JSON leaves router |
 | **Menu / ACL** | `root/usr/share/luci/menu.d`, `rpcd/acl.d` | `admin/status/fwlive`, read `fwlive.*` only (no session `log.read`) + write enable/disable |
