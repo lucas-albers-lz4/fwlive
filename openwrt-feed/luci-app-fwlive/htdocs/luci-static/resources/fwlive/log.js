@@ -105,7 +105,8 @@ return baseclass.extend({
 	MAX_DATE_SECONDS: 8640000000000,
 
 	normalizeNetfilterMessage: function (message) {
-		return (message || '').replace(this.NETFILTER_KV_GLUE, '$1 ');
+		if (typeof message !== 'string') message = '';
+		return message.replace(this.NETFILTER_KV_GLUE, '$1 ');
 	},
 
 	parseKeyValueLog: function (message) {

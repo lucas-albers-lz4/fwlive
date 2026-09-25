@@ -17,7 +17,7 @@ msgstr ""
 msgid "%d matching · %d/%d stored"
 msgstr "%d matching · %d/%d stored"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:466
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:467
 msgid "%s: %s"
 msgstr "%s: %s"
 
