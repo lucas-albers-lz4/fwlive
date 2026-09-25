@@ -21,6 +21,42 @@ function awkEscapeAlt(words) {
 	return words.join('|');
 }
 
+/** CLASSIFY_SPEC.trimWhitespace → awk regex atom. ASCII in a class; UTF-8 as octal bytes. */
+function awkTrimPattern(chars) {
+	const ascii = [];
+	const multi = [];
+	for (let i = 0; i < chars.length; i++) {
+		const ch = chars[i];
+		const code = ch.charCodeAt(0);
+		if (code < 128) {
+			if (ch === '\t')
+				ascii.push('\\t');
+			else if (ch === '\n')
+				ascii.push('\\n');
+			else if (ch === '\r')
+				ascii.push('\\r');
+			else
+				ascii.push(ch);
+		} else {
+			const buf = Buffer.from(ch, 'utf8');
+			let oct = '';
+			for (let j = 0; j < buf.length; j++) {
+				let o = buf[j].toString(8);
+				while (o.length < 3)
+					o = '0' + o;
+				oct += '\\' + o;
+			}
+			multi.push(oct);
+		}
+	}
+	const parts = [];
+	if (ascii.length)
+		parts.push('[' + ascii.join('') + ']');
+	for (let i = 0; i < multi.length; i++)
+		parts.push(multi[i]);
+	return '(' + parts.join('|') + ')';
+}
+
 function emitAwkPred(node) {
 	if (node.kv)
 		return node.kv.map(function(k) { return 'has_kv(s, "' + k + '")'; }).join(' && ');
@@ -57,6 +93,7 @@ function emitAwkProgram() {
 	const prefixBoundary = SPEC.nonFirewallPrefixHyphenContinuation ? '[^a-z0-9_-]' : '[^a-z0-9_]';
 	const hints = awkEscapeAlt(SPEC.firewallHints.map(function(w) { return w.toLowerCase(); }));
 	const actions = SPEC.actionWords.join(' ');
+	const trimWs = awkTrimPattern(SPEC.trimWhitespace);
 
 	return [
 		'function normalize(s, keys, n, i, k) {',
@@ -69,8 +106,8 @@ function emitAwkProgram() {
 		'\treturn s',
 		'}',
 		'function trim(s) {',
-		'\tsub(/^[[:space:]]+/, "", s)',
-		'\tsub(/[[:space:]]+$/, "", s)',
+		'\tsub(/^' + trimWs + '+/, "", s)',
+		'\tsub(/' + trimWs + '+$/, "", s)',
 		'\treturn s',
 		'}',
 		'function has_kv(s, key) {',
