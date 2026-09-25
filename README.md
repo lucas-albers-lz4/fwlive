@@ -9,7 +9,7 @@ LuCI **Firewall Live View**: a live, filterable table of firewall **LOG** events
 
 ## What it does
 
-- Polls firewall log lines about **once per second** — no page reload
+- Polls firewall log lines on **adaptive cadence** (fast path ~1s; [1/2/5s polling](docs/developer/architecture.md#design-choices)) — no page reload
 - Shows **pass** / **drop** (and related actions) with clear styling
 - **Simple view** (default) — compact table; click a row to expand the raw log message
 - **Simple / Detail** — segmented View control; Detail shows the full 14-column table

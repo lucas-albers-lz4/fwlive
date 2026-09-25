@@ -12,7 +12,7 @@ On OpenWrt, firewall hits are written to the system log (`logread`). That stream
 
 Firewall Live View gives operators a **dedicated, always-on table** that:
 
-- Refreshes about **once per second**
+- Refreshes on **adaptive cadence** (fast path ~1s; see [Architecture](../developer/architecture.md#design-choices) for 1/2/5s polling)
 - Shows **only firewall-shaped lines**
 - Highlights **pass** vs **drop** (and related actions)
 - Supports **field filters**, quick search, and **click-to-filter**
