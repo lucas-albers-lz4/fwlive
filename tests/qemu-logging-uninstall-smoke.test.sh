@@ -11,9 +11,7 @@ SCRIPT="$ROOT/scripts/qemu-logging-uninstall-smoke.sh"
 
 [[ -x "$SCRIPT" ]] || { echo "logging-uninstall smoke is not executable" >&2; exit 1; }
 bash -n "$SCRIPT"
-if command -v shellcheck >/dev/null 2>&1; then
-	shellcheck --severity=warning "$SCRIPT"
-fi
+shellcheck --severity=warning "$SCRIPT"
 
 grep -Fq 'apk del luci-app-fwlive' "$SCRIPT" \
 	|| { echo "smoke must uninstall 25.12 with apk del" >&2; exit 1; }
