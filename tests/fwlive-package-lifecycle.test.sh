@@ -547,7 +547,18 @@ FWLIVE_PAYLOAD_DIR="$apk_data" inspect_apk_artifact
 ok 'APK data-only payload extract skips hook execute (logging.sh is not pre-deinstall)'
 
 # Real control metadata is ADB JSON from pinned SDK `apk adbdump --format json`.
-assert_apk_adbdump_json "$ROOT/tests/fixtures/apk-adbdump-control.json"
+apk_fixture="$WORK/apk-adbdump-control.json"
+python3 - "$ROOT/tests/fixtures/apk-adbdump-control.json" \
+	"$apk_fixture" "$EXPECTED_PACKAGE_VERSION" <<'PY'
+import json
+import pathlib
+import sys
+
+data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+data.setdefault("info", {})["version"] = sys.argv[3]
+pathlib.Path(sys.argv[2]).write_text(json.dumps(data))
+PY
+assert_apk_adbdump_json "$apk_fixture"
 ok 'committed apk adbdump fixture passes the control-script contract'
 
 python3 - "$HOOK_RAW" "$WORK/generated-adbdump.json" "$EXPECTED_PACKAGE_VERSION" <<'PY'
@@ -632,7 +643,7 @@ if (
 fi
 ok 'restore-only apk adbdump JSON fails the control-script contract'
 
-python3 - "$ROOT/tests/fixtures/apk-adbdump-control.json" "$WORK/adbdump-upgrade-restore.json" <<'PY'
+python3 - "$apk_fixture" "$WORK/adbdump-upgrade-restore.json" <<'PY'
 import json
 import pathlib
 import sys
