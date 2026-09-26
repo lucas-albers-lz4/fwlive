@@ -75,13 +75,6 @@ fi
 echo "== 1/5 git subtree split ($PKG -> $SPLIT_BRANCH) =="
 git subtree split --prefix="$PKG" --branch="$SPLIT_BRANCH" >/dev/null
 
-if [[ "$REPLACE_CANONICAL" == 1 ]]; then
-	git branch -D "$CANONICAL_SPLIT_BRANCH" >/dev/null 2>&1 || true
-	git branch -m "$SPLIT_BRANCH" "$CANONICAL_SPLIT_BRANCH"
-	SPLIT_BRANCH="$CANONICAL_SPLIT_BRANCH"
-	KEEP_SPLIT_BRANCH=1
-fi
-
 # A PR-able package must be plain files. Any gitlink means a submodule leaked
 # into the tree and upstream cannot build it.
 if git ls-tree -r "$SPLIT_BRANCH" | grep -q " commit "; then
@@ -356,6 +349,15 @@ fi
 if [ "$fail" -ne 0 ]; then
 	echo "Upstream cut FAILED — fix the checks above." >&2
 	exit 1
+fi
+
+# Promote only after the cut verifies. Replacing first would drop a good
+# canonical branch if a later check failed (#841 review).
+if [[ "$REPLACE_CANONICAL" == 1 ]]; then
+	git branch -D "$CANONICAL_SPLIT_BRANCH" >/dev/null 2>&1 || true
+	git branch -m "$SPLIT_BRANCH" "$CANONICAL_SPLIT_BRANCH"
+	SPLIT_BRANCH="$CANONICAL_SPLIT_BRANCH"
+	KEEP_SPLIT_BRANCH=1
 fi
 
 echo "  OK: $out_count files (source $src_count minus $drop_count); Makefile include rewritten;"
