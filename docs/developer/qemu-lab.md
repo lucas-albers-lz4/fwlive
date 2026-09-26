@@ -57,6 +57,83 @@ OWRT_FWLIVE_VERSION=24.10.8 ./scripts/qemu-install-fwlive.sh
 
 Uses `apk` or `opkg` based on package extension and guest userspace.
 
+### Runtime timeout dependency (#761)
+
+For an install check, start from a prepared stock OpenWrt 24.10.8 x86_64 image
+with no `coreutils-timeout` installed. Confirm `command -v timeout` fails,
+run `opkg update`, then install the locally built IPK with
+`./scripts/qemu-install-fwlive.sh out/x86_64/24.10.8/fwlive/luci-app-fwlive_*.ipk`.
+The package manager should install `coreutils-timeout` without a separate
+manual install. Check the selected executable with `command -v timeout` and
+`readlink -f "$(command -v timeout)"`, then run
+`./scripts/qemu-smoke-fwlive.sh --require-log-pipeline`.
+
+The 2026-09-26 run used OpenWrt 24.10.8 x86_64 revision
+`r29233-443ec4032a`. It reproduced the old release with authentic
+`luci-app-fwlive 0.1.46-r1` and no timeout provider, then upgraded to the
+locally built `0.1.47-r1` candidate using ordinary `opkg install`.
+`opkg` installed `coreutils` and `coreutils-timeout` 9.7-r1 automatically.
+`/usr/bin/timeout` resolved to `/usr/libexec/timeout-coreutils`; logging status
+had no warnings, poll succeeded, rules reported `backend: nft`, and the
+required QEMU smoke parsed three firewall rows. The rpcd helper runs each
+command under an inner GNU `timeout --foreground`, which sends TERM at the
+configured budget. An outer GNU timeout starts a BusyBox `setsid` supervisor
+and KILLs its dedicated process group after the one-second grace. A pipe reader
+stays active until inherited stdout closes, and the supervisor waits for live
+process-group members after the pipeline ends, including descendants that close
+stdout themselves. This is process-group containment: a descendant that creates
+a new session or process group is outside this guarantee. The fixed synchronous
+`ubus`, `nft`, `nslookup`, and filter-pipeline targets do not intentionally detach;
+host and guest checks cover descendants that remain in the command group. Poll
+has two sequential five-second stages, so its command-time
+bound is about 12 seconds plus scheduling/IPC overhead; nft is five seconds
+plus the grace; resolve stops starting lookups after its five-second budget
+and allows at most one final one-second lookup plus its grace. The loop's
+integer-second clock can add up to one second, so the total is about eight
+seconds plus scheduling/IPC overhead.
+
+After temporarily removing the timeout symlink on this disposable guest,
+`logging_status` warned `timeout_missing`; `poll`, `rules`, and `resolve`
+returned their structured `timeout_missing` errors. Host fault tests assert
+that this short-circuit skips `ubus log.read`, nft, and nslookup. The first
+browser capture on this draft used longer repair copy and a second backend
+diagnostic; the reviewed copy is now one status line only:
+“Installation is incomplete. Reinstall luci-app-fwlive.” The backend keeps
+the last-known `using fw4` context without mentioning timeout. Provider
+restoration clears the status in the same session without a reload. The
+`timeout_missing` resolver reply does not mark an address as a PTR failure in
+the view's hostname cache; restoring the provider lets a later lookup retry.
+
+The same candidate passed `./scripts/qemu-playwright-lab-smoke.sh`. A second,
+separately downloaded and prepared stock 24.10.8 x86_64 image confirmed the
+fresh-install path: before install it had no fwlive package or `timeout`, while
+`ubus call log read` succeeded. Ordinary `opkg install` of the candidate pulled
+in `coreutils` and `coreutils-timeout` 9.7-r1, with no manually installed
+provider. The installed dependency metadata named `coreutils-timeout`,
+`logging_status.warnings` was empty, and `rules` reported `backend: nft`. The
+required log-pipeline smoke parsed three firewall rows and the Playwright lab
+bundle passed on this clean guest too (host SSH/HTTP ports 2223/8081).
+
+For the 2026-09-26 review follow-up, the current source rebuilt as
+`luci-app-fwlive_0.1.46-r1_all.ipk` (SHA-256
+`627f5ef58bf87b8d676f4989a35a7847ce95ba8165316b2dd2aebd8730f3449e`). The
+24.10.8 guest had BusyBox `setsid` and GNU timeout 9.7; installed rpcd helper
+SHA-256 `4d13cb2994bbbee0bd8aff285c999db2a1de23ac3041ec25e02508a4157e3f13`
+matched the source. A guest-injected child that exited with stdout
+closed while its TERM-resistant child stayed alive returned status 137 within
+two seconds, and the child was gone. The required smoke parsed three firewall
+rows, and the Playwright lab bundle passed.
+
+Real 23.05/24.10 IPK and 25.12 APK candidate artifacts also passed package
+payload and lifecycle inspection, but package-manager install/upgrade was not
+run on 23.05 or 25.12 guests. Same-feed index comparison, deterministic local
+PTR validation, and guest-injected stalled-command timing remain open checks.
+
+The package version remains `0.1.46` in this implementation PR. The release
+workflow bumps `PKG_VERSION` and `APP_VERSION` together to `0.1.47` after merge;
+that newer package version is required for existing 0.1.46 installations to
+discover the dependency update on every supported package-manager line.
+
 ## Generate test traffic
 
 ```sh
@@ -130,9 +207,11 @@ extracting the classifier asset and streaming filter stdin. The filter is now
 **5** execs (`dirname`, `jsonfilter`, `mktemp`, `awk`, `rm`), with jsonfilter
 output staged in a mode-0600 temporary file before classification. This avoids
 partial JSON output when jsonfilter fails, including on shells without
-pipefail. The full production-shaped poll is **8** on this host (`dirname`×2,
-stdin `cat`, `ubus`, and the 5-exec filter chain). The census records these as
-`CENSUS_FILTER_TOTAL=5` and `CENSUS_POLL_TOTAL=8`.
+pipefail. The full production-shaped poll is **10** on this host (`dirname`×2,
+stdin `cat`, `ubus`, two runtime-resolved timeout pipe readers, and the 5-exec
+filter chain). The earlier count of 8 did not see the absolute `/bin/cat`
+readers through its PATH shims; the updated count includes them. The census
+records `CENSUS_FILTER_TOTAL=5` and `CENSUS_POLL_TOTAL=10`.
 
 ### Device budget-split table (Phase 0b — armsr TCG)
 
@@ -651,9 +730,9 @@ the canonical OpenWrt 24.10.8 armsr/armv8 TCG guest with
 `MemTotal=238572 kB`, and one `/proc/cpuinfo` processor. A live
 `ubus call fwlive logging_status` succeeded and returned
 `"weak_device":true` with `"blockers":[]` (the reply also reported the
-expected `timeout_missing` warning). This is a status classification probe;
-it does not substitute for the browser-performance or forwarding measurements
-above.
+`timeout_missing` warning because that historical package predates #761's
+declared provider dependency). This is a status classification probe; it does
+not substitute for the browser-performance or forwarding measurements above.
 
 ### Forwarding-SLO topology (#306 / #344)
 
