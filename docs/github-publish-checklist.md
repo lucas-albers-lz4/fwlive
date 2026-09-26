@@ -96,8 +96,8 @@ Checklist:
 
 ## macOS contributors
 
-- Edit JS/docs and run `./scripts/fwlive-test.sh` locally
-- **SDK builds and QEMU labs:** Linux x86_64 (VM, CI, or remote host)
+- Edit JS/docs only — **do not** run `./scripts/fwlive-test.sh` on macOS (unsupported host)
+- **Host tests, SDK builds, and QEMU labs:** Linux x86_64 only (VM, CI, or remote host) — [Environment](developer/environment.md)
 - Unmaintained macOS QEMU: `archive/scripts/legacy/` *(removed in #98 — see git history)*
 
 ## After publish
