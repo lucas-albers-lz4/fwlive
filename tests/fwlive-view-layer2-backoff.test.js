@@ -530,6 +530,8 @@ async function testAdaptiveOffDisablesBackoff() {
 	assert.ok(el);
 	assert.strictEqual(el.style.display, 'block', 'adaptive:0 states protection is disabled');
 	assert.match(el.textContent, /protection is disabled/i);
+	assert.match(v.statusSuffix(), /truncated/, 'status line matches banner at adaptive:0');
+	assert.match(el.textContent, /truncated|shedding/i, 'banner reports the same poll cap');
 	console.log('fwlive-view layer2: adaptive:0 gate OK');
 }
 

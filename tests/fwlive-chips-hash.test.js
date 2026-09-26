@@ -313,6 +313,28 @@ function testUpdateHashUsesReplaceState() {
 	assert.deepStrictEqual(h.view.hashEntries(), []);
 }
 
+function testApplyHashIgnoresUnlistedAndPersistedKeys() {
+	const h = loadFwliveView({
+		location: {
+			hash: '#fetch-mode=manual&row-tint=accessible&proto-custom=OSPF&backend=x&src=192.0.2.1'
+		}
+	});
+	withSelectOptions(h);
+	h.view.fetchMode = 'auto';
+	h.view.applyHash();
+	assert.strictEqual(h.view.fetchMode, 'auto', '#fetch-mode must stay persisted');
+	assert.strictEqual(valueOf(h, 'fwlive-src'), '192.0.2.1');
+	const custom = h.document.getElementById('fwlive-proto-custom');
+	if (custom) {
+		assert.notStrictEqual(custom.value, 'OSPF', '#proto-custom is not a hash filter key');
+	}
+	const backend = h.document.getElementById('fwlive-backend');
+	if (backend) {
+		assert.notStrictEqual(backend.value, 'x', 'unknown hash keys must not write fwlive-* nodes');
+		assert.notStrictEqual(backend.textContent, 'x');
+	}
+}
+
 function testApplyHashUnlistedActionStaysSelected() {
 	const h = loadFwliveView({ location: { hash: '#action=uncommon' } });
 	withSelectOptions(h);
@@ -346,6 +368,7 @@ testIdentityChipFieldLabels();
 testTranslatedChipCatalog();
 testUnknownChipFieldLabel();
 testApplyHashValidAndMalformed();
+testApplyHashIgnoresUnlistedAndPersistedKeys();
 testApplyHashUnlistedActionStaysSelected();
 testApplyHashPreservesEqualsInValue();
 testUpdateHashRoundTripsEqualsAndAmpersand();
