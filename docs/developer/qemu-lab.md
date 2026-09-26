@@ -95,10 +95,20 @@ the warning and backend diagnostic in the same session without a reload. The
 `timeout_missing` resolver reply does not mark an address as a PTR failure in
 the view's hostname cache; restoring the provider lets a later lookup retry.
 
-The same candidate passed `./scripts/qemu-playwright-lab-smoke.sh`. Real
-23.05/24.10 IPK and 25.12 APK candidate artifacts also passed package payload
-and lifecycle inspection, but package-manager install/upgrade was not run on
-23.05 or 25.12 guests.
+The same candidate passed `./scripts/qemu-playwright-lab-smoke.sh`. A second,
+separately downloaded and prepared stock 24.10.8 x86_64 image confirmed the
+fresh-install path: before install it had no fwlive package or `timeout`, while
+`ubus call log read` succeeded. Ordinary `opkg install` of the candidate pulled
+in `coreutils` and `coreutils-timeout` 9.7-r1, with no manually installed
+provider. The installed dependency metadata named `coreutils-timeout`,
+`logging_status.warnings` was empty, and `rules` reported `backend: nft`. The
+required log-pipeline smoke parsed three firewall rows and the Playwright lab
+bundle passed on this clean guest too (host SSH/HTTP ports 2223/8081).
+
+Real 23.05/24.10 IPK and 25.12 APK candidate artifacts also passed package
+payload and lifecycle inspection, but package-manager install/upgrade was not
+run on 23.05 or 25.12 guests. Same-feed index comparison, deterministic local
+PTR validation, and guest-injected stalled-command timing remain open checks.
 
 The package version remains `0.1.46` in this implementation PR. The release
 workflow bumps `PKG_VERSION` and `APP_VERSION` together to `0.1.47` after merge;
