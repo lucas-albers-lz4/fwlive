@@ -1,5 +1,12 @@
 # Security review state
 
+> **2026-09-26 #821 / #803 delta:** Packages index filtering no longer
+> swallows grep I/O errors (`|| true` removed on host and in-container
+> paths). `feed_publish_copy_keys` requires both public keys and fails
+> closed if either path is unset or missing. Host coverage:
+> `tests/feed-publish-copy-keys.test.sh`. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-26 #842 / #817 delta:** `publish-packages.yml` `build-publish`
 > pins Node 22 with the same digest-pinned `actions/setup-node` as
 > `fwlive-test.yml` before `validate-baseline.sh` (`npm ci` + lint),
@@ -373,7 +380,8 @@ should carry a note saying what would raise it.
 | Signing-secret containers have no network | `host` | `docker run --network none` on validate usign check and opkg/apk sign steps (Compose v2 has no `--network` on `compose run`); same test |
 | Signing secrets stay 0600 through validate-feed-keys rewrite prefix (decode/normalize/chmod) | `host` | `tests/validate-feed-keys-mode.test.sh` — calls shared `feed_keys_validate_*_rewrite_prefix` (same helpers as `validate-feed-keys.sh`) including a base64 decode rewrite; full docker usign sign on next `v*` still prove-next |
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
-| Only public keys reach `feed-staging/` | `manual` | `feed_publish_copy_keys` |
+| Only public keys reach `feed-staging/`; both opkg and apk public keys are required | `host` | `feed_publish_copy_keys`; `tests/feed-publish-copy-keys.test.sh` |
+| Packages index filter fails closed on grep I/O errors (no `|| true`) | `host` | `feed_publish_stage_opkg_host` / SDK sign path; `tests/feed-publish-copy-keys.test.sh` |
 | Publish staging `rm -rf` refuses `/`, `$HOME`, repo root, and paths outside `$ROOT`/`$RUNNER_TEMP` unless `--allow-outside` (which still refuses `/`/`$HOME`/root); path is `pwd -P` so a symlink to `/` cannot bypass | `host` | `feed_publish_assert_staging_clearable` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-staging-guard.test.sh` |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |

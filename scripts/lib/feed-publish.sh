@@ -343,7 +343,11 @@ feed_publish_stage_opkg_host() {
 		rm -f "$raw"
 		return 1
 	fi
-	grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' "$raw" > "${pkg_dir}/Packages" || true
+	if ! grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' "$raw" > "${pkg_dir}/Packages"; then
+		echo "Packages filter failed for ${ver_label}" >&2
+		rm -f "$raw"
+		return 1
+	fi
 	rm -f "$raw"
 	[[ -s "${pkg_dir}/Packages" ]] || {
 		echo "empty Packages index for ${ver_label}" >&2
@@ -467,7 +471,7 @@ feed_publish_stage_opkg_sdk() {
 			cd /feed/pkgdir
 			RAW="$(mktemp)"
 			"$INDEX" . >"$RAW"
-			grep -vE "^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)" "$RAW" > Packages || true
+			grep -vE "^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)" "$RAW" > Packages
 			rm -f "$RAW"
 			test -s Packages
 			gzip -9cn Packages > Packages.gz
@@ -593,8 +597,16 @@ feed_publish_stage_apk() {
 
 feed_publish_copy_keys() {
 	local staging="$1"
-	[[ -n "${OPKG_FEED_PUBLIC_KEY:-}" && -f "$OPKG_FEED_PUBLIC_KEY" ]] && cp -a "$OPKG_FEED_PUBLIC_KEY" "${staging}/public.key"
-	[[ -n "${APK_FEED_PUBLIC_KEY:-}" && -f "$APK_FEED_PUBLIC_KEY" ]] && cp -a "$APK_FEED_PUBLIC_KEY" "${staging}/fwlive-feed.rsa.pub"
+	[[ -n "${OPKG_FEED_PUBLIC_KEY:-}" && -f "$OPKG_FEED_PUBLIC_KEY" ]] || {
+		echo "missing OPKG_FEED_PUBLIC_KEY (public.key)" >&2
+		return 1
+	}
+	[[ -n "${APK_FEED_PUBLIC_KEY:-}" && -f "$APK_FEED_PUBLIC_KEY" ]] || {
+		echo "missing APK_FEED_PUBLIC_KEY (fwlive-feed.rsa.pub)" >&2
+		return 1
+	}
+	cp -a "$OPKG_FEED_PUBLIC_KEY" "${staging}/public.key" || return 1
+	cp -a "$APK_FEED_PUBLIC_KEY" "${staging}/fwlive-feed.rsa.pub" || return 1
 }
 
 feed_publish_lock_pins() {

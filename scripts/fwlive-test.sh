@@ -197,6 +197,9 @@ bash tests/feed-publish-find-artifact.test.sh
 echo "== fwlive feed staging clear guard (#766) ==" >&2
 bash tests/feed-publish-staging-guard.test.sh
 
+echo "== fwlive feed copy-keys / Packages filter (#803 #821) ==" >&2
+bash tests/feed-publish-copy-keys.test.sh
+
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh
 
