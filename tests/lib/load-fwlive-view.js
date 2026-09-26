@@ -204,13 +204,17 @@ function loadFwliveView(options) {
 	const cancelAnimationFrame =
 		typeof options.cancelAnimationFrame === 'function' ? options.cancelAnimationFrame : null;
 	const poll = {
+		_entries: [],
 		add: function(fn, interval) {
 			pollOps.push({ op: 'add', interval: interval });
+			this._entries.push({ fn: fn, intervalSec: interval || 1 });
 			this._fn = fn;
 			this._interval = interval;
 		},
-		remove: function() {
+		remove: function(fn) {
 			pollOps.push({ op: 'remove' });
+			if (typeof fn === 'function')
+				this._entries = this._entries.filter(function(e) { return e.fn !== fn; });
 		},
 		ops: function() {
 			return pollOps.slice();
@@ -256,7 +260,7 @@ function loadFwliveView(options) {
 	};
 
 	const src = fs.readFileSync(VIEW_PATH, 'utf8');
-	const body = src
+	const body = "'use strict';\n" + src
 		.replace(/^'use strict';\s*/m, '')
 		.replace(/^\/\*[\s\S]*?\*\/\s*/m, '')
 		.replace(/^'require [^']+';[^\n]*\n/gm, '');

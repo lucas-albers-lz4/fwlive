@@ -168,7 +168,7 @@
 				throw new Error('fetch failed: ' + url + ' (' + r.status + ')');
 			return r.text();
 		});
-		const body = src
+		const body = "'use strict';\n" + src
 			.replace(/^'use strict';\s*/m, '')
 			.replace(/^\/\*[\s\S]*?\*\/\s*/m, '')
 			.replace(/^'require [^']+';[^\n]*\n/gm, '');
@@ -195,7 +195,7 @@
 		const viewSrc = await fetch(RES + '/view/status/fwlive.js').then(function(r) {
 			return r.text();
 		});
-		const viewBody = viewSrc
+		const viewBody = "'use strict';\n" + viewSrc
 			.replace(/^'use strict';\s*/m, '')
 			.replace(/^\/\*[\s\S]*?\*\/\s*/m, '')
 			.replace(/^'require [^']+';[^\n]*\n/gm, '');
