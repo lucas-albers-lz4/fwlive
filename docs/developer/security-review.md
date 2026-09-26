@@ -1,5 +1,16 @@
 # Security review state
 
+> **2026-09-26 #761 delta:** `luci-app-fwlive` now declares
+> `+coreutils-timeout`; package lifecycle tests inspect built IPK control
+> metadata and APK ADB `info.depends`. The helper remains fail-closed when
+> the provider is absent. `timeout_missing` stays a warning and does not gate
+> WAN logging controls; only a failed poll with that warning replaces the
+> generic connection banner with an incomplete-installation repair message.
+> Host view tests and Playwright cover warning suppression, repair text, and
+> recovery. QEMU 24.10.8 verified automatic provider installation and the
+> abnormal missing-binary diagnosis through ubus and a live browser. No ACL,
+> DOM sink, or read/write-scope change.
+
 > **2026-09-24 #606 delta:** `wan_filter_log_decimal` rejects digit runs
 > longer than 10 before `$ (( ))`, so a 20-digit UCI `log` value cannot
 > kill dash or wrap on BusyBox. Enable/disable/status keep the existing
@@ -366,7 +377,7 @@ should carry a note saying what would raise it.
 | `logging_status.weak_device` is a read-only procfs-derived boolean (`MemTotal < 256 MiB` or one processor); unavailable/malformed procfs fails closed to `false` | `host` | `tests/fwlive-logging.test.sh` fixture threshold cases + `tests/fwlive-rpcd-security.test.js` shape/type assertion |
 | `enable/disable_wan_logging` with no WAN zone return `error:no_wan_zone` before touching the lock | `host` | same file `testToggleNoWanZone` (asserts lock file untouched) |
 | Unknown rpcd method returns `error` with a non-zero exit | `host` | same file `testUnknownMethod` |
-| `timeout` absent surfaces `timeout_missing` warning (fail-closed `run_with_timeout` diagnosability; non-gating) | `host` | `fwlive-logging.sh` `collect_logging_warnings` → `logging_status` `warnings`; `#fwlive-backend` span in `view/status/fwlive.js` (`command -v timeout` probe, POSIX) |
+| `timeout` absent surfaces non-gating `timeout_missing`; a failed poll reports an incomplete installation rather than a connection failure; normal package metadata installs the provider | `host + package + qemu` | `tests/fwlive-view-poll-error.test.js` + mocked Playwright transition; `tests/fwlive-package-lifecycle.test.sh` inspects IPK Depends and APK ADB `info.depends`; 24.10.8 install and forced-missing-provider ubus/browser lab; helper remains fail-closed and WAN logging remains non-gated |
 | Rules-map degradation (`rules_truncated`/`mktemp_failed`/`rules_unavailable`) surfaces in `#fwlive-backend` span, not the live counter / paused class | `host` | `view/status/fwlive.js` `updateBackendUi` (backend label + ` · ` + error via `_()`), `updateStatus` always reaches counter branch; `lastPollError` precedence unchanged |
 
 | Filter temp directory | host | Real, non-symlink, sticky dump directory is required before root writes; tests exercise non-sticky fixtures under dash and BusyBox ash, while production passes /tmp |

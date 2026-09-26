@@ -2,7 +2,10 @@
   "info": {
     "name": "luci-app-fwlive",
     "version": "0.1.45-r1",
-    "arch": "noarch"
+    "arch": "noarch",
+    "depends": [
+      "coreutils-timeout"
+    ]
   },
   "scripts": {
     "post-install": "#!/bin/sh\n[ \"${IPKG_NO_SCRIPT}\" = \"1\" ] && exit 0\ndefault_postinst\n",

@@ -52,6 +52,31 @@ ok() {
 	echo "fwlive-package-lifecycle test OK: $*"
 }
 
+assert_ipk_timeout_dependency() {
+	local control="$1"
+	local depends
+	[ -s "$control" ] || fail 'IPK control metadata is missing'
+	depends="$(awk '
+		/^Depends:[[:space:]]*/ {
+			in_depends=1
+			sub(/^Depends:[[:space:]]*/, "")
+			value=$0
+			next
+		}
+		in_depends && /^[[:space:]]/ {
+			gsub(/^[[:space:]]+/, "")
+			value=value " " $0
+			next
+		}
+		in_depends { exit }
+		END { print value }
+	' "$control")"
+	if ! printf '%s\n' "$depends" | grep -Eq '(^|[[:space:],])coreutils-timeout([[:space:],(:]|$)'; then
+		fail "IPK Depends metadata must contain coreutils-timeout; got: ${depends:-<missing>}"
+	fi
+	ok 'IPK control metadata declares coreutils-timeout'
+}
+
 install_hook_from_body() {
 	local src="$1"
 	local dest="$2"
@@ -62,15 +87,22 @@ install_hook_from_body() {
 pack_synthetic_ipk() {
 	local dest="$1"
 	local prerm_pkg="$2"
+	local dependency="${3-coreutils-timeout}"
 	local stage="$WORK/ipk-stage"
 	rm -rf "$stage"
 	mkdir -p "$stage/ctrl" "$stage/empty"
+	{
+		printf '%s\n' 'Package: luci-app-fwlive' 'Version: 0.1.46'
+		if [ -n "$dependency" ]; then
+			printf 'Depends: %s\n' "$dependency"
+		fi
+	} >"$stage/ctrl/control"
 	printf '%s\n' '#!/bin/sh' 'default_prerm $0 $@' >"$stage/ctrl/prerm"
 	chmod 755 "$stage/ctrl/prerm"
 	cp "$prerm_pkg" "$stage/ctrl/prerm-pkg"
 	chmod 755 "$stage/ctrl/prerm-pkg"
 	printf '2.0\n' >"$stage/debian-binary"
-	tar -C "$stage/ctrl" -czf "$stage/control.tar.gz" ./prerm ./prerm-pkg
+	tar -C "$stage/ctrl" -czf "$stage/control.tar.gz" ./control ./prerm ./prerm-pkg
 	tar -C "$stage/empty" -czf "$stage/data.tar.gz" .
 	rm -f "$dest"
 	if command -v ar >/dev/null 2>&1; then
@@ -96,6 +128,9 @@ extract_ipk_prerm() {
 	fi
 	tar -tzf "$control" | grep -qx './prerm'
 	tar -tzf "$control" | grep -qx './prerm-pkg'
+	tar -xzOf "$control" ./control >"$dest_dir/control" 2>/dev/null ||
+		fail 'IPK control archive has no ./control metadata'
+	assert_ipk_timeout_dependency "$dest_dir/control"
 	tar -xzOf "$control" ./prerm >"$dest_dir/prerm"
 	tar -xzOf "$control" ./prerm-pkg >"$dest_dir/prerm-pkg"
 }
@@ -315,6 +350,32 @@ pathlib.Path(sys.argv[3]).write_text(body)
 PY
 }
 
+assert_apk_timeout_dependency() {
+	local json="$1"
+	python3 - "$json" <<'PY' || fail "APK adbdump metadata must declare coreutils-timeout: $json"
+import json
+import pathlib
+import re
+import sys
+
+data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+info = data.get("info") or {}
+depends = info.get("depends")
+if isinstance(depends, str):
+	entries = re.split(r"[ ,]+", depends)
+elif isinstance(depends, list):
+	entries = [str(item) for item in depends]
+elif isinstance(depends, dict):
+	entries = [str(item) for item in depends.keys()]
+else:
+	sys.exit(1)
+
+if not any(re.split(r"[<>=~(: ]", item, maxsplit=1)[0] == "coreutils-timeout" for item in entries):
+	sys.exit(1)
+PY
+	ok 'APK adbdump metadata declares coreutils-timeout'
+}
+
 extract_apk_package_prerm_body() {
 	local src="$1"
 	local dest="$2"
@@ -332,6 +393,7 @@ assert_apk_adbdump_json() {
 	rm -rf "$dest"
 	mkdir -p "$dest"
 	[ -f "$json" ] || fail "apk adbdump JSON not found: $json"
+	assert_apk_timeout_dependency "$json"
 	apk_write_script_from_json "$json" pre-deinstall "$dest/pre-deinstall" ||
 		fail "apk adbdump JSON missing scripts.pre-deinstall: $json"
 	apk_write_script_from_json "$json" post-upgrade "$dest/post-upgrade" ||
@@ -374,6 +436,18 @@ run_wrapper_hop "$HOOK"
 pack_synthetic_ipk "$WORK/new.ipk" "$HOOK_RAW"
 oracle_ipk "$WORK/new.ipk" synthetic-new-ipk
 ok 'synthetic IPK with the current prerm body passes the packaged oracle'
+
+# The synthetic package has valid lifecycle scripts but omits the selected
+# runtime dependency. Metadata verification must reject it before hook checks.
+pack_synthetic_ipk "$WORK/no-timeout.ipk" "$HOOK_RAW" ''
+if (
+	fail() { echo "oracle reject: $*" >&2; exit 1; }
+	ok() { :; }
+	oracle_ipk "$WORK/no-timeout.ipk" synthetic-no-timeout
+); then
+	fail 'synthetic IPK without coreutils-timeout must fail the package oracle'
+fi
+ok 'synthetic IPK without coreutils-timeout fails the package metadata oracle'
 
 # Negative synthetic IPK: always-restore must fail the execute matrix.
 always_restore="$WORK/always-restore-prerm-pkg"
@@ -485,7 +559,7 @@ post = "#!/bin/sh\nexport PKG_UPGRADE=1\ndefault_postinst\n"
 pathlib.Path(sys.argv[2]).write_text(
 	json.dumps(
 		{
-			"info": {"name": "luci-app-fwlive"},
+			"info": {"name": "luci-app-fwlive", "depends": ["coreutils-timeout"]},
 			"scripts": {"pre-deinstall": wrapped, "post-upgrade": post},
 		}
 	)
@@ -493,6 +567,25 @@ pathlib.Path(sys.argv[2]).write_text(
 PY
 assert_apk_adbdump_json "$WORK/generated-adbdump.json"
 ok 'current Makefile prerm wrapped as apk adbdump JSON executes the lifecycle matrix'
+
+apk_json_no_timeout="$WORK/adbdump-no-timeout.json"
+python3 - "$WORK/generated-adbdump.json" "$apk_json_no_timeout" <<'PY'
+import json
+import pathlib
+import sys
+
+data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+data["info"].pop("depends", None)
+pathlib.Path(sys.argv[2]).write_text(json.dumps(data))
+PY
+if (
+	fail() { echo "oracle reject: $*" >&2; exit 1; }
+	ok() { :; }
+	assert_apk_adbdump_json "$apk_json_no_timeout"
+); then
+	fail 'APK adbdump metadata without coreutils-timeout must fail the package oracle'
+fi
+ok 'APK adbdump metadata without coreutils-timeout fails the package oracle'
 
 apk_json_bad="$WORK/adbdump-restore-only.json"
 python3 - "$apk_json_bad" <<'PY'
@@ -503,10 +596,11 @@ import sys
 pathlib.Path(sys.argv[1]).write_text(
 	json.dumps(
 		{
+			"info": {"name": "luci-app-fwlive", "depends": ["coreutils-timeout"]},
 			"scripts": {
 				"pre-deinstall": "restore_wan_log_baseline\n",
 				"post-upgrade": "#!/bin/sh\nexport PKG_UPGRADE=1\n",
-			}
+			},
 		}
 	)
 )

@@ -704,9 +704,11 @@ return view.extend({
 
 		const label = document.getElementById('fwlive-backend');
 		if (label) {
-			let text = this.backendDisplayLabel();
+			const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
+			const timeoutMissing = warnings.indexOf('timeout_missing') >= 0;
+			let text = timeoutMissing ? '' : this.backendDisplayLabel();
 			let degraded = false;
-			if (this.lastRulesError) {
+			if (this.lastRulesError && !timeoutMissing) {
 				let err = '';
 				if (this.lastRulesError === 'rules_truncated')
 					err = _('Rule labels incomplete — map truncated');
@@ -714,12 +716,6 @@ return view.extend({
 					err = _('Rule labels unavailable — temp file failed');
 				else err = _('Rule labels unavailable');
 				text = text ? text + ' \u00b7 ' + err : err;
-				degraded = true;
-			}
-			const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
-			if (warnings.indexOf('timeout_missing') >= 0) {
-				const warn = _('Limited diagnostics — timeout command missing');
-				text = text ? text + ' \u00b7 ' + warn : warn;
 				degraded = true;
 			}
 			if (warnings.indexOf('legacy_iptables_detected') >= 0) {
@@ -755,6 +751,7 @@ return view.extend({
 		this.updateBackendUi();
 		this.updateLoggingToolbarUi();
 		this.updateEmptyStateUi();
+		this.updateStatus();
 		if (wasWeakDevice !== this.weakDevice && document.getElementById('fwlive-table'))
 			this.renderRows(true);
 	},
@@ -1513,7 +1510,13 @@ return view.extend({
 
 		if (this.lastPollError) {
 			status.className = 'fwlive-status fwlive-status-error';
-			status.textContent = _('Connection lost — retrying…') + suffix;
+			const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
+			status.textContent =
+				warnings.indexOf('timeout_missing') >= 0
+					? _(
+							'Firewall Live View is incomplete. Reinstall luci-app-fwlive to restore it.'
+						)
+					: _('Connection lost — retrying…') + suffix;
 			this.updateAdaptiveBanner();
 			return;
 		}

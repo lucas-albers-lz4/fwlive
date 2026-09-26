@@ -83,6 +83,72 @@ async function testPollTransportThrow() {
 	console.log('fwlive-view poll-error: transport throw OK');
 }
 
+function testMissingTimeoutHasAccuratePollError() {
+	const h = loadFwliveView();
+	const view = h.view;
+	const status = h.document.getElementById('fwlive-status');
+	const backend = h.document.getElementById('fwlive-backend');
+	h.document.querySelector = function () { return null; };
+	backend.classList = { toggle: function () {} };
+	view.updateEmptyStateUi = function () {};
+	assert.ok(status, 'fwlive-status must exist after render');
+	assert.ok(backend, 'fwlive-backend must exist after render');
+
+	view.loggingStatus = { warnings: ['timeout_missing'] };
+	view.firewallBackend = 'nft';
+	view.lastRulesError = 'no_backend';
+	view.lastPollError = false;
+	view.updateBackendUi();
+	view.updateStatus();
+	assert.doesNotMatch(String(status.textContent), /is incomplete/i,
+		'a healthy poll must not show an incomplete-installation banner');
+	assert.doesNotMatch(String(backend.textContent), /timeout command missing/i,
+		'timeout_missing must not look like an expected/default-install warning');
+
+	view.lastPollError = true;
+	view.updateBackendUi();
+	view.updateStatus();
+	assert.match(String(status.textContent), /is incomplete/i,
+		'a failed poll with timeout_missing must show the repair message');
+	assert.doesNotMatch(String(status.textContent), /connection lost/i,
+		'a missing timeout must not be misreported as a network failure');
+	assert.equal(backend.textContent, '',
+		'missing timeout must suppress misleading backend/rules diagnostics');
+
+	view.loggingStatus = { warnings: [] };
+	view.updateStatus();
+	assert.match(String(status.textContent), /Connection lost/i,
+		'ordinary poll failures must keep the network error banner');
+	console.log('fwlive-view poll-error: missing timeout diagnostic and recovery OK');
+}
+
+async function testLoggingStatusRefreshesPollCause() {
+	let timeoutMissing = true;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.logging_status': async function () {
+				return { warnings: timeoutMissing ? ['timeout_missing'] : [] };
+			}
+		}
+	});
+	const view = h.view;
+	const status = h.document.getElementById('fwlive-status');
+	view.updateBackendUi = function () {};
+	view.updateLoggingToolbarUi = function () {};
+	view.updateEmptyStateUi = function () {};
+	view.lastPollError = true;
+
+	await view.loadLoggingStatus();
+	assert.match(String(status.textContent), /is incomplete/i,
+		'new timeout_missing status must immediately explain the poll failure');
+
+	timeoutMissing = false;
+	await view.loadLoggingStatus();
+	assert.match(String(status.textContent), /Connection lost/i,
+		'clearing timeout_missing must restore the ordinary poll message');
+	console.log('fwlive-view poll-error: logging status refreshes poll diagnosis OK');
+}
+
 async function testPollNonStringMsgSurvives() {
 	const validMsg =
 		'fw4: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP SPT=1234 DPT=443';
@@ -145,6 +211,8 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testPollHappyPath();
 		await testPollBadShape();
 		await testPollTransportThrow();
+		testMissingTimeoutHasAccuratePollError();
+		await testLoggingStatusRefreshesPollCause();
 		await testPollNonStringMsgSurvives();
 		await testSummaryPollErrorRefreshesStatus();
 		console.log('fwlive-view poll-error tests passed');

@@ -57,6 +57,28 @@ OWRT_FWLIVE_VERSION=24.10.8 ./scripts/qemu-install-fwlive.sh
 
 Uses `apk` or `opkg` based on package extension and guest userspace.
 
+### Runtime timeout dependency (#761)
+
+For an install check, start from a prepared stock OpenWrt 24.10.8 x86_64 image
+with no `coreutils-timeout` installed. Confirm `command -v timeout` fails,
+run `opkg update`, then install the locally built IPK with
+`./scripts/qemu-install-fwlive.sh out/x86_64/24.10.8/fwlive/luci-app-fwlive_*.ipk`.
+The package manager should install `coreutils-timeout` without a separate
+manual install. Check the selected executable with `command -v timeout` and
+`readlink -f "$(command -v timeout)"`, then run
+`./scripts/qemu-smoke-fwlive.sh --require-log-pipeline`.
+
+The 2026-09-26 run began with OpenWrt 24.10.8 x86_64 revision
+`r29233-443ec4032a`, fwlive 0.1.44-r1, and no timeout utility. Upgrading to
+0.1.46-r1 installed `coreutils` and `coreutils-timeout` 9.7-r1 automatically.
+`/usr/bin/timeout` resolved to `/usr/libexec/timeout-coreutils`; logging status
+had no warnings, poll succeeded, rules reported `backend: nft`, and the
+required smoke parsed three firewall rows. After temporarily removing the
+timeout symlink on this disposable guest, rpcd returned `log_read_failed`,
+`no_backend`, and `timeout_missing`; browser Playwright showed the incomplete
+installation message instead of “Connection lost”. Restoring the symlink
+cleared the warning.
+
 ## Generate test traffic
 
 ```sh
@@ -651,9 +673,9 @@ the canonical OpenWrt 24.10.8 armsr/armv8 TCG guest with
 `MemTotal=238572 kB`, and one `/proc/cpuinfo` processor. A live
 `ubus call fwlive logging_status` succeeded and returned
 `"weak_device":true` with `"blockers":[]` (the reply also reported the
-expected `timeout_missing` warning). This is a status classification probe;
-it does not substitute for the browser-performance or forwarding measurements
-above.
+`timeout_missing` warning because that historical package predates #761's
+declared provider dependency). This is a status classification probe; it does
+not substitute for the browser-performance or forwarding measurements above.
 
 ### Forwarding-SLO topology (#306 / #344)
 

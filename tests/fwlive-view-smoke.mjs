@@ -298,16 +298,45 @@ async function testAdaptiveSummaryAndWarnings(page) {
 
 		await page.evaluate(() => {
 			const view = window.fwliveView;
+			window.__fwliveWarningState = {
+				loggingStatus: view.loggingStatus,
+				firewallBackend: view.firewallBackend,
+				lastRulesError: view.lastRulesError,
+				lastPollError: view.lastPollError
+			};
 			view.loggingStatus = Object.assign({}, view.loggingStatus, {
 				warnings: ['timeout_missing', 'legacy_iptables_detected']
 			});
 			view.firewallBackend = 'nft';
 			view.lastRulesError = null;
+			view.lastPollError = false;
 			view.updateBackendUi();
+			view.updateStatus();
 		});
 		const warnings = await page.locator('#fwlive-backend').textContent();
-		if (!/timeout command missing/i.test(warnings || '') || !/legacy iptables table/i.test(warnings || ''))
+		const healthyStatus = await page.locator('#fwlive-status').textContent();
+		if (/timeout command missing/i.test(warnings || '') || !/legacy iptables table/i.test(warnings || ''))
 			throw new Error(`warning rendering missing: ${warnings}`);
+		if (/is incomplete/i.test(healthyStatus || ''))
+			throw new Error(`healthy poll must not show an installation error: ${healthyStatus}`);
+
+		await page.evaluate(() => {
+			const view = window.fwliveView;
+			view.lastPollError = true;
+			view.updateStatus();
+		});
+		const installError = await page.locator('#fwlive-status').textContent();
+		if (!/is incomplete/i.test(installError || '') || /connection lost/i.test(installError || ''))
+			throw new Error(`missing timeout must explain the incomplete installation: ${installError}`);
+
+		await page.evaluate(() => {
+			const view = window.fwliveView;
+			view.loggingStatus.warnings = ['legacy_iptables_detected'];
+			view.updateStatus();
+		});
+		const ordinaryPollError = await page.locator('#fwlive-status').textContent();
+		if (!/Connection lost/i.test(ordinaryPollError || ''))
+			throw new Error(`ordinary poll errors must keep the connection message: ${ordinaryPollError}`);
 		console.log('OK: adaptive summary, shedding, and warning rendering');
 	} finally {
 		await page.evaluate(() => {
@@ -315,7 +344,16 @@ async function testAdaptiveSummaryAndWarnings(page) {
 				window.setFwlivePollMock(window.__fwlivePrevPollMock);
 				delete window.__fwlivePrevPollMock;
 			}
-			window.fwliveView.leaveSummaryMode();
+			const view = window.fwliveView;
+			const state = window.__fwliveWarningState;
+			view.loggingStatus = state.loggingStatus;
+			view.firewallBackend = state.firewallBackend;
+			view.lastRulesError = state.lastRulesError;
+			view.lastPollError = state.lastPollError;
+			delete window.__fwliveWarningState;
+			view.updateBackendUi();
+			view.updateStatus();
+			view.leaveSummaryMode();
 		});
 	}
 }
