@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop the QEMU guest if `validate-feed-smoke.sh` fails after start (#838)
 - Pin Node 22 on `publish-packages` `build-publish` so the release lint gate matches `fwlive-test` (#842)
 - Do not persist `GITHUB_TOKEN` on the remaining `fwlive-test.yml` checkouts (#817)
+- Abort Packages index filtering on write/I/O errors instead of signing a partial file (#821)
+- Refuse to stage a feed when either public key is missing (#803)
 - Rewrite the guest fwlive feed source instead of appending a second URL, and refuse unsafe feed URLs before they reach ssh (#840)
 - Refuse an upstream cut on a dirty package tree, split onto a temporary branch unless `--replace`, and skip non-UTF-8 assets instead of crashing (#841)
 - Expand a log row from the Time cell, not Action — Action is a filter link (#822)
