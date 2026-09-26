@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fail classifier codegen on an unrecognised `CLASSIFY_SPEC` predicate instead of emitting a dead `if (0)` branch (#826)
 - Restore only documented filter keys from the URL hash; `#fetch-mode` / `#row-tint` stay persisted (#830)
 - Keep the status line and adaptive banner aligned when `adaptive: 0` still reports truncated or load-shed (#829)
+- Refuse a bare `qemu-wait-guest.sh --cmd` and poll SSH in BatchMode so a password prompt cannot hang past `MAX_WAIT` (#839)
+- Stop the QEMU guest if `validate-feed-smoke.sh` fails after start (#838)
 - Rewrite the guest fwlive feed source instead of appending a second URL, and refuse unsafe feed URLs before they reach ssh (#840)
 - Refuse an upstream cut on a dirty package tree, split onto a temporary branch unless `--replace`, and skip non-UTF-8 assets instead of crashing (#841)
 - Expand a log row from the Time cell, not Action — Action is a filter link (#822)
