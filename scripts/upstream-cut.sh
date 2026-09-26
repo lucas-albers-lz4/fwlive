@@ -11,9 +11,11 @@
 # external fetch mid-build is unwanted. subtree split materializes the package
 # as real files with clean history, regenerable on demand.
 #
-# Usage: ./scripts/upstream-cut.sh [outdir]
+# Usage: ./scripts/upstream-cut.sh [--replace] [--allow-dirty] [outdir]
 #   outdir defaults to out/upstream/luci-app-fwlive/
-#   Split branch is (re)created as upstream/luci-app-fwlive
+#   Split lands on a temporary branch; --replace updates upstream/luci-app-fwlive.
+#   Uncommitted edits under openwrt-feed/luci-app-fwlive refuse the cut unless
+#   --allow-dirty (git archive would omit them).
 #
 # After the cut: copy out/upstream/luci-app-fwlive/ into a luci fork at
 # luci/applications/luci-app-fwlive/ and open the PR there. See
@@ -24,18 +26,61 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 PKG=openwrt-feed/luci-app-fwlive
-OUT="${1:-out/upstream/luci-app-fwlive}"
-SPLIT_BRANCH="upstream/luci-app-fwlive"
+REPLACE_CANONICAL=0
+ALLOW_DIRTY=0
+OUT=""
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		--replace) REPLACE_CANONICAL=1; shift ;;
+		--allow-dirty) ALLOW_DIRTY=1; shift ;;
+		-h | --help)
+			sed -n '1,22p' "$0"
+			exit 0
+			;;
+		-*)
+			echo "unknown arg: $1" >&2
+			exit 1
+			;;
+		*)
+			OUT="$1"
+			shift
+			;;
+	esac
+done
+OUT="${OUT:-out/upstream/luci-app-fwlive}"
+CANONICAL_SPLIT_BRANCH="upstream/luci-app-fwlive"
+SPLIT_BRANCH="${CANONICAL_SPLIT_BRANCH}-cut-$$"
+KEEP_SPLIT_BRANCH=0
+cleanup_split_branch() {
+	if [[ "${KEEP_SPLIT_BRANCH}" == 1 ]]; then
+		return 0
+	fi
+	git branch -D "$SPLIT_BRANCH" >/dev/null 2>&1 || true
+}
+trap cleanup_split_branch EXIT
 # Locale dirs kept in the feed for the binary release; first luci PR ships .pot only.
 DROP_PO_LANGS=(de ru zh_Hans)
 # Source for embed-fwlive-css.js; view loads css.js (styleText), not this asset.
 DROP_CSS=1
 
-# The split branch is regenerable by definition — force-recreate each run.
-git branch -D "$SPLIT_BRANCH" >/dev/null 2>&1 || true
+if [[ "$ALLOW_DIRTY" != 1 ]]; then
+	dirty="$(git status --porcelain -- "$PKG")"
+	if [[ -n "$dirty" ]]; then
+		echo "ERROR: uncommitted changes under ${PKG} (git archive would omit them). Commit or pass --allow-dirty." >&2
+		printf '%s\n' "$dirty" >&2
+		exit 1
+	fi
+fi
 
 echo "== 1/5 git subtree split ($PKG -> $SPLIT_BRANCH) =="
 git subtree split --prefix="$PKG" --branch="$SPLIT_BRANCH" >/dev/null
+
+if [[ "$REPLACE_CANONICAL" == 1 ]]; then
+	git branch -D "$CANONICAL_SPLIT_BRANCH" >/dev/null 2>&1 || true
+	git branch -m "$SPLIT_BRANCH" "$CANONICAL_SPLIT_BRANCH"
+	SPLIT_BRANCH="$CANONICAL_SPLIT_BRANCH"
+	KEEP_SPLIT_BRANCH=1
+fi
 
 # A PR-able package must be plain files. Any gitlink means a submodule leaked
 # into the tree and upstream cannot build it.
@@ -170,7 +215,11 @@ root = Path(sys.argv[1])
 for path in root.rglob('*'):
     if not path.is_file() or path.suffix in {'.pot', '.json'}:
         continue
-    raw = path.read_text(encoding='utf-8')
+    try:
+        raw = path.read_text(encoding='utf-8')
+    except UnicodeDecodeError:
+        print('upstream-cut: skip non-UTF-8 %s' % path.relative_to(root), file=sys.stderr)
+        continue
     out = []
     for line in raw.splitlines(keepends=True):
         nl = '\n' if line.endswith('\n') else ''

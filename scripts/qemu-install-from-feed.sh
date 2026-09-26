@@ -49,11 +49,32 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+# URLs are interpolated into a remote shell; reject anything that is not
+# http(s)/file plus a conservative charset (#840 / C14).
+qemu_feed_assert_url() {
+	local u="$1"
+	local safe='^[A-Za-z0-9._~:/?&=+%-]+$'
+	if [[ -z "$u" || ! "$u" =~ $safe ]]; then
+		echo "qemu-install-from-feed: refused unsafe URL '$u'" >&2
+		return 1
+	fi
+	case "$u" in
+		https://* | http://* | file://*) ;;
+		*)
+			echo "qemu-install-from-feed: URL must be http(s) or file '$u'" >&2
+			return 1
+			;;
+	esac
+}
+
 sdk_matrix_validate_version "$VERSION"
 feed_dir="$(feed_publish_feed_dir "$VERSION")"
 base="${FWLIVE_FEED_BASE_URL%/}"
+qemu_feed_assert_url "$base"
 opkg_key_url="${OPKG_FEED_PUBLIC_KEY_URL:-${base}/public.key}"
 apk_key_url="${APK_FEED_PUBLIC_KEY_URL:-${base}/fwlive-feed.rsa.pub}"
+qemu_feed_assert_url "$opkg_key_url"
+qemu_feed_assert_url "$apk_key_url"
 
 ssh_run() {
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" "$@"
@@ -65,23 +86,24 @@ guest_uses_apk() {
 
 install_opkg() {
 	local feed_url="${base}/${feed_dir}"
+	qemu_feed_assert_url "$feed_url"
 	echo "→ opkg feed ${feed_url}" >&2
 	ssh_run "wget -O /tmp/fwlive-feed.key '${opkg_key_url}'"
 	ssh_run 'opkg-key add /tmp/fwlive-feed.key'
-	ssh_run "grep -q 'src/gz fwlive ${feed_url}' /etc/opkg/customfeeds.conf 2>/dev/null || \
-		echo 'src/gz fwlive ${feed_url}' >> /etc/opkg/customfeeds.conf"
+	# Rewrite, do not append-if-absent: a changed base/dir must not leave a stale src/gz fwlive (#840).
+	ssh_run "touch /etc/opkg/customfeeds.conf && { grep -v '^src/gz fwlive ' /etc/opkg/customfeeds.conf || true; } > /etc/opkg/customfeeds.conf.tmp && mv /etc/opkg/customfeeds.conf.tmp /etc/opkg/customfeeds.conf && printf '%s\\n' 'src/gz fwlive ${feed_url}' >> /etc/opkg/customfeeds.conf"
 	ssh_run 'opkg update'
 	ssh_run 'opkg install luci-app-fwlive'
 }
 
 install_apk() {
 	local index_url="${base}/${feed_dir}/all/packages.adb"
+	qemu_feed_assert_url "$index_url"
 	echo "→ apk index ${index_url}" >&2
 	ssh_run "wget -O /tmp/fwlive-feed.rsa.pub '${apk_key_url}'"
 	ssh_run 'mkdir -p /etc/apk/keys'
 	ssh_run 'cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub'
-	ssh_run "grep -qF '${index_url}' /etc/apk/repositories.d/fwlive.list 2>/dev/null || \
-		echo '${index_url}' >> /etc/apk/repositories.d/fwlive.list"
+	ssh_run "mkdir -p /etc/apk/repositories.d && printf '%s\\n' '${index_url}' > /etc/apk/repositories.d/fwlive.list"
 	ssh_run 'apk update'
 	ssh_run 'apk add luci-app-fwlive'
 }
