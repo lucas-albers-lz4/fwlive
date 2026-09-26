@@ -211,20 +211,23 @@ function valueOf(h, id) {
 }
 
 function withSelectOptions(h) {
-	const sel = h.document.getElementById('fwlive-proto');
-	assert.ok(sel, 'missing fwlive-proto');
-	const opts = [];
-	function walk(node) {
-		const kids = node.childNodes || [];
-		for (let i = 0; i < kids.length; i++) {
-			const c = kids[i];
-			if (c && c.tagName === 'option')
-				opts.push({ value: (c._attrs && c._attrs.value) || '' });
-			else if (c && c.childNodes) walk(c);
+	['fwlive-proto', 'fwlive-action'].forEach(function (id) {
+		const sel = h.document.getElementById(id);
+		if (!sel) return;
+		const opts = [];
+		function walk(node) {
+			const kids = node.childNodes || [];
+			for (let i = 0; i < kids.length; i++) {
+				const c = kids[i];
+				if (c && c.tagName === 'option')
+					opts.push({ value: (c._attrs && c._attrs.value) || '' });
+				else if (c && c.childNodes) walk(c);
+			}
 		}
-	}
-	walk(sel);
-	sel.options = opts;
+		walk(sel);
+		sel.options = opts;
+	});
+	assert.ok(h.document.getElementById('fwlive-proto'), 'missing fwlive-proto');
 }
 
 function testApplyHashValidAndMalformed() {
@@ -310,6 +313,15 @@ function testUpdateHashUsesReplaceState() {
 	assert.deepStrictEqual(h.view.hashEntries(), []);
 }
 
+function testApplyHashUnlistedActionStaysSelected() {
+	const h = loadFwliveView({ location: { hash: '#action=uncommon' } });
+	withSelectOptions(h);
+	assert.doesNotThrow(function () {
+		h.view.applyHash();
+	}, 'unlisted action hash must not throw');
+	assert.strictEqual(valueOf(h, 'fwlive-action'), 'uncommon');
+}
+
 function testApplyHashHostileAsText() {
 	const encoded = encodeURIComponent(HOSTILE);
 	const h = loadFwliveView({
@@ -334,6 +346,7 @@ testIdentityChipFieldLabels();
 testTranslatedChipCatalog();
 testUnknownChipFieldLabel();
 testApplyHashValidAndMalformed();
+testApplyHashUnlistedActionStaysSelected();
 testApplyHashPreservesEqualsInValue();
 testUpdateHashRoundTripsEqualsAndAmpersand();
 testUpdateHashUsesReplaceState();

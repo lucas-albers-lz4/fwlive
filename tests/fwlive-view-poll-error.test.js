@@ -377,6 +377,23 @@ async function testPollNonStringMsgSurvives() {
 	console.log('fwlive-view poll-error: non-string msg batch OK');
 }
 
+async function testConstructorHintDoesNotPaintObjectSource() {
+	const msg =
+		'constructor: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP SPT=1234 DPT=443';
+	const h = loadFwliveView();
+	h.view.rulesMap = {};
+	const batch = h.view.normalizePollBatch([{ id: 1, time: 1704067200, msg: msg }]);
+	assert.equal(batch.rows.length, 1, 'constructor-prefixed firewall line must stay a row');
+	assert.equal(batch.rows[0].rule_hint, 'constructor');
+	assert.equal(batch.rows[0].rule_label, 'constructor',
+		'Rule label must not be the Object constructor source');
+	assert.equal(h.view.resolveRuleLabel('__proto__'), '__proto__');
+	assert.equal(h.view.resolveRuleLabel('toString'), 'toString');
+	h.view.rulesMap = { constructor: 'Allow-ctor' };
+	assert.equal(h.view.resolveRuleLabel('constructor'), 'Allow-ctor');
+	console.log('fwlive-view poll-error: constructor rule hint OK');
+}
+
 async function testSummaryPollErrorRefreshesStatus() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -407,6 +424,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testLoggingToggleInvalidatesOlderStatusRead();
 		await testLoggingWarningDoesNotOverridePollCause();
 		await testPollNonStringMsgSurvives();
+		await testConstructorHintDoesNotPaintObjectSource();
 		await testSummaryPollErrorRefreshesStatus();
 		console.log('fwlive-view poll-error tests passed');
 	} catch (e) {
