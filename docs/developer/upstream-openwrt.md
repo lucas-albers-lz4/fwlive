@@ -76,7 +76,8 @@ An in-tree snapshot with a clear “fwlive wins” rule fits LuCI practice bette
    advertise reply fields (e.g. `backend` belongs on `rules`, not `list`).
 2. Run [`../../scripts/upstream-cut.sh`](../../scripts/upstream-cut.sh)
    (output: `out/upstream/luci-app-fwlive/`). The script:
-   - `git subtree split` of `openwrt-feed/luci-app-fwlive/`
+   - Refuses uncommitted edits under `openwrt-feed/luci-app-fwlive/` (`--allow-dirty` to override)
+   - `git subtree split` onto a temporary branch (`--replace` updates `upstream/luci-app-fwlive`)
    - Rewrites `include ../../luci.mk`, drops feed-wiring Makefile header
    - Drops `po/{de,ru,zh_Hans}` (first luci PR is `.pot` only; keep those
      `.po` files here for the binary feed)

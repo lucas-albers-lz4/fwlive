@@ -27,12 +27,15 @@ skip_parity() {
 	|| die "FWLIVE_I18N_REQUIRE_SCAN must be 0 or 1"
 
 CUT_WORK=$(mktemp -d)
+PKG=openwrt-feed/luci-app-fwlive
+DIRTY_PROBE="$ROOT/$PKG/.upstream-cut-dirty-probe-$$"
 # Preserve a pre-existing regenerable split ref; only delete if we created it.
 SAVED_UPSTREAM_CUT_SHA=
 if git -C "$ROOT" rev-parse --verify refs/heads/upstream/luci-app-fwlive >/dev/null 2>&1; then
 	SAVED_UPSTREAM_CUT_SHA=$(git -C "$ROOT" rev-parse refs/heads/upstream/luci-app-fwlive)
 fi
 _restore_upstream_cut_ref() {
+	rm -f "$DIRTY_PROBE"
 	rm -rf "$CUT_WORK"
 	if [ -n "${SAVED_UPSTREAM_CUT_SHA:-}" ]; then
 		git -C "$ROOT" update-ref refs/heads/upstream/luci-app-fwlive "$SAVED_UPSTREAM_CUT_SHA" >/dev/null 2>&1 || true
@@ -41,6 +44,15 @@ _restore_upstream_cut_ref() {
 	fi
 }
 trap _restore_upstream_cut_ref EXIT
+
+echo probe >"$DIRTY_PROBE"
+if "$ROOT/scripts/upstream-cut.sh" "$CUT_WORK/dirty" >/dev/null 2>"$CUT_WORK/dirty.err"; then
+	die "dirty package tree must refuse the cut"
+fi
+rm -f "$DIRTY_PROBE"
+grep -q 'uncommitted changes' "$CUT_WORK/dirty.err" \
+	|| die "dirty refuse missing ($(cat "$CUT_WORK/dirty.err"))"
+ok "dirty package tree refuses the cut"
 
 # Gap 4: the cut must stay luci-shaped. Time it for the wave record.
 # Keep stderr so named invariant failures from the cut script reach CI.

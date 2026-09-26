@@ -24,6 +24,15 @@ ok() {
 
 bash -n "$SCRIPT" || fail "qemu-install-from-feed.sh has invalid shell syntax"
 
+if FWLIVE_FEED_BASE_URL="https://example.com/x';id" \
+	OPENWRT_HOST=127.0.0.1 OPENWRT_SSH_PORT=2222 OPENWRT_USER=root \
+	"$SCRIPT" --no-smoke --version 24.10 >"$TMP/hostile.log" 2>&1; then
+	fail "quote-bearing feed URL must be refused (#840): $(cat "$TMP/hostile.log")"
+fi
+grep -Fq "refused unsafe URL" "$TMP/hostile.log" \
+	|| fail "hostile URL must name the refusal ($(cat "$TMP/hostile.log"))"
+ok "unsafe feed URL is refused before ssh"
+
 opkg_info_fix="$ROOT/tests/fixtures/feed-index-opkg-info"
 apk_query_fix="$ROOT/tests/fixtures/feed-index-apk-query.json"
 adbdump_fix="$ROOT/tests/fixtures/feed-index-adbdump.json"
@@ -96,7 +105,7 @@ case "$last" in
 	'opkg-key add /tmp/fwlive-feed.key')
 		exit 0
 		;;
-	grep\ *)
+	*'src/gz fwlive '*|*'fwlive.list'*)
 		exit 0
 		;;
 	'opkg update')
@@ -151,6 +160,24 @@ export SDK_MATRIX_DIGEST_CACHE_DIR
 mkdir -p "$SDK_MATRIX_DIGEST_CACHE_DIR"
 
 FEED_BASE="file://${TMP}/feed"
+
+# Stale src/gz fwlive line is replaced, not kept beside the new URL (#840).
+stale_conf="$TMP/customfeeds.conf"
+printf '%s\n' 'src/gz fwlive file://old.example/23.05' 'src/gz other http://example/packages' \
+	>"$stale_conf"
+{ grep -v '^src/gz fwlive ' "$stale_conf" || true; } >"$stale_conf.tmp"
+mv "$stale_conf.tmp" "$stale_conf"
+printf '%s\n' "src/gz fwlive ${FEED_BASE}/24.10" >>"$stale_conf"
+stale_n="$(grep -c '^src/gz fwlive ' "$stale_conf")"
+[[ "$stale_n" == 1 ]] || fail "stale rewrite must leave one fwlive line (got $stale_n)"
+grep -Fq "src/gz fwlive ${FEED_BASE}/24.10" "$stale_conf" \
+	|| fail "stale rewrite must write the new fwlive URL"
+grep -Fq 'src/gz other http://example/packages' "$stale_conf" \
+	|| fail "stale rewrite must keep unrelated feeds"
+if grep -Fq 'old.example' "$stale_conf"; then
+	fail "stale rewrite must drop the previous fwlive URL"
+fi
+ok "stale fwlive opkg line is replaced"
 
 opkg_install_urls_ok() {
 	local log="$1" version="$2" feed_dir
@@ -265,6 +292,11 @@ else
 fi
 assert_opkg_install_urls "$FWLIVE_STUB_LOG" 24.10
 assert_manager_matches_format "$FWLIVE_STUB_LOG" 24.10
+grep -Fq "grep -v '^src/gz fwlive '" "$FWLIVE_STUB_LOG" \
+	|| fail "opkg cell must rewrite existing src/gz fwlive lines (#840)"
+if grep -Fq 'grep -q ' "$FWLIVE_STUB_LOG"; then
+	fail "opkg cell must not append-if-absent (#840)"
+fi
 grep -Fq 'opkg info luci-app-fwlive' "$FWLIVE_STUB_LOG" \
 	|| fail "24.10 cell did not run opkg info"
 grep -Fq 'opkg install luci-app-fwlive' "$FWLIVE_STUB_LOG" \
@@ -342,6 +374,11 @@ else
 fi
 assert_apk_install_urls "$FWLIVE_STUB_LOG" 25.12
 assert_manager_matches_format "$FWLIVE_STUB_LOG" 25.12
+grep -Fq '> /etc/apk/repositories.d/fwlive.list' "$FWLIVE_STUB_LOG" \
+	|| fail "apk cell must overwrite fwlive.list (#840)"
+if grep -Fq '>> /etc/apk/repositories.d/fwlive.list' "$FWLIVE_STUB_LOG"; then
+	fail "apk cell must not append fwlive.list (#840)"
+fi
 grep -Fq 'apk query --installed --format json --fields name,version luci-app-fwlive' \
 	"$FWLIVE_STUB_LOG" \
 	|| fail "25.12 cell did not run the pinned apk query"
@@ -399,5 +436,22 @@ if apk_install_urls_ok "$FWLIVE_STUB_LOG" 25.12; then
 fi
 ok "wrong apk index_url fails URL assertions"
 unset FWLIVE_INSTALL_SCRIPT
+
+set +e
+PATH="$TMP/bin:$PATH" \
+	FWLIVE_FEED_BASE_URL='https://example.com/foo;id' \
+	OPENWRT_HOST=127.0.0.1 \
+	OPENWRT_SSH_PORT=2222 \
+	OPENWRT_USER=root \
+	"$SCRIPT" --no-smoke --version 24.10 >"$TMP/unsafe-url.log" 2>&1
+unsafe_rc=$?
+set -e
+[[ "$unsafe_rc" -ne 0 ]] || fail "quoted metacharacters in the feed base must fail closed"
+grep -Fq 'refused unsafe URL' "$TMP/unsafe-url.log" \
+	|| fail "unsafe URL must be named ($(cat "$TMP/unsafe-url.log"))"
+if grep -Fq 'ssh ' "$TMP/unsafe-url.log"; then
+	fail "unsafe URL must not reach ssh"
+fi
+ok "unsafe feed URL is refused before ssh"
 
 echo "qemu-install-from-feed helper test passed"

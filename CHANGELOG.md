@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reject off-pin SDK `--version` values instead of silently flooring them to the pinned patch (#804)
 - Keep feed publish layout on the major.minor line so a point-release bump still writes `/24.10/` (#806)
 - Fail classifier codegen on an unrecognised `CLASSIFY_SPEC` predicate instead of emitting a dead `if (0)` branch (#826)
+- Rewrite the guest fwlive feed source instead of appending a second URL, and refuse unsafe feed URLs before they reach ssh (#840)
+- Refuse an upstream cut on a dirty package tree, split onto a temporary branch unless `--replace`, and skip non-UTF-8 assets instead of crashing (#841)
 
 ## [v0.1.46] — 2026-09-26
 
