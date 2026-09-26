@@ -91,4 +91,12 @@ try {
 	fs.rmSync(luciTmp, { recursive: true, force: true });
 }
 
+const { emitAwkPred } = require(GEN_SHELL);
+assert.equal(emitAwkPred({ hint: true }), 'has_hint(s)');
+assert.equal(emitAwkPred({ action: 'known' }), 'action != "UNKNOWN"');
+assert.throws(
+	() => emitAwkPred({ notKv: ['SRC'] }),
+	/unrecognised CLASSIFY_SPEC predicate node/
+);
+
 console.log('fwlive codegen freshness + syntax OK');

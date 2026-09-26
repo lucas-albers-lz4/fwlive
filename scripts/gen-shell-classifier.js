@@ -89,7 +89,7 @@ function emitAwkPred(node) {
 		return 'action != "UNKNOWN"';
 	if (node.hint)
 		return 'has_hint(s)';
-	return '0';
+	throw new Error('unrecognised CLASSIFY_SPEC predicate node: ' + JSON.stringify(node));
 }
 
 function emitAwkAnd(node) {
@@ -394,8 +394,12 @@ const out = [
 	''
 ].join('\n');
 
-if (process.argv.length > 2 && process.argv[2] !== '--awk') {
-	console.error('usage: gen-shell-classifier.js [--awk]');
-	process.exit(2);
+if (require.main === module) {
+	if (process.argv.length > 2 && process.argv[2] !== '--awk') {
+		console.error('usage: gen-shell-classifier.js [--awk]');
+		process.exit(2);
+	}
+	process.stdout.write(process.argv[2] === '--awk' ? awkOut : out);
 }
-process.stdout.write(process.argv[2] === '--awk' ? awkOut : out);
+
+module.exports = { emitAwkPred };
