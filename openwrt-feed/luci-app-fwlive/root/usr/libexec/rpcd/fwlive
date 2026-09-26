@@ -105,9 +105,16 @@ uci_rule_names() {
 }
 
 is_uci_style_name() {
+	# Domain: non-empty UCI-style identifier, every character in
+	# [A-Za-z0-9_-]. That is the map-key set this helper admits
+	# (names parseRuleHint can look up). nft comments can print
+	# anything; skip names outside this set so they do not become
+	# dead map keys. parseRuleHint also allows '.' — not accepted
+	# here. The charset glob is *[!class]* (whole string);
+	# [!class]* only tested the first character.
 	case "$1" in
-		*' '*|*'"'*|*"'"*) return 1 ;;
-		[!A-Za-z0-9_-]*) return 1 ;;
+		''|*' '*|*'"'*|*"'"*) return 1 ;;
+		*[!A-Za-z0-9_-]*) return 1 ;;
 	esac
 	return 0
 }
@@ -792,6 +799,42 @@ run_selftest() {
 	escaped=$(printf '%s' "$input" | json_escape)
 	expected=$(printf 'a\\n\\nb')
 	check_eq 'json_escape blank line' "$escaped" "$expected" "expected $expected got $escaped" || return 1
+
+	# Charset applies to every character, not only the first.
+	if ! is_uci_style_name 'Rule'; then
+		echo 'is_uci_style_name: expected accept Rule' >&2
+		return 1
+	fi
+	if ! is_uci_style_name 'Allow-SSH'; then
+		echo 'is_uci_style_name: expected accept Allow-SSH' >&2
+		return 1
+	fi
+	if ! is_uci_style_name '-lead'; then
+		echo 'is_uci_style_name: expected accept -lead' >&2
+		return 1
+	fi
+	if is_uci_style_name 'My Rule'; then
+		echo 'is_uci_style_name: expected reject for space' >&2
+		return 1
+	fi
+	# First character is legal; later $ / ; / . must still fail.
+	# shellcheck disable=SC2016
+	if is_uci_style_name 'rule$x'; then
+		echo 'is_uci_style_name: expected reject rule$x (later-char illegal)' >&2
+		return 1
+	fi
+	if is_uci_style_name 'rule;id'; then
+		echo 'is_uci_style_name: expected reject rule;id (later-char illegal)' >&2
+		return 1
+	fi
+	if is_uci_style_name 'rule.x'; then
+		echo 'is_uci_style_name: expected reject rule.x (later-char illegal)' >&2
+		return 1
+	fi
+	if is_uci_style_name ''; then
+		echo 'is_uci_style_name: expected reject empty' >&2
+		return 1
+	fi
 
 	if is_resolvable_address 'not an ip'; then
 		echo 'is_resolvable_address: expected reject for spaces' >&2

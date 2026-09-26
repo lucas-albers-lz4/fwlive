@@ -905,6 +905,63 @@ fi
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
 
+function testUciStyleNameCharset() {
+	// #615: is_uci_style_name admits non-empty [A-Za-z0-9_-]+ on the
+	// whole string. First-char-ok / later-char-illegal names must not
+	// become map keys (the old [!class]* glob accepted them).
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-uci-cs-'));
+	try {
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "later-dollar" comment "!fw4: rule$x"
+		log prefix "later-semi" comment "!fw4: rule;id"
+		log prefix "lead-hyphen" comment "!fw4: -lead"
+		log prefix "ok-rule" comment "!fw4: Rule"
+	}
+}
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
+	cat <<'UCI'
+firewall.@rule[0].name='Rule'
+firewall.@rule[1].name='My Rule'
+firewall.@rule[2].name='rule$x'
+firewall.@rule[3].name='rule;id'
+firewall.@rule[4].name='-lead'
+firewall.@rule[5].name=''
+UCI
+else
+	exit 0
+fi
+`);
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(res.rules['Rule'], 'Rule', `[${shell}] Rule is in the admitted charset`);
+			assert.equal(res.rules['My Rule'], undefined, `[${shell}] space-containing name is skipped`);
+			assert.equal(res.rules['rule$x'], undefined, `[${shell}] later-char $ must not be a map key`);
+			assert.equal(res.rules['rule;id'], undefined, `[${shell}] later-char ; must not be a map key`);
+			assert.equal(res.rules['-lead'], '-lead', `[${shell}] leading hyphen is in the charset`);
+			assert.equal(res.rules[''], undefined, `[${shell}] empty name is skipped`);
+			assert.equal(res.rules['later-dollar'], 'later dollar',
+				`[${shell}] !fw4: rule$x must not label; got ${JSON.stringify(res.rules['later-dollar'])}`);
+			assert.equal(res.rules['later-semi'], 'later semi',
+				`[${shell}] !fw4: rule;id must not label; got ${JSON.stringify(res.rules['later-semi'])}`);
+			assert.equal(res.rules['lead-hyphen'], '-lead', `[${shell}] !fw4: -lead is an admitted suffix`);
+			assert.equal(res.rules['ok-rule'], 'Rule', `[${shell}] !fw4: Rule is an admitted suffix`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
 function testResolveNslookup() {
 	const bindOut = 'Server: 127.0.0.1\nAddress: 127.0.0.1:53\n\n1.2.0.192.in-addr.arpa\tname = ptr.example.';
 	let got = execFileSync(RPCD, ['__parse_nslookup', bindOut], { encoding: 'utf8' }).trim();
@@ -1252,6 +1309,7 @@ function run() {
 	testTmpDirSticky();
 	testTmpDirStickyBusybox();
 	testUciWhitespaceNames();
+	testUciStyleNameCharset();
 	testResolveNslookup();
 	testBusyboxPathShadowNslookup();
 	testBusyboxPathShadowTimeout();
