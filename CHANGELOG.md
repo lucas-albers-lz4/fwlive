@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep poll JSON valid when a killed classifier leaves a truncated filter body (#768)
 - Keep unlabeled log-prefix hints whose names look like `echo` flags (`-n`, `-E`) (#771)
 - Bound `fwlive.resolve` with `/proc/uptime` so a backward NTP step cannot stretch the lookup loop (#827)
+- Restore unlisted `#action=` hash values by injecting the missing SELECT option (#831)
+- Keep `constructor:` / `__proto__` log prefixes from painting Object builtins into the Rule cell (#783)
 
 ## [v0.1.46] — 2026-09-26
 

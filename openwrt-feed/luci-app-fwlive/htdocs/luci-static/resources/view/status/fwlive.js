@@ -370,17 +370,13 @@ return view.extend({
 			const key = entries[i].key;
 			const val = entries[i].val;
 			if (key === 'limit' || key === 'poll' || key === 'maxraw') continue;
+			if (key === 'fetch-mode' || key === 'row-tint') continue;
 			if (key === 'view') {
 				if (val === 'advanced' || val === 'detailed') this.viewMode = 'detailed';
 				else if (val === 'simple') this.viewMode = 'simple';
 				continue;
 			}
-			const el = document.getElementById('fwlive-' + key);
-			if (key === 'proto') {
-				proto.setProtoFilterValue(val);
-				continue;
-			}
-			if (el) el.value = val;
+			this.setFilterFieldValue(key, val);
 		}
 	},
 
@@ -948,10 +944,13 @@ return view.extend({
 	resolveRuleLabel(hint) {
 		if (!hint) return '';
 
-		if (this.rulesMap[hint]) return this.rulesMap[hint];
+		const own = Object.prototype.hasOwnProperty;
+		if (own.call(this.rulesMap, hint) && typeof this.rulesMap[hint] === 'string')
+			return this.rulesMap[hint];
 
 		const slug = hint.toLowerCase();
-		if (this.rulesMap[slug]) return this.rulesMap[slug];
+		if (own.call(this.rulesMap, slug) && typeof this.rulesMap[slug] === 'string')
+			return this.rulesMap[slug];
 
 		return log.formatRuleLabel(hint);
 	},
