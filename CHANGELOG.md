@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Treat an initial `logging_status` RPC rejection as unknown instead of logging-off (#755)
+
 ## [v0.1.45] — 2026-09-21
 
 ### Security
