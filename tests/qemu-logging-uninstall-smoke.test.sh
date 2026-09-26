@@ -30,4 +30,4 @@ grep -Fq 'PKG_UPGRADE=1' "$SCRIPT" \
 grep -Fq 'two-version' "$SCRIPT" \
 	|| { echo "smoke must record that version-changing upgrades need a two-version experiment" >&2; exit 1; }
 
-echo "qemu logging-uninstall smoke host harness passed"
+echo "qemu logging-uninstall source-contract checks passed"
