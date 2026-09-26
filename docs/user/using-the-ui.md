@@ -52,7 +52,7 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 
 ![Expanded message row](assets/fwlive-expanded-message.png)
 
-1. Click the row body (for example the Action cell) to expand.
+1. Click the row body (for example the **Time** cell) to expand.
 2. The full log line appears under that row — click again to collapse.
 
 ### Simple filters
@@ -109,7 +109,7 @@ one catch-up poll, then resumes the normal cadence. **Show hostnames** is off by
 default because reverse-DNS lookups add work; leave it off when the router or
 browser is busy.
 
-When live polls stay slow, fwlive may enter **Summary mode** automatically: the
+When a live poll is slow, fwlive may enter **Summary mode** automatically: the
 table is replaced by a **Summary** card with compact counts from the current
 sample. Click **Show rows** to bring the table back; **Hide rows** returns to
 the card. Polling continues and filters still apply — the switch trims render
