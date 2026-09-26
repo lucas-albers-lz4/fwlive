@@ -12,11 +12,6 @@ touch "$TMP/fake.apk"
 # Matrix wiring: --artifact-only must live in the install helper, not a comment elsewhere.
 install_fn="$(sed -n '/^validate_matrix_install_ipk()/,/^}/p' \
 	"$ROOT/scripts/lib/validate-matrix.sh")"
-	printf '%s\n' "$install_fn" | grep -Fq -- '--artifact-only'
-
-# Matrix wiring: --artifact-only must live in the install helper, not a comment elsewhere.
-install_fn="$(sed -n '/^validate_matrix_install_ipk()/,/^}/p' \
-	"$ROOT/scripts/lib/validate-matrix.sh")"
 printf '%s\n' "$install_fn" | grep -Fq -- '--artifact-only'
 
 cat >"$TMP/bin/scp" <<'EOF'
