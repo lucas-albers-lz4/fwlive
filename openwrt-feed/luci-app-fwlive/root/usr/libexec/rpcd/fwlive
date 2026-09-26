@@ -239,25 +239,27 @@ nft_dump_fields() {
 
 # Restore nft_dump_fields TSV encoding. Walk left to right: \\ is a
 # literal backslash, \t is a tab. Other backslash pairs stay as written.
-# Callers set _tab, _esc_t, and _esc_b. Result is _tsv_out (no fork).
+# Do not put backslash sequences in case patterns (they are escapes).
+# Result is _tsv_out (no fork).
 _nft_tsv_unescape() {
 	_in="$1"
 	_out=
 	while [ -n "$_in" ]; do
-		case "$_in" in
-			"$_esc_b"*)
-				_out="${_out}\\"
-				_in="${_in#??}"
-				;;
-			"$_esc_t"*)
+		_head=${_in%"${_in#?}"}
+		_in=${_in#?}
+		if [ "$_head" = "\\" ]; then
+			_n=${_in%"${_in#?}"}
+			_in=${_in#?}
+			if [ "$_n" = t ]; then
 				_out="${_out}${_tab}"
-				_in="${_in#??}"
-				;;
-			*)
-				_out="${_out}${_in%"${_in#?}"}"
-				_in="${_in#?}"
-				;;
-		esac
+			elif [ "$_n" = "\\" ]; then
+				_out="${_out}\\"
+			else
+				_out="${_out}\\${_n}"
+			fi
+		else
+			_out="${_out}${_head}"
+		fi
 	done
 	_tsv_out="$_out"
 }
