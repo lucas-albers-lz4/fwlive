@@ -648,16 +648,43 @@ function testRunWithTimeoutBoundsDescendantAfterParentExit() {
 	try {
 		const timeoutVersion = execFileSync('timeout', ['--version'], { encoding: 'utf8' });
 		assert.match(timeoutVersion, /GNU coreutils/, 'test requires the declared GNU timeout provider');
+		const lookupLog = path.join(stubDir, 'lookup.log');
+		makeStub(stubDir, 'busybox', [
+			'#!/bin/sh',
+			'printf \'%s\\n\' "$1" >> ' + shellQuote(lookupLog),
+			'exec /usr/bin/busybox "$@"',
+			''
+		].join('\n'));
+		makeStub(stubDir, 'cat', [
+			'#!/bin/sh',
+			'printf \'cat\\n\' >> ' + shellQuote(lookupLog),
+			'exec /bin/cat "$@"',
+			''
+		].join('\n'));
 		for (const scenario of [
-			{ name: 'parent-term-exits', parentCommand: 'exec /bin/sleep 30', description: 'parent exits on TERM' },
-			{ name: 'parent-success-exits', parentCommand: 'exit 0', description: 'parent exits successfully before its child' }
+			{
+				name: 'parent-term-exits',
+				parentCommand: 'exec /bin/sleep 30',
+				description: 'parent exits on TERM'
+			},
+			{
+				name: 'parent-success-exits',
+				parentCommand: 'exit 0',
+				description: 'parent exits successfully before its child'
+			},
+			{
+				name: 'child-closes-stdout',
+				childCommand: 'exec /bin/sleep 30 >/dev/null 2>&1',
+				parentCommand: 'exit 0',
+				description: 'child closes stdout before the parent exits'
+			}
 		]) {
 			const pidFile = path.join(stubDir, `${scenario.name}.pid`);
 			makeStub(stubDir, scenario.name, [
 				'#!/bin/sh',
 				'(',
 				"trap '' TERM",
-				'exec /bin/sleep 30',
+				scenario.childCommand || 'exec /bin/sleep 30',
 				') &',
 				'child=$!',
 				'printf \'%s\\n\' "$child" > ' + shellQuote(pidFile),
@@ -680,9 +707,14 @@ function testRunWithTimeoutBoundsDescendantAfterParentExit() {
 			);
 			assertMarkedProcessStopped(pidFile, scenario.description);
 		}
-		console.log('fwlive rpcd security: timeout bounds stdout-retaining descendants after parent exit OK');
+		const resolvedCommands = fs.readFileSync(lookupLog, 'utf8').trim().split('\n');
+		assert.ok(resolvedCommands.includes('setsid'), 'setsid should be resolved through runtime PATH');
+		assert.ok(resolvedCommands.includes('sh'), 'BusyBox sh should be resolved through runtime PATH');
+		assert.ok(resolvedCommands.includes('sleep'), 'BusyBox sleep should be resolved through runtime PATH');
+		assert.ok(resolvedCommands.includes('cat'), 'cat should be resolved through runtime PATH');
+		console.log('fwlive rpcd security: timeout bounds descendants after parent exit with stdout open or closed OK');
 	} finally {
-		for (const name of ['parent-term-exits', 'parent-success-exits']) {
+		for (const name of ['parent-term-exits', 'parent-success-exits', 'child-closes-stdout']) {
 			const pidFile = path.join(stubDir, `${name}.pid`);
 			if (!fs.existsSync(pidFile)) continue;
 			const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());

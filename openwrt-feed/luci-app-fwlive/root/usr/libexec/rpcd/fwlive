@@ -162,20 +162,58 @@ run_with_timeout() {
 	secs="$1"
 	shift
 	if fwlive_timeout_available; then
+		run_timeout_busybox="$(command -v busybox 2>/dev/null)" || return 127
+		run_timeout_cat="$(command -v cat 2>/dev/null)" || return 127
+		[ -n "$run_timeout_busybox" ] && [ -n "$run_timeout_cat" ] || return 127
 		# The inner foreground timeout sends TERM to the direct command at its
 		# deadline. Keep a pipe reader alive until every inherited stdout fd
 		# closes; the outer timeout then KILLs the whole process group at the
-		# hard deadline, even if the direct child exited and a descendant did
-		# not. BusyBox ash pipefail preserves the inner timeout status; invoking
-		# it explicitly keeps this helper portable from host dash too.
-		"$FWLIVE_TIMEOUT_BIN" -s KILL "$((secs + TIMEOUT_KILL_GRACE))" \
-			/bin/busybox sh -c '
+		# hard deadline. After the pipeline ends, keep this wrapper alive while
+		# any other live process remains in its dedicated session. setsid keeps
+		# unrelated rpcd processes out of that scan and lets the outer timeout
+		# kill children even when they close stdout. BusyBox ash pipefail
+		# preserves the inner timeout status; invoking it explicitly keeps this
+		# portable from host dash too.
+		"$run_timeout_busybox" setsid "$FWLIVE_TIMEOUT_BIN" -s KILL "$((secs + TIMEOUT_KILL_GRACE))" \
+			"$run_timeout_busybox" sh -c '
 				set -o pipefail || exit 125
-				timeout_bin=$1
-				duration=$2
-				shift 2
-				"$timeout_bin" --foreground "$duration" "$@" | /bin/cat
-			' fwlive-timeout "$FWLIVE_TIMEOUT_BIN" "$secs" "$@" 2>/dev/null
+				timeout_bin="$1"
+				duration="$2"
+				cat_bin="$3"
+				busybox_bin="$4"
+				shift 4
+				"$timeout_bin" --foreground "$duration" "$@" | "$cat_bin"
+				status="$?"
+				IFS= read -r proc_fields < "/proc/$$/stat" || exit 125
+				proc_fields="${proc_fields##*) }"
+				proc_fields="${proc_fields#* }"
+				proc_fields="${proc_fields#* }"
+				group="${proc_fields%% *}"
+				while :; do
+					peer=0
+					for proc_stat in /proc/[0-9]*/stat; do
+						[ -r "$proc_stat" ] || continue
+						IFS= read -r proc_fields < "$proc_stat" || continue
+						proc_fields="${proc_fields##*) }"
+						proc_state="${proc_fields%% *}"
+						proc_fields="${proc_fields#* }"
+						proc_fields="${proc_fields#* }"
+						proc_group="${proc_fields%% *}"
+						proc_pid="${proc_stat#/proc/}"
+						proc_pid="${proc_pid%/stat}"
+						if [ "$proc_group" = "$group" ] && \
+							[ "$proc_pid" != "$group" ] && [ "$proc_pid" != "$$" ] && \
+							[ "$proc_state" != Z ]; then
+							peer=1
+							break
+						fi
+					done
+					[ "$peer" = 1 ] || break
+					"$busybox_bin" sleep 0.1
+				done
+				exit "$status"
+			' fwlive-timeout "$FWLIVE_TIMEOUT_BIN" "$secs" \
+			"$run_timeout_cat" "$run_timeout_busybox" "$@" 2>/dev/null
 	else
 		# Fail closed: never run unbounded without the GNU provider.
 		return 127

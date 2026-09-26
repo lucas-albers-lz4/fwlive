@@ -195,39 +195,61 @@ async function testBufferedRuleLabelsRefreshAfterTimeoutRecovery() {
 		}
 	}
 
-	let releaseRules;
+	let releaseRecovery;
 	let startedRules;
+	let startedLoggingStatus;
 	const rulesStarted = new Promise((resolve) => { startedRules = resolve; });
-	const rulesGate = new Promise((resolve) => { releaseRules = resolve; });
+	const loggingStatusStarted = new Promise((resolve) => { startedLoggingStatus = resolve; });
+	const recoveryGate = new Promise((resolve) => { releaseRecovery = resolve; });
 	const stale = loadFwliveView({
 		rpcMocks: {
 			'fwlive.poll': async function() { return { log: [] }; },
 			'fwlive.rules': async function() {
 				startedRules();
-				await rulesGate;
+				await recoveryGate;
 				return { backend: 'nft', rules: { 'fwlive-ping': recoveredLabel } };
 			},
-			'fwlive.logging_status': async function() { return { warnings: [] }; }
+			'fwlive.logging_status': async function() {
+				startedLoggingStatus();
+				await recoveryGate;
+				return { warnings: [], weak_device: true };
+			}
 		}
 	});
 	const staleView = stale.view;
-	staleView.rulesMap = {};
+	staleView.rulesMap = { 'fwlive-ping': 'Previously known ping label' };
+	staleView.firewallBackend = 'iptables';
+	staleView.lastRulesError = 'previous_rules_error';
+	staleView.loggingStatus = { warnings: ['legacy_iptables_detected'] };
+	staleView.weakDevice = false;
 	staleView.entries = staleView.normalizePollBatch([raw]).rows;
 	staleView.tablePaused = true;
 	staleView.lastPollError = true;
 	staleView.lastPollErrorCode = 'timeout_missing';
 	const staleLabel = staleView.entries[0].rule_label;
+	const previousRulesMap = staleView.rulesMap;
+	const previousLoggingStatus = staleView.loggingStatus;
 	let epoch = 0;
 	staleView.currentPollEpoch = () => epoch;
 	const stalePaints = [];
 	staleView.renderRows = (force) => stalePaints.push(force);
 	const recovery = staleView.fetchEntries();
-	await rulesStarted;
+	await Promise.all([rulesStarted, loggingStatusStarted]);
 	epoch++;
-	releaseRules();
+	releaseRecovery();
 	await recovery;
 	assert.equal(staleView.entries[0].rule_label, staleLabel,
 		'a rules response from an old poll epoch must not relabel stale buffered rows');
+	assert.strictEqual(staleView.rulesMap, previousRulesMap,
+		'a rules response from an old epoch must not replace rulesMap');
+	assert.equal(staleView.firewallBackend, 'iptables',
+		'a rules response from an old epoch must not replace the backend');
+	assert.equal(staleView.lastRulesError, 'previous_rules_error',
+		'a rules response from an old epoch must not replace the rules error');
+	assert.strictEqual(staleView.loggingStatus, previousLoggingStatus,
+		'a status response from an old epoch must not replace loggingStatus');
+	assert.equal(staleView.weakDevice, false,
+		'a status response from an old epoch must not replace weakDevice');
 	assert.equal(stalePaints.length, 0, 'a stale recovery epoch must not paint rows');
 	console.log('fwlive-view poll-error: buffered rule labels refresh safely after provider recovery OK');
 }

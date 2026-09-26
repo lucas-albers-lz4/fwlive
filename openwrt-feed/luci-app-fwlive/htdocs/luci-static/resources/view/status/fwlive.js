@@ -676,17 +676,21 @@ return view.extend({
 		table.renderThead(el, { columns: this.activeColumns().slice() }, {});
 	},
 
-	async loadRulesMap() {
+	isCurrentPollEpoch(epoch) {
+		return !this.viewDisposed && (epoch == null || epoch === this.currentPollEpoch());
+	},
+
+	async loadRulesMap(epoch) {
 		try {
 			const res = await callFwliveRules();
-			if (this.viewDisposed) return;
+			if (!this.isCurrentPollEpoch(epoch)) return;
 			this.rulesMap = (res && res.rules) || {};
 			this.firewallBackend = (res && res.backend) || 'nft';
 			/* Bounds / mktemp failures are reply.error — same idea as poll. */
 			this.lastRulesError = (res && res.error) || null;
 			if (this.lastRulesError) console.warn('fwlive rules map error:', this.lastRulesError);
 		} catch (_e) {
-			if (this.viewDisposed) return;
+			if (!this.isCurrentPollEpoch(epoch)) return;
 			this.rulesMap = {};
 			this.firewallBackend = 'nft';
 			this.lastRulesError = 'rules_unavailable';
@@ -732,16 +736,16 @@ return view.extend({
 		this.updateEmptyStateUi();
 	},
 
-	async loadLoggingStatus() {
+	async loadLoggingStatus(epoch) {
 		const wasWeakDevice = this.weakDevice;
 		try {
 			const status = await callFwliveLoggingStatus();
-			if (this.viewDisposed) return;
+			if (!this.isCurrentPollEpoch(epoch)) return;
 			this.loggingStatus = status;
 			if (!this._loggingNoticeFromToggle) this.loggingNotice = '';
 			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		} catch (_e) {
-			if (this.viewDisposed) return;
+			if (!this.isCurrentPollEpoch(epoch)) return;
 			/* Keep last-known toolbar; unknown until the first successful fetch. */
 			if (!this.loggingNotice)
 				this.loggingNotice = this.loggingStatus
@@ -1107,7 +1111,7 @@ return view.extend({
 			resumeMerge: resumeMerge
 		});
 		if (recoveringTimeoutProvider && !this.lastPollError) {
-			await Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]);
+			await Promise.all([this.loadRulesMap(epoch), this.loadLoggingStatus(epoch)]);
 			/* Recovery RPCs can outlive the poll epoch; don't repaint stale views. */
 			if (epoch !== this.currentPollEpoch() || this.viewDisposed) return;
 			this.refreshBufferedRuleLabels();

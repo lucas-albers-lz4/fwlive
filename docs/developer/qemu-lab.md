@@ -77,10 +77,11 @@ locally built `0.1.47-r1` candidate using ordinary `opkg install`.
 had no warnings, poll succeeded, rules reported `backend: nft`, and the
 required QEMU smoke parsed three firewall rows. The rpcd helper runs each
 command under an inner GNU `timeout --foreground`, which sends TERM at the
-configured budget. An outer GNU timeout KILLs its process group after the
-one-second grace; a pipe reader remains active until inherited stdout closes,
-so an early-exiting parent cannot leave command substitution waiting on a
-descendant. Poll has two sequential five-second stages, so its command-time
+configured budget. An outer GNU timeout starts a BusyBox `setsid` supervisor
+and KILLs its dedicated process group after the one-second grace. A pipe reader
+stays active until inherited stdout closes, and the supervisor waits for live
+session members after the pipeline ends, including descendants that close
+stdout themselves. Poll has two sequential five-second stages, so its command-time
 bound is about 12 seconds plus scheduling/IPC overhead; nft is five seconds
 plus the grace; resolve stops starting lookups after its five-second budget
 and allows at most one final one-second lookup plus its grace. The loop's
@@ -108,6 +109,16 @@ provider. The installed dependency metadata named `coreutils-timeout`,
 `logging_status.warnings` was empty, and `rules` reported `backend: nft`. The
 required log-pipeline smoke parsed three firewall rows and the Playwright lab
 bundle passed on this clean guest too (host SSH/HTTP ports 2223/8081).
+
+For the 2026-09-26 review follow-up, the current source rebuilt as
+`luci-app-fwlive_0.1.46-r1_all.ipk` (SHA-256
+`627f5ef58bf87b8d676f4989a35a7847ce95ba8165316b2dd2aebd8730f3449e`). The
+24.10.8 guest had BusyBox `setsid` and GNU timeout 9.7; installed rpcd helper
+SHA-256 `4d13cb2994bbbee0bd8aff285c999db2a1de23ac3041ec25e02508a4157e3f13`
+matched the source. A guest-injected child that exited with stdout
+closed while its TERM-resistant child stayed alive returned status 137 within
+two seconds, and the child was gone. The required smoke parsed three firewall
+rows, and the Playwright lab bundle passed.
 
 Real 23.05/24.10 IPK and 25.12 APK candidate artifacts also passed package
 payload and lifecycle inspection, but package-manager install/upgrade was not
@@ -192,9 +203,11 @@ extracting the classifier asset and streaming filter stdin. The filter is now
 **5** execs (`dirname`, `jsonfilter`, `mktemp`, `awk`, `rm`), with jsonfilter
 output staged in a mode-0600 temporary file before classification. This avoids
 partial JSON output when jsonfilter fails, including on shells without
-pipefail. The full production-shaped poll is **8** on this host (`dirname`×2,
-stdin `cat`, `ubus`, and the 5-exec filter chain). The census records these as
-`CENSUS_FILTER_TOTAL=5` and `CENSUS_POLL_TOTAL=8`.
+pipefail. The full production-shaped poll is **10** on this host (`dirname`×2,
+stdin `cat`, `ubus`, two runtime-resolved timeout pipe readers, and the 5-exec
+filter chain). The earlier count of 8 did not see the absolute `/bin/cat`
+readers through its PATH shims; the updated count includes them. The census
+records `CENSUS_FILTER_TOTAL=5` and `CENSUS_POLL_TOTAL=10`.
 
 ### Device budget-split table (Phase 0b — armsr TCG)
 
