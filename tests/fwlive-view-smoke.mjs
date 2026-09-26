@@ -298,16 +298,68 @@ async function testAdaptiveSummaryAndWarnings(page) {
 
 		await page.evaluate(() => {
 			const view = window.fwliveView;
+			window.__fwliveWarningState = {
+				loggingStatus: view.loggingStatus,
+				firewallBackend: view.firewallBackend,
+				lastRulesError: view.lastRulesError,
+				lastPollError: view.lastPollError
+			};
 			view.loggingStatus = Object.assign({}, view.loggingStatus, {
 				warnings: ['timeout_missing', 'legacy_iptables_detected']
 			});
 			view.firewallBackend = 'nft';
 			view.lastRulesError = null;
+			view.lastPollError = false;
 			view.updateBackendUi();
+			view.updateStatus();
 		});
 		const warnings = await page.locator('#fwlive-backend').textContent();
-		if (!/timeout command missing/i.test(warnings || '') || !/legacy iptables table/i.test(warnings || ''))
+		const healthyStatus = await page.locator('#fwlive-status').textContent();
+		if (/timeout/i.test(warnings || '') || !/legacy iptables table/i.test(warnings || ''))
 			throw new Error(`warning rendering missing: ${warnings}`);
+		if (/is incomplete/i.test(healthyStatus || ''))
+			throw new Error(`healthy poll must not show an installation error: ${healthyStatus}`);
+
+		await page.evaluate(() => {
+			const view = window.fwliveView;
+			view.lastPollError = true;
+			view.lastPollErrorCode = 'timeout_missing';
+			view.updateBackendUi();
+			view.updateStatus();
+		});
+		const installError = await page.locator('#fwlive-status').textContent();
+		if (installError !== 'Installation is incomplete. Reinstall luci-app-fwlive.')
+			throw new Error(`missing timeout must show only the concise repair line: ${installError}`);
+		const backendContext = await page.locator('#fwlive-backend').textContent();
+		if (!/using fw4/i.test(backendContext || '') || /timeout/i.test(backendContext || ''))
+			throw new Error(`missing timeout must preserve backend context without a second diagnosis: ${backendContext}`);
+
+		await page.evaluate(() => {
+			const view = window.fwliveView;
+			view.lastPollError = false;
+			view.lastPollErrorCode = null;
+			view.updateBackendUi();
+			view.updateStatus();
+		});
+		const recoveredBackend = await page.locator('#fwlive-backend').textContent();
+		const recoveredStatus = await page.locator('#fwlive-status').textContent();
+		if (!/using fw4/i.test(recoveredBackend || '') || /timeout/i.test(recoveredBackend || ''))
+			throw new Error(`provider recovery must restore the backend label: ${recoveredBackend}`);
+		if (/Installation is incomplete/i.test(recoveredStatus || ''))
+			throw new Error(`provider recovery must clear the installation error: ${recoveredStatus}`);
+
+		await page.evaluate(() => {
+			const view = window.fwliveView;
+			view.lastPollError = true;
+			view.lastPollErrorCode = 'filter_failed';
+			view.loggingStatus.warnings = ['timeout_missing', 'legacy_iptables_detected'];
+			view.updateStatus();
+		});
+		const ordinaryPollError = await page.locator('#fwlive-status').textContent();
+		if (!/Connection lost/i.test(ordinaryPollError || ''))
+			throw new Error(`ordinary poll errors must keep the connection message: ${ordinaryPollError}`);
+		if (/Installation is incomplete/i.test(ordinaryPollError || ''))
+			throw new Error(`a stale timeout warning must not replace the typed poll diagnosis: ${ordinaryPollError}`);
 		console.log('OK: adaptive summary, shedding, and warning rendering');
 	} finally {
 		await page.evaluate(() => {
@@ -315,7 +367,16 @@ async function testAdaptiveSummaryAndWarnings(page) {
 				window.setFwlivePollMock(window.__fwlivePrevPollMock);
 				delete window.__fwlivePrevPollMock;
 			}
-			window.fwliveView.leaveSummaryMode();
+			const view = window.fwliveView;
+			const state = window.__fwliveWarningState;
+			view.loggingStatus = state.loggingStatus;
+			view.firewallBackend = state.firewallBackend;
+			view.lastRulesError = state.lastRulesError;
+			view.lastPollError = state.lastPollError;
+			delete window.__fwliveWarningState;
+			view.updateBackendUi();
+			view.updateStatus();
+			view.leaveSummaryMode();
 		});
 	}
 }
@@ -354,7 +415,7 @@ async function testResolverError(page) {
 			view.hostnameFailed.clear();
 			view.resolveLoadShed = false;
 			view.resolveShedUntil = 0;
-			let reply = { names: {}, error: 'no_resolver' };
+			let reply = { names: {}, error: 'timeout_missing' };
 			window.__fwlivePrevResolveMock = window.setFwliveResolveMock(function() {
 				return reply;
 			});
@@ -362,7 +423,7 @@ async function testResolverError(page) {
 				{ src: '2001:db8::1', dst: '2001:db8::2' }
 			]);
 			if (view.hostnameFailed.size !== 0)
-				throw new Error('structured resolver error mutated hostname failure state');
+				throw new Error('timeout_missing must not enter the negative hostname cache');
 			reply = 5;
 			await view.resolveHostnamesForEntries([
 				{ src: '2001:db8::1', dst: '2001:db8::2' }

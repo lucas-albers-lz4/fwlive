@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Declare `coreutils-timeout` as a runtime dependency so stock OpenWrt installs retain bounded rpcd operations; report an incomplete installation when the provider is unexpectedly absent (#761)
+
 ## [v0.1.46] — 2026-09-26
 
 ### Changed
