@@ -32,7 +32,7 @@ Click a **drop** cell in the table, or use the **Action** filter → **drop**. Y
 
 ### How do I share my current view with someone?
 
-The URL hash stores all active filters, limit, and view mode. Just copy the URL from your browser address bar.
+The URL hash stores all active filters, limit, view mode, and — in Manual fetch mode — `poll=manual` and `maxraw=` (raw-line budget). Just copy the URL from your browser address bar.
 
 ### Why do some rows have no Rule column data?
 

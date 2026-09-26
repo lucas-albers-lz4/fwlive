@@ -126,7 +126,7 @@ signal to reduce the workload.
 - **Click any cell** (action, IP, protocol, interface, flow endpoint) to filter.
 - Active filters appear as **chips** — click **≠** on a chip to flip include ↔ exclude; **×** removes one; **Clear all** resets.
 - You can also prefix text filters with **`!`** for negation (same as **≠** on a chip).
-- **URL hash** stores filters, limit, and `view=detailed` for shareable links.
+- **URL hash** stores filters, limit, `view=detailed`, and in Manual mode `poll=manual` plus `maxraw=` (raw-line fetch budget) for shareable links.
 
 ### Filter tips
 
