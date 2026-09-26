@@ -9,10 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- Treat an initial `logging_status` RPC rejection as unknown instead of logging-off (#755)
+## [v0.1.46] — 2026-09-26
 
-## [v0.1.45] — 2026-09-21
+### Changed
+- Linux x86_64 is the only supported development host; macOS is editing-only (#736)
+- Filter URL hashes use `history.replaceState` so a shared view does not stack Back entries (#708)
+- Shareable-hash docs include Manual-mode `poll=manual` and `maxraw=` (#759)
+
+### Fixed
+- Keep nft log prefixes that contain a tab as one rules-map key (#757)
+- Live View: treat initial `logging_status` rejection as unknown; map WAN-toggle errors and persist notices; keep Disable when logging is on with a blocker; keep Pause during hostname resolve; show the full expand-panel message; repaint summary Show-rows (#756, #706, #654, #656, #660, #661, #694, #679, #682)
+- Parser: share CLASSIFY_SPEC trim including NBSP; keep ECE/CWR in the TCP flag tail; treat non-string log messages as noise; share rule-hint extraction with `top_rules` (#718, #697, #692, #723)
+- rpcd/logging: read UCI zone sections without globbing; enforce `is_uci_style_name` on the whole string; fail closed when the adaptive lock cannot be opened; require `messages_received` for healthy samples; keep a structured rules reply on TSV failure; preserve WAN log baseline through reload and fail restore when staging never applied (#746, #739, #712, #655)
+
+### Added
+- Translate filter-chip field labels (#704)
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
+
+## [v0.1.45] — 2026-09-20
 
 ### Security
 - Pin the OpenWrt 23.05 `base` feed to peeled `v23.05.5` and require 40-hex `src-git` pins; refuse host-sign when materialized feed HEADs do not match (#411, #412)
@@ -527,6 +548,7 @@ Manual install: [installation.md](docs/user/installation.md)
 
 ---
 
+[v0.1.46]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.45...v0.1.46
 [v0.1.45]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.44...v0.1.45
 [v0.1.44]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.43...v0.1.44
 [v0.1.43]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.42...v0.1.43
