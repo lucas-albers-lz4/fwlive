@@ -723,6 +723,22 @@ function main() {
 	const firstMsgidRef = `${occupancyFile}:${firstSlot.msgidLine}`;
 	const secondTokenRef = `${occupancyFile}:${secondSlot.line}`;
 	const secondMsgidRef = `${occupancyFile}:${secondSlot.msgidLine}`;
+	const occupancyRefs = parsePotEntries(potText).find(
+		(entry) => entry.msgid === occupancyMsgid
+	).refs;
+	const existingRefForSlot = (slot) => {
+		for (const line of [slot.msgidLine, slot.line]) {
+			if (occupancyRefs.some((ref) => ref.file === occupancyFile && ref.line === line))
+				return `${occupancyFile}:${line}`;
+		}
+		return '';
+	};
+	const firstExistingRef = existingRefForSlot(firstSlot);
+	const secondExistingRef = existingRefForSlot(secondSlot);
+	if (!firstExistingRef || !secondExistingRef) {
+		console.error('Occupancy mutation fixture is missing a checked-in POT reference');
+		return 1;
+	}
 
 	const occupancyResolvable = (mutated, label) => {
 		if (checkPotReferences(mutated).length) {
@@ -736,7 +752,7 @@ function main() {
 	const insertedPot = replacePotReference(
 		potText,
 		occupancyMsgid,
-		firstTokenRef,
+		firstExistingRef,
 		`${firstTokenRef}\n#: ${firstTokenRef}`
 	);
 	if (insertedPot === potText || !occupancyResolvable(insertedPot, 'insert-duplicate')) return 1;
@@ -751,7 +767,7 @@ function main() {
 		return 1;
 	}
 
-	const droppedPot = removePotReference(potText, occupancyMsgid, secondTokenRef);
+	const droppedPot = removePotReference(potText, occupancyMsgid, secondExistingRef);
 	if (droppedPot === potText || !occupancyResolvable(droppedPot, 'drop')) return 1;
 	const droppedOccupancy = occupancyKind(droppedPot);
 	if (
@@ -768,11 +784,11 @@ function main() {
 		replacePotReference(
 			potText,
 			occupancyMsgid,
-			firstTokenRef,
+			firstExistingRef,
 			`${firstTokenRef}\n#: ${firstMsgidRef}`
 		),
 		occupancyMsgid,
-		secondTokenRef
+		secondExistingRef
 	);
 	if (wrapTwicePot === potText || !occupancyResolvable(wrapTwicePot, 'wrap-twice')) return 1;
 	const wrapTwiceOccupancy = occupancyKind(wrapTwicePot);
@@ -789,8 +805,8 @@ function main() {
 	const wrapPassPot = replacePotReference(
 		potText,
 		occupancyMsgid,
-		firstTokenRef,
-		firstMsgidRef
+		firstExistingRef,
+		firstExistingRef === firstTokenRef ? firstMsgidRef : firstTokenRef
 	);
 	if (wrapPassPot === potText || !occupancyResolvable(wrapPassPot, 'wrap-pass')) return 1;
 	const wrapPassOccupancy = occupancyKind(wrapPassPot);

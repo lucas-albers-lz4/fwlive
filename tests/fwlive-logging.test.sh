@@ -382,12 +382,8 @@ unset FWLIVE_MEMINFO_PATH FWLIVE_CPUINFO_PATH
 ok "weak-device procfs detection"
 
 # timeout_missing is a warning, not a blocker (openwrt/luci#8992 round 4).
-command() {
-	case "$1 $2" in
-		'-v timeout') return 1 ;;
-		*) command command "$@" ;;
-	esac
-}
+_fwlive_timeout_bin_saved="$FWLIVE_TIMEOUT_BIN"
+FWLIVE_TIMEOUT_BIN='/__fwlive_test_missing_timeout__'
 check_nf_log_ipv4() { return 0; }
 check_nf_log_ipv6() { return 0; }
 uci() {
@@ -412,7 +408,9 @@ esac
 case "$out" in
 	*'"blockers":["timeout_missing"]'*) die "timeout_missing must not appear in blockers: $out" ;;
 esac
-unset -f command uci check_nf_log_ipv4 check_nf_log_ipv6
+FWLIVE_TIMEOUT_BIN="$_fwlive_timeout_bin_saved"
+unset _fwlive_timeout_bin_saved
+unset -f uci check_nf_log_ipv4 check_nf_log_ipv6
 ok "timeout_missing warning does not gate logging CTA"
 
 # restore_wan_zone_log: empty previous => delete; non-empty => set + commit
@@ -1599,9 +1597,9 @@ unset -f uci
 ok "B-1 duplicate wan zones stay distinct for commit-scope"
 
 # --- Phase 1 (issue #272): timeout presence half + run_with_timeout ---
-# Gap 2 presence half: timeout on PATH omits timeout_missing from warnings.
+# Gap 2 presence half: the declared GNU provider omits timeout_missing.
 # Round 4 moved timeout_missing from blockers to warnings. Pin the warning.
-if command -v timeout >/dev/null 2>&1; then
+if fwlive_timeout_available; then
 	check_nf_log_ipv4() { return 0; }
 	check_nf_log_ipv6() { return 0; }
 	uci() {
@@ -1629,13 +1627,17 @@ else
 fi
 
 # Gap 3: run_with_timeout contract, tested against the shipped text.
-# Exec/timeout halves need a real timeout binary; the fail-closed half
-# shadows it via the command stub below and runs everywhere.
+# Exec/timeout halves need the GNU provider; the fail-closed half points the
+# shared provider path at a missing file and runs even with BusyBox installed.
 _run_with_timeout_src=$(sed -n '/^run_with_timeout()/,/^}/p' "$RPCD")
 [ -n "$_run_with_timeout_src" ] || die "run_with_timeout not found in $RPCD"
+_timeout_kill_grace_src=$(sed -n '/^TIMEOUT_KILL_GRACE=/{p;q;}' "$RPCD")
+[ -n "$_timeout_kill_grace_src" ] || die "TIMEOUT_KILL_GRACE not found in $RPCD"
+eval "$_timeout_kill_grace_src"
+unset _timeout_kill_grace_src
 eval "$_run_with_timeout_src"
 unset _run_with_timeout_src
-if command -v timeout >/dev/null 2>&1; then
+if fwlive_timeout_available; then
 	got=$(run_with_timeout 5 echo hello)
 	[ "$got" = "hello" ] || die "run_with_timeout must exec with timeout present, got: $got"
 	ok "run_with_timeout execs with timeout present"
@@ -1646,19 +1648,17 @@ if command -v timeout >/dev/null 2>&1; then
 else
 	skip "run_with_timeout exec/timeout (no timeout on test host)"
 fi
-# command is a shell keyword, so command command reaches the real builtin.
-command() {
-	case "$1 $2" in
-		'-v timeout') return 1 ;;
-		*) command command "$@" ;;
-	esac
-}
+# An unavailable explicit provider must fail closed even if a BusyBox applet
+# named `timeout` is available through the shell's command lookup.
+_fwlive_timeout_bin_saved="$FWLIVE_TIMEOUT_BIN"
+FWLIVE_TIMEOUT_BIN='/__fwlive_test_missing_timeout__'
 got=''
 _rc=0
 got=$(run_with_timeout 5 echo hello 2>/dev/null) || _rc=$?
 [ "$_rc" = "127" ] || die "run_with_timeout without timeout must return 127, got: $_rc"
 [ -z "$got" ] || die "run_with_timeout without timeout must not exec, got: $got"
-unset -f command
+FWLIVE_TIMEOUT_BIN="$_fwlive_timeout_bin_saved"
+unset _fwlive_timeout_bin_saved
 ok "run_with_timeout returns 127 without timeout (fail-closed)"
 
 # rpcd __selftest (including jshn poll-cap) is owned by

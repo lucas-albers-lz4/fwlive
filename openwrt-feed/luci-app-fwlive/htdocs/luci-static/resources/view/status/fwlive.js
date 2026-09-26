@@ -159,6 +159,7 @@ return view.extend({
 	/* Coalesce hostname-cache paints deferred while tablePaused. */
 	resolvePaintPending: false,
 	lastPollError: false,
+	lastPollErrorCode: null,
 	lastRulesError: null,
 	followLive: true,
 	rulesMap: {},
@@ -704,9 +705,10 @@ return view.extend({
 
 		const label = document.getElementById('fwlive-backend');
 		if (label) {
+			const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
 			let text = this.backendDisplayLabel();
 			let degraded = false;
-			if (this.lastRulesError) {
+			if (this.lastRulesError && this.lastRulesError !== 'timeout_missing') {
 				let err = '';
 				if (this.lastRulesError === 'rules_truncated')
 					err = _('Rule labels incomplete — map truncated');
@@ -714,12 +716,6 @@ return view.extend({
 					err = _('Rule labels unavailable — temp file failed');
 				else err = _('Rule labels unavailable');
 				text = text ? text + ' \u00b7 ' + err : err;
-				degraded = true;
-			}
-			const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
-			if (warnings.indexOf('timeout_missing') >= 0) {
-				const warn = _('Limited diagnostics — timeout command missing');
-				text = text ? text + ' \u00b7 ' + warn : warn;
 				degraded = true;
 			}
 			if (warnings.indexOf('legacy_iptables_detected') >= 0) {
@@ -755,6 +751,7 @@ return view.extend({
 		this.updateBackendUi();
 		this.updateLoggingToolbarUi();
 		this.updateEmptyStateUi();
+		this.updateStatus();
 		if (wasWeakDevice !== this.weakDevice && document.getElementById('fwlive-table'))
 			this.renderRows(true);
 	},
@@ -987,11 +984,13 @@ return view.extend({
 
 	/* Caller must discard stale epochs before this synchronous application.
 	 * This updates transport/adaptive state, summary/banner UI, rows, and buffer. */
-	failPollReply(rtt) {
+	failPollReply(rtt, errorCode) {
 		this.lastPollError = true;
+		this.lastPollErrorCode = typeof errorCode === 'string' ? errorCode : null;
 		this.fillingBuffer = false;
 		this.notePollRtt(rtt, true);
 		this.updateAdaptiveBanner();
+		if (this.lastPollErrorCode === 'timeout_missing') this.updateBackendUi();
 	},
 
 	applyPollReply(poll, context) {
@@ -1008,7 +1007,7 @@ return view.extend({
 			return;
 		}
 		if (reply.error) {
-			this.failPollReply(rtt);
+			this.failPollReply(rtt, reply.error);
 			return;
 		}
 		const raw = reply.log;
@@ -1018,6 +1017,7 @@ return view.extend({
 		}
 
 		this.lastPollError = false;
+		this.lastPollErrorCode = null;
 		if (reply.adaptive === 0 || reply.adaptive === false) this.serverAdaptive = 0;
 		else if (reply.adaptive === 1 || reply.adaptive === true) this.serverAdaptive = 1;
 		else this.serverAdaptive = undefined;
@@ -1082,12 +1082,15 @@ return view.extend({
 		/* Visibility changes and disposal invalidate all application of this reply. */
 		if (epoch !== this.currentPollEpoch()) return;
 
+		const recoveringTimeoutProvider = this.lastPollErrorCode === 'timeout_missing';
 		this.applyPollReply(poll, {
 			beforeLength: beforeLength,
 			fetchLines: fetchLines,
 			pausedAtStart: pausedAtStart,
 			resumeMerge: resumeMerge
 		});
+		if (recoveringTimeoutProvider && !this.lastPollError)
+			await Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]);
 	},
 
 	rememberSessionId(id) {
@@ -1513,7 +1516,10 @@ return view.extend({
 
 		if (this.lastPollError) {
 			status.className = 'fwlive-status fwlive-status-error';
-			status.textContent = _('Connection lost — retrying…') + suffix;
+			status.textContent =
+				this.lastPollErrorCode === 'timeout_missing'
+					? _('Installation is incomplete. Reinstall luci-app-fwlive.')
+					: _('Connection lost — retrying…') + suffix;
 			this.updateAdaptiveBanner();
 			return;
 		}
@@ -2096,7 +2102,10 @@ return view.extend({
 				/* fetchEntries already accounts the poll RTT for every rpc
 				 * outcome; a throw here is a local normalize/buffer bug, not
 				 * network slowness, so count nothing further. */
-				if (epoch === this.currentPollEpoch()) this.lastPollError = true;
+				if (epoch === this.currentPollEpoch()) {
+					this.lastPollError = true;
+					this.lastPollErrorCode = null;
+				}
 			}
 
 			if (epoch !== this.currentPollEpoch()) return;
@@ -2129,7 +2138,10 @@ return view.extend({
 		} catch (_e) {
 			/* Keep the coordinator promise settling so a queued refresh cannot
 			 * be stranded by an unexpected local rendering failure. */
-			if (epoch === this.currentPollEpoch()) this.lastPollError = true;
+			if (epoch === this.currentPollEpoch()) {
+				this.lastPollError = true;
+				this.lastPollErrorCode = null;
+			}
 		}
 	},
 
@@ -2593,6 +2605,7 @@ return view.extend({
 		this.hostnameFailed = new Map();
 		this.resolveGeneration = 0;
 		this.lastPollError = false;
+		this.lastPollErrorCode = null;
 		this.applyHash();
 		this.attachHandlers();
 		this.applyRowTintMode();

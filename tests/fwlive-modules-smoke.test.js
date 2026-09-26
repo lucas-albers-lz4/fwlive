@@ -40,6 +40,10 @@ assert.strictEqual(
 );
 const luciDepends = (makefile.match(/^LUCI_DEPENDS:=(.*)$/m) || [])[1] || '';
 assert.ok(/(^|\s)\+jsonfilter(\s|$)/.test(luciDepends), 'LUCI_DEPENDS must declare +jsonfilter');
+assert.ok(
+	/(^|\s)\+coreutils-timeout(\s|$)/.test(luciDepends),
+	'LUCI_DEPENDS must install the timeout command used by rpcd/fwlive'
+);
 const viewSrc = fs.readFileSync(
 	path.join(PKG, 'htdocs/luci-static/resources/view/status/fwlive.js'),
 	'utf8'
