@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - **Linux Mint** (or other **x86_64** Linux) — current primary dev host
-- `podman`, `podman-compose`, `qemu-system-aarch64` (e.g. `sudo apt install podman podman-compose qemu-system-arm` on Mint/Ubuntu)
+- `podman`, `podman compose`, `qemu-system-aarch64` (e.g. `sudo apt install podman qemu-system-arm` on Mint/Ubuntu)
 
 ## Expected image files (prefer download over build)
 
