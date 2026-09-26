@@ -27,14 +27,86 @@ feed_publish_abspath() {
 	)
 }
 
+# Resolve staging to a physical path so a symlink to / cannot bypass the clear guard.
+feed_publish_canonical_staging() {
+	local path="$1" parent
+	path="$(feed_publish_abspath "$path")"
+	if [[ -d "$path" ]]; then
+		(cd "$path" && pwd -P)
+		return 0
+	fi
+	if [[ -e "$path" || -L "$path" ]]; then
+		echo "feed_publish: staging path is not a directory: $path" >&2
+		return 1
+	fi
+	parent="$(cd "$(dirname "$path")" && pwd -P)" || return 1
+	printf '%s/%s' "$parent" "$(basename "$path")"
+}
+
+feed_publish_path_under() {
+	local child="$1" parent="$2"
+	[[ -n "$parent" && ( "$child" == "$parent" || "$child" == "$parent"/* ) ]]
+}
+
+# Refuse rm -rf of /, $HOME, the repo root, or a path outside $ROOT/$RUNNER_TEMP
+# unless allow_outside=1. Prints the canonical path on success (#766).
+feed_publish_assert_staging_clearable() {
+	local staging="$1"
+	local allow_outside="${2:-0}"
+	local canonical root home runner
+	if [[ -z "$staging" ]]; then
+		echo "feed_publish: empty staging path" >&2
+		return 1
+	fi
+	canonical="$(feed_publish_canonical_staging "$staging")" || return 1
+	root="$(cd "$(feed_publish_root)" && pwd -P)"
+	home=""
+	if [[ -n "${HOME:-}" && -d "$HOME" ]]; then
+		home="$(cd "$HOME" && pwd -P)"
+	fi
+	runner=""
+	if [[ -n "${RUNNER_TEMP:-}" && -d "$RUNNER_TEMP" ]]; then
+		runner="$(cd "$RUNNER_TEMP" && pwd -P)"
+	fi
+	if [[ "$canonical" == "/" ]]; then
+		echo "feed_publish: refusing to clear /" >&2
+		return 1
+	fi
+	if [[ -n "$home" && "$canonical" == "$home" ]]; then
+		echo "feed_publish: refusing to clear \$HOME" >&2
+		return 1
+	fi
+	if [[ "$canonical" == "$root" ]]; then
+		echo "feed_publish: refusing to clear the repository root" >&2
+		return 1
+	fi
+	if [[ "$allow_outside" == "1" ]] ||
+		feed_publish_path_under "$canonical" "$root" ||
+		feed_publish_path_under "$canonical" "$runner"; then
+		printf '%s' "$canonical"
+		return 0
+	fi
+	echo "feed_publish: staging path must be inside the repo or RUNNER_TEMP (got $canonical)" >&2
+	return 1
+}
+
+# Map a patch or line label → GitHub Pages feed directory (24.10.x → 24.10).
+feed_publish_line_key() {
+	case "$1" in
+		23.05 | 23.05.*) printf '%s' '23.05' ;;
+		24.10 | 24.10.*) printf '%s' '24.10' ;;
+		25.12 | 25.12.*) printf '%s' '25.12' ;;
+		snapshot | SNAPSHOT | latest | '') printf '%s' 'snapshot' ;;
+		*)
+			echo "feed_publish: unmapped version label '$1'" >&2
+			return 1
+			;;
+	esac
+}
+
 # Map user version key → feed directory name on GitHub Pages.
 feed_publish_feed_dir() {
-	case "$(sdk_matrix_version_label "$1")" in
-		23.05.5) printf '%s' '23.05' ;;
-		24.10.8) printf '%s' '24.10' ;;
-		25.12.5) printf '%s' '25.12' ;;
-		*) sdk_matrix_version_label "$1" ;;
-	esac
+	feed_publish_line_key "$(sdk_matrix_version_label "$1")"
 }
 
 # Expected luci-app-fwlive PKG_VERSION for artifact selection.
@@ -90,12 +162,7 @@ feed_publish_find_artifact() {
 
 # Map SDK output dir (e.g. 23.05.5) → feed/release key (e.g. 23.05).
 feed_publish_release_key() {
-	case "$1" in
-		23.05.5) printf '%s' '23.05' ;;
-		24.10.8) printf '%s' '24.10' ;;
-		25.12.5) printf '%s' '25.12' ;;
-		*) printf '%s' "$1" ;;
-	esac
+	feed_publish_line_key "$1"
 }
 
 # GitHub Releases require unique asset basenames; each OpenWrt line builds the same _all.ipk name.

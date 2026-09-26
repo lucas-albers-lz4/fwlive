@@ -14,6 +14,16 @@ assert_eq() {
 	fi
 }
 
+assert_eq "$(feed_publish_feed_dir 24.10)" "24.10" "line alias feed dir"
+assert_eq "$(feed_publish_feed_dir 24.10.8)" "24.10" "pinned patch feed dir"
+assert_eq "$(feed_publish_feed_dir 24.10.9)" "24.10" "off-pin patch still maps to line"
+assert_eq "$(feed_publish_release_key 24.10.9)" "24.10" "off-pin release key"
+assert_eq "$(feed_publish_release_key 25.12.5)" "25.12" "apk line release key"
+if feed_publish_feed_dir 99.99 >/dev/null 2>&1; then
+	echo "FAIL: unmapped feed dir should fail closed" >&2
+	exit 1
+fi
+
 assert_eq "$(feed_publish_release_asset_basename \
 	"${ROOT}/out/x86_64/23.05.5/fwlive/luci-app-fwlive_0.1.16_all.ipk")" \
 	"luci-app-fwlive_0.1.16_23.05_all.ipk" \

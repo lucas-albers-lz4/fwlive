@@ -20,13 +20,15 @@ sdk_matrix_root() {
 	printf '%s' "$here"
 }
 
-# Normalize user-facing version keys to a release patch (empty = SNAPSHOT/latest).
+# Normalize line aliases to the pinned patch. Explicit X.Y.Z passes through
+# unchanged so an off-pin value cannot silently run the pinned cell (#804).
 sdk_matrix_version_patch() {
 	case "$1" in
 		snapshot | SNAPSHOT | latest | '') printf '%s' '' ;;
-		25.12 | 25.12.*) printf '%s' '25.12.5' ;;
-		24.10 | 24.10.*) printf '%s' '24.10.8' ;;
-		23.05 | 23.05.*) printf '%s' '23.05.5' ;;
+		25.12) printf '%s' '25.12.5' ;;
+		24.10) printf '%s' '24.10.8' ;;
+		23.05) printf '%s' '23.05.5' ;;
+		25.12.* | 24.10.* | 23.05.*) printf '%s' "$1" ;;
 		*) printf '%s' "$1" ;;
 	esac
 }
@@ -245,7 +247,18 @@ sdk_matrix_validate_version() {
 		latest | SNAPSHOT) return 0 ;;
 	esac
 	# Numeric patch only — `25.12.*` would accept 25.12.foo / 25.12. (#637 luna).
-	[[ "$1" =~ ^(23\.05|24\.10|25\.12)\.[0-9]+$ ]] && return 0
+	# Off-pin patches are rejected so --version 24.10.9 cannot silently
+	# build the pinned cell (#804).
+	if [[ "$1" =~ ^(23\.05|24\.10|25\.12)\.[0-9]+$ ]]; then
+		local line pinned
+		line="${BASH_REMATCH[1]}"
+		pinned="$(sdk_matrix_version_patch "$line")"
+		if [[ "$1" != "$pinned" ]]; then
+			echo "invalid --version $1 (pinned patch is ${pinned})" >&2
+			return 1
+		fi
+		return 0
+	fi
 	echo "invalid --version $1 (choose: snapshot | 23.05 | 24.10 | 25.12 [.<patch>] | latest | SNAPSHOT)" >&2
 	return 1
 }

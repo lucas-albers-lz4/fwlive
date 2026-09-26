@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bound `fwlive.resolve` with `/proc/uptime` so a backward NTP step cannot stretch the lookup loop (#827)
 - Restore unlisted `#action=` hash values by injecting the missing SELECT option (#831)
 - Keep `constructor:` / `__proto__` log prefixes from painting Object builtins into the Rule cell (#783)
+- Refuse `publish-packages.sh` staging clears of `/`, `$HOME`, the repo root, or paths outside the tree (#766)
+- Reject off-pin SDK `--version` values instead of silently flooring them to the pinned patch (#804)
+- Keep feed publish layout on the major.minor line so a point-release bump still writes `/24.10/` (#806)
 
 ## [v0.1.46] — 2026-09-26
 
