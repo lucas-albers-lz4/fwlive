@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Layer 2 browser performance gate for #306 / #339.
+# Layer 2 browser performance harness for #306 / #339 (report-only by default).
+# Set FWLIVE_ENFORCE=1 for sign-off threshold failures; see docs/developer/qemu-lab.md.
 # Prereqs: running QEMU guest with fwlive installed, host Node + playwright.
 set -euo pipefail
 
