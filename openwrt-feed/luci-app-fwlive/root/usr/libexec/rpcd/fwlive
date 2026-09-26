@@ -240,8 +240,18 @@ nft_dump_fields() {
 # Restore nft_dump_fields TSV encoding. Walk left to right: \\ is a
 # literal backslash, \t is a tab. Other backslash pairs stay as written.
 # Do not put backslash sequences in case patterns (they are escapes).
+# Fast-path strings with no backslash: dash ${var#?} walks are O(n^2) and
+# the map byte-cap tests feed ~60k prefixes with none.
 # Result is _tsv_out (no fork).
 _nft_tsv_unescape() {
+	case "$1" in
+		*\\*) ;;
+		*)
+			_tsv_out="$1"
+			return 0
+			;;
+	esac
+	_tab=$(printf '\t')
 	_in="$1"
 	_out=
 	while [ -n "$_in" ]; do
