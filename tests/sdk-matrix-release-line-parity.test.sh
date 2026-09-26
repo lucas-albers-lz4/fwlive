@@ -29,14 +29,22 @@ if [[ "$from_labels" != "$expected" ]]; then
 	exit 1
 fi
 
-# Non-comment OpenWrt line tokens (NN.NN, not patch NN.NN.N).
+# Non-comment OpenWrt line tokens (YY.MM, any major — not patch NN.NN.N).
+# Major is two+ digits so 30.05 matches and python 3.12 does not.
 extract_release_lines() {
 	local file="$1"
 	sed -E '/^[[:space:]]*#/d; s/[[:space:]]+#.*//' "$file" |
 		tr -c '0-9.\n' '\n' |
-		grep -E '^2[0-9]\.[0-9]{2}$' |
+		grep -E '^[0-9]{2,}\.[0-9]{2}$' |
 		LC_ALL=C sort -u || true
 }
+
+# Line-only pattern: any major (e.g. 30.05), not patch 30.05.1, not short 2.5.
+_extractor_selfcheck="$(extract_release_lines <(printf '%s\n' '30.05' '30.05.1' '2.5'))"
+if [[ "$_extractor_selfcheck" != "30.05" ]]; then
+	echo "FAIL: extract_release_lines should accept 30.05 and reject 30.05.1 and 2.5 (got [${_extractor_selfcheck//$'\n'/ }])" >&2
+	exit 1
+fi
 
 assert_file_matches_matrix() {
 	local file="$1" got
