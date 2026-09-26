@@ -58,6 +58,10 @@ jobs:
           # R1: do not write GITHUB_TOKEN into .git/config (workspace is bind-mounted into SDK).
           persist-credentials: false
 
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
+        with:
+          node-version: '22'
+
       - name: Install validation tools
         run: |
           sudo apt-get update

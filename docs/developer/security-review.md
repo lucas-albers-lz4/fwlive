@@ -1,5 +1,13 @@
 # Security review state
 
+> **2026-09-26 #842 / #817 delta:** `publish-packages.yml` `build-publish`
+> pins Node 22 with the same digest-pinned `actions/setup-node` as
+> `fwlive-test.yml` before `validate-baseline.sh` (`npm ci` + lint).
+> Every checkout in `fwlive-test.yml` and `publish-packages.yml` sets
+> `persist-credentials: false`. Host coverage:
+> `tests/ci-workflow-pins.test.sh`. No ACL, DOM sink, or read/write-scope
+> change.
+
 > **2026-09-26 #766 delta:** `publish-packages.sh` canonicalizes the
 > staging path (`pwd -P`) before `rm -rf` and refuses `/`, `$HOME`, the
 > repository root, and any path outside `$ROOT` or `$RUNNER_TEMP` unless
@@ -368,7 +376,8 @@ should carry a note saying what would raise it.
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |
 | Publish job runs under Environment `feed-publish` | `manual` | `.github/workflows/publish-packages.yml` `environment:` — organizational gate (protection rules optional; none configured, matching usrmanage). Does NOT scope repo-level secrets — keys stay repository-scoped by design |
-| Checkout never writes GITHUB_TOKEN into `.git/config` | `manual` | same workflow — `persist-credentials: false` (workspace is bind-mounted into SDK) |
+| Checkout never writes GITHUB_TOKEN into `.git/config` | `host` | `persist-credentials: false` on every checkout in `publish-packages.yml` (workspace is bind-mounted into SDK) and `fwlive-test.yml`; `tests/ci-workflow-pins.test.sh` |
+| Publish `build-publish` lint gate runs under Node 22 | `host` | digest-pinned `actions/setup-node` before `validate-baseline.sh`; `tests/ci-workflow-pins.test.sh` |
 | workflow_dispatch tag validated before `GITHUB_ENV` write | `manual` | same workflow — newline/control-char rejection + `^v[0-9]` shape |
 | SDK feed cache key is exact (no `restore-keys` prefix fallback) | `manual` | same workflow — stale feed pins cannot be restored on cache miss |
 | SDK cache dirs owned by buildbot (1000:1000), owner-write + group/other read-traverse; enforced fail-closed pre-build (skipped only when CI pre-chowned both trees, roots AND nested entries; scan errors fail closed) | `host` | `tests/sdk-matrix-cache-owner.test.sh` — #208 (v0.1.36 chown regression) |
