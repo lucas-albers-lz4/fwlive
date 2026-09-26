@@ -123,8 +123,8 @@ async function testMissingTimeoutHasAccuratePollError() {
 		'a stale timeout warning must not hide the rules-map diagnosis');
 	assert.ok(/legacy iptables table/i.test(String(backend.textContent)),
 		'a timeout warning must not hide a coexisting legacy-table warning');
-	assert.ok(!/timeout command missing/i.test(String(backend.textContent)),
-		'a stale warning during a healthy poll must not claim the provider is missing');
+	assert.ok(!/timeout/i.test(String(backend.textContent)),
+		'a stale warning during a healthy poll must not appear in the backend label');
 
 	/* The next poll itself identifies a provider removed while this page is
 	 * open; it must not depend on logging_status being refreshed first. */
@@ -132,28 +132,28 @@ async function testMissingTimeoutHasAccuratePollError() {
 	timeoutMissing = true;
 	await view.fetchEntries();
 	view.updateStatus();
-	assert.ok(/is incomplete/i.test(String(status.textContent)),
-		'a timeout_missing poll reply must show the repair message');
-	assert.ok(!/connection lost/i.test(String(status.textContent)),
-		'a missing timeout must not be misreported as a network failure');
-	assert.ok(/timeout command missing/i.test(String(backend.textContent)),
-		'a timeout_missing poll reply must identify the unavailable provider');
+	assert.equal(String(status.textContent), 'Installation is incomplete. Reinstall luci-app-fwlive.',
+		'a timeout_missing poll reply must show the concise repair message only');
+	assert.ok(/using fw4/i.test(String(backend.textContent)),
+		'a timeout_missing poll reply must preserve the known backend');
+	assert.ok(!/timeout/i.test(String(backend.textContent)),
+		'a timeout_missing diagnosis must stay out of the backend label');
 
 	/* A successful poll after repair triggers fresh rules and warning reads;
-	 * verify both the banner and backend diagnostic recover in this session. */
+	 * verify the banner clears and backend context remains in this session. */
 	timeoutMissing = false;
 	await view.fetchEntries();
 	view.updateStatus();
-	assert.ok(!/Connection lost|is incomplete/i.test(String(status.textContent)),
+	assert.ok(!/Connection lost|Installation is incomplete/i.test(String(status.textContent)),
 		'a healthy poll after repair must clear the poll error banner');
 	assert.ok(/using fw4/i.test(String(backend.textContent)),
 		'a healthy poll after repair must restore the backend label');
-	assert.ok(!/timeout command missing|Rule labels unavailable/i.test(String(backend.textContent)),
-		'a healthy poll after repair must clear stale provider/rules diagnostics');
+	assert.ok(!/timeout|Rule labels unavailable/i.test(String(backend.textContent)),
+		'a healthy poll after repair must clear stale rules diagnostics and keep provider details hidden');
 	console.log('fwlive-view poll-error: missing timeout, stale warning, and recovery OK');
 }
 
-async function testLoggingStatusRefreshesPollCause() {
+async function testLoggingWarningDoesNotOverridePollCause() {
 	let timeoutMissing = true;
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -167,22 +167,35 @@ async function testLoggingStatusRefreshesPollCause() {
 	view.updateLoggingToolbarUi = function () {};
 	view.updateEmptyStateUi = function () {};
 	view.lastPollError = true;
+	view.lastPollErrorCode = 'filter_failed';
 
 	await view.loadLoggingStatus();
-	assert.match(String(status.textContent), /is incomplete/i,
-		'new timeout_missing status must immediately explain the poll failure');
-	assert.match(h.document.getElementById('fwlive-backend').textContent, /timeout command missing/i,
-		'logging_status warning must be reflected in the backend diagnosis during poll failure');
+	assert.match(String(status.textContent), /Connection lost/i,
+		'a stale timeout_missing warning must not override another poll error');
+	assert.ok(!/timeout/i.test(h.document.getElementById('fwlive-backend').textContent),
+		'logging_status warnings must not add timeout details to the backend label');
+
+	view.lastPollErrorCode = 'timeout_missing';
+	view.updateStatus();
+	assert.equal(String(status.textContent), 'Installation is incomplete. Reinstall luci-app-fwlive.',
+		'a typed timeout_missing poll error must show the repair message');
+	assert.ok(!/timeout/i.test(h.document.getElementById('fwlive-backend').textContent),
+		'a typed timeout_missing poll error must not add a second diagnosis to the backend label');
 
 	timeoutMissing = false;
 	await view.loadLoggingStatus();
-	assert.match(String(status.textContent), /Connection lost/i,
-		'clearing timeout_missing must restore the ordinary poll message');
+	assert.equal(String(status.textContent), 'Installation is incomplete. Reinstall luci-app-fwlive.',
+		'only a later successful poll may clear the typed provider error');
+	view.lastPollError = false;
+	view.lastPollErrorCode = null;
+	view.updateStatus();
+	assert.ok(!/Installation is incomplete/i.test(String(status.textContent)),
+		'a successful poll must clear the provider diagnosis');
 	assert.ok(/using fw4/i.test(String(h.document.getElementById('fwlive-backend').textContent)),
-		`clearing timeout_missing must restore the backend label: ${h.document.getElementById('fwlive-backend').textContent}`);
-	assert.ok(!/timeout command missing/i.test(String(h.document.getElementById('fwlive-backend').textContent)),
-		'clearing timeout_missing must remove the missing-provider diagnosis');
-	console.log('fwlive-view poll-error: logging status refreshes poll diagnosis OK');
+		`the backend label must retain context: ${h.document.getElementById('fwlive-backend').textContent}`);
+	assert.ok(!/timeout/i.test(String(h.document.getElementById('fwlive-backend').textContent)),
+		'backend label must not expose provider details after recovery');
+	console.log('fwlive-view poll-error: logging status warnings do not override typed poll errors OK');
 }
 
 async function testPollNonStringMsgSurvives() {
@@ -248,7 +261,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testPollBadShape();
 		await testPollTransportThrow();
 		await testMissingTimeoutHasAccuratePollError();
-		await testLoggingStatusRefreshesPollCause();
+		await testLoggingWarningDoesNotOverridePollCause();
 		await testPollNonStringMsgSurvives();
 		await testSummaryPollErrorRefreshesStatus();
 		console.log('fwlive-view poll-error tests passed');

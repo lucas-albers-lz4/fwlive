@@ -315,7 +315,7 @@ async function testAdaptiveSummaryAndWarnings(page) {
 		});
 		const warnings = await page.locator('#fwlive-backend').textContent();
 		const healthyStatus = await page.locator('#fwlive-status').textContent();
-		if (/timeout command missing/i.test(warnings || '') || !/legacy iptables table/i.test(warnings || ''))
+		if (/timeout/i.test(warnings || '') || !/legacy iptables table/i.test(warnings || ''))
 			throw new Error(`warning rendering missing: ${warnings}`);
 		if (/is incomplete/i.test(healthyStatus || ''))
 			throw new Error(`healthy poll must not show an installation error: ${healthyStatus}`);
@@ -328,11 +328,11 @@ async function testAdaptiveSummaryAndWarnings(page) {
 			view.updateStatus();
 		});
 		const installError = await page.locator('#fwlive-status').textContent();
-		if (!/is incomplete/i.test(installError || '') || /connection lost/i.test(installError || ''))
-			throw new Error(`missing timeout must explain the incomplete installation: ${installError}`);
-		const timeoutDiagnostic = await page.locator('#fwlive-backend').textContent();
-		if (!/timeout command missing/i.test(timeoutDiagnostic || '') || !/using fw4/i.test(timeoutDiagnostic || ''))
-			throw new Error(`missing timeout must preserve backend context with its repair diagnosis: ${timeoutDiagnostic}`);
+		if (installError !== 'Installation is incomplete. Reinstall luci-app-fwlive.')
+			throw new Error(`missing timeout must show only the concise repair line: ${installError}`);
+		const backendContext = await page.locator('#fwlive-backend').textContent();
+		if (!/using fw4/i.test(backendContext || '') || /timeout/i.test(backendContext || ''))
+			throw new Error(`missing timeout must preserve backend context without a second diagnosis: ${backendContext}`);
 
 		await page.evaluate(() => {
 			const view = window.fwliveView;
@@ -343,21 +343,23 @@ async function testAdaptiveSummaryAndWarnings(page) {
 		});
 		const recoveredBackend = await page.locator('#fwlive-backend').textContent();
 		const recoveredStatus = await page.locator('#fwlive-status').textContent();
-		if (!/using fw4/i.test(recoveredBackend || '') || /timeout command missing/i.test(recoveredBackend || ''))
+		if (!/using fw4/i.test(recoveredBackend || '') || /timeout/i.test(recoveredBackend || ''))
 			throw new Error(`provider recovery must restore the backend label: ${recoveredBackend}`);
-		if (/is incomplete/i.test(recoveredStatus || ''))
+		if (/Installation is incomplete/i.test(recoveredStatus || ''))
 			throw new Error(`provider recovery must clear the installation error: ${recoveredStatus}`);
 
 		await page.evaluate(() => {
 			const view = window.fwliveView;
 			view.lastPollError = true;
 			view.lastPollErrorCode = 'filter_failed';
-			view.loggingStatus.warnings = ['legacy_iptables_detected'];
+			view.loggingStatus.warnings = ['timeout_missing', 'legacy_iptables_detected'];
 			view.updateStatus();
 		});
 		const ordinaryPollError = await page.locator('#fwlive-status').textContent();
 		if (!/Connection lost/i.test(ordinaryPollError || ''))
 			throw new Error(`ordinary poll errors must keep the connection message: ${ordinaryPollError}`);
+		if (/Installation is incomplete/i.test(ordinaryPollError || ''))
+			throw new Error(`a stale timeout warning must not replace the typed poll diagnosis: ${ordinaryPollError}`);
 		console.log('OK: adaptive summary, shedding, and warning rendering');
 	} finally {
 		await page.evaluate(() => {

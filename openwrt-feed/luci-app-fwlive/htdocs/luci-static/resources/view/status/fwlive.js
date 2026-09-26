@@ -699,20 +699,12 @@ return view.extend({
 		return '';
 	},
 
-	timeoutMissingDetected() {
-		const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
-		return (
-			this.lastPollErrorCode === 'timeout_missing' || warnings.indexOf('timeout_missing') >= 0
-		);
-	},
-
 	updateBackendUi() {
 		const map = document.querySelector('.fwlive-map');
 		if (map) map.setAttribute('data-backend', this.firewallBackend || 'unknown');
 
 		const label = document.getElementById('fwlive-backend');
 		if (label) {
-			const timeoutMissing = this.timeoutMissingDetected();
 			const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
 			let text = this.backendDisplayLabel();
 			let degraded = false;
@@ -724,13 +716,6 @@ return view.extend({
 					err = _('Rule labels unavailable — temp file failed');
 				else err = _('Rule labels unavailable');
 				text = text ? text + ' \u00b7 ' + err : err;
-				degraded = true;
-			}
-			/* Keep stale warning snapshots from replacing useful diagnosis. The
-			 * repair hint belongs here only when polling confirms the failure. */
-			if (this.lastPollError && timeoutMissing) {
-				const warning = _('Limited diagnostics — timeout command missing');
-				text = text ? text + ' \u00b7 ' + warning : warning;
 				degraded = true;
 			}
 			if (warnings.indexOf('legacy_iptables_detected') >= 0) {
@@ -1531,9 +1516,10 @@ return view.extend({
 
 		if (this.lastPollError) {
 			status.className = 'fwlive-status fwlive-status-error';
-			status.textContent = this.timeoutMissingDetected()
-				? _('Firewall Live View is incomplete. Reinstall luci-app-fwlive to restore it.')
-				: _('Connection lost — retrying…') + suffix;
+			status.textContent =
+				this.lastPollErrorCode === 'timeout_missing'
+					? _('Installation is incomplete. Reinstall luci-app-fwlive.')
+					: _('Connection lost — retrying…') + suffix;
 			this.updateAdaptiveBanner();
 			return;
 		}

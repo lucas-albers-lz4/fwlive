@@ -87,11 +87,12 @@ the total is about eight seconds plus scheduling/IPC overhead.
 After temporarily removing the timeout symlink on this disposable guest,
 `logging_status` warned `timeout_missing`; `poll`, `rules`, and `resolve`
 returned their structured `timeout_missing` errors. Host fault tests assert
-that this short-circuit skips `ubus log.read`, nft, and nslookup. In a browser
-session that began healthy, Playwright showed the incomplete-installation
-message and retained `using fw4` beside “Limited diagnostics — timeout command
-missing”, instead of showing “Connection lost”. Restoring the symlink cleared
-the warning and backend diagnostic in the same session without a reload. The
+that this short-circuit skips `ubus log.read`, nft, and nslookup. The first
+browser capture on this draft used longer repair copy and a second backend
+diagnostic; the reviewed copy is now one status line only:
+“Installation is incomplete. Reinstall luci-app-fwlive.” The backend keeps
+the last-known `using fw4` context without mentioning timeout. Provider
+restoration clears the status in the same session without a reload. The
 `timeout_missing` resolver reply does not mark an address as a PTR failure in
 the view's hostname cache; restoring the provider lets a later lookup retry.
 
