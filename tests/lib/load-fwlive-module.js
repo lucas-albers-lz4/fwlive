@@ -44,7 +44,7 @@ if (typeof String.prototype.format !== 'function') {
 function loadFwliveModule(name, deps) {
 	deps = deps || {};
 	const src = fs.readFileSync(path.join(FWLIVE, name + '.js'), 'utf8');
-	const body = src
+	const body = "'use strict';\n" + src
 		.replace(/^'use strict';\s*/m, '')
 		.replace(/^'require [^']+';[^\n]*\n/gm, '');
 	const baseclass = { extend: function(desc) { return desc; } };
