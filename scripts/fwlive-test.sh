@@ -218,6 +218,9 @@ bash tests/sdk-apk.test.sh
 echo "== fwlive packaging CI path gate (#557) ==" >&2
 bash tests/packaging-ci-paths.test.sh
 
+echo "== fwlive CI workflow pins (#817 #842) ==" >&2
+bash tests/ci-workflow-pins.test.sh
+
 echo "== fwlive SDK package format mapping ==" >&2
 bash tests/sdk-matrix-package-format.test.sh
 
