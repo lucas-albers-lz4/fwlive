@@ -91,13 +91,18 @@ feed_publish_assert_staging_clearable() {
 }
 
 # Map a patch or line label → GitHub Pages feed directory (24.10.x → 24.10).
+# Numeric patches only — `24.10.*` would accept 24.10.foo (#806 luna).
 feed_publish_line_key() {
 	case "$1" in
-		23.05 | 23.05.*) printf '%s' '23.05' ;;
-		24.10 | 24.10.*) printf '%s' '24.10' ;;
-		25.12 | 25.12.*) printf '%s' '25.12' ;;
+		23.05) printf '%s' '23.05' ;;
+		24.10) printf '%s' '24.10' ;;
+		25.12) printf '%s' '25.12' ;;
 		snapshot | SNAPSHOT | latest | '') printf '%s' 'snapshot' ;;
 		*)
+			if [[ "$1" =~ ^(23\.05|24\.10|25\.12)\.[0-9]+$ ]]; then
+				printf '%s' "${BASH_REMATCH[1]}"
+				return 0
+			fi
 			echo "feed_publish: unmapped version label '$1'" >&2
 			return 1
 			;;

@@ -23,6 +23,14 @@ if feed_publish_feed_dir 99.99 >/dev/null 2>&1; then
 	echo "FAIL: unmapped feed dir should fail closed" >&2
 	exit 1
 fi
+if feed_publish_feed_dir 24.10.foo >/dev/null 2>&1; then
+	echo "FAIL: non-numeric patch must not map to a feed dir" >&2
+	exit 1
+fi
+if feed_publish_release_key 24.10.foo >/dev/null 2>&1; then
+	echo "FAIL: non-numeric release key should fail closed" >&2
+	exit 1
+fi
 
 assert_eq "$(feed_publish_release_asset_basename \
 	"${ROOT}/out/x86_64/23.05.5/fwlive/luci-app-fwlive_0.1.16_all.ipk")" \
