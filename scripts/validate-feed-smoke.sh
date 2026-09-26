@@ -50,6 +50,15 @@ img="$(validate_matrix_image_path "$QEMU_TARGET" "$VERSION")"
 [[ -f "$img" ]] || validate_matrix_die "missing image: $img"
 
 validate_matrix_prepare_image "$img"
+
+cleanup_on_fail() {
+	local rc=$?
+	[[ $rc -eq 0 ]] && return 0
+	validate_matrix_stop_qemu
+	return "$rc"
+}
+trap cleanup_on_fail EXIT
+
 validate_matrix_start_qemu "$QEMU_TARGET" "$VERSION"
 validate_matrix_wait_ssh "$QEMU_TARGET"
 

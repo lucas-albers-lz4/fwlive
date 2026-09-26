@@ -161,6 +161,9 @@ echo "== qemu-forwarding-slo source-contract / static wiring checks (#517) ==" >
 bash tests/qemu-forwarding-slo-harness.test.sh
 echo "== qemu ACL session source-contract / static wiring checks (#517) ==" >&2
 bash tests/qemu-acl-session-harness.test.sh
+
+echo "== qemu-wait-guest / feed-smoke source-contract (#839 / #838) ==" >&2
+bash tests/qemu-wait-guest-feed-smoke.test.sh
 echo "== qemu logging-uninstall source-contract / static wiring checks (#517) ==" >&2
 bash tests/qemu-logging-uninstall-smoke.test.sh
 bash tests/qemu-install-artifact-mode.test.sh

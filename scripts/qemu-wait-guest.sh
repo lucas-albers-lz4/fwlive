@@ -13,18 +13,28 @@ USER="${OPENWRT_USER:-root}"
 MAX_WAIT="${MAX_WAIT:-600}"
 INTERVAL="${INTERVAL:-15}"
 CMD=""
-SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+SSH_OPTS=(
+	-o StrictHostKeyChecking=no
+	-o UserKnownHostsFile=/dev/null
+	-o BatchMode=yes
+	-o NumberOfPasswordPrompts=0
+)
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--cmd) shift; CMD="${1:-}" ;;
-		-h|--help)
+		--cmd)
+			CMD="${2:?usage: qemu-wait-guest.sh --cmd CMD}"
+			shift 2
+			;;
+		-h | --help)
 			sed -n '1,12p' "$0"
 			exit 0
 			;;
-		*) echo "unknown arg: $1" >&2; exit 1 ;;
+		*)
+			echo "unknown arg: $1" >&2
+			exit 1
+			;;
 	esac
-	shift
 done
 
 deadline=$((SECONDS + MAX_WAIT))
