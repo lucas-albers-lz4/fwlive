@@ -80,8 +80,12 @@ command under an inner GNU `timeout --foreground`, which sends TERM at the
 configured budget. An outer GNU timeout starts a BusyBox `setsid` supervisor
 and KILLs its dedicated process group after the one-second grace. A pipe reader
 stays active until inherited stdout closes, and the supervisor waits for live
-session members after the pipeline ends, including descendants that close
-stdout themselves. Poll has two sequential five-second stages, so its command-time
+process-group members after the pipeline ends, including descendants that close
+stdout themselves. This is process-group containment: a descendant that creates
+a new session or process group is outside this guarantee. The fixed synchronous
+`ubus`, `nft`, `nslookup`, and filter-pipeline targets do not intentionally detach;
+host and guest checks cover descendants that remain in the command group. Poll
+has two sequential five-second stages, so its command-time
 bound is about 12 seconds plus scheduling/IPC overhead; nft is five seconds
 plus the grace; resolve stops starting lookups after its five-second budget
 and allows at most one final one-second lookup plus its grace. The loop's

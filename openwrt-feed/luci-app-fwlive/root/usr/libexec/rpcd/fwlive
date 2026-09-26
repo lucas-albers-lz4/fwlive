@@ -169,7 +169,7 @@ run_with_timeout() {
 		# deadline. Keep a pipe reader alive until every inherited stdout fd
 		# closes; the outer timeout then KILLs the whole process group at the
 		# hard deadline. After the pipeline ends, keep this wrapper alive while
-		# any other live process remains in its dedicated session. setsid keeps
+		# any other live process remains in its dedicated process group. setsid keeps
 		# unrelated rpcd processes out of that scan and lets the outer timeout
 		# kill children even when they close stdout. BusyBox ash pipefail
 		# preserves the inner timeout status; invoking it explicitly keeps this

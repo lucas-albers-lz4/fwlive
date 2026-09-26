@@ -167,6 +167,8 @@ return view.extend({
 	viewMode: 'simple',
 	expandedRowId: null,
 	loggingStatus: null,
+	/* Invalidates status reads started before a newer toggle or refresh. */
+	loggingStatusReadGeneration: 0,
 	loggingBusy: false,
 	loggingNotice: '',
 	_loggingNoticeFromToggle: false,
@@ -737,15 +739,24 @@ return view.extend({
 	},
 
 	async loadLoggingStatus(epoch) {
+		const readGeneration = ++this.loggingStatusReadGeneration;
 		const wasWeakDevice = this.weakDevice;
 		try {
 			const status = await callFwliveLoggingStatus();
-			if (!this.isCurrentPollEpoch(epoch)) return;
+			if (
+				!this.isCurrentPollEpoch(epoch) ||
+				readGeneration !== this.loggingStatusReadGeneration
+			)
+				return;
 			this.loggingStatus = status;
 			if (!this._loggingNoticeFromToggle) this.loggingNotice = '';
 			this.weakDevice = !!(this.loggingStatus && this.loggingStatus.weak_device === true);
 		} catch (_e) {
-			if (!this.isCurrentPollEpoch(epoch)) return;
+			if (
+				!this.isCurrentPollEpoch(epoch) ||
+				readGeneration !== this.loggingStatusReadGeneration
+			)
+				return;
 			/* Keep last-known toolbar; unknown until the first successful fetch. */
 			if (!this.loggingNotice)
 				this.loggingNotice = this.loggingStatus
@@ -763,6 +774,8 @@ return view.extend({
 	async runLoggingToggle(opts) {
 		if (this.loggingBusy) return;
 
+		/* Older recovery reads must not overwrite this toggle's later status. */
+		this.loggingStatusReadGeneration++;
 		this.loggingBusy = true;
 		this.loggingNotice = '';
 		this._loggingNoticeFromToggle = false;

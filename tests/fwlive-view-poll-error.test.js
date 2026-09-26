@@ -254,6 +254,47 @@ async function testBufferedRuleLabelsRefreshAfterTimeoutRecovery() {
 	console.log('fwlive-view poll-error: buffered rule labels refresh safely after provider recovery OK');
 }
 
+async function testLoggingToggleInvalidatesOlderStatusRead() {
+	let startedOldRead;
+	let releaseOldRead;
+	let statusCalls = 0;
+	const oldReadStarted = new Promise((resolve) => { startedOldRead = resolve; });
+	const oldReadGate = new Promise((resolve) => { releaseOldRead = resolve; });
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.logging_status': async function() {
+				statusCalls++;
+				if (statusCalls === 1) {
+					startedOldRead();
+					await oldReadGate;
+					return { wan_log: false, warnings: [] };
+				}
+				return { wan_log: true, warnings: [] };
+			}
+		}
+	});
+	const view = h.view;
+	view.loggingStatus = { wan_log: false, warnings: [] };
+
+	/* Keep the poll epoch constant: this covers request ordering within one view epoch. */
+	const oldRead = view.loadLoggingStatus(0);
+	await oldReadStarted;
+	await view.runLoggingToggle({
+		wanLog: true,
+		call: async function() { return { ok: true }; },
+		initialUi: function() {},
+		successNotice: function() { return ''; }
+	});
+	assert.equal(view.loggingStatus.wan_log, true,
+		'the toggle refresh must commit its newer WAN logging state');
+
+	releaseOldRead();
+	await oldRead;
+	assert.equal(view.loggingStatus.wan_log, true,
+		'an older same-epoch recovery read must not overwrite a successful toggle');
+	console.log('fwlive-view poll-error: logging toggle invalidates older status reads OK');
+}
+
 async function testLoggingWarningDoesNotOverridePollCause() {
 	let timeoutMissing = true;
 	const h = loadFwliveView({
@@ -363,6 +404,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testPollTransportThrow();
 		await testMissingTimeoutHasAccuratePollError();
 		await testBufferedRuleLabelsRefreshAfterTimeoutRecovery();
+		await testLoggingToggleInvalidatesOlderStatusRead();
 		await testLoggingWarningDoesNotOverridePollCause();
 		await testPollNonStringMsgSurvives();
 		await testSummaryPollErrorRefreshesStatus();

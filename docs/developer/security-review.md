@@ -18,6 +18,12 @@
 > known backend, rules error, and unrelated warnings visible when a status
 > snapshot is stale; typed poll errors identify provider loss immediately,
 > and a successful poll refreshes status and rules to clear stale diagnostics.
+> A per-read generation prevents an older recovery status response from
+> overwriting a later logging-toggle refresh in the same poll epoch.
+> Timeout containment is process-group scoped: the fixed synchronous
+> `ubus`, `nft`, `nslookup`, and filter-pipeline targets are covered, but a
+> descendant that creates a new session or process group is outside the
+> guarantee and is not claimed by host or guest tests.
 > Healthy installs show no missing-provider warning. Host view tests and live
 > Playwright cover stale-state handling, repair, and in-session recovery.
 > QEMU 24.10.8 verified an opkg upgrade
