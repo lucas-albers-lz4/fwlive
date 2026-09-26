@@ -1,9 +1,10 @@
 'use strict';
 
 /**
- * Flat ESLint config for shipped LuCI JS (#290 / #288 M1).
- * LuCI AMD modules use top-level `return` and `'require …';` strings.
- * We wrap each file in an IIFE for parsing (runtime still loads via LuCI).
+ * Flat ESLint config for shipped LuCI JS (#290 / #288 M1) and host-side
+ * core JS (#581). LuCI AMD modules use top-level `return` and
+ * `'require …';` strings. We wrap each browser file in an IIFE for parsing
+ * (runtime still loads via LuCI). core/ is Node/CommonJS and is not wrapped.
  */
 
 const path = require('node:path');
@@ -172,7 +173,6 @@ module.exports = [
 			'openwrt/**',
 			'.sdk/**',
 			'.ci-sdk-cache/**',
-			'core/**',
 			'tests/**',
 			'scripts/**',
 		],
@@ -197,5 +197,22 @@ module.exports = [
 		files: ['**/*.js.wrapped'],
 		languageOptions: shippedJsLanguageOptions,
 		rules: shippedJsRules,
+	},
+	{
+		/* Host parser / CLASSIFY_SPEC source of truth. CommonJS
+		 * (require, module.exports); do not apply luci-amd-wrap. */
+		files: ['core/**/*.js'],
+		languageOptions: {
+			ecmaVersion: 2020,
+			sourceType: 'commonjs',
+			globals: {
+				console: 'readonly',
+				process: 'readonly',
+			},
+		},
+		rules: {
+			...js.configs.recommended.rules,
+			'no-undef': 'error',
+		},
 	},
 ];

@@ -27,6 +27,8 @@ fi
 (cd "$ROOT" && npm run lint:js)
 echo "== fwlive ESLint AMD-wrap virtual filename (#375 / #377) ==" >&2
 bash "$ROOT/tests/fwlive-eslint-amd-wrap.test.sh"
+echo "== fwlive ESLint core Node/CommonJS (#581) ==" >&2
+bash "$ROOT/tests/fwlive-eslint-core.test.sh"
 (cd "$ROOT" && npm run lint:format)
 (cd "$ROOT" && npm run lint:css)
 if command -v ruff >/dev/null 2>&1; then
