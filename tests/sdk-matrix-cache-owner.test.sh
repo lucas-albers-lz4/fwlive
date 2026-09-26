@@ -31,6 +31,9 @@ SUDO=""
 if [[ "$(id -u)" -ne 0 ]]; then
 	if ! sudo -n true 2>/dev/null; then
 		echo "SKIP: passwordless sudo unavailable (cannot simulate buildbot-owned cache)"
+		if [ "${FWLIVE_REQUIRE_CACHE_OWNER_TEST:-0}" = 1 ]; then
+			exit 1
+		fi
 		exit 0
 	fi
 	SUDO="sudo"
@@ -413,7 +416,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	fi
 	export OWRT_SDK_DL_CACHE="$DL"
 else
-	echo "skip: running as root — non-root fail-closed cases not applicable"
+	echo "SKIP: running as root — non-root fail-closed cases not applicable"
 	# Case 6 (root): nested stray wrong-owned file must be REPAIRED (recursive
 	# chown), not chmodded into a state uid 1000 cannot write.
 	mkdir -p "$DL/nested"
