@@ -362,6 +362,14 @@ return view.extend({
 		this.fillingBuffer = !shortRead && (rawCount === null || rawCount >= effective || grew);
 	},
 
+	hashFilterKeyAllowed(key) {
+		const fields = this.FILTER_CHIP_FIELDS;
+		for (let i = 0; i < fields.length; i++) {
+			if (fields[i].key === key) return true;
+		}
+		return false;
+	},
+
 	applyHash() {
 		this.resolveRpcPreferences();
 
@@ -376,6 +384,7 @@ return view.extend({
 				else if (val === 'simple') this.viewMode = 'simple';
 				continue;
 			}
+			if (!this.hashFilterKeyAllowed(key)) continue;
 			this.setFilterFieldValue(key, val);
 		}
 	},
@@ -1172,10 +1181,9 @@ return view.extend({
 					constants.WEAK_DEVICE_DISPLAY_ROW_CAP
 				)
 			);
-		if (this.degradedSampling && this.serverAdaptive !== 0) bits.push(_('Degraded — sampling'));
-		if (this.serverTruncated && this.serverAdaptive !== 0) bits.push(_('truncated'));
-		if (this.resolveLoadShed && this.serverAdaptive !== 0)
-			bits.push(_('resolve paused (load)'));
+		if (this.degradedSampling) bits.push(_('Degraded — sampling'));
+		if (this.serverTruncated) bits.push(_('truncated'));
+		if (this.resolveLoadShed) bits.push(_('resolve paused (load)'));
 		if (!this.tablePaused && !this.followLive)
 			bits.push(_('scroll frozen — scroll to top to follow live'));
 		return bits.length ? ' — ' + bits.join(', ') : '';
