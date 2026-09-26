@@ -218,6 +218,9 @@ bash tests/sdk-matrix-package-format.test.sh
 echo "== fwlive SDK release version labels (#519) ==" >&2
 bash tests/sdk-matrix-release-labels.test.sh
 
+echo "== fwlive SDK publish/verify release-line parity (#745) ==" >&2
+bash tests/sdk-matrix-release-line-parity.test.sh
+
 echo "== fwlive SDK copy-out artifact check ==" >&2
 bash tests/sdk-matrix-copy-out.test.sh
 
