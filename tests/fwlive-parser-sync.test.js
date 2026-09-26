@@ -176,10 +176,31 @@ assert.ok(luciSrc.indexOf('@fwlive-codegen:luci-preserve-begin') >= 0, 'missing 
 
 console.log('fwlive parser sync OK (classify + presentation)');
 
+const SYNC_TS = '2026-03-20T02:00:00.000Z';
+/* Representative normalizeEntry lines: OUT-only, forwarding, proto/ports,
+ * rule_hint, flags, and length. CLASSIFY_SPEC freshness stays in
+ * scripts/gen-luci-wrapper.js. */
 const syncSamples = [
-	{ time: '2026-03-20T02:00:00.000Z', msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=10.0.0.2 DST=1.1.1.1 PROTO=TCP SPT=49999 DPT=443' },
-	{ time: '2026-03-20T02:00:00.000Z', msg: 'fw4: ACCEPT IN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP' },
-	{ time: '2026-03-20T02:00:00.000Z', msg: 'fw4: ACCEPT without key values' }
+	{ time: SYNC_TS, msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=10.0.0.2 DST=1.1.1.1 PROTO=TCP SPT=49999 DPT=443' },
+	{ time: SYNC_TS, msg: 'fw4: ACCEPT IN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP' },
+	{ time: SYNC_TS, msg: 'fw4: ACCEPT without key values' },
+	{ time: SYNC_TS, msg: 'fw4: ACCEPT IN= OUT=wan SRC=192.168.1.10 DST=203.0.113.8 PROTO=UDP SPT=12345 DPT=53' },
+	{ time: SYNC_TS, msg: 'fw4: ACCEPT OUT=eth1 SRC=10.0.0.8 DST=1.1.1.1 PROTO=TCP SPT=40000 DPT=443' },
+	{ time: SYNC_TS, msg: 'fw4: REJECT IN=br-lan OUT=wan SRC=192.168.1.20 DST=8.8.8.8 PROTO=TCP SPT=50000 DPT=80' },
+	{ time: SYNC_TS, msg: 'fwlive-test: ACCEPT IN=br-lan SRC=192.168.1.10 DST=192.168.1.1 PROTO=UDP SPT=5353 DPT=5353' },
+	{ time: SYNC_TS, msg: '[  239.247521] fwlive-pingIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 LEN=84 PROTO=ICMP' },
+	{ time: SYNC_TS, msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0' },
+	{ time: SYNC_TS, msg: 'kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 ECE CWR' },
+	{ time: SYNC_TS, msg: 'kernel: IN=eth0 OUT= SRC=10.0.0.2 DST=1.1.1.1 PROTO=TCP SPT=49999 DPT=443 TCPFLAGS=SYN,ACK' },
+	{ time: SYNC_TS, msg: 'fw4: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=UDP LENGTH=128 SPT=9 DPT=9' },
+	{ time: SYNC_TS, msg: 'fw4: DROP IN=wan OUT= SRC=2001:db8::1 DST=2001:db8::2 PROTO=TCP SPT=1234 DPT=443' },
+	{ time: SYNC_TS, msg: 'nft: drop IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22' },
+	{ time: SYNC_TS, msg: 'kernel: IN=eth0 OUT= MAC=aa SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP' },
+	{ time: SYNC_TS, msg: 'reject wan in: IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22' },
+	{ time: SYNC_TS, msg: 'reject_from_wan IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22' },
+	{ time: SYNC_TS, msg: 'fw4: BLOCK IN=wan OUT= SRC=203.0.113.1 DST=192.168.1.1 PROTO=TCP SPT=1 DPT=22' },
+	{ time: SYNC_TS, msg: 'fw4: ACCEPT SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP SPT=1 DPT=2' },
+	{ time: SYNC_TS, msg: 'kernel: IN=eth0 OUT= SRC=10.0.0.2 DST=1.1.1.1 PROTO=TCP SPT=49999 DPT=443 FLAGS=PSH' }
 ];
 const syncFilters = [
 	{},
@@ -198,11 +219,14 @@ const syncExpected = [
 	[true, false, true, false, true, false, false, false, false],
 	[true, false, true, false, true, false, false, false, false]
 ];
+assert.strictEqual(syncSamples.length, 20);
 for (let i = 0; i < syncSamples.length; i++) {
 	const coreRow = core.normalizeEntry(syncSamples[i]);
 	const luciRow = luci.normalizeEntry(syncSamples[i]);
 	assert.deepStrictEqual(luciRow, coreRow,
 		'normalizeEntry mismatch for ' + JSON.stringify(syncSamples[i].msg));
+	if (i >= syncExpected.length)
+		continue;
 	for (let j = 0; j < syncFilters.length; j++) {
 		assert.strictEqual(
 			core.matchesFilter(coreRow, syncFilters[j]),
@@ -216,5 +240,24 @@ for (let i = 0; i < syncSamples.length; i++) {
 		);
 	}
 }
+
+const forwardingRow = core.normalizeEntry(syncSamples[0]);
+assert.strictEqual(forwardingRow.direction, 'forward');
+assert.ok(forwardingRow.interface_in && forwardingRow.interface_out);
+assert.strictEqual(luci.normalizeEntry(syncSamples[0]).direction, 'forward');
+
+const outOnlyRow = core.normalizeEntry(syncSamples[3]);
+assert.strictEqual(outOnlyRow.direction, 'out');
+assert.strictEqual(outOnlyRow.interface_in, '');
+assert.strictEqual(outOnlyRow.interface_out, 'wan');
+assert.strictEqual(outOnlyRow.proto, 'UDP');
+assert.strictEqual(outOnlyRow.sport, '12345');
+assert.strictEqual(outOnlyRow.dport, '53');
+assert.strictEqual(luci.normalizeEntry(syncSamples[3]).direction, 'out');
+
+const outOnlyNoInKey = core.normalizeEntry(syncSamples[4]);
+assert.strictEqual(outOnlyNoInKey.direction, 'out');
+assert.strictEqual(outOnlyNoInKey.interface_out, 'eth1');
+assert.strictEqual(luci.normalizeEntry(syncSamples[4]).direction, 'out');
 
 console.log('fwlive parser sync OK (normalize + filter)');

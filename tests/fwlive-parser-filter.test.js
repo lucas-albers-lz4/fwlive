@@ -49,6 +49,7 @@ function run() {
 	assert.equal(row.dport, '443');
 	assert.equal(row.interface_in, 'br-lan');
 	assert.equal(row.interface_out, 'eth0');
+	assert.equal(row.direction, 'forward');
 
 	assert.equal(core.isFirewallEvent(sample), true);
 	assert.equal(core.isFirewallEvent({ msg: 'dnsmasq[1]: started' }), false);
@@ -76,6 +77,17 @@ function run() {
 	assert.equal(pingRow.action_raw, 'PASS');
 	assert.equal(pingRow.rule_hint, 'fwlive-ping');
 	assert.equal(pingRow.rule_label, 'fwlive ping');
+
+	const outOnly = core.normalizeEntry({
+		time: sample.time,
+		msg: 'fw4: ACCEPT IN= OUT=wan SRC=192.168.1.10 DST=203.0.113.8 PROTO=UDP SPT=12345 DPT=53'
+	});
+	assert.equal(outOnly.direction, 'out');
+	assert.equal(outOnly.interface_in, '');
+	assert.equal(outOnly.interface_out, 'wan');
+	assert.equal(outOnly.proto, 'UDP');
+	assert.equal(outOnly.sport, '12345');
+	assert.equal(outOnly.dport, '53');
 
 	const fw4Drop = core.normalizeEntry({
 		time: 1717675742,
