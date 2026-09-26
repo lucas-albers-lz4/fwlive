@@ -106,7 +106,7 @@ The token bucket charges new events per poll. A sudden burst of logs (e.g. port 
 
 ### Can I build this on macOS or Windows?
 
-**No.** OpenWrt SDKs are `Linux-x86_64` only. You can edit JS/docs on any platform and run parser tests (`./scripts/fwlive-test.sh`) locally with Node. SDK builds and QEMU labs need a Linux x86_64 machine (or VM).
+**No.** OpenWrt SDKs are `Linux-x86_64` only, and **Linux x86_64** is the only supported host for `./scripts/fwlive-test.sh`, SDK builds, and QEMU labs (GNU utilities, Bash ≥4). You may edit JS/docs on macOS or Windows; run host tests on Linux (VM, CI, or remote). See [Environment](developer/environment.md).
 
 ### Do I need a full OpenWrt buildroot?
 
