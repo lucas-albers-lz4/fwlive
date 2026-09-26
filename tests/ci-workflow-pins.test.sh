@@ -26,12 +26,13 @@ grep -Fq 'actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38' "$pub" \
 awk '
 	/uses: actions\/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38/ { n=1; next }
 	n && /node-version:/ {
-		if ($0 ~ /['\''"]22['\''"]/) { found=1; exit }
+		if ($0 ~ /['\''"]22['\''"]/) { found=1; next }
 		exit 1
 	}
-	n && /^- / { exit 1 }
-	END { exit found ? 0 : 1 }
-' "$pub" || fail "publish-packages.yml setup-node is not Node 22"
+	n && /package-manager-cache: false/ { nocache=1 }
+	n && /^- / { exit (found && nocache) ? 0 : 1 }
+	END { exit (found && nocache) ? 0 : 1 }
+' "$pub" || fail "publish-packages.yml setup-node must be Node 22 with package-manager-cache: false"
 # lint gate must run after the pin
 awk '
 	/uses: actions\/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38/ { pin=NR }

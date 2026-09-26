@@ -61,6 +61,9 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
         with:
           node-version: '22'
+          # v6 caches npm by default; a publish job must not restore
+          # attacker-controlled cache entries (zizmor cache-poisoning).
+          package-manager-cache: false
 
       - name: Install validation tools
         run: |

@@ -2,7 +2,9 @@
 
 > **2026-09-26 #842 / #817 delta:** `publish-packages.yml` `build-publish`
 > pins Node 22 with the same digest-pinned `actions/setup-node` as
-> `fwlive-test.yml` before `validate-baseline.sh` (`npm ci` + lint).
+> `fwlive-test.yml` before `validate-baseline.sh` (`npm ci` + lint),
+> with `package-manager-cache: false` so the publish job cannot restore
+> a poisoned npm cache.
 > Every checkout in `fwlive-test.yml` and `publish-packages.yml` sets
 > `persist-credentials: false`. Host coverage:
 > `tests/ci-workflow-pins.test.sh`. No ACL, DOM sink, or read/write-scope
