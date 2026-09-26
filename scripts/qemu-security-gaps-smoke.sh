@@ -17,7 +17,7 @@ HOST="${OPENWRT_HOST:-127.0.0.1}"
 PORT="${OPENWRT_SSH_PORT:-2222}"
 # Lab guests often use ephemeral keys; this script is lab-only.
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
-# RESOLVE_BUDGET=5 + one in-flight RESOLVE_TIMEOUT=1 → ~6s; allow NTP/SSH slack.
+# RESOLVE_BUDGET=5 + one in-flight RESOLVE_TIMEOUT=1 → ~6s; allow SSH slack.
 RESOLVE_SLACK_SEC="${RESOLVE_SLACK_SEC:-8}"
 FLOCK_WAIT_SEC="${FLOCK_WAIT_SEC:-12}"
 

@@ -919,6 +919,164 @@ function testPollFilterDescendantReturnsWithinBudget() {
 	}
 }
 
+function testPollTruncatedFilterBodyIsFilterFailed() {
+	// A killed classifier can leave a partial object that still ends in `}`.
+	// Non-zero filter output is kept only when it is a complete shipped error body.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-768-trunc-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-768-trunc-work-'));
+	const libexec = path.join(work, 'usr', 'libexec');
+	const rpcdDir = path.join(libexec, 'rpcd');
+	const fixtureRpcd = path.join(rpcdDir, 'fwlive');
+	const fixtureFilter = path.join(libexec, 'fwlive-log-filter.sh');
+	try {
+		fs.mkdirSync(rpcdDir, { recursive: true });
+		fs.copyFileSync(RPCD, fixtureRpcd);
+		fs.copyFileSync(LOGGING_SH, path.join(libexec, 'fwlive-logging.sh'));
+		fs.copyFileSync(
+			path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-adaptive-cap.sh'),
+			path.join(libexec, 'fwlive-adaptive-cap.sh')
+		);
+		fs.chmodSync(fixtureRpcd, 0o755);
+		makeStub(stubDir, 'ubus', '#!/bin/sh\nprintf \'{"log":[]}\'\n');
+		const cases = [
+			{
+				name: 'truncated inner object',
+				body: '#!/bin/sh\nprintf \'{"log":[{"msg":"a"}\'\nexit 1\n'
+			},
+			{
+				name: 'truncated array of objects',
+				body: '#!/bin/sh\nprintf \'{"log":[{"msg":"a"},{"msg":"b"}\'\nexit 1\n'
+			},
+			{
+				name: 'unclosed log array',
+				body: '#!/bin/sh\nprintf \'{"log":[\'\nexit 1\n'
+			}
+		];
+		for (const test of cases) {
+			fs.writeFileSync(fixtureFilter, test.body, { mode: 0o755 });
+			const env = {
+				...process.env,
+				PATH: `${stubDir}:/usr/bin:/bin`,
+				FWLIVE_ADAPTIVE: '1',
+				FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'state.json'),
+				FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+			};
+			const raw = execFileSync(
+				'/bin/dash',
+				[fixtureRpcd, 'call', 'poll', '{"addresses":["50"]}'],
+				{ encoding: 'utf8', env }
+			);
+			const res = JSON.parse(raw);
+			assert.ok(Array.isArray(res.log), `${test.name} must keep the poll log shape`);
+			assert.equal(res.error, 'filter_failed', `${test.name} must emit filter_failed, got ${raw}`);
+			assert.equal(res.log.length, 0, `${test.name} must not splice truncated rows`);
+		}
+		fs.writeFileSync(
+			fixtureFilter,
+			'#!/bin/sh\nprintf \'{"log":[],"error":"jsonfilter_missing"}\'\nexit 1\n',
+			{ mode: 0o755 }
+		);
+		const keepRaw = execFileSync(
+			'/bin/dash',
+			[fixtureRpcd, 'call', 'poll', '{"addresses":["50"]}'],
+			{
+				encoding: 'utf8',
+				env: {
+					...process.env,
+					PATH: `${stubDir}:/usr/bin:/bin`,
+					FWLIVE_ADAPTIVE: '1',
+					FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'state.json'),
+					FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+				}
+			}
+		);
+		const keep = JSON.parse(keepRaw);
+		assert.equal(keep.error, 'jsonfilter_missing', `complete shipped error body must be kept: ${keepRaw}`);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testResolveBudgetIgnoresDateJump() {
+	const src = fs.readFileSync(RPCD, 'utf8');
+	assert.match(
+		src,
+		/start=\$\(fwlive_adaptive_clock_cs\)/,
+		'resolve budget start must use /proc/uptime centiseconds'
+	);
+	assert.match(
+		src,
+		/now=\$\(fwlive_adaptive_clock_cs\)/,
+		'resolve budget now must use /proc/uptime centiseconds'
+	);
+	assert.doesNotMatch(
+		src,
+		/date \+%s/,
+		'resolve must not measure the budget with date +%s'
+	);
+	const budgetMatch = src.match(/^RESOLVE_BUDGET=([1-9][0-9]*)$/m);
+	const lookupMatch = src.match(/^RESOLVE_TIMEOUT=([1-9][0-9]*)$/m);
+	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
+	assert.ok(budgetMatch, 'RESOLVE_BUDGET must be an integer wall-clock budget');
+	assert.ok(lookupMatch, 'RESOLVE_TIMEOUT must be an integer timeout');
+	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
+	const budget = Number(budgetMatch[1]);
+	const lookupTimeout = Number(lookupMatch[1]);
+	const killGrace = Number(graceMatch[1]);
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const jshn = path.join(prefix, release, 'bin', 'jshn');
+	const jshnSh = path.join(prefix, release, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-827-date-jump-'));
+	const callsFile = path.join(stubDir, 'nslookup-calls');
+	const dateCount = path.join(stubDir, 'date-count');
+	try {
+		makeStub(stubDir, 'nslookup', `#!/bin/sh
+printf '%s\\n' "$1" >> ${shellQuote(callsFile)}
+/bin/sleep 1
+`);
+		makeStub(stubDir, 'date', `#!/bin/sh
+n=0
+if [ -f ${shellQuote(dateCount)} ]; then
+	n=$(cat ${shellQuote(dateCount)})
+fi
+printf '%s\\n' "$((n + 1))" > ${shellQuote(dateCount)}
+printf '%s\\n' "$((1000000 - n * 60))"
+`);
+		const addresses = Array.from({ length: 12 }, (_, i) => `192.0.2.${i + 1}`);
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+			FWLIVE_JSHN_SH: jshnSh
+		};
+		const started = Date.now();
+		const raw = execFileSync('busybox', ['sh', '-eu', RPCD, 'call', 'resolve'], {
+			encoding: 'utf8',
+			env,
+			input: JSON.stringify({ addresses }),
+			timeout: (budget + lookupTimeout + killGrace + 8) * 1000
+		});
+		const res = JSON.parse(raw);
+		const elapsedMs = Date.now() - started;
+		const calls = fs.existsSync(callsFile)
+			? fs.readFileSync(callsFile, 'utf8').trim().split('\n').filter(Boolean)
+			: [];
+		assert.equal(res.truncated, true,
+			`date jump must not disable the resolve budget; reply=${JSON.stringify(res)}, calls=${calls.length}`);
+		assert.ok(calls.length > 0 && calls.length < addresses.length,
+			`budgeted resolve should start some but not all lookups, started ${calls.length}`);
+		assert.ok(
+			elapsedMs < (budget + lookupTimeout + killGrace + 3) * 1000,
+			`resolve must stay within budget under a backward date shim, took ${elapsedMs}ms`
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
 function testPollMessagesReceived() {
 	// The filter must count every logd entry enumerated by jsonfilter, not only
 	// the firewall rows that survive classification.
@@ -1656,6 +1814,8 @@ testRulesHungNftReturnsWithinBudget();
 testResolveHungNslookupReturnsWithinBudget();
 testResolveLoopBudgetIncludesFinalKillGrace();
 testPollFilterDescendantReturnsWithinBudget();
+testPollTruncatedFilterBodyIsFilterFailed();
+testResolveBudgetIgnoresDateJump();
 testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
 testAdaptiveMissingMessagesReceivedIsUnhealthy();

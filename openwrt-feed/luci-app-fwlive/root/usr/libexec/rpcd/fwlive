@@ -34,8 +34,9 @@ RESOLVE_TIMEOUT=1
 # spent, so a flood of unresolvable IPs cannot hold an rpcd worker for the
 # full RESOLVE_MAX * RESOLVE_TIMEOUT worst case. Worst case total time is
 # budget + one in-progress lookup (RESOLVE_TIMEOUT + TIMEOUT_KILL_GRACE),
-# plus up to one second from the integer-resolution clock and scheduling/IPC
-# overhead: approximately 8s before scheduler/IPC delay.
+# plus scheduling/IPC overhead: approximately 7s before scheduler/IPC delay.
+# Elapsed time comes from /proc/uptime centiseconds so an NTP step cannot
+# stretch the budget; RESOLVE_MAX still bounds the work if uptime is unreadable.
 RESOLVE_BUDGET=5
 # Cap raw logd lines per poll (~2000 ≈ typical logd ring / ~200 KB JSON before filter).
 POLL_LINES_MAX=2000
@@ -59,7 +60,7 @@ TIMEOUT_KILL_GRACE=1
 . "$ADAPTIVE_SH"
 
 slug_key() {
-	echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' _' '--'
+	printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]' | tr ' _' '--'
 }
 
 # Cap rules JSON size so a huge ruleset cannot unbound an rpcd reply.
@@ -150,7 +151,7 @@ map_prefix_with_label() {
 			map_add "$slug" "$label"
 		fi
 	else
-		cosmetic=$(echo "$prefix" | tr '-' ' ')
+		cosmetic=$(printf '%s\n' "$prefix" | tr '-' ' ')
 		map_add "$prefix" "$cosmetic"
 		if [ "$slug" != "$prefix" ]; then
 			map_add "$slug" "$cosmetic"
@@ -588,15 +589,24 @@ fetch_firewall_logs() {
 	export FWLIVE_SUMMARY
 
 	# Do not swallow a filter failure into a silent empty table.
-	# If the filter exits non-zero but still printed JSON, keep it.
+	# A killed classifier can leave a truncated body that still ends in `}`.
+	# Keep a non-zero body only when it is one of the complete error
+	# objects the shipped filter prints; otherwise emit filter_failed.
 	# Empty success is not valid poll JSON — the shipped filter always
 	# prints {"log":[...]}, but a stub/regression must not emit a blank body.
 	_filter_ok=1
 	if ! out=$(printf '%s' "$raw" | run_with_timeout "$POLL_TIMEOUT" "$FILTER_SH" /tmp); then
 		_filter_ok=0
-		if [ -z "$out" ]; then
-			out='{"log":[],"error":"filter_failed"}'
-		fi
+		case "$out" in
+			'{"log":[],"error":"filter_failed"}'|\
+			'{"log":[],"error":"jsonfilter_missing"}'|\
+			'{"log":[],"error":"classifier_missing"}'|\
+			'{"log":[],"error":"filter_tempfile_failed"}')
+				;;
+			*)
+				out='{"log":[],"error":"filter_failed"}'
+				;;
+		esac
 	fi
 	if [ -z "$out" ]; then
 		_filter_ok=0
@@ -797,10 +807,9 @@ resolve_addresses() {
 	input=$(read_rpc_input "$1")
 	# Wall-clock budget starts after the input read and bounds the lookup
 	# loop only. Stalled stdin is not interrupted — production rpcd closes
-	# a finite payload. `date +%s` can jump under NTP sync — accepted
-	# (worst case the budget over- or under-runs by the jump; worker
-	# starvation is still prevented).
-	start=$(date +%s)
+	# a finite payload. /proc/uptime centiseconds are monotonic across an
+	# NTP step; if the clock helper prints 0, RESOLVE_MAX still bounds work.
+	start=$(fwlive_adaptive_clock_cs)
 	lookups=0
 	truncated=0
 	OUT=''
@@ -848,8 +857,8 @@ resolve_addresses() {
 			fi
 			# Abort cleanly once the lookup-loop wall-clock budget is spent;
 			# never START a lookup past the budget.
-			now=$(date +%s)
-			if [ $((now - start)) -ge "$RESOLVE_BUDGET" ]; then
+			now=$(fwlive_adaptive_clock_cs)
+			if [ $((now - start)) -ge $((RESOLVE_BUDGET * 100)) ]; then
 				truncated=1
 				break
 			fi
@@ -955,6 +964,13 @@ run_selftest() {
 		echo 'is_uci_style_name: expected reject empty' >&2
 		return 1
 	fi
+	# echo would swallow -n/-E and dash echo would expand backslashes.
+	_slug=$(slug_key '-n')
+	check_eq 'slug_key -n' "$_slug" '-n' "expected -n got $_slug" || return 1
+	_slug=$(slug_key '-E')
+	check_eq 'slug_key -E' "$_slug" '-e' "expected -e got $_slug" || return 1
+	_slug=$(slug_key "$(printf 'a\\tb')")
+	check_eq 'slug_key backslash' "$_slug" "$(printf 'a\\tb')" "expected literal backslash got $_slug" || return 1
 
 	if is_resolvable_address 'not an ip'; then
 		echo 'is_resolvable_address: expected reject for spaces' >&2

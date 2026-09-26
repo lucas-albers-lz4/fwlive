@@ -284,6 +284,46 @@ exit 0
 	}
 }
 
+function testDashFlagUnlabeledPrefix() {
+	// echo -n / -E swallows the prefix; the unlabeled log prefix must stay a hint.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-dash-prefix-'));
+	try {
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "-n "
+		log prefix "-E "
+	}
+}
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+exit 0
+`);
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			let raw;
+			try {
+				raw = runWithShell(shell, env);
+			} catch (e) {
+				if (e.code === 'ENOENT') continue;
+				throw e;
+			}
+			const res = JSON.parse(raw);
+			assert.equal(res.rules['-n'], ' n', `[${shell}] unlabeled -n prefix must stay a rules hint`);
+			assert.equal(res.rules['-E'], ' E', `[${shell}] unlabeled -E prefix must stay a rules hint`);
+			assert.equal(res.rules['-e'], ' E', `[${shell}] unlabeled -E prefix must also map its slug`);
+		}
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
 function testDuplicateKeys() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-dup-'));
 	try {
@@ -1301,6 +1341,7 @@ function testBusyboxPathShadowGetent() {
 function run() {
 	testProductionNft();
 	testNftPrefixNormalization();
+	testDashFlagUnlabeledPrefix();
 	testDuplicateKeys();
 	testIdempotentNormalization();
 	testEmptyPrefixGuard();
