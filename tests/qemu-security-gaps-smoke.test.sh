@@ -111,6 +111,9 @@ chmod 755 "$TMP/bin/ssh"
 cat >"$TMP/bin/timeout" <<'EOF'
 #!/usr/bin/env bash
 set -u
+if [[ "${1:-}" == -k ]]; then
+	shift 2
+fi
 shift
 if [[ "${FWLIVE_STUB_ENABLE:-ok}" == timeout && "$*" == *enable_wan_logging* ]]; then
 	exit 124

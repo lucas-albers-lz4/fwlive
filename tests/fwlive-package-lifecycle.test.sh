@@ -4,6 +4,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MAKEFILE="$ROOT/openwrt-feed/luci-app-fwlive/Makefile"
+PKG_VERSION="$(sed -n 's/^PKG_VERSION:=//p' "$MAKEFILE")"
+PKG_RELEASE="$(sed -n 's/^PKG_RELEASE:=//p' "$MAKEFILE")"
+EXPECTED_PACKAGE_VERSION="${PKG_VERSION}-r${PKG_RELEASE}"
 # shellcheck source=../scripts/lib/sdk-apk.sh
 source "$ROOT/scripts/lib/sdk-apk.sh"
 WORK="$(mktemp -d)"
@@ -55,7 +58,12 @@ ok() {
 assert_ipk_timeout_dependency() {
 	local control="$1"
 	local depends
+	local version
 	[ -s "$control" ] || fail 'IPK control metadata is missing'
+	version="$(sed -n 's/^Version:[[:space:]]*//p' "$control" | head -n 1)"
+	if [ "$version" != "$EXPECTED_PACKAGE_VERSION" ] && [ "$version" != "$PKG_VERSION" ]; then
+		fail "IPK Version must match Makefile $PKG_VERSION (or $EXPECTED_PACKAGE_VERSION); got: ${version:-<missing>}"
+	fi
 	depends="$(awk '
 		/^Depends:[[:space:]]*/ {
 			in_depends=1
@@ -92,7 +100,7 @@ pack_synthetic_ipk() {
 	rm -rf "$stage"
 	mkdir -p "$stage/ctrl" "$stage/empty"
 	{
-		printf '%s\n' 'Package: luci-app-fwlive' 'Version: 0.1.46'
+		printf '%s\n' 'Package: luci-app-fwlive' "Version: $EXPECTED_PACKAGE_VERSION"
 		if [ -n "$dependency" ]; then
 			printf 'Depends: %s\n' "$dependency"
 		fi
@@ -352,7 +360,7 @@ PY
 
 assert_apk_timeout_dependency() {
 	local json="$1"
-	python3 - "$json" <<'PY' || fail "APK adbdump metadata must declare coreutils-timeout: $json"
+	python3 - "$json" "$EXPECTED_PACKAGE_VERSION" <<'PY' || fail "APK adbdump metadata must match the Makefile version and declare coreutils-timeout: $json"
 import json
 import pathlib
 import re
@@ -360,6 +368,8 @@ import sys
 
 data = json.loads(pathlib.Path(sys.argv[1]).read_text())
 info = data.get("info") or {}
+if info.get("version") != sys.argv[2]:
+	sys.exit(1)
 depends = info.get("depends")
 if isinstance(depends, str):
 	entries = re.split(r"[ ,]+", depends)
@@ -540,7 +550,7 @@ ok 'APK data-only payload extract skips hook execute (logging.sh is not pre-dein
 assert_apk_adbdump_json "$ROOT/tests/fixtures/apk-adbdump-control.json"
 ok 'committed apk adbdump fixture passes the control-script contract'
 
-python3 - "$HOOK_RAW" "$WORK/generated-adbdump.json" <<'PY'
+python3 - "$HOOK_RAW" "$WORK/generated-adbdump.json" "$EXPECTED_PACKAGE_VERSION" <<'PY'
 import json
 import pathlib
 import sys
@@ -559,7 +569,11 @@ post = "#!/bin/sh\nexport PKG_UPGRADE=1\ndefault_postinst\n"
 pathlib.Path(sys.argv[2]).write_text(
 	json.dumps(
 		{
-			"info": {"name": "luci-app-fwlive", "depends": ["coreutils-timeout"]},
+			"info": {
+				"name": "luci-app-fwlive",
+				"version": sys.argv[3],
+				"depends": ["coreutils-timeout"],
+			},
 			"scripts": {"pre-deinstall": wrapped, "post-upgrade": post},
 		}
 	)
@@ -588,7 +602,7 @@ fi
 ok 'APK adbdump metadata without coreutils-timeout fails the package oracle'
 
 apk_json_bad="$WORK/adbdump-restore-only.json"
-python3 - "$apk_json_bad" <<'PY'
+python3 - "$apk_json_bad" "$EXPECTED_PACKAGE_VERSION" <<'PY'
 import json
 import pathlib
 import sys
@@ -596,7 +610,11 @@ import sys
 pathlib.Path(sys.argv[1]).write_text(
 	json.dumps(
 		{
-			"info": {"name": "luci-app-fwlive", "depends": ["coreutils-timeout"]},
+			"info": {
+				"name": "luci-app-fwlive",
+				"version": sys.argv[2],
+				"depends": ["coreutils-timeout"],
+			},
 			"scripts": {
 				"pre-deinstall": "restore_wan_log_baseline\n",
 				"post-upgrade": "#!/bin/sh\nexport PKG_UPGRADE=1\n",

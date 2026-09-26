@@ -9,6 +9,7 @@ const os = require('node:os');
 
 const ROOT = path.join(__dirname, '..');
 const RPCD = path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive');
+const LOGGING_SH = path.join(ROOT, 'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh');
 const ACL = path.join(
 	ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/share/rpcd/acl.d/luci-app-fwlive.json'
@@ -511,8 +512,11 @@ function testPollHungUbusReturnsWithinBudget() {
 	// so adaptive still skips the cold sample.
 	const src = fs.readFileSync(RPCD, 'utf8');
 	const match = src.match(/^POLL_TIMEOUT=([1-9][0-9]*)$/m);
+	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
 	assert.ok(match, 'POLL_TIMEOUT must be an integer timeout in seconds');
+	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
 	const pollTimeout = Number(match[1]);
+	const killGrace = Number(graceMatch[1]);
 	assert.ok(
 		pollTimeout >= 5 && pollTimeout <= 10,
 		`POLL_TIMEOUT must be 5-10s, got ${pollTimeout}`
@@ -546,11 +550,279 @@ function testPollHungUbusReturnsWithinBudget() {
 		assertStructuredError(res, 'poll/hung-ubus');
 		assert.equal(res.error, 'log_read_failed');
 		assert.ok(
-			elapsedMs < (pollTimeout + 2) * 1000,
-			`poll must return within POLL_TIMEOUT=${pollTimeout}s (+2s slack), took ${elapsedMs}ms`
+			elapsedMs < (pollTimeout + killGrace + 2) * 1000,
+			`poll must return within POLL_TIMEOUT=${pollTimeout}s + ${killGrace}s kill grace (+2s slack), took ${elapsedMs}ms`
 		);
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function makeTermResistantStub(dir, name, pidFile) {
+	makeStub(
+		dir,
+		name,
+		`#!/bin/sh
+trap '' TERM
+(
+	trap '' TERM
+	while :; do /bin/sleep 1; done
+) &
+child=$!
+printf '%s\\n' "$child" > ${shellQuote(pidFile)}
+wait
+`
+	);
+}
+
+function assertMarkedProcessStopped(pidFile, label) {
+	if (!fs.existsSync(pidFile)) return;
+	const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+	assert.ok(Number.isInteger(pid) && pid > 1, `${label} must record its child PID`);
+	let state = '';
+	try {
+		state = execFileSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8' }).trim();
+	} catch (error) {
+		if (error.status !== 1) throw error;
+	}
+	assert.ok(!state || state.startsWith('Z'), `${label} child must be gone after timeout, state=${state}`);
+}
+
+function testRunWithTimeoutKillsTermResistantDescendant() {
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const loggingSrc = fs.readFileSync(LOGGING_SH, 'utf8');
+	const helper = src.match(/^run_with_timeout\(\) \{[\s\S]*?^\}/m);
+	const providerCheck = loggingSrc.match(/^fwlive_timeout_available\(\) \{[\s\S]*?^\}/m);
+	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
+	assert.ok(helper, 'production run_with_timeout helper must exist');
+	assert.ok(providerCheck, 'shared provider check must exist in fwlive-logging.sh');
+	assert.ok(graceMatch, 'production timeout kill grace must be configured');
+	const grace = Number(graceMatch[1]);
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-timeout-descendant-'));
+	const pidFile = path.join(stubDir, 'child.pid');
+	try {
+		const timeoutVersion = execFileSync('timeout', ['--version'], { encoding: 'utf8' });
+		assert.match(timeoutVersion, /GNU coreutils/, 'test requires the declared GNU timeout provider');
+		makeTermResistantStub(stubDir, 'term-resistant', pidFile);
+		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+		const script = `FWLIVE_TIMEOUT_BIN=/usr/bin/timeout\nTIMEOUT_KILL_GRACE=${grace}\n${providerCheck[0]}\n${helper[0]}\n` +
+			'output=$(run_with_timeout 1 term-resistant)\n' +
+			'status=$?\nprintf \'%s\\n\' "$status"\n';
+		const started = Date.now();
+		const status = execFileSync('/bin/dash', ['-c', script], {
+			encoding: 'utf8',
+			env,
+			timeout: (grace + 8) * 1000
+		}).trim();
+		const elapsedMs = Date.now() - started;
+		assert.notEqual(status, '0', 'a TERM-resistant command must still time out');
+		assert.ok(
+			elapsedMs < (grace + 5) * 1000,
+			`TERM-resistant command should stop after duration + ${grace}s grace, took ${elapsedMs}ms`
+		);
+		assertMarkedProcessStopped(pidFile, 'TERM-resistant timeout');
+		console.log('fwlive rpcd security: GNU timeout kills TERM-resistant descendants OK');
+	} finally {
+		if (fs.existsSync(pidFile)) {
+			const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+			if (Number.isInteger(pid) && pid > 1) {
+				try { process.kill(pid, 'SIGKILL'); } catch (_) {}
+			}
+		}
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testRulesHungNftReturnsWithinBudget() {
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const match = src.match(/^NFT_TIMEOUT=([1-9][0-9]*)$/m);
+	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
+	assert.ok(match, 'NFT_TIMEOUT must be an integer timeout in seconds');
+	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
+	const nftTimeout = Number(match[1]);
+	const killGrace = Number(graceMatch[1]);
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-761-hung-nft-'));
+	try {
+		makeStub(stubDir, 'nft', '#!/bin/sh\nexec /bin/sleep 30\n');
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+		const started = Date.now();
+		const res = JSON.parse(runCall(['call', 'rules'], {
+			encoding: 'utf8', env, timeout: (nftTimeout + killGrace + 8) * 1000
+		}));
+		const elapsedMs = Date.now() - started;
+		assert.equal(res.backend, 'unknown');
+		assert.equal(res.error, 'no_backend');
+		assert.ok(
+			elapsedMs < (nftTimeout + killGrace + 3) * 1000,
+			`hung nft must stop within NFT_TIMEOUT + kill grace (+3s), took ${elapsedMs}ms`
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testResolveHungNslookupReturnsWithinBudget() {
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const match = src.match(/^RESOLVE_TIMEOUT=([1-9][0-9]*)$/m);
+	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
+	assert.ok(match, 'RESOLVE_TIMEOUT must be an integer timeout in seconds');
+	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
+	const lookupTimeout = Number(match[1]);
+	const killGrace = Number(graceMatch[1]);
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const jshn = path.join(prefix, release, 'bin', 'jshn');
+	const jshnSh = path.join(prefix, release, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-761-hung-nslookup-'));
+	try {
+		makeStub(stubDir, 'nslookup', '#!/bin/sh\nexec /bin/sleep 30\n');
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+			FWLIVE_JSHN_SH: jshnSh
+		};
+		const started = Date.now();
+		const raw = execFileSync('busybox', ['sh', '-eu', RPCD, 'call', 'resolve'], {
+			encoding: 'utf8',
+			env,
+			input: '{"addresses":["192.0.2.1"]}',
+			timeout: (lookupTimeout + killGrace + 8) * 1000
+		});
+		const res = JSON.parse(raw);
+		const elapsedMs = Date.now() - started;
+		assert.equal(res.names['192.0.2.1'], '', `timed-out PTR lookup must remain an empty name: ${JSON.stringify(res)}`);
+		assert.ok(
+			elapsedMs < (lookupTimeout + killGrace + 3) * 1000,
+			`hung nslookup must stop within RESOLVE_TIMEOUT + kill grace (+3s), took ${elapsedMs}ms`
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testResolveLoopBudgetIncludesFinalKillGrace() {
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const budgetMatch = src.match(/^RESOLVE_BUDGET=([1-9][0-9]*)$/m);
+	const lookupMatch = src.match(/^RESOLVE_TIMEOUT=([1-9][0-9]*)$/m);
+	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
+	assert.ok(budgetMatch, 'RESOLVE_BUDGET must be an integer wall-clock budget');
+	assert.ok(lookupMatch, 'RESOLVE_TIMEOUT must be an integer timeout');
+	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
+	const budget = Number(budgetMatch[1]);
+	const lookupTimeout = Number(lookupMatch[1]);
+	const killGrace = Number(graceMatch[1]);
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const jshn = path.join(prefix, release, 'bin', 'jshn');
+	const jshnSh = path.join(prefix, release, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-761-resolve-loop-'));
+	const callsFile = path.join(stubDir, 'nslookup-calls');
+	try {
+		makeStub(stubDir, 'nslookup', `#!/bin/sh
+printf '%s\\n' "$1" >> ${shellQuote(callsFile)}
+trap '' TERM
+while :; do /bin/sleep 1; done
+`);
+		const addresses = Array.from({ length: 16 }, (_, i) => `192.0.2.${i + 1}`);
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+			FWLIVE_JSHN_SH: jshnSh
+		};
+		const started = Date.now();
+		const raw = execFileSync('busybox', ['sh', '-eu', RPCD, 'call', 'resolve'], {
+			encoding: 'utf8',
+			env,
+			input: JSON.stringify({ addresses }),
+			timeout: (budget + lookupTimeout + killGrace + 8) * 1000
+		});
+		const res = JSON.parse(raw);
+		const elapsedMs = Date.now() - started;
+		const calls = fs.existsSync(callsFile)
+			? fs.readFileSync(callsFile, 'utf8').trim().split('\n').filter(Boolean)
+			: [];
+		assert.equal(res.truncated, true,
+			`resolve must stop starting lookups after its wall-clock budget; reply=${JSON.stringify(res)}, calls=${calls.length}, elapsed=${elapsedMs}ms`);
+		assert.ok(calls.length > 0 && calls.length < addresses.length,
+			`budgeted resolve should start some but not all lookups, started ${calls.length}; reply=${JSON.stringify(res)}`);
+		assert.ok(
+			elapsedMs < (budget + lookupTimeout + killGrace + 3) * 1000,
+			`resolve loop should stop within budget + final lookup + TERM/KILL grace (+3s), took ${elapsedMs}ms`
+		);
+		console.log(`fwlive rpcd security: resolve loop budget + final kill grace OK (${calls.length} stalled lookups, ${elapsedMs}ms)`);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testPollFilterDescendantReturnsWithinBudget() {
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const pollMatch = src.match(/^POLL_TIMEOUT=([1-9][0-9]*)$/m);
+	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
+	assert.ok(pollMatch, 'POLL_TIMEOUT must be an integer timeout in seconds');
+	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
+	const stageTimeout = Number(pollMatch[1]);
+	const killGrace = Number(graceMatch[1]);
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const jshn = path.join(prefix, release, 'bin', 'jshn');
+	const jshnSh = path.join(prefix, release, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
+
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-761-filter-child-'));
+	const stubDir = path.join(work, 'stubs');
+	const libexec = path.join(work, 'usr', 'libexec');
+	const pidFile = path.join(work, 'child.pid');
+	fs.mkdirSync(stubDir, { recursive: true });
+	fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+	const plugin = path.join(libexec, 'rpcd', 'fwlive');
+	const filter = path.join(libexec, 'fwlive-log-filter.sh');
+	try {
+		fs.writeFileSync(filter, [
+			'#!/bin/sh',
+			"trap '' TERM",
+			'(', "trap '' TERM", 'while :; do /bin/sleep 1; done', ') &',
+			'child=$!',
+			'printf "%s\\n" "$child" > ' + shellQuote(pidFile),
+			'wait',
+			''
+		].join('\n'), { mode: 0o755 });
+		fs.chmodSync(filter, 0o755);
+		makeStub(stubDir, 'ubus', '#!/bin/sh\nprintf \'{"log":[]}\'\n');
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+			FWLIVE_JSHN_SH: jshnSh,
+			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'adaptive-state.json'),
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+		const started = Date.now();
+		const raw = execFileSync('/bin/dash', [plugin, 'call', 'poll', '{"addresses":["50"]}'], {
+			encoding: 'utf8', env, timeout: (stageTimeout + killGrace + 8) * 1000
+		});
+		const elapsedMs = Date.now() - started;
+		const res = JSON.parse(raw);
+		assert.ok(Array.isArray(res.log), 'filter timeout must preserve the poll log shape');
+		assert.equal(res.error, 'filter_failed');
+		assert.ok(
+			elapsedMs < (stageTimeout + killGrace + 3) * 1000,
+			`filter descendant retaining stdout must stop within POLL_TIMEOUT + kill grace (+3s), took ${elapsedMs}ms`
+		);
+		assertMarkedProcessStopped(pidFile, 'filter timeout');
+	} finally {
+		if (fs.existsSync(pidFile)) {
+			const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+			if (Number.isInteger(pid) && pid > 1) {
+				try { process.kill(pid, 'SIGKILL'); } catch (_) {}
+			}
+		}
 		fs.rmSync(work, { recursive: true, force: true });
 	}
 }
@@ -879,6 +1151,8 @@ function testResolveJshnMissing() {
 		makePassthrough(stubDir, 'dirname', '/usr/bin/dirname');
 		makePassthrough(stubDir, 'date', '/bin/date');
 		makePassthrough(stubDir, 'cat', '/bin/cat');
+		makePassthrough(stubDir, 'timeout', '/usr/bin/timeout');
+		makePassthrough(stubDir, 'sed', '/usr/bin/sed');
 		makeStub(stubDir, 'nslookup', '#!/bin/sh\nexit 0\n');
 		const env = { ...process.env, PATH: stubDir };
 		const raw = runCall(['call', 'resolve', '{"addresses":["192.0.2.1"]}'], {
@@ -889,6 +1163,47 @@ function testResolveJshnMissing() {
 		assert.deepEqual(res.names, {});
 		assertStructuredError(res, 'resolve/jshn_missing');
 		assert.equal(res.error, 'jshn_missing');
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+function testTimeoutMissingIsDistinctAndSkipsCommands() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-761-no-timeout-'));
+	const marker = path.join(stubDir, 'commands-called');
+	try {
+		makePassthrough(stubDir, 'dirname', '/usr/bin/dirname');
+		for (const command of ['ubus', 'nft', 'nslookup', 'timeout']) {
+			makeStub(stubDir, command, `#!/bin/sh\nprintf '%s\\n' ${shellQuote(command)} >> ${shellQuote(marker)}\n`);
+		}
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:/usr/bin:/bin`,
+			FWLIVE_TIMEOUT_BIN: path.join(stubDir, 'timeout-missing')
+		};
+		const poll = JSON.parse(runCall(['call', 'poll', '{"addresses":["50"]}'], {
+			encoding: 'utf8', env
+		}));
+		assert.deepEqual(poll.log, []);
+		assert.equal(poll.error, 'timeout_missing');
+
+		const rules = JSON.parse(runCall(['call', 'rules'], { encoding: 'utf8', env }));
+		assert.equal(rules.backend, 'unknown');
+		assert.deepEqual(rules.rules, {});
+		assert.equal(rules.error, 'timeout_missing');
+
+		const resolve = JSON.parse(runCall(['call', 'resolve', '{"addresses":["192.0.2.1"]}'], {
+			encoding: 'utf8', env
+		}));
+		assert.deepEqual(resolve.names, {});
+		assert.equal(resolve.error, 'timeout_missing');
+		const busyboxPoll = JSON.parse(execFileSync(
+			'busybox', ['sh', '-eu', RPCD, 'call', 'poll', '{"addresses":["50"]}'],
+			{ encoding: 'utf8', env }
+		));
+		assert.equal(busyboxPoll.error, 'timeout_missing',
+			'BusyBox timeout applet must not satisfy the explicit GNU package check');
+		assert.ok(!fs.existsSync(marker), 'missing timeout must skip ubus, nft, and nslookup');
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 	}
@@ -1243,10 +1558,16 @@ testRulesNoIptablesFallback();
 testPollMessagesReceived();
 testPollUbusFailure();
 testPollHungUbusReturnsWithinBudget();
+testRunWithTimeoutKillsTermResistantDescendant();
+testRulesHungNftReturnsWithinBudget();
+testResolveHungNslookupReturnsWithinBudget();
+testResolveLoopBudgetIncludesFinalKillGrace();
+testPollFilterDescendantReturnsWithinBudget();
 testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
 testAdaptiveMissingMessagesReceivedIsUnhealthy();
 testSummaryErrorValueDoesNotFailHealthGate();
+testTimeoutMissingIsDistinctAndSkipsCommands();
 testResolveJshnMissing();
 testPollLinesJshnCauses();
 testResolveSkipsNonStringAddresses();

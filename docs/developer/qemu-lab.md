@@ -68,16 +68,42 @@ manual install. Check the selected executable with `command -v timeout` and
 `readlink -f "$(command -v timeout)"`, then run
 `./scripts/qemu-smoke-fwlive.sh --require-log-pipeline`.
 
-The 2026-09-26 run began with OpenWrt 24.10.8 x86_64 revision
-`r29233-443ec4032a`, fwlive 0.1.44-r1, and no timeout utility. Upgrading to
-0.1.46-r1 installed `coreutils` and `coreutils-timeout` 9.7-r1 automatically.
+The 2026-09-26 run used OpenWrt 24.10.8 x86_64 revision
+`r29233-443ec4032a`. It reproduced the old release with authentic
+`luci-app-fwlive 0.1.46-r1` and no timeout provider, then upgraded to the
+locally built `0.1.47-r1` candidate using ordinary `opkg install`.
+`opkg` installed `coreutils` and `coreutils-timeout` 9.7-r1 automatically.
 `/usr/bin/timeout` resolved to `/usr/libexec/timeout-coreutils`; logging status
 had no warnings, poll succeeded, rules reported `backend: nft`, and the
-required smoke parsed three firewall rows. After temporarily removing the
-timeout symlink on this disposable guest, rpcd returned `log_read_failed`,
-`no_backend`, and `timeout_missing`; browser Playwright showed the incomplete
-installation message instead of “Connection lost”. Restoring the symlink
-cleared the warning.
+required QEMU smoke parsed three firewall rows. The rpcd helper calls GNU
+`timeout -k 1`: each configured per-command budget sends TERM, then GNU timeout
+sends KILL after a one-second grace. Poll has two sequential five-second
+stages, so its command-time bound is about 12 seconds plus scheduling/IPC
+overhead; nft is five seconds plus the grace; resolve stops starting lookups
+after its five-second budget and allows at most one final one-second lookup
+plus its grace. The loop's integer-second clock can add up to one second, so
+the total is about eight seconds plus scheduling/IPC overhead.
+
+After temporarily removing the timeout symlink on this disposable guest,
+`logging_status` warned `timeout_missing`; `poll`, `rules`, and `resolve`
+returned their structured `timeout_missing` errors. Host fault tests assert
+that this short-circuit skips `ubus log.read`, nft, and nslookup. In a browser
+session that began healthy, Playwright showed the incomplete-installation
+message and retained `using fw4` beside “Limited diagnostics — timeout command
+missing”, instead of showing “Connection lost”. Restoring the symlink cleared
+the warning and backend diagnostic in the same session without a reload. The
+`timeout_missing` resolver reply does not mark an address as a PTR failure in
+the view's hostname cache; restoring the provider lets a later lookup retry.
+
+The same candidate passed `./scripts/qemu-playwright-lab-smoke.sh`. Real
+23.05/24.10 IPK and 25.12 APK candidate artifacts also passed package payload
+and lifecycle inspection, but package-manager install/upgrade was not run on
+23.05 or 25.12 guests.
+
+The package version remains `0.1.46` in this implementation PR. The release
+workflow bumps `PKG_VERSION` and `APP_VERSION` together to `0.1.47` after merge;
+that newer package version is required for existing 0.1.46 installations to
+discover the dependency update on every supported package-manager line.
 
 ## Generate test traffic
 

@@ -33,6 +33,18 @@ class HarnessElement extends luciE.Element {
 
 function createHarnessDocument() {
 	const idMap = Object.create(null);
+	const rootNodes = [];
+	function findByClass(node, className) {
+		if (!node) return null;
+		const names = String((node._attrs && node._attrs.class) || node.className || '')
+			.split(/\s+/).filter(Boolean);
+		if (names.includes(className)) return node;
+		for (let i = 0; i < (node.childNodes || []).length; i++) {
+			const match = findByClass(node.childNodes[i], className);
+			if (match) return match;
+		}
+		return null;
+	}
 
 	const document = {
 		hidden: false,
@@ -55,6 +67,15 @@ function createHarnessDocument() {
 		getElementById(id) {
 			return idMap[id] || null;
 		},
+		querySelector(selector) {
+			if (typeof selector === 'string' && selector.charAt(0) === '.') {
+				for (let i = 0; i < rootNodes.length; i++) {
+					const match = findByClass(rootNodes[i], selector.slice(1));
+					if (match) return match;
+				}
+			}
+			return null;
+		},
 		addEventListener(type, fn) {
 			if (type === 'visibilitychange')
 				this._visListeners.push(fn);
@@ -64,7 +85,9 @@ function createHarnessDocument() {
 				this._visListeners[i]();
 		},
 		body: {
+			childNodes: rootNodes,
 			appendChild(node) {
+				rootNodes.push(node);
 				indexElementIds(node, idMap);
 			}
 		}

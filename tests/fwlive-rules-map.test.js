@@ -1193,12 +1193,13 @@ EOF
 }
 
 function testBusyboxPathShadowNslookup() {
-	// Production: resolve_hostname → run_with_timeout nslookup (rpcd/fwlive).
+	// Production: GNU timeout executes nslookup by PATH after its explicit
+	// /usr/bin/timeout path bypasses any BusyBox timeout applet.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-ns-'));
 	try {
 		installNslookupStub(stubDir);
-		const env = stubPathEnv(stubDir);
-		for (const shell of pathHonouringShells('nslookup')) {
+		const env = { ...stubPathEnv(stubDir), FWLIVE_TIMEOUT_BIN: '/usr/bin/timeout' };
+		for (const shell of posixShells()) {
 			resetCalled(stubDir);
 			const out = runRpcd(shell, ['__resolve_one', '192.0.2.1'], { encoding: 'utf8', env }).trim();
 			assert.equal(out, 'ptr.example', `[${shell}] PATH-first nslookup still parses`);
@@ -1214,12 +1215,13 @@ function testBusyboxPathShadowTimeout() {
 	try {
 		makeStub(stubDir, 'timeout', `#!/bin/sh
 echo "marker-timeout" >> "${stubDir}/called"
+if [ "$1" = "-k" ]; then shift 2; fi
 shift
 exec "$@"
 `);
 		installNftUciStubs(stubDir);
-		const env = stubPathEnv(stubDir);
-		for (const shell of pathHonouringShells('timeout')) {
+		const env = { ...stubPathEnv(stubDir), FWLIVE_TIMEOUT_BIN: path.join(stubDir, 'timeout') };
+		for (const shell of posixShells()) {
 			resetCalled(stubDir);
 			assertNftSshRules(shell, runWithShell(shell, env));
 			assert.ok(readCalled(stubDir).includes('marker-timeout'),

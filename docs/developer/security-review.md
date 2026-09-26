@@ -1,15 +1,24 @@
 # Security review state
 
-> **2026-09-26 #761 delta:** `luci-app-fwlive` now declares
+> **2026-09-26 #761 delta:** `luci-app-fwlive` declares
 > `+coreutils-timeout`; package lifecycle tests inspect built IPK control
-> metadata and APK ADB `info.depends`. The helper remains fail-closed when
-> the provider is absent. `timeout_missing` stays a warning and does not gate
-> WAN logging controls; only a failed poll with that warning replaces the
-> generic connection banner with an incomplete-installation repair message.
-> Host view tests and Playwright cover warning suppression, repair text, and
-> recovery. QEMU 24.10.8 verified automatic provider installation and the
-> abnormal missing-binary diagnosis through ubus and a live browser. No ACL,
-> DOM sink, or read/write-scope change.
+> metadata and APK ADB `info.depends`. The rpcd helper stays fail-closed when
+> the provider is absent. Poll/rules/resolve return typed `timeout_missing`
+> errors before invoking their providers, and the resolver fault is not
+> recorded as a negative PTR cache entry. GNU `timeout -k 1` escalates to
+> KILL after TERM; host fault-injection covers TERM-resistant commands,
+> filter descendants retaining stdout, nft, single and looped DNS time bounds.
+> `timeout_missing` remains a non-gating warning; a failed poll plus that
+> warning shows an incomplete-installation repair message. The view keeps the
+> known backend, rules error, and unrelated warnings visible when a status
+> snapshot is stale; typed poll errors identify provider loss immediately,
+> and a successful poll refreshes status and rules to clear stale diagnostics.
+> Healthy installs show no missing-provider warning. Host view tests and live
+> Playwright cover stale-state handling, repair, and in-session recovery.
+> QEMU 24.10.8 verified an opkg upgrade
+> from released 0.1.46 to test candidate 0.1.47, automatic provider
+> installation, and the missing-binary diagnosis through ubus and the live
+> browser. No ACL, DOM sink, or read/write-scope change.
 
 > **2026-09-24 #606 delta:** `wan_filter_log_decimal` rejects digit runs
 > longer than 10 before `$ (( ))`, so a 20-digit UCI `log` value cannot
@@ -286,16 +295,16 @@ should carry a note saying what would raise it.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-08-13 | Sweep + harness | #177: #175/#176 UI delta on recording-`innerHTML` harness; no non-empty innerHTML writes |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-08-13 | Reproduced | #177: hostile log/PTR/UCI/hash through normalize + render + chips |
-| rpcd plugin + ACL scope | 2026-09-21 | Delta + host test + lab | #416: the rules map retains anonymous UCI names and additionally discovers named `config rule` sections through a second `uci show` pass plus filtered per-section name lookup; missing UCI/name is non-fatal. #378 Phase 2 remains nft-only; no `iptables-save` fallback or `__rulesmap_iptables` CLI hook; nft dump/mktemp/no_backend error contract unchanged; read/write split, no `ubus log.*`; installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
-| Shell helpers — injection and quoting | 2026-09-18 | Delta + host test | #365/#366: paired dump command/mapper cases retain quoted temp paths and timeout argv; `check_eq` quotes values and propagates failure explicitly; no new command-input sink |
+| rpcd plugin + ACL scope | 2026-09-26 | Delta + host test + lab | #761: missing timeout returns typed errors before ubus/nft/nslookup; shared helper uses GNU `timeout -k 1`; TERM-resistant/filter descendant and per-method deadline fault tests; `resolve` wall-clock loop bound asserted; ACL method parity/read-write split and no `ubus log.*` unchanged. #416 retains anonymous/named UCI names; #378 remains nft-only. Installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
+| Shell helpers — injection and quoting | 2026-09-26 | Delta + host test | #761: GNU timeout arguments remain positional; one-second TERM-to-KILL grace bounds resistant processes and descendants; no new command-input sink. #365/#366 retain quoted temp paths and `check_eq` behavior |
 | Shell helpers — **file modes and lock ownership** | 2026-08-31 | Reproduced | #204 symlink reject + #232 BusyBox-safe dir check (`[ -O ]` + `find -perm`, no `stat -c`); Parts E/F in `fwlive-logging-lock.test.sh`; lock 0600 (Part D) |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-09-20 | Host + lab | `/etc/fwlive/wan-log-baseline`; generated opkg `remove` and APK version-valued uninstall restore, while `upgrade`/empty/unknown/`PKG_UPGRADE=1`/`1a2` and non-root staging roots skip; host matrix executes packaged `prerm-pkg` and the opkg `default_prerm` hop; uninstall restoration in [#389 evidence](../evidence/issue-389-2026-09-20.md) |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-09-03 | Host test + Fable | #177 pending-delta; #241 cfg↔@zone; **B-1** canonical `uci -X` identity (duplicate wan no longer under-matches); `tests/fwlive-logging.test.sh` |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
 | Release pipeline — fetch pinning | 2026-08-18 | Read + host test | #177 fetch-pin gate; R7 digest pin-cache (`tests/sdk-matrix-digests.test.sh`); 2026-08-18 wrapper-export + exact-cache-key; #411 23.05 `base` peeled pin + `feeds_lock_assert_heads` |
 | Workflow inputs into `run:` bodies | 2026-08-23 | Read | Clean — inputs pass through `env:`; actions SHA-pinned including `FEED_DEPLOY_KEY`; 2026-08-18: dispatch tag validated (control chars, shape, real-tag + HEAD identity) before repo scripts |
-| LuCI view (templates / shipped JS) | 2026-09-03 | Delta + Fable | `#fwlive-backend` via `textContent` only; `timeout_missing` warnings; Wave B Playwright = UX contract — XSS SoT remains recording-`innerHTML` harness (NON-FINDING) |
-| Package/install surface (Makefiles, prerm, feed layout) | 2026-08-23 | Read | No ACL or path regressions |
+| LuCI view (templates / shipped JS) | 2026-09-26 | Delta + host + Playwright | `#fwlive-backend` via `textContent`; stale `timeout_missing` preserves backend/rules/legacy diagnostics; typed poll error shows repair text, successful poll refreshes rules/status; Wave B Playwright = UX contract — XSS SoT remains recording-`innerHTML` harness (NON-FINDING) |
+| Package/install surface (Makefiles, prerm, feed layout) | 2026-09-26 | Delta + built artifacts + lab | #761: unconditional `+coreutils-timeout`; actual 23.05/24.10 IPK and 25.12 APK metadata checked; 24.10.8 opkg upgrade from 0.1.46 to test candidate 0.1.47 auto-installed provider. Existing lifecycle hooks unchanged |
 | #370 package payload | 2026-09-23 | Delta + host test | Required `test-ipk-payload` check always reports. Full 23.05 IPK / 24.10 IPK / 25.12 APK SDK build+inspect with `FWLIVE_REQUIRE_PACKAGE=1` runs on packaging-path diffs (and fail-closed detection); host `test` still runs the source-shaped payload/lifecycle inspectors every PR (#557). Inspectors check JS modules, ACL/menu files, libexec layout, executable modes, and packaged lifecycle contracts. IPK `prerm-pkg` cases are executed; APK data-only extraction does not execute the APK hook. |
 | #370 installed matrix | 2026-09-21 | Delta + host + lab | #418: `validate_matrix_install_ipk` invokes `qemu-install-fwlive.sh --artifact-only`; the installer removes known source-synced files and force-reinstalls the selected package artifact before the matrix smoke, so this path is intended to exercise installed package files rather than a source-tree overlay. No new live matrix result is claimed in this delta. R8 lifecycle: 24.10.8 armsr IPK uninstall restoration (plus root-SSH `ubus` observations, not session proof), 24.10.8 x86 IPK uninstall, and 25.12.5 APK uninstall in [#389 evidence](../evidence/issue-389-2026-09-20.md); x86/APK same-version reinstall is no-op preservation (#406), not hook proof. R8 is not session-complete: session identity is R4b on 24.10 x86 ([#392 evidence](../evidence/issue-392-2026-09-20.md)); repeating ACL smoke on armsr/apk is not required because the shipped ACL/rpcd object is architecture-independent. R9b is APK control inspection with no retained payload dump. |
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-09-20 | Read + host test | #411: every `src-git` lock line is a 40-hex commit (`tests/feeds-lock-pins.test.sh`); 23.05 `base` is peeled `v23.05.5`; cache reuse checks HEAD and a clean work tree (including untracked files) |
@@ -324,7 +333,7 @@ should carry a note saying what would raise it.
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
 | WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
 | Reload failure rolls back the UCI write; restore returns non-zero if `uci set`/`uci delete` never staged | `host` | `tests/fwlive-logging.test.sh` |
-| `resolve` bounded by a wall-clock budget | `manual` | `RESOLVE_BUDGET`; no test asserts the bound |
+| `resolve` stops starting lookups at its wall-clock budget and allows only the in-flight lookup plus TERM/KILL grace | `host` | `tests/fwlive-rpcd-security.test.js` `testResolveLoopBudgetIncludesFinalKillGrace`; host uses GNU timeout and matched 24.10 jshn/BusyBox shell |
 | `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` (clamp helper tested without jshn) |
 | Rules map temp file created only via `mktemp` (`_fwlive_mktemp`, fixed `/tmp` after a sticky-dir check, `TMPDIR` NOT honoured, no `rm`+reuse) with graceful degradation; accumulation via redirect keeps global first-wins dedup | `host` | `tests/fwlive-rules-map.test.js` production-path stubs under `dash` (and `busybox sh` when BusyBox honours PATH); `testNoMktempGracefulDegradation`; `testTmpDirSticky` |
 | Rules map has no predictable-path write (no `$$` fallback); `>` follows a symlink if one is there, so safety is the unpredictable mktemp name plus a verified sticky `/tmp` | `host` | `tests/fwlive-rules-map.test.js` `testNoMktempGracefulDegradation` (mktemp shadowed, asserts no `/tmp/fwlive-{nft,ipt,ip6t}*` created; would catch `printf '/tmp/...-$$'` primitive); `testTmpDirSticky` |
@@ -377,7 +386,7 @@ should carry a note saying what would raise it.
 | `logging_status.weak_device` is a read-only procfs-derived boolean (`MemTotal < 256 MiB` or one processor); unavailable/malformed procfs fails closed to `false` | `host` | `tests/fwlive-logging.test.sh` fixture threshold cases + `tests/fwlive-rpcd-security.test.js` shape/type assertion |
 | `enable/disable_wan_logging` with no WAN zone return `error:no_wan_zone` before touching the lock | `host` | same file `testToggleNoWanZone` (asserts lock file untouched) |
 | Unknown rpcd method returns `error` with a non-zero exit | `host` | same file `testUnknownMethod` |
-| `timeout` absent surfaces non-gating `timeout_missing`; a failed poll reports an incomplete installation rather than a connection failure; normal package metadata installs the provider | `host + package + qemu` | `tests/fwlive-view-poll-error.test.js` + mocked Playwright transition; `tests/fwlive-package-lifecycle.test.sh` inspects IPK Depends and APK ADB `info.depends`; 24.10.8 install and forced-missing-provider ubus/browser lab; helper remains fail-closed and WAN logging remains non-gated |
+| Missing `timeout` stays non-gating for WAN logging, while poll/rules/resolve identify the incomplete runtime and skip provider commands | `host + package + qemu` | `tests/fwlive-logging.test.sh`, `tests/fwlive-rpcd-security.test.js` `testTimeoutMissingIsDistinctAndSkipsCommands`, view poll-error tests; package metadata tests; 24.10.8 provider removal/restore lab. Resolve error does not populate hostname negative cache |
 | Rules-map degradation (`rules_truncated`/`mktemp_failed`/`rules_unavailable`) surfaces in `#fwlive-backend` span, not the live counter / paused class | `host` | `view/status/fwlive.js` `updateBackendUi` (backend label + ` · ` + error via `_()`), `updateStatus` always reaches counter branch; `lastPollError` precedence unchanged |
 
 | Filter temp directory | host | Real, non-symlink, sticky dump directory is required before root writes; tests exercise non-sticky fixtures under dash and BusyBox ash, while production passes /tmp |
@@ -419,7 +428,7 @@ path: `tests/validate-feed-keys-mode.test.sh` (gap 4 prefix; wired into
 
 | Property | Status | What would prove it |
 |----------|--------|---------------------|
-| `resolve` really returns within its budget on a loaded router | lab smoke 2026-09-04 (responsiveness only; not blackhole-DNS budget proof) | Flood returned in 1s under `RESOLVE_SLACK_SEC=8` |
+| `resolve` budget under loaded-router scheduling / blackhole DNS | host fault injection proves `budget + one in-flight lookup + TERM/KILL grace + integer-second clock slack`; lab smoke 2026-09-04 proves responsiveness only, not loaded-router scheduling | Run blackhole-DNS timing under a loaded QEMU/router if that latency envelope needs stronger evidence |
 | The rpcd script timeout actually bounds a blocked `flock` waiter | lab smoke 2026-09-04; BusyBox has no `flock -w` (**accepted residual** — client timed out, residual holds) | Host-side timeout fired; does not promote residual to cleared |
 | Pre-stage `firewall_changes_pending` refuse on a live device | lab smoke 2026-09-04 (**accepted residual** for package-commit publish of foreign staging — see above) | Foreign staging refused; foreign delta neither committed nor dropped |
 | Signing keys stay 0600 through validate rewrite path | `host` (validate-prefix) | `tests/validate-feed-keys-mode.test.sh` — write + shared `feed_keys_validate_*_rewrite_prefix` (decode/normalize/chmod; base64 branch). **Full usign docker sign + real publish** still prove-next on next `v*` tag |

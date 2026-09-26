@@ -115,6 +115,23 @@ class Element extends Node {
 	constructor(tagName) {
 		super(1);
 		this.tagName = tagName;
+		this.className = '';
+		this.style = { display: '' };
+		this.classList = {
+			contains: (name) => this.classNames().includes(name),
+			toggle: (name, force) => {
+				const names = this.classNames().filter((item) => item !== name);
+				const enabled = force === undefined ? !this.classNames().includes(name) : !!force;
+				if (enabled) names.push(name);
+				this.className = names.join(' ');
+				this._attrs.class = this.className;
+				return enabled;
+			}
+		};
+	}
+
+	classNames() {
+		return String(this._attrs.class || this.className || '').split(/\s+/).filter(Boolean);
 	}
 }
 

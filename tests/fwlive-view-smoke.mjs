@@ -323,14 +323,35 @@ async function testAdaptiveSummaryAndWarnings(page) {
 		await page.evaluate(() => {
 			const view = window.fwliveView;
 			view.lastPollError = true;
+			view.lastPollErrorCode = 'timeout_missing';
+			view.updateBackendUi();
 			view.updateStatus();
 		});
 		const installError = await page.locator('#fwlive-status').textContent();
 		if (!/is incomplete/i.test(installError || '') || /connection lost/i.test(installError || ''))
 			throw new Error(`missing timeout must explain the incomplete installation: ${installError}`);
+		const timeoutDiagnostic = await page.locator('#fwlive-backend').textContent();
+		if (!/timeout command missing/i.test(timeoutDiagnostic || '') || !/using fw4/i.test(timeoutDiagnostic || ''))
+			throw new Error(`missing timeout must preserve backend context with its repair diagnosis: ${timeoutDiagnostic}`);
 
 		await page.evaluate(() => {
 			const view = window.fwliveView;
+			view.lastPollError = false;
+			view.lastPollErrorCode = null;
+			view.updateBackendUi();
+			view.updateStatus();
+		});
+		const recoveredBackend = await page.locator('#fwlive-backend').textContent();
+		const recoveredStatus = await page.locator('#fwlive-status').textContent();
+		if (!/using fw4/i.test(recoveredBackend || '') || /timeout command missing/i.test(recoveredBackend || ''))
+			throw new Error(`provider recovery must restore the backend label: ${recoveredBackend}`);
+		if (/is incomplete/i.test(recoveredStatus || ''))
+			throw new Error(`provider recovery must clear the installation error: ${recoveredStatus}`);
+
+		await page.evaluate(() => {
+			const view = window.fwliveView;
+			view.lastPollError = true;
+			view.lastPollErrorCode = 'filter_failed';
 			view.loggingStatus.warnings = ['legacy_iptables_detected'];
 			view.updateStatus();
 		});
@@ -392,7 +413,7 @@ async function testResolverError(page) {
 			view.hostnameFailed.clear();
 			view.resolveLoadShed = false;
 			view.resolveShedUntil = 0;
-			let reply = { names: {}, error: 'no_resolver' };
+			let reply = { names: {}, error: 'timeout_missing' };
 			window.__fwlivePrevResolveMock = window.setFwliveResolveMock(function() {
 				return reply;
 			});
@@ -400,7 +421,7 @@ async function testResolverError(page) {
 				{ src: '2001:db8::1', dst: '2001:db8::2' }
 			]);
 			if (view.hostnameFailed.size !== 0)
-				throw new Error('structured resolver error mutated hostname failure state');
+				throw new Error('timeout_missing must not enter the negative hostname cache');
 			reply = 5;
 			await view.resolveHostnamesForEntries([
 				{ src: '2001:db8::1', dst: '2001:db8::2' }
