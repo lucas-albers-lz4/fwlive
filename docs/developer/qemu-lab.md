@@ -476,13 +476,31 @@ trusted event for each transition and reports those events. The external
 browser is intentionally separate from the headless default so the test does
 not confuse Playwright focus emulation with actual background-tab behavior.
 
-The repeatable browser gate uses the real LuCI page with only `fwlive.poll`
-replaced by the checked-in 2,000-entry fixture:
+The repeatable Layer 2 browser harness uses the real LuCI page with only
+`fwlive.poll` replaced by the checked-in 2,000-entry fixture. Routine GitHub
+Actions CI does not run this resource-heavy Playwright soak; use it manually in
+the QEMU lab. By default the harness is **report-only**: it writes JSON metrics
+and does not fail on performance thresholds.
 
 ```sh
 FWLIVE_URL=http://127.0.0.1:8080 \
 FWLIVE_CPU_THROTTLE=4 \
 FWLIVE_SOAK_MS=1800000 \
+./scripts/qemu-layer2-performance.sh
+```
+
+For **#306 sign-off**, run the same 30-minute workload with threshold
+enforcement enabled. Headless runs must opt into document-emulation visibility;
+set `FWLIVE_ALLOW_EMULATION=1` only for that intentional development check.
+Native visibility sign-off uses the real-visibility block above with
+`FWLIVE_ENFORCE=1` (no `FWLIVE_ALLOW_EMULATION`).
+
+```sh
+FWLIVE_URL=http://127.0.0.1:8080 \
+FWLIVE_CPU_THROTTLE=4 \
+FWLIVE_SOAK_MS=1800000 \
+FWLIVE_ENFORCE=1 \
+FWLIVE_ALLOW_EMULATION=1 \
 ./scripts/qemu-layer2-performance.sh
 ```
 
@@ -492,9 +510,7 @@ for 60 seconds by default, rejects hidden polls, and records the visible-to-next
 poll latency against the 1-second recovery budget. Override that interval with
 `FWLIVE_VISIBILITY_HIDDEN_MS` only for harness development; values below 1,000
 ms are rejected. A short `FWLIVE_SOAK_MS` is also for harness development only;
-#306 sign-off requires the 30-minute run. With `FWLIVE_ENFORCE=1`, native
-visibility is required; set `FWLIVE_ALLOW_EMULATION=1` only for an intentional
-development-only headless check.
+#306 sign-off requires the 30-minute run.
 
 For the fetch-budget qualification on #339, set the display limit and explicitly
 select either Auto or Manual. The harness puts these values in the URL before the
