@@ -109,9 +109,9 @@ is_uci_style_name() {
 	# [A-Za-z0-9_-]. That is the map-key set this helper admits
 	# (names parseRuleHint can look up). nft comments can print
 	# anything; skip names outside this set so they do not become
-	# dead map keys. parseRuleHint also allows '.' (#621 parked) —
-	# not accepted here. The charset glob is *[!class]* (whole
-	# string); [!class]* only tested the first character (#615).
+	# dead map keys. parseRuleHint also allows '.' — not accepted
+	# here. The charset glob is *[!class]* (whole string);
+	# [!class]* only tested the first character.
 	case "$1" in
 		''|*' '*|*'"'*|*"'"*) return 1 ;;
 		*[!A-Za-z0-9_-]*) return 1 ;;
@@ -800,7 +800,7 @@ run_selftest() {
 	expected=$(printf 'a\\n\\nb')
 	check_eq 'json_escape blank line' "$escaped" "$expected" "expected $expected got $escaped" || return 1
 
-	# #615: charset applies to every character, not only the first.
+	# Charset applies to every character, not only the first.
 	if ! is_uci_style_name 'Rule'; then
 		echo 'is_uci_style_name: expected accept Rule' >&2
 		return 1
