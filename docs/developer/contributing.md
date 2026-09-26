@@ -28,6 +28,8 @@ npm run lint:format                # shipped JS tabs (Prettier useTabs)
 
 ## Change workflow
 
+Use a **Linux x86_64** host for build and test commands — see [Environment](environment.md).
+
 1. Edit code (`core/` and/or LuCI package)
 2. Run `./scripts/fwlive-test.sh`
 3. Run `./scripts/validate-baseline.sh`

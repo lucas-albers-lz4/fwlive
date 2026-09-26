@@ -1,15 +1,23 @@
 # Development environment
 
-Canonical setup: **Linux x86_64** build host, cross-compile for OpenWrt, test in **QEMU** (x86 KVM fast path or armsr production path).
+Canonical setup: **Linux x86_64** is the only supported development, build, and test host — cross-compile for OpenWrt, validate in **QEMU** (x86 KVM fast path or armsr production path).
+
+## Supported development host
+
+**Linux x86_64** (Debian, Ubuntu, Mint, or equivalent) is required to run repository host automation: `./scripts/fwlive-test.sh`, SDK drivers, QEMU lab scripts, and CI-shaped validation.
+
+Host tests assume **GNU** userland and **Bash ≥ 4** — for example `stat -c`, `xargs -0 -r`, and `mapfile`. The package list below satisfies these on Debian-derived distros.
+
+**macOS is not supported** as a development host. You may use macOS to edit files or read documentation, but do not expect `./scripts/fwlive-test.sh`, Docker SDK helpers, or QEMU lab scripts to work there.
 
 ## Roles
 
 | Role | Architecture | Notes |
 |------|--------------|-------|
-| **Build host** | Linux **x86_64** only | Official SDKs are `Linux-x86_64` tarballs |
+| **Build / test host** | Linux **x86_64** only | Official SDKs are `Linux-x86_64` tarballs; host scripts target GNU/Linux |
 | **Package output** | `aarch64_generic`, `x86_64` | Under `out/<arch>/<version-label>/fwlive/` (`sdk_matrix_version_label`, e.g. `24.10.8` or `snapshot`) |
 | **Lab guests** | x86_64 KVM, armsr/armv8 TCG | x86 for daily UI work; armsr for production sign-off |
-| **macOS** | Editor + `fwlive-test.sh` only | No SDK/QEMU in this repo’s supported path |
+| **macOS** | — | Editing / docs only — **unsupported** for build, test, or QEMU lab |
 
 ## Host packages (Debian / Ubuntu / Mint)
 
