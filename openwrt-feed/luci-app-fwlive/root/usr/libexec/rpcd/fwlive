@@ -228,31 +228,38 @@ nft_dump_fields() {
 		comment = quoted_at($0, "comment \"")
 		if (prefix == "" && comment == "")
 			next
+		gsub(/\\/, "\\\\", prefix)
 		gsub(/\t/, "\\t", prefix)
+		gsub(/\\/, "\\\\", comment)
 		gsub(/\t/, "\\t", comment)
 		print prefix "\t" comment
 	}
 	' || return 1
 }
 
-# Restore nft_dump_fields TSV encoding: the two-character sequence \t
-# becomes a raw tab. Other backslash escapes are left unchanged.
-# Callers set _tab and _esc_t. Result is _tsv_out (current shell, no fork).
+# Restore nft_dump_fields TSV encoding. Walk left to right: \\ is a
+# literal backslash, \t is a tab. Other backslash pairs stay as written.
+# Callers set _tab, _esc_t, and _esc_b. Result is _tsv_out (no fork).
 _nft_tsv_unescape() {
 	_in="$1"
 	_out=
-	while :; do
+	while [ -n "$_in" ]; do
 		case "$_in" in
-			*"$_esc_t"*)
-				_out="${_out}${_in%%"${_esc_t}"*}${_tab}"
-				_in="${_in#*"${_esc_t}"}"
+			"$_esc_b"*)
+				_out="${_out}\\"
+				_in="${_in#??}"
+				;;
+			"$_esc_t"*)
+				_out="${_out}${_tab}"
+				_in="${_in#??}"
 				;;
 			*)
-				break
+				_out="${_out}${_in%"${_in#?}"}"
+				_in="${_in#?}"
 				;;
 		esac
 	done
-	_tsv_out="${_out}${_in}"
+	_tsv_out="$_out"
 }
 
 # pass=labeled|unlabeled|all — labeled before unlabeled so !fw4: beats
@@ -262,6 +269,7 @@ map_from_nft_stream() {
 	pass="${1:-all}"
 	_tab=$(printf '\t')
 	_esc_t=$(printf '\\t')
+	_esc_b=$(printf '\\\\')
 	# IFS= keeps a leading tab (empty prefix + comment-only !fw4: line).
 	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$_map_overflow" ] && break
@@ -937,10 +945,16 @@ run_selftest() {
 	# at the escaped quote (nft dumps strings with backslash escapes).
 	_tab=$(printf '\t')
 	_esc_t=$(printf '\\t')
+	_esc_b=$(printf '\\\\')
 	got=$(printf '%s\n' 'log prefix "My \" Rule"' | nft_dump_fields)
 	got="${got%%${_tab}*}"
-	if [ "$got" != 'My \" Rule' ]; then
-		echo "escaped-quote prefix capture: expected 'My \\\" Rule' got '$got'" >&2
+	if [ "$got" != 'My \\" Rule' ]; then
+		echo "escaped-quote prefix capture: expected encoded 'My \\\\\" Rule' got '$got'" >&2
+		return 1
+	fi
+	_nft_tsv_unescape "$got"
+	if [ "$_tsv_out" != 'My \" Rule' ]; then
+		echo "escaped-quote prefix unescape: expected 'My \\\" Rule' got '$_tsv_out'" >&2
 		return 1
 	fi
 	# Plain prefix still captures unchanged.
@@ -979,6 +993,18 @@ run_selftest() {
 	_nft_tsv_unescape "$got_prefix"
 	if [ "$_tsv_out" != "fwlive${_tab}tabbed" ]; then
 		echo "tabbed prefix unescape: expected fwlive<TAB>tabbed" >&2
+		return 1
+	fi
+	# Literal backslash-t must round-trip and not become a tab.
+	got=$(printf '%s\n' "log prefix \"fwlive${_esc_t}lit\"" | nft_dump_fields)
+	got_prefix="${got%%${_tab}*}"
+	if [ "$got_prefix" != "fwlive${_esc_b}tlit" ]; then
+		echo "literal \\\\t TSV: expected fwlive\\\\\\\\tlit got '$got_prefix'" >&2
+		return 1
+	fi
+	_nft_tsv_unescape "$got_prefix"
+	if [ "$_tsv_out" != "fwlive${_esc_t}lit" ]; then
+		echo "literal \\\\t unescape: expected fwlive\\\\tlit got '$_tsv_out'" >&2
 		return 1
 	fi
 	# Tabbed prefix plus !fw4: label: map key is the full prefix.
