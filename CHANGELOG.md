@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Declare `coreutils-timeout` as a runtime dependency so stock OpenWrt installs retain bounded rpcd operations; report an incomplete installation when the provider is unexpectedly absent (#761)
+- Keep poll JSON valid when a killed classifier leaves a truncated filter body (#768)
+- Keep unlabeled log-prefix hints whose names look like `echo` flags (`-n`, `-E`) (#771)
+- Bound `fwlive.resolve` with `/proc/uptime` so a backward NTP step cannot stretch the lookup loop (#827)
 
 ## [v0.1.46] — 2026-09-26
 

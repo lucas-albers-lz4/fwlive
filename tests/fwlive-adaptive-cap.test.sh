@@ -256,6 +256,22 @@ esac
 [ "$(printf '%s' "$got" | awk -F 'messages_received' '{print NF - 1}')" = 1 ] || \
 	die "merge must not duplicate messages_received: $got"
 ok "merge preserves filter count"
+# Truncated bodies that still end in `}` must not be spliced into invalid JSON.
+got=$(fwlive_adaptive_merge_reply '{"log":[{"msg":"a"}' 0 50 0 0 0)
+[ "$got" = '{"log":[{"msg":"a"}' ] || die "truncated object must pass through unspliced: $got"
+got=$(fwlive_adaptive_merge_reply '{"log":[{"msg":"a"},{"msg":"b"}' 0 50 0 0 0)
+[ "$got" = '{"log":[{"msg":"a"},{"msg":"b"}' ] || die "truncated array must pass through unspliced: $got"
+got=$(fwlive_adaptive_merge_reply '{"log":[{"msg":"]"}' 0 50 0 0 0)
+[ "$got" = '{"log":[{"msg":"]"}' ] || die "truncated body with ] in a string must pass through: $got"
+got=$(fwlive_adaptive_merge_reply '{"log":[' 0 50 0 0 0)
+[ "$got" = '{"log":[' ] || die "unclosed array must pass through: $got"
+got=$(fwlive_adaptive_merge_reply '{"log":[],"error":"filter_failed"}' 0 50 0 0 0)
+case "$got" in
+	*'{"log":[],"error":"filter_failed"'*) ;;
+	*) die "complete error object must still merge: $got" ;;
+esac
+printf '%s' "$got" | python3 -c 'import json,sys; json.load(sys.stdin)' || \
+	die "merged error object must be valid JSON: $got"
 ok "merge_reply"
 
 # Lock file mode 0600 on create (Grok #329 P2 / logging.lock #167).
