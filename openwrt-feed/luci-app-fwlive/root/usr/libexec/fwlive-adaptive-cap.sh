@@ -483,17 +483,10 @@ fwlive_adaptive_merge_reply() {
 	fwlive_adaptive_enabled || _adapt=0
 	case "$_body" in
 		'{}') _sep= ;;
-		*\})
-			# A truncated filter body can still end in `}` (inner object).
-			# Do not splice adaptive keys into an unclosed array.
+		'{"log":[]'*|*'],"messages_received":'*)
 			case "$_body" in
-				*'['*)
-					case "$_body" in
-						*']'*) _sep=, ;;
-						*) printf '%s' "$_body"; return 0 ;;
-					esac
-					;;
-				*) _sep=, ;;
+				*\}) _sep=, ;;
+				*) printf '%s' "$_body"; return 0 ;;
 			esac
 			;;
 		*) printf '%s' "$_body"; return 0 ;;
