@@ -10,15 +10,18 @@
     },
     {
       "time": 1717675742,
-      "msg": "fw4: DROP IN=br-lan OUT=eth0 SRC=192.168.1.150 DST=8.8.8.8 PROTO=TCP SPT=49210 DPT=443"
+      "msg": "fw4: DROP IN=br-lan OUT=eth0 SRC=192.168.1.150 DST=8.8.8.8 PROTO=TCP SPT=49210 DPT=443",
+      "id": 1002
     },
     {
       "time": 1717675743,
-      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 SYN"
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 SYN",
+      "id": 1003
     },
     {
       "time": 1717675744,
-      "msg": "fwlive-test: ACCEPT IN=br-lan SRC=192.168.1.10 DST=192.168.1.1 PROTO=UDP SPT=5353 DPT=5353"
+      "msg": "fwlive-test: ACCEPT IN=br-lan SRC=192.168.1.10 DST=192.168.1.1 PROTO=UDP SPT=5353 DPT=5353",
+      "id": 1004
     },
     {
       "time": 1717675745,
@@ -26,7 +29,8 @@
     },
     {
       "time": 1717675746,
-      "msg": "nft: drop IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22"
+      "msg": "nft: drop IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22",
+      "id": 1006
     },
     {
       "time": 1717675747,

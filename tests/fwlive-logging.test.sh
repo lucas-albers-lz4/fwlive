@@ -47,16 +47,6 @@ case "$out" in
 esac
 ok "build_logging_status_json shape"
 
-for FWLIVE_TEST_LOG_VALUE in 08 010 0; do
-	out=$(build_logging_status_json)
-	case "$out" in
-		*'"wan_log":false'*) ;;
-		*) die "leading-zero log value $FWLIVE_TEST_LOG_VALUE must keep status JSON valid: $out" ;;
-	esac
-done
-unset FWLIVE_TEST_LOG_VALUE
-ok "leading-zero log values keep logging_status JSON valid"
-
 # #378: legacy iptables detection is diagnostic-only and reads both procfs
 # table-name files from fixtureable paths. LuCI surfaces the warning in the
 # backend label; it must not alter readiness or the enable gate. Empty fixture
@@ -247,6 +237,28 @@ uci() {
 		*) return 1 ;;
 	esac
 }
+
+# #832 / #455 / #606: drive leading-zero UCI values through wan_zone_log_value
+# after the stub exists (the loop above the stub was a no-op).
+for FWLIVE_TEST_LOG_VALUE in 08 010 0 011; do
+	out=$(build_logging_status_json)
+	case "$FWLIVE_TEST_LOG_VALUE" in
+		011)
+			case "$out" in
+				*'"wan_log":true'*) ;;
+				*) die "leading-zero log value $FWLIVE_TEST_LOG_VALUE must set wan_log true: $out" ;;
+			esac
+			;;
+		*)
+			case "$out" in
+				*'"wan_log":false'*) ;;
+				*) die "leading-zero log value $FWLIVE_TEST_LOG_VALUE must set wan_log false: $out" ;;
+			esac
+			;;
+	esac
+done
+unset FWLIVE_TEST_LOG_VALUE
+ok "leading-zero log values keep logging_status JSON valid (#832)"
 
 assert_enable_ok() {
 	_why="$1"

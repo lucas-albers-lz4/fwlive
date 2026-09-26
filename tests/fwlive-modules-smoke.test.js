@@ -48,17 +48,38 @@ const viewSrc = fs.readFileSync(
 	path.join(PKG, 'htdocs/luci-static/resources/view/status/fwlive.js'),
 	'utf8'
 );
+function extractMethodBody(src, name) {
+	const needle = name + '() {';
+	const start = src.indexOf(needle);
+	assert.ok(start !== -1, 'missing ' + name + '() {');
+	const open = src.indexOf('{', start);
+	let depth = 0;
+	for (let i = open; i < src.length; i++) {
+		const ch = src[i];
+		if (ch === '{')
+			depth++;
+		else if (ch === '}') {
+			depth--;
+			if (depth === 0)
+				return src.slice(open, i + 1);
+		}
+	}
+	assert.fail('unterminated ' + name);
+}
+const autoFetchBody = extractMethodBody(viewSrc, 'autoFetchLines');
 assert.ok(
-	/autoFetchLines\(\)[\s\S]*?Math\.min\(Math\.max\(this\.rowLimit \* 4, 100\), constants\.FETCH_LINES_MAX\)/.test(
-		viewSrc
-	),
-	'Auto poll must scale raw fetch with rowLimit and use FETCH_LINES_MAX as its paused compatibility budget'
+	autoFetchBody.indexOf('Math.min(Math.max(this.rowLimit * 4, 100), constants.FETCH_LINES_MAX)') !== -1,
+	'autoFetchLines must scale raw fetch with rowLimit and cap at FETCH_LINES_MAX'
+);
+const requestedFetchBody = extractMethodBody(viewSrc, 'requestedFetchLines');
+assert.ok(
+	requestedFetchBody.indexOf('this.tablePaused') !== -1 &&
+		requestedFetchBody.indexOf('constants.FETCH_LINES_MAX') !== -1,
+	'requestedFetchLines must use tablePaused + FETCH_LINES_MAX inside its own body'
 );
 assert.ok(
-	/requestedFetchLines\(\)[\s\S]*?this\.tablePaused[\s\S]*?constants\.FETCH_LINES_MAX/.test(
-		viewSrc
-	),
-	'poll must route fetch sizing through the budget decision helper'
+	requestedFetchBody.indexOf('this.autoFetchLines()') !== -1,
+	'requestedFetchLines must call autoFetchLines when live'
 );
 assert.match(viewSrc, /\btablePaused\b/, 'view state must name the table rendering pause');
 assert.doesNotMatch(
