@@ -28,6 +28,7 @@ const SH = process.env.SH || 'sh';
 const FIXTURES = [ 'logread-mixed.json', 'logread-iptables.json', 'logread-tcp-flags.json' ];
 
 const ROW_FIELDS = [
+	'id', 'log_id',
 	'action', 'action_raw', 'proto', 'src', 'dst', 'sport', 'dport',
 	'interface_in', 'interface_out', 'rule_hint', 'flags', 'length', 'timestamp'
 ];
@@ -48,6 +49,7 @@ const GOLDEN = [
 		action: 'drop', action_raw: 'DROP', proto: 'TCP',
 		src: '192.168.1.150', dst: '8.8.8.8', sport: '49210', dport: '443',
 		interface_in: 'br-lan', interface_out: 'eth0', rule_hint: 'fw4',
+		id: 'log:1002', log_id: 1002,
 		flags: '', length: null, timestamp: 1717675742
 	},
 	{
@@ -56,6 +58,7 @@ const GOLDEN = [
 		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
 		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:1003', log_id: 1003,
 		flags: 'SYN', length: 60, timestamp: 1717675743
 	},
 	{
@@ -64,6 +67,7 @@ const GOLDEN = [
 		action: 'pass', action_raw: 'ACCEPT', proto: 'UDP',
 		src: '192.168.1.10', dst: '192.168.1.1', sport: '5353', dport: '5353',
 		interface_in: 'br-lan', interface_out: '', rule_hint: 'fwlive-test',
+		id: 'log:1004', log_id: 1004,
 		flags: '', length: null, timestamp: 1717675744
 	},
 	{
@@ -76,6 +80,7 @@ const GOLDEN = [
 		action: 'drop', action_raw: 'DROP', proto: 'TCP',
 		src: '203.0.113.5', dst: '192.168.1.1', sport: '', dport: '22',
 		interface_in: 'wan', interface_out: '', rule_hint: 'nft',
+		id: 'log:1006', log_id: 1006,
 		flags: '', length: null, timestamp: 1717675746
 	},
 	{
@@ -84,6 +89,8 @@ const GOLDEN = [
 		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
 		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: '1717675747|unknown|10.0.0.2|1.1.1.1|49999|443|TCP|eth0||kernel: IN=eth0 OUT= MAC=... SRC=10.0.0.2 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=49999 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0',
+		log_id: null,
 		flags: 'SYN', length: 60, timestamp: 1717675747
 	},
 	{
@@ -92,6 +99,7 @@ const GOLDEN = [
 		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
 		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:2000', log_id: 2000,
 		flags: 'ECE', length: 60, timestamp: 1717675748
 	},
 	{
@@ -100,6 +108,7 @@ const GOLDEN = [
 		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
 		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:2001', log_id: 2001,
 		flags: 'CWR', length: 60, timestamp: 1717675749
 	},
 	{
@@ -108,6 +117,7 @@ const GOLDEN = [
 		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
 		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:2002', log_id: 2002,
 		flags: 'SYN,ACK,ECE,CWR', length: 60, timestamp: 1717675750
 	},
 	{
@@ -116,6 +126,7 @@ const GOLDEN = [
 		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '10.0.0.2', dst: '1.1.1.1', sport: '49999', dport: '443',
 		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:2003', log_id: 2003,
 		flags: 'SYN,ACK', length: 60, timestamp: 1717675751
 	},
 	{
@@ -124,6 +135,7 @@ const GOLDEN = [
 		action: 'pass', action_raw: 'PASS', proto: 'ICMP',
 		src: '192.168.1.10', dst: '192.168.1.1', sport: '', dport: '',
 		interface_in: 'br-lan', interface_out: '', rule_hint: 'fwlive-ping',
+		id: 'log:3000', log_id: 3000,
 		flags: '', length: 84, timestamp: 1717675800
 	},
 	{
@@ -132,6 +144,7 @@ const GOLDEN = [
 		action: 'drop', action_raw: 'DROP', proto: 'TCP',
 		src: '203.0.113.5', dst: '192.168.1.1', sport: '54321', dport: '22',
 		interface_in: 'wan', interface_out: '', rule_hint: '',
+		id: 'log:3001', log_id: 3001,
 		flags: '', length: null, timestamp: 1717675801
 	},
 	{
@@ -140,6 +153,7 @@ const GOLDEN = [
 		action: 'pass', action_raw: 'ACCEPT', proto: 'UDP',
 		src: '10.0.0.5', dst: '8.8.8.8', sport: '5353', dport: '5353',
 		interface_in: 'lan', interface_out: '', rule_hint: 'custom-chain',
+		id: 'log:3002', log_id: 3002,
 		flags: '', length: null, timestamp: 1717675802
 	},
 	{
@@ -148,6 +162,7 @@ const GOLDEN = [
 		action: 'pass', action_raw: 'PASS', proto: 'ICMP',
 		src: '192.168.1.20', dst: '1.1.1.1', sport: '', dport: '',
 		interface_in: 'eth0', interface_out: '', rule_hint: 'fwlive-test',
+		id: 'log:3003', log_id: 3003,
 		flags: '', length: null, timestamp: 1717675803
 	},
 	{
@@ -160,6 +175,7 @@ const GOLDEN = [
 		action: 'pass', action_raw: 'PASS', proto: 'ICMP',
 		src: '127.0.0.1', dst: '127.0.0.1', sport: '', dport: '',
 		interface_in: 'lo', interface_out: '', rule_hint: 'fwlive-custom',
+		id: 'log:3005', log_id: 3005,
 		flags: '', length: 84, timestamp: 1781999395
 	},
 	{
@@ -168,6 +184,7 @@ const GOLDEN = [
 		action: 'drop', action_raw: 'DROP', proto: 'TCP',
 		src: '203.0.113.5', dst: '192.168.1.1', sport: '', dport: '22',
 		interface_in: 'wan', interface_out: '', rule_hint: 'DROP',
+		id: 'log:3006', log_id: 3006,
 		flags: '', length: null, timestamp: 1717675805
 	},
 	{
@@ -176,6 +193,7 @@ const GOLDEN = [
 		action: 'reject', action_raw: 'REJECT', proto: 'TCP',
 		src: '192.168.1.1', dst: '203.0.113.5', sport: '', dport: '22',
 		interface_in: 'lan', interface_out: '', rule_hint: 'REJECT',
+		id: 'log:3007', log_id: 3007,
 		flags: '', length: null, timestamp: 1717675806
 	},
 	{
@@ -184,6 +202,7 @@ const GOLDEN = [
 		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '203.0.113.5', dst: '192.168.1.1', sport: '', dport: '22',
 		interface_in: 'eth0', interface_out: '', rule_hint: 'reject_from_wan',
+		id: 'log:3008', log_id: 3008,
 		flags: '', length: null, timestamp: 1717675807
 	}
 ];

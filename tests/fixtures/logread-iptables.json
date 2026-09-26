@@ -2,19 +2,23 @@
   "log": [
     {
       "time": 1717675800,
-      "msg": "[  123.456789] fwlive-ping: IN=br-lan OUT= MAC=00:11:22:33:44:55:66:77 SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP TYPE=8 CODE=0"
+      "msg": "[  123.456789] fwlive-ping: IN=br-lan OUT= MAC=00:11:22:33:44:55:66:77 SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP TYPE=8 CODE=0",
+      "id": 3000
     },
     {
       "time": 1717675801,
-      "msg": "iptables: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP SPT=54321 DPT=22"
+      "msg": "iptables: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP SPT=54321 DPT=22",
+      "id": 3001
     },
     {
       "time": 1717675802,
-      "msg": "custom-chain: ACCEPT IN=lan OUT= SRC=10.0.0.5 DST=8.8.8.8 PROTO=UDP SPT=5353 DPT=5353"
+      "msg": "custom-chain: ACCEPT IN=lan OUT= SRC=10.0.0.5 DST=8.8.8.8 PROTO=UDP SPT=5353 DPT=5353",
+      "id": 3002
     },
     {
       "time": 1717675803,
-      "msg": "fwlive-testIN=eth0 OUT= SRC=192.168.1.20 DST=1.1.1.1 PROTO=ICMP"
+      "msg": "fwlive-testIN=eth0 OUT= SRC=192.168.1.20 DST=1.1.1.1 PROTO=ICMP",
+      "id": 3003
     },
     {
       "time": 1717675804,
@@ -22,19 +26,23 @@
     },
     {
       "time": 1781999395,
-      "msg": "[   42.147422] fwlive-custom: IN=lo OUT= MAC=00:00:00:00:00:00:00:00:00:00:00:00:08:00 SRC=127.0.0.1 DST=127.0.0.1 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=340 DF PROTO=ICMP TYPE=8 CODE=0 ID=5365 SEQ=0"
+      "msg": "[   42.147422] fwlive-custom: IN=lo OUT= MAC=00:00:00:00:00:00:00:00:00:00:00:00:08:00 SRC=127.0.0.1 DST=127.0.0.1 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=340 DF PROTO=ICMP TYPE=8 CODE=0 ID=5365 SEQ=0",
+      "id": 3005
     },
     {
       "time": 1717675805,
-      "msg": "DROPIN=wan SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22"
+      "msg": "DROPIN=wan SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22",
+      "id": 3006
     },
     {
       "time": 1717675806,
-      "msg": "REJECTIN=lan SRC=192.168.1.1 DST=203.0.113.5 PROTO=TCP DPT=22"
+      "msg": "REJECTIN=lan SRC=192.168.1.1 DST=203.0.113.5 PROTO=TCP DPT=22",
+      "id": 3007
     },
     {
       "time": 1717675807,
-      "msg": "reject_from_wan IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22"
+      "msg": "reject_from_wan IN=eth0 SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22",
+      "id": 3008
     }
   ]
 }
