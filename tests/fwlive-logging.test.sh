@@ -564,6 +564,29 @@ got=$(find_wan_zone_section)
 [ "$got" = "@zone[0]" ] || die "anonymous wan zone expected @zone[0], got '$got'"
 ok "find_wan_zone_section anonymous zone"
 
+# cwd containing @zone0 must not pathname-expand firewall.@zone[0] (#743).
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+			;;
+		'-q get firewall.@zone[0].name') printf 'wan\n' ;;
+		'-q get firewall.@zone[0]') printf 'zone\n' ;;
+		'-q get firewall.@zone[0].network') printf 'wan\n' ;;
+		*) return 1 ;;
+	esac
+}
+_glob_dir=$(mktemp -d)
+: >"$_glob_dir/@zone0"
+_glob_cwd=$(pwd)
+cd "$_glob_dir"
+got=$(find_wan_zone_section)
+cd "$_glob_cwd"
+rm -rf "$_glob_dir"
+unset _glob_dir _glob_cwd
+[ "$got" = "@zone[0]" ] || die "cwd @zone0 must not glob-expand WAN zone, got '$got'"
+ok "find_wan_zone_section ignores cwd glob @zone0"
+
 # Non-zone name=wan before a real zone must not abort lookup.
 uci() {
 	case "$*" in
