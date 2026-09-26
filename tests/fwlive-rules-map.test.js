@@ -1210,13 +1210,17 @@ function testBusyboxPathShadowNslookup() {
 }
 
 function testBusyboxPathShadowTimeout() {
-	// Production: run_with_timeout wraps nft list ruleset on the rules path.
+	// The two-layer helper uses its injected GNU timeout path for both the
+	// outer hard deadline and the inner foreground TERM deadline.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-to-'));
 	try {
 		makeStub(stubDir, 'timeout', `#!/bin/sh
-echo "marker-timeout" >> "${stubDir}/called"
-if [ "$1" = "-k" ]; then shift 2; fi
-shift
+echo "marker-timeout $*" >> "${stubDir}/called"
+case "$1" in
+	-s) [ "$2" = KILL ] || exit 2; shift 3 ;;
+	--foreground) shift 2 ;;
+	*) exit 2 ;;
+esac
 exec "$@"
 `);
 		installNftUciStubs(stubDir);

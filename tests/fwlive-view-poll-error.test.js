@@ -153,6 +153,85 @@ async function testMissingTimeoutHasAccuratePollError() {
 	console.log('fwlive-view poll-error: missing timeout, stale warning, and recovery OK');
 }
 
+async function testBufferedRuleLabelsRefreshAfterTimeoutRecovery() {
+	const raw = {
+		id: 77,
+		time: 1780797240,
+		msg: '[  239.247521] fwlive-pingIN=lo OUT= MAC=00:00:00:00:00:00:00:00:00:00:00:00:08:00 SRC=127.0.0.1 DST=127.0.0.1 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=6376 DF PROTO=ICMP TYPE=8 CODE=0 ID=3139 SEQ=2'
+	};
+	const recoveredLabel = 'Recovered ping rule';
+
+	for (const paused of [true, false]) {
+		const h = loadFwliveView({
+			rpcMocks: {
+				'fwlive.poll': async function() { return { log: paused ? [] : [raw] }; },
+				'fwlive.rules': async function() {
+					return { backend: 'nft', rules: { 'fwlive-ping': recoveredLabel } };
+				},
+				'fwlive.logging_status': async function() { return { warnings: [] }; }
+			}
+		});
+		const view = h.view;
+		view.rulesMap = {};
+		view.entries = view.normalizePollBatch([raw]).rows;
+		view.tablePaused = paused;
+		view.lastPollError = true;
+		view.lastPollErrorCode = 'timeout_missing';
+		const oldLabel = view.entries[0].rule_label;
+		assert.notEqual(oldLabel, recoveredLabel, 'fixture must begin with a fallback rule label');
+		const paints = [];
+		view.renderRows = (force) => paints.push({ force, label: view.entries[0].rule_label });
+
+		await view.fetchEntries();
+		assert.equal(view.entries.length, 1,
+			'provider recovery must keep the buffered row absent from the current poll when paused');
+		assert.equal(view.entries[0].rule_label, recoveredLabel,
+			'provider recovery must relabel retained rows from the refreshed map');
+		if (paused) {
+			assert.equal(paints.length, 0, 'recovery must not paint while the table is paused');
+		} else {
+			assert.ok(paints.some((paint) => paint.force && paint.label === recoveredLabel),
+				'active recovery must repaint rows with the refreshed rule label');
+		}
+	}
+
+	let releaseRules;
+	let startedRules;
+	const rulesStarted = new Promise((resolve) => { startedRules = resolve; });
+	const rulesGate = new Promise((resolve) => { releaseRules = resolve; });
+	const stale = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() { return { log: [] }; },
+			'fwlive.rules': async function() {
+				startedRules();
+				await rulesGate;
+				return { backend: 'nft', rules: { 'fwlive-ping': recoveredLabel } };
+			},
+			'fwlive.logging_status': async function() { return { warnings: [] }; }
+		}
+	});
+	const staleView = stale.view;
+	staleView.rulesMap = {};
+	staleView.entries = staleView.normalizePollBatch([raw]).rows;
+	staleView.tablePaused = true;
+	staleView.lastPollError = true;
+	staleView.lastPollErrorCode = 'timeout_missing';
+	const staleLabel = staleView.entries[0].rule_label;
+	let epoch = 0;
+	staleView.currentPollEpoch = () => epoch;
+	const stalePaints = [];
+	staleView.renderRows = (force) => stalePaints.push(force);
+	const recovery = staleView.fetchEntries();
+	await rulesStarted;
+	epoch++;
+	releaseRules();
+	await recovery;
+	assert.equal(staleView.entries[0].rule_label, staleLabel,
+		'a rules response from an old poll epoch must not relabel stale buffered rows');
+	assert.equal(stalePaints.length, 0, 'a stale recovery epoch must not paint rows');
+	console.log('fwlive-view poll-error: buffered rule labels refresh safely after provider recovery OK');
+}
+
 async function testLoggingWarningDoesNotOverridePollCause() {
 	let timeoutMissing = true;
 	const h = loadFwliveView({
@@ -261,6 +340,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testPollBadShape();
 		await testPollTransportThrow();
 		await testMissingTimeoutHasAccuratePollError();
+		await testBufferedRuleLabelsRefreshAfterTimeoutRecovery();
 		await testLoggingWarningDoesNotOverridePollCause();
 		await testPollNonStringMsgSurvives();
 		await testSummaryPollErrorRefreshesStatus();

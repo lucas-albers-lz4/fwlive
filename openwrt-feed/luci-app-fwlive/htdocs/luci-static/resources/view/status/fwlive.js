@@ -944,6 +944,23 @@ return view.extend({
 		return row;
 	},
 
+	refreshBufferedRuleLabels() {
+		let changed = false;
+		for (let i = 0; i < this.entries.length; i++) {
+			const row = this.entries[i];
+			const label = this.resolveRuleLabel(row.rule_hint);
+			if (row.rule_label !== label) {
+				row.rule_label = label;
+				changed = true;
+			}
+		}
+
+		/* Keep buffered rows current without painting a paused or hidden table. */
+		if (changed && !this.tablePaused && (!this.summaryMode || this.summaryRowsShown))
+			this.renderRows(true);
+		return changed;
+	},
+
 	normalizePollBatch(raw) {
 		const normalized = [];
 		const seen = {};
@@ -1089,8 +1106,12 @@ return view.extend({
 			pausedAtStart: pausedAtStart,
 			resumeMerge: resumeMerge
 		});
-		if (recoveringTimeoutProvider && !this.lastPollError)
+		if (recoveringTimeoutProvider && !this.lastPollError) {
 			await Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]);
+			/* Recovery RPCs can outlive the poll epoch; don't repaint stale views. */
+			if (epoch !== this.currentPollEpoch() || this.viewDisposed) return;
+			this.refreshBufferedRuleLabels();
+		}
 	},
 
 	rememberSessionId(id) {

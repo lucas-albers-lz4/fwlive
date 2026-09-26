@@ -634,6 +634,66 @@ function testRunWithTimeoutKillsTermResistantDescendant() {
 	}
 }
 
+function testRunWithTimeoutBoundsDescendantAfterParentExit() {
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const loggingSrc = fs.readFileSync(LOGGING_SH, 'utf8');
+	const helper = src.match(/^run_with_timeout\(\) \{[\s\S]*?^\}/m);
+	const providerCheck = loggingSrc.match(/^fwlive_timeout_available\(\) \{[\s\S]*?^\}/m);
+	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
+	assert.ok(helper, 'production run_with_timeout helper must exist');
+	assert.ok(providerCheck, 'shared provider check must exist in fwlive-logging.sh');
+	assert.ok(graceMatch, 'production timeout kill grace must be configured');
+	const grace = Number(graceMatch[1]);
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-timeout-orphan-'));
+	try {
+		const timeoutVersion = execFileSync('timeout', ['--version'], { encoding: 'utf8' });
+		assert.match(timeoutVersion, /GNU coreutils/, 'test requires the declared GNU timeout provider');
+		for (const scenario of [
+			{ name: 'parent-term-exits', parentCommand: 'exec /bin/sleep 30', description: 'parent exits on TERM' },
+			{ name: 'parent-success-exits', parentCommand: 'exit 0', description: 'parent exits successfully before its child' }
+		]) {
+			const pidFile = path.join(stubDir, `${scenario.name}.pid`);
+			makeStub(stubDir, scenario.name, [
+				'#!/bin/sh',
+				'(',
+				"trap '' TERM",
+				'exec /bin/sleep 30',
+				') &',
+				'child=$!',
+				'printf \'%s\\n\' "$child" > ' + shellQuote(pidFile),
+				scenario.parentCommand,
+				''
+			].join('\n'));
+			const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+			const script = `FWLIVE_TIMEOUT_BIN=/usr/bin/timeout\nTIMEOUT_KILL_GRACE=${grace}\n${providerCheck[0]}\n${helper[0]}\n` +
+				`output=$(run_with_timeout 1 ${scenario.name})\n` +
+				'status=$?\nprintf \'%s\\n\' "$status"\n';
+			const started = Date.now();
+			const status = execFileSync('/bin/dash', ['-c', script], {
+				encoding: 'utf8', env, timeout: (grace + 6) * 1000
+			}).trim();
+			const elapsedMs = Date.now() - started;
+			assert.notEqual(status, '0', `${scenario.description} must remain bounded by the outer deadline`);
+			assert.ok(
+				elapsedMs < (grace + 4) * 1000,
+				`${scenario.description} must stop after duration + ${grace}s grace (+2s slack), took ${elapsedMs}ms`
+			);
+			assertMarkedProcessStopped(pidFile, scenario.description);
+		}
+		console.log('fwlive rpcd security: timeout bounds stdout-retaining descendants after parent exit OK');
+	} finally {
+		for (const name of ['parent-term-exits', 'parent-success-exits']) {
+			const pidFile = path.join(stubDir, `${name}.pid`);
+			if (!fs.existsSync(pidFile)) continue;
+			const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+			if (Number.isInteger(pid) && pid > 1) {
+				try { process.kill(pid, 'SIGKILL'); } catch (_) {}
+			}
+		}
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
 function testRulesHungNftReturnsWithinBudget() {
 	const src = fs.readFileSync(RPCD, 'utf8');
 	const match = src.match(/^NFT_TIMEOUT=([1-9][0-9]*)$/m);
@@ -1559,6 +1619,7 @@ testPollMessagesReceived();
 testPollUbusFailure();
 testPollHungUbusReturnsWithinBudget();
 testRunWithTimeoutKillsTermResistantDescendant();
+testRunWithTimeoutBoundsDescendantAfterParentExit();
 testRulesHungNftReturnsWithinBudget();
 testResolveHungNslookupReturnsWithinBudget();
 testResolveLoopBudgetIncludesFinalKillGrace();

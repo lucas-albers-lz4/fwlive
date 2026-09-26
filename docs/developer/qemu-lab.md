@@ -75,14 +75,17 @@ locally built `0.1.47-r1` candidate using ordinary `opkg install`.
 `opkg` installed `coreutils` and `coreutils-timeout` 9.7-r1 automatically.
 `/usr/bin/timeout` resolved to `/usr/libexec/timeout-coreutils`; logging status
 had no warnings, poll succeeded, rules reported `backend: nft`, and the
-required QEMU smoke parsed three firewall rows. The rpcd helper calls GNU
-`timeout -k 1`: each configured per-command budget sends TERM, then GNU timeout
-sends KILL after a one-second grace. Poll has two sequential five-second
-stages, so its command-time bound is about 12 seconds plus scheduling/IPC
-overhead; nft is five seconds plus the grace; resolve stops starting lookups
-after its five-second budget and allows at most one final one-second lookup
-plus its grace. The loop's integer-second clock can add up to one second, so
-the total is about eight seconds plus scheduling/IPC overhead.
+required QEMU smoke parsed three firewall rows. The rpcd helper runs each
+command under an inner GNU `timeout --foreground`, which sends TERM at the
+configured budget. An outer GNU timeout KILLs its process group after the
+one-second grace; a pipe reader remains active until inherited stdout closes,
+so an early-exiting parent cannot leave command substitution waiting on a
+descendant. Poll has two sequential five-second stages, so its command-time
+bound is about 12 seconds plus scheduling/IPC overhead; nft is five seconds
+plus the grace; resolve stops starting lookups after its five-second budget
+and allows at most one final one-second lookup plus its grace. The loop's
+integer-second clock can add up to one second, so the total is about eight
+seconds plus scheduling/IPC overhead.
 
 After temporarily removing the timeout symlink on this disposable guest,
 `logging_status` warned `timeout_missing`; `poll`, `rules`, and `resolve`
