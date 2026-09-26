@@ -80,21 +80,23 @@ def main():
             assert '192.0.2.33' not in capped.get('names', {}), (release, capped)
             assert capped.get('truncated') is True, (release, capped)
 
-            # Force the wall-clock guard after the first lookup. A shell
-            # function keeps this deterministic even when the matched
-            # BusyBox environment has a built-in date applet.
+            # Force the wall-clock guard after the first lookup. Redefine
+            # fwlive_adaptive_clock_cs after it is sourced so an NTP-style
+            # date shim cannot hide a missing budget check.
             budget_plugin = libexec / 'rpcd/fwlive-budget'
-            budget_plugin.write_text(
-                'date() {\n'
-                '  if [ -f "$DATE_STATE" ]; then IFS= read -r DATE_CALLS < "$DATE_STATE" || DATE_CALLS=0; else DATE_CALLS=0; fi\n'
-                '  DATE_CALLS=$((DATE_CALLS + 1))\n'
-                '  printf "%s\\n" "$DATE_CALLS" > "$DATE_STATE"\n'
-                '  case "$DATE_CALLS" in 1|2) printf "100\\n";; *) printf "106\\n";; esac\n'
+            clock_stub = (
+                'fwlive_adaptive_clock_cs() {\n'
+                '  if [ -f "$CLOCK_STATE" ]; then IFS= read -r CLOCK_CALLS < "$CLOCK_STATE" || CLOCK_CALLS=0; else CLOCK_CALLS=0; fi\n'
+                '  CLOCK_CALLS=$((CLOCK_CALLS + 1))\n'
+                '  printf "%s\\n" "$CLOCK_CALLS" > "$CLOCK_STATE"\n'
+                '  case "$CLOCK_CALLS" in 1|2) printf "10000\\n";; *) printf "10600\\n";; esac\n'
                 '}\n'
-                + text
             )
+            marker = '. "$ADAPTIVE_SH"\n'
+            assert text.count(marker) == 1, (release, 'adaptive source marker drifted')
+            budget_plugin.write_text(text.replace(marker, marker + clock_stub, 1))
             budget_plugin.chmod(0o755)
-            env['DATE_STATE'] = str(work / 'date-calls')
+            env['CLOCK_STATE'] = str(work / 'clock-calls')
             budgeted = run(
                 'resolve',
                 json.dumps({'addresses': ['192.0.2.1', '192.0.2.2']}),
