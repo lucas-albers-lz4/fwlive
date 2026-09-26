@@ -326,7 +326,7 @@ function testLegacyIptablesWarning() {
 }
 
 async function testDisableNoChangeClearsLastKnownNotice() {
-	let rejectStatus = true;
+	let rejectStatus = false;
 	const goodStatus = Object.assign({}, LOGGING_STATUS_DEFAULT, { ready: true });
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -343,6 +343,10 @@ async function testDisableNoChangeClearsLastKnownNotice() {
 	h.view.updateEmptyStateUi = function () {};
 	h.view.updateLoggingToolbarUi = function () {};
 
+	await h.view.loadLoggingStatus();
+	assert.equal(h.view.loggingStatus && h.view.loggingStatus.ready, true);
+
+	rejectStatus = true;
 	await h.view.loadLoggingStatus();
 	assert.match(String(h.view.loggingNotice), /last known state/);
 
@@ -388,6 +392,65 @@ async function testToggleSuccessNoticeSurvivesRefresh() {
 	console.log('fwlive-view logging: toggle success notice survives owned refresh OK');
 }
 
+function collectText(node) {
+	if (!node) return '';
+	if (node.nodeType === 3) return String(node.textContent || '');
+	const kids = node.childNodes || [];
+	let out = '';
+	for (let i = 0; i < kids.length; i++) out += collectText(kids[i]);
+	return out;
+}
+
+function findButtons(node, acc) {
+	acc = acc || [];
+	if (!node) return acc;
+	if (node.tagName === 'button') acc.push(collectText(node));
+	const kids = node.childNodes || [];
+	for (let i = 0; i < kids.length; i++) findButtons(kids[i], acc);
+	return acc;
+}
+
+function hasConsent(node) {
+	if (!node) return false;
+	if (node._attrs && node._attrs.id === 'fwlive-consent') return true;
+	const kids = node.childNodes || [];
+	for (let i = 0; i < kids.length; i++) if (hasConsent(kids[i])) return true;
+	return false;
+}
+
+async function testInitialLoggingStatusRejectIsUnknown() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.logging_status': async function () {
+				throw new Error('logging status unavailable');
+			}
+		}
+	});
+	h.document.querySelector = function () {
+		return null;
+	};
+	h.view.updateBackendUi = function () {};
+	const empty = h.document.getElementById('fwlive-empty');
+	empty.style = { display: 'block' };
+	const bar = h.document.getElementById('fwlive-logging-bar');
+	if (bar && !bar.style) bar.style = { display: '' };
+
+	await h.view.loadLoggingStatus();
+	const state = h.view.loggingState();
+	assert.equal(state.loggingStatus, null, 'initial reject must leave status unknown');
+	assert.equal(state.showConsent, false, 'unknown status must not open the consent path');
+	assert.match(String(state.loggingNotice), /Could not load logging status/);
+	assert.doesNotMatch(String(state.loggingNotice), /last known state/);
+
+	const emptyText = collectText(empty);
+	assert.match(emptyText, /Could not load logging status/);
+	assert.doesNotMatch(emptyText, /Logging is off on this router/);
+	assert.deepEqual(findButtons(empty), [], 'unknown status must not offer Enable');
+	assert.equal(hasConsent(empty), false, 'unknown status must not render the consent panel');
+	assert.equal(bar.style.display, 'none', 'unknown status must keep the toolbar hidden');
+	console.log('fwlive-view logging: initial status reject stays unknown OK');
+}
+
 async function testBusyReentry() {
 	let rpcCalled = false;
 	const h = loadFwliveView({
@@ -422,6 +485,7 @@ async function testBusyReentry() {
 		await testDisableVariants();
 		await testDisableNoChangeClearsLastKnownNotice();
 		await testToggleSuccessNoticeSurvivesRefresh();
+		await testInitialLoggingStatusRejectIsUnknown();
 		await testLoggingStatusDefaultReply();
 		testMktempFailedBackendLabel();
 		testBackendDisplayLabels();

@@ -263,6 +263,51 @@ function testEnableButtonDoesNotPersistEarly() {
 	assert.equal(enableCalls, 2, 'both empty-state enable buttons must invoke the callback');
 }
 
+function collectText(node) {
+	if (!node) return '';
+	if (node.nodeType === 3) return String(node.textContent || '');
+	const kids = node.childNodes || [];
+	let out = '';
+	for (let i = 0; i < kids.length; i++) out += collectText(kids[i]);
+	return out;
+}
+
+function testUnknownStatusEmptyStateSkipsOffCopy() {
+	const log = loadFwliveModule('log');
+	const links = loadFwliveModule('links', { log: log });
+	const logging = loadFwliveModule('logging', {
+		links: links,
+		E: luciE.E,
+		document: luciE.document
+	});
+	const notice = 'Could not load logging status.';
+	const nodes = logging.buildEmptyStateNodes(
+		{
+			loggingStatus: null,
+			loggingBusy: false,
+			loggingNotice: notice,
+			showConsent: false
+		},
+		{ onEnable: function () {}, onDismissConsent: function () {} }
+	);
+	const text = collectText({ childNodes: nodes });
+	assert.match(text, /Could not load logging status/);
+	assert.doesNotMatch(text, /Logging is off on this router/);
+	assert.equal(findButton({ childNodes: nodes }), null, 'unknown status must not render Enable');
+	assert.equal(
+		nodes.some(function (node) {
+			return node._attrs && node._attrs.id === 'fwlive-consent';
+		}),
+		false,
+		'unknown status must not render the consent panel'
+	);
+	assert.deepEqual(
+		nodes[0]._innerHTMLWrites || [],
+		[],
+		'unknown-status notice must stay on text nodes'
+	);
+}
+
 /* --- document shim fidelity for E('a', ..., [...]) --- */
 function testDocumentShim() {
 	assert.ok(document.createElement('div') instanceof Element);
@@ -280,6 +325,7 @@ testNestedArrayChildren();
 testHarnessIsNotFakeE();
 testRealRendererIntegration();
 testEnableButtonDoesNotPersistEarly();
+testUnknownStatusEmptyStateSkipsOffCopy();
 testDocumentShim();
 
 console.log('fwlive E() harness tests passed');
