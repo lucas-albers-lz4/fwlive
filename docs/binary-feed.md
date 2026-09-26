@@ -262,16 +262,24 @@ Make sure that the build is reproducible:
 
 ### Refresh feed lock files
 
-When OpenWrt bumps a point release (e.g. 24.10.7 → 24.10.8):
+When OpenWrt bumps a point release (e.g. 24.10.8 → 24.10.9):
 
 ```sh
-docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.8 cat feeds.conf.default
-# Copy into scripts/feeds.lock/24.10.8/feeds.conf (add src-link fwlive line).
+docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.9 cat feeds.conf.default
+# Copy into scripts/feeds.lock/24.10.9/feeds.conf (add src-link fwlive line).
 # Replace any `;branch` src-git ref with the peeled 40-hex commit
 # (`git ls-remote … 'refs/tags/vX.Y.Z^{}'`). `tests/feeds-lock-pins.test.sh`
 # rejects unpinned src-git lines.
-# Update sdk_matrix_version_patch in sdk-matrix.sh
+# Update every pin site, then run tests/sdk-matrix-release-labels.test.sh:
+#   scripts/lib/sdk-matrix.sh          sdk_matrix_version_patch
+#   scripts/download-openwrt-x86-64.sh RELEASE default + `== "24.10.x"` symlink
+#   scripts/download-openwrt-armsr-armv8.sh  same
+#   scripts/verify-reproducible-build.sh     (line keys stay 23.05/24.10/25.12)
+#   .github/workflows/publish-packages.yml   cache-dir pre-create labels
+#   lab/README.md                            default image symlink notes
 ```
+
+Feed staging directories stay on the major.minor line (`feed-staging/24.10/`) for any patch on that line. Do not add a `/24.10.9/` publish path.
 
 ---
 

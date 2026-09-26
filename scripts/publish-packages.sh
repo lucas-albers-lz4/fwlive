@@ -6,6 +6,7 @@
 #   APK_FEED_SECRET_KEY=./apk-secret.rsa \
 #   APK_FEED_PUBLIC_KEY=./fwlive-feed.rsa.pub \
 #     ./scripts/publish-packages.sh feed-staging
+#     ./scripts/publish-packages.sh --allow-outside /tmp/feed-staging
 #
 # Prerequisite: ./scripts/docker-sdk.sh build --target x86-64 for 23.05, 24.10, 25.12
 set -euo pipefail
@@ -14,16 +15,28 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/feed-publish.sh
 source "${ROOT}/scripts/lib/feed-publish.sh"
 
-STAGING="${1:-feed-staging}"
+STAGING="feed-staging"
+ALLOW_OUTSIDE=0
 GIT_TAG="${FWLIVE_GIT_TAG:-$(git -C "$ROOT" describe --tags --exact-match 2>/dev/null || git -C "$ROOT" rev-parse --short HEAD)}"
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-	sed -n '1,14p' "$0"
-	exit 0
-fi
-if [[ -n "${1:-}" ]]; then
-	STAGING="$1"
-fi
+for arg in "$@"; do
+	case "$arg" in
+		-h | --help)
+			sed -n '1,12p' "$0"
+			exit 0
+			;;
+		--allow-outside)
+			ALLOW_OUTSIDE=1
+			;;
+		-*)
+			echo "unknown arg: $arg" >&2
+			exit 1
+			;;
+		*)
+			STAGING="$arg"
+			;;
+	esac
+done
 
 PKG_VER="${FWLIVE_PKG_VERSION:-$(sed -n 's/^PKG_VERSION:=//p' "${ROOT}/openwrt-feed/luci-app-fwlive/Makefile" | head -1)}"
 [[ -n "$PKG_VER" ]] || {
@@ -33,7 +46,7 @@ PKG_VER="${FWLIVE_PKG_VERSION:-$(sed -n 's/^PKG_VERSION:=//p' "${ROOT}/openwrt-f
 export FWLIVE_PKG_VERSION="$PKG_VER"
 
 mkdir -p "$STAGING"
-STAGING="$(feed_publish_abspath "$STAGING")"
+STAGING="$(feed_publish_assert_staging_clearable "$STAGING" "$ALLOW_OUTSIDE")"
 
 rm -rf "$STAGING"
 mkdir -p "$STAGING"

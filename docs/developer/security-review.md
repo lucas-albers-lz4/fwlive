@@ -1,5 +1,12 @@
 # Security review state
 
+> **2026-09-26 #766 delta:** `publish-packages.sh` canonicalizes the
+> staging path (`pwd -P`) before `rm -rf` and refuses `/`, `$HOME`, the
+> repository root, and any path outside `$ROOT` or `$RUNNER_TEMP` unless
+> `--allow-outside` is set. `--allow-outside` still refuses `/`, `$HOME`,
+> and the repo root. Host coverage includes a symlink-to-`/` spelling.
+> No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-26 #761 delta:** `luci-app-fwlive` declares
 > `+coreutils-timeout`; package lifecycle tests inspect built IPK control
 > metadata and APK ADB `info.depends`. The rpcd helper stays fail-closed when
@@ -357,6 +364,7 @@ should carry a note saying what would raise it.
 | Signing secrets stay 0600 through validate-feed-keys rewrite prefix (decode/normalize/chmod) | `host` | `tests/validate-feed-keys-mode.test.sh` — calls shared `feed_keys_validate_*_rewrite_prefix` (same helpers as `validate-feed-keys.sh`) including a base64 decode rewrite; full docker usign sign on next `v*` still prove-next |
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
 | Only public keys reach `feed-staging/` | `manual` | `feed_publish_copy_keys` |
+| Publish staging `rm -rf` refuses `/`, `$HOME`, repo root, and paths outside `$ROOT`/`$RUNNER_TEMP` unless `--allow-outside` (which still refuses `/`/`$HOME`/root); path is `pwd -P` so a symlink to `/` cannot bypass | `host` | `feed_publish_assert_staging_clearable` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-staging-guard.test.sh` |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |
 | Publish job runs under Environment `feed-publish` | `manual` | `.github/workflows/publish-packages.yml` `environment:` — organizational gate (protection rules optional; none configured, matching usrmanage). Does NOT scope repo-level secrets — keys stay repository-scoped by design |

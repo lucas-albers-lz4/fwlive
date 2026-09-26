@@ -62,7 +62,7 @@ Legacy flat path `out/aarch64_generic/fwlive/` is no longer written by default; 
 
 Expect **long runtime** on first `build-all` (SDK downloads + feed setups per cell). The **x86-64** cells (especially **snapshot**) may compile a large slice of the **`base`** feed on first `make` (kernel modules, nftables stack); subsequent builds are incremental.
 
-Pinned point releases: **25.12 → 25.12.5**, **24.10 → 24.10.8**, **23.05 → 23.05.5** (override with full patch in `--version` if needed).
+Pinned point releases: **25.12 → 25.12.5**, **24.10 → 24.10.8**, **23.05 → 23.05.5**. Line aliases (`--version 24.10`) resolve to the pin; an explicit off-pin patch is rejected.
 
 QEMU smoke per version: [`validation-matrix.md`](validation-matrix.md).
 

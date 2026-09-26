@@ -191,6 +191,9 @@ echo "== fwlive chip sink and applyHash (#393) ==" >&2
 echo "== fwlive feed artifact selection (#495) ==" >&2
 bash tests/feed-publish-find-artifact.test.sh
 
+echo "== fwlive feed staging clear guard (#766) ==" >&2
+bash tests/feed-publish-staging-guard.test.sh
+
 echo "== fwlive feed release assets ==" >&2
 bash tests/feed-publish-release-assets.test.sh
 
