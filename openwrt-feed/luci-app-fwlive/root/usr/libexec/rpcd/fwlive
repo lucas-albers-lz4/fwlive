@@ -24,18 +24,16 @@ RESOLVE_MAX=32
 # Per-lookup nslookup timeout (integer seconds — BusyBox `timeout` truncates
 # fractional values to 0 on OpenWrt 23.05/1.36, so 0.5 would silently
 # degrade to no timeout; luna fold 2026-08-10). The wall-clock budget
-# below stops starting work after the budget; this per-lookup cap plus the
-# shared TERM/KILL grace bounds the last in-progress lookup. LAN/local-resolver
-# lookups are single-digit ms, so 1s is ample. Passed as argv to `timeout`,
-# never interpolated into a shell string.
+# below is the real whole-call bound; this per-lookup cap only prevents a
+# single hung resolver from dominating the budget. LAN/local-resolver
+# lookups are single-digit ms, so 1s is ample. Passed as argv to
+# `timeout`, never interpolated into a shell string.
 RESOLVE_TIMEOUT=1
 # Wall-clock budget (seconds) for a single ubus fwlive.resolve call. The
 # lookup loop checks elapsed time and aborts cleanly once this budget is
 # spent, so a flood of unresolvable IPs cannot hold an rpcd worker for the
 # full RESOLVE_MAX * RESOLVE_TIMEOUT worst case. Worst case total time is
-# budget + one in-progress lookup (RESOLVE_TIMEOUT + TIMEOUT_KILL_GRACE),
-# plus up to one second from the integer-resolution clock and scheduling/IPC
-# overhead: approximately 8s before scheduler/IPC delay.
+# budget + one in-progress lookup (<= RESOLVE_TIMEOUT), i.e. ~6s.
 RESOLVE_BUDGET=5
 # Cap raw logd lines per poll (~2000 ≈ typical logd ring / ~200 KB JSON before filter).
 POLL_LINES_MAX=2000
@@ -44,11 +42,6 @@ NFT_TIMEOUT=5
 # Bound poll log.read (wedged logd must not hold an rpcd worker past the UI cadence).
 # Integer seconds — BusyBox timeout truncates fractions to 0 (see RESOLVE_TIMEOUT).
 POLL_TIMEOUT=5
-# Outer GNU timeout hard-kills the command group after the inner command's
-# duration plus this TERM grace. The package dependency ensures GNU's
-# --foreground and signal options are available, including when BusyBox also
-# has a timeout applet.
-TIMEOUT_KILL_GRACE=1
 # Host tests override this to a pinned libubox helper; devices keep the package path.
 : "${FWLIVE_JSHN_SH:=/usr/share/libubox/jshn.sh}"
 
@@ -161,23 +154,10 @@ map_prefix_with_label() {
 run_with_timeout() {
 	secs="$1"
 	shift
-	if fwlive_timeout_available; then
-		# The inner foreground timeout sends TERM to the direct command at its
-		# deadline. Keep a pipe reader alive until every inherited stdout fd
-		# closes; the outer timeout then KILLs the whole process group at the
-		# hard deadline, even if the direct child exited and a descendant did
-		# not. BusyBox ash pipefail preserves the inner timeout status; invoking
-		# it explicitly keeps this helper portable from host dash too.
-		"$FWLIVE_TIMEOUT_BIN" -s KILL "$((secs + TIMEOUT_KILL_GRACE))" \
-			/bin/busybox sh -c '
-				set -o pipefail || exit 125
-				timeout_bin=$1
-				duration=$2
-				shift 2
-				"$timeout_bin" --foreground "$duration" "$@" | /bin/cat
-			' fwlive-timeout "$FWLIVE_TIMEOUT_BIN" "$secs" "$@" 2>/dev/null
+	if command -v timeout >/dev/null 2>&1; then
+		timeout "$secs" "$@" 2>/dev/null
 	else
-		# Fail closed: never run unbounded without the GNU provider.
+		# Fail closed: never run unbounded when timeout is absent.
 		return 127
 	fi
 }
@@ -422,11 +402,7 @@ build_rules_map() {
 
 	# Temp file first, then a single nft_list_ruleset; backend from success.
 	if command -v nft >/dev/null 2>&1; then
-		if fwlive_timeout_available; then
-			enrich_rules_dump fwlive-nft
-		else
-			_enrich_error='timeout_missing'
-		fi
+		enrich_rules_dump fwlive-nft
 	fi
 
 	if [ "$backend" = unknown ] && [ -z "$_enrich_error" ]; then
@@ -591,10 +567,6 @@ fetch_firewall_logs() {
 }
 
 poll_logs() {
-	if ! fwlive_timeout_available; then
-		printf '{"log":[],"error":"timeout_missing"}'
-		return 0
-	fi
 	# Optional JSON on $1 (rpcd may also pass argv $3 at the call site); else stdin.
 	input=$(read_rpc_input "$1")
 	fetch_firewall_logs "$input"
@@ -741,11 +713,6 @@ resolve_addresses() {
 	if ! command -v nslookup >/dev/null 2>&1; then
 		command -v logger >/dev/null 2>&1 && logger -t fwlive "nslookup not found; resolve disabled"
 		printf '{"names":{},"error":"no_resolver"}'
-		return 0
-	fi
-	# Do not turn a missing timeout provider into a negative PTR cache entry.
-	if ! fwlive_timeout_available; then
-		printf '{"names":{},"error":"timeout_missing"}'
 		return 0
 	fi
 
