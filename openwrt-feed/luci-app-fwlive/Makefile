@@ -36,7 +36,7 @@ esac
 # Same-version APK reinstall uses post-upgrade and does not run this hook.
 # A version-changing APK upgrade also skips this hook: apk-tools 3.0
 # runs post-upgrade (PKG_UPGRADE=1) on the new package and pre-deinstall
-# only when the package is purged. Lab-proven on OpenWrt 25.12.5
+# only on uninstall (apk del). Lab-proven on OpenWrt 25.12.5
 # (apk-tools 3.0.5), 0.1.43-r1 -> 0.1.44-r1 (#848).
 [ "$${PKG_UPGRADE:-}" = 1 ] && exit 0
 case "$${2-}" in
