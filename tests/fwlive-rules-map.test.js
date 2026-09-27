@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -1328,6 +1328,111 @@ exec "${realFind}" "$@"
 	}
 }
 
+function testResolveDedupesBeforeLookup() {
+	// Dash rejects libubox `export -n`; matched jshn + busybox ash,
+	// same timeout() prefix as tests/fwlive-jshn-compat.test.py.
+	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
+	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
+	const pair = path.join(prefix, release);
+	const jshn = path.join(pair, 'bin', 'jshn');
+	const jshnSh = path.join(pair, 'share', 'jshn.sh');
+	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
+	assert.ok(fs.existsSync(jshnSh), `matched jshn library missing: ${jshnSh}`);
+
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-rdedup-work-'));
+	try {
+		const libexec = path.join(work, 'libexec');
+		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+		const plugin = path.join(libexec, 'rpcd', 'fwlive');
+		fs.writeFileSync(plugin, 'timeout() { /usr/bin/timeout "$@"; }\n' + fs.readFileSync(RPCD, 'utf8'), { mode: 0o755 });
+		const stubDir = path.join(work, 'stubs');
+		fs.mkdirSync(stubDir);
+		makeStub(stubDir, 'nslookup', `#!/bin/sh
+echo "marker-nslookup $1" >> "${stubDir}/called"
+cat <<'EOF'
+Server: 127.0.0.1
+Address: 127.0.0.1:53
+
+1.2.0.192.in-addr.arpa	name = ptr.example.
+EOF
+`);
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+			FWLIVE_JSHN_SH: jshnSh,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'adaptive-state.json'),
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
+		};
+		const raw = execFileSync('busybox', ['sh', '-eu', plugin, 'call', 'resolve'], {
+			encoding: 'utf8',
+			env,
+			input: JSON.stringify({ addresses: Array(33).fill('192.0.2.1') })
+		});
+		const res = JSON.parse(raw);
+		assert.equal(res.truncated, undefined, 'duplicate IPs must not set truncated');
+		assert.equal(res.names['192.0.2.1'], 'ptr.example', 'one lookup fills the name');
+		const called = readCalled(stubDir);
+		const hits = (called.match(/marker-nslookup 192.0.2.1/g) || []).length;
+		assert.equal(hits, 1, `33 identical addresses must cost one nslookup, got ${hits}`);
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testRulesTempsCleanedOnKill() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-killtmp-'));
+	const listTemps = () => {
+		try {
+			return execFileSync('sh', ['-c',
+				'ls -1 /tmp/fwlive-nft.* /tmp/fwlive-nft-tsv.* 2>/dev/null || true'],
+			{ encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+		} catch { return []; }
+	};
+	try {
+		makeStub(stubDir, 'nft', `#!/bin/sh
+echo started >> "${stubDir}/called"
+sleep 30
+`);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+exit 0
+`);
+		makeStub(stubDir, 'timeout', `#!/bin/sh
+case "$1" in
+	-s) shift 3 ;;
+	--foreground) shift 2 ;;
+	*) exit 2 ;;
+esac
+exec "$@"
+`);
+		const env = {
+			...process.env,
+			PATH: `${stubDir}:${process.env.PATH}`,
+			FWLIVE_TIMEOUT_BIN: path.join(stubDir, 'timeout')
+		};
+		const before = new Set(listTemps());
+		const child = spawn('/bin/dash', [RPCD, 'call', 'rules'], {
+			env,
+			stdio: 'ignore'
+		});
+		const started = Date.now();
+		while (!fs.existsSync(path.join(stubDir, 'called')) && Date.now() - started < 3000) {
+			execFileSync('sleep', ['0.05']);
+		}
+		assert.ok(fs.existsSync(path.join(stubDir, 'called')), 'nft stub must start so a dump exists');
+		child.kill('SIGTERM');
+		const dead = Date.now();
+		while (child.exitCode === null && child.signalCode === null && Date.now() - dead < 3000) {
+			execFileSync('sleep', ['0.05']);
+		}
+		const leftover = listTemps().filter((f) => !before.has(f));
+		assert.equal(leftover.length, 0,
+			`SIGTERM must not leak /tmp/fwlive-nft*, got: ${leftover.join(' ')}`);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
 function testBusyboxPathShadowGetent() {
 	// getent is not on the production resolve path (#218/#228).
 	// PATH-shadow coverage is testBusyboxPathShadowNslookup (the replacement).
@@ -1358,6 +1463,8 @@ function run() {
 	testUciWhitespaceNames();
 	testUciStyleNameCharset();
 	testResolveNslookup();
+	testResolveDedupesBeforeLookup();
+	testRulesTempsCleanedOnKill();
 	testBusyboxPathShadowNslookup();
 	testBusyboxPathShadowTimeout();
 	testBusyboxPathShadowJsonfilter();
