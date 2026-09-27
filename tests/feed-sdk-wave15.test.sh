@@ -22,21 +22,38 @@ bash -n "$SDK" || fail "docker-sdk.sh syntax"
 bash -n "$ROOT/scripts/wait-feed-pages.sh" || fail "wait-feed-pages.sh syntax"
 
 # Explicit default-valued flags must still filter (#813).
-cells="$(FWLIVE_SDK_PRINT_CELLS=1 "$SDK" build-all --target armsr-armv8 --version snapshot)"
+cells="$("$SDK" list-cells --target armsr-armv8 --version snapshot)"
 [[ "$cells" == "armsr-armv8 snapshot" ]] || fail "explicit default cell: $cells"
 if [[ "$(printf '%s\n' "$cells" | wc -l)" -ne 1 ]]; then
 	fail "explicit --target/--version must be one cell"
 fi
 
-all="$(FWLIVE_SDK_PRINT_CELLS=1 "$SDK" build-all)"
+all="$("$SDK" list-cells)"
 all_n="$(printf '%s\n' "$all" | grep -c . || true)"
-[[ "$all_n" -gt 1 ]] || fail "unfiltered build-all must print the matrix (got $all_n)"
+[[ "$all_n" -gt 1 ]] || fail "unfiltered list-cells must print the matrix (got $all_n)"
 
-x86="$(FWLIVE_SDK_PRINT_CELLS=1 "$SDK" build-all --target x86-64)"
+x86="$("$SDK" list-cells --target x86-64)"
 printf '%s\n' "$x86" | grep -q '^x86-64 ' || fail "filtered target: $x86"
 if printf '%s\n' "$x86" | grep -q '^armsr-armv8 '; then
 	fail "--target x86-64 must not include armsr"
 fi
+
+# An inherited legacy print-cells variable must not turn build-all into a no-op.
+tmpd="$(mktemp -d)"
+trap 'rm -rf "$tmpd"' EXIT
+mkdir -p "$tmpd/fakebin"
+cat >"$tmpd/fakebin/docker" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$DOCKER_CALLS_FILE"
+exit 42
+EOF
+chmod +x "$tmpd/fakebin/docker"
+if FWLIVE_SDK_PRINT_CELLS=1 DOCKER_CALLS_FILE="$tmpd/docker.calls" PATH="$tmpd/fakebin:$PATH" \
+	"$SDK" build-all --target armsr-armv8 --version snapshot >"$tmpd/build-all.log" 2>&1; then
+	fail "inherited print-cells variable must not let build-all succeed without building"
+fi
+grep -Fq 'pull ghcr.io/openwrt/sdk:armsr-armv8' "$tmpd/docker.calls" \
+	|| fail "build-all did not attempt the selected SDK build"
 
 # mkhash probe must not clobber caller SDK_MATRIX_* (#814).
 SDK_MATRIX_TARGET=sentinel-target
@@ -55,8 +72,6 @@ grep -Fq 'mkhash="$(feed_publish_probe_mkhash)"' "$ROOT/scripts/lib/feed-publish
 	|| fail "stage_opkg_host must capture probe via command substitution"
 
 # Caller RETURN trap survives feed_keys normalize (#812).
-tmpd="$(mktemp -d)"
-trap 'rm -rf "$tmpd"' EXIT
 marker="$tmpd/return-fired"
 : >"$tmpd/key"
 # One-line usign paste so normalize takes the rewrite path.
