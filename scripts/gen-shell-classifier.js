@@ -10,7 +10,7 @@
  * The generated classifier is one BusyBox-awk program (constant process
  * count per poll, not O(entries)). is_firewall_event_msg stays as the
  * single-message API for tests / z3; the filter uses MODE=json_reply and keeps
- * MODE=json for its entry-stream helper.
+ * MODE=json as a comma-joined record fragment (no array wrapper or newline).
  */
 
 const path = require('node:path');
@@ -365,7 +365,8 @@ const out = [
 	'# source: core/fwlive-log.js CLASSIFY_SPEC',
 	'# Shared isFirewallEvent parity logic (shell). Sourced by fwlive-log-filter.sh and tests.',
 	'# Sourced library: do not add set -euo here; callers own strict mode.',
-	'# One awk process classifies a batch (MODE=json/json_reply) or one message (default).',
+	'# MODE=json prints matching records comma-joined, with no array wrapper or trailing newline.',
+	'# MODE=json_reply wraps a poll reply; default MODE=msg classifies one message.',
 	'',
 	'# The caller sets FILTER_DIR when this file is sourced. Resolve the asset',
 	'# once, not once per classification call.',

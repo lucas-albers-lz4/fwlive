@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Document MODE=json as a comma-joined record fragment and pin a two-entry assertion (#780)
 - Document the `npm test` vs CI delta and add `npm run test:ci` (#796)
 - Pin `logread-2000.json` row and classify counts (#795)
 - Fail `fwlive-logging.test.sh` on skips when `CI=true` or `FWLIVE_TEST_REQUIRE_ZERO_SKIPS=1` (#794)
