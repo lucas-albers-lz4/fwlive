@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Dedup `map_add` keys before `json_escape` so repeated prefixes skip a fork (#825)
+- Skip already-validated resolve repeats before they consume a lookup slot (#772, #828)
+- Remove rules-map dump temps on EXIT/HUP/INT/TERM so a killed `rules` call cannot leak `/tmp/fwlive-nft*` (#775)
 - Key row reuse on resolved hostnames so expand and resolve paints rebuild only changed rows (#784)
 - Refresh the status line on scroll only when `followLive` flips (#782)
 - Reset `lastBatchNewIdCount` on a failed poll so the next paint is not costed from the previous batch (#789)

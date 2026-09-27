@@ -79,6 +79,12 @@ def main():
             assert len(capped.get('names', {})) == 32, (release, capped)
             assert '192.0.2.33' not in capped.get('names', {}), (release, capped)
             assert capped.get('truncated') is True, (release, capped)
+            # Repeats must not consume a lookup slot (#772 / #828).
+            lookup_log.unlink(missing_ok=True)
+            dups = run('resolve', json.dumps({'addresses': ['192.0.2.1'] * 33}))
+            assert dups == {'names': {'192.0.2.1': 'host.example'}}, (release, dups)
+            hits = lookup_log.read_text().count('192.0.2.1') if lookup_log.exists() else 0
+            assert hits == 1, (release, hits)
 
             # Force the wall-clock guard after the first lookup. Redefine
             # fwlive_adaptive_clock_cs after it is sourced so an NTP-style

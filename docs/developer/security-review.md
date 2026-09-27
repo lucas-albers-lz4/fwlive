@@ -1,5 +1,17 @@
 # Security review state
 
+> **2026-09-26 #828 / #825 / #772 / #775 delta:** `map_add` skips a
+> `json_escape` fork when the raw key cannot contain escapes or glob
+> metacharacters and is already present in `$OUT`. `resolve` skips
+> producer-validated repeats before they increment `lookups` or start a
+> `nslookup`. Rules-map dump temps (`_rules_dump`, `_nft_tsv`) are
+> removed on EXIT/HUP/INT/QUIT/TERM as well as after parse. The nft
+> dump is waited in the background so a trapped SIGTERM is not deferred
+> behind `setsid`. Host coverage:
+> `tests/fwlive-rules-map.test.js` `testResolveDedupesBeforeLookup`,
+> `testRulesTempsCleanedOnKill`; `tests/fwlive-jshn-compat.test.py`
+> 33-duplicate resolve. No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-26 #821 / #803 delta:** Packages index filtering no longer
 > swallows grep I/O errors (`|| true` removed on host and in-container
 > paths). `feed_publish_copy_keys` requires both public keys and fails
@@ -672,7 +684,7 @@ links to this ledger for review state.
 - **Graceful degradation:** ``_tmp=$(_fwlive_mktemp fwlive-nft) || _tmp=''`` then `if [ -n "$_tmp" ]; then nft_list_ruleset >"$_tmp" ...; rm -f "$_tmp"; fi` — if `mktemp` absent/failing, backend enrichment skipped, still returns well-formed `{"backend":...,"rules":{...}}` with UCI names. No fixed-path write.
 - **Cleanup guaranteed:** `rm -f "$_tmp"` is unconditional inside the `if [ -n "$_tmp" ]` block, immediately after use, with no early `return`/`exit` between creation and removal. nft, iptables, and ip6tables each get a fresh `_fwlive_mktemp` into the same `_tmp` after the previous file is removed. Failure path (`mktemp` empty) never creates a file, so no cleanup needed. The `map_from_*` helpers do not `exit` the shell.
 - **tmpfs/RAM:** `/tmp` on OpenWrt is `tmpfs` (RAM). `NFT_TIMEOUT=5` bounds the nft dump's **duration, not its size**, and `iptables-save`/`ip6tables-save` run with **no timeout at all**; size is not bounded by code. Typical firewall dumps are <100KB and the file is removed immediately after parsing, so RAM impact is negligible in practice. No pipeline subshell reintroduced (global `OUT` dedup preserved). **Superseded 2026-09-19 #378 Phase 2:** the iptables-save dump path is gone; only nft is invoked and timed.
-- **Cleanup:** inline `rm -f` immediately after parsing, with no `return`/`exit` between creation and removal. No `trap` — a signal can leak one root-owned 0600 file in sticky `/tmp`, which tmpfs clears on reboot; portable `trap` save/restore across `dash`/BusyBox `ash` (no `trap -p`) was judged to add more failure surface than it removes. Reviewed and accepted at the gate.
+- **Cleanup:** inline `rm -f` immediately after parsing, plus EXIT/HUP/INT/TERM traps on `_rules_dump` / `_nft_tsv` so a killed `rules` call does not leak `/tmp/fwlive-nft*` (#775). `testRulesTempsCleanedOnKill` sends SIGTERM while `nft` is blocked.
 
 **Test.** `testNoMktempGracefulDegradation` in `tests/fwlive-rules-map.test.js` — shadows `mktemp` (exit 127) at front of `PATH`, calls `rules` under `dash` (and `busybox sh` only when BusyBox honours PATH; Ubuntu standalone applets skip). Asserts: (1) well-formed JSON + `backend==nft` + UCI names still present (catches missing degradation / malformed JSON), (2) no `/tmp/fwlive-{nft,ipt,ip6t}*` file created (catches predictable-path symlink write), (3) nft-derived key `should-not-appear` absent (catches fixed-path dump still being parsed). `testTmpDirSticky` pins reject of a non-sticky dir and of a symlink. Verified `grep -n '\$\$' rpcd/fwlive` empty and `grep -n 'mktemp'` shows only helper + call sites.
 
