@@ -319,6 +319,8 @@ echo "== fwlive rules map (nft) ==" >&2
 
 echo "== fwlive linkcheck classifier ==" >&2
 python3 tests/fwlive-linkcheck-classify.test.py
+echo "== fwlive linkcheck same-file anchor (#942) ==" >&2
+bash tests/fwlive-linkcheck-anchor.test.sh
 echo "== fwlive linkcheck external retry (#461) ==" >&2
 bash tests/fwlive-linkcheck-external.test.sh
 
