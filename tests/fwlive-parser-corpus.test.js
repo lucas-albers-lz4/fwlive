@@ -222,8 +222,9 @@ function jsonfilterPathEnv() {
 		return { env: process.env, cleanup: function() {} };
 	}
 
-	/* Stub envelope: stdin + @.log[*] only. No -s, no streaming. */
-	console.error('using jsonfilter stub (stdin + @.log[*] only)');
+	/* Stub envelope: stdin + @.log[*] extract plus -t '@.log'. Empty arrays
+	   exit 1 like OpenWrt jsonfilter. No -s, no streaming. */
+	console.error('using jsonfilter stub (stdin + @.log[*] + -t @.log; empty array rc=1)');
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-c1-jf-'));
 	fs.writeFileSync(path.join(stubDir, 'jsonfilter'), [
 		'#!/usr/bin/env node',
@@ -231,14 +232,22 @@ function jsonfilterPathEnv() {
 		'const fs = require("fs");',
 		'let input = fs.readFileSync(0, "utf8");',
 		'let expr = "";',
+		'let typeExpr = "";',
 		'const argv = process.argv.slice(2);',
 		'for (let i = 0; i < argv.length; i++) {',
 		'\tif (argv[i] === "-e" && i + 1 < argv.length) expr = argv[++i];',
+		'\telse if (argv[i] === "-t" && i + 1 < argv.length) typeExpr = argv[++i];',
 		'}',
-		'if (expr !== "@.log[*]") process.exit(1);',
 		'let data;',
 		'try { data = JSON.parse(input); } catch (e) { process.exit(1); }',
+		'if (typeExpr) {',
+		'\tif (typeExpr !== "@.log") process.exit(1);',
+		'\tif (data && Array.isArray(data.log)) { process.stdout.write("array\\n"); process.exit(0); }',
+		'\tprocess.exit(1);',
+		'}',
+		'if (expr !== "@.log[*]") process.exit(1);',
 		'const log = (data && Array.isArray(data.log)) ? data.log : [];',
+		'if (log.length === 0) process.exit(1);',
 		'for (const e of log) process.stdout.write(JSON.stringify(e) + "\\n");',
 		''
 	].join('\n'), { mode: 0o755 });

@@ -370,6 +370,16 @@ function testRulesNftParseNoPerLineSed() {
 	assert.match(src, /nft_dump_fields\(\)/, 'one awk pass must live in nft_dump_fields');
 }
 
+function testNftDumpFieldsTsvEscapeNoGsub() {
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const start = src.indexOf('nft_dump_fields()');
+	const end = src.indexOf('\n_nft_tsv_unescape()', start);
+	assert.ok(start >= 0 && end > start, 'nft_dump_fields must precede _nft_tsv_unescape');
+	const body = src.slice(start, end);
+	assert.match(body, /function tsv_escape\(/, 'TSV encode must walk bytes');
+	assert.doesNotMatch(body, /gsub\(/, 'BusyBox awk ≥1.37 gsub cannot encode TSV backslash or tab');
+}
+
 function testRulesOverflowStopsWithoutSecondDumpPass() {
 	// #504: overflow sets rules_truncated from one dump; sed must not scale
 	// with dump lines (old path: 2 seds x lines x 2 passes).
@@ -1099,11 +1109,24 @@ exec /bin/cat '${fixture}'
 'use strict';
 const fs = require('node:fs');
 const args = process.argv.slice(2);
+const typeAt = args.indexOf('-t');
+if (typeAt >= 0) {
+	if (args[typeAt + 1] !== '@.log') process.exit(1);
+	let typed;
+	try { typed = JSON.parse(fs.readFileSync(0, 'utf8')); } catch (e) { process.exit(1); }
+	if (typed && Array.isArray(typed.log)) {
+		process.stdout.write('array\\n');
+		process.exit(0);
+	}
+	process.exit(1);
+}
 const expr = args.indexOf('-e');
 if (expr < 0 || args[expr + 1] !== '@.log[*]') process.exit(1);
 let data;
 try { data = JSON.parse(fs.readFileSync(0, 'utf8')); } catch (e) { process.exit(1); }
-for (const entry of (data && Array.isArray(data.log) ? data.log : []))
+const log = (data && Array.isArray(data.log) ? data.log : []);
+if (log.length === 0) process.exit(1);
+for (const entry of log)
 	process.stdout.write(JSON.stringify(entry) + '\\n');
 `
 		);
@@ -1804,6 +1827,7 @@ testRemovedRulesmapIptablesCli();
 testRulesNftDumpFailure();
 testRulesNftListRulesetOnce();
 testRulesNftParseNoPerLineSed();
+testNftDumpFieldsTsvEscapeNoGsub();
 testRulesOverflowStopsWithoutSecondDumpPass();
 testRulesNoIptablesFallback();
 testPollMessagesReceived();

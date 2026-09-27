@@ -104,9 +104,10 @@ function jsonfilterPathEnv() {
 		return { env: process.env, cleanup: function() {} };
 	}
 
-	/* Stub envelope: @.log[*] only; stdin or -s; reject -s >128 KiB (#234).
-	   No streaming, no other -e expressions, no OpenWrt error encodings. */
-	logJsonfilterMode('using jsonfilter stub (@.log[*] only; -s >128KiB rejected)');
+	/* Stub envelope: @.log[*] extract plus -t '@.log'; stdin or -s; reject
+	   -s >128 KiB (#234). Empty arrays exit 1 like OpenWrt jsonfilter (#932).
+	   No streaming, no other expressions, no OpenWrt error encodings. */
+	logJsonfilterMode('using jsonfilter stub (@.log[*] + -t @.log; empty array rc=1; -s >128KiB rejected)');
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-jf-'));
 	fs.writeFileSync(path.join(stubDir, 'jsonfilter'), [
 		'#!/usr/bin/env node',
@@ -114,19 +115,27 @@ function jsonfilterPathEnv() {
 		'const fs = require("fs");',
 		'let input = "";',
 		'let expr = "";',
+		'let typeExpr = "";',
 		'let usedS = false;',
 		'const argv = process.argv.slice(2);',
 		'for (let i = 0; i < argv.length; i++) {',
 		'\tif (argv[i] === "-s" && i + 1 < argv.length) { input = argv[++i]; usedS = true; }',
 		'\telse if (argv[i] === "-e" && i + 1 < argv.length) expr = argv[++i];',
+		'\telse if (argv[i] === "-t" && i + 1 < argv.length) typeExpr = argv[++i];',
 		'}',
 		'/* Host stand-in for Linux MAX_ARG_STRLEN (#234): reject huge -s. */',
 		'if (usedS && Buffer.byteLength(input, "utf8") > 128 * 1024) process.exit(1);',
 		'if (!usedS) input = fs.readFileSync(0, "utf8");',
-		'if (expr !== "@.log[*]") process.exit(1);',
 		'let data;',
 		'try { data = JSON.parse(input); } catch (e) { process.exit(1); }',
+		'if (typeExpr) {',
+		'\tif (typeExpr !== "@.log") process.exit(1);',
+		'\tif (data && Array.isArray(data.log)) { process.stdout.write("array\\n"); process.exit(0); }',
+		'\tprocess.exit(1);',
+		'}',
+		'if (expr !== "@.log[*]") process.exit(1);',
 		'const log = (data && Array.isArray(data.log)) ? data.log : [];',
+		'if (log.length === 0) process.exit(1);',
 		'for (const e of log) process.stdout.write(JSON.stringify(e) + "\\n");',
 		''
 	].join('\n'), { mode: 0o755 });
@@ -148,6 +157,7 @@ function assertFilterParity(payload, env) {
 		.sort();
 	const shMsgs = (shellOut.log || []).map((e) => e.msg).sort();
 	assert.deepEqual(shMsgs, jsMsgs);
+	assert.equal(shellOut.error, undefined, 'parity payload must stay healthy');
 	assert.equal(shellOut.messages_received, JSON.parse(payload).log.length,
 		'messages_received must count every enumerated log entry before filtering');
 }
@@ -260,7 +270,7 @@ function runSignalCleanup() {
 			'kill -KILL "$_child_pid" 2>/dev/null || true',
 			'wait "$_child_pid" 2>/dev/null || true',
 			'_child_pid=',
-			'set -- "$FWLIVE_TMP"/fwlive-filter.*',
+			'set -- "$FWLIVE_TMP"/fwlive-filter*',
 			'[ ! -e "$1" ] || { echo "signal left tempfile: $1" >&2; exit 1; }'
 		].join('\n');
 		const r = spawnSync('/bin/sh', ['-c', controller], {
@@ -442,7 +452,7 @@ function runJsonGetMsgUnicodeSummary() {
 function runEmptyMalformedInput() {
 	const jf = jsonfilterPathEnv();
 	try {
-		for (const input of ['', '{not-json']) {
+		for (const input of ['', '{not-json', '{}', '{"log":null}', '{"log":{}}']) {
 			const filtered = shSpawn(null, {
 				argvFile: FILTER_SH, input, encoding: 'utf8', env: jf.env
 			});
@@ -477,6 +487,33 @@ function runSummaryContract() {
 		assert.equal(out.summary.top_talkers[0].value, '203.0.113.1');
 		assert.ok(Buffer.byteLength(JSON.stringify(out.summary), 'utf8') <= 1024,
 			'summary must stay within the escaped JSON byte bound');
+
+		const ipv6Talkers = [
+			'2001:0db8:85a3:0000:0000:8a2e:0370:7334',
+			'2001:0db8:85a3:0000:0000:8a2e:0370:7335',
+			'2001:0db8:85a3:0000:0000:8a2e:0370:7336'
+		];
+		const ipv6Payload = JSON.stringify({
+			log: ipv6Talkers.map(function(src) {
+				return {
+					msg: 'fw4: DROP IN=wan SRC=' + src + ' DST=2001:0db8:85a3:0000:0000:8a2e:0370:0001 PROTO=TCP'
+				};
+			})
+		});
+		const ipv6Filtered = shSpawn(null, {
+			argvFile: FILTER_SH, input: ipv6Payload, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(ipv6Filtered.status, 0, ipv6Filtered.stderr || ipv6Filtered.stdout);
+		const ipv6Summary = JSON.parse(ipv6Filtered.stdout).summary;
+		assert.equal(ipv6Summary.truncated, undefined,
+			'three expanded IPv6 talkers must fit the documented 1 KiB summary cap');
+		assert.deepEqual(ipv6Summary.top_talkers.map(function(row) { return row.value; }).sort(),
+			ipv6Talkers.slice().sort(),
+			'1 KiB cap must keep all three IPv6 talkers instead of a truncated object');
+		assert.ok(Buffer.byteLength(JSON.stringify(ipv6Summary), 'utf8') <= 1024,
+			'IPv6 three-talker summary must stay within the escaped JSON byte bound');
+		assert.ok(Buffer.byteLength(JSON.stringify(ipv6Summary), 'utf8') > 256,
+			'IPv6 three-talker summary is the 256-byte false-truncation vector');
 
 		const disabled = shSpawn(null, {
 			argvFile: FILTER_SH,
@@ -623,10 +660,12 @@ function runUnicodeSummaryBound() {
 		});
 		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
 		const summary = JSON.parse(filtered.stdout).summary;
-		assert.equal(summary.truncated, true,
-			'Unicode summary must use the conservative byte-safe fallback');
+		assert.equal(summary.truncated, undefined,
+			'Unicode summary fields must fit the documented 1 KiB cap');
 		assert.ok(Buffer.byteLength(JSON.stringify(summary), 'utf8') <= 1024,
 			'Unicode summary must stay within the escaped JSON byte bound');
+		assert.ok(Buffer.byteLength(JSON.stringify(summary), 'utf8') > 256,
+			'Unicode summary is the 256-byte false-truncation vector');
 	} finally {
 		jf.cleanup();
 	}
