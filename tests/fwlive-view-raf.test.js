@@ -22,4 +22,16 @@ h.window.cancelAnimationFrame(h.window.requestAnimationFrame(function () {
 }));
 h.flushFrames();
 assert.equal(ran, 2, 'cancelAnimationFrame must drop a queued callback');
+
+let sameFrame = 0;
+let cancelPeer;
+h.window.requestAnimationFrame(function () {
+	sameFrame += 1;
+	h.window.cancelAnimationFrame(cancelPeer);
+});
+cancelPeer = h.window.requestAnimationFrame(function () {
+	sameFrame += 10;
+});
+h.flushFrames();
+assert.equal(sameFrame, 1, 'cancelAnimationFrame must drop a later callback in the same frame');
 console.log('fwlive-view raf harness: flushFrames OK');

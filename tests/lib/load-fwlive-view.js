@@ -221,8 +221,13 @@ function loadFwliveView(options) {
 	function flushFrames(max) {
 		let n = max == null ? 16 : max;
 		while (n-- > 0 && rafQueue.length) {
-			const batch = rafQueue.splice(0, rafQueue.length);
-			for (let i = 0; i < batch.length; i++) batch[i].cb(Date.now());
+			/* Drain one callback at a time so cancelAnimationFrame can
+			   drop a later id scheduled in the same frame. */
+			const frameCount = rafQueue.length;
+			for (let i = 0; i < frameCount && rafQueue.length; i++) {
+				const item = rafQueue.shift();
+				item.cb(Date.now());
+			}
 		}
 	}
 	const poll = {
