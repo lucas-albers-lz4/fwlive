@@ -42,6 +42,10 @@ while [[ $# -gt 0 ]]; do
 			exit 1
 			;;
 		*)
+			if [[ -n "$OUT" ]]; then
+				echo "upstream-cut: extra positional '${1}' (already have outdir '${OUT}')" >&2
+				exit 1
+			fi
 			OUT="$1"
 			shift
 			;;
@@ -351,13 +355,29 @@ if [ "$fail" -ne 0 ]; then
 	exit 1
 fi
 
+# Point the canonical ref at the verified split before dropping the temp
+# branch. A checked-out canonical branch cannot be force-updated; keep the
+# temp branch so the EXIT trap does not delete the only good cut (#890).
+upstream_cut_promote_canonical() {
+	local current
+	KEEP_SPLIT_BRANCH=1
+	current="$(git branch --show-current)"
+	if [[ "$current" == "$CANONICAL_SPLIT_BRANCH" ]]; then
+		echo "ERROR: ${CANONICAL_SPLIT_BRANCH} is checked out; verified split kept on ${SPLIT_BRANCH}" >&2
+		return 1
+	fi
+	if ! git branch -f "$CANONICAL_SPLIT_BRANCH" "$SPLIT_BRANCH"; then
+		echo "ERROR: could not update ${CANONICAL_SPLIT_BRANCH}; verified split kept on ${SPLIT_BRANCH}" >&2
+		return 1
+	fi
+	git branch -D "$SPLIT_BRANCH" >/dev/null 2>&1 || true
+	SPLIT_BRANCH="$CANONICAL_SPLIT_BRANCH"
+}
+
 # Promote only after the cut verifies. Replacing first would drop a good
 # canonical branch if a later check failed (#841 review).
 if [[ "$REPLACE_CANONICAL" == 1 ]]; then
-	git branch -D "$CANONICAL_SPLIT_BRANCH" >/dev/null 2>&1 || true
-	git branch -m "$SPLIT_BRANCH" "$CANONICAL_SPLIT_BRANCH"
-	SPLIT_BRANCH="$CANONICAL_SPLIT_BRANCH"
-	KEEP_SPLIT_BRANCH=1
+	upstream_cut_promote_canonical
 fi
 
 echo "  OK: $out_count files (source $src_count minus $drop_count); Makefile include rewritten;"
