@@ -385,6 +385,30 @@ function runJsonGetMsgEscapes() {
 	}
 }
 
+function runJsonModeTwoEntries() {
+	/* #780 — MODE=json is a comma-joined fragment, not one record per line. */
+	const keep1 = '{"msg":"fw4: DROP IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}';
+	const noise = '{"msg":"dnsmasq[1]: query example.com"}';
+	const keep2 = '{"msg":"fw4: ACCEPT IN=lan OUT= SRC=192.168.1.10 DST=192.168.1.1 PROTO=UDP"}';
+	const out = shSpawn(
+		'. "$IS_FW" && printf \'%s\\n\' "$L1" "$NOISE" "$L2" | _fwlive_filter_json_entries',
+		{
+			env: {
+				...process.env,
+				FILTER_DIR: path.dirname(IS_FW),
+				IS_FW: IS_FW,
+				L1: keep1,
+				NOISE: noise,
+				L2: keep2
+			}
+		}
+	);
+	assert.equal(out, keep1 + ',' + keep2,
+		'MODE=json must join matching records with a comma and no array wrapper');
+	assert.equal(out.indexOf('\n'), -1, 'MODE=json must not emit a newline');
+	assert.ok(!out.includes('dnsmasq'), 'MODE=json must drop non-firewall records');
+}
+
 function jsonGetMsgReply(line) {
 	return shSpawn(
 		'. "$IS_FW" && printf \'%s\\n\' "$LINE" | _fwlive_filter_json_reply',
@@ -707,6 +731,7 @@ function run() {
 	runMktempFailure();
 	runSymlinkTempDir();
 	runJsonGetMsgEscapes();
+	runJsonModeTwoEntries();
 	runJsonGetMsgUnicodeSummary();
 	runEmptyMalformedInput();
 	runSummaryContract();

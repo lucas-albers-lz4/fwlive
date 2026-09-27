@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Document MODE=json as a comma-joined record fragment and pin a two-entry assertion (#780)
 - Pin timestamp-strip and `fw4:` rule-hint vectors in the shell summary parity gate (#781)
 - Give the view harness `classList`, `style`, and `querySelector` so tint-fallback runs (#770)
 - Pin parser-sync filter outcomes for all 20 samples (#765)
