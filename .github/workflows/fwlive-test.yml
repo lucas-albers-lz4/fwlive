@@ -37,6 +37,8 @@ jobs:
           bash tests/install-host-jshn.test.sh
 
       - run: ./scripts/fwlive-test.sh
+        env:
+          FWLIVE_TEST_REQUIRE_ZERO_SKIPS: '1'
       - name: Shell parity under busybox sh
         run: SH='busybox sh' node tests/fwlive-shell-filter.test.js
       - name: Link check (internal markdown links + external URLs)
