@@ -37,7 +37,7 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 2. **Watch strip** — Pause/Resume, logging control, and segmented **Simple / Detail** and **Wrap / One line** groups.
 3. **Display options bar** — **Limit**, **Row tint**, **Palette**, and **Show hostnames** on one line (no drawer).
 4. **Filter row** — quick search, Action, and Protocol (grouped menu + optional custom type-in); open **More filters** for the rest.
-5. **Table** — click a cell to filter; click a row body (not a filter link) to expand Message.
+5. **Table** — click a filter link (action, IP, protocol, interface, flow endpoint) to filter; click a row body such as the **Time** cell to expand Message.
 
 | Column | Meaning |
 |--------|---------|
@@ -123,7 +123,7 @@ signal to reduce the workload.
 
 ## Filtering
 
-- **Click any cell** (action, IP, protocol, interface, flow endpoint) to filter.
+- **Click a filter link** (action, IP, protocol, interface, flow endpoint) to filter. The **Time** cell is not a filter link; clicking it expands the row.
 - Active filters appear as **chips** — click **≠** on a chip to flip include ↔ exclude; **×** removes one; **Clear all** resets.
 - You can also prefix text filters with **`!`** for negation (same as **≠** on a chip).
 - **URL hash** stores filters, limit, `view=detailed`, and in Manual mode `poll=manual` plus `maxraw=` (raw-line fetch budget) for shareable links.
