@@ -32,8 +32,8 @@ grep -Fq 'qemu_lab_stop_guest' "$ARMSR" || fail "armsr --stop must use qemu_lab_
 if grep -nE '^\s*pkill -f' "$X86" "$ARMSR"; then
 	fail "runners must not pkill directly; qemu_lab_stop_guest owns --force"
 fi
-grep -Fq '[[ "${2:-}" == "--force" ]]' "$X86" || fail "x86 --stop must accept --force"
-grep -Fq '[[ "${2:-}" == "--force" ]]' "$ARMSR" || fail "armsr --stop must accept --force"
+grep -Fq 'qemu_lab_parse_runner_args' "$X86" || fail "x86 must parse --stop/--force via qemu_lab_parse_runner_args"
+grep -Fq 'qemu_lab_parse_runner_args' "$ARMSR" || fail "armsr must parse --stop/--force via qemu_lab_parse_runner_args"
 
 grep -Fq 'validate_matrix_assert_qemu_up' "${ROOT}/scripts/lib/validate-matrix.sh" \
 	|| fail "validate-matrix must define validate_matrix_assert_qemu_up"
@@ -64,8 +64,22 @@ out="$(OWRT_QEMU_PIDFILE="$TMP/missing.pid" "$X86" --stop 2>&1)"
 [[ "$out" == *"No x86 QEMU pid file"* ]] || fail "x86 --stop without pidfile: $out"
 [[ "$out" == *"--force"* ]] || fail "x86 --stop must mention --force"
 
-out="$(OWRT_QEMU_PIDFILE="$TMP/missing.pid" "$ARMSR" --stop 2>&1)"
-[[ "$out" == *"No armsr QEMU pid file"* ]] || fail "armsr --stop without pidfile: $out"
+out="$(OWRT_QEMU_PIDFILE="$TMP/missing.pid" "$X86" --force --stop 2>&1)"
+[[ "$out" == *"No x86 QEMU"* ]] || fail "x86 --force --stop must take the stop path: $out"
+
+set +e
+out="$(OWRT_QEMU_PIDFILE="$TMP/missing.pid" "$X86" --stop --force extra 2>&1)"
+extra_rc=$?
+set -e
+[[ "$extra_rc" -ne 0 ]] || fail "--stop --force extra must fail"
+[[ "$out" == *"unknown arg: extra"* ]] || fail "extra arg must be named ($out)"
+
+set +e
+out="$(OWRT_QEMU_PIDFILE="$TMP/missing.pid" "$X86" --force 2>&1)"
+force_only_rc=$?
+set -e
+[[ "$force_only_rc" -ne 0 ]] || fail "--force without --stop must fail"
+[[ "$out" == *"--force requires --stop"* ]] || fail "--force alone must require --stop ($out)"
 
 # Live pidfile whose cmdline matches the pattern: stop kills that PID only.
 sleep 60 &
@@ -82,7 +96,7 @@ if kill -0 "$live_pid" 2>/dev/null; then
 fi
 [[ ! -f "$TMP/live.pid" ]] || fail "pidfile must be removed after stop"
 
-# Live pidfile whose cmdline is not QEMU: refuse to kill, leave the file.
+# Live pidfile whose cmdline is not QEMU: report, remove the file, do not kill.
 sleep 60 &
 wrong_pid=$!
 printf '%s\n' "$wrong_pid" >"$TMP/wrong.pid"
@@ -90,24 +104,27 @@ set +e
 out="$(OWRT_QEMU_PIDFILE="$TMP/wrong.pid" "$X86" --stop 2>&1)"
 wrong_rc=$?
 set -e
-[[ "$wrong_rc" -ne 0 ]] || {
+[[ "$wrong_rc" -eq 0 ]] || {
 	kill "$wrong_pid" 2>/dev/null || true
-	fail "non-QEMU pidfile must fail --stop"
+	fail "non-QEMU pidfile --stop must succeed (got $wrong_rc: $out)"
 }
 [[ "$out" == *"is not x86 QEMU"* ]] || {
 	kill "$wrong_pid" 2>/dev/null || true
 	fail "non-QEMU pidfile must name the mismatch ($out)"
 }
+[[ "$out" == *"rm -f ${TMP}/wrong.pid"* ]] || {
+	kill "$wrong_pid" 2>/dev/null || true
+	fail "non-QEMU pidfile must name rm -f ($out)"
+}
 if ! kill -0 "$wrong_pid" 2>/dev/null; then
 	fail "non-QEMU pidfile stop must not kill the process"
 fi
-[[ -f "$TMP/wrong.pid" ]] || {
+[[ ! -f "$TMP/wrong.pid" ]] || {
 	kill "$wrong_pid" 2>/dev/null || true
-	fail "non-QEMU pidfile must be left in place"
+	fail "non-QEMU pidfile must be removed"
 }
 kill "$wrong_pid" 2>/dev/null || true
 wait "$wrong_pid" 2>/dev/null || true
-rm -f "$TMP/wrong.pid"
 
 # SIGTERM-ignored guest: kill_pidfile must return 2 so --stop is nonzero.
 bash -c 'trap "" TERM; echo ready >"$1"; exec -a fwlive-qemu-stubborn sleep 60' \
@@ -137,6 +154,60 @@ kill -KILL "$stubborn_pid" 2>/dev/null || true
 wait "$stubborn_pid" 2>/dev/null || true
 rm -f "$TMP/stubborn.pid"
 
+# Start path: live pidfile whose cmdline is not this guest is stale, not a wedge.
+sleep 60 &
+prep_pid=$!
+printf '%s\n' "$prep_pid" >"$TMP/prep.pid"
+out="$(qemu_lab_prepare_pidfile "$TMP/prep.pid" 'qemu-system-x86_64.*openwrt-x86-64' x86 2>&1)" \
+	|| {
+		kill "$prep_pid" 2>/dev/null || true
+		fail "mismatched live pidfile must not block start: $out"
+	}
+[[ "$out" == *"rm -f ${TMP}/prep.pid"* ]] || {
+	kill "$prep_pid" 2>/dev/null || true
+	fail "prepare_pidfile mismatch must name rm -f ($out)"
+}
+[[ ! -f "$TMP/prep.pid" ]] || {
+	kill "$prep_pid" 2>/dev/null || true
+	fail "prepare_pidfile must remove a mismatched pidfile"
+}
+if ! kill -0 "$prep_pid" 2>/dev/null; then
+	fail "prepare_pidfile must not kill the mismatched pid"
+fi
+kill "$prep_pid" 2>/dev/null || true
+wait "$prep_pid" 2>/dev/null || true
+
+# --force must SIGKILL a SIGTERM-ignoring matching guest and only then print Stopped.
+bash -c 'trap "" TERM; echo ready >"$1"; exec -a fwlive-qemu-force-stubborn sleep 60' \
+	force_stubborn "$TMP/force-stubborn.ready" &
+force_stubborn_pid=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+	[[ -f "$TMP/force-stubborn.ready" ]] && break
+	sleep 0.1
+done
+[[ -f "$TMP/force-stubborn.ready" ]] || {
+	kill -KILL "$force_stubborn_pid" 2>/dev/null || true
+	fail "force SIGTERM-ignored fixture did not become ready"
+}
+printf '%s\n' "$force_stubborn_pid" >"$TMP/force-stubborn.pid"
+set +e
+qemu_lab_stop_guest "$TMP/force-stubborn.pid" 'fwlive-qemu-force-stubborn' stubborn 1 \
+	>"$TMP/force-stubborn.log" 2>&1
+force_stubborn_rc=$?
+set -e
+[[ "$force_stubborn_rc" -eq 0 ]] || {
+	kill -KILL "$force_stubborn_pid" 2>/dev/null || true
+	fail "--force must stop a SIGTERM-ignored guest (got $force_stubborn_rc: $(cat "$TMP/force-stubborn.log"))"
+}
+if kill -0 "$force_stubborn_pid" 2>/dev/null; then
+	kill -KILL "$force_stubborn_pid" 2>/dev/null || true
+	fail "--force left a SIGTERM-ignored guest running"
+fi
+grep -Fq "Stopped stubborn QEMU pid ${force_stubborn_pid}" "$TMP/force-stubborn.log" \
+	|| fail "--force must confirm the pid stopped ($(cat "$TMP/force-stubborn.log"))"
+[[ ! -f "$TMP/force-stubborn.pid" ]] || fail "--force must remove the pidfile"
+wait "$force_stubborn_pid" 2>/dev/null || true
+
 # Stale pidfile is not treated as a live guest.
 printf '%s\n' 999999 >"$TMP/stale.pid"
 set +e
@@ -145,6 +216,7 @@ stale_rc=$?
 set -e
 [[ "$stale_rc" -eq 0 ]] || fail "stale pidfile --stop must be success (got $stale_rc: $out)"
 [[ "$out" == *"stale x86 pidfile"* ]] || fail "stale pidfile: $out"
+[[ "$out" == *"rm -f ${TMP}/stale.pid"* ]] || fail "stale pidfile must name rm -f: $out"
 [[ ! -f "$TMP/stale.pid" ]] || fail "stale pidfile must be removed"
 
 # --force pkill of a uniquely named fixture (not a real qemu-system).
@@ -234,4 +306,4 @@ set -e
 grep -Fxq x86 "$TMP/stopped" || fail "stop_qemu must still attempt x86"
 grep -Fxq armsr "$TMP/stopped" || fail "stop_qemu must still attempt armsr after x86 fails"
 
-echo "qemu lifecycle (#815 #805 #808) passed"
+echo "qemu lifecycle (#815 #805 #808 #924 #888) passed"

@@ -7,6 +7,8 @@
 #
 #   ./scripts/run-openwrt-armsr-armv8-qemu.sh
 #   ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop
+#   ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop --force
+#   ./scripts/run-openwrt-armsr-armv8-qemu.sh --force --stop
 #   OWRT_QEMU_DUAL_NIC=1 ...   # optional legacy dual-NIC (not recommended)
 #
 # LuCI http://localhost:8080/cgi-bin/luci/
@@ -49,9 +51,9 @@ check_host_ports() {
 	done
 }
 
-FORCE_STOP=0
-if [[ "${1:-}" == "--stop" ]]; then
-	[[ "${2:-}" == "--force" ]] && FORCE_STOP=1
+qemu_lab_parse_runner_args "$@" || exit 1
+FORCE_STOP="${qemu_lab_want_force:-0}"
+if [[ "${qemu_lab_want_stop:-0}" -eq 1 ]]; then
 	stop_qemu
 	exit $?
 fi
@@ -95,7 +97,8 @@ OWRT_UBOOT="$(resolve_uboot)"
 [[ -n "${OWRT_UBOOT}" && -f "${OWRT_UBOOT}" ]] || die "Missing U-Boot — run scripts/download-openwrt-armsr-armv8.sh"
 
 check_host_ports
-qemu_lab_prepare_pidfile "${OWRT_QEMU_PIDFILE}" || exit 1
+qemu_lab_prepare_pidfile "${OWRT_QEMU_PIDFILE}" \
+	'qemu-system-aarch64.*openwrt-armsr-armv8' armsr || exit 1
 mkdir -p "$(dirname "${OWRT_CONSOLE_LOG}")" "$(dirname "${OWRT_QEMU_PIDFILE}")"
 : > "${OWRT_CONSOLE_LOG}"
 
