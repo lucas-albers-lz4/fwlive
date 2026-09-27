@@ -619,6 +619,12 @@ a post-probe transport failure, and missing status-marker handling. Shell
 syntax and ShellCheck pass. No live QEMU guest was used. Documented `--cmd`
 usage is read-only (`uname -r`); the matrix caller supplies no command.
 
+**Non-findings.** The fixed readiness probe does not interpolate caller input.
+The optional command remains explicit operator input, quoted as one `sh -c`
+argument, and is not retried after transport loss. This change adds no SSH
+credential source, ACL grant, rpcd method, or frontend sink. Existing disabled
+host-key checking is unchanged and was not revalidated as a trust control.
+
 **Result.** The SSH readiness probe and retry sleeps stay within the configured
 wait budget to shell-second precision. The optional command starts only after
 readiness succeeds, runs once, and may take as long as the remote command
