@@ -217,9 +217,13 @@ function goldenFor(name) {
 
 function jsonfilterPathEnv() {
 	const jf = spawnSync('sh', ['-c', 'command -v jsonfilter'], { encoding: 'utf8' });
-	if (jf.status === 0 && jf.stdout.trim())
+	if (jf.status === 0 && jf.stdout.trim()) {
+		console.error('using host jsonfilter');
 		return { env: process.env, cleanup: function() {} };
+	}
 
+	/* Stub envelope: stdin + @.log[*] only. No -s, no streaming. */
+	console.error('using jsonfilter stub (stdin + @.log[*] only)');
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-c1-jf-'));
 	fs.writeFileSync(path.join(stubDir, 'jsonfilter'), [
 		'#!/usr/bin/env node',
