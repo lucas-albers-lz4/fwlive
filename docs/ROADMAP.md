@@ -6,13 +6,16 @@ Product: **LuCI Firewall Live View** — OPNsense Live View–style operator UX 
 
 ---
 
-## Development approach (agreed)
+## Development approach (2026-07, historical)
+
+Early-project notes. Current per-PR gates live in
+[`docs/developer/test-approach.md`](developer/test-approach.md)
+(owner) — do not treat the loop below as the required path.
 
 - **Small steps** — ship one behavior at a time; accept in QEMU LuCI + one CLI check.
-- **Light testing** — `./scripts/fwlive-test.sh` + manual browser smoke; no full test suite required.
 - **Backport awareness** — edge cases will surface on 23.05 / armsr; fix as we hit them.
 
-**Test loop per step:**
+**Historical local loop (2026-07):**
 
 ```sh
 ./scripts/fwlive-test.sh                    # parser regressions

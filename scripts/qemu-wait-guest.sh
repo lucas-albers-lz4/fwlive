@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Wait until the armsr QEMU guest answers SSH (hostfwd) and optionally run a command.
+# Wait until a QEMU OpenWrt guest answers SSH (hostfwd) and optionally run a command.
+# Generic waiter for x86 and armsr. Contract: OPENWRT_HOST, OPENWRT_SSH_PORT,
+# OPENWRT_USER, MAX_WAIT, INTERVAL, optional --cmd.
 #
 # Usage:
 #   ./scripts/qemu-wait-guest.sh

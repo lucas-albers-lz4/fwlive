@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fail `fwlive-logging.test.sh` on skips when `CI=true` or `FWLIVE_TEST_REQUIRE_ZERO_SKIPS=1` (#794)
 - Await poll-call counts with `waitFor` instead of a fixed sleep (#792)
 - Queue default harness `requestAnimationFrame` and flush it in tests (#790)
+- Document skipped release numbers, owner test-policy links, and pin-site checklists (#845, #844, #843, #823, #820, #819, #818)
 - Fail closed on missing lint tools, ruff, and busybox instead of implicit `npm ci` or a silent macOS skip (`FWLIVE_ALLOW_SKIP=1` is the loud opt-out) (#802)
 - Pin shell-filter metachar classify results and the filtered JSON shape (#801)
 - Render chips smoke through the real `E` harness (#800)
@@ -439,6 +440,8 @@ Manual install: [installation.md](docs/user/installation.md)
 
 ### Changed
 - Backend improvements
+
+<!-- v0.1.20 was never tagged or folded; compare v0.1.21 → v0.1.19. -->
 
 ---
 

@@ -99,7 +99,9 @@ Single-guest `run-openwrt-*-qemu.sh` still defaults both architectures to
 Merge-latency decisions rest on these numbers, not tribal estimates.
 Cold = clean checkout through green; warm = smoke binary only.
 QEMU C2 numbers are from a **pre-booted** 24.10.5 x86_64 guest
-(`root@127.0.0.1:2222`, fwlive already installed).
+(`root@127.0.0.1:2222`, fwlive already installed). That guest predates the
+validated **24.10.8** pin; treat the row as a historical merge-latency
+reference, not a measurement on the current pin.
 
 | Job | Runner | Cold | Warm | Date |
 |-----|--------|------|------|------|
