@@ -23,6 +23,7 @@ Usage: docker-sdk.sh <command> [options] [make-args...]
 
 Commands:
   list       Show supported target × version combinations
+  list-cells Show target/version cells selected by --target/--version
   setup      Configure feeds + defconfig (once per SDK volume)
   make       Compile luci-app-fwlive
   copy-out   Copy packages to out/<arch>/<version>/
@@ -79,6 +80,15 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+SELECTED_TARGETS=("${SDK_MATRIX_TARGETS[@]}")
+SELECTED_VERSIONS=("${SDK_MATRIX_VERSIONS[@]}")
+if [[ "$SEEN_TARGET" -eq 1 ]]; then
+	SELECTED_TARGETS=("$TARGET")
+fi
+if [[ "$SEEN_VERSION" -eq 1 ]]; then
+	SELECTED_VERSIONS=("$VERSION")
+fi
+
 run_one() {
 	local t="$1" v="$2"
 	sdk_matrix_validate_target "$t"
@@ -90,6 +100,19 @@ run_one() {
 case "$CMD" in
 	list)
 		sdk_matrix_list
+		;;
+	list-cells)
+		for t in "${SELECTED_TARGETS[@]}"; do
+			sdk_matrix_validate_target "$t"
+		done
+		for v in "${SELECTED_VERSIONS[@]}"; do
+			sdk_matrix_validate_version "$v"
+		done
+		for t in "${SELECTED_TARGETS[@]}"; do
+			for v in "${SELECTED_VERSIONS[@]}"; do
+				echo "$t $v"
+			done
+		done
 		;;
 	setup)
 		run_one "$TARGET" "$VERSION"
@@ -114,20 +137,8 @@ case "$CMD" in
 		sdk_matrix_copy_out
 		;;
 	build-all)
-		targets=("${SDK_MATRIX_TARGETS[@]}")
-		versions=("${SDK_MATRIX_VERSIONS[@]}")
-		if [[ "$SEEN_TARGET" -eq 1 ]]; then
-			targets=("$TARGET")
-		fi
-		if [[ "$SEEN_VERSION" -eq 1 ]]; then
-			versions=("$VERSION")
-		fi
-		for t in "${targets[@]}"; do
-			for v in "${versions[@]}"; do
-				if [[ "${FWLIVE_SDK_PRINT_CELLS:-0}" == 1 ]]; then
-					echo "$t $v"
-					continue
-				fi
+		for t in "${SELECTED_TARGETS[@]}"; do
+			for v in "${SELECTED_VERSIONS[@]}"; do
 				run_one "$t" "$v"
 				if ! sdk_matrix_feeds_ready; then
 					sdk_matrix_feeds_setup
@@ -137,9 +148,7 @@ case "$CMD" in
 				echo >&2
 			done
 		done
-		if [[ "${FWLIVE_SDK_PRINT_CELLS:-0}" != 1 ]]; then
-			echo "All requested matrix builds finished under ${ROOT}/out/" >&2
-		fi
+		echo "All requested matrix builds finished under ${ROOT}/out/" >&2
 		;;
 	'' | -h | --help | help)
 		usage
