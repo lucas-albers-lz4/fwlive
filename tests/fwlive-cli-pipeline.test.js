@@ -28,6 +28,12 @@ function run() {
 	const piped = JSON.parse(pipeOut);
 	assert.equal(piped.length, 5);
 
+	const large = path.join(__dirname, 'fixtures', 'logread-2000.json');
+	const largeStats = JSON.parse(execFileSync(process.execPath, [ core, 'stats', large ], { encoding: 'utf8' }));
+	assert.equal(largeStats.total, 2000);
+	assert.equal(largeStats.firewall, 1143);
+	assert.equal(largeStats.noise, 857);
+
 	console.log('fwlive CLI pipeline tests passed');
 }
 

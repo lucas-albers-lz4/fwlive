@@ -197,12 +197,34 @@ function loadFwliveView(options) {
 	const renderScheduler = loadFwliveModule('render-scheduler');
 
 	const pollOps = [];
+	const rafQueue = [];
+	let rafSeq = 1;
 	const requestAnimationFrame =
 		typeof options.requestAnimationFrame === 'function'
 			? options.requestAnimationFrame
-			: function() { return 0; };
+			: function (cb) {
+				const id = rafSeq++;
+				rafQueue.push({ id: id, cb: cb });
+				return id;
+			};
 	const cancelAnimationFrame =
-		typeof options.cancelAnimationFrame === 'function' ? options.cancelAnimationFrame : null;
+		typeof options.cancelAnimationFrame === 'function'
+			? options.cancelAnimationFrame
+			: function (id) {
+				for (let i = 0; i < rafQueue.length; i++) {
+					if (rafQueue[i].id === id) {
+						rafQueue.splice(i, 1);
+						return;
+					}
+				}
+			};
+	function flushFrames(max) {
+		let n = max == null ? 16 : max;
+		while (n-- > 0 && rafQueue.length) {
+			const batch = rafQueue.splice(0, rafQueue.length);
+			for (let i = 0; i < batch.length; i++) batch[i].cb(Date.now());
+		}
+	}
 	const poll = {
 		_entries: [],
 		add: function(fn, interval) {
@@ -306,12 +328,32 @@ function loadFwliveView(options) {
 		dispatchPagehide: function(event) {
 			const listeners = (windowListeners.pagehide || []).slice();
 			for (let i = 0; i < listeners.length; i++) listeners[i](event);
-		}
+		},
+		flushFrames: flushFrames
 	};
+}
+
+function waitFor(check, timeoutMs) {
+	const deadline = Date.now() + (timeoutMs || 1000);
+	return new Promise(function (resolve, reject) {
+		function tick() {
+			let ready = false;
+			try {
+				ready = !!check();
+			} catch (e) {
+				ready = false;
+			}
+			if (ready) return resolve();
+			if (Date.now() >= deadline) return reject(new Error('waitFor timeout'));
+			setImmediate(tick);
+		}
+		tick();
+	});
 }
 
 module.exports = {
 	VIEW_PATH: VIEW_PATH,
 	createHarnessDocument: createHarnessDocument,
-	loadFwliveView: loadFwliveView
+	loadFwliveView: loadFwliveView,
+	waitFor: waitFor
 };

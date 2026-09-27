@@ -26,6 +26,11 @@ Native SDK (no Docker): [`../minimal-build-sdk.md`](../minimal-build-sdk.md)
 ./scripts/fwlive-linkcheck.sh    # markdown links + heading anchors + external URLs
 ```
 
+`npm test` is the host suite only. CI also runs `tests/install-host-jshn.test.sh`
+before that suite and `npm run test:view` (mocked-LuCI Playwright) as a
+separate job. `npm run test:ci` is the documented combined local path; it
+still needs the jshn installer prerequisites and Playwright browsers.
+
 Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline,
 shell codegen + LuCI wrapper gate (`./scripts/gen-all.sh`), and shellcheck on shipped
 `root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`), and the invariant
