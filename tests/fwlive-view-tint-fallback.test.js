@@ -10,6 +10,8 @@ const map = h.document.querySelector('.fwlive-map');
 assert.ok(map, 'render must register .fwlive-map for querySelector');
 assert.ok(h.document.querySelector('#fwlive-table tbody'),
 	'render must register #fwlive-table tbody');
+assert.ok(h.document.querySelector('#fwlive-table thead tr'),
+	'descendant querySelector must find thead tr');
 
 v.rowTint = 'classic';
 v.applyRowTintMode();

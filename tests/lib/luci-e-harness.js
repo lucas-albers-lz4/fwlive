@@ -200,9 +200,15 @@ class Element extends Node {
 	}
 
 	querySelector(selector) {
-		const token = String(selector || '').trim();
-		if (!token) return null;
-		return findDescendant(this, token);
+		const parts = String(selector || '').trim().split(/\s+/).filter(Boolean);
+		if (!parts.length) return null;
+		let scope = this;
+		for (let i = 0; i < parts.length; i++) {
+			const found = findDescendant(scope, parts[i]);
+			if (!found) return null;
+			scope = found;
+		}
+		return scope;
 	}
 }
 
