@@ -13,6 +13,19 @@ assert.ok(h.document.querySelector('#fwlive-table tbody'),
 assert.ok(h.document.querySelector('#fwlive-table thead tr'),
 	'descendant querySelector must find thead tr');
 
+const miss = h.document.createElement('div');
+miss.setAttribute('class', 'group');
+const hit = h.document.createElement('div');
+hit.setAttribute('class', 'group');
+const target = h.document.createElement('span');
+target.setAttribute('class', 'target');
+hit.appendChild(target);
+const root = h.document.createElement('div');
+root.appendChild(miss);
+root.appendChild(hit);
+assert.equal(root.querySelector('.group .target'), target,
+	'descendant querySelector must skip a first ancestor that has no match');
+
 v.rowTint = 'classic';
 v.applyRowTintMode();
 assert.equal(map.getAttribute('data-row-tint'), 'classic');

@@ -149,12 +149,17 @@ function tokenMatches(node, token) {
 	return String(node.tagName || '').toLowerCase() === token.toLowerCase();
 }
 
-function findDescendant(node, token) {
+function queryFrom(node, parts, includeSelf) {
+	if (!parts.length) return includeSelf ? node : null;
+	if (includeSelf && tokenMatches(node, parts[0])) {
+		if (parts.length === 1) return node;
+		const rest = queryFrom(node, parts.slice(1), false);
+		if (rest) return rest;
+	}
 	const kids = node.childNodes || [];
 	for (let i = 0; i < kids.length; i++) {
-		if (tokenMatches(kids[i], token)) return kids[i];
-		const nested = findDescendant(kids[i], token);
-		if (nested) return nested;
+		const found = queryFrom(kids[i], parts, true);
+		if (found) return found;
 	}
 	return null;
 }
@@ -202,13 +207,7 @@ class Element extends Node {
 	querySelector(selector) {
 		const parts = String(selector || '').trim().split(/\s+/).filter(Boolean);
 		if (!parts.length) return null;
-		let scope = this;
-		for (let i = 0; i < parts.length; i++) {
-			const found = findDescendant(scope, parts[i]);
-			if (!found) return null;
-			scope = found;
-		}
-		return scope;
+		return queryFrom(this, parts, false);
 	}
 }
 

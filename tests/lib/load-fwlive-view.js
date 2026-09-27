@@ -211,7 +211,7 @@ function loadFwliveView(options) {
 		_: fakeGettext,
 		localStorage: localStorage
 	});
-	const table = loadFwliveModule('table', { log: log, links: links });
+	const table = loadFwliveModule('table', { log: log, links: links, E: luciE.E });
 	const buffer = loadFwliveModule('buffer');
 	const pollCoordinator = loadFwliveModule('poll-coordinator');
 	const proto = loadFwliveModule('proto', { document: document });
