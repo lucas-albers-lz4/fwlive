@@ -6,7 +6,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
 
 function fail(msg) {
 	console.error(msg);
@@ -59,8 +59,8 @@ async function testRequestCoalescing() {
 	await queued;
 
 	view.requestPoll();
-	await new Promise(function (r) {
-		setTimeout(r, 10);
+	await waitFor(function () {
+		return pollMock.calls() === 3;
 	});
 	assert.strictEqual(pollMock.calls(), 3, 'poll after the queued refresh completes may proceed');
 	console.log('fwlive-view poll-guard: in-flight guard OK');

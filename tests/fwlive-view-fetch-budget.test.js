@@ -4,7 +4,7 @@
 /* Frozen #338 Auto/Manual fetch-budget and preference-order contracts. */
 
 const assert = require('node:assert/strict');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
 
 function sleep(ms) {
 	return new Promise(function (resolve) {
@@ -339,7 +339,7 @@ async function testLimitChangeWhileHiddenUsesVisibleCatchup() {
 	v.onRowLimitChange({ target: { value: '25' } });
 	assert.strictEqual(calls, 0, 'hidden Limit change must not fetch immediately');
 	h.setHidden(false);
-	await sleep(20);
+	await waitFor(function () { return calls === 1; });
 	assert.strictEqual(calls, 1, 'visible catch-up must fetch once');
 	assert.strictEqual(requested, '100', 'catch-up must use the new Auto budget');
 	console.log('fwlive-view fetch-budget: hidden Limit change catch-up OK');
@@ -375,7 +375,7 @@ async function testLimitAndVisibilityDuringInFlightRequest() {
 	v.ensurePollCoordinator().startPolling();
 
 	const first = v.requestPoll();
-	await sleep(10);
+	await waitFor(function () { return calls === 1; });
 	assert.strictEqual(calls, 1, 'initial request must be active');
 	assert.strictEqual(requested[0], '100', 'initial request must use the old Auto budget');
 
@@ -390,7 +390,9 @@ async function testLimitAndVisibilityDuringInFlightRequest() {
 	assert.strictEqual(v.entries.length, 0, 'stale hidden reply must not apply');
 
 	h.setHidden(false);
-	await sleep(20);
+	await waitFor(function () {
+		return calls === 2 && v.entries[0] && v.entries[0].id === 'log:' + newRow.id;
+	});
 	assert.strictEqual(calls, 2, 'visible transition must perform one catch-up request');
 	assert.strictEqual(requested[1], '2000', 'catch-up must use the current Auto budget');
 	assert.deepStrictEqual(v.entries.map((row) => row.id), ['log:' + newRow.id]);

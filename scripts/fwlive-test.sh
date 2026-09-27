@@ -166,6 +166,8 @@ echo "== fwlive rpc.declare expect contract (#369) =="
 
 echo "== fwlive view poll guard (#240) =="
 "$NODE" tests/fwlive-view-poll-guard.test.js
+echo "== fwlive view rAF harness (#790) =="
+"$NODE" tests/fwlive-view-raf.test.js
 echo "== fwlive poll coordinator (#352) =="
 "$NODE" tests/fwlive-poll-coordinator.test.js
 echo "== fwlive harness fidelity (#837 #836) =="

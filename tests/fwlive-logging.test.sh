@@ -1702,5 +1702,8 @@ ok "run_with_timeout returns 127 without timeout (fail-closed)"
 
 if [ "$skips" -gt 0 ]; then
 	echo "SUMMARY: fwlive-logging tests passed; $skips SKIPPED" >&2
+	if [[ "${FWLIVE_TEST_REQUIRE_ZERO_SKIPS:-}" == "1" || "${CI:-}" == "true" ]]; then
+		die "$skips SKIPPED (set FWLIVE_TEST_REQUIRE_ZERO_SKIPS=0 to allow host skips)"
+	fi
 fi
 echo "fwlive-logging tests passed"
