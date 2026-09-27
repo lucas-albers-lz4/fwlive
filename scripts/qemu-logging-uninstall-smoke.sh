@@ -13,8 +13,9 @@
 # - 25.12 same-version `apk add --force-reinstall` — preservation only
 #   (`post-upgrade`, no `pre-deinstall`).
 #
-# Version-changing APK upgrades are not covered (no two-version QEMU
-# experiment). Host tests already model PKG_UPGRADE=1.
+# Version-changing APK upgrades run post-upgrade only (two-version
+# QEMU proof in docs/evidence/issue-848-2026-09-27.md). Host tests
+# already model PKG_UPGRADE=1.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

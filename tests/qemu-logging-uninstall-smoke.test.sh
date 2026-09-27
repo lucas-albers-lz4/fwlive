@@ -26,8 +26,10 @@ grep -Fq 'post-upgrade' "$SCRIPT" \
 grep -Fq 'pre-deinstall' "$SCRIPT" \
 	|| { echo "smoke must call out pre-deinstall uninstall proof" >&2; exit 1; }
 grep -Fq 'PKG_UPGRADE=1' "$SCRIPT" \
-	|| { echo "smoke must record the version-changing upgrade residual" >&2; exit 1; }
+	|| { echo "smoke must record PKG_UPGRADE=1 on the APK upgrade path" >&2; exit 1; }
 grep -Fq 'two-version' "$SCRIPT" \
-	|| { echo "smoke must record that version-changing upgrades need a two-version experiment" >&2; exit 1; }
+	|| { echo "smoke must point at the two-version APK upgrade evidence" >&2; exit 1; }
+grep -Fq 'issue-848-2026-09-27.md' "$SCRIPT" \
+	|| { echo "smoke must cite the #848 version-changing upgrade evidence" >&2; exit 1; }
 
 echo "qemu logging-uninstall source-contract checks passed"
