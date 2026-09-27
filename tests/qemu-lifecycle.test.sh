@@ -32,6 +32,10 @@ grep -Fq 'qemu_lab_stop_guest' "$ARMSR" || fail "armsr --stop must use qemu_lab_
 if grep -nE '^\s*pkill -f' "$X86" "$ARMSR"; then
 	fail "runners must not pkill directly; qemu_lab_stop_guest owns --force"
 fi
+grep -Fq 'uname -s' "$X86" || fail "x86 runner must gate on Linux uname -s"
+hint="$(qemu_lab_port_owners_hint)"
+[[ "$hint" == *"run-openwrt-x86-qemu.sh --stop --force"* ]] || fail "port hint must say x86 --stop --force"
+[[ "$hint" == *"run-openwrt-armsr-armv8-qemu.sh --stop --force"* ]] || fail "port hint must say armsr --stop --force"
 grep -Fq 'qemu_lab_parse_runner_args' "$X86" || fail "x86 must parse --stop/--force via qemu_lab_parse_runner_args"
 grep -Fq 'qemu_lab_parse_runner_args' "$ARMSR" || fail "armsr must parse --stop/--force via qemu_lab_parse_runner_args"
 

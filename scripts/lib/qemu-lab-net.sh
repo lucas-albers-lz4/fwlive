@@ -37,7 +37,7 @@ qemu_lab_validate_port() {
 }
 
 qemu_lab_port_owners_hint() {
-	printf '%s' "stop lab/compose.yml (openwrt-x64), docker-compose.yml (owrt-x64-exp), or QEMU (./scripts/run-openwrt-x86-qemu.sh --stop / ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop). See lab/README.md"
+	printf '%s' "stop lab/compose.yml (openwrt-x64), docker-compose.yml (owrt-x64-exp), or QEMU (./scripts/run-openwrt-x86-qemu.sh --stop --force / ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop --force). See lab/README.md"
 }
 
 # Fail closed: invalid port, ss error, or a listener on the port.
@@ -226,8 +226,28 @@ qemu_lab_stop_guest() {
 	return 0
 }
 
+# IPv4 or empty. Commas, spaces, and extra colons would change QEMU option parsing.
+qemu_lab_validate_hostfwd_bind() {
+	local bind="${OWRT_HOSTFWD_BIND:-}"
+	[[ -z "$bind" ]] && return 0
+	if [[ ! "$bind" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+		echo "qemu-lab-net: OWRT_HOSTFWD_BIND must be an IPv4 address or empty (got '${bind}')" >&2
+		return 1
+	fi
+	local octet IFS=.
+	local -a octets=()
+	read -r -a octets <<<"$bind"
+	for octet in "${octets[@]}"; do
+		if ((10#$octet > 255)); then
+			echo "qemu-lab-net: OWRT_HOSTFWD_BIND must be an IPv4 address or empty (got '${bind}')" >&2
+			return 1
+		fi
+	done
+}
+
 qemu_lab_hostfwd_rule() {
 	local proto="$1" host_port="$2" guest_port="$3"
+	qemu_lab_validate_hostfwd_bind || return 1
 	if [[ -n "$OWRT_HOSTFWD_BIND" ]]; then
 		printf '%s:%s:%s-:%s' "$proto" "$OWRT_HOSTFWD_BIND" "$host_port" "$guest_port"
 	else
