@@ -16,6 +16,11 @@ skip() {
 
 . "$LOGGING_SH"
 
+KEEP_D="$ROOT/openwrt-feed/luci-app-fwlive/root/lib/upgrade/keep.d/luci-app-fwlive"
+[ -f "$KEEP_D" ] || die "keep.d luci-app-fwlive missing"
+grep -qx '/etc/fwlive/' "$KEEP_D" || die "keep.d must list /etc/fwlive/"
+ok "sysupgrade keep.d lists /etc/fwlive/"
+
 type json_escape >/dev/null 2>&1 || die "json_escape must be defined after sourcing logging.sh"
 got=$(printf 'a\n\nb' | json_escape)
 [ "$got" = "$(printf 'a\\n\\nb')" ] || die "json_escape must keep blank lines, got: $got"
@@ -1356,6 +1361,63 @@ printf '' >"$WAN_LOG_BASELINE_FILE"
 restore_wan_log_baseline || die "restore already-at-baseline failed"
 [ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "baseline file should be removed when already at target"
 ok "restore_wan_log_baseline no-op when UCI already matches baseline"
+
+# #935: already-on enable still snapshots best-effort (skip-if-exists).
+compute_nf_log_state() {
+	NF_LOG_IPV4_READY=true
+	NF_LOG_IPV6_READY=true
+	NF_LOG_STATE_COMPUTED=1
+}
+firewall_changes_pending() { return 1; }
+rm -f "$WAN_LOG_BASELINE_FILE"
+WAN_ZONE_LOG='1'
+enable_wan_logging >"$BASELINE_WORK/already-on.out"
+out=$(cat "$BASELINE_WORK/already-on.out")
+case "$out" in
+	*'"ok":true'*'"changed":false'*) ;;
+	*) die "#935 already-on enable: expected ok:true/changed:false, got: $out" ;;
+esac
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "#935 already-on enable must snapshot a missing baseline"
+[ -z "$(cat "$WAN_LOG_BASELINE_FILE")" ] || die "#935 already-on snapshot must reconstruct unset, not the on-value"
+ok "already-on enable snapshots a missing WAN log baseline"
+
+WAN_ZONE_LOG='1'
+restore_wan_log_baseline || die "#935 restore of reconstructed empty baseline failed"
+[ -z "$WAN_ZONE_LOG" ] || die "#935 uninstall restore must clear the already-on bit, got '$WAN_ZONE_LOG'"
+ok "already-on empty snapshot lets uninstall turn logging off"
+
+printf '1' >"$WAN_LOG_BASELINE_FILE"
+WAN_ZONE_LOG='3'
+enable_wan_logging >"$BASELINE_WORK/already-on-skip.out"
+out=$(cat "$BASELINE_WORK/already-on-skip.out")
+case "$out" in
+	*'"ok":true'*'"changed":false'*) ;;
+	*) die "#935 already-on skip-if-exists: expected ok:true/changed:false, got: $out" ;;
+esac
+[ "$(cat "$WAN_LOG_BASELINE_FILE")" = "1" ] || die "#935 already-on enable must keep an existing baseline"
+ok "already-on enable keeps an existing baseline"
+
+SYMLINK_ON=$(mktemp -d)
+WAN_LOG_BASELINE_FILE="$SYMLINK_ON/wan-log-baseline"
+ln -s /etc/passwd "$WAN_LOG_BASELINE_FILE"
+WAN_ZONE_LOG='1'
+enable_wan_logging >"$BASELINE_WORK/already-on-fail.out"
+out=$(cat "$BASELINE_WORK/already-on-fail.out")
+case "$out" in
+	*'"ok":true'*'"changed":false'*) ;;
+	*) die "#935 already-on snapshot failure must stay ok:true/changed:false, got: $out" ;;
+esac
+case "$out" in
+	*baseline_snapshot_failed*) die "#935 already-on snapshot failure must not set baseline_snapshot_failed: $out" ;;
+esac
+[ -L "$WAN_LOG_BASELINE_FILE" ] || die "#935 already-on snapshot failure must not replace the symlink"
+ok "already-on enable treats snapshot failure as best-effort"
+WAN_LOG_BASELINE_FILE="$BASELINE_WORK/wan-log-baseline"
+export WAN_LOG_BASELINE_FILE
+rm -rf "$SYMLINK_ON"
+# Leave compute_nf_log_state stubbed ready; later tests in this file do not
+# require a missing-backend path.
+firewall_changes_pending() { return 1; }
 
 # #500 option 1: disable with a pre-existing/foreign log bit and no prior
 # enable must not snapshot. Uninstall restore must not put that bit back.

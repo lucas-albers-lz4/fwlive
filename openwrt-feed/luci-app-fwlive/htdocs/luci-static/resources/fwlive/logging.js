@@ -287,14 +287,12 @@ function buildEmptyStateNodes(state, callbacks) {
 		nodes.push(
 			E('p', {}, [
 				_(
-					'Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall.'
+					'Kernel netfilter log modules are missing. Install kmod-nf-log and kmod-nf-log6, then reload the firewall.'
 				)
 			])
 		);
 		nodes.push(
-			E('p', {}, [
-				E('code', {}, ['opkg update && opkg install kmod-nf-log-ipv4 kmod-nf-log-ipv6'])
-			])
+			E('p', {}, [E('code', {}, ['opkg update && opkg install kmod-nf-log kmod-nf-log6'])])
 		);
 		return nodes;
 	}

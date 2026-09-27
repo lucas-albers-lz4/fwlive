@@ -406,12 +406,11 @@ msgstr "Отсутствуют модули журналирования ядр�
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:290
 msgid ""
-"Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-"
-"nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall."
+"Kernel netfilter log modules are missing. Install kmod-nf-log and "
+"kmod-nf-log6, then reload the firewall."
 msgstr ""
-"Отсутствуют модули журнала netfilter ядра. Установите kmod-nf-log-ipv4 и "
-"kmod-nf-log-ipv6 (или kmod-nf-log / kmod-nf-log6), затем перезагрузите "
-"файрвол."
+"Отсутствуют модули журнала netfilter ядра. Установите kmod-nf-log и "
+"kmod-nf-log6, затем перезагрузите файрвол."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:47
 msgid "Len"
