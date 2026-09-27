@@ -365,4 +365,15 @@ case "$3" in
 esac
 ok "concurrent writers converge to valid state"
 
+_ww=$(mktemp -d)
+chmod 0777 "$_ww"
+_saved_state=$FWLIVE_ADAPTIVE_STATE_FILE
+FWLIVE_ADAPTIVE_STATE_FILE="$_ww/state.json"
+fwlive_adaptive_state_dir_ok && die "world-writable adaptive state dir must fail"
+fwlive_adaptive_write_state 1 50 cold 0 0 1
+[ ! -f "$FWLIVE_ADAPTIVE_STATE_FILE" ] || die "must not write into a world-writable adaptive state dir"
+FWLIVE_ADAPTIVE_STATE_FILE=$_saved_state
+rm -rf "$_ww"
+ok "world-writable adaptive state dir fails closed"
+
 echo "fwlive-adaptive-cap tests passed"

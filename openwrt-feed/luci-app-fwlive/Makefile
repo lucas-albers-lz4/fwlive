@@ -56,7 +56,7 @@ esac
 # Best-effort restore still exits 0 so a transient lock/pending-staging failure
 # cannot strand the package half-removed. The baseline is kept on failure for
 # admin recovery; helpers are still present while this prerm runs.
-restore_wan_log_baseline || logger -t fwlive "WAN log baseline restore failed during uninstall"
+restore_wan_log_baseline >/dev/null || logger -t fwlive "WAN log baseline restore failed during uninstall"
 exit 0
 endef
 

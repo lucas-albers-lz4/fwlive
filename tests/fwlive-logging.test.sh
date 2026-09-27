@@ -1441,6 +1441,29 @@ else
 	skip "read-only baseline directory under root"
 fi
 
+SYMLINK_WORK=$(mktemp -d)
+WAN_LOG_BASELINE_FILE="$SYMLINK_WORK/wan-log-baseline"
+export WAN_LOG_BASELINE_FILE
+ln -s /etc/passwd "$WAN_LOG_BASELINE_FILE"
+WAN_ZONE_LOG='1'
+if maybe_snapshot_wan_log_baseline '@zone[0]'; then
+	die "symlinked baseline path must fail closed"
+fi
+[ -L "$WAN_LOG_BASELINE_FILE" ] || die "symlinked baseline path must remain a symlink"
+ok "symlinked baseline path fails closed"
+rm -rf "$SYMLINK_WORK"
+SYMLINK_DIR=$(mktemp -d)
+ln -s "$SYMLINK_DIR" "${SYMLINK_DIR}-link"
+WAN_LOG_BASELINE_FILE="${SYMLINK_DIR}-link/wan-log-baseline"
+export WAN_LOG_BASELINE_FILE
+WAN_ZONE_LOG='1'
+if maybe_snapshot_wan_log_baseline '@zone[0]'; then
+	die "symlinked baseline directory must fail closed"
+fi
+[ ! -e "$WAN_LOG_BASELINE_FILE" ] || die "symlinked baseline directory must not receive a file"
+ok "symlinked baseline directory fails closed"
+rm -rf "$SYMLINK_DIR" "${SYMLINK_DIR}-link"
+
 rm -rf "$BASELINE_WORK"
 unset WAN_LOG_BASELINE_FILE WAN_ZONE_LOG BASELINE_WORK
 unset -f uci reload_firewall mkdir acquire_wan_log_lock release_wan_log_lock
