@@ -88,9 +88,18 @@ async function testEnableReply(reply, expectedNotice, shouldPersist) {
 	await x.view.handleEnableLogging();
 
 	assert.equal(notice(x.view), expectedNotice);
+	assert.equal(
+		!!x.view.loggingNoticeFail,
+		reply instanceof Error || !reply || !reply.ok,
+		'enable failure notices must use the fail class'
+	);
 	assert.equal(x.view.loggingBusy, false, 'enable finally must clear busy');
 	assert.equal(x.statusLoads(), 1, 'enable must refresh status once');
-	assert.equal(x.emptyUpdates(), 3, 'enable updates empty state in preamble, refresh, and finally');
+	assert.equal(
+		x.emptyUpdates(),
+		3,
+		'enable updates empty state in preamble, refresh, and finally'
+	);
 	assert.equal(x.toolbarUpdates(), 3, 'enable updates toolbar in preamble, refresh, and finally');
 	if (shouldPersist) assert.equal(x.h.localStorage.getItem(STORAGE_KEY), '1');
 	else assert.equal(x.h.localStorage.getItem(STORAGE_KEY), null);
@@ -129,6 +138,26 @@ async function testEnableVariants() {
 		'The firewall did not reload; saved and live logging may differ.',
 		false
 	);
+	await testEnableReply(
+		{ ok: false, error: 'uci_set_failed' },
+		'Could not write the WAN zone log option.',
+		false
+	);
+	await testEnableReply(
+		{ ok: false, error: 'uci_delete_failed' },
+		'Could not clear the WAN zone log option.',
+		false
+	);
+	await testEnableReply(
+		{ ok: false, error: 'uci_commit_failed' },
+		'Could not save the firewall configuration.',
+		false
+	);
+	await testEnableReply(
+		{ ok: false, error: 'firewall_commit_raced' },
+		'Another change overwrote WAN logging after it was saved; check the current state.',
+		false
+	);
 	await testEnableReply({ ok: false, error: 'other' }, 'Could not enable logging.', false);
 	await testEnableReply(
 		{ ok: true, changed: true },
@@ -163,10 +192,19 @@ async function testDisableReply(reply, expectedNotice) {
 	await x.view.handleDisableLogging();
 
 	assert.equal(notice(x.view), expectedNotice);
+	assert.equal(
+		!!x.view.loggingNoticeFail,
+		reply instanceof Error || !reply || !reply.ok,
+		'disable failure notices must use the fail class'
+	);
 	assert.equal(x.view.loggingBusy, false, 'disable finally must clear busy');
 	assert.equal(x.statusLoads(), 1, 'disable must refresh status once');
 	assert.equal(x.emptyUpdates(), 2, 'disable updates empty state in refresh and finally');
-	assert.equal(x.toolbarUpdates(), 3, 'disable updates toolbar in preamble, refresh, and finally');
+	assert.equal(
+		x.toolbarUpdates(),
+		3,
+		'disable updates toolbar in preamble, refresh, and finally'
+	);
 	assert.equal(x.h.localStorage.getItem(STORAGE_KEY), null, 'disable never persists consent');
 }
 
@@ -188,6 +226,22 @@ async function testDisableVariants() {
 	await testDisableReply(
 		{ ok: false, error: 'firewall_reload_failed' },
 		'The firewall did not reload; saved and live logging may differ.'
+	);
+	await testDisableReply(
+		{ ok: false, error: 'uci_set_failed' },
+		'Could not write the WAN zone log option.'
+	);
+	await testDisableReply(
+		{ ok: false, error: 'uci_delete_failed' },
+		'Could not clear the WAN zone log option.'
+	);
+	await testDisableReply(
+		{ ok: false, error: 'uci_commit_failed' },
+		'Could not save the firewall configuration.'
+	);
+	await testDisableReply(
+		{ ok: false, error: 'firewall_commit_raced' },
+		'Another change overwrote WAN logging after it was saved; check the current state.'
 	);
 	await testDisableReply({ ok: false, error: 'other' }, 'Could not disable logging.');
 	await testDisableReply({ ok: true, changed: true }, 'WAN drop/reject logging is off.');
@@ -218,7 +272,8 @@ async function testLoggingStatusDefaultReply() {
 		assert.deepEqual(
 			h.view.loggingStatus,
 			LOGGING_STATUS_DEFAULT,
-			'logging_status wrong-type reply must use the declared full default: ' + JSON.stringify(reply)
+			'logging_status wrong-type reply must use the declared full default: ' +
+				JSON.stringify(reply)
 		);
 		assert.equal(h.view.weakDevice, false);
 	}
@@ -317,11 +372,7 @@ function testLegacyIptablesWarning() {
 		'legacy_iptables_detected must render as text beside the nft label'
 	);
 	assert.equal(label.classList['fwlive-backend-warn'], true, 'legacy warning uses warn-tint');
-	assert.deepEqual(
-		label._innerHTMLWrites || [],
-		[],
-		'backend span must not write innerHTML'
-	);
+	assert.deepEqual(label._innerHTMLWrites || [], [], 'backend span must not write innerHTML');
 	console.log('fwlive-view logging: legacy_iptables_detected warning OK');
 }
 
@@ -349,10 +400,12 @@ async function testDisableNoChangeClearsLastKnownNotice() {
 	rejectStatus = true;
 	await h.view.loadLoggingStatus();
 	assert.match(String(h.view.loggingNotice), /last known state/);
+	assert.equal(h.view.loggingNoticeFail, true);
 
 	rejectStatus = false;
 	await h.view.handleDisableLogging();
 	assert.equal(String(h.view.loggingNotice), '');
+	assert.equal(h.view.loggingNoticeFail, false);
 	assert.equal(h.view._loggingNoticeFromToggle, false);
 
 	await h.view.loadLoggingStatus();
