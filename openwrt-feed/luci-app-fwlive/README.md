@@ -28,7 +28,7 @@ LuCI **Firewall Live View** — client-side JS view polling `ubus fwlive poll` (
 | `root/usr/libexec/fwlive-adaptive-cap.sh` | Layer 1 adaptive poll cap (sourced by `rpcd/fwlive`) |
 | `root/usr/libexec/fwlive-logging.sh` | WAN zone logging helpers |
 | `root/lib/upgrade/keep.d/luci-app-fwlive` | Keep `/etc/fwlive/` across sysupgrade |
-| `/etc/fwlive/wan-log-baseline` | Written on first **Enable logging** (and best-effort on already-on enable); restored on uninstall (`prerm`). Disable of a pre-existing/foreign log bit is not snapshotted, so uninstall will not restore that bit. |
+| `/etc/fwlive/wan-log-baseline` | Written on first **Enable logging** (and best-effort on already-on enable); `prerm` restores it on uninstall. Restore is skipped (file kept; `fwlive` syslog only) when there is no WAN zone, the lock is unavailable, firewall changes are pending, the commit does not verify, or reload fails. Disable of a pre-existing/foreign log bit is not snapshotted, so uninstall will not restore that bit. |
 | `root/usr/libexec/fwlive-log-filter.sh` | Server-side firewall-only filter (`isFirewallEvent` parity) |
 | `root/usr/libexec/fwlive-is-firewall-event.sh` | Shared filter logic (sourced by filter + tests) |
 | `root/usr/libexec/fwlive-is-firewall-event.awk` | **Generated** standalone classifier from `CLASSIFY_SPEC`; loaded by `fwlive-is-firewall-event.sh` |

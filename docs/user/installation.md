@@ -153,4 +153,6 @@ opkg remove luci-app-fwlive    # 23.05 / 24.10
 apk del luci-app-fwlive        # 25.12.x
 ```
 
-**Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package restores the zone `log` value from before the first time you enabled logging via Live View. If you never used **Enable logging**, uninstall does not change firewall UCI.
+**Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package tries to restore the zone `log` value from before the first time you enabled logging via Live View. If you never used **Enable logging**, there is no baseline file and uninstall does not change firewall UCI.
+
+Restore is skipped — the baseline file stays, and the only notice is a `fwlive` syslog line — when there is no WAN zone, the logging lock is unavailable, firewall changes are already pending, the UCI commit does not verify, or the firewall reload fails. WAN logging can stay on in those cases. Check `logread` for `WAN log baseline restore` and turn logging off in Live View (or edit the zone) if the bit is still set.
