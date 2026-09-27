@@ -114,5 +114,48 @@ else
 	bad "verify_one did not report missing pass-2 artifact: $(tr '\n' ' ' <"$pass2_log")"
 fi
 
+if grep -q 'luci-app-fwlive-\*\.apk' "$REPO/scripts/verify-reproducible-build.sh" &&
+	! grep -q 'sdk_matrix_out_package_candidates' "$REPO/scripts/verify-reproducible-build.sh"; then
+	bad "artifact_sha still uses a drifted inline apk glob"
+else
+	ok "artifact_sha uses sdk_matrix_out_package_candidates"
+fi
+
+# Underscore-apk shape accepted by copy_out / feed staging (#807).
+sdk_matrix_resolve x86-64 24.10
+rm -rf "$TMP/out"
+mkdir -p "$TMP/out/${SDK_MATRIX_PACKAGE_ARCH}/${label}/fwlive"
+printf 'underscore-apk\n' >"$TMP/out/${SDK_MATRIX_PACKAGE_ARCH}/${label}/fwlive/luci-app-fwlive_0.1.46.apk"
+got="$(artifact_sha "$label")" || {
+	bad "artifact_sha missed luci-app-fwlive_*.apk"
+	got=""
+}
+got_path="${got#* }"
+if [[ "$got_path" == *luci-app-fwlive_0.1.46.apk ]]; then
+	ok "underscore apk shape is found"
+else
+	bad "underscore apk path: ${got_path:-<empty>}"
+fi
+want_hash="$(sha256sum "$TMP/out/${SDK_MATRIX_PACKAGE_ARCH}/${label}/fwlive/luci-app-fwlive_0.1.46.apk" | awk '{print $1}')"
+got_hash="${got%% *}"
+if [[ -n "$got_hash" && "$got_hash" == "$want_hash" ]]; then
+	ok "underscore apk hashes"
+else
+	bad "underscore apk hash '${got_hash}' want '${want_hash}'"
+fi
+
+rm -f "$TMP/out/${SDK_MATRIX_PACKAGE_ARCH}/${label}/fwlive/luci-app-fwlive_0.1.46.apk"
+printf 'hyphen-apk\n' >"$TMP/out/${SDK_MATRIX_PACKAGE_ARCH}/${label}/fwlive/luci-app-fwlive-0.1.46.apk"
+got="$(artifact_sha "$label")" || {
+	bad "artifact_sha missed luci-app-fwlive-*.apk"
+	got=""
+}
+got_path="${got#* }"
+if [[ "$got_path" == *luci-app-fwlive-0.1.46.apk ]]; then
+	ok "hyphen apk shape is found"
+else
+	bad "hyphen apk path: ${got_path:-<empty>}"
+fi
+
 [ "$fail" = "0" ] || exit 1
 echo "verify-reproducible-target-arch: ok"
