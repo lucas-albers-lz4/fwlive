@@ -33,11 +33,12 @@ done
 artifact_sha() {
 	local version_label="$1"
 	local arch="${SDK_MATRIX_PACKAGE_ARCH:?}"
-	local dir="${ROOT}/out/${arch}/${version_label}/fwlive"
+	local dir="${ROOT}/out/${arch}/${version_label}"
 	local path
-	[[ -d "$dir" ]] || return 1
-	path="$(find "$dir" -maxdepth 1 \
-		\( -name 'luci-app-fwlive_*_all.ipk' -o -name 'luci-app-fwlive-*.apk' \) -print -quit 2>/dev/null || true)"
+	local -a cands=()
+	sdk_matrix_out_package_candidates "$dir" cands
+	[[ ${#cands[@]} -ge 1 ]] || return 1
+	path="${cands[0]}"
 	[[ -n "$path" && -f "$path" ]] || return 1
 	sha256sum "$path" | awk '{print $1 " " $2}'
 }

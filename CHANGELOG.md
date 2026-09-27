@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Honor `docker-sdk.sh build-all --target/--version` even when the value matches the default (#813)
 - Save and restore caller RETURN/EXIT traps in feed-publish, feed-keys, and validate-matrix (#812)
 - Bound `wait-feed-pages.sh` curls and report every pending URL each round (#811)
+- Find `luci-app-fwlive_*.apk` in the reproducibility gate, matching copy-out and feed staging (#807)
 - Rewrite the guest fwlive feed source instead of appending a second URL, and refuse unsafe feed URLs before they reach ssh (#840)
 - Refuse an upstream cut on a dirty package tree, split onto a temporary branch unless `--replace`, and skip non-UTF-8 assets instead of crashing (#841)
 - Expand a log row from the Time cell, not Action — Action is a filter link (#822)
