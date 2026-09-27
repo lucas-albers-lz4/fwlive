@@ -18,11 +18,7 @@
  */
 
 const assert = require('node:assert/strict');
-const {
-	loadFwliveModule,
-	fakeE,
-	luciE
-} = require('./lib/load-fwlive-module');
+const { loadFwliveModule, fakeE, luciE } = require('./lib/load-fwlive-module');
 
 const { E, Element, TextNode, document, collectSubtreeInnerHTMLWrites } = luciE;
 
@@ -63,18 +59,28 @@ function testHtmlShapedValueDiscrimination() {
 /* --- fidelity: attrs (string + event) and node children --- */
 function testAttrsAndNodeChildren() {
 	const clicked = [];
-	const el = E('a', {
-		'class': 'fwlive-filter-link',
-		'href': '#',
-		'click': function() { clicked.push(1); }
-	}, [E('span', {}, 'label'), E('b', {}, 'x')]);
+	const el = E(
+		'a',
+		{
+			'class': 'fwlive-filter-link',
+			'href': '#',
+			'click': function () {
+				clicked.push(1);
+			}
+		},
+		[E('span', {}, 'label'), E('b', {}, 'x')]
+	);
 	assert.strictEqual(el.tagName, 'a');
 	assert.strictEqual(el._attrs['class'], 'fwlive-filter-link');
 	assert.strictEqual(el._attrs['href'], '#');
 	assert.ok(Array.isArray(el._listeners.click) && el._listeners.click.length === 1);
 	el._listeners.click[0]();
 	assert.deepStrictEqual(clicked, [1]);
-	assert.strictEqual(el._innerHTMLWrites.length, 0, 'node children must appendChild, not innerHTML');
+	assert.strictEqual(
+		el._innerHTMLWrites.length,
+		0,
+		'node children must appendChild, not innerHTML'
+	);
 	assert.strictEqual(el.childNodes.length, 2);
 	assert.strictEqual(el.childNodes[0].tagName, 'span');
 	assert.strictEqual(el.childNodes[1].tagName, 'b');
@@ -104,9 +110,13 @@ function testHarnessIsNotFakeE() {
 	assert.strictEqual(fake._innerHTMLWrites, undefined, 'fakeE marker: no write log');
 	assert.strictEqual(fake.childNodes, undefined, 'fakeE marker: no childNodes');
 
-	assert.throws(function() {
-		assert.strictEqual(fake._innerHTMLWrites.length, 0);
-	}, /undefined/, 'fakeE-like stub must fail the discriminating assertion');
+	assert.throws(
+		function () {
+			assert.strictEqual(fake._innerHTMLWrites.length, 0);
+		},
+		/undefined/,
+		'fakeE-like stub must fail the discriminating assertion'
+	);
 }
 
 /* --- integration: a real fwlive renderer under the real E() --- */
@@ -121,44 +131,66 @@ function testRealRendererIntegration() {
 
 	const nodes = logging.buildEmptyStateNodes(
 		{ loggingStatus: { wan_log: false, blockers: [] }, loggingBusy: false, showConsent: true },
-		{ onEnable: function() {}, onDismissConsent: function() {} }
+		{ onEnable: function () {}, onDismissConsent: function () {} }
 	);
 	assert.ok(Array.isArray(nodes));
-	const panel = nodes.filter(function(n) { return n instanceof Element; })
-		.find(function(n) { return n.tagName === 'div' && n._attrs['class'] === 'fwlive-consent'; });
+	const panel = nodes
+		.filter(function (n) {
+			return n instanceof Element;
+		})
+		.find(function (n) {
+			return n.tagName === 'div' && n._attrs['class'] === 'fwlive-consent';
+		});
 	assert.ok(panel, 'consent panel must render under the real E()');
 	assert.strictEqual(panel.tagName, 'div');
-	assert.strictEqual(panel._innerHTMLWrites.length, 0, 'array-rooted panel must not write innerHTML');
+	assert.strictEqual(
+		panel._innerHTMLWrites.length,
+		0,
+		'array-rooted panel must not write innerHTML'
+	);
 	// Luna fold (2026-08-10): recursively collect innerHTML writes across
 	// the ENTIRE subtree, not just the root node — a bare-string regression
 	// in a nested child would otherwise go unnoticed (root writes stay 0).
 	const panelWrites = collectSubtreeInnerHTMLWrites(panel);
 	// End state (#148): every string child is routed through a text node
 	// (array form), so the consent subtree must have ZERO innerHTML writes.
-	assert.strictEqual(panelWrites.length, 0,
-		'consent panel must be zero-sink after the text-node sweep');
+	assert.strictEqual(
+		panelWrites.length,
+		0,
+		'consent panel must be zero-sink after the text-node sweep'
+	);
 	assert.ok(panel.childNodes.length >= 4, 'panel children must be appended, not stringified');
 
 	const host = new Element('div');
-	logging.renderEmptyState(host, {
-		loggingStatus: { wan_log: false, blockers: [] },
-		loggingBusy: false,
-		loggingNotice: '',
-		showConsent: false
-	}, { onEnable: function() {} });
+	logging.renderEmptyState(
+		host,
+		{
+			loggingStatus: { wan_log: false, blockers: [] },
+			loggingBusy: false,
+			loggingNotice: '',
+			showConsent: false
+		},
+		{ onEnable: function () {} }
+	);
 	const hostWrites = collectSubtreeInnerHTMLWrites(host);
 	// End state (#148): the only innerHTML write in the whole subtree is
 	// the renderer clearing the host (''); every string child is a text node.
-	assert.strictEqual(hostWrites.length, 1,
-		'host subtree must have exactly one innerHTML write (the root clear)');
+	assert.strictEqual(
+		hostWrites.length,
+		1,
+		'host subtree must have exactly one innerHTML write (the root clear)'
+	);
 	assert.strictEqual(hostWrites[0].html, '', 'the only write is the renderer clearing the host');
 	assert.ok(host.childNodes.length >= 1);
 	// End state (#148): every host child is an element node — the bare-string
 	// children that used to synthesize text nodes are now text nodes inside
 	// the elements, so no top-level child is a text node.
 	for (let i = 0; i < host.childNodes.length; i++)
-		assert.strictEqual(host.childNodes[i].nodeType, 1,
-			'host children must all be element nodes after the text-node sweep');
+		assert.strictEqual(
+			host.childNodes[i].nodeType,
+			1,
+			'host children must all be element nodes after the text-node sweep'
+		);
 
 	const hostileCandidate = '<img src=x onerror=alert(1)>';
 	const noZoneNodes = logging.buildEmptyStateNodes(
@@ -181,10 +213,42 @@ function testRealRendererIntegration() {
 		return node.tagName === 'code';
 	});
 	assert.ok(candidateCode, 'no-zone empty state must render candidate names');
-	assert.strictEqual(candidateCode.childNodes[0].textContent,
-		`${hostileCandidate}, internet`);
-	assert.strictEqual(collectSubtreeInnerHTMLWrites(noZoneTitle).length, 0,
-		'WAN-zone candidates must render as text nodes, never an HTML sink');
+	assert.strictEqual(candidateCode.childNodes[0].textContent, `${hostileCandidate}, internet`);
+	assert.strictEqual(
+		collectSubtreeInnerHTMLWrites(noZoneTitle).length,
+		0,
+		'WAN-zone candidates must render as text nodes, never an HTML sink'
+	);
+
+	function collectText(node) {
+		if (!node) return '';
+		if (node.nodeType === 3) return String(node.textContent || '');
+		const kids = node.childNodes || node.children || [];
+		let out = '';
+		for (let i = 0; i < kids.length; i++) out += collectText(kids[i]);
+		return out;
+	}
+	const nfLogNodes = logging.buildEmptyStateNodes(
+		{
+			loggingStatus: { wan_log: false, blockers: ['nf_log_ipv4_missing'] },
+			loggingBusy: false,
+			showConsent: false
+		},
+		{ onEnable: function () {} }
+	);
+	const nfLogText = nfLogNodes.map(collectText).join('\n');
+	assert.ok(
+		nfLogText.includes('opkg update && opkg install kmod-nf-log kmod-nf-log6'),
+		'nf_log_missing empty state must name published kmods, got: ' + nfLogText
+	);
+	assert.ok(
+		!nfLogText.includes('kmod-nf-log-ipv4'),
+		'empty state must not name unpublished kmod-nf-log-ipv4'
+	);
+	assert.ok(
+		!nfLogText.includes('kmod-nf-log-ipv6'),
+		'empty state must not name unpublished kmod-nf-log-ipv6'
+	);
 
 	const toolbarHost = new Element('span');
 	toolbarHost.style = {};
@@ -209,10 +273,12 @@ function testRealRendererIntegration() {
 		return node.tagName === 'code';
 	});
 	assert.ok(toolbarCode, 'no-zone toolbar must render candidate names');
-	assert.strictEqual(toolbarCode.childNodes[0].textContent,
-		`${hostileCandidate}, internet`);
-	assert.strictEqual(collectSubtreeInnerHTMLWrites(toolbarStatus).length, 0,
-		'toolbar WAN-zone candidates must render as text nodes, never an HTML sink');
+	assert.strictEqual(toolbarCode.childNodes[0].textContent, `${hostileCandidate}, internet`);
+	assert.strictEqual(
+		collectSubtreeInnerHTMLWrites(toolbarStatus).length,
+		0,
+		'toolbar WAN-zone candidates must render as text nodes, never an HTML sink'
+	);
 }
 
 function findButton(node) {
@@ -249,15 +315,27 @@ function testEnableButtonDoesNotPersistEarly() {
 
 	[true, false].forEach(function (showConsent) {
 		const nodes = logging.buildEmptyStateNodes(
-			{ loggingStatus: { wan_log: false, blockers: [] }, loggingBusy: false, showConsent: showConsent },
-			{ onEnable: function () { enableCalls++; }, onDismissConsent: function () {} }
+			{
+				loggingStatus: { wan_log: false, blockers: [] },
+				loggingBusy: false,
+				showConsent: showConsent
+			},
+			{
+				onEnable: function () {
+					enableCalls++;
+				},
+				onDismissConsent: function () {}
+			}
 		);
 		const button = findButton({ childNodes: nodes });
 		assert.ok(button, 'enable button must render for both empty-state variants');
 		assert.ok(button._listeners.click && button._listeners.click.length === 1);
 		button._listeners.click[0]();
-		assert.equal(localStorage.getItem('fwlive-logging-consent-v1'), null,
-			'enable click must not persist consent before RPC success');
+		assert.equal(
+			localStorage.getItem('fwlive-logging-consent-v1'),
+			null,
+			'enable click must not persist consent before RPC success'
+		);
 	});
 
 	assert.equal(enableCalls, 2, 'both empty-state enable buttons must invoke the callback');

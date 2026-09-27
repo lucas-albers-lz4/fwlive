@@ -357,10 +357,10 @@ msgstr ""
 msgid "Kernel log modules missing"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:289
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:290
 msgid ""
-"Kernel netfilter log modules are missing. Install kmod-nf-log-ipv4 and kmod-"
-"nf-log-ipv6 (or kmod-nf-log / kmod-nf-log6), then reload the firewall."
+"Kernel netfilter log modules are missing. Install kmod-nf-log and "
+"kmod-nf-log6, then reload the firewall."
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:49

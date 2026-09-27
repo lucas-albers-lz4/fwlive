@@ -1036,6 +1036,10 @@ enable_wan_logging() {
 
 	current=$(wan_zone_log_value "$zone")
 	if wan_filter_log_enabled "$current"; then
+		# Already on: still snapshot best-effort so a later uninstall after
+		# sysupgrade/reinstall has a restore value. Skip-if-exists lives in
+		# the helper. Failure must not turn this into baseline_snapshot_failed.
+		maybe_snapshot_wan_log_baseline "$zone" || true
 		release_wan_log_lock
 		printf '{"ok":true,"changed":false,"wan_zone":%s}' "$zone_json"
 		return 0
