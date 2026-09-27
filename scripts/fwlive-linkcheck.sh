@@ -5,7 +5,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+if [[ -n "${FWLIVE_LINKCHECK_ROOT:-}" ]]; then
+	cd "$FWLIVE_LINKCHECK_ROOT"
+else
+	cd "$ROOT"
+fi
 
 echo "== internal markdown links (file + anchor) =="
 python3 - <<'PYEOF'
@@ -50,7 +54,10 @@ for path in files:
         else:
             filepart, anchor = target, None
         checked += 1
-        full = os.path.normpath(os.path.join(dirpath, filepart))
+        if filepart in ('', '.'):
+            full = path
+        else:
+            full = os.path.normpath(os.path.join(dirpath, filepart))
         if not os.path.exists(full):
             broken.append((path, target, f"file missing: {full}"))
             continue
