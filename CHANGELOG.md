@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Capture `uci show firewall` once per `rules` call (#774)
+- Stop `map_prefix_with_label` after 512 lines so first-wins duplicates cannot walk an unbounded dump (#767)
+- Refuse a symlinked or group/other-writable WAN-log baseline directory before `printf >` (#777)
+- Refuse a group/other-writable adaptive state directory before the PID-predictable tmp+mv write (#776)
+- Keep uninstall stdout free of rpcd JSON when baseline restore fails (#779)
 - Dedup `map_add` keys before `json_escape` so repeated prefixes skip a fork (#825)
 - Skip already-validated resolve repeats before they consume a lookup slot (#772, #828)
 - Remove rules-map dump temps on EXIT/HUP/INT/TERM so a killed `rules` call cannot leak `/tmp/fwlive-nft*` (#775)

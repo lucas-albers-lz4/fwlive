@@ -1179,6 +1179,76 @@ fi
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
 
+function testRulesMapLineBound() {
+	// First-wins dups never trip the key cap; the line cap must still stop work (#767).
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-line-bound-'));
+	try {
+		const lines = [];
+		for (let i = 0; i < 600; i++)
+			lines.push('\t\tlog prefix "same-pfx" comment "!fw4: Same-Rule"');
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+${lines.join('\n')}
+	}
+}
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', '#!/bin/sh\nexit 0\n');
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(res.error, 'rules_truncated', `[${shell}] duplicate flood must set rules_truncated`);
+			assert.equal(res.rules['same-pfx'], 'Same-Rule', `[${shell}] first-wins still maps the prefix`);
+			const keys = Object.keys(res.rules || {});
+			assert.ok(keys.length <= 512, `[${shell}] keys ${keys.length} must be <= 512`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testUciShowOnce() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-uci-once-'));
+	try {
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 { chain input { log prefix "x" } }
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+echo "uci $*" >> "${stubDir}/uci.log"
+if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
+	echo "firewall.@rule[0].name='Once-UCI'"
+	echo "firewall.allow-ssh=rule"
+elif [ "$1" = "-q" ] && [ "$2" = "get" ] && [ "$3" = "firewall.allow-ssh.name" ]; then
+	echo 'Allow-SSH'
+fi
+exit 0
+`);
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			try { fs.unlinkSync(path.join(stubDir, 'uci.log')); } catch { /* absent */ }
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(res.rules['Once-UCI'], 'Once-UCI', `[${shell}] anonymous UCI name mapped`);
+			assert.equal(res.rules['Allow-SSH'], 'Allow-SSH', `[${shell}] named UCI rule mapped`);
+			const shows = (fs.readFileSync(path.join(stubDir, 'uci.log'), 'utf8').match(/^uci -q show firewall$/mg) || []).length;
+			assert.equal(shows, 1, `[${shell}] one rules call must invoke uci show firewall once, got ${shows}`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
 function testRulesMapByteBound() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-byte-bound-'));
 	const hugeA = 'A'.repeat(30000) + 'a';
@@ -1456,6 +1526,8 @@ function run() {
 	testNoMktempGracefulDegradation();
 	testTsvAwkFailureKeepsStructuredReply();
 	testRulesMapKeyBound();
+	testRulesMapLineBound();
+	testUciShowOnce();
 	testRulesMapByteBound();
 	testGlobMetacharDedup();
 	testTmpDirSticky();

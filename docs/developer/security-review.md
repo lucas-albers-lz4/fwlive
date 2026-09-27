@@ -1,5 +1,19 @@
 # Security review state
 
+> **2026-09-26 #774 / #767 / #777 / #776 / #779 delta:** `uci_rule_names`
+> captures `uci show firewall` once. `map_prefix_with_label` increments
+> `_map_lines` and trips `rules_truncated` at `RULES_MAP_MAX_LINES=512`
+> so first-wins duplicates cannot walk an unbounded dump.
+> `maybe_snapshot_wan_log_baseline` refuses a symlink target or dir and
+> applies `wan_log_lock_dir_safe` on the production `/etc/fwlive` path.
+> `fwlive_adaptive_state_dir_ok` refuses group/other-writable dirs (same
+> `find -prune -perm` as the logging lock). prerm redirects restore
+> stdout so a failed commit cannot print rpcd JSON to opkg/apk.
+> Host coverage: `tests/fwlive-rules-map.test.js` `testUciShowOnce`,
+> `testRulesMapLineBound`; `tests/fwlive-logging.test.sh` symlink
+> baseline; `tests/fwlive-adaptive-cap.test.sh` world-writable state dir.
+> No ACL, DOM sink, or read/write-scope change.
+
 > **2026-09-26 #828 / #825 / #772 / #775 delta:** `map_add` skips a
 > `json_escape` fork when the raw key cannot contain escapes or glob
 > metacharacters and is already present in `$OUT`. `resolve` skips
