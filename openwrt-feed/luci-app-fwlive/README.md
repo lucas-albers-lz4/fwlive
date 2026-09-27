@@ -38,7 +38,7 @@ No `luasrc/` — modern JS-only app.
 
 ## Dependencies
 
-- `luci-base`, `logd`, `jsonfilter` (declared in `LUCI_DEPENDS`; `rpcd` via `luci-base`)
+- `luci-base`, `logd`, `jsonfilter`, `coreutils-timeout` (declared in `LUCI_DEPENDS`; `rpcd` via `luci-base`)
 - Optional reverse DNS uses BusyBox `nslookup` (stock image; not a package depend)
 - No hard `firewall4` dependency
 - Menu depends on ACL only (no `fs` AND of `nft`+`iptables` — that hid the entry on stock fw3 and fw4)
