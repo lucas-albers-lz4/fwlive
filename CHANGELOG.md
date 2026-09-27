@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Pin timestamp-strip and `fw4:` rule-hint vectors in the shell summary parity gate (#781)
+- Give the view harness `classList`, `style`, and `querySelector` so tint-fallback runs (#770)
+- Pin parser-sync filter outcomes for all 20 samples (#765)
+- Run `fwlive-logging.test.sh` as its own labelled host-suite step (#764)
 - Document skipped release numbers, owner test-policy links, and pin-site checklists (#845, #844, #843, #823, #820, #819, #818)
 - Fail closed on missing lint tools, ruff, and busybox instead of implicit `npm ci` or a silent macOS skip (`FWLIVE_ALLOW_SKIP=1` is the loud opt-out) (#802)
 - Pin shell-filter metachar classify results and the filtered JSON shape (#801)

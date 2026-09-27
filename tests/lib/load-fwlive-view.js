@@ -21,7 +21,7 @@ class HarnessElement extends luciE.Element {
 		super(tagName);
 		this.className = '';
 		this.textContent = '';
-		this.style = { display: '' };
+		/* Inherit classList / style.setProperty from luciE.Element (#770). */
 	}
 
 	setAttribute(key, value) {
@@ -68,9 +68,31 @@ function createHarnessDocument() {
 			return idMap[id] || null;
 		},
 		querySelector(selector) {
-			if (typeof selector === 'string' && selector.charAt(0) === '.') {
+			if (typeof selector !== 'string') return null;
+			const parts = selector.trim().split(/\s+/);
+			if (!parts[0]) return null;
+			if (parts[0].charAt(0) === '#') {
+				const el = idMap[parts[0].slice(1)] || null;
+				if (!el || parts.length === 1) return el;
+				return typeof el.querySelector === 'function'
+					? el.querySelector(parts.slice(1).join(' '))
+					: null;
+			}
+			if (parts[0].charAt(0) === '.') {
 				for (let i = 0; i < rootNodes.length; i++) {
-					const match = findByClass(rootNodes[i], selector.slice(1));
+					const match = findByClass(rootNodes[i], parts[0].slice(1));
+					if (match) {
+						if (parts.length === 1) return match;
+						return typeof match.querySelector === 'function'
+							? match.querySelector(parts.slice(1).join(' '))
+							: null;
+					}
+				}
+				return null;
+			}
+			for (let i = 0; i < rootNodes.length; i++) {
+				if (rootNodes[i] && typeof rootNodes[i].querySelector === 'function') {
+					const match = rootNodes[i].querySelector(selector);
 					if (match) return match;
 				}
 			}

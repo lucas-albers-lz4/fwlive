@@ -217,16 +217,32 @@ const syncFilters = [
 const syncExpected = [
 	[true, true, false, true, false, true, true, true, false],
 	[true, false, true, false, true, false, false, false, false],
-	[true, false, true, false, true, false, false, false, false]
+	[true, false, true, false, true, false, false, false, false],
+	[true, false, true, false, true, false, false, false, false],
+	[true, false, true, false, true, false, false, true, false],
+	[true, false, true, false, true, true, false, true, false],
+	[true, false, true, false, true, true, false, false, false],
+	[true, false, true, false, true, false, false, false, false],
+	[true, true, false, false, true, false, true, true, false],
+	[true, true, false, false, true, false, true, true, false],
+	[true, true, false, false, true, false, true, true, false],
+	[true, false, true, true, false, false, false, false, false],
+	[true, false, true, true, false, false, false, true, false],
+	[true, false, true, true, false, false, false, true, false],
+	[true, true, false, false, true, false, true, true, false],
+	[true, false, true, false, true, false, true, true, false],
+	[true, false, true, false, true, false, true, true, false],
+	[true, false, true, false, true, false, false, true, false],
+	[true, false, true, false, true, false, false, true, false],
+	[true, true, false, false, true, false, true, true, false]
 ];
 assert.strictEqual(syncSamples.length, 20);
+assert.strictEqual(syncExpected.length, syncSamples.length);
 for (let i = 0; i < syncSamples.length; i++) {
 	const coreRow = core.normalizeEntry(syncSamples[i]);
 	const luciRow = luci.normalizeEntry(syncSamples[i]);
 	assert.deepStrictEqual(luciRow, coreRow,
 		'normalizeEntry mismatch for ' + JSON.stringify(syncSamples[i].msg));
-	if (i >= syncExpected.length)
-		continue;
 	for (let j = 0; j < syncFilters.length; j++) {
 		assert.strictEqual(
 			core.matchesFilter(coreRow, syncFilters[j]),
