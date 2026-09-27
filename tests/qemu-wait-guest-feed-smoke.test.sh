@@ -30,4 +30,19 @@ grep -Fq 'cleanup_on_fail' "$SMOKE" || fail "feed smoke must define cleanup_on_f
 grep -Fq 'trap cleanup_on_fail EXIT' "$SMOKE" || fail "feed smoke must trap EXIT"
 grep -Fq 'validate_matrix_stop_qemu' "$SMOKE" || fail "feed smoke cleanup must stop QEMU"
 
+if err="$(MAX_WAIT=abc "$WAIT" 2>&1)"; then
+	fail "MAX_WAIT=abc must fail"
+fi
+[[ "$err" == *"invalid MAX_WAIT"* ]] || fail "MAX_WAIT=abc must name the field (got: $err)"
+
+if err="$(INTERVAL=0 "$WAIT" 2>&1)"; then
+	fail "INTERVAL=0 must fail"
+fi
+[[ "$err" == *"invalid INTERVAL"* ]] || fail "INTERVAL=0 must name the field (got: $err)"
+
+if err="$(OPENWRT_SSH_PORT=abc "$WAIT" 2>&1)"; then
+	fail "OPENWRT_SSH_PORT=abc must fail"
+fi
+[[ "$err" == *"invalid OPENWRT_SSH_PORT"* ]] || fail "bad SSH port must name the field (got: $err)"
+
 echo "qemu-wait-guest / validate-feed-smoke source-contract checks passed"

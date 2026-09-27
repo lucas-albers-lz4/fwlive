@@ -45,12 +45,9 @@ stop_qemu() {
 }
 
 check_host_ports() {
-	local port spec
+	local spec
 	for spec in "${OWRT_HOSTFWD_HTTP}:HTTP" "${OWRT_HOSTFWD_SSH}:SSH"; do
-		port="${spec%%:*}"
-		if ss -tlnH "sport = :${port}" 2>/dev/null | grep -q .; then
-			die "host port ${port} (${spec#*:}) already in use — stop other QEMU (./scripts/run-openwrt-armsr-armv8-qemu.sh --stop)"
-		fi
+		qemu_lab_assert_host_port_free "${spec%%:*}" "${spec#*:}" || exit 1
 	done
 }
 

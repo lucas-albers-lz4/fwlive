@@ -5,7 +5,12 @@
 #   ./scripts/qemu-wait-guest.sh
 #   ./scripts/qemu-wait-guest.sh --cmd 'uname -r'
 #   OPENWRT_SSH_PORT=2222 MAX_WAIT=600 ./scripts/qemu-wait-guest.sh
+# --cmd is retried until SSH and the remote command both exit 0.
 set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/qemu-lab-net.sh
+source "${ROOT}/scripts/lib/qemu-lab-net.sh"
 
 HOST="${OPENWRT_HOST:-127.0.0.1}"
 PORT="${OPENWRT_SSH_PORT:-2222}"
@@ -13,6 +18,9 @@ USER="${OPENWRT_USER:-root}"
 MAX_WAIT="${MAX_WAIT:-600}"
 INTERVAL="${INTERVAL:-15}"
 CMD=""
+qemu_lab_validate_port OPENWRT_SSH_PORT "$PORT" || exit 1
+qemu_lab_validate_int MAX_WAIT "$MAX_WAIT" 1 7200 || exit 1
+qemu_lab_validate_int INTERVAL "$INTERVAL" 1 120 || exit 1
 SSH_OPTS=(
 	-o StrictHostKeyChecking=no
 	-o UserKnownHostsFile=/dev/null
@@ -27,7 +35,7 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 			;;
 		-h | --help)
-			sed -n '1,12p' "$0"
+			sed -n '1,13p' "$0"
 			exit 0
 			;;
 		*)

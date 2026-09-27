@@ -20,6 +20,40 @@ qemu_lab_dhcp_start() {
 	echo "${guest_ip%.*}.100"
 }
 
+qemu_lab_validate_int() {
+	local name="$1" val="$2" min="$3" max="$4"
+	if [[ ! "$val" =~ ^[0-9]+$ ]]; then
+		echo "invalid ${name}: '${val}' (want ${min}-${max})" >&2
+		return 1
+	fi
+	if ((10#$val < min || 10#$val > max)); then
+		echo "invalid ${name}: ${val} (want ${min}-${max})" >&2
+		return 1
+	fi
+}
+
+qemu_lab_validate_port() {
+	qemu_lab_validate_int "$1" "$2" 1 65535
+}
+
+qemu_lab_port_owners_hint() {
+	printf '%s' "stop lab/compose.yml (openwrt-x64), docker-compose.yml (owrt-x64-exp), or QEMU (./scripts/run-openwrt-x86-qemu.sh --stop / ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop). See lab/README.md"
+}
+
+# Fail closed: invalid port, ss error, or a listener on the port.
+qemu_lab_assert_host_port_free() {
+	local port="$1" label="$2" out
+	qemu_lab_validate_port "$label" "$port" || return 1
+	if ! out="$(ss -tlnH "sport = :${port}" 2>&1)"; then
+		echo "error: ss failed checking ${label} port ${port}: ${out}" >&2
+		return 1
+	fi
+	if [[ -n "$out" ]]; then
+		echo "error: host port ${port} (${label}) already in use — $(qemu_lab_port_owners_hint)" >&2
+		return 1
+	fi
+}
+
 qemu_lab_hostfwd_rule() {
 	local proto="$1" host_port="$2" guest_port="$3"
 	if [[ -n "$OWRT_HOSTFWD_BIND" ]]; then
