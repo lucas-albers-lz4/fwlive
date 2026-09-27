@@ -1378,8 +1378,13 @@ case "$out" in
 	*) die "#935 already-on enable: expected ok:true/changed:false, got: $out" ;;
 esac
 [ -f "$WAN_LOG_BASELINE_FILE" ] || die "#935 already-on enable must snapshot a missing baseline"
-[ "$(cat "$WAN_LOG_BASELINE_FILE")" = "1" ] || die "#935 already-on snapshot must record current log bit"
+[ -z "$(cat "$WAN_LOG_BASELINE_FILE")" ] || die "#935 already-on snapshot must reconstruct unset, not the on-value"
 ok "already-on enable snapshots a missing WAN log baseline"
+
+WAN_ZONE_LOG='1'
+restore_wan_log_baseline || die "#935 restore of reconstructed empty baseline failed"
+[ -z "$WAN_ZONE_LOG" ] || die "#935 uninstall restore must clear the already-on bit, got '$WAN_ZONE_LOG'"
+ok "already-on empty snapshot lets uninstall turn logging off"
 
 printf '1' >"$WAN_LOG_BASELINE_FILE"
 WAN_ZONE_LOG='3'

@@ -73,7 +73,12 @@ cat /proc/sys/net/netfilter/nf_log/2    # should be nf_log_ipv4, not NONE/none
 ```
 
 An empty value or `NONE` (case-insensitive) means that family has no kernel
-logging backend. Install `kmod-nf-log` / `kmod-nf-log6` as needed.
+logging backend. Install the published modules:
+
+```sh
+opkg update && opkg install kmod-nf-log kmod-nf-log6
+```
+
 IPv6 is checked independently through `/proc/net/if_inet6`. A missing or
 empty file means the IPv6 stack is absent (compiled out or `ipv6.disable=1`)
 and does not block WAN logging. Any content, including loopback `::1`, means

@@ -423,7 +423,11 @@ maybe_snapshot_wan_log_baseline() {
 	if [ -z "${FWLIVE_WAN_LOG_BASELINE_FILE:-}" ] && [ "$path" = /etc/fwlive/wan-log-baseline ]; then
 		wan_log_lock_dir_safe "$_dir" || return 1
 	fi
-	current=$(wan_zone_log_value "$zone")
+	if [ "$#" -ge 2 ]; then
+		current="$2"
+	else
+		current=$(wan_zone_log_value "$zone")
+	fi
 	printf '%s' "$current" >"$path" 2>/dev/null || return 1
 	return 0
 }
@@ -1036,10 +1040,11 @@ enable_wan_logging() {
 
 	current=$(wan_zone_log_value "$zone")
 	if wan_filter_log_enabled "$current"; then
-		# Already on: still snapshot best-effort so a later uninstall after
-		# sysupgrade/reinstall has a restore value. Skip-if-exists lives in
-		# the helper. Failure must not turn this into baseline_snapshot_failed.
-		maybe_snapshot_wan_log_baseline "$zone" || true
+		# Already-on with a lost baseline: reconstruct the usual first-enable
+		# snapshot (unset), not the current on-value. Recording "1" would make
+		# uninstall restore logging after disable (#500). Skip-if-exists in
+		# the helper. Failure must not become baseline_snapshot_failed.
+		maybe_snapshot_wan_log_baseline "$zone" "" || true
 		release_wan_log_lock
 		printf '{"ok":true,"changed":false,"wan_zone":%s}' "$zone_json"
 		return 0
