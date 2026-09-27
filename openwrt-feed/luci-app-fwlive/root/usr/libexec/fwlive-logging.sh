@@ -1042,7 +1042,7 @@ enable_wan_logging() {
 	if wan_filter_log_enabled "$current"; then
 		# Already-on with a lost baseline: reconstruct the usual first-enable
 		# snapshot (unset), not the current on-value. Recording "1" would make
-		# uninstall restore logging after disable (#500). Skip-if-exists in
+		# uninstall restore logging after disable. Skip-if-exists in
 		# the helper. Failure must not become baseline_snapshot_failed.
 		maybe_snapshot_wan_log_baseline "$zone" "" || true
 		release_wan_log_lock
