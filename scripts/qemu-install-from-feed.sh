@@ -104,14 +104,21 @@ ssh_run_env() {
 		return 1
 	}
 	# Quote values for the remote shell so & / ? in a URL cannot split `env`.
+	# Run the command under `sh -c` so `$VAR` expands after env sets it,
+	# not in the remote login shell that parses the ssh command line.
 	local -a quoted_pairs=()
-	local pair name val
+	local pair name val script
 	for pair in "${env_pairs[@]}"; do
 		name="${pair%%=*}"
 		val="${pair#*=}"
 		quoted_pairs+=("${name}='${val}'")
 	done
-	ssh_run env "${quoted_pairs[@]}" "$@"
+	script="$*"
+	if [[ "$script" == *"'"* ]]; then
+		echo "qemu-install-from-feed: ssh_run_env command cannot contain '" >&2
+		return 1
+	fi
+	ssh_run env "${quoted_pairs[@]}" sh -c "'${script}'"
 }
 
 guest_uses_apk() {

@@ -108,7 +108,7 @@ case "$last" in
 		fi
 		exit 1
 		;;
-	wget\ *)
+	wget\ *|\'wget\ *)
 		exit 0
 		;;
 	'opkg-key add /tmp/fwlive-feed.key')
@@ -192,6 +192,7 @@ opkg_install_urls_ok() {
 	local log="$1" version="$2" feed_dir
 	feed_dir="$(feed_publish_feed_dir "$version")"
 	grep -Fq "FWLIVE_OPKG_KEY_URL='${FEED_BASE}/public.key'" "$log" \
+		&& grep -Fq 'sh -c' "$log" \
 		&& grep -Fq 'wget -O /tmp/fwlive-feed.key "$FWLIVE_OPKG_KEY_URL"' "$log" \
 		&& grep -Fq "FWLIVE_FEED_URL='${FEED_BASE}/${feed_dir}'" "$log" \
 		&& ! grep -Fq "wget -O /tmp/fwlive-feed.key '${FEED_BASE}" "$log"
@@ -202,6 +203,7 @@ apk_install_urls_ok() {
 	feed_dir="$(feed_publish_feed_dir "$version")"
 	index_url="${FEED_BASE}/${feed_dir}/all/packages.adb"
 	grep -Fq "FWLIVE_APK_KEY_URL='${FEED_BASE}/fwlive-feed.rsa.pub'" "$log" \
+		&& grep -Fq 'sh -c' "$log" \
 		&& grep -Fq 'wget -O /tmp/fwlive-feed.rsa.pub "$FWLIVE_APK_KEY_URL"' "$log" \
 		&& grep -Fq "FWLIVE_INDEX_URL='${index_url}'" "$log" \
 		&& ! grep -Fq "wget -O /tmp/fwlive-feed.rsa.pub '${FEED_BASE}" "$log"

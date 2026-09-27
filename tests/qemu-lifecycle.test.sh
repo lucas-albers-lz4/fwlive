@@ -48,9 +48,16 @@ if printf '%s\n' "$stop_fn" | grep -Fq '|| true'; then
 fi
 
 grep -Fq 'ssh_run_env' "$INSTALL" || fail "feed installer must use ssh_run_env"
+grep -Fq "sh -c \"'\${script}'\"" "$INSTALL" \
+	|| fail "ssh_run_env must run the command under sh -c so env expands after set"
 if grep -Eq "wget -O /tmp/fwlive-feed\.(key|rsa\.pub) '" "$INSTALL"; then
 	fail "feed installer must not interpolate URLs into wget"
 fi
+unset FWLIVE_OPKG_KEY_URL
+empty="$(env FWLIVE_OPKG_KEY_URL='https://example.com/k' printf '%s' "${FWLIVE_OPKG_KEY_URL:-}")"
+[[ -z "$empty" ]] || fail "env without sh -c must expand before set (got $empty)"
+got="$(env FWLIVE_OPKG_KEY_URL='https://example.com/k' sh -c 'printf %s "$FWLIVE_OPKG_KEY_URL"')"
+[[ "$got" == 'https://example.com/k' ]] || fail "env sh -c must expand after set (got $got)"
 
 # --stop with no pidfile is success (nothing to kill).
 out="$(OWRT_QEMU_PIDFILE="$TMP/missing.pid" "$X86" --stop 2>&1)"
