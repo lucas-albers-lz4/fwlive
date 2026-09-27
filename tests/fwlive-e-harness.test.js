@@ -279,6 +279,41 @@ function testRealRendererIntegration() {
 		0,
 		'toolbar WAN-zone candidates must render as text nodes, never an HTML sink'
 	);
+
+	const okNoticeNodes = logging.buildEmptyStateNodes(
+		{
+			loggingStatus: { wan_log: true, blockers: [] },
+			loggingBusy: false,
+			loggingNotice: 'WAN drop/reject logging is on.',
+			loggingNoticeFail: false,
+			showConsent: false
+		},
+		{ onEnable: function () {} }
+	);
+	const okNotice = okNoticeNodes.find(function (node) {
+		return node._attrs && String(node._attrs['class']).indexOf('fwlive-logging-notice') >= 0;
+	});
+	assert.ok(okNotice, 'success notice must render');
+	assert.strictEqual(okNotice._attrs['class'], 'fwlive-logging-notice');
+
+	const failNoticeNodes = logging.buildEmptyStateNodes(
+		{
+			loggingStatus: { wan_log: false, blockers: [] },
+			loggingBusy: false,
+			loggingNotice: 'Could not enable logging.',
+			loggingNoticeFail: true,
+			showConsent: false
+		},
+		{ onEnable: function () {} }
+	);
+	const failNotice = failNoticeNodes.find(function (node) {
+		return node._attrs && String(node._attrs['class']).indexOf('fwlive-logging-notice') >= 0;
+	});
+	assert.ok(failNotice, 'failure notice must render');
+	assert.ok(
+		String(failNotice._attrs['class']).indexOf('fwlive-logging-notice-fail') >= 0,
+		'failure notice must use the fail class, got: ' + failNotice._attrs['class']
+	);
 }
 
 function findButton(node) {

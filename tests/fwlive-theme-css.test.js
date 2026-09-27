@@ -328,4 +328,29 @@ for (const line of requireLines) {
 	}
 }
 
+if (!css.includes('.fwlive-logging-notice {') || !css.includes('.fwlive-logging-notice-fail')) {
+	console.error('missing logging notice success/failure classes');
+	process.exit(1);
+}
+const noticeFailIdx = css.indexOf('.fwlive-logging-notice-fail');
+const noticeFailEnd = css.indexOf('}', noticeFailIdx);
+const noticeFailChunk = css.slice(
+	noticeFailIdx,
+	noticeFailEnd >= 0 ? noticeFailEnd + 1 : noticeFailIdx + 80
+);
+if (!noticeFailChunk.includes('var(--fwlive-deny-color)')) {
+	console.error('logging failure notice must use --fwlive-deny-color');
+	process.exit(1);
+}
+const noticeOkIdx = css.indexOf('.fwlive-logging-notice {');
+const noticeOkEnd = css.indexOf('}', noticeOkIdx);
+const noticeOkChunk = css.slice(
+	noticeOkIdx,
+	noticeOkEnd >= 0 ? noticeOkEnd + 1 : noticeOkIdx + 80
+);
+if (!noticeOkChunk.includes('var(--fwlive-pass-color)')) {
+	console.error('logging success notice must use --fwlive-pass-color');
+	process.exit(1);
+}
+
 console.log('fwlive theme CSS tests passed');
