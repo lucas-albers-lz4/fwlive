@@ -60,6 +60,30 @@ async function testPollErrorResetsBatchNewIdCount() {
 	console.log('fwlive-view poll-error: lastBatchNewIdCount reset OK');
 }
 
+async function testTimeoutRecoveryThrowKeepsPollSuccess() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				return { log: [SAMPLE_ROW] };
+			}
+		}
+	});
+	const view = h.view;
+	view.lastPollErrorCode = 'timeout_missing';
+	view.loadRulesMap = async function() {
+		throw new Error('recovery ui');
+	};
+	await view.runPollRequest(view.currentPollEpoch());
+	assert.strictEqual(view.lastPollError, false, 'recovery throw must not mark the poll failed');
+	assert.notStrictEqual(
+		view.lastPollErrorCode,
+		'timeout_missing',
+		'successful poll must clear timeout_missing'
+	);
+	assert.ok(view.entries.length >= 1, 'successful poll must keep the row');
+	console.log('fwlive-view poll-error: timeout recovery throw OK');
+}
+
 async function testPollHappyPath() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -438,6 +462,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testPollErrorField();
 		await testPollErrorResetsBatchNewIdCount();
 		await testPollHappyPath();
+		await testTimeoutRecoveryThrowKeepsPollSuccess();
 		await testPollBadShape();
 		await testPollTransportThrow();
 		await testMissingTimeoutHasAccuratePollError();

@@ -180,6 +180,17 @@ function testRecursiveProtoSink() {
 	assert.ok(collectText(host).indexOf(HOSTILE) >= 0, 'hostile proto stays visible as text');
 }
 
+function testBareBangRendersNoChip() {
+	const host = renderChips({ src: '!', dst: '!', q: '!' });
+	assert.strictEqual(host.style.display, 'none', 'bare ! must not render chips');
+	assert.strictEqual(collectText(host), '', 'bare ! must not leave chip text');
+	const real = renderChips({ src: '!10.0.0.1', action: '!' });
+	const text = collectText(real);
+	assert.ok(text.indexOf('10.0.0.1') >= 0, 'negated value must still render');
+	assert.ok(text.indexOf('does not contain') >= 0, 'negated src must say does not contain');
+	assert.ok(text.indexOf('action') < 0, 'bare ! action must not render a chip, got: ' + text);
+}
+
 function testIncludeTextChipsUseContains() {
 	const cases = [
 		{ key: 'q', value: 'wan' },
@@ -407,6 +418,7 @@ function testApplyHashHostileAsText() {
 }
 
 testRecursiveProtoSink();
+testBareBangRendersNoChip();
 testIncludeTextChipsUseContains();
 testNegatedTextChips();
 testHostileTextChipSink();

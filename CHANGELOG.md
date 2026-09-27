@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
 
 ### Fixed
+- Skip a bare `!` filter chip so an empty negate does not look like a filter (#939)
+- Keep a successful poll's status when timeout recovery throws (#904)
 - List `coreutils-timeout` next to the other runtime packages in install docs (#931)
 - Describe the off-state watch strip as the Enable logging button (#940)
 - Drop leftover checkout credentials from dependency-review and pin every workflow (#916)
