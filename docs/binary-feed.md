@@ -272,10 +272,13 @@ docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.9 cat feeds.conf.default
 # rejects unpinned src-git lines.
 # Update every pin site, then run tests/sdk-matrix-release-labels.test.sh:
 #   scripts/lib/sdk-matrix.sh          sdk_matrix_version_patch
+#   scripts/lib/feed-publish.sh        feed_publish_feed_dir (major.minor layout)
 #   scripts/download-openwrt-x86-64.sh RELEASE default + `== "24.10.x"` symlink
 #   scripts/download-openwrt-armsr-armv8.sh  same
 #   scripts/verify-reproducible-build.sh     (line keys stay 23.05/24.10/25.12)
+#   scripts/validate-baseline.sh       feeds.lock/<patch>/feeds.conf list
 #   .github/workflows/publish-packages.yml   cache-dir pre-create labels
+#   docs/supported-releases.md / docs/sdk-build-matrix.md   pin tables
 #   lab/README.md                            default image symlink notes
 ```
 

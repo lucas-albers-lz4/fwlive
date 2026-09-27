@@ -42,8 +42,10 @@ Before cutting a `v*` tag, make sure that the `peaceiris/actions-gh-pages` SHA i
 3. **Fold the changelog**: move the `## [Unreleased]` entries into a new
    `## [v0.1.N] — YYYY-MM-DD` section at the top of [`CHANGELOG.md`](../CHANGELOG.md),
    grouped under `### Security` / `### Changed` / `### Added` / `### Fixed` with
-   issue/PR references appended, and add the compare link at the bottom:
-   `[v0.1.N]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.N-1...v0.1.N`.
+   issue/PR references appended, and add the compare link at the bottom to the
+   previous **released** tag (not `N-1` if that number was skipped):
+   `[v0.1.N]: https://github.com/lucas-albers-lz4/fwlive/compare/<previous-released-tag>...v0.1.N`.
+   Example: `v0.1.21` compares to `v0.1.19` because **v0.1.20 was never tagged**.
 4. Update [`scripts/feeds.lock/`](../scripts/feeds.lock/) if the OpenWrt point release changed — see [binary-feed.md](binary-feed.md).
 5. Commit as a **direct `chore: release v0.1.N` commit on `master`** (release commits are not PRs) and push.
 6. Create an annotated tag and push it — **do not** create or publish a GitHub Release first; CI creates it with assets attached:
@@ -114,5 +116,7 @@ Include in each release (CHANGELOG section content):
 ## After publish
 
 - Make sure that the README [Install](../README.md#install) links work.
-- Make sure that the feed URLs respond: `./scripts/wait-feed-pages.sh https://lucas-albers-lz4.github.io/fwlive-packages`
+- Feed URL reachability: CI already runs `./scripts/wait-feed-pages.sh` in
+  `smoke-from-feed`. Run it locally only for a `workflow_dispatch` with
+  `feed_smoke=false`, or when debugging Pages outside CI.
 - Optional: announce on OpenWrt forums / third-party feed indexes.

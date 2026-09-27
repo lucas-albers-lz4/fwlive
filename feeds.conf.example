@@ -8,6 +8,10 @@
 #   src-git packages https://git.openwrt.org/feed/packages.git
 #   src-git luci https://github.com/openwrt/luci.git
 #
+# Release / SDK builds must NOT copy those unpinned src-git lines.
+# Use the commit-pinned file at scripts/feeds.lock/<label>/feeds.conf
+# (enforced by feeds_lock_require_pins). Regenerate via docs/binary-feed.md.
+#
 # --- fwlive feed (canonical: src-link) ---
 #
 # This monorepo keeps packages under openwrt-feed/, not at the repo root.

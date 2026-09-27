@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Document skipped release numbers, owner test-policy links, and pin-site checklists (#845, #844, #843, #823, #820, #819, #818)
 - Capture `uci show firewall` once per `rules` call (#774)
 - Stop `map_prefix_with_label` after 512 lines so first-wins duplicates cannot walk an unbounded dump (#767)
 - Refuse a symlinked or group/other-writable WAN-log baseline directory before `printf >` (#777)
@@ -429,6 +430,8 @@ Manual install: [installation.md](docs/user/installation.md)
 
 ### Changed
 - Backend improvements
+
+<!-- v0.1.20 was never tagged or folded; compare v0.1.21 → v0.1.19. -->
 
 ---
 

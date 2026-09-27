@@ -2,10 +2,11 @@
 # Run validation across OpenWrt versions (and optionally all QEMU targets).
 #
 # Phased use (recommended):
-#   1. ./scripts/validate-baseline.sh
-#   2. ./scripts/validate-openwrt-all.sh build          # all SDK ipks, no QEMU
-#   3. ./scripts/validate-openwrt-all.sh smoke-x86     # fast KVM smoke per version
-#   4. ./scripts/validate-openwrt-all.sh smoke --version 24.10 --qemu-target armsr
+#   1. ./scripts/validate-openwrt-all.sh build          # runs validate-baseline.sh, then SDK ipks
+#   2. ./scripts/validate-openwrt-all.sh smoke-x86     # runs baseline again, then KVM smoke
+#   3. ./scripts/validate-openwrt-all.sh smoke --version 24.10 --qemu-target armsr
+# build / build-full / smoke-x86 already invoke validate-baseline.sh — do not
+# re-run it yourself unless you want a standalone host-suite pass.
 #
 #   ./scripts/validate-openwrt-all.sh list
 set -euo pipefail
@@ -41,7 +42,7 @@ Options:
   --sdk-target TARGET     armsr-armv8 | x86-64
   --skip-build            skip SDK compile in smoke modes
 
-Run ./scripts/validate-baseline.sh before first smoke.
+build, build-full, and smoke-x86 already run validate-baseline.sh.
 EOF
 }
 
