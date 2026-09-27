@@ -2025,7 +2025,8 @@ return view.extend({
 			{
 				rows: rows.slice(),
 				columns: this.activeColumns().slice(),
-				forceRender: !!force,
+				/* force only bypasses the paint budget; the key sees expand/hostnames. */
+				forceRender: false,
 				viewMode: this.viewMode,
 				messageLayout: this.messageLayout,
 				expandedRowId: this.expandedRowId,
@@ -2079,7 +2080,9 @@ return view.extend({
 		const scroll = ev && ev.target;
 		if (!scroll || this.tablePaused) return;
 
-		this.followLive = scroll.scrollTop < 8;
+		const now = scroll.scrollTop < 8;
+		if (now === this.followLive) return;
+		this.followLive = now;
 		this.updateStatus();
 	},
 

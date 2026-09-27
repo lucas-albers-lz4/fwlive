@@ -132,6 +132,10 @@ echo "== fwlive view tint persistence ==" >&2
 
 echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js
+echo "== fwlive keyed table reuse (#784) ==" >&2
+"$NODE" tests/fwlive-table-keyed.test.js
+echo "== fwlive scroll followLive (#782) ==" >&2
+"$NODE" tests/fwlive-view-scroll.test.js
 
 echo "== fwlive render policy ==" >&2
 "$NODE" tests/fwlive-render-policy.test.js

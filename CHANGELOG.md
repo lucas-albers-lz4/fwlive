@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Key row reuse on resolved hostnames so expand and resolve paints rebuild only changed rows (#784)
+- Refresh the status line on scroll only when `followLive` flips (#782)
 - Reset `lastBatchNewIdCount` on a failed poll so the next paint is not costed from the previous batch (#789)
 - Accept IPv6 zone suffixes in `isLikelyIp` and resolve the bare address (#788)
 - Keep a `forceNextRender` reservation when the queued frame is dropped for an epoch mismatch (#787)
