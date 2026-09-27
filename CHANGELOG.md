@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
 
 ### Fixed
+- Require a Linux host for the x86 QEMU runner, tell port conflicts to use --stop --force, and accept only an IPv4 hostfwd bind (#918, #919, #920)
 - Refuse publish-packages clears outside feed-staging* and out/, and reject unknown ipkg index labels and extra positionals (#917, #921, #922)
 - Name the uninstall cases that skip WAN log restore, and say the Time cell expands instead of filtering (#936, #927)
 - Size the hostname cache to the 2000-row limit so a stable table stops re-resolving (#933)

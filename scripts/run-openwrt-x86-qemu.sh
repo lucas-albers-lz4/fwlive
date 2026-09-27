@@ -13,7 +13,7 @@
 #
 set -euo pipefail
 
-if [[ "$(uname -m)" != "x86_64" ]]; then
+if [[ "$(uname -s)" != Linux || "$(uname -m)" != "x86_64" ]]; then
 	echo "x86_64 QEMU runner requires an x86_64 Linux host." >&2
 	exit 1
 fi
