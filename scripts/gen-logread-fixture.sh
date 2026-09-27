@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="${ROOT}/tests/fixtures/logread-mixed.json"
-OUT="${ROOT}/tests/fixtures/logread-2000.json"
+OUT="${FWLIVE_LOGREAD_FIXTURE_OUT:-${ROOT}/tests/fixtures/logread-2000.json}"
 COUNT="${1:-2000}"
 
 NODE="${NODE:-}"

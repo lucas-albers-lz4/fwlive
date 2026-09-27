@@ -110,6 +110,12 @@ if command -v busybox >/dev/null 2>&1; then
 
 	echo "== fwlive parser corpus pin (#240 C1, busybox sh) ==" >&2
 	SH='busybox sh' "$NODE" tests/fwlive-parser-corpus.test.js
+
+	echo "== fwlive BusyBox awk >= 1.37 (classifier + rpcd selftest) ==" >&2
+	awk_bin="$("$ROOT/scripts/ensure-busybox-awk.sh")"
+	PATH="${awk_bin}:${PATH}" busybox sh \
+		"${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive" __selftest
+	PATH="${awk_bin}:${PATH}" SH='busybox sh' "$NODE" tests/fwlive-shell-filter.test.js
 else
 	fwlive_skip_missing busybox "Linux: apt install busybox"
 fi
