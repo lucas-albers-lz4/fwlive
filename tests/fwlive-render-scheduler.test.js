@@ -175,6 +175,22 @@ function makeFrames() {
 	assert.deepEqual(h.renders, [true], 'dropped force reservation survives for the next schedule');
 }
 
+/* An unforced in-flight frame must not consume a later reservation. */
+{
+	const h = makeFrames();
+	h.scheduler.schedule(false);
+	h.scheduler.forceNextRender();
+	h.flush();
+	assert.deepEqual(h.renders, [false], 'in-flight unforced frame paints as queued');
+	h.scheduler.schedule(false);
+	h.flush();
+	assert.deepEqual(
+		h.renders,
+		[false, true],
+		'forceNextRender after schedule(false) applies to the next schedule'
+	);
+}
+
 /* Only the latest epoch may paint; coalesced display changes still force it. */
 for (const force of [false, true]) {
 	const h = makeFrames();
