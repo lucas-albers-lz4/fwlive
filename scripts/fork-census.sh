@@ -110,17 +110,25 @@ install_jsonfilter_stub() {
 const fs = require('fs');
 let input = '';
 let expr = '';
+let typeExpr = '';
 let usedS = false;
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
 	if (argv[i] === '-s' && i + 1 < argv.length) { input = argv[++i]; usedS = true; }
 	else if (argv[i] === '-e' && i + 1 < argv.length) expr = argv[++i];
+	else if (argv[i] === '-t' && i + 1 < argv.length) typeExpr = argv[++i];
 }
 if (!usedS) input = fs.readFileSync(0, 'utf8');
-if (expr !== '@.log[*]') process.exit(1);
 let data;
 try { data = JSON.parse(input); } catch (e) { process.exit(1); }
+if (typeExpr) {
+	if (typeExpr !== '@.log') process.exit(1);
+	if (data && Array.isArray(data.log)) { process.stdout.write('array\n'); process.exit(0); }
+	process.exit(1);
+}
+if (expr !== '@.log[*]') process.exit(1);
 const log = (data && Array.isArray(data.log)) ? data.log : [];
+if (log.length === 0) process.exit(1);
 for (const e of log) process.stdout.write(JSON.stringify(e) + '\n');
 EOF
 	chmod +x "$stub_js"
@@ -250,7 +258,7 @@ FILTER_TOTAL="$(tally_total "$FILTER_TALLY")"
 echo "--- filter subprocess (production path) ---"
 echo "exec total: ${FILTER_TOTAL}"
 tally_breakdown "$FILTER_TALLY"
-echo "production: dirname (FILTER_DIR) + jsonfilter + awk; mktemp + rm only on shells without pipefail"
+echo "production: dirname (FILTER_DIR) + cat (stdin buffer) + jsonfilter + awk; mktemp×2 + rm"
 echo
 
 POLL_TALLY="$(run_poll_census)"

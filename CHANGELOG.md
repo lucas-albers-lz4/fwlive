@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
 
 ### Fixed
+- Encode nft dump TSV with an index/substr walk so BusyBox awk 1.37 keeps tab and backslash prefixes (#879)
+- Treat jsonfilter empty-array extract as a healthy empty poll (#932)
+- Raise the adaptive summary byte cap from 256 to the documented 1 KiB (#930)
 - Document MODE=json as a comma-joined record fragment and pin a two-entry assertion (#780)
 - Document the `npm test` vs CI delta and add `npm run test:ci` (#796)
 - Pin `logread-2000.json` row and classify counts (#795)

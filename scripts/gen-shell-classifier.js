@@ -310,7 +310,7 @@ function emitAwkProgram() {
 		'\tout = out ",\\"top_drops\\":" summary_top(summary_drop_counts, 3)',
 		'\tout = out ",\\"top_rules\\":" summary_top(summary_rule_counts, 3) "}"',
 		'\t# LC_ALL=C makes this a byte budget; utf8_prefix keeps field cuts valid.',
-		'\tif (length(out) > 256) return "{\\"scope\\":\\"top of shown sample\\",\\"truncated\\":true}"',
+		'\tif (length(out) > 1024) return "{\\"scope\\":\\"top of shown sample\\",\\"truncated\\":true}"',
 		'\treturn out',
 		'}',
 		'BEGIN {',
