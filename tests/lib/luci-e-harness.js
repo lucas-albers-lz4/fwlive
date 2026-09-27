@@ -106,9 +106,62 @@ class Node {
 		this._attrs[key] = String(value);
 	}
 
+	getAttribute(key) {
+		return Object.prototype.hasOwnProperty.call(this._attrs, key)
+			? this._attrs[key]
+			: null;
+	}
+
+	removeAttribute(key) {
+		delete this._attrs[key];
+	}
+
 	addEventListener(type, fn) {
 		(this._listeners[type] = this._listeners[type] || []).push(fn);
 	}
+}
+
+function createStyleBag() {
+	const bag = { display: '' };
+	bag.setProperty = function (name, value) {
+		this[name] = String(value);
+	};
+	bag.removeProperty = function (name) {
+		delete this[name];
+	};
+	return bag;
+}
+
+function tokenMatches(node, token) {
+	if (!node || node.nodeType !== 1) return false;
+	if (token.charAt(0) === '.')
+		return node.classNames().includes(token.slice(1));
+	if (token.charAt(0) === '#') {
+		const id = (node._attrs && node._attrs.id) || node._id || '';
+		return id === token.slice(1);
+	}
+	const notCls = token.match(/^([A-Za-z][\w-]*)?:not\(\.([A-Za-z0-9_-]+)\)$/);
+	if (notCls) {
+		if (notCls[1] && String(node.tagName).toLowerCase() !== notCls[1].toLowerCase())
+			return false;
+		return !node.classNames().includes(notCls[2]);
+	}
+	return String(node.tagName || '').toLowerCase() === token.toLowerCase();
+}
+
+function queryFrom(node, parts, includeSelf) {
+	if (!parts.length) return includeSelf ? node : null;
+	if (includeSelf && tokenMatches(node, parts[0])) {
+		if (parts.length === 1) return node;
+		const rest = queryFrom(node, parts.slice(1), false);
+		if (rest) return rest;
+	}
+	const kids = node.childNodes || [];
+	for (let i = 0; i < kids.length; i++) {
+		const found = queryFrom(kids[i], parts, true);
+		if (found) return found;
+	}
+	return null;
 }
 
 class Element extends Node {
@@ -116,9 +169,26 @@ class Element extends Node {
 		super(1);
 		this.tagName = tagName;
 		this.className = '';
-		this.style = { display: '' };
+		this.style = createStyleBag();
 		this.classList = {
 			contains: (name) => this.classNames().includes(name),
+			add: (...names) => {
+				const current = this.classNames();
+				for (let i = 0; i < names.length; i++) {
+					if (names[i] && !current.includes(names[i])) current.push(names[i]);
+				}
+				this.className = current.join(' ');
+				this._attrs.class = this.className;
+			},
+			remove: (...names) => {
+				const drop = {};
+				for (let i = 0; i < names.length; i++) {
+					if (names[i]) drop[names[i]] = true;
+				}
+				const current = this.classNames().filter((item) => !drop[item]);
+				this.className = current.join(' ');
+				this._attrs.class = this.className;
+			},
 			toggle: (name, force) => {
 				const names = this.classNames().filter((item) => item !== name);
 				const enabled = force === undefined ? !this.classNames().includes(name) : !!force;
@@ -132,6 +202,12 @@ class Element extends Node {
 
 	classNames() {
 		return String(this._attrs.class || this.className || '').split(/\s+/).filter(Boolean);
+	}
+
+	querySelector(selector) {
+		const parts = String(selector || '').trim().split(/\s+/).filter(Boolean);
+		if (!parts.length) return null;
+		return queryFrom(this, parts, false);
 	}
 }
 

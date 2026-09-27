@@ -120,8 +120,11 @@ echo "== fwlive codegen freshness ==" >&2
 echo "== real jshn compatibility (#316) ==" >&2
 python3 tests/fwlive-jshn-compat.test.py
 
+echo "== fwlive logging ==" >&2
+FWLIVE_LOGGING_VIA_RUNNER=1 bash tests/fwlive-logging.test.sh
+
 echo "== fwlive rpcd security ==" >&2
-"$NODE" tests/fwlive-rpcd-security.test.js
+FWLIVE_LOGGING_VIA_RUNNER=1 "$NODE" tests/fwlive-rpcd-security.test.js
 
 echo "== fwlive schema (stage 2) ==" >&2
 "$NODE" tests/fwlive-schema.test.js
@@ -137,6 +140,8 @@ echo "== fwlive theme tint helpers ==" >&2
 
 echo "== fwlive view tint persistence ==" >&2
 "$NODE" tests/fwlive-view-tint-persistence.test.js
+echo "== fwlive view tint fallback (#770) ==" >&2
+"$NODE" tests/fwlive-view-tint-fallback.test.js
 
 echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js

@@ -507,6 +507,37 @@ function runSummaryRuleHintParity() {
 			'$(id); prefix is not a parseRuleHint token');
 		assert.deepEqual(topRules, [],
 			'top_rules must match the blank Rule column for both #622 shapes');
+
+		const extra = [
+			{
+				msg: '[  239.247521] fwlive-pingIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP',
+				hint: 'fwlive-ping'
+			},
+			{
+				msg: 'fw4: DROP IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP',
+				hint: 'fw4'
+			}
+		];
+		for (let i = 0; i < extra.length; i++) {
+			const msg = extra[i].msg;
+			const hint = extra[i].hint;
+			assert.equal(core.parseRuleHint(msg), hint,
+				'parseRuleHint must keep ' + hint + ' for ' + JSON.stringify(msg));
+			const one = shSpawn(null, {
+				argvFile: FILTER_SH,
+				input: JSON.stringify({ log: [{ msg: msg }] }),
+				encoding: 'utf8',
+				env: jf.env
+			});
+			assert.equal(one.status, 0, one.stderr || one.stdout);
+			const oneOut = JSON.parse(one.stdout);
+			const rules = (oneOut.summary && oneOut.summary.top_rules) || [];
+			const found = {};
+			for (let j = 0; j < rules.length; j++)
+				found[rules[j].value] = rules[j].count;
+			assert.ok(found[hint] > 0,
+				'top_rules must list JS rule_hint ' + JSON.stringify(hint));
+		}
 	} finally {
 		jf.cleanup();
 	}
