@@ -50,16 +50,22 @@ shift || true
 
 TARGET="${OWRT_SDK_TARGET:-armsr-armv8}"
 VERSION="${OWRT_SDK_VERSION:-snapshot}"
+SEEN_TARGET=0
+SEEN_VERSION=0
+[[ -n "${OWRT_SDK_TARGET:-}" ]] && SEEN_TARGET=1
+[[ -n "${OWRT_SDK_VERSION:-}" ]] && SEEN_VERSION=1
 MAKE_ARGS=()
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--target)
 			TARGET="${2:?}"
+			SEEN_TARGET=1
 			shift 2
 			;;
 		--version)
 			VERSION="${2:?}"
+			SEEN_VERSION=1
 			shift 2
 			;;
 		-h | --help)
@@ -110,14 +116,18 @@ case "$CMD" in
 	build-all)
 		targets=("${SDK_MATRIX_TARGETS[@]}")
 		versions=("${SDK_MATRIX_VERSIONS[@]}")
-		if [[ "$TARGET" != "armsr-armv8" || -n "${OWRT_SDK_TARGET:-}" ]]; then
+		if [[ "$SEEN_TARGET" -eq 1 ]]; then
 			targets=("$TARGET")
 		fi
-		if [[ "$VERSION" != "snapshot" || -n "${OWRT_SDK_VERSION:-}" ]]; then
+		if [[ "$SEEN_VERSION" -eq 1 ]]; then
 			versions=("$VERSION")
 		fi
 		for t in "${targets[@]}"; do
 			for v in "${versions[@]}"; do
+				if [[ "${FWLIVE_SDK_PRINT_CELLS:-0}" == 1 ]]; then
+					echo "$t $v"
+					continue
+				fi
 				run_one "$t" "$v"
 				if ! sdk_matrix_feeds_ready; then
 					sdk_matrix_feeds_setup
@@ -127,7 +137,9 @@ case "$CMD" in
 				echo >&2
 			done
 		done
-		echo "All requested matrix builds finished under ${ROOT}/out/" >&2
+		if [[ "${FWLIVE_SDK_PRINT_CELLS:-0}" != 1 ]]; then
+			echo "All requested matrix builds finished under ${ROOT}/out/" >&2
+		fi
 		;;
 	'' | -h | --help | help)
 		usage

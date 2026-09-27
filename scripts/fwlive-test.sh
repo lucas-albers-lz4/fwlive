@@ -259,6 +259,8 @@ bash tests/validate-feed-keys-mode.test.sh
 
 echo "== fwlive wait-feed-pages APK key (#421) ==" >&2
 bash tests/wait-feed-pages.test.sh
+echo "== fwlive feed/sdk wave 15 (#814 #813 #812 #811) ==" >&2
+bash tests/feed-sdk-wave15.test.sh
 
 echo "== fwlive feed-index version oracles (#421) ==" >&2
 bash tests/feed-index-version.test.sh

@@ -318,17 +318,10 @@ feed_publish_ipkg_index_script() {
 	printf '%s' "$verified"
 }
 
-feed_publish_stage_opkg_host() {
-	local pkg_dir="$1" ver_label="$2"
-	local index_script raw mkhash
-	index_script="$(feed_publish_ipkg_index_script "$ver_label")"
-	# Caller-owned cleanup (luna Minor fold 2026-08-10): the returned
-	# private file is executed once below, then removed on every exit
-	# path — success, index failure, and empty-Packages abort alike.
-	trap 'rm -f "$index_script"' RETURN
-	raw="$(mktemp)"
-	# ipkg-make-index.sh uses $MKHASH sha256 (OpenWrt mkhash), not sha256sum alone.
-	mkhash=""
+# Probe SDK volumes for mkhash. Run via command substitution so SDK_MATRIX_*
+# mutations cannot leak into the caller (#814).
+feed_publish_probe_mkhash() {
+	local ver mkhash=""
 	for ver in 25.12 24.10 23.05; do
 		sdk_matrix_resolve x86-64 "$ver" 2>/dev/null || continue
 		if sdk_matrix_feeds_ready 2>/dev/null; then
@@ -336,6 +329,19 @@ feed_publish_stage_opkg_host() {
 			[[ -n "$mkhash" ]] && break
 		fi
 	done
+	printf '%s' "$mkhash"
+}
+
+feed_publish_stage_opkg_host() {
+	local pkg_dir="$1" ver_label="$2"
+	local index_script raw mkhash prev_return
+	index_script="$(feed_publish_ipkg_index_script "$ver_label")"
+	# Restore any caller RETURN trap after removing the private index script (#812).
+	prev_return="$(trap -p RETURN)"
+	trap 'rm -f "$index_script"; if [[ -n "${prev_return:-}" ]]; then eval "$prev_return"; else trap - RETURN; fi' RETURN
+	raw="$(mktemp)"
+	# ipkg-make-index.sh uses $MKHASH sha256 (OpenWrt mkhash), not sha256sum alone.
+	mkhash="$(feed_publish_probe_mkhash)"
 	[[ -n "$mkhash" ]] || mkhash="$(command -v mkhash || true)"
 	if ! ( cd "$pkg_dir" && MKHASH="${mkhash:-mkhash}" "$index_script" . >"$raw" ); then
 		echo "ipkg-make-index failed for ${ver_label}" >&2
