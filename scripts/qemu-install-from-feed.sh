@@ -80,6 +80,47 @@ ssh_run() {
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" "$@"
 }
 
+# Pass values as remote env so they are not interpolated into the guest shell (#815).
+ssh_run_env() {
+	local -a env_pairs=()
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+			--)
+				shift
+				break
+				;;
+			*=*)
+				env_pairs+=("$1")
+				shift
+				;;
+			*)
+				echo "qemu-install-from-feed: ssh_run_env expected VAR=value or --" >&2
+				return 1
+				;;
+		esac
+	done
+	[[ ${#env_pairs[@]} -ge 1 ]] || {
+		echo "qemu-install-from-feed: ssh_run_env needs at least one VAR=value" >&2
+		return 1
+	}
+	# Quote values for the remote shell so & / ? in a URL cannot split `env`.
+	# Run the command under `sh -c` so `$VAR` expands after env sets it,
+	# not in the remote login shell that parses the ssh command line.
+	local -a quoted_pairs=()
+	local pair name val script
+	for pair in "${env_pairs[@]}"; do
+		name="${pair%%=*}"
+		val="${pair#*=}"
+		quoted_pairs+=("${name}='${val}'")
+	done
+	script="$*"
+	if [[ "$script" == *"'"* ]]; then
+		echo "qemu-install-from-feed: ssh_run_env command cannot contain '" >&2
+		return 1
+	fi
+	ssh_run env "${quoted_pairs[@]}" sh -c "'${script}'"
+}
+
 guest_uses_apk() {
 	ssh_run 'command -v apk >/dev/null 2>&1'
 }
@@ -88,10 +129,12 @@ install_opkg() {
 	local feed_url="${base}/${feed_dir}"
 	qemu_feed_assert_url "$feed_url"
 	echo "→ opkg feed ${feed_url}" >&2
-	ssh_run "wget -O /tmp/fwlive-feed.key '${opkg_key_url}'"
+	ssh_run_env FWLIVE_OPKG_KEY_URL="$opkg_key_url" -- \
+		'wget -O /tmp/fwlive-feed.key "$FWLIVE_OPKG_KEY_URL"'
 	ssh_run 'opkg-key add /tmp/fwlive-feed.key'
 	# Rewrite, do not append-if-absent: a changed base/dir must not leave a stale src/gz fwlive (#840).
-	ssh_run "touch /etc/opkg/customfeeds.conf && { grep -v '^src/gz fwlive ' /etc/opkg/customfeeds.conf || true; } > /etc/opkg/customfeeds.conf.tmp && mv /etc/opkg/customfeeds.conf.tmp /etc/opkg/customfeeds.conf && printf '%s\\n' 'src/gz fwlive ${feed_url}' >> /etc/opkg/customfeeds.conf"
+	ssh_run_env FWLIVE_FEED_URL="$feed_url" -- \
+		'touch /etc/opkg/customfeeds.conf && { grep -v "^src/gz fwlive " /etc/opkg/customfeeds.conf || true; } > /etc/opkg/customfeeds.conf.tmp && mv /etc/opkg/customfeeds.conf.tmp /etc/opkg/customfeeds.conf && printf "src/gz fwlive %s\n" "$FWLIVE_FEED_URL" >> /etc/opkg/customfeeds.conf'
 	ssh_run 'opkg update'
 	ssh_run 'opkg install luci-app-fwlive'
 }
@@ -100,10 +143,12 @@ install_apk() {
 	local index_url="${base}/${feed_dir}/all/packages.adb"
 	qemu_feed_assert_url "$index_url"
 	echo "→ apk index ${index_url}" >&2
-	ssh_run "wget -O /tmp/fwlive-feed.rsa.pub '${apk_key_url}'"
+	ssh_run_env FWLIVE_APK_KEY_URL="$apk_key_url" -- \
+		'wget -O /tmp/fwlive-feed.rsa.pub "$FWLIVE_APK_KEY_URL"'
 	ssh_run 'mkdir -p /etc/apk/keys'
 	ssh_run 'cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub'
-	ssh_run "mkdir -p /etc/apk/repositories.d && printf '%s\\n' '${index_url}' > /etc/apk/repositories.d/fwlive.list"
+	ssh_run_env FWLIVE_INDEX_URL="$index_url" -- \
+		'mkdir -p /etc/apk/repositories.d && printf "%s\n" "$FWLIVE_INDEX_URL" > /etc/apk/repositories.d/fwlive.list'
 	ssh_run 'apk update'
 	ssh_run 'apk add luci-app-fwlive'
 }

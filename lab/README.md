@@ -32,7 +32,9 @@
 ## Ports
 
 Single-guest QEMU (`run-openwrt-*-qemu.sh`): LuCI **8080**, SSH **2222**. Do not
-run both guests on those defaults at once.
+run both guests on those defaults at once. `--stop` kills the PID in
+`lab/images/openwrt-x86-64.pid` / `lab/images/openwrt-armsr-armv8.pid`;
+`--stop --force` falls back to a cmdline `pkill`.
 
 Dual-arch matrix (`scripts/qemu-smoke-matrix.sh`) and this compose file:
 

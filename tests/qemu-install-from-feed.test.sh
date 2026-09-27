@@ -24,14 +24,23 @@ ok() {
 
 bash -n "$SCRIPT" || fail "qemu-install-from-feed.sh has invalid shell syntax"
 
-if FWLIVE_FEED_BASE_URL="https://example.com/x';id" \
-	OPENWRT_HOST=127.0.0.1 OPENWRT_SSH_PORT=2222 OPENWRT_USER=root \
-	"$SCRIPT" --no-smoke --version 24.10 >"$TMP/hostile.log" 2>&1; then
-	fail "quote-bearing feed URL must be refused (#840): $(cat "$TMP/hostile.log")"
-fi
-grep -Fq "refused unsafe URL" "$TMP/hostile.log" \
-	|| fail "hostile URL must name the refusal ($(cat "$TMP/hostile.log"))"
-ok "unsafe feed URL is refused before ssh"
+refuse_feed_url() {
+	local label="$1" url="$2"
+	set +e
+	FWLIVE_FEED_BASE_URL="$url" \
+		OPENWRT_HOST=127.0.0.1 OPENWRT_SSH_PORT=2222 OPENWRT_USER=root \
+		"$SCRIPT" --no-smoke --version 24.10 >"$TMP/hostile.log" 2>&1
+	local rc=$?
+	set -e
+	[[ "$rc" -ne 0 ]] || fail "$label must be refused (#815): $(cat "$TMP/hostile.log")"
+	grep -Fq "refused unsafe URL" "$TMP/hostile.log" \
+		|| fail "$label must name the refusal ($(cat "$TMP/hostile.log"))"
+	ok "$label is refused before ssh"
+}
+
+refuse_feed_url "quote-bearing feed URL" "https://example.com/x';id"
+refuse_feed_url "whitespace feed URL" "https://example.com/x y"
+refuse_feed_url 'command-sub feed URL' 'https://example.com/x$(id)'
 
 opkg_info_fix="$ROOT/tests/fixtures/feed-index-opkg-info"
 apk_query_fix="$ROOT/tests/fixtures/feed-index-apk-query.json"
@@ -91,7 +100,7 @@ cat >"$TMP/bin/ssh" <<'EOF'
 #!/usr/bin/env bash
 set -u
 last="${!#}"
-printf 'ssh %s\n' "$last" >>"${FWLIVE_STUB_LOG:?}"
+printf 'ssh %s\n' "$*" >>"${FWLIVE_STUB_LOG:?}"
 case "$last" in
 	'command -v apk >/dev/null 2>&1')
 		if [[ "${FWLIVE_STUB_HAS_APK:-0}" == 1 ]]; then
@@ -99,13 +108,13 @@ case "$last" in
 		fi
 		exit 1
 		;;
-	wget\ *)
+	wget\ *|\'wget\ *)
 		exit 0
 		;;
 	'opkg-key add /tmp/fwlive-feed.key')
 		exit 0
 		;;
-	*'src/gz fwlive '*|*'fwlive.list'*)
+	*'src/gz fwlive '*|*'src/gz fwlive %s'*|*'fwlive.list'*)
 		exit 0
 		;;
 	'opkg update')
@@ -182,16 +191,22 @@ ok "stale fwlive opkg line is replaced"
 opkg_install_urls_ok() {
 	local log="$1" version="$2" feed_dir
 	feed_dir="$(feed_publish_feed_dir "$version")"
-	grep -Fq "wget -O /tmp/fwlive-feed.key '${FEED_BASE}/public.key'" "$log" \
-		&& grep -Fq "src/gz fwlive ${FEED_BASE}/${feed_dir}" "$log"
+	grep -Fq "FWLIVE_OPKG_KEY_URL='${FEED_BASE}/public.key'" "$log" \
+		&& grep -Fq 'sh -c' "$log" \
+		&& grep -Fq 'wget -O /tmp/fwlive-feed.key "$FWLIVE_OPKG_KEY_URL"' "$log" \
+		&& grep -Fq "FWLIVE_FEED_URL='${FEED_BASE}/${feed_dir}'" "$log" \
+		&& ! grep -Fq "wget -O /tmp/fwlive-feed.key '${FEED_BASE}" "$log"
 }
 
 apk_install_urls_ok() {
 	local log="$1" version="$2" feed_dir index_url
 	feed_dir="$(feed_publish_feed_dir "$version")"
 	index_url="${FEED_BASE}/${feed_dir}/all/packages.adb"
-	grep -Fq "wget -O /tmp/fwlive-feed.rsa.pub '${FEED_BASE}/fwlive-feed.rsa.pub'" "$log" \
-		&& grep -Fq "$index_url" "$log"
+	grep -Fq "FWLIVE_APK_KEY_URL='${FEED_BASE}/fwlive-feed.rsa.pub'" "$log" \
+		&& grep -Fq 'sh -c' "$log" \
+		&& grep -Fq 'wget -O /tmp/fwlive-feed.rsa.pub "$FWLIVE_APK_KEY_URL"' "$log" \
+		&& grep -Fq "FWLIVE_INDEX_URL='${index_url}'" "$log" \
+		&& ! grep -Fq "wget -O /tmp/fwlive-feed.rsa.pub '${FEED_BASE}" "$log"
 }
 
 assert_opkg_install_urls() {
@@ -292,7 +307,7 @@ else
 fi
 assert_opkg_install_urls "$FWLIVE_STUB_LOG" 24.10
 assert_manager_matches_format "$FWLIVE_STUB_LOG" 24.10
-grep -Fq "grep -v '^src/gz fwlive '" "$FWLIVE_STUB_LOG" \
+grep -Fq 'grep -v "^src/gz fwlive "' "$FWLIVE_STUB_LOG" \
 	|| fail "opkg cell must rewrite existing src/gz fwlive lines (#840)"
 if grep -Fq 'grep -q ' "$FWLIVE_STUB_LOG"; then
 	fail "opkg cell must not append-if-absent (#840)"
@@ -453,5 +468,26 @@ if grep -Fq 'ssh ' "$TMP/unsafe-url.log"; then
 	fail "unsafe URL must not reach ssh"
 fi
 ok "unsafe feed URL is refused before ssh"
+
+# Query string is charset-ok; & must stay inside a single-quoted env assignment (#815).
+QUERY_BASE='https://example.com/feed?x=1&y=2'
+: >"$FWLIVE_STUB_LOG"
+set +e
+PATH="$TMP/bin:$PATH" \
+	FWLIVE_FEED_BASE_URL="$QUERY_BASE" \
+	OPENWRT_HOST=127.0.0.1 \
+	OPENWRT_SSH_PORT=2222 \
+	OPENWRT_USER=root \
+	FWLIVE_STUB_LOG="$FWLIVE_STUB_LOG" \
+	FWLIVE_STUB_HAS_APK=0 \
+	FWLIVE_STUB_OPKG_INFO="$opkg_info_fix" \
+	"$SCRIPT" --no-smoke --version 24.10 >"$TMP/query.log" 2>&1
+set -e
+grep -Fq "FWLIVE_OPKG_KEY_URL='${QUERY_BASE}/public.key'" "$FWLIVE_STUB_LOG" \
+	|| fail "query-string key URL must be a single-quoted env assignment ($(cat "$FWLIVE_STUB_LOG"))"
+if grep -Eq 'FWLIVE_OPKG_KEY_URL=https://example.com/feed\?x=1&y=2' "$FWLIVE_STUB_LOG"; then
+	fail "query-string URL must not be an unquoted env assignment"
+fi
+ok "query-string feed URL is passed as a quoted env assignment"
 
 echo "qemu-install-from-feed helper test passed"
