@@ -160,19 +160,21 @@ assert.deepStrictEqual(clicks[0], ['proto', 'TCP']);
 assert.strictEqual(links.ruleAdminPath(), 'admin/network/firewall/rules');
 console.log('fwlive-modules smoke: links OK');
 
-/* --- chips --- */
-const chips = loadFwliveModule('chips', { log: log });
+/* --- chips (real E, same harness as chips-hash / logging smoke) --- */
+const chips = loadFwliveModule('chips', {
+	log: log,
+	E: luciE.E,
+	document: luciE.document
+});
 assert.strictEqual(typeof chips.renderFilterChips, 'function');
 
+function nodeClass(n) {
+	return String((n && n._attrs && n._attrs.class) || (n && n.className) || '');
+}
+
 function renderChips(filters) {
-	const chipHost = {
-		className: '',
-		style: { display: '' },
-		children: [],
-		appendChild: function (n) {
-			this.children.push(n);
-		}
-	};
+	const chipHost = luciE.E('div', { 'class': 'fwlive-chips' }, []);
+	chipHost.style = { display: '' };
 	chips.renderFilterChips(
 		chipHost,
 		{
@@ -193,13 +195,17 @@ function renderChips(filters) {
 
 const chipHost = renderChips();
 assert.strictEqual(chipHost.style.display, 'flex');
-assert.ok(chipHost.children.length >= 1);
+assert.ok(chipHost.childNodes.length >= 2);
 assert.strictEqual(chipHost.className, 'fwlive-chips fwlive-chips-labels');
-const includeChip = chipHost.children[0];
-const excludeChip = chipHost.children[1];
-assert.ok(String(includeChip.attrs.class).indexOf('fwlive-chip-include') >= 0);
-assert.ok(String(excludeChip.attrs.class).indexOf('fwlive-chip-negated') >= 0);
-assert.ok(String(excludeChip.children[0].attrs.class).indexOf('fwlive-chip-sym') >= 0);
+const includeChip = chipHost.childNodes[0];
+const excludeChip = chipHost.childNodes[1];
+assert.ok(nodeClass(includeChip).indexOf('fwlive-chip-include') >= 0);
+assert.ok(nodeClass(excludeChip).indexOf('fwlive-chip-negated') >= 0);
+assert.ok(nodeClass(excludeChip.childNodes[0]).indexOf('fwlive-chip-sym') >= 0);
+const chipSinks = collectInnerHTMLWrites(chipHost);
+for (let i = 0; i < chipSinks.length; i++) {
+	assert.ok(chipSinks[i] === '', 'chip smoke must only clear host.innerHTML, got ' + JSON.stringify(chipSinks[i]));
+}
 console.log('fwlive-modules smoke: chips OK');
 
 /* --- logging --- */

@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Document skipped release numbers, owner test-policy links, and pin-site checklists (#845, #844, #843, #823, #820, #819, #818)
+- Fail closed on missing lint tools, ruff, and busybox instead of implicit `npm ci` or a silent macOS skip (`FWLIVE_ALLOW_SKIP=1` is the loud opt-out) (#802)
+- Pin shell-filter metachar classify results and the filtered JSON shape (#801)
+- Render chips smoke through the real `E` harness (#800)
+- Use unique symlink temp dirs and attribute `/tmp/fwlive-*` leak scans to this test's nft prefix (#799)
+- Log whether shell-filter and corpus gates use host `jsonfilter` or the node stub (#798)
 - Capture `uci show firewall` once per `rules` call (#774)
 - Stop `map_prefix_with_label` after 512 lines so first-wins duplicates cannot walk an unbounded dump (#767)
 - Refuse a symlinked or group/other-writable WAN-log baseline directory before `printf >` (#777)

@@ -90,11 +90,23 @@ function runMsgParity() {
 	}
 }
 
+let jsonfilterModeLogged = false;
+function logJsonfilterMode(msg) {
+	if (jsonfilterModeLogged) return;
+	jsonfilterModeLogged = true;
+	console.error(msg);
+}
+
 function jsonfilterPathEnv() {
 	const jf = spawnSync('sh', ['-c', 'command -v jsonfilter'], { encoding: 'utf8' });
-	if (jf.status === 0 && jf.stdout.trim())
+	if (jf.status === 0 && jf.stdout.trim()) {
+		logJsonfilterMode('using host jsonfilter');
 		return { env: process.env, cleanup: function() {} };
+	}
 
+	/* Stub envelope: @.log[*] only; stdin or -s; reject -s >128 KiB (#234).
+	   No streaming, no other -e expressions, no OpenWrt error encodings. */
+	logJsonfilterMode('using jsonfilter stub (@.log[*] only; -s >128KiB rejected)');
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-jf-'));
 	fs.writeFileSync(path.join(stubDir, 'jsonfilter'), [
 		'#!/usr/bin/env node',
@@ -335,11 +347,11 @@ function runMktempFailure() {
 function runSymlinkTempDir() {
 	const jf = jsonfilterPathEnv();
 	const realDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-real-'));
-	const linkDir = path.join(os.tmpdir(), `fwlive-filter-link-${process.pid}`);
+	const linkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-filter-link-'));
 	const payload = JSON.stringify({ log: [] });
 	try {
 		fs.chmodSync(realDir, 0o1777);
-		fs.rmSync(linkDir, { force: true });
+		fs.rmSync(linkDir, { recursive: true, force: true });
 		fs.symlinkSync(realDir, linkDir);
 		const filtered = filterSpawn([linkDir], {
 			input: payload,
@@ -509,8 +521,13 @@ function runMetacharSafety() {
 		'dropbear[1]: Bad packet length 12345'
 	];
 
-	for (const msg of nasty) {
-		assert.doesNotThrow(() => shellIsFirewall(msg));
+	const wantClassify = [true, true, true, true, false];
+	for (let i = 0; i < nasty.length; i++) {
+		const got = shellIsFirewall(nasty[i]);
+		assert.equal(got, wantClassify[i],
+			'shellIsFirewall(' + JSON.stringify(nasty[i]) + ')');
+		assert.equal(got, core.isFirewallEvent({ msg: nasty[i] }),
+			'JS/shell classify parity for metachar line ' + i);
 	}
 
 	if (!fs.existsSync(FILTER_SH))
@@ -525,7 +542,13 @@ function runMetacharSafety() {
 			argvFile: FILTER_SH, input: payload, encoding: 'utf8', env: jf.env
 		});
 		assert.equal(filtered.status, 0, filtered.stderr || filtered.stdout);
-		assert.doesNotThrow(() => JSON.parse(filtered.stdout));
+		const out = JSON.parse(filtered.stdout);
+		assert.equal(out.error, undefined, 'metachar filter must not set error');
+		assert.equal(out.messages_received, nasty.length,
+			'metachar filter must count every input line');
+		assert.equal((out.log || []).length, 4,
+			'metachar filter must keep the four firewall lines and drop dropbear');
+		assert.deepEqual((out.log || []).map((e) => e.msg), nasty.slice(0, 4));
 	} finally {
 		jf.cleanup();
 	}
