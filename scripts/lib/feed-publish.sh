@@ -48,8 +48,19 @@ feed_publish_path_under() {
 	[[ -n "$parent" && ( "$child" == "$parent" || "$child" == "$parent"/* ) ]]
 }
 
-# Refuse rm -rf of /, $HOME, the repo root, or a path outside $ROOT/$RUNNER_TEMP
-# unless allow_outside=1. Prints the canonical path on success (#766).
+# In-repo rm -rf is only feed-staging* or a directory under out/.
+feed_publish_staging_allowlisted() {
+	local canonical="$1" root="$2" base
+	base="${canonical##*/}"
+	if [[ "$base" == feed-staging || "$base" == feed-staging-* ]]; then
+		return 0
+	fi
+	[[ "$canonical" == "${root}/out/"* ]]
+}
+
+# Refuse rm -rf of /, $HOME, the repo root, a non-staging path inside the
+# repo (including scripts/), or a path outside $ROOT/$RUNNER_TEMP unless
+# allow_outside=1. Prints the canonical path on success (#766, #917).
 feed_publish_assert_staging_clearable() {
 	local staging="$1"
 	local allow_outside="${2:-0}"
@@ -80,9 +91,19 @@ feed_publish_assert_staging_clearable() {
 		echo "feed_publish: refusing to clear the repository root" >&2
 		return 1
 	fi
-	if [[ "$allow_outside" == "1" ]] ||
-		feed_publish_path_under "$canonical" "$root" ||
-		feed_publish_path_under "$canonical" "$runner"; then
+	if [[ -n "$runner" ]] && feed_publish_path_under "$canonical" "$runner"; then
+		printf '%s' "$canonical"
+		return 0
+	fi
+	if feed_publish_path_under "$canonical" "$root"; then
+		if ! feed_publish_staging_allowlisted "$canonical" "$root"; then
+			echo "feed_publish: refusing to clear ${canonical} (not an allowlisted staging path)" >&2
+			return 1
+		fi
+		printf '%s' "$canonical"
+		return 0
+	fi
+	if [[ "$allow_outside" == "1" ]]; then
 		printf '%s' "$canonical"
 		return 0
 	fi
@@ -271,7 +292,10 @@ feed_publish_ipkg_index_script() {
 		23.05.5) sha='33063b4ccf00d39393796499b23df55187b192dc'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
 		24.10.8) sha='0b795ce79e23b553aa184080c390f9ce92a2b6d4'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
 		25.12.5) sha='f0a60eee2fe051741c643ea6118718aae1ef17fb'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
-		*)       sha='0b795ce79e23b553aa184080c390f9ce92a2b6d4'; expected_hash='f19c5013c38d2dc54a95457dd372cb4b6a077ca6ddf7ef3da982b7b6e49b6d06' ;;
+		*)
+			echo "feed_publish: unmapped ipkg index label '${ver_label}'" >&2
+			return 1
+			;;
 	esac
 
 	# The returned path is ALWAYS a fresh private mktemp file that has been
