@@ -5,6 +5,18 @@
 #   ./scripts/wait-feed-pages.sh --apk-25.12 BASE_URL   # scheduled 25.12 APK smoke
 set -euo pipefail
 
+wait_feed_validate_int() {
+	local name="$1" val="$2" min="$3" max="$4"
+	if [[ ! "$val" =~ ^[0-9]+$ ]]; then
+		echo "invalid ${name}: '${val}' (want ${min}-${max})" >&2
+		return 1
+	fi
+	if ((10#$val < min || 10#$val > max)); then
+		echo "invalid ${name}: ${val} (want ${min}-${max})" >&2
+		return 1
+	fi
+}
+
 APK_25_12=0
 if [[ "${1:-}" == "--apk-25.12" ]]; then
 	APK_25_12=1
@@ -15,6 +27,8 @@ BASE="${1:?usage: wait-feed-pages.sh [--apk-25.12] BASE_URL}"
 BASE="${BASE%/}"
 MAX_WAIT="${FEED_PAGES_WAIT_SEC:-300}"
 INTERVAL="${FEED_PAGES_WAIT_INTERVAL:-10}"
+wait_feed_validate_int FEED_PAGES_WAIT_SEC "$MAX_WAIT" 1 7200
+wait_feed_validate_int FEED_PAGES_WAIT_INTERVAL "$INTERVAL" 1 120
 
 if [[ "$APK_25_12" -eq 1 ]]; then
 	urls=(
@@ -37,10 +51,12 @@ echo "Waiting for feed URLs under ${BASE} (max ${MAX_WAIT}s)..." >&2
 while (( SECONDS < deadline )); do
 	ok=1
 	for u in "${urls[@]}"; do
-		if ! curl -fsSIL "$u" >/dev/null 2>&1; then
+		code="$(curl -sS -L -o /dev/null -w '%{http_code}' \
+			--connect-timeout 10 --max-time 30 -I -- "$u" || true)"
+		[[ -n "$code" ]] || code=000
+		if [[ "$code" != 200 ]]; then
 			ok=0
-			echo "  pending: $u" >&2
-			break
+			echo "  pending: $u (HTTP ${code})" >&2
 		fi
 	done
 	if [[ $ok -eq 1 ]]; then

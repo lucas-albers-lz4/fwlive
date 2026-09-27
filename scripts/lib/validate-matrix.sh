@@ -225,6 +225,8 @@ validate_matrix_run_cell() {
 		validate_matrix_stop_qemu
 		return "$rc"
 	}
+	local prev_exit
+	prev_exit="$(trap -p EXIT)"
 	trap cleanup_on_fail EXIT
 
 	echo "== validate ${version_key} (lab ${lab_slug}) qemu=${qemu_target} sdk=${sdk_target} ==" >&2
@@ -257,6 +259,10 @@ validate_matrix_run_cell() {
 	validate_matrix_smoke
 
 	validate_matrix_stop_qemu
-	trap - EXIT
+	if [[ -n "${prev_exit:-}" ]]; then
+		eval "$prev_exit"
+	else
+		trap - EXIT
+	fi
 	echo "== validate passed: ${version_key} / ${qemu_target} ==" >&2
 }

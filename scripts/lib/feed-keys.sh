@@ -31,11 +31,13 @@ feed_keys_normalize_usign_keyfile() {
 			return 1
 		}
 		# Always remove the temp — sed can leave a partial sibling on failure.
-		trap 'rm -f "$tmp"' RETURN
+		# Restore any caller RETURN trap instead of `trap - RETURN` (#812).
+		local prev_return
+		prev_return="$(trap -p RETURN)"
+		trap 'rm -f "$tmp"; if [[ -n "${prev_return:-}" ]]; then eval "$prev_return"; else trap - RETURN; fi' RETURN
 		sed -E 's/^(untrusted comment: .+) (RW[A-Za-z0-9+/=]+)[[:space:]]*$/\1\
 \2/' "$f" > "$tmp"
 		mv "$tmp" "$f"
-		trap - RETURN
 		umask "$old_umask"
 	fi
 
@@ -63,13 +65,13 @@ feed_keys_maybe_decode_base64() {
 		return 1
 	}
 	# Always remove the temp — base64 -d can write a partial decode then fail.
-	trap 'rm -f "$tmp"' RETURN
+	local prev_return
+	prev_return="$(trap -p RETURN)"
+	trap 'rm -f "$tmp"; if [[ -n "${prev_return:-}" ]]; then eval "$prev_return"; else trap - RETURN; fi' RETURN
 	if base64 -d <"$f" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
 		mv "$tmp" "$f"
-		trap - RETURN
 	else
 		rm -f "$tmp"
-		trap - RETURN
 	fi
 	umask "$old_umask"
 }
