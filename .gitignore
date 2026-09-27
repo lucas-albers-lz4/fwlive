@@ -60,6 +60,8 @@ fwlive-feed.rsa.pub.*
 /dl/
 
 # Host-side SDK dl/feeds bind mounts (CI + local docker-sdk rebuilds)
+.ci-sdk-cache/
+# Pinned BusyBox awk 1.37 download (scripts/ensure-busybox-awk.sh)
 /.cache/
 
 # Editor / OS
