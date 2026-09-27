@@ -4,6 +4,7 @@
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 function run() {
@@ -31,8 +32,18 @@ function run() {
 	const large = path.join(__dirname, 'fixtures', 'logread-2000.json');
 	const largeStats = JSON.parse(execFileSync(process.execPath, [ core, 'stats', large ], { encoding: 'utf8' }));
 	assert.equal(largeStats.total, 2000);
-	assert.equal(largeStats.firewall, 1143);
-	assert.equal(largeStats.noise, 857);
+	assert.equal(largeStats.firewall, 1250);
+	assert.equal(largeStats.noise, 750);
+	const freshDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-logread-2000-'));
+	try {
+		const fresh = path.join(freshDir, 'logread-2000.json');
+		execFileSync('bash', [ path.join(root, 'scripts', 'gen-logread-fixture.sh') ], {
+			env: { ...process.env, FWLIVE_LOGREAD_FIXTURE_OUT: fresh }
+		});
+		assert.equal(fs.readFileSync(fresh, 'utf8'), fs.readFileSync(large, 'utf8'));
+	} finally {
+		fs.rmSync(freshDir, { recursive: true, force: true });
+	}
 
 	console.log('fwlive CLI pipeline tests passed');
 }

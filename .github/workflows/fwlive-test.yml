@@ -41,6 +41,11 @@ jobs:
           FWLIVE_TEST_REQUIRE_ZERO_SKIPS: '1'
       - name: Shell parity under busybox sh
         run: SH='busybox sh' node tests/fwlive-shell-filter.test.js
+      - name: Classifier and rpcd selftest under BusyBox awk >= 1.37
+        run: |
+          bin="$(./scripts/ensure-busybox-awk.sh)"
+          PATH="$bin:$PATH" busybox sh openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive __selftest
+          PATH="$bin:$PATH" SH='busybox sh' node tests/fwlive-shell-filter.test.js
       - name: Link check (internal markdown links + external URLs)
         run: ./scripts/fwlive-linkcheck.sh
 
