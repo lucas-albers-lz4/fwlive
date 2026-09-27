@@ -30,6 +30,16 @@ assert.deepStrictEqual(
 	[ '10', '11' ]
 );
 
+/* Live empty poll keeps existing rows (same empty guard as mergeById). */
+assert.deepStrictEqual(
+	ids(buffer.applyFetchedEntries(
+		[ row(1), row(2), row(3) ],
+		[],
+		{ paused: false, resumeMerge: false, rowLimit: ROW, fetchLinesMax: MAX }
+	)),
+	[ '1', '2', '3' ]
+);
+
 /* Paused: merge and grow toward fetchLinesMax. */
 const pausedBuf = [];
 for (let i = 1; i <= 150; i++)

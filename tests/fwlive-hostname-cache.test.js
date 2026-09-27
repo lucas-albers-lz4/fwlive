@@ -76,6 +76,19 @@ function testAddressCellUsesWarmHostname() {
 	assert.strictEqual(linkText, 'router.example', 'address cell must render the warm hostname');
 }
 
+function testScopedIpv6UsesBareCacheKey() {
+	const log = loadFwliveModule('log');
+	const links = loadFwliveModule('links', { log: log, hostname: hostname, E: luciE.E });
+	const map = new Map();
+	hostname.lruSet(map, 'fe80::1', 'host.local', 4);
+	const link = links.addrFilterLink('src', 'fe80::1%eth0', true, map, function () {});
+	assert.strictEqual(
+		link.childNodes[0].textContent,
+		'host.local',
+		'scoped IPv6 must display the hostname cached under the bare address'
+	);
+}
+
 function testFailTtl() {
 	const failed = new Map();
 	hostname.failMark(failed, '192.0.2.1', 10_000);
@@ -96,6 +109,7 @@ testLruEviction();
 testLruGetTouches();
 testDisplayReadTouchesLru();
 testAddressCellUsesWarmHostname();
+testScopedIpv6UsesBareCacheKey();
 testFailTtl();
 testFailCap();
 console.log('fwlive hostname cache tests passed');
