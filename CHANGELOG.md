@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
 
 ### Fixed
+- List `coreutils-timeout` next to the other runtime packages in install docs (#931)
+- Describe the off-state watch strip as the Enable logging button (#940)
 - Drop leftover checkout credentials from dependency-review and pin every workflow (#916)
 - Accept QEMU runner `--stop`/`--force` in either order and reject extra args (#924)
 - Clear a live non-QEMU pidfile on `--stop`, and verify `--force` until the guest is gone (#888)
