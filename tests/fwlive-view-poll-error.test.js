@@ -37,7 +37,27 @@ async function testPollErrorField() {
 	assert.ok(status, 'fwlive-status must exist after render');
 	assert.match(status.textContent, /Connection lost/i,
 		'error reply must show connection-lost banner');
+	assert.strictEqual(view.lastBatchNewIdCount, 0,
+		'failed poll must reset lastBatchNewIdCount');
 	console.log('fwlive-view poll-error: reply.error banner OK');
+}
+
+async function testPollErrorResetsBatchNewIdCount() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				return { log: [], error: 'filter_failed' };
+			}
+		}
+	});
+	const view = h.view;
+	view.lastBatchNewIdCount = 7;
+
+	await view.fetchEntries();
+	assert.strictEqual(view.lastPollError, true, 'reply.error must set lastPollError');
+	assert.strictEqual(view.lastBatchNewIdCount, 0,
+		'failPollReply must clear the previous batch new-id count');
+	console.log('fwlive-view poll-error: lastBatchNewIdCount reset OK');
 }
 
 async function testPollHappyPath() {
@@ -416,6 +436,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 (async function main() {
 	try {
 		await testPollErrorField();
+		await testPollErrorResetsBatchNewIdCount();
 		await testPollHappyPath();
 		await testPollBadShape();
 		await testPollTransportThrow();

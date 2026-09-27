@@ -70,7 +70,12 @@ async function testLikelyIpShape() {
 		[':1::2', false],
 		['1::2:', false],
 		['::1:', false],
-		[':ffff::192.0.2.1', false]
+		[':ffff::192.0.2.1', false],
+		['fe80::1%eth0', true],
+		['fe80::1%br-lan', true],
+		['2001:db8::1%2', true],
+		['%eth0', false],
+		['fe80::1%eth0%foo', false]
 	];
 
 	for (let i = 0; i < cases.length; i++)
@@ -80,9 +85,10 @@ async function testLikelyIpShape() {
 		v.collectIpsFromEntries([
 			{ src: 'cafe', dst: '192.0.2.1' },
 			{ src: 'cafe:1', dst: '2001:db8::1' },
-			{ src: '256.0.0.1', dst: '::ffff:192.0.2.1' }
+			{ src: '256.0.0.1', dst: '::ffff:192.0.2.1' },
+			{ src: 'fe80::1%eth0', dst: '2001:db8::2%lan' }
 		]),
-		['192.0.2.1', '2001:db8::1', '::ffff:192.0.2.1']
+		['192.0.2.1', '2001:db8::1', '::ffff:192.0.2.1', 'fe80::1', '2001:db8::2']
 	);
 	console.log('fwlive-view layer2: likely IP shape OK');
 }

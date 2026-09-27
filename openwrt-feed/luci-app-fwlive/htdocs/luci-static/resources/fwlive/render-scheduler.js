@@ -26,9 +26,9 @@ function createScheduler(options) {
 	function schedule(force) {
 		if (disposed) return;
 		force = !!force || nextForce !== null;
-		nextForce = null;
 		const epoch = getEpoch();
 		if (typeof requestFrame !== 'function') {
+			nextForce = null;
 			render(!!force);
 			return;
 		}
@@ -48,6 +48,8 @@ function createScheduler(options) {
 			frameId = null;
 			if (disposed || request.epoch !== getEpoch()) return;
 
+			/* Consume the reservation only when a paint is actually attempted. */
+			nextForce = null;
 			/* A current request queued behind stale work gets its own frame. */
 			if (epoch !== request.epoch) schedule(request.force);
 			else render(request.force);

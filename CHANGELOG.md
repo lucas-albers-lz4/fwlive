@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Reset `lastBatchNewIdCount` on a failed poll so the next paint is not costed from the previous batch (#789)
+- Accept IPv6 zone suffixes in `isLikelyIp` and resolve the bare address (#788)
+- Keep a `forceNextRender` reservation when the queued frame is dropped for an epoch mismatch (#787)
+- Keep existing live-mode rows when a poll batch normalizes to zero rows (#785)
 - Declare `coreutils-timeout` as a runtime dependency so stock OpenWrt installs retain bounded rpcd operations; report an incomplete installation when the provider is unexpectedly absent (#761)
 - Keep poll JSON valid when a killed classifier leaves a truncated filter body (#768)
 - Keep unlabeled log-prefix hints whose names look like `echo` flags (`-n`, `-E`) (#771)
