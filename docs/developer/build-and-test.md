@@ -35,7 +35,13 @@ Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline,
 shell codegen + LuCI wrapper gate (`./scripts/gen-all.sh`), and shellcheck on shipped
 `root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`), and the invariant
 rules for shipped JS (`./scripts/fwlive-ast-grep.sh`, ast-grep 0.45.3, rules in
-`scripts/ast-grep-rules/`). Optional: `SH='busybox sh' node tests/fwlive-shell-filter.test.js`.
+`scripts/ast-grep-rules/`). The host suite requires `busybox` and `ruff`.
+Linux: `apt install busybox` and `pipx install ruff`. macOS: `brew install busybox ruff`.
+It runs shell-filter parity as `SH='busybox sh'`.
+
+A missing eslint, prettier, stylelint, ruff, or busybox fails the run.
+`FWLIVE_ALLOW_SKIP=1` is the loud opt-out: the runner prints the skip and
+continues. CI does not set it. Do not use it to treat a skipped check as a pass.
 
 Docs changes must pass the link checker — it checks relative paths **and**
 heading anchors against a GitHub-style slugger.

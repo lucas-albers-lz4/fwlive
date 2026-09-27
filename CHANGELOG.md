@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
 
 ### Fixed
+- Check same-file markdown anchors in linkcheck, and document the fail-closed test opt-out (#942, #908)
 - Run the classifier and rpcd selftest under BusyBox awk 1.37, and regenerate the 2000-line log fixture to 1250/750 (#880, #941)
 - Keep a verified upstream-cut branch when --replace cannot move a checked-out canonical ref, and reject a second outdir (#890, #922)
 - Require a Linux host for the x86 QEMU runner, tell port conflicts to use --stop --force, and accept only an IPv4 hostfwd bind (#918, #919, #920)

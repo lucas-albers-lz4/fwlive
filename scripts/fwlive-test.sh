@@ -117,7 +117,13 @@ if command -v busybox >/dev/null 2>&1; then
 		"${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive" __selftest
 	PATH="${awk_bin}:${PATH}" SH='busybox sh' "$NODE" tests/fwlive-shell-filter.test.js
 else
-	fwlive_skip_missing busybox "Linux: apt install busybox"
+	fwlive_skip_missing busybox "$(
+		if [[ "$(uname -s)" == Darwin ]]; then
+			printf '%s' 'macOS: brew install busybox'
+		else
+			printf '%s' 'Linux: apt install busybox'
+		fi
+	)"
 fi
 
 echo "== fwlive codegen freshness ==" >&2
