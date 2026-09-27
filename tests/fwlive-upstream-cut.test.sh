@@ -27,6 +27,7 @@ skip_parity() {
 	|| die "FWLIVE_I18N_REQUIRE_SCAN must be 0 or 1"
 
 CUT_WORK=$(mktemp -d)
+PROMOTE_REPO=""
 PKG=openwrt-feed/luci-app-fwlive
 DIRTY_PROBE="$ROOT/$PKG/.upstream-cut-dirty-probe-$$"
 # Preserve a pre-existing regenerable split ref; only delete if we created it.
@@ -36,7 +37,7 @@ if git -C "$ROOT" rev-parse --verify refs/heads/upstream/luci-app-fwlive >/dev/n
 fi
 _restore_upstream_cut_ref() {
 	rm -f "$DIRTY_PROBE"
-	rm -rf "$CUT_WORK"
+	rm -rf "$CUT_WORK" ${PROMOTE_REPO:+"$PROMOTE_REPO"}
 	if [ -n "${SAVED_UPSTREAM_CUT_SHA:-}" ]; then
 		git -C "$ROOT" update-ref refs/heads/upstream/luci-app-fwlive "$SAVED_UPSTREAM_CUT_SHA" >/dev/null 2>&1 || true
 	else
@@ -53,6 +54,88 @@ rm -f "$DIRTY_PROBE"
 grep -q 'uncommitted changes' "$CUT_WORK/dirty.err" \
 	|| die "dirty refuse missing ($(cat "$CUT_WORK/dirty.err"))"
 ok "dirty package tree refuses the cut"
+
+if "$ROOT/scripts/upstream-cut.sh" "$CUT_WORK/a" "$CUT_WORK/b" >/dev/null 2>"$CUT_WORK/extra.err"; then
+	die "extra positional must fail"
+fi
+grep -q 'extra positional' "$CUT_WORK/extra.err" \
+	|| die "extra positional message ($(cat "$CUT_WORK/extra.err"))"
+ok "second outdir is rejected"
+
+PROMOTE_REPO="$(mktemp -d)"
+git -C "$PROMOTE_REPO" init -q -b main
+git -C "$PROMOTE_REPO" config user.email 'fwlive-test@example.com'
+git -C "$PROMOTE_REPO" config user.name 'fwlive-test'
+git -C "$PROMOTE_REPO" commit -q --allow-empty -m init
+git -C "$PROMOTE_REPO" branch split-temp
+git -C "$PROMOTE_REPO" branch canonical-name
+git -C "$PROMOTE_REPO" commit -q --allow-empty -m split
+# split-temp stays at init; move only the current main tip, then point split-temp at it.
+git -C "$PROMOTE_REPO" branch -f split-temp HEAD
+promote_fn="$(awk '/^upstream_cut_promote_canonical\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+
+(
+	cd "$PROMOTE_REPO"
+	# shellcheck disable=SC1090
+	eval "$promote_fn"
+	git checkout -q canonical-name
+	CANONICAL_SPLIT_BRANCH=canonical-name
+	SPLIT_BRANCH=split-temp
+	KEEP_SPLIT_BRANCH=0
+	canon_before="$(git rev-parse canonical-name)"
+	if upstream_cut_promote_canonical; then
+		die "checked-out canonical must refuse replace"
+	fi
+	[[ "$KEEP_SPLIT_BRANCH" == 1 ]] || die "checked-out replace must keep the temp branch"
+	git rev-parse --verify split-temp >/dev/null
+	[[ "$(git rev-parse canonical-name)" == "$canon_before" ]] \
+		|| die "checked-out replace moved the canonical ref"
+)
+ok "checked-out canonical keeps the verified split"
+
+(
+	cd "$PROMOTE_REPO"
+	git checkout -q main
+	# shellcheck disable=SC1090
+	eval "$promote_fn"
+	git() {
+		if [[ "$1" == branch && "$2" == -f ]]; then
+			return 1
+		fi
+		command git "$@"
+	}
+	CANONICAL_SPLIT_BRANCH=canonical-name
+	SPLIT_BRANCH=split-temp
+	KEEP_SPLIT_BRANCH=0
+	canon_before="$(git rev-parse canonical-name)"
+	if upstream_cut_promote_canonical; then
+		die "failed canonical update must refuse replace"
+	fi
+	[[ "$KEEP_SPLIT_BRANCH" == 1 ]] || die "failed update must keep the temp branch"
+	git rev-parse --verify split-temp >/dev/null
+	[[ "$(git rev-parse canonical-name)" == "$canon_before" ]] \
+		|| die "failed update moved the canonical ref"
+)
+ok "rename failure keeps the verified split"
+
+(
+	cd "$PROMOTE_REPO"
+	git checkout -q main
+	# shellcheck disable=SC1090
+	eval "$promote_fn"
+	CANONICAL_SPLIT_BRANCH=canonical-name
+	SPLIT_BRANCH=split-temp
+	KEEP_SPLIT_BRANCH=0
+	want="$(git rev-parse split-temp)"
+	upstream_cut_promote_canonical
+	[[ "$(git rev-parse canonical-name)" == "$want" ]] || die "replace did not move canonical"
+	if git rev-parse --verify split-temp >/dev/null 2>&1; then
+		die "replace left the temp branch"
+	fi
+	[[ "$SPLIT_BRANCH" == canonical-name && "$KEEP_SPLIT_BRANCH" == 1 ]] \
+		|| die "replace must keep the canonical name"
+)
+ok "--replace force-updates canonical before deleting the temp branch"
 
 # Gap 4: the cut must stay luci-shaped. Time it for the wave record.
 # Keep stderr so named invariant failures from the cut script reach CI.
