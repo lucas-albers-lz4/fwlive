@@ -39,6 +39,7 @@ OWRT_IMG="$(resolve_x86_disk)"
 OWRT_HOSTFWD_HTTP="${OWRT_HOSTFWD_HTTP:-8080}"
 OWRT_HOSTFWD_SSH="${OWRT_HOSTFWD_SSH:-2222}"
 OWRT_CONSOLE_LOG="${OWRT_CONSOLE_LOG:-${ROOT}/lab/qemu-x86-console.log}"
+OWRT_QEMU_PIDFILE="${OWRT_QEMU_PIDFILE:-${IMG_DIR}/openwrt-x86-64.pid}"
 OWRT_SERIAL_TCP="${OWRT_SERIAL_TCP:-127.0.0.1:4444}"
 OWRT_QEMU_MEM="${OWRT_QEMU_MEM:-1024}"
 OVMF_CODE="${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}"
@@ -47,11 +48,8 @@ OVMF_VARS="${OVMF_VARS:-${IMG_DIR}/OVMF_VARS_4M.fd}"
 die() { echo "error: $*" >&2; exit 1; }
 
 stop_qemu() {
-	if pkill -f 'qemu-system-x86_64.*openwrt-x86-64' 2>/dev/null; then
-		echo "Stopped running x86 QEMU instance."
-	else
-		echo "No x86 QEMU instance was running."
-	fi
+	qemu_lab_stop_guest "$OWRT_QEMU_PIDFILE" \
+		'qemu-system-x86_64.*openwrt-x86-64' x86 "${FORCE_STOP:-0}"
 }
 
 check_host_ports() {
@@ -61,9 +59,11 @@ check_host_ports() {
 	done
 }
 
+FORCE_STOP=0
 if [[ "${1:-}" == "--stop" ]]; then
+	[[ "${2:-}" == "--force" ]] && FORCE_STOP=1
 	stop_qemu
-	exit 0
+	exit $?
 fi
 
 [[ -n "${OWRT_IMG}" && -f "${OWRT_IMG}" ]] || die "No disk image under ${IMG_DIR}/ — run: RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh"
@@ -73,7 +73,8 @@ if [[ ! -f "${OVMF_VARS}" ]]; then
 fi
 
 check_host_ports
-mkdir -p "$(dirname "${OWRT_CONSOLE_LOG}")"
+qemu_lab_prepare_pidfile "${OWRT_QEMU_PIDFILE}" || exit 1
+mkdir -p "$(dirname "${OWRT_CONSOLE_LOG}")" "$(dirname "${OWRT_QEMU_PIDFILE}")"
 : > "${OWRT_CONSOLE_LOG}"
 
 # OWRT_QEMU_ACCEL=tcg|kvm overrides auto-detect (CI runners may expose /dev/kvm without usable KVM).
@@ -114,6 +115,7 @@ QEMU_ARGS=(
 	-drive "if=pflash,format=raw,readonly=on,file=${OVMF_CODE}"
 	-drive "if=pflash,format=raw,file=${OVMF_VARS}"
 	-drive "file=${OWRT_IMG},format=raw,if=virtio"
+	-pidfile "${OWRT_QEMU_PIDFILE}"
 	-nic "${NIC_USER}"
 )
 

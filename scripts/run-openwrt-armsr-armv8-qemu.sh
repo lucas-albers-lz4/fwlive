@@ -30,6 +30,7 @@ IMG_DIR="${ROOT}/lab/images"
 OWRT_HOSTFWD_HTTP="${OWRT_HOSTFWD_HTTP:-8080}"
 OWRT_HOSTFWD_SSH="${OWRT_HOSTFWD_SSH:-2222}"
 OWRT_CONSOLE_LOG="${OWRT_CONSOLE_LOG:-${ROOT}/lab/qemu-console.log}"
+OWRT_QEMU_PIDFILE="${OWRT_QEMU_PIDFILE:-${IMG_DIR}/openwrt-armsr-armv8.pid}"
 OWRT_SERIAL_TCP="${OWRT_SERIAL_TCP:-127.0.0.1:4445}"
 OWRT_QEMU_SMP="${OWRT_QEMU_SMP:-2}"
 OWRT_QEMU_MEM="${OWRT_QEMU_MEM:-1024}"
@@ -37,11 +38,8 @@ OWRT_QEMU_MEM="${OWRT_QEMU_MEM:-1024}"
 die() { echo "error: $*" >&2; exit 1; }
 
 stop_qemu() {
-	if pkill -f 'qemu-system-aarch64.*openwrt-armsr-armv8' 2>/dev/null; then
-		echo "Stopped running armsr QEMU instance."
-	else
-		echo "No armsr QEMU instance was running."
-	fi
+	qemu_lab_stop_guest "$OWRT_QEMU_PIDFILE" \
+		'qemu-system-aarch64.*openwrt-armsr-armv8' armsr "${FORCE_STOP:-0}"
 }
 
 check_host_ports() {
@@ -51,9 +49,11 @@ check_host_ports() {
 	done
 }
 
+FORCE_STOP=0
 if [[ "${1:-}" == "--stop" ]]; then
+	[[ "${2:-}" == "--force" ]] && FORCE_STOP=1
 	stop_qemu
-	exit 0
+	exit $?
 fi
 
 resolve_disk() {
@@ -95,7 +95,8 @@ OWRT_UBOOT="$(resolve_uboot)"
 [[ -n "${OWRT_UBOOT}" && -f "${OWRT_UBOOT}" ]] || die "Missing U-Boot — run scripts/download-openwrt-armsr-armv8.sh"
 
 check_host_ports
-mkdir -p "$(dirname "${OWRT_CONSOLE_LOG}")"
+qemu_lab_prepare_pidfile "${OWRT_QEMU_PIDFILE}" || exit 1
+mkdir -p "$(dirname "${OWRT_CONSOLE_LOG}")" "$(dirname "${OWRT_QEMU_PIDFILE}")"
 : > "${OWRT_CONSOLE_LOG}"
 
 NIC_USER="$(qemu_lab_nic_user "${OWRT_HOSTFWD_HTTP}" "${OWRT_HOSTFWD_SSH}")"
@@ -123,6 +124,7 @@ QEMU_ARGS=(
 	-bios "${OWRT_UBOOT}"
 	-smp "${OWRT_QEMU_SMP}" -m "${OWRT_QEMU_MEM}"
 	-drive "file=${OWRT_IMG},format=raw,index=0,media=disk"
+	-pidfile "${OWRT_QEMU_PIDFILE}"
 	-device virtio-rng-pci
 )
 
