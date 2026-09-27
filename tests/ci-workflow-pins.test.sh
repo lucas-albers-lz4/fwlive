@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pin persist-credentials on every checkout and Node 22 on publish lint (#817 #842).
+# Pin persist-credentials on every checkout and Node 22 on publish lint (#817 #842 #916).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,8 +17,11 @@ assert_checkout_pins() {
 	[[ "$checkouts" -eq "$persist" ]] || fail "$wf: checkout=$checkouts persist-credentials=$persist"
 }
 
-assert_checkout_pins "${ROOT}/.github/workflows/fwlive-test.yml"
-assert_checkout_pins "${ROOT}/.github/workflows/publish-packages.yml"
+shopt -s nullglob
+for wf in "${ROOT}/.github/workflows/"*.yml; do
+	assert_checkout_pins "$wf"
+done
+shopt -u nullglob
 
 pub="${ROOT}/.github/workflows/publish-packages.yml"
 grep -Fq 'actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38' "$pub" \
@@ -40,4 +43,4 @@ awk '
 	END { exit (pin && gate && pin < gate) ? 0 : 1 }
 ' "$pub" || fail "publish-packages.yml must pin Node before validate-baseline.sh"
 
-echo "ci workflow pins (#817 #842) passed"
+echo "ci workflow pins (#817 #842 #916) passed"
