@@ -64,14 +64,88 @@ qemu_lab_host_port_listening() {
 	[[ -n "$out" ]]
 }
 
+qemu_lab_want_stop=0
+qemu_lab_want_force=0
+
+# [--stop] [--force] in either order; reject anything else.
+qemu_lab_parse_runner_args() {
+	qemu_lab_want_stop=0
+	qemu_lab_want_force=0
+	local arg
+	for arg in "$@"; do
+		case "$arg" in
+			--stop) qemu_lab_want_stop=1 ;;
+			--force) qemu_lab_want_force=1 ;;
+			*)
+				echo "unknown arg: $arg" >&2
+				echo "usage: [--stop] [--force]" >&2
+				return 1
+				;;
+		esac
+	done
+	if [[ "$qemu_lab_want_force" -eq 1 && "$qemu_lab_want_stop" -eq 0 ]]; then
+		echo "error: --force requires --stop" >&2
+		return 1
+	fi
+}
+
+qemu_lab_wait_pid_gone() {
+	local pid="$1"
+	local _
+	for _ in 1 2 3 4 5 6 7 8 9 10; do
+		kill -0 "$pid" 2>/dev/null || return 0
+		sleep 0.1
+	done
+	kill -0 "$pid" 2>/dev/null && return 1
+	return 0
+}
+
+qemu_lab_pattern_live() {
+	pgrep -f "$1" >/dev/null 2>&1
+}
+
+qemu_lab_pkill_force() {
+	local pattern="$1" label="$2"
+	if ! qemu_lab_pattern_live "$pattern"; then
+		return 1
+	fi
+	pkill -f "$pattern" 2>/dev/null || true
+	local _
+	for _ in 1 2 3 4 5 6 7 8 9 10; do
+		qemu_lab_pattern_live "$pattern" || {
+			echo "Stopped ${label} QEMU via pattern (--force)."
+			return 0
+		}
+		sleep 0.1
+	done
+	pkill -KILL -f "$pattern" 2>/dev/null || true
+	for _ in 1 2 3 4 5 6 7 8 9 10; do
+		qemu_lab_pattern_live "$pattern" || {
+			echo "Stopped ${label} QEMU via pattern (--force)."
+			return 0
+		}
+		sleep 0.1
+	done
+	echo "error: ${label} QEMU still running after --force SIGKILL" >&2
+	return 1
+}
+
 qemu_lab_prepare_pidfile() {
-	local pidfile="$1" pid
+	local pidfile="$1" pattern="${2:-}" label="${3:-guest}" pid cmd
 	if [[ ! -f "$pidfile" ]]; then
 		return 0
 	fi
 	pid="$(tr -d '[:space:]' <"$pidfile")"
 	if [[ "$pid" =~ ^[1-9][0-9]*$ ]] && kill -0 "$pid" 2>/dev/null; then
-		echo "error: pidfile ${pidfile} is live (pid ${pid}) — --stop first" >&2
+		if [[ -n "$pattern" ]]; then
+			cmd="$(tr '\0' ' ' <"/proc/${pid}/cmdline" 2>/dev/null || true)"
+			if [[ -z "$cmd" || ! "$cmd" =~ $pattern ]]; then
+				echo "stale ${label} pidfile ${pidfile}: pid ${pid} is not ${label} QEMU (cmdline: ${cmd}) — removed (rm -f ${pidfile})" >&2
+				rm -f "$pidfile"
+				return 0
+			fi
+		fi
+		echo "error: pidfile ${pidfile} is live (pid ${pid}) — --stop first, or rm -f ${pidfile}" >&2
 		return 1
 	fi
 	rm -f "$pidfile"
@@ -80,7 +154,7 @@ qemu_lab_prepare_pidfile() {
 # Kill the PID recorded in pidfile when its cmdline matches pattern.
 # 0 = stopped; 1 = nothing to kill; 2 = live guest could not be stopped.
 qemu_lab_kill_pidfile() {
-	local pidfile="$1" label="$2" pattern="$3" pid i cmd
+	local pidfile="$1" label="$2" pattern="$3" force="${4:-0}" pid cmd
 	if [[ ! -f "$pidfile" ]]; then
 		return 1
 	fi
@@ -91,30 +165,35 @@ qemu_lab_kill_pidfile() {
 		return 1
 	fi
 	if ! kill -0 "$pid" 2>/dev/null; then
-		echo "stale ${label} pidfile ${pidfile} (pid ${pid})" >&2
+		echo "stale ${label} pidfile ${pidfile} (pid ${pid}) — removed (rm -f ${pidfile})" >&2
 		rm -f "$pidfile"
 		return 1
 	fi
 	cmd="$(tr '\0' ' ' <"/proc/${pid}/cmdline" 2>/dev/null || true)"
 	if [[ -z "$cmd" || ! "$cmd" =~ $pattern ]]; then
-		echo "error: pid ${pid} in ${pidfile} is not ${label} QEMU (cmdline: ${cmd})" >&2
-		return 2
+		echo "stale ${label} pidfile ${pidfile}: pid ${pid} is not ${label} QEMU (cmdline: ${cmd}) — removed (rm -f ${pidfile})" >&2
+		rm -f "$pidfile"
+		return 1
 	fi
 	if ! kill "$pid"; then
 		echo "error: failed to stop ${label} pid ${pid}" >&2
 		return 2
 	fi
-	for i in 1 2 3 4 5 6 7 8 9 10; do
-		kill -0 "$pid" 2>/dev/null || break
-		sleep 0.1
-	done
-	if kill -0 "$pid" 2>/dev/null; then
-		echo "error: ${label} pid ${pid} still running after SIGTERM" >&2
-		return 2
+	if qemu_lab_wait_pid_gone "$pid"; then
+		rm -f "$pidfile"
+		echo "Stopped ${label} QEMU pid ${pid}"
+		return 0
 	fi
-	rm -f "$pidfile"
-	echo "Stopped ${label} QEMU pid ${pid}"
-	return 0
+	if [[ "$force" == 1 ]]; then
+		kill -KILL "$pid" 2>/dev/null || true
+		if qemu_lab_wait_pid_gone "$pid"; then
+			rm -f "$pidfile"
+			echo "Stopped ${label} QEMU pid ${pid}"
+			return 0
+		fi
+	fi
+	echo "error: ${label} pid ${pid} still running after SIGTERM" >&2
+	return 2
 }
 
 # PID-file stop; cmdline pkill only when force=1 (#808).
@@ -122,13 +201,13 @@ qemu_lab_stop_guest() {
 	local pidfile="$1" pattern="$2" label="$3" force="${4:-0}"
 	local kr=0
 	if [[ -f "$pidfile" ]]; then
-		qemu_lab_kill_pidfile "$pidfile" "$label" "$pattern" || kr=$?
+		qemu_lab_kill_pidfile "$pidfile" "$label" "$pattern" "$force" || kr=$?
 		if [[ "$kr" -eq 0 ]]; then
 			return 0
 		fi
 		if [[ "$kr" -eq 2 ]]; then
-			if [[ "$force" == 1 ]] && pkill -f "$pattern"; then
-				echo "Stopped ${label} QEMU via pattern (--force)."
+			if [[ "$force" == 1 ]] && qemu_lab_pkill_force "$pattern" "$label"; then
+				rm -f "$pidfile"
 				return 0
 			fi
 			return 1
@@ -137,8 +216,7 @@ qemu_lab_stop_guest() {
 		return 0
 	fi
 	if [[ "$force" == 1 ]]; then
-		if pkill -f "$pattern"; then
-			echo "Stopped ${label} QEMU via pattern (--force)."
+		if qemu_lab_pkill_force "$pattern" "$label"; then
 			return 0
 		fi
 		echo "No ${label} QEMU instance was running."

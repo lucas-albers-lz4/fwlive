@@ -8,6 +8,8 @@
 #
 #   ./scripts/run-openwrt-x86-qemu.sh
 #   ./scripts/run-openwrt-x86-qemu.sh --stop
+#   ./scripts/run-openwrt-x86-qemu.sh --stop --force
+#   ./scripts/run-openwrt-x86-qemu.sh --force --stop
 #
 set -euo pipefail
 
@@ -59,9 +61,9 @@ check_host_ports() {
 	done
 }
 
-FORCE_STOP=0
-if [[ "${1:-}" == "--stop" ]]; then
-	[[ "${2:-}" == "--force" ]] && FORCE_STOP=1
+qemu_lab_parse_runner_args "$@" || exit 1
+FORCE_STOP="${qemu_lab_want_force:-0}"
+if [[ "${qemu_lab_want_stop:-0}" -eq 1 ]]; then
 	stop_qemu
 	exit $?
 fi
@@ -73,7 +75,8 @@ if [[ ! -f "${OVMF_VARS}" ]]; then
 fi
 
 check_host_ports
-qemu_lab_prepare_pidfile "${OWRT_QEMU_PIDFILE}" || exit 1
+qemu_lab_prepare_pidfile "${OWRT_QEMU_PIDFILE}" \
+	'qemu-system-x86_64.*openwrt-x86-64' x86 || exit 1
 mkdir -p "$(dirname "${OWRT_CONSOLE_LOG}")" "$(dirname "${OWRT_QEMU_PIDFILE}")"
 : > "${OWRT_CONSOLE_LOG}"
 
