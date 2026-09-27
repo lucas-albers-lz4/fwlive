@@ -288,6 +288,13 @@
 > umask and 0600 state-file creation; no UCI, ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-09-27 #894 delta:** anonymous and named firewall rule names now come
+> from the same `uci -q show firewall` output, with a 512-name processing cap
+> and explicit `rules_truncated` status. The rules-map path no longer invokes
+> `uci get` once per named section. Host coverage checks the cap with 600
+> duplicate names and verifies the first result is retained; no ACL, DOM
+> sink, or read/write-scope change.
+
 > **2026-09-21 #416 delta:** The rules map now performs a second `uci -q show firewall` pass for named `config rule` sections and attempts one filtered `uci -q get firewall.<section>.name` per section; missing UCI or name remains non-fatal. The branch tests cover a named section lookup and retain first-wins and whitespace-filtering coverage.
 
 > **#389 lifecycle follow-up:** the packaged hook now understands the generated opkg wrapper (`<wrapper> remove`), APK 3.0's version-valued `pre-deinstall`, and skips upgrade/empty/unknown actions, `PKG_UPGRADE=1`, and non-version `1a2`. Host tests execute extracted `prerm-pkg` (so an always-restore body fails) and model the opkg `default_prerm` `$1-pkg` hop; installed uninstall restoration is in [the dated #389 evidence](../evidence/issue-389-2026-09-20.md). Same-version reinstall cells are no-op preservation checks only and do not exercise the hook.
@@ -381,7 +388,7 @@ should carry a note saying what would raise it.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-09-27 | Delta + recording harness | #866/#867 changed table paint/key paths; reviewed dynamic `E()` children and empty-only `innerHTML` clears; `fwlive-e-harness`, `fwlive-table-keyed`, view smoke passed. Last broader hostile-input sweep remains 2026-08-13 (#177) |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-09-27 | Delta + host harness | #866/#867 scoped-IP hostname/cache and keyed paints reviewed; hostile log/PTR/hash/chip paths exercised in `fwlive-e-harness`, `fwlive-chips-hash`, and mocked view smoke. Earlier broad UCI trace: #177 (2026-08-13); this was not a new full-source sweep |
-| rpcd plugin + ACL scope | 2026-09-26 | Delta + host test + lab | #761 timeout provider unchanged. #768: non-zero filter stdout is kept only when it is a complete shipped `{"log":[],"error":…}` object; truncated bodies become `filter_failed`. #771: `slug_key` / cosmetic prefixes use `printf '%s\\n'`. #827: `resolve` budget uses `fwlive_adaptive_clock_cs` (`/proc/uptime`) against `RESOLVE_BUDGET * 100`; `RESOLVE_MAX` still bounds work if uptime is unreadable. ACL method parity/read-write split and no `ubus log.*` unchanged. #416 retains anonymous/named UCI names; #378 remains nft-only. Installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
+| rpcd plugin + ACL scope | 2026-09-27 | Delta + host test + lab | #894 parses anonymous/named UCI rule names from one `uci show` result, caps processing at 512 names, and removes per-section `uci get`; duplicate-name flood test asserts truncation and retained first name. #761 timeout provider unchanged. #768: non-zero filter stdout is kept only when it is a complete shipped `{"log":[],"error":…}` object; truncated bodies become `filter_failed`. #771: `slug_key` / cosmetic prefixes use `printf '%s\\n'`. #827: `resolve` budget uses `fwlive_adaptive_clock_cs` (`/proc/uptime`) against `RESOLVE_BUDGET * 100`; `RESOLVE_MAX` still bounds work if uptime is unreadable. ACL method parity/read-write split and no `ubus log.*` unchanged. #416 retains anonymous/named UCI names; #378 remains nft-only. Installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
 | Shell helpers — injection and quoting | 2026-09-26 | Delta + host test | #768: `fwlive_adaptive_merge_reply` does not splice adaptive keys into an unclosed JSON array. #771: untrusted prefix/name strings no longer pass through `echo`. #761 GNU timeout arguments remain positional. #365/#366 retain quoted temp paths and `check_eq` behavior |
 | Shell helpers — **file modes and lock ownership** | 2026-09-26 | Delta + host test | #869: baseline snapshot rejects symlink/unsafe `/etc/fwlive` dir and adaptive state refuses group/other-writable dirs (`tests/fwlive-logging.test.sh`, `tests/fwlive-adaptive-cap.test.sh`). Earlier lock 0600 and symlink checks: #204/#232 (`tests/fwlive-logging-lock.test.sh` Parts D–F); no new device-mode check in this delta |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-09-27 | Host + dated lab | `/etc/fwlive/wan-log-baseline`; packaged opkg `remove` and APK version-valued `pre-deinstall` restore, while `upgrade`/empty/unknown/`PKG_UPGRADE=1`/`1a2` and non-root staging roots skip (host matrix). Uninstall restoration: [#389 evidence](../evidence/issue-389-2026-09-20.md). A 25.12.5 version-changing APK upgrade preserved the bit/marker and invoked `post-upgrade`, not this `pre-deinstall` hook ([#848 evidence](../evidence/issue-848-2026-09-27.md)) |
@@ -592,6 +599,32 @@ otherwise have overstated. Our docs are a summary of a past reading; upstream is
 the fact.
 
 ## Audit history
+
+### 2026-09-27 — #894 bounded UCI rule-name map
+
+**Scope.** The rpcd rules map's UCI name enumeration. `uci_rule_names()` now
+parses named and anonymous names from one `uci -q show firewall` result,
+emits at most `RULES_MAP_MAX_LINES` names, and returns an explicit status when
+that line cap is reached. `map_uci_rule_names()` retains the emitted names,
+sets the existing truncation signal, and stops map processing at the output
+cap. Per-section `uci get` subprocesses are removed.
+
+**Method.** `tests/fwlive-rules-map.test.js` passed across available POSIX
+shells, including a 600-section duplicate-name flood that verifies
+`rules_truncated`, retention of the first name, and exactly one UCI show
+call. `tests/fwlive-rpcd-security.test.js` and `./scripts/fwlive-shellcheck.sh`
+passed. `__selftest` exited successfully but skipped its `jshn`-dependent poll
+cap check because `jshn` is unavailable in this host environment.
+`./scripts/validate-baseline.sh` passed from the clean feature commit; the
+upstream-cut subtest explicitly skipped fresh msgid parity because
+`i18n-scan.pl` is unavailable. Its three-version jshn compatibility harness
+passed.
+
+**Result.** This bounds duplicate-name work in the map and removes the
+per-section process multiplier. The named and anonymous rule mapping behavior
+is retained. No ACL or read/write-scope change; sessions still do not receive
+`ubus log.read`. This is a resource-bounding fix, not a newly identified
+security finding. No QEMU result is claimed.
 
 ### 2026-09-27 — Post-#869 security delta, master `73a7a6a2f5`
 Tracking: [#877](https://github.com/lucas-albers-lz4/fwlive/issues/877).

@@ -473,8 +473,7 @@ fi
 			echo "firewall.@rule[0].name='foo-bar'"
 			echo "firewall.@rule[1].name='uci-only'"
 			echo "firewall.allow-ssh=rule"
-		elif [ "$1" = "-q" ] && [ "$2" = "get" ] && [ "$3" = "firewall.allow-ssh.name" ]; then
-			echo 'Allow-SSH'
+			echo "firewall.allow-ssh.name='Allow-SSH'"
 		else
 			exit 0
 fi
@@ -1238,8 +1237,7 @@ echo "uci $*" >> "${stubDir}/uci.log"
 if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
 	echo "firewall.@rule[0].name='Once-UCI'"
 	echo "firewall.allow-ssh=rule"
-elif [ "$1" = "-q" ] && [ "$2" = "get" ] && [ "$3" = "firewall.allow-ssh.name" ]; then
-	echo 'Allow-SSH'
+	echo "firewall.allow-ssh.name='Allow-SSH'"
 fi
 exit 0
 `);
@@ -1251,8 +1249,50 @@ exit 0
 			const res = JSON.parse(raw);
 			assert.equal(res.rules['Once-UCI'], 'Once-UCI', `[${shell}] anonymous UCI name mapped`);
 			assert.equal(res.rules['Allow-SSH'], 'Allow-SSH', `[${shell}] named UCI rule mapped`);
-			const shows = (fs.readFileSync(path.join(stubDir, 'uci.log'), 'utf8').match(/^uci -q show firewall$/mg) || []).length;
-			assert.equal(shows, 1, `[${shell}] one rules call must invoke uci show firewall once, got ${shows}`);
+			const uciCalls = fs.readFileSync(path.join(stubDir, 'uci.log'), 'utf8').trim().split('\n');
+			assert.deepEqual(uciCalls, ['uci -q show firewall'],
+				`[${shell}] one rules call must use one UCI show and no per-section get`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+
+function testUciNameWalkBound() {
+	// Duplicate names do not grow the output map, so the UCI input walk needs its own cap.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-uci-bound-'));
+	try {
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 { }
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+printf 'uci %s\\n' "$*" >> "${stubDir}/uci.log"
+if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
+	i=0
+	while [ "$i" -lt 600 ]; do
+		printf "firewall.rule-%s=rule\\n" "$i"
+		printf "firewall.rule-%s.name='same-rule'\\n" "$i"
+		i=$((i + 1))
+	done
+else
+	exit 1
+fi
+`);
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			try { fs.unlinkSync(path.join(stubDir, 'uci.log')); } catch { /* absent */ }
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(res.error, 'rules_truncated', `[${shell}] duplicate UCI-name flood must hit the line cap`);
+			assert.equal(res.rules['same-rule'], 'same-rule', `[${shell}] the first UCI name remains available`);
+			assert.deepEqual(fs.readFileSync(path.join(stubDir, 'uci.log'), 'utf8').trim().split('\n'),
+				['uci -q show firewall'], `[${shell}] the flood must not fork one uci get per rule`);
 		}
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
@@ -1536,6 +1576,7 @@ function run() {
 	testRulesMapKeyBound();
 	testRulesMapLineBound();
 	testUciShowOnce();
+	testUciNameWalkBound();
 	testRulesMapByteBound();
 	testGlobMetacharDedup();
 	testTmpDirSticky();
