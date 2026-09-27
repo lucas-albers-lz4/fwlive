@@ -11,6 +11,19 @@ const luciE = require('./lib/luci-e-harness');
 
 const hostname = loadFwliveModule('hostname');
 
+function testDefaultCapCoversRowLimit() {
+	const map = new Map();
+	for (let i = 0; i < 2000; i++)
+		hostname.lruSet(map, 'ip' + i, 'h' + i);
+	assert.strictEqual(map.size, 2000, 'default cache must hold the 2000-row limit');
+	assert.strictEqual(map.has('ip0'), true, 'oldest visible address must stay cached');
+	hostname.lruSet(map, 'overflow', 'extra');
+	assert.strictEqual(map.size, 2000);
+	assert.strictEqual(map.has('ip0'), false);
+	assert.strictEqual(hostname.CACHE_MAX, 2000);
+	assert.strictEqual(hostname.FAIL_MAX, 2000);
+}
+
 function testLruEviction() {
 	const map = new Map();
 	for (let i = 0; i < 5; i++)
@@ -105,6 +118,7 @@ function testFailCap() {
 	assert.strictEqual(failed.has('ip0'), false);
 }
 
+testDefaultCapCoversRowLimit();
 testLruEviction();
 testLruGetTouches();
 testDisplayReadTouchesLru();
