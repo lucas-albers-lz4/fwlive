@@ -1462,7 +1462,11 @@ function testLeaveSummaryModeClearsResolvePaintPending() {
 	v.updateSummaryUi = function () {};
 	v.leaveSummaryMode();
 	assert.strictEqual(v.summaryMode, false);
-	assert.strictEqual(v.resolvePaintPending, false, 'unpaused leaveSummaryMode must clear pending flag');
+	assert.strictEqual(
+		v.resolvePaintPending,
+		false,
+		'unpaused leaveSummaryMode must clear pending flag'
+	);
 	assert.strictEqual(painted, true, 'unpaused leaveSummaryMode must repaint rows');
 	console.log('fwlive-view layer2: leaveSummaryMode clears resolve paint pending OK');
 }
@@ -1481,7 +1485,59 @@ async function testCatchupPollForcesPendingHostnamePaint() {
 	const v = h.view;
 	v.tablePaused = false;
 	v.summaryMode = false;
-	v.resolvePaintPending = true;
+	const scheduled = [];
+	v.scheduleRenderRows = function (force) {
+		scheduled.push(!!force);
+	};
+	v.scheduleResolvePaint();
+	assert.strictEqual(
+		v.resolvePaintPending,
+		true,
+		'scheduleResolvePaint must keep pending until a later poll consumes it'
+	);
+	assert.deepStrictEqual(scheduled, [true], 'visible resolve paint is forced');
+	v.fetchEntries = async function () {};
+	v.resolveHostnamesForEntries = async function () {};
+	await v.runPollRequest(v.currentPollEpoch());
+	assert.deepStrictEqual(
+		scheduled,
+		[true, true],
+		'catch-up poll must force coalesced hostname paint'
+	);
+	assert.strictEqual(v.resolvePaintPending, false, 'catch-up poll must clear pending flag');
+	console.log('fwlive-view layer2: catch-up poll forces pending hostname paint OK');
+}
+
+async function testHiddenTabKeepsPendingResolvePaint() {
+	const frames = [];
+	const h = loadFwliveView({
+		requestAnimationFrame: function (fn) {
+			frames.push(fn);
+			return frames.length;
+		},
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				return { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	v.tablePaused = false;
+	v.summaryMode = false;
+	v.scheduleResolvePaint();
+	assert.strictEqual(v.resolvePaintPending, true, 'pending must survive the scheduled frame');
+	assert.ok(frames.length >= 1, 'resolve paint must queue a frame');
+	v.ensurePollCoordinator().startPolling();
+	h.setHidden(true);
+	while (frames.length) frames.shift()();
+	assert.strictEqual(
+		v.resolvePaintPending,
+		true,
+		'dropped hidden-tab frame must keep the pending paint'
+	);
 	const scheduled = [];
 	v.scheduleRenderRows = function (force) {
 		scheduled.push(!!force);
@@ -1489,9 +1545,9 @@ async function testCatchupPollForcesPendingHostnamePaint() {
 	v.fetchEntries = async function () {};
 	v.resolveHostnamesForEntries = async function () {};
 	await v.runPollRequest(v.currentPollEpoch());
-	assert.deepStrictEqual(scheduled, [true], 'catch-up poll must force coalesced hostname paint');
-	assert.strictEqual(v.resolvePaintPending, false, 'catch-up poll must clear pending flag');
-	console.log('fwlive-view layer2: catch-up poll forces pending hostname paint OK');
+	assert.deepStrictEqual(scheduled, [true], 'return poll must force the kept hostname paint');
+	assert.strictEqual(v.resolvePaintPending, false, 'return poll must consume the pending flag');
+	console.log('fwlive-view layer2: hidden-tab resolve paint pending survives epoch bump OK');
 }
 
 async function testHostnameToggleAsyncResolveDefersPaintWhilePaused() {
@@ -1613,6 +1669,7 @@ async function testPausedDisplayControlsPaint() {
 		await testResolveCompletionDefersPaintWhilePaused();
 		testLeaveSummaryModeClearsResolvePaintPending();
 		await testCatchupPollForcesPendingHostnamePaint();
+		await testHiddenTabKeepsPendingResolvePaint();
 		await testHostnameToggleAsyncResolveDefersPaintWhilePaused();
 		await testPausedDisplayControlsPaint();
 		await sleep(20);

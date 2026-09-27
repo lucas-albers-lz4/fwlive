@@ -679,6 +679,79 @@ async function testPagehideDuringHostnameResolution() {
 	console.log('fwlive-view fetch-budget: pagehide during hostname resolution OK');
 }
 
+async function testRulesThrowKeepsGoodMap() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.rules': async function () {
+				throw new Error('Object not found');
+			}
+		}
+	});
+	const v = h.view;
+	v.rulesMap = { 'wan-drop': 'WAN drop' };
+	v.firewallBackend = 'nft';
+	v.lastRulesError = null;
+	v.updateBackendUi = function () {};
+	await v.loadRulesMap();
+	assert.deepStrictEqual(v.rulesMap, { 'wan-drop': 'WAN drop' }, 'thrown rules RPC must keep a good map');
+	assert.strictEqual(v.lastRulesError, 'rules_unavailable');
+	assert.strictEqual(v.firewallBackend, 'nft', 'thrown rules RPC must not reset a known backend');
+	console.log('fwlive-view fetch-budget: rules throw keeps good map OK');
+}
+
+async function testRulesThrowWipesEmptyMap() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.rules': async function () {
+				throw new Error('Object not found');
+			}
+		}
+	});
+	const v = h.view;
+	v.rulesMap = {};
+	v.updateBackendUi = function () {};
+	await v.loadRulesMap();
+	assert.deepStrictEqual(v.rulesMap, {});
+	assert.strictEqual(v.lastRulesError, 'rules_unavailable');
+	console.log('fwlive-view fetch-budget: rules throw on empty map stays unavailable OK');
+}
+
+async function testPollRetriesRulesFailureAndRepaintsLabels() {
+	let rulesCalls = 0;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.rules': async function () {
+				rulesCalls++;
+				return { rules: { 'wan-drop': 'WAN drop' }, backend: 'nft' };
+			},
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				return { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	v.rulesMap = {};
+	v.lastRulesError = 'rules_unavailable';
+	v.tablePaused = false;
+	v.summaryMode = false;
+	v.entries = [{ id: '1', rule_hint: 'wan-drop', rule_label: 'wan drop' }];
+	let painted = false;
+	v.renderRows = function (force) {
+		painted = !!force;
+	};
+	v.updateBackendUi = function () {};
+	v.resolveHostnamesForEntries = async function () {};
+	await v.runPollRequest(v.currentPollEpoch());
+	assert.strictEqual(rulesCalls, 1, 'poll must retry rules after a thrown failure');
+	assert.strictEqual(v.lastRulesError, null, 'successful rules retry must clear the error');
+	assert.strictEqual(v.entries[0].rule_label, 'WAN drop', 'retry must refresh buffered rule labels');
+	assert.strictEqual(painted, true, 'label refresh must force a row paint');
+	console.log('fwlive-view fetch-budget: poll retries thrown rules RPC OK');
+}
+
 async function main() {
 	await testAutoAndManualBudgets();
 	await testManualSeeding();
@@ -696,6 +769,9 @@ async function main() {
 	await testPagehideDropsLateStartupFailures();
 	await testPersistedPagehideKeepsCoordinator();
 	await testPagehideDuringHostnameResolution();
+	await testRulesThrowKeepsGoodMap();
+	await testRulesThrowWipesEmptyMap();
+	await testPollRetriesRulesFailureAndRepaintsLabels();
 	console.log('fwlive-view fetch-budget tests passed');
 }
 

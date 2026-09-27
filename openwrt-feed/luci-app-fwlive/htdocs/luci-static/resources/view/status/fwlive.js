@@ -705,10 +705,13 @@ return view.extend({
 			/* Bounds / mktemp failures are reply.error — same idea as poll. */
 			this.lastRulesError = (res && res.error) || null;
 			if (this.lastRulesError) console.warn('fwlive rules map error:', this.lastRulesError);
+			this.refreshBufferedRuleLabels();
 		} catch (_e) {
 			if (!this.isCurrentPollEpoch(epoch)) return;
-			this.rulesMap = {};
-			this.firewallBackend = 'nft';
+			if (!(this.rulesMap && Object.keys(this.rulesMap).length)) {
+				this.rulesMap = {};
+				this.firewallBackend = 'nft';
+			}
 			this.lastRulesError = 'rules_unavailable';
 		}
 		this.updateBackendUi();
@@ -1177,6 +1180,9 @@ return view.extend({
 			/* Recovery RPCs can outlive the poll epoch; don't repaint stale views. */
 			if (epoch !== this.currentPollEpoch() || this.viewDisposed) return;
 			this.refreshBufferedRuleLabels();
+		} else if (this.lastRulesError === 'rules_unavailable') {
+			await this.loadRulesMap(epoch);
+			if (epoch !== this.currentPollEpoch() || this.viewDisposed) return;
 		}
 	},
 
@@ -1537,12 +1543,11 @@ return view.extend({
 	},
 
 	scheduleResolvePaint() {
+		this.resolvePaintPending = true;
 		if (this.tablePaused) {
-			this.resolvePaintPending = true;
 			this.updateStatus();
 			return;
 		}
-		this.resolvePaintPending = false;
 		this.scheduleRenderRows(true);
 	},
 
