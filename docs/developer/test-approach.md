@@ -249,8 +249,9 @@ That 25.12 cell has not yet run on QEMU; the host tests model
 `PKG_UPGRADE=1`. Host packaged-hook matrix (#405) shows remove
 restores, while upgrade / `PKG_UPGRADE=1` / empty/unknown do not.
 Same-version reinstall cells are no-op preservation, not skip-upgrade
-hook proof (#406). Version-changing APK upgrades stay a residual
-until a two-version QEMU experiment exists.
+hook proof (#406). A version-changing APK upgrade (0.1.43-r1 →
+0.1.44-r1 on 25.12.5) kept the WAN `log` bit and ran `post-upgrade`
+only; see [issue-848-2026-09-27.md](../evidence/issue-848-2026-09-27.md).
 The 23.05 IPK is represented by the architecture-independent `_all`
 24.10 IPK; there is no separate 23.05 rebuild. Armsr
 `poll`/`resolve`/`rules`/enable/disable notes are root-SSH `ubus`
@@ -293,7 +294,7 @@ payload inspector.
 - **R9b:** 25.12 APK **control** inspection is the host lifecycle test
   against pinned SDK `apk adbdump --format json` (`pre-deinstall` hook
   plus `post-upgrade` `PKG_UPGRADE=1`). Payload `apk extract` remains
-  data files only. Version-changing upgrades are still not a QEMU cell.
+  data files only.
 - **G2:** per-PR `qemu-forwarding-slo-harness` / `-net` tests are
   harness/static (`bash -n`, ShellCheck, helper unit checks). The routed
   guest run (`qemu-forwarding-slo-run.sh` plus traffic) stays manual/lab.

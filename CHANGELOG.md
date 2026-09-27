@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
+
 ### Fixed
 - Document MODE=json as a comma-joined record fragment and pin a two-entry assertion (#780)
 - Document the `npm test` vs CI delta and add `npm run test:ci` (#796)
