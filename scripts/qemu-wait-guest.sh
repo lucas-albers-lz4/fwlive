@@ -47,6 +47,12 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+TIMEOUT_BIN="$(command -v timeout || true)"
+if [[ -z "$TIMEOUT_BIN" ]]; then
+	echo "error: timeout command is required to bound SSH readiness probes" >&2
+	exit 1
+fi
+
 # Quote the caller's command as one POSIX sh -c argument on the guest.
 quote_sh_arg() {
 	local value="$1" quote="'" result="'" prefix
@@ -73,16 +79,27 @@ while [[ $SECONDS -lt $deadline ]]; do
 		connect_timeout=$remaining
 	fi
 	attempt=$((attempt + 1))
-	if probe_out="$(ssh -p "$PORT" "${SSH_OPTS[@]}" -o "ConnectTimeout=$connect_timeout" "${USER}@${HOST}" 'echo READY' 2>&1)"; then
+	if probe_out="$(
+		"$TIMEOUT_BIN" -s KILL "${remaining}s" ssh -p "$PORT" "${SSH_OPTS[@]}" \
+			-o "ConnectTimeout=$connect_timeout" "${USER}@${HOST}" 'echo READY' 2>&1
+	)"; then
 		echo "guest ready after ~${attempt} attempts (${SECONDS}s)"
 		if [[ -z "$CMD" ]]; then
 			[[ -n "$probe_out" ]] && printf '%s\n' "$probe_out"
 			exit 0
 		fi
 
+		command_remaining=$((deadline - SECONDS))
+		if (( command_remaining <= 0 )); then
+			command_connect_timeout=1
+		elif (( command_remaining > 20 )); then
+			command_connect_timeout=20
+		else
+			command_connect_timeout=$command_remaining
+		fi
 		status_marker="__FWLIVE_REMOTE_STATUS_$$_${RANDOM}__"
 		remote_command="sh -c $(quote_sh_arg "$CMD"); _fwlive_status=\$?; printf '\\n${status_marker}%s\\n' \"\$_fwlive_status\""
-		if command_out="$(ssh -p "$PORT" "${SSH_OPTS[@]}" -o "ConnectTimeout=$connect_timeout" "${USER}@${HOST}" "$remote_command" 2>&1)"; then
+		if command_out="$(ssh -p "$PORT" "${SSH_OPTS[@]}" -o "ConnectTimeout=$command_connect_timeout" "${USER}@${HOST}" "$remote_command" 2>&1)"; then
 			if [[ "$command_out" == *"$status_marker"* ]]; then
 				remote_status=${command_out##*"$status_marker"}
 			else
@@ -108,7 +125,11 @@ while [[ $SECONDS -lt $deadline ]]; do
 		fi
 	else
 		ssh_status=$?
-		echo "attempt ${attempt}: SSH probe failed (ssh exit $ssh_status): ${probe_out:-ssh failed}"
+		if [[ "$ssh_status" -eq 124 || "$ssh_status" -eq 137 || "$ssh_status" -eq 143 ]]; then
+			echo "attempt ${attempt}: SSH readiness probe timed out after ${remaining}s (exit $ssh_status)"
+		else
+			echo "attempt ${attempt}: SSH probe failed (ssh exit $ssh_status): ${probe_out:-ssh failed}"
+		fi
 	fi
 	remaining=$((deadline - SECONDS))
 	if (( remaining > 0 )); then

@@ -74,6 +74,20 @@ case "${SSH_BEHAVIOR:-ready}" in
 		echo 123
 		exit 0
 		;;
+	hang-probe)
+		if [[ "$remote" == "echo READY" ]]; then
+			exec /bin/sleep 10
+		fi
+		exec /bin/sh -c "$remote"
+		;;
+	slow-probe)
+		if [[ "$remote" == "echo READY" ]]; then
+			/bin/sleep 1
+			echo READY
+			exit 0
+		fi
+		exec /bin/sh -c "$remote"
+		;;
 	ready)
 		if [[ "$remote" == "echo READY" ]]; then
 			echo READY
@@ -108,6 +122,16 @@ sleep_arg="$(cat "$tmp/sleep.log")"
 [[ "$sleep_arg" =~ ^[0-9]+$ ]] || fail "a numeric bounded sleep must be used (got: $sleep_arg)"
 [[ "$sleep_arg" -le 1 ]] || fail "sleep must be capped to remaining time (got $sleep_arg)"
 
+if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=hang-probe SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
+	MAX_WAIT=1 INTERVAL=120 "$WAIT" 2>&1)"; then
+	fail "a connected SSH probe that hangs must time out"
+else
+	status=$?
+fi
+[[ "$status" -eq 1 ]] || fail "a hanging readiness probe must exit 1 (got $status)"
+[[ "$output" == *"SSH readiness probe timed out after 1s"* ]] ||
+	fail "a connected hanging probe must be identified as a timeout (got: $output)"
+
 for command_status in 7 255; do
 	: >"$tmp/ssh.log"
 	if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=ready SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
@@ -124,6 +148,21 @@ for command_status in 7 255; do
 	[[ "$output" != *"SSH transport failed"* ]] || fail "remote exit $command_status is not a transport failure"
 	[[ "$(wc -l <"$tmp/ssh.log")" -eq 2 ]] || fail "--cmd must run once after one readiness probe"
 done
+
+: >"$tmp/ssh.log"
+if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=slow-probe SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
+	MAX_WAIT=5 INTERVAL=1 "$WAIT" --cmd 'printf command-ok' 2>&1)"; then
+	status=0
+else
+	status=$?
+fi
+[[ "$status" -eq 0 ]] || fail "successful post-probe command must pass (got $status; $output)"
+first_connect_timeout="$(sed -n '1s/.*ConnectTimeout=\([0-9][0-9]*\).*/\1/p' "$tmp/ssh.log")"
+command_connect_timeout="$(sed -n '2s/.*ConnectTimeout=\([0-9][0-9]*\).*/\1/p' "$tmp/ssh.log")"
+[[ -n "$first_connect_timeout" && -n "$command_connect_timeout" ]] ||
+	fail "readiness and command SSH calls must both set ConnectTimeout"
+[[ "$command_connect_timeout" -lt "$first_connect_timeout" ]] ||
+	fail "command ConnectTimeout must be recomputed after readiness time is consumed"
 
 : >"$tmp/ssh.log"
 if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=drop-command SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
