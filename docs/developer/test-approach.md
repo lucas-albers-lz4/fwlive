@@ -294,7 +294,7 @@ payload inspector.
 - **R9b:** 25.12 APK **control** inspection is the host lifecycle test
   against pinned SDK `apk adbdump --format json` (`pre-deinstall` hook
   plus `post-upgrade` `PKG_UPGRADE=1`). Payload `apk extract` remains
-  data files only. Version-changing upgrades are still not a QEMU cell.
+  data files only.
 - **G2:** per-PR `qemu-forwarding-slo-harness` / `-net` tests are
   harness/static (`bash -n`, ShellCheck, helper unit checks). The routed
   guest run (`qemu-forwarding-slo-run.sh` plus traffic) stays manual/lab.
