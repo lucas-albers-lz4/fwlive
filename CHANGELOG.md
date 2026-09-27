@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Require a Linux host for the x86 QEMU runner, tell port conflicts to use --stop --force, and accept only an IPv4 hostfwd bind (#918, #919, #920)
 - Refuse publish-packages clears outside feed-staging* and out/, and reject unknown ipkg index labels and extra positionals (#917, #921, #922)
-- Name the uninstall cases that skip WAN log restore, and say the Time cell expands instead of filtering (#936, #927)
+- Name the uninstall cases that skip WAN log restore, including a post-reload baseline mismatch, and say a Simple-view Time click expands the row (#936, #927)
 - Size the hostname cache to the 2000-row limit so a stable table stops re-resolving (#933)
 - Keep a successful poll's status when timeout recovery throws (#904)
 - List `coreutils-timeout` next to the other runtime packages in install docs (#931)

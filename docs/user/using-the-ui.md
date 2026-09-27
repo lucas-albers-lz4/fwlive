@@ -123,7 +123,7 @@ signal to reduce the workload.
 
 ## Filtering
 
-- **Click a filter link** (action, IP, protocol, interface, flow endpoint) to filter. The **Time** cell is not a filter link; clicking it expands the row.
+- **Click a filter link** (action, IP, protocol, interface, flow endpoint) to filter. In **Simple** view, the **Time** cell is not a filter link; clicking it expands the row. In **Detail** view, that click does not expand the row.
 - Active filters appear as **chips** — click **≠** on a chip to flip include ↔ exclude; **×** removes one; **Clear all** resets.
 - You can also prefix text filters with **`!`** for negation (same as **≠** on a chip).
 - **URL hash** stores filters, limit, `view=detailed`, and in Manual mode `poll=manual` plus `maxraw=` (raw-line fetch budget) for shareable links.
