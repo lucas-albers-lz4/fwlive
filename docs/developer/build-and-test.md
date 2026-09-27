@@ -48,6 +48,12 @@ HTML sink instead of a text node is invisible to them**.
 When changing a renderer, make sure that an `E()` reproduces upstream
 `dom.append` semantics. Recipe: `.cursor/skills/security-audit/SKILL.md`.
 
+`tests/lib/load-fwlive-view.js` (via `luci-e-harness.js`) now has a minimal
+`classList`, `style.setProperty`/`removeProperty`, and `querySelector` so
+map/tint branches such as `applyTintFallback` can run in the host suite.
+`probeRowTintPaint` still needs a real `getComputedStyle` paint delta, so
+that path stays Playwright / Tier-2.
+
 ## Live View CSS (`fwlive.css` → `css.js`)
 
 Author styles in plain CSS, then embed into the LuCI module LuCI injects at runtime:
@@ -115,6 +121,9 @@ No system library is replaced. All three pinned release pairs (23.05, 24.10,
 even when their shell libraries have identical contents.
 `bash tests/install-host-jshn.test.sh` checks repeat installs and pin mismatch
 handling. Ordinary dash tests remain separate from these BusyBox ash tests.
-`tests/fwlive-rpcd-security.test.js` runs the rpcd selftest with the matched
-BusyBox/jshn pair (24.10 by default; select another supported pair with
+`./scripts/fwlive-test.sh` runs `tests/fwlive-logging.test.sh` as its own
+labelled step. `tests/fwlive-rpcd-security.test.js` still execs that file
+when run standalone; the runner sets `FWLIVE_LOGGING_VIA_RUNNER=1` so the
+suite is not executed twice. The rpcd selftest uses the matched BusyBox/jshn
+pair (24.10 by default; select another supported pair with
 `FWLIVE_JSHN_RELEASE`). A missing pair is a test failure, not a successful skip.

@@ -145,7 +145,8 @@ testSelftestHarnessBoundaries();
 const out = runMatchedRpcdSelftest();
 console.log('fwlive rpcd security: ' + out.trim());
 
-execFileSync('bash', [LOGGING_TEST], { stdio: 'inherit' });
+if (process.env.FWLIVE_LOGGING_VIA_RUNNER !== '1')
+	execFileSync('bash', [LOGGING_TEST], { stdio: 'inherit' });
 
 // --- #303 fail-closed structured error contract (host) ---
 //
