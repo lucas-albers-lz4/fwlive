@@ -17,26 +17,37 @@ if [[ -z "$NODE" ]]; then
 	fi
 fi
 
+# Missing tools fail closed. FWLIVE_ALLOW_SKIP=1 is a loud opt-out only.
+# This runner never runs npm ci (#802).
+fwlive_skip_missing() {
+	local name="$1" hint="$2"
+	if [[ "${FWLIVE_ALLOW_SKIP:-}" == "1" ]]; then
+		echo "SKIP: ${name} not on PATH (${hint}). FWLIVE_ALLOW_SKIP=1" >&2
+		return 0
+	fi
+	echo "FAIL: ${name} not on PATH (${hint}). Install it, or set FWLIVE_ALLOW_SKIP=1 to skip this gate." >&2
+	exit 1
+}
+
 echo "== fwlive JS/CSS lint stack (#290) ==" >&2
 if [[ ! -x "$ROOT/node_modules/.bin/eslint" ||
 	! -x "$ROOT/node_modules/.bin/prettier" ||
 	! -x "$ROOT/node_modules/.bin/stylelint" ]]; then
-	echo "Installing npm devDependencies for lint gates..." >&2
-	(cd "$ROOT" && npm ci)
+	fwlive_skip_missing "eslint/prettier/stylelint" "run npm ci"
+else
+	(cd "$ROOT" && npm run lint:js)
+	echo "== fwlive ESLint AMD-wrap virtual filename (#375 / #377) ==" >&2
+	bash "$ROOT/tests/fwlive-eslint-amd-wrap.test.sh"
+	echo "== fwlive ESLint core Node/CommonJS (#581) ==" >&2
+	bash "$ROOT/tests/fwlive-eslint-core.test.sh"
+	(cd "$ROOT" && npm run lint:format)
+	(cd "$ROOT" && npm run lint:css)
 fi
-(cd "$ROOT" && npm run lint:js)
-echo "== fwlive ESLint AMD-wrap virtual filename (#375 / #377) ==" >&2
-bash "$ROOT/tests/fwlive-eslint-amd-wrap.test.sh"
-echo "== fwlive ESLint core Node/CommonJS (#581) ==" >&2
-bash "$ROOT/tests/fwlive-eslint-core.test.sh"
-(cd "$ROOT" && npm run lint:format)
-(cd "$ROOT" && npm run lint:css)
 if command -v ruff >/dev/null 2>&1; then
 	echo "== fwlive ruff (Python) ==" >&2
 	ruff check "$ROOT/tests" "$ROOT/scripts"
 else
-	echo "FAIL: ruff not found on PATH (install ruff for #290 L3)" >&2
-	exit 1
+	fwlive_skip_missing ruff "install ruff for #290 L3"
 fi
 
 echo "== fwlive view syntax (node --check) ==" >&2
@@ -99,11 +110,8 @@ if command -v busybox >/dev/null 2>&1; then
 
 	echo "== fwlive parser corpus pin (#240 C1, busybox sh) ==" >&2
 	SH='busybox sh' "$NODE" tests/fwlive-parser-corpus.test.js
-elif [[ "${CI:-}" == "true" || "$(uname -s)" == "Linux" ]]; then
-	echo "FAIL: busybox not found on PATH (Linux host: apt install busybox)" >&2
-	exit 1
 else
-	echo "SKIP: busybox not found; BusyBox parity tests not run" >&2
+	fwlive_skip_missing busybox "Linux: apt install busybox"
 fi
 
 echo "== fwlive codegen freshness ==" >&2

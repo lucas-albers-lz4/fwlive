@@ -618,7 +618,7 @@ function testNoMktempGracefulDegradation() {
 		const probe = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-mkprobe-'));
 		try {
 			makeStub(probe, 'mktemp', '#!/bin/sh\nexit 127\n');
-			execFileSync('busybox', ['sh', '-c', 'mktemp /tmp/fwlive-probe.XXXXXX'], {
+			execFileSync('busybox', ['sh', '-c', 'mktemp "' + probe.replace(/"/g, '') + '/fwlive-probe.XXXXXX"'], {
 				env: { ...process.env, PATH: `${probe}:${process.env.PATH}` },
 				stdio: 'ignore',
 			});
@@ -627,7 +627,6 @@ function testNoMktempGracefulDegradation() {
 			if (e.code === 'ENOENT') busyboxHonorsPath = false;
 		} finally {
 			fs.rmSync(probe, { recursive: true, force: true });
-			try { execFileSync('sh', ['-c', 'rm -f /tmp/fwlive-probe.* 2>/dev/null; true']); } catch {}
 		}
 	} catch { /* probe setup failed; try busybox anyway */ }
 	const runnable = shells.filter((s) => s !== 'busybox' || busyboxHonorsPath);
@@ -673,6 +672,13 @@ exit 127
 					{ encoding: 'utf8' }).trim().split('\n').filter(Boolean);
 				} catch { return []; }
 			};
+			const leakedFromThisNft = (files) => files.filter((f) => {
+				try {
+					return fs.readFileSync(f, 'utf8').includes('should-not-appear');
+				} catch {
+					return false;
+				}
+			});
 			const before = new Set(listTemps());
 			const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
 			let raw;
@@ -692,9 +698,11 @@ exit 127
 			assert.equal(res.rules['another-rule'], 'another-rule', `[${shell}] another-rule must survive`);
 			// nft-derived enrichment must be skipped (no temp file to parse)
 			assert.equal(res.rules['should-not-appear'], undefined, `[${shell}] nft enrichment must be skipped when mktemp absent, not written via fixed path`);
-			// must not have created any NEW nft/ipt/ip6t temp file (do not rm peers)
+			// Peer shards may create /tmp/fwlive-nft.* in the same window; only
+			// fail on a dump that contains this test's nft prefix.
 			const created = listTemps().filter((f) => !before.has(f));
-			assert.equal(created.length, 0, `[${shell}] no new /tmp/fwlive-{nft,ipt,ip6t}* when mktemp absent, got: ${created.join(' ')}`);
+			const leaked = leakedFromThisNft(created);
+			assert.equal(leaked.length, 0, `[${shell}] no new /tmp/fwlive-{nft,ipt,ip6t}* with should-not-appear when mktemp absent, got: ${leaked.join(' ')}`);
 			// raw JSON must not contain the nft key at all
 			assert.equal((raw.match(/"should-not-appear"/g) || []).length, 0, `[${shell}] raw must not contain should-not-appear`);
 		} finally {
