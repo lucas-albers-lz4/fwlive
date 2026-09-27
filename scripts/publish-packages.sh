@@ -17,6 +17,7 @@ source "${ROOT}/scripts/lib/feed-publish.sh"
 
 STAGING="feed-staging"
 ALLOW_OUTSIDE=0
+POSITIONAL=0
 GIT_TAG="${FWLIVE_GIT_TAG:-$(git -C "$ROOT" describe --tags --exact-match 2>/dev/null || git -C "$ROOT" rev-parse --short HEAD)}"
 
 for arg in "$@"; do
@@ -33,7 +34,12 @@ for arg in "$@"; do
 			exit 1
 			;;
 		*)
+			if [[ "$POSITIONAL" -ge 1 ]]; then
+				echo "publish-packages: extra positional '${arg}' (already have staging '${STAGING}')" >&2
+				exit 1
+			fi
 			STAGING="$arg"
+			POSITIONAL=1
 			;;
 	esac
 done
@@ -45,7 +51,6 @@ PKG_VER="${FWLIVE_PKG_VERSION:-$(sed -n 's/^PKG_VERSION:=//p' "${ROOT}/openwrt-f
 }
 export FWLIVE_PKG_VERSION="$PKG_VER"
 
-mkdir -p "$STAGING"
 STAGING="$(feed_publish_assert_staging_clearable "$STAGING" "$ALLOW_OUTSIDE")"
 
 rm -rf "$STAGING"
