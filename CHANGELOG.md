@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
 
 ### Fixed
+- Label src/dst/q include chips as contains so they match substring filters (#928)
 - Keep a hostname paint pending across a hidden-tab epoch bump so return still forces the frame (#934)
 - Retry a thrown rules RPC without wiping a good map, and refresh buffered labels on a successful load (#905)
 - Map UCI set/delete/commit failures and post-commit races to distinct logging notices (#937)

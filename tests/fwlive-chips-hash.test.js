@@ -37,6 +37,7 @@ const TRANSLATED_CHIP_CATALOG = {
 	'%s: %s': '[%s|%s]',
 	'not': 'NICHT',
 	'does not contain': 'ENTHAELT-NICHT',
+	'contains': 'ENTHAELT',
 	'Search': 'SUCHE',
 	'Source': 'QUELLE',
 	'is': 'IST',
@@ -105,6 +106,10 @@ function testIdentityChipFieldLabels() {
 		includeText.indexOf('Search: wan') >= 0,
 		'include q chip must use Search via formatFilterChipLabel, got: ' + includeText
 	);
+	assert.ok(
+		includeText.indexOf('contains') >= 0,
+		'include q chip must say contains, got: ' + includeText
+	);
 
 	const qHost = renderChips({ q: '!drop' });
 	const qText = collectText(qHost);
@@ -131,8 +136,12 @@ function testTranslatedChipCatalog() {
 		'include q chip must use translated connector and Search, got: ' + includeText
 	);
 	assert.ok(
-		includeText.indexOf('IST') >= 0,
-		'include q chip must use translated polarity is, got: ' + includeText
+		includeText.indexOf('ENTHAELT') >= 0,
+		'include q chip must use translated polarity contains, got: ' + includeText
+	);
+	assert.ok(
+		includeText.indexOf('IST') < 0,
+		'include q chip must not use translated polarity is, got: ' + includeText
 	);
 
 	const qHost = renderChips({ q: '!drop' }, CHIP_FIELDS, translatedGettext);
@@ -169,6 +178,38 @@ function testRecursiveProtoSink() {
 	assert.ok(host._innerHTMLWrites.length >= 1, 'chip rebuild clears via innerHTML');
 	assertPayloadNeverInSink(host, HOSTILE);
 	assert.ok(collectText(host).indexOf(HOSTILE) >= 0, 'hostile proto stays visible as text');
+}
+
+function testIncludeTextChipsUseContains() {
+	const cases = [
+		{ key: 'q', value: 'wan' },
+		{ key: 'src', value: '10.0.0.1' },
+		{ key: 'dst', value: '10.0.0.1' }
+	];
+	for (let i = 0; i < cases.length; i++) {
+		const spec = cases[i];
+		const filters = {};
+		filters[spec.key] = spec.value;
+		const host = renderChips(filters);
+		const text = collectText(host);
+		assert.ok(
+			text.indexOf('contains') >= 0,
+			spec.key + ' include chip must say contains, got: ' + text
+		);
+		assert.ok(text.indexOf(spec.value) >= 0, spec.key + ' value must remain visible');
+		assertPayloadNeverInSink(host, spec.value);
+	}
+
+	const actionHost = renderChips({ action: 'drop' });
+	const actionText = collectText(actionHost);
+	assert.ok(
+		actionText.indexOf('is') >= 0,
+		'exact-match include chips keep is, got: ' + actionText
+	);
+	assert.ok(
+		actionText.indexOf('contains') < 0,
+		'exact-match include chips must not say contains, got: ' + actionText
+	);
 }
 
 function testNegatedTextChips() {
@@ -330,7 +371,11 @@ function testApplyHashIgnoresUnlistedAndPersistedKeys() {
 	}
 	const backend = h.document.getElementById('fwlive-backend');
 	if (backend) {
-		assert.notStrictEqual(backend.value, 'x', 'unknown hash keys must not write fwlive-* nodes');
+		assert.notStrictEqual(
+			backend.value,
+			'x',
+			'unknown hash keys must not write fwlive-* nodes'
+		);
 		assert.notStrictEqual(backend.textContent, 'x');
 	}
 }
@@ -362,6 +407,7 @@ function testApplyHashHostileAsText() {
 }
 
 testRecursiveProtoSink();
+testIncludeTextChipsUseContains();
 testNegatedTextChips();
 testHostileTextChipSink();
 testIdentityChipFieldLabels();
