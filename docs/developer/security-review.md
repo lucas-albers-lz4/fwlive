@@ -1092,3 +1092,20 @@ checks.
 **Result.** The tested rules map includes the named UCI rule without changing
 the existing collision or whitespace behavior. This is a ledger update for the
 implemented behavior, not a new security finding.
+
+### 2026-09-27 — filter error and timeout follow-up
+
+**Scope.** The rpcd timeout peer-drain loop now falls back to a whole-second
+BusyBox sleep when fractional sleep is unavailable. Its filter error-body
+allowlist is checked against every complete error body emitted by the shipped
+filter. The output shape and ACL are unchanged.
+
+**Method.** The filter/source parity assertion in
+`tests/fwlive-rpcd-security.test.js` covers the error-body coupling. Existing
+timeout descendant cases cover a child that retains or closes stdout after
+the parent exits. The fractional-sleep fallback preserves the hard outer
+deadline while preventing a tight `/proc` scan on reduced BusyBox builds.
+
+**Result.** No new RPC or session permission is introduced. The timeout
+wrapper still returns a failure when the hard deadline kills its process
+group; the fallback only changes peer-scan cadence on reduced BusyBox builds.
