@@ -109,11 +109,13 @@ one catch-up poll, then resumes the normal cadence. **Show hostnames** is off by
 default because reverse-DNS lookups add work; leave it off when the router or
 browser is busy.
 
-When a live poll is slow, fwlive may enter **Summary mode** automatically: the
-table is replaced by a **Summary** card with compact counts from the current
-sample. Click **Show rows** to bring the table back; **Hide rows** returns to
-the card. Polling continues and filters still apply — the switch trims render
-work on a busy client or router, not a frozen display.
+When adaptive polling is active, a live poll longer than 1.5 seconds may enter
+**Summary mode** automatically: the table is replaced by a **Summary** card
+with compact counts from the current sample. Three consecutive fast polls
+(under 300 ms each) restore the table automatically. Click **Show rows** to
+bring it back sooner; **Hide rows** returns to the card. Polling continues and
+filters still apply — the switch trims render work on a busy client or router,
+not a frozen display.
 
 The router's log ring is finite and may evict older events before fwlive reads
 them. fwlive cannot recover evicted entries and does not change forwarding
