@@ -26,6 +26,23 @@ if [[ -z "$artifact_fallback_line" ]]; then
 	echo "could not find qemu-install-fwlive.sh artifact-search fallback" >&2
 	exit 1
 fi
+fallback_versions="${artifact_fallback_line#*for ver in }"
+fallback_versions="${fallback_versions%%; do*}"
+read -r -a fallback_labels <<<"$fallback_versions"
+
+has_exact_label() {
+	local wanted="$1" candidate
+	shift
+	for candidate in "$@"; do
+		[[ "$candidate" == "$wanted" ]] && return 0
+	done
+	return 1
+}
+
+if has_exact_label 24.10.8 24.10.8.1; then
+	echo "artifact fallback label check accepted a partial version token" >&2
+	exit 1
+fi
 
 for label in "${labels[@]}"; do
 	label_pattern="${label//./\\.}"
@@ -35,7 +52,7 @@ for label in "${labels[@]}"; do
 		echo "ipkg-make-index.sh case pin missing or malformed for release label: $label" >&2
 		exit 1
 	fi
-	if [[ "$artifact_fallback_line" != *"$label"* ]]; then
+	if ! has_exact_label "$label" "${fallback_labels[@]}"; then
 		echo "qemu-install-fwlive.sh artifact-search fallback missing release label: $label" >&2
 		exit 1
 	fi
