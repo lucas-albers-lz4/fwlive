@@ -276,4 +276,17 @@ assert.strictEqual(outOnlyNoInKey.direction, 'out');
 assert.strictEqual(outOnlyNoInKey.interface_out, 'eth1');
 assert.strictEqual(luci.normalizeEntry(syncSamples[4]).direction, 'out');
 
+const originalCoreRules = core.CLASSIFY_SPEC.rules;
+const originalLuciRules = luci.CLASSIFY_SPEC.rules;
+try {
+	const malformedRules = [{ and: [{ kv: ['SRC'], hint: true }] }];
+	core.CLASSIFY_SPEC.rules = malformedRules;
+	luci.CLASSIFY_SPEC.rules = malformedRules;
+	assert.throws(() => core.evaluateClassifySpec('SRC=192.0.2.1'), /exactly one key/);
+	assert.throws(() => luci.evaluateClassifySpec('SRC=192.0.2.1'), /exactly one key/);
+} finally {
+	core.CLASSIFY_SPEC.rules = originalCoreRules;
+	luci.CLASSIFY_SPEC.rules = originalLuciRules;
+}
+
 console.log('fwlive parser sync OK (normalize + filter)');

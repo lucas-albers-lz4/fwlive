@@ -91,12 +91,31 @@ try {
 	fs.rmSync(luciTmp, { recursive: true, force: true });
 }
 
-const { emitAwkPred } = require(GEN_SHELL);
+const core = require(path.join(ROOT, 'core/fwlive-log.js'));
+
+const { emitAwkPred, emitAwkRules } = require(GEN_SHELL);
 assert.equal(emitAwkPred({ hint: true }), 'has_hint(s)');
 assert.equal(emitAwkPred({ action: 'known' }), 'action != "UNKNOWN"');
+assert.throws(
+	() => emitAwkPred({ kv: ['SRC'], hint: true }),
+	/exactly one key/
+);
 assert.throws(
 	() => emitAwkPred({ notKv: ['SRC'] }),
 	/unrecognised CLASSIFY_SPEC predicate node/
 );
+
+const originalRules = core.CLASSIFY_SPEC.rules;
+try {
+	core.CLASSIFY_SPEC.rules = [{ and: [{ kv: ['SRC'], hint: true }] }];
+	assert.throws(
+		() => core.evaluateClassifySpec('SRC=192.0.2.1'),
+		/exactly one key/
+	);
+	core.CLASSIFY_SPEC.rules = [{ malformed: true }];
+	assert.throws(() => emitAwkRules(), /unrecognised CLASSIFY_SPEC rule/);
+} finally {
+	core.CLASSIFY_SPEC.rules = originalRules;
+}
 
 console.log('fwlive codegen freshness + syntax OK');
