@@ -279,7 +279,7 @@ async function testBudgetChangesRespectCadence() {
 	inFlightView.rpcPreferencesResolved = true;
 	inFlightView.setPollCadence(5);
 	const current = inFlightView.requestPoll();
-	await sleep(10);
+	await waitFor(function () { return inFlightCalls === 1; });
 	inFlightView.onFetchModeChange({ target: { value: 'manual' } });
 	inFlightView.onManualFetchLinesChange({ target: { value: '500' } });
 	assert.strictEqual(inFlightCalls, 1, 'in-flight budget changes must not queue a fetch');
@@ -385,7 +385,6 @@ async function testLimitAndVisibilityDuringInFlightRequest() {
 	assert.strictEqual(v.ensurePollCoordinator().getState().queued, true, 'Limit refresh must remain queued while hidden');
 	release();
 	await first;
-	await sleep(10);
 	assert.strictEqual(calls, 1, 'hidden transition must not start a queued request');
 	assert.strictEqual(v.entries.length, 0, 'stale hidden reply must not apply');
 
@@ -468,7 +467,7 @@ async function testPagehideDisposesCoordinator() {
 		return Promise.resolve();
 	};
 	const loading = v.load();
-	await sleep(10);
+	await waitFor(function () { return calls === 1; });
 	assert.strictEqual(calls, 1, 'load must have one active request');
 	const queued = v.requestPoll();
 	assert.strictEqual(calls, 1, 'second request must be queued before pagehide');
@@ -505,6 +504,7 @@ async function testPagehideDisposesCoordinator() {
 async function testPagehideDropsLateStartupUi() {
 	let releaseRules;
 	let releaseStatus;
+	let startupCalls = 0;
 	const rulesGate = new Promise(function (resolve) {
 		releaseRules = resolve;
 	});
@@ -515,10 +515,12 @@ async function testPagehideDropsLateStartupUi() {
 	const h = loadFwliveView({
 		rpcMocks: {
 			'fwlive.rules': async function () {
+				startupCalls++;
 				await rulesGate;
 				return { rules: {}, backend: 'nft' };
 			},
 			'fwlive.logging_status': async function () {
+				startupCalls++;
 				await statusGate;
 				return { ready: true, blockers: [], warnings: [] };
 			},
@@ -548,7 +550,7 @@ async function testPagehideDropsLateStartupUi() {
 	v.updateLoggingToolbarUi = function () { toolbarUpdates++; };
 	v.updateEmptyStateUi = function () { emptyUpdates++; };
 	const loading = v.load();
-	await sleep(10);
+	await waitFor(function () { return startupCalls === 2; });
 	h.dispatchPagehide();
 	releaseRules();
 	releaseStatus();
@@ -574,6 +576,7 @@ async function testPagehideDropsLateStartupUi() {
 async function testPagehideDropsLateStartupFailures() {
 	let rejectRules;
 	let rejectStatus;
+	let startupCalls = 0;
 	const rulesGate = new Promise(function (_, reject) {
 		rejectRules = reject;
 	});
@@ -584,10 +587,12 @@ async function testPagehideDropsLateStartupFailures() {
 	const h = loadFwliveView({
 		rpcMocks: {
 			'fwlive.rules': async function () {
+				startupCalls++;
 				await rulesGate;
 				return { rules: {} };
 			},
 			'fwlive.logging_status': async function () {
+				startupCalls++;
 				await statusGate;
 				return { ready: true };
 			},
@@ -613,7 +618,7 @@ async function testPagehideDropsLateStartupFailures() {
 	};
 
 	const loading = v.load();
-	await sleep(10);
+	await waitFor(function () { return startupCalls === 2; });
 	h.dispatchPagehide();
 	rejectRules(new Error('late rules failure'));
 	rejectStatus(new Error('late status failure'));
@@ -666,7 +671,7 @@ async function testPagehideDuringHostnameResolution() {
 	v.showHostnames = true;
 	v.loadRulesMap = v.loadLoggingStatus = () => Promise.resolve();
 	const loading = v.load();
-	await sleep(10);
+	await waitFor(function () { return v.resolveInFlight === true; });
 	assert.strictEqual(v.resolveInFlight, true, 'hostname work must be active before disposal');
 	let updates = 0;
 	v.scheduleRenderRows = v.updateAdaptiveBanner = () => { updates++; };

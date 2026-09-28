@@ -20,11 +20,11 @@ function makeStub(dir, name, content) {
 	fs.writeFileSync(p, content, { mode: 0o755 });
 }
 
-function runRpcd(shell, args, opts) {
+function runRpcd(shell, args, opts, rpcdPath = RPCD) {
 	if (shell === 'busybox') {
 		for (const p of ['/usr/bin/busybox', '/bin/busybox', 'busybox']) {
 			try {
-				return execFileSync(p, ['sh', RPCD, ...args], opts);
+				return execFileSync(p, ['sh', rpcdPath, ...args], opts);
 			} catch (e) {
 				if (e.code !== 'ENOENT') throw e;
 			}
@@ -34,7 +34,7 @@ function runRpcd(shell, args, opts) {
 	// opts.env may restrict PATH (e.g. no_resolver probe); spawn dash by absolute path.
 	for (const p of ['/bin/dash', '/usr/bin/dash', 'dash']) {
 		try {
-			return execFileSync(p, [RPCD, ...args], opts);
+			return execFileSync(p, [rpcdPath, ...args], opts);
 		} catch (e) {
 			if (e.code !== 'ENOENT') throw e;
 		}
@@ -100,9 +100,9 @@ function hostCommand(name) {
 	return out;
 }
 
-function runWithShell(shell, env) {
+function runWithShell(shell, env, rpcdPath) {
 	// shell is 'dash' or 'busybox' (busybox needs 'sh' arg)
-	return runRpcd(shell, ['call', 'rules'], { encoding: 'utf8', env });
+	return runRpcd(shell, ['call', 'rules'], { encoding: 'utf8', env }, rpcdPath);
 }
 
 let _posixShells;
@@ -633,6 +633,12 @@ function testNoMktempGracefulDegradation() {
 	let ran = 0;
 	for (const shell of runnable) {
 		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-nomktemp-'));
+		const cookie = path.basename(stubDir).slice('fwlive-stub-nomktemp-'.length);
+		const fixtureLibexec = path.join(stubDir, 'libexec');
+		fs.cpSync(path.dirname(path.dirname(RPCD)), fixtureLibexec, { recursive: true });
+		const fixtureRpcd = path.join(fixtureLibexec, 'rpcd', 'fwlive');
+		fs.writeFileSync(fixtureRpcd, fs.readFileSync(fixtureRpcd, 'utf8')
+			.replace(/fwlive-(nft|ipt|ip6t)/g, 'fwlive-' + cookie + '-$1'));
 		try {
 			// nft would emit a prefix that would appear if temp file were used
 			makeStub(stubDir, 'nft', `#!/bin/sh
@@ -667,22 +673,15 @@ exit 127
 			const listTemps = () => {
 				try {
 					return execFileSync('sh', ['-c',
-						'ls -1 /tmp/fwlive-nft.* /tmp/fwlive-ipt.* /tmp/fwlive-ip6t.* 2>/dev/null || true'],
-					{ encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+						'ls -1 /tmp/fwlive-' + cookie + '-* 2>/dev/null || true'],
+						{ encoding: 'utf8' }).trim().split('\n').filter(Boolean);
 				} catch { return []; }
 			};
-			const leakedFromThisNft = (files) => files.filter((f) => {
-				try {
-					return fs.readFileSync(f, 'utf8').includes('should-not-appear');
-				} catch {
-					return false;
-				}
-			});
 			const before = new Set(listTemps());
 			const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
 			let raw;
 			try {
-				raw = runWithShell(shell, env);
+				raw = runWithShell(shell, env, fixtureRpcd);
 			} catch (e) {
 				if (e.code === 'ENOENT') continue;
 				throw e;
@@ -697,11 +696,10 @@ exit 127
 			assert.equal(res.rules['another-rule'], 'another-rule', `[${shell}] another-rule must survive`);
 			// nft-derived enrichment must be skipped (no temp file to parse)
 			assert.equal(res.rules['should-not-appear'], undefined, `[${shell}] nft enrichment must be skipped when mktemp absent, not written via fixed path`);
-			// Peer shards may create /tmp/fwlive-nft.* in the same window; only
-			// fail on a dump that contains this test's nft prefix.
+			// The fixture's unique prefix excludes peer shards while retaining
+			// the production tempfile logic, including predictable fallbacks.
 			const created = listTemps().filter((f) => !before.has(f));
-			const leaked = leakedFromThisNft(created);
-			assert.equal(leaked.length, 0, `[${shell}] no new /tmp/fwlive-{nft,ipt,ip6t}* with should-not-appear when mktemp absent, got: ${leaked.join(' ')}`);
+			assert.equal(created.length, 0, `[${shell}] no new test-scoped temp file when mktemp absent, got: ${created.join(' ')}`);
 			// raw JSON must not contain the nft key at all
 			assert.equal((raw.match(/"should-not-appear"/g) || []).length, 0, `[${shell}] raw must not contain should-not-appear`);
 		} finally {

@@ -49,8 +49,8 @@ const viewSrc = fs.readFileSync(
 	'utf8'
 );
 function extractMethodBody(src, name) {
-	const needle = name + '() {';
-	const start = src.indexOf(needle);
+	const match = new RegExp('^\\s*' + name + '\\(\\)\\s*\\{', 'm').exec(src);
+	const start = match ? match.index : -1;
 	assert.ok(start !== -1, 'missing ' + name + '() {');
 	const open = src.indexOf('{', start);
 	let depth = 0;
@@ -73,9 +73,8 @@ assert.ok(
 );
 const requestedFetchBody = extractMethodBody(viewSrc, 'requestedFetchLines');
 assert.ok(
-	requestedFetchBody.indexOf('this.tablePaused') !== -1 &&
-		requestedFetchBody.indexOf('constants.FETCH_LINES_MAX') !== -1,
-	'requestedFetchLines must use tablePaused + FETCH_LINES_MAX inside its own body'
+	/if\s*\(this\.tablePaused\)\s*return\s+this\.fetchMode\s*===\s*'manual'\s*\?\s*this\.manualFetchLines\s*:\s*constants\.FETCH_LINES_MAX\s*;/.test(requestedFetchBody),
+	'requestedFetchLines must return FETCH_LINES_MAX for paused automatic fetches'
 );
 assert.ok(
 	requestedFetchBody.indexOf('this.autoFetchLines()') !== -1,

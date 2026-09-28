@@ -24,7 +24,7 @@ const text = fs.readFileSync(VIEW_PATH, 'utf8');
 
 // LuCI instantiates baseclass.extend(...); stub returns the descriptor object.
 const tint = (function () {
-	const body = tintSrc
+	const body = "'use strict';\n" + tintSrc
 		.replace(/^'use strict';\s*/, '')
 		.replace(/^'require baseclass';\s*/m, '');
 	const baseclass = { extend: (desc) => desc };
