@@ -16,6 +16,17 @@ const ACL = path.join(
 );
 const LOGGING_TEST = path.join(ROOT, 'tests/fwlive-logging.test.sh');
 
+function testFilterErrorWhitelistMatchesFilter() {
+	const filter = fs.readFileSync(path.join(ROOT,
+		'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh'), 'utf8');
+	const rpcd = fs.readFileSync(RPCD, 'utf8');
+	const bodies = [...filter.matchAll(/\{"log":\[\],"error":"[a-z_]+"\}/g)]
+		.map((match) => match[0]);
+	assert.ok(bodies.length > 0, 'filter error bodies must be discoverable');
+	for (const body of new Set(bodies))
+		assert.ok(rpcd.includes("'" + body + "'"), 'rpcd must preserve filter error body: ' + body);
+}
+
 const acl = JSON.parse(fs.readFileSync(ACL, 'utf8'));
 const readUbus = acl['luci-app-fwlive']?.read?.ubus || {};
 if (Object.prototype.hasOwnProperty.call(readUbus, 'log')) {
@@ -663,6 +674,10 @@ function testRunWithTimeoutBoundsDescendantAfterParentExit() {
 		makeStub(stubDir, 'busybox', [
 			'#!/bin/sh',
 			'printf \'%s\\n\' "$1" >> ' + shellQuote(lookupLog),
+			'if [ "${FWLIVE_REJECT_FRACTIONAL_SLEEP:-}" = 1 ] && [ "$1" = sleep ]; then',
+			'  if [ "$2" = 0.1 ]; then printf \'fractional-rejected\\n\' >> ' + shellQuote(lookupLog) + '; exit 1; fi',
+			'  if [ "$2" = 1 ]; then printf \'whole-second-fallback\\n\' >> ' + shellQuote(lookupLog) + '; fi',
+			'fi',
 			'exec /usr/bin/busybox "$@"',
 			''
 		].join('\n'));
@@ -702,7 +717,8 @@ function testRunWithTimeoutBoundsDescendantAfterParentExit() {
 				scenario.parentCommand,
 				''
 			].join('\n'));
-			const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
+			const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin`,
+				FWLIVE_REJECT_FRACTIONAL_SLEEP: scenario.name === 'child-closes-stdout' ? '1' : '' };
 			const script = `FWLIVE_TIMEOUT_BIN=/usr/bin/timeout\nTIMEOUT_KILL_GRACE=${grace}\n${providerCheck[0]}\n${helper[0]}\n` +
 				`output=$(run_with_timeout 1 ${scenario.name})\n` +
 				'status=$?\nprintf \'%s\\n\' "$status"\n';
@@ -719,6 +735,9 @@ function testRunWithTimeoutBoundsDescendantAfterParentExit() {
 			assertMarkedProcessStopped(pidFile, scenario.description);
 		}
 		const resolvedCommands = fs.readFileSync(lookupLog, 'utf8').trim().split('\n');
+		assert.ok(resolvedCommands.includes('fractional-rejected') &&
+			resolvedCommands.includes('whole-second-fallback'),
+			'peer drain must fall back when BusyBox rejects fractional sleep');
 		assert.ok(resolvedCommands.includes('setsid'), 'setsid should be resolved through runtime PATH');
 		assert.ok(resolvedCommands.includes('sh'), 'BusyBox sh should be resolved through runtime PATH');
 		assert.ok(resolvedCommands.includes('sleep'), 'BusyBox sleep should be resolved through runtime PATH');
@@ -1820,6 +1839,7 @@ function testToggleNoWanZone() {
 }
 
 testUnknownMethod();
+testFilterErrorWhitelistMatchesFilter();
 testAclMethodParity();
 testRulesNoBackend();
 testRulesNftAbsent();

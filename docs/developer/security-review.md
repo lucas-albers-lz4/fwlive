@@ -389,8 +389,8 @@ should carry a note saying what would raise it.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-09-27 | Delta + recording harness | #866/#867 changed table paint/key paths; reviewed dynamic `E()` children and empty-only `innerHTML` clears; `fwlive-e-harness`, `fwlive-table-keyed`, view smoke passed. Last broader hostile-input sweep remains 2026-08-13 (#177) |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-09-27 | Delta + host harness | #866/#867 scoped-IP hostname/cache and keyed paints reviewed; hostile log/PTR/hash/chip paths exercised in `fwlive-e-harness`, `fwlive-chips-hash`, and mocked view smoke. Earlier broad UCI trace: #177 (2026-08-13); this was not a new full-source sweep |
-| rpcd plugin + ACL scope | 2026-09-27 | Delta + host test + lab | #894 parses anonymous/named UCI rule names from one `uci show` result, caps processing at 512 names, and removes per-section `uci get`; duplicate-name flood test asserts truncation and retained first name. #761 timeout provider unchanged. #768: non-zero filter stdout is kept only when it is a complete shipped `{"log":[],"error":…}` object; truncated bodies become `filter_failed`. #771: `slug_key` / cosmetic prefixes use `printf '%s\\n'`. #827: `resolve` budget uses `fwlive_adaptive_clock_cs` (`/proc/uptime`) against `RESOLVE_BUDGET * 100`; `RESOLVE_MAX` still bounds work if uptime is unreadable. ACL method parity/read-write split and no `ubus log.*` unchanged. #416 retains anonymous/named UCI names; #378 remains nft-only. Installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
-| Shell helpers — injection and quoting | 2026-09-26 | Delta + host test | #768: `fwlive_adaptive_merge_reply` does not splice adaptive keys into an unclosed JSON array. #771: untrusted prefix/name strings no longer pass through `echo`. #761 GNU timeout arguments remain positional. #365/#366 retain quoted temp paths and `check_eq` behavior |
+| rpcd plugin + ACL scope | 2026-09-27 | Delta + host test + lab | #894 parses anonymous/named UCI rule names from one `uci show` result, caps processing at 512 names, and removes per-section `uci get`; duplicate-name flood test asserts truncation and retained first name. #761 timeout provider unchanged. #768: non-zero filter stdout is kept only when it is a complete shipped `{"log":[],"error":…}` object; truncated bodies become `filter_failed`. #771: `slug_key` / cosmetic prefixes use `printf '%s\\n'`. #827: `resolve` budget uses `fwlive_adaptive_clock_cs` (`/proc/uptime`) against `RESOLVE_BUDGET * 100`; `RESOLVE_MAX` still bounds work if uptime is unreadable. ACL method parity/read-write split and no `ubus log.*` unchanged. #898 peer-drain fractional-sleep fallback and #896 selftest counter reset were checked against the root call path; #900 error-body parity is host-asserted. #416 retains anonymous/named UCI names; #378 remains nft-only. Installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
+| Shell helpers — injection and quoting | 2026-09-27 | Delta + host test | #898 changes only the peer-drain sleep fallback; positional timeout arguments and filtered stdin remain intact.  #768: `fwlive_adaptive_merge_reply` does not splice adaptive keys into an unclosed JSON array. #771: untrusted prefix/name strings no longer pass through `echo`. #761 GNU timeout arguments remain positional. #365/#366 retain quoted temp paths and `check_eq` behavior |
 | Shell helpers — **file modes and lock ownership** | 2026-09-26 | Delta + host test | #869: baseline snapshot rejects symlink/unsafe `/etc/fwlive` dir and adaptive state refuses group/other-writable dirs (`tests/fwlive-logging.test.sh`, `tests/fwlive-adaptive-cap.test.sh`). Earlier lock 0600 and symlink checks: #204/#232 (`tests/fwlive-logging-lock.test.sh` Parts D–F); no new device-mode check in this delta |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-09-27 | Host + dated lab | `/etc/fwlive/wan-log-baseline`; packaged opkg `remove` and APK version-valued `pre-deinstall` restore, while `upgrade`/empty/unknown/`PKG_UPGRADE=1`/`1a2` and non-root staging roots skip (host matrix). Uninstall restoration: [#389 evidence](../evidence/issue-389-2026-09-20.md). A 25.12.5 version-changing APK upgrade preserved the bit/marker and invoked `post-upgrade`, not this `pre-deinstall` hook ([#848 evidence](../evidence/issue-848-2026-09-27.md)) |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-09-26 | Delta + host test | #606 rejects oversized `log`; #663 keeps baseline on failed reload; #869 snapshot checks unsafe directory paths. `tests/fwlive-logging.test.sh` passed on master. Earlier canonical `uci -X` cfg identity/B-1 and installed proof remain separately dated; package-wide commit residual still accepted |
@@ -1092,3 +1092,22 @@ checks.
 **Result.** The tested rules map includes the named UCI rule without changing
 the existing collision or whitespace behavior. This is a ledger update for the
 implemented behavior, not a new security finding.
+
+### 2026-09-27 — filter error and timeout follow-up
+
+**Scope.** The rpcd timeout peer-drain loop now falls back to a whole-second
+BusyBox sleep when fractional sleep is unavailable. Its filter error-body
+allowlist is checked against every complete error body emitted by the shipped
+filter. The output shape and ACL are unchanged.
+
+**Proof class.** `host` for the error-body gate and timeout fallback; `manual` for the unchanged ACL and command-string paths. The touched rpcd and adaptive-helper delta showed no new input-to-shell interpolation or session method. Full surface re-pass deferred: no high/medium cross-surface finding or failed class gate.
+
+**Method.** The filter/source parity assertion in
+`tests/fwlive-rpcd-security.test.js` covers the error-body coupling. Existing
+timeout descendant cases cover a child that retains or closes stdout after
+the parent exits. The fractional-sleep fallback preserves the hard outer
+deadline while preventing a tight `/proc` scan on reduced BusyBox builds.
+
+**Result.** No new RPC or session permission is introduced. The timeout
+wrapper still returns a failure when the hard deadline kills its process
+group; the fallback only changes peer-scan cadence on reduced BusyBox builds.
