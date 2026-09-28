@@ -67,6 +67,7 @@ jobs:
 
       - name: Install validation tools
         run: |
+          npm ci
           sudo apt-get update
           sudo apt-get install -y shellcheck
           pipx install 'ruff==0.16.8'
