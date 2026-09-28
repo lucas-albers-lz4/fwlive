@@ -129,10 +129,11 @@ payload and lifecycle inspection, but package-manager install/upgrade was not
 run on 23.05 or 25.12 guests. Same-feed index comparison, deterministic local
 PTR validation, and guest-injected stalled-command timing remain open checks.
 
-The package version remains `0.1.46` in this implementation PR. The release
-workflow bumps `PKG_VERSION` and `APP_VERSION` together to `0.1.47` after merge;
-that newer package version is required for existing 0.1.46 installations to
-discover the dependency update on every supported package-manager line.
+The package version remains `0.1.46` in this implementation PR. To publish the
+dependency update for existing `0.1.46` installations, the maintainer must
+manually bump `PKG_VERSION` and `APP_VERSION` together to `0.1.47` in a direct
+`chore: release v0.1.47` commit on `master` before tagging; see the
+[release steps](../release.md#release-steps-automated-ci).
 
 ## Generate test traffic
 
