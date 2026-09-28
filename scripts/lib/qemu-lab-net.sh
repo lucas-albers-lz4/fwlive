@@ -40,10 +40,19 @@ qemu_lab_port_owners_hint() {
 	printf '%s' "stop lab/compose.yml (openwrt-x64), docker-compose.yml (owrt-x64-exp), or QEMU (./scripts/run-openwrt-x86-qemu.sh --stop --force / ./scripts/run-openwrt-armsr-armv8-qemu.sh --stop --force). See lab/README.md"
 }
 
+qemu_lab_require_ss() {
+	if ! command -v ss >/dev/null 2>&1; then
+		echo "error: iproute2 (ss) is required for QEMU host port checks" >&2
+		echo "hint: install package iproute2 (Mint/Ubuntu: sudo apt install iproute2)" >&2
+		return 1
+	fi
+}
+
 # Fail closed: invalid port, ss error, or a listener on the port.
 qemu_lab_assert_host_port_free() {
 	local port="$1" label="$2" out
 	qemu_lab_validate_port "$label" "$port" || return 1
+	qemu_lab_require_ss || return 1
 	if ! out="$(ss -tlnH "sport = :${port}" 2>&1)"; then
 		echo "error: ss failed checking ${label} port ${port}: ${out}" >&2
 		return 1
@@ -57,6 +66,7 @@ qemu_lab_assert_host_port_free() {
 qemu_lab_host_port_listening() {
 	local port="$1" out
 	qemu_lab_validate_port port "$port" || return 1
+	qemu_lab_require_ss || return 1
 	if ! out="$(ss -tlnH "sport = :${port}" 2>&1)"; then
 		echo "error: ss failed checking port ${port}: ${out}" >&2
 		return 1

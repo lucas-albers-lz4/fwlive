@@ -59,6 +59,7 @@ done
 sdk_matrix_validate_version "$VERSION"
 sdk_matrix_validate_target "$SDK_TARGET"
 validate_matrix_validate_qemu_target "$QEMU_TARGET"
+qemu_lab_require_ss || exit 1
 
 if [[ "$SKIP_BASELINE" -eq 0 ]]; then
 	"${ROOT}/scripts/validate-baseline.sh"

@@ -104,6 +104,7 @@ case "$MODE" in
 			smoke_versions+=("$local_v")
 		done
 		[[ ${#smoke_versions[@]} -ge 1 ]] || { echo "no smokeable versions (snapshot is build-only)" >&2; exit 1; }
+		qemu_lab_require_ss || exit 1
 		"${ROOT}/scripts/validate-baseline.sh"
 		for local_v in "${smoke_versions[@]}"; do
 			"${ROOT}/scripts/validate-openwrt.sh" \

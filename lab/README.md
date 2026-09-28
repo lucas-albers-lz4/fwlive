@@ -3,7 +3,8 @@
 ## Prerequisites
 
 - **Linux Mint** (or other **x86_64** Linux) — current primary dev host
-- `podman compose`, `qemu-system-aarch64` (e.g. `sudo apt install podman podman-compose qemu-system-arm` on Mint/Ubuntu; `podman compose` uses the `podman-compose` provider)
+- `iproute2` (`ss`) for the fail-closed host port checks
+- `podman compose`, `qemu-system-aarch64` (e.g. `sudo apt install iproute2 podman podman-compose qemu-system-arm` on Mint/Ubuntu; `podman compose` uses the `podman-compose` provider)
 
 ## Expected image files (prefer download over build)
 
