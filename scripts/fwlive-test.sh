@@ -19,9 +19,15 @@ fi
 
 # Missing tools fail closed. FWLIVE_ALLOW_SKIP=1 is a loud opt-out only.
 # This runner never runs npm ci (#802).
+if [[ "${CI:-}" == "true" && "${FWLIVE_ALLOW_SKIP:-}" == "1" ]]; then
+	echo "FAIL: FWLIVE_ALLOW_SKIP=1 is not allowed in CI." >&2
+	exit 1
+fi
+fwlive_skipped_gates=0
 fwlive_skip_missing() {
 	local name="$1" hint="$2"
 	if [[ "${FWLIVE_ALLOW_SKIP:-}" == "1" ]]; then
+		fwlive_skipped_gates=$((fwlive_skipped_gates + 1))
 		echo "SKIP: ${name} not on PATH (${hint}). FWLIVE_ALLOW_SKIP=1" >&2
 		return 0
 	fi
@@ -334,4 +340,4 @@ echo "== fwlive fork census (#308 Phase 0a) ==" >&2
 bash "$ROOT/scripts/fork-census.sh" --skip-parse \
 	--expect-filter 7 --expect-poll 12
 
-echo "All fwlive tests passed." >&2
+echo "All fwlive tests passed ($fwlive_skipped_gates gates skipped)." >&2

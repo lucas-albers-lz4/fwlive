@@ -96,7 +96,8 @@ async function testPollHappyPath() {
 
 	await view.fetchEntries();
 	assert.strictEqual(view.lastPollError, false, 'happy poll must clear lastPollError');
-	assert.ok(view.entries.length >= 1, 'happy poll must populate entries');
+	assert.deepStrictEqual(view.entries.map((row) => row.id), ['log:' + SAMPLE_ROW.id],
+		'happy poll must contain exactly the returned row');
 	console.log('fwlive-view poll-error: happy path OK');
 }
 

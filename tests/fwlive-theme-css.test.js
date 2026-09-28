@@ -43,7 +43,7 @@ if (!text.includes("E('style', {}, [css.styleText])"))
 	throw new Error('fwlive.js must inject styles via css.styleText (text-node form)');
 
 const cssMod = (function () {
-	const src = fs.readFileSync(CSS_PATH, 'utf8')
+	const src = "'use strict';\n" + fs.readFileSync(CSS_PATH, 'utf8')
 		.replace(/^'use strict';\s*/, '')
 		.replace(/^'require baseclass';\s*/m, '');
 	const baseclass = { extend: (desc) => desc };

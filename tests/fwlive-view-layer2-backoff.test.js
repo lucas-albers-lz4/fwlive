@@ -7,7 +7,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
 const { loadFwliveModule } = require('./lib/load-fwlive-module');
 
 function fail(msg) {
@@ -313,7 +313,7 @@ async function testEpochDiscardsStale() {
 		return { log: [row], adaptive: 1 };
 	});
 	h.setHidden(false);
-	await sleep(30);
+	await waitFor(() => v.entries.length >= 1);
 	assert.ok(v.entries.length >= 1, 'fresh epoch must apply rows');
 	console.log('fwlive-view layer2: epoch discard OK');
 }
@@ -360,7 +360,6 @@ async function testHideShowWhileInFlightNoOverlap() {
 
 	/* Show queues catch-up while the first request is still gated. */
 	h.setHidden(false);
-	await sleep(10);
 	assert.strictEqual(calls, 1, 'resume catch-up must not overlap the hidden request');
 	assert.strictEqual(
 		v.ensurePollCoordinator().getState().inFlight,
@@ -379,7 +378,7 @@ async function testHideShowWhileInFlightNoOverlap() {
 	assert.strictEqual(calls, 2, 'stale completion must start the queued catch-up');
 
 	release2();
-	await sleep(30);
+	await waitFor(() => !v.ensurePollCoordinator().getState().inFlight);
 	assert.strictEqual(
 		v.ensurePollCoordinator().getState().inFlight,
 		false,
@@ -434,17 +433,17 @@ async function testRefreshTriggersSerialize() {
 
 	releases[0]();
 	await first;
-	await sleep(10);
+	await waitFor(() => calls === 2);
 	assert.strictEqual(calls, 2, 'Pause and Limit must coalesce into one follow-up');
 
 	/* Resume arrives while the queued follow-up is active. */
 	v.onPauseClick();
 	assert.strictEqual(calls, 2, 'Resume must also queue behind the active request');
 	releases[1]();
-	await sleep(10);
+	await waitFor(() => calls === 3);
 	assert.strictEqual(calls, 3, 'Resume must start only after the prior request completes');
 	releases[2]();
-	await sleep(20);
+	await waitFor(() => !v.ensurePollCoordinator().getState().inFlight);
 	assert.strictEqual(
 		v.ensurePollCoordinator().getState().inFlight,
 		false,
@@ -961,7 +960,7 @@ async function testResumeStaleSkipsRender() {
 		v.ensurePollCoordinator().startPolling();
 		if (stale) h.setHidden(true);
 		release();
-		await sleep(20);
+		await waitFor(() => !v.ensurePollCoordinator().getState().inFlight);
 		return renders;
 	}
 	assert.strictEqual(await run(true), 0, 'stale resume completion must not paint');
@@ -1016,16 +1015,15 @@ async function testResumeMergeSurvivesVisibilityRace() {
 		/* Hide/show abandons the first epoch and queues catch-up behind it. */
 		h.setHidden(true);
 		h.setHidden(false);
-		await sleep(10);
 		assert.strictEqual(calls, 1, 'visibility catch-up must not overlap resume request');
 
 		releaseResume();
-		await sleep(20);
+		await waitFor(() => calls === 2);
 		assert.strictEqual(calls, 2, 'queued visibility catch-up must start after resume request');
 		assert.strictEqual(v.resumeMerge, true, 'stale completion must preserve merge obligation');
 		releaseCatchup();
 
-		await sleep(30);
+		await waitFor(() => v.resumeMerge === false);
 		assert.strictEqual(
 			v.resumeMerge,
 			false,
@@ -1087,14 +1085,14 @@ async function testUnpauseDuringPausedPollRetainsBuffer() {
 	v.ensurePollCoordinator().startPolling();
 
 	const first = v.requestPoll();
-	await sleep(10);
+	await waitFor(() => calls === 1);
 	assert.strictEqual(calls, 1, 'paused poll must be active before unpause');
 
 	v.onPauseClick();
 	assert.strictEqual(v.tablePaused, false, 'unpause must change the table state immediately');
 	releaseFirst();
 	await first;
-	await sleep(20);
+	await waitFor(() => calls === 2);
 	assert.strictEqual(calls, 2, 'unpause must leave one queued catch-up poll');
 	assert.ok(
 		v.entries.some(function (e) {
@@ -1105,7 +1103,7 @@ async function testUnpauseDuringPausedPollRetainsBuffer() {
 	assert.ok(v.entries.length <= v.rowLimit, 'live row limit must apply after unpause');
 
 	releaseCatchup();
-	await sleep(20);
+	await waitFor(() => v.resumeMerge === false);
 	assert.strictEqual(v.resumeMerge, false, 'catch-up poll must clear resumeMerge');
 	assert.ok(
 		v.entries.some(function (e) {
@@ -1155,14 +1153,14 @@ async function testPauseDuringLivePollRetainsBuffer() {
 	v.ensurePollCoordinator().startPolling();
 
 	const first = v.requestPoll();
-	await sleep(10);
+	await waitFor(() => calls === 1);
 	assert.strictEqual(calls, 1, 'live poll must be active before pause');
 
 	v.onPauseClick();
 	assert.strictEqual(v.tablePaused, true, 'pause must change the table state immediately');
 	releaseFirst();
 	await first;
-	await sleep(20);
+	await waitFor(() => calls === 2);
 	assert.strictEqual(calls, 2, 'pause must leave one queued catch-up poll');
 	assert.ok(
 		v.entries.some(function (e) {
@@ -1178,7 +1176,7 @@ async function testPauseDuringLivePollRetainsBuffer() {
 	);
 
 	releaseCatchup();
-	await sleep(20);
+	await waitFor(() => !v.ensurePollCoordinator().getState().inFlight);
 	console.log('fwlive-view layer2: pause during live poll retains buffer OK');
 }
 
@@ -1315,7 +1313,7 @@ async function testLimitRefreshPreservesQueuedForce() {
 	v.scheduleRenderRows(false);
 	v.onRowLimitChange({ target: { value: '500' } });
 	assert.deepStrictEqual(renders, [true], 'Limit paints the current buffer immediately');
-	await sleep(0);
+	await waitFor(() => renders.length === 2);
 	assert.deepStrictEqual(renders, [true, true], 'Limit paints again after refresh');
 	frames.shift()();
 	assert.deepStrictEqual(
@@ -1409,6 +1407,8 @@ async function testResolveCompletionDefersPaintWhilePaused() {
 	};
 
 	const resolve = v.resolveHostnamesForEntries(v.filteredRows());
+	/* This negative assertion observes an in-flight interval, so let the
+	 * resolver enter its pending state before checking for an absent paint. */
 	await sleep(10);
 	assert.strictEqual(renders.length, 0, 'resolve must not paint while paused and in flight');
 	assert.strictEqual(
@@ -1443,7 +1443,7 @@ async function testResolveCompletionDefersPaintWhilePaused() {
 	};
 	v.onPauseClick();
 	assert.strictEqual(v.tablePaused, false, 'resume must unpause');
-	await sleep(10);
+	await waitFor(() => renders.length === 1);
 	assert.strictEqual(renders.length, 1, 'resume must apply coalesced hostname paint');
 	assert.strictEqual(v.resolvePaintPending, false, 'resume paint must clear pending flag');
 	console.log('fwlive-view layer2: resolve completion defers paint while paused OK');
@@ -1586,6 +1586,7 @@ async function testHostnameToggleAsyncResolveDefersPaintWhilePaused() {
 	assert.strictEqual(renders.length, 0, 'toggle-on must not paint while paused');
 	assert.strictEqual(scheduled.length, 0, 'toggle-on must not schedule paint while paused');
 
+	/* Keep the async resolver pending while checking that no paint occurs. */
 	await sleep(10);
 	assert.strictEqual(
 		renders.length,
@@ -1594,7 +1595,7 @@ async function testHostnameToggleAsyncResolveDefersPaintWhilePaused() {
 	);
 
 	release();
-	await sleep(20);
+	await waitFor(() => v.resolvePaintPending === true);
 	assert.strictEqual(
 		renders.length,
 		0,
@@ -1672,7 +1673,6 @@ async function testPausedDisplayControlsPaint() {
 		await testHiddenTabKeepsPendingResolvePaint();
 		await testHostnameToggleAsyncResolveDefersPaintWhilePaused();
 		await testPausedDisplayControlsPaint();
-		await sleep(20);
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {
 		fail(e && e.stack ? e.stack : String(e));

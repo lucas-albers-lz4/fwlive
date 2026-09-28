@@ -71,6 +71,10 @@ function createHarnessDocument() {
 			if (typeof selector !== 'string') return null;
 			const parts = selector.trim().split(/\s+/);
 			if (!parts[0]) return null;
+			/* The fake DOM supports simple descendant selectors only. Reject other
+			 * CSS syntax before looking for nodes, including when the first node is absent. */
+			if (parts.some((part) => !/^(?:#[A-Za-z_][\w-]*|\.[A-Za-z_][\w-]*|[A-Za-z][\w-]*(?::not\(\.[A-Za-z_][\w-]*\))?)$/.test(part)))
+				throw new Error('unsupported harness selector: ' + selector);
 			if (parts[0].charAt(0) === '#') {
 				const el = idMap[parts[0].slice(1)] || null;
 				if (!el || parts.length === 1) return el;
@@ -363,15 +367,20 @@ function loadFwliveView(options) {
 function waitFor(check, timeoutMs) {
 	const deadline = Date.now() + (timeoutMs || 1000);
 	return new Promise(function (resolve, reject) {
+		let lastError = null;
 		function tick() {
 			let ready = false;
 			try {
 				ready = !!check();
 			} catch (e) {
+				lastError = e;
 				ready = false;
 			}
 			if (ready) return resolve();
-			if (Date.now() >= deadline) return reject(new Error('waitFor timeout'));
+			if (Date.now() >= deadline) {
+				const detail = lastError ? ': last predicate error: ' + lastError.message : '';
+				return reject(new Error('waitFor timeout' + detail, { cause: lastError || undefined }));
+			}
 			setImmediate(tick);
 		}
 		tick();

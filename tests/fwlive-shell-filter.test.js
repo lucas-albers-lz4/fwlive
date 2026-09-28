@@ -400,17 +400,20 @@ function runJsonModeTwoEntries() {
 	const keep1 = '{"msg":"fw4: DROP IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP"}';
 	const noise = '{"msg":"dnsmasq[1]: query example.com"}';
 	const keep2 = '{"msg":"fw4: ACCEPT IN=lan OUT= SRC=192.168.1.10 DST=192.168.1.1 PROTO=UDP"}';
+	const env = { ...process.env, FILTER_DIR: path.dirname(IS_FW), IS_FW: IS_FW,
+		L1: keep1, NOISE: noise, L2: keep2 };
+	assert.equal(shSpawn(
+		'. "$IS_FW" && printf \'%s\\n\' "$NOISE" | _fwlive_filter_json_entries',
+		{ env: env }
+	), '', 'MODE=json must emit empty output for zero matches');
+	assert.equal(shSpawn(
+		'. "$IS_FW" && printf \'%s\\n\' "$L1" | _fwlive_filter_json_entries',
+		{ env: env }
+	), keep1, 'MODE=json must emit one bare record without comma or newline');
 	const out = shSpawn(
 		'. "$IS_FW" && printf \'%s\\n\' "$L1" "$NOISE" "$L2" | _fwlive_filter_json_entries',
 		{
-			env: {
-				...process.env,
-				FILTER_DIR: path.dirname(IS_FW),
-				IS_FW: IS_FW,
-				L1: keep1,
-				NOISE: noise,
-				L2: keep2
-			}
+			env: env
 		}
 	);
 	assert.equal(out, keep1 + ',' + keep2,
