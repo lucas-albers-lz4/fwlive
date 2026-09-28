@@ -2,6 +2,12 @@
 
 Headless OpenWrt guests for install and smoke testing without hardware.
 
+## Host prerequisite
+
+The QEMU scripts use `ss` from `iproute2` for fail-closed host port checks.
+Install it on Mint/Ubuntu with `sudo apt install iproute2`. If `ss` is missing
+or its check fails, the scripts stop rather than assuming the port is free.
+
 ## Images
 
 Downloaded to `lab/images/`:

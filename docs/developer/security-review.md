@@ -403,7 +403,7 @@ should carry a note saying what would raise it.
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-09-20 | Read + host test | #411: every `src-git` lock line is a 40-hex commit (`tests/feeds-lock-pins.test.sh`); 23.05 `base` is peeled `v23.05.5`; cache reuse checks HEAD and a clean work tree (including untracked files) |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
-| Lab feed/QEMU lifecycle helpers | 2026-09-27 | Delta + host/stub tests | #925: readiness uses a read-only SSH probe, caps connect timeout and sleep to remaining `MAX_WAIT`, and wraps the full SSH process in a wall-clock timeout; optional `--cmd` runs once with a separately recomputed connection timeout/status marker. `tests/qemu-wait-guest-feed-smoke.test.sh` covers hung probes and SSH/sleep stubs; no guest-side QEMU result or SSH trust change is claimed. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
+| Lab feed/QEMU lifecycle helpers | 2026-09-28 | Delta + host/stub tests | #957: documents the `iproute2`/`ss` host prerequisite; both port-check helpers report an install hint when `ss` is missing and fail closed on errors. QEMU validation entry points preflight `ss` before baseline checks, SDK builds, image downloads, or preparation. #925: readiness uses a read-only SSH probe, caps connect timeout and sleep to remaining `MAX_WAIT`, and wraps the full SSH process in a wall-clock timeout; optional `--cmd` runs once with a separately recomputed connection timeout/status marker. `tests/qemu-wait-guest-feed-smoke.test.sh` covers hung probes and SSH/sleep stubs; no guest-side QEMU result or SSH trust change is claimed. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
 | Lab honest-gap smokes | 2026-09-04 | Lab smoke | `scripts/qemu-security-gaps-smoke.sh` gaps 1–3 green 2026-09-04; gap-2 BusyBox `flock` (no `-w`) accepted residual; `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
 
 ## Controls in force
@@ -599,6 +599,26 @@ otherwise have overstated. Our docs are a summary of a past reading; upstream is
 the fact.
 
 ## Audit history
+
+### 2026-09-28 — #957 QEMU lab `iproute2` prerequisite
+
+**Scope.** Host port checks in `scripts/lib/qemu-lab-net.sh`, QEMU validation
+preflights in `scripts/lib/validate-matrix.sh` and the validation entry points,
+plus the two lab documentation entry points. The checks now explain that `ss`
+comes from `iproute2` and give the Mint/Ubuntu install command.
+
+**Method.** Read both port-check call paths and the matrix callers. ShellCheck
+and the host port-check CI job provide the validation gates for this change;
+no live QEMU host was used in this delta.
+
+**Non-findings.** Invalid ports, missing `ss`, `ss` errors, and occupied ports
+still stop the operation. The patch does not change which ports are checked,
+the bind address, or QEMU startup behavior when checks succeed. No new command
+input, network binding, or trust boundary is introduced.
+
+**Result.** The port checks remain fail-closed, with an actionable prerequisite
+message for unsupported hosts. Proof class remains `host`; no live lab result
+is claimed.
 
 ### 2026-09-27 — #925 bounded QEMU guest readiness wait
 

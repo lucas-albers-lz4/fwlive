@@ -106,6 +106,7 @@ validate_matrix_assert_qemu_up() {
 	port="${OPENWRT_SSH_PORT:-2222}"
 	console="$(validate_matrix_console_log "$qemu_target")"
 	qemu_lab_validate_port OPENWRT_SSH_PORT "$port" || return 1
+	qemu_lab_require_ss || return 1
 	if ! kill -0 "$pid" 2>/dev/null; then
 		echo "validate: QEMU process ${pid} is not running" >&2
 		validate_matrix_dump_console "$console"
@@ -151,6 +152,7 @@ validate_matrix_stop_qemu() {
 
 validate_matrix_start_qemu() {
 	local qemu_target="$1" version_key="$2" root lab_slug child_pid
+	qemu_lab_require_ss || return 1
 	root="$(validate_matrix_root)"
 	lab_slug="$(validate_matrix_lab_slug "$version_key")"
 	validate_matrix_stop_one "$qemu_target"
@@ -213,6 +215,7 @@ validate_matrix_smoke() {
 validate_matrix_run_cell() {
 	local version_key="$1" qemu_target="$2" sdk_target="$3" skip_build="${4:-0}"
 	local release_patch version_label lab_slug img root
+	qemu_lab_require_ss || return 1
 	root="$(validate_matrix_root)"
 	release_patch="$(validate_matrix_release_patch "$version_key")"
 	lab_slug="$(validate_matrix_lab_slug "$version_key")"

@@ -37,6 +37,7 @@ done
 
 sdk_matrix_validate_version "$VERSION"
 validate_matrix_validate_qemu_target "$QEMU_TARGET"
+qemu_lab_require_ss || exit 1
 
 lab_slug="$(validate_matrix_lab_slug "$VERSION")"
 img="$(validate_matrix_image_path "$QEMU_TARGET" "$VERSION")"
