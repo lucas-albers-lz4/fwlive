@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.47] — 2026-09-28
+
+### Fixed
+- Bound rpcd rules-map traversal and peer-drain work, and reject malformed classifier specifications and rules (#969, #977, #978)
+- Harden feed point-release pin coverage, SDK build-all argument handling, and QEMU guest readiness deadlines (#968, #970, #976)
+- Strengthen view regression contracts and refresh BusyBox classifier/rpcd coverage (#941, #979)
+- Clarify Summary-mode recovery, QEMU release guidance, and required lab tooling (#959, #926, #975)
+
 ### Changed
 - Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
 
@@ -102,6 +110,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refuse an upstream cut on a dirty package tree, split onto a temporary branch unless `--replace`, and skip non-UTF-8 assets instead of crashing (#841)
 - Expand a log row from the Time cell, not Action — Action is a filter link (#822)
 - Enter Summary mode on the first slow poll; three fast samples still leave it (#786)
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.46] — 2026-09-26
 
@@ -689,3 +705,4 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.3]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.2...v0.1.3
 [v0.1.2]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.1...v0.1.2
 [v0.1.1]: https://github.com/lucas-albers-lz4/fwlive/releases/tag/v0.1.1
+[v0.1.47]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.46...v0.1.47
