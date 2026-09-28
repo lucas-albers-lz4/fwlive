@@ -403,7 +403,7 @@ should carry a note saying what would raise it.
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-09-20 | Read + host test | #411: every `src-git` lock line is a 40-hex commit (`tests/feeds-lock-pins.test.sh`); 23.05 `base` is peeled `v23.05.5`; cache reuse checks HEAD and a clean work tree (including untracked files) |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
-| Lab feed/QEMU lifecycle helpers | 2026-09-27 | Delta + host/stub tests | #854/#857/#862/#863: reviewed URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown. `tests/qemu-install-from-feed.test.sh`, `tests/qemu-lifecycle.test.sh`, `tests/qemu-lab-ports.test.sh` ran in the host suite; guest-side behavior and SSH trust were not re-verified in QEMU |
+| Lab feed/QEMU lifecycle helpers | 2026-09-27 | Delta + host/stub tests | #925: readiness uses a read-only SSH probe, caps connect timeout and sleep to remaining `MAX_WAIT`, and wraps the full SSH process in a wall-clock timeout; optional `--cmd` runs once with a separately recomputed connection timeout/status marker. `tests/qemu-wait-guest-feed-smoke.test.sh` covers hung probes and SSH/sleep stubs; no guest-side QEMU result or SSH trust change is claimed. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
 | Lab honest-gap smokes | 2026-09-04 | Lab smoke | `scripts/qemu-security-gaps-smoke.sh` gaps 1–3 green 2026-09-04; gap-2 BusyBox `flock` (no `-w`) accepted residual; `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
 
 ## Controls in force
@@ -599,6 +599,40 @@ otherwise have overstated. Our docs are a summary of a past reading; upstream is
 the fact.
 
 ## Audit history
+
+### 2026-09-27 — #925 bounded QEMU guest readiness wait
+
+**Scope.** `scripts/qemu-wait-guest.sh` readiness and optional `--cmd`
+execution. The retry loop now uses the fixed read-only `echo READY` probe,
+limits each SSH `ConnectTimeout` and post-failure sleep to the remaining
+`MAX_WAIT`, and wraps the full SSH probe process in a wall-clock timeout. It
+runs a caller-provided command only once after readiness, recomputing that
+connection's timeout from the remaining budget. The remote command runs
+through a quoted `sh -c` argument and returns its status through a
+per-invocation marker; SSH failures after readiness report that the command
+may have run and are not retried.
+
+**Method.** `tests/qemu-wait-guest-feed-smoke.test.sh` covers bounded timeout
+and sleep, a probe that connects but hangs, recomputed command connection
+timeout after probe delay, nonzero remote command results including exit 255,
+a post-probe transport failure, and missing status-marker handling. Shell
+syntax and ShellCheck pass. No live QEMU guest was used. Documented `--cmd`
+usage is read-only (`uname -r`); the matrix caller supplies no command.
+
+**Non-findings.** The fixed readiness probe does not interpolate caller input.
+The optional command remains explicit operator input, quoted as one `sh -c`
+argument, and is not retried after transport loss. This change adds no SSH
+credential source, ACL grant, rpcd method, or frontend sink. Existing disabled
+host-key checking is unchanged and was not revalidated as a trust control.
+
+**Result.** The SSH readiness probe and retry sleeps stay within the configured
+wait budget to shell-second precision. The optional command starts only after
+readiness succeeds, runs once, and may take as long as the remote command
+itself; command execution is outside the readiness wait budget. Failed
+commands are reported as command failures and are not replayed. No new trust
+boundary, SSH credential, or privileged command source is introduced; the
+optional command remains explicit operator input. No QEMU behavior or host-key
+verification result is inferred from the stubs.
 
 ### 2026-09-27 — #894 bounded UCI rule-name map
 
