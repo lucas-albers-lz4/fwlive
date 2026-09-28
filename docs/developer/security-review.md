@@ -1,10 +1,11 @@
 # Security review state
 
 > **2026-09-27 delta review (master `73a7a6a2f5`, after #869):**
-> #854/#857/#862/#863 harden lab feed-source replacement, URL transport, host-port
-> checks and QEMU process ownership; these are host/lab scripts, not shipped rpcd
-> methods. #864 isolates SDK probe state and retains caller traps; #865 accepts both
-> APK artifact spellings in the reproducibility check. Host tests cover these
+> PR #854 (issue #841) and PRs #857/#862/#863 harden lab feed-source replacement,
+> URL transport, host-port checks and QEMU process ownership; these are host/lab
+> scripts, not shipped rpcd methods. PR #864 (issues #811–#814) isolates SDK
+> probe state, retains caller traps, honors explicit build-all filters, and bounds Pages checks; #865 accepts both APK
+> artifact spellings in the reproducibility check. Host tests cover these
 > contracts; no real feed publish or QEMU boot was run in this review.
 > #866/#867 alter buffering, scoped-IP display, frame reservations, keyed row
 > paints and scroll status. Untrusted log/PTR/hash values still reach the examined
@@ -394,7 +395,7 @@ should carry a note saying what would raise it.
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-09-27 | Host + dated lab | `/etc/fwlive/wan-log-baseline`; packaged opkg `remove` and APK version-valued `pre-deinstall` restore, while `upgrade`/empty/unknown/`PKG_UPGRADE=1`/`1a2` and non-root staging roots skip (host matrix). Uninstall restoration: [#389 evidence](../evidence/issue-389-2026-09-20.md). A 25.12.5 version-changing APK upgrade preserved the bit/marker and invoked `post-upgrade`, not this `pre-deinstall` hook ([#848 evidence](../evidence/issue-848-2026-09-27.md)) |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-09-26 | Delta + host test | #606 rejects oversized `log`; #663 keeps baseline on failed reload; #869 snapshot checks unsafe directory paths. `tests/fwlive-logging.test.sh` passed on master. Earlier canonical `uci -X` cfg identity/B-1 and installed proof remain separately dated; package-wide commit residual still accepted |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
-| Release pipeline — fetch pinning and artifact selection | 2026-09-27 | Delta + host tests | #864 SDK `mkhash` probe isolation / trap preservation (`tests/feed-sdk-wave15.test.sh`); #865 `_`/`-` APK reproducibility path (`tests/verify-reproducible-target-arch.test.sh`). Existing R7 digest pin-before-secret-mount and pinned helper checks remain host-tested; no live signing/publish in this pass |
+| Release pipeline — version pins, fetch pinning and artifact selection | 2026-09-28 | Delta + targeted host tests | #804 via PR #852: SDK validation rejects off-pin versions; #806 maps numeric point-release labels to their major.minor feed line (`tests/sdk-matrix-release-labels.test.sh`, `tests/feed-publish-release-assets.test.sh`); #766 staging deletion guard remains in its 2026-09-26 delta. Issues #811–#814 via PR #864 cover Pages timeouts, SDK probe isolation, trap preservation and explicit build-all filters (`tests/wait-feed-pages.test.sh`, `tests/feed-sdk-wave15.test.sh`). #891 adds exact-label checks for the per-patch index-script pin and installer fallback (`tests/pin-sites.test.sh`). PR #854 (issue #841) and the R7 digest pin-before-secret-mount are recorded above; no live signing/publish or QEMU was run in this pass |
 | Workflow inputs into `run:` bodies | 2026-09-27 | Delta + source read | Actions remain SHA-pinned (including `FEED_DEPLOY_KEY`), no expression inserted directly into a `run:` body; dispatch tag still passes via `env:`. This is a source check, not a new tag/publish run |
 | LuCI view (templates / shipped JS) | 2026-09-27 | Delta + host / mocked view | #866/#867: scoped-IP display and hostname-keyed row reuse; text-child boundary rechecked in `tests/fwlive-e-harness.test.js` and `tests/fwlive-chips-hash.test.js`. #870–#873 harness assertions improved; `npm run test:view` passed with mocked services. No installed LuCI or new XSS proof is inferred from that smoke |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-09-26 | Delta + built artifacts + lab | #761: unconditional `+coreutils-timeout`; actual 23.05/24.10 IPK and 25.12 APK metadata checked; 24.10.8 opkg upgrade from 0.1.46 to test candidate 0.1.47 auto-installed provider. Existing lifecycle hooks unchanged |
@@ -599,6 +600,40 @@ otherwise have overstated. Our docs are a summary of a past reading; upstream is
 the fact.
 
 ## Audit history
+
+### 2026-09-28 — #891/#923/#893 release/feed consistency
+
+**Scope.** The point-release checklist and its per-patch helper/fallback sites;
+the unused `release_patch` assignment in `validate_matrix_run_cell`; and the
+release-pipeline ledger trail for #852. #804/#806 were fixed by #852 but had
+not been named in the ledger; #766's staging deletion guard already has its
+own dated entry. The 2026-09-27 note already recorded PR #854 (issue #841)
+and PR #864; this pass adds the explicit #811–#814 issue references and fills
+the #804/#806 gap.
+
+**Method.** Read `sdk_matrix_validate_version`, `feed_publish_line_key`, the
+per-patch `ipkg-make-index.sh` case, the QEMU installer fallback, and their
+focused tests. `tests/sdk-matrix-release-labels.test.sh`,
+`tests/feed-publish-release-assets.test.sh`,
+`tests/feed-publish-staging-guard.test.sh`, `tests/feed-sdk-wave15.test.sh`,
+`tests/wait-feed-pages.test.sh`, `tests/feed-keys-mode.test.sh`, and the new
+`tests/pin-sites.test.sh` provide host validation. Checked key-file ignore
+rules, found no fixed `.tmp` secret writes, and reviewed release helper/workflow
+neighbors for secret staging and SHA-pinned actions; no live publish or QEMU
+run was performed.
+
+**Non-findings.** `sdk_matrix_validate_version` rejects off-pin versions before
+SDK selection, while `feed_publish_line_key` intentionally maps numeric
+off-pin labels such as `24.10.9` to the `24.10` feed line; malformed feed
+labels fail closed. Removing the unused `release_patch` local does not alter
+cell behavior. The new parity test covers only the per-patch index helper and
+installer fallback; the other checklist entries remain manual checks. No
+signing-key, ACL, DOM-sink, or read/write-scope change is introduced.
+
+**Result.** The #852 release-label controls and #891 omitted call sites are
+now traceable in the ledger and point-release checklist. Proof remains `host`
+for tests and `manual` for the remaining pin-site review; no release or lab
+result is claimed.
 
 ### 2026-09-28 — #957 QEMU lab `iproute2` prerequisite
 
