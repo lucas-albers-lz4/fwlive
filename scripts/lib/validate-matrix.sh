@@ -214,10 +214,9 @@ validate_matrix_smoke() {
 # Args: version_key qemu_target sdk_target skip_build
 validate_matrix_run_cell() {
 	local version_key="$1" qemu_target="$2" sdk_target="$3" skip_build="${4:-0}"
-	local release_patch version_label lab_slug img root
+	local version_label lab_slug img root
 	qemu_lab_require_ss || return 1
 	root="$(validate_matrix_root)"
-	release_patch="$(validate_matrix_release_patch "$version_key")"
 	lab_slug="$(validate_matrix_lab_slug "$version_key")"
 	version_label="$(validate_matrix_version_label "$version_key")"
 	img="$(validate_matrix_image_path "$qemu_target" "$version_key")"

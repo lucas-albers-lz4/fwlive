@@ -270,11 +270,16 @@ docker run --rm ghcr.io/openwrt/sdk:x86-64-24.10.9 cat feeds.conf.default
 # Replace any `;branch` src-git ref with the peeled 40-hex commit
 # (`git ls-remote … 'refs/tags/vX.Y.Z^{}'`). `tests/feeds-lock-pins.test.sh`
 # rejects unpinned src-git lines.
-# Update every pin site, then run tests/sdk-matrix-release-labels.test.sh:
+# Update every pin site. The two tests below cover the matrix version-label
+# mapping and the per-patch helper/fallback sites; verify the remaining entries
+# in this checklist directly because neither test covers the whole list.
+# Run tests/sdk-matrix-release-labels.test.sh and tests/pin-sites.test.sh:
 #   scripts/lib/sdk-matrix.sh          sdk_matrix_version_patch
 #   scripts/lib/feed-publish.sh        feed_publish_feed_dir (major.minor layout)
+#                                      feed_publish_ipkg_index_script (commit + sha256 per patch)
 #   scripts/download-openwrt-x86-64.sh RELEASE default + `== "24.10.x"` symlink
 #   scripts/download-openwrt-armsr-armv8.sh  same
+#   scripts/qemu-install-fwlive.sh     no-artifact artifact-search fallback labels
 #   scripts/verify-reproducible-build.sh     (line keys stay 23.05/24.10/25.12)
 #   scripts/validate-baseline.sh       feeds.lock/<patch>/feeds.conf list
 #   .github/workflows/publish-packages.yml   cache-dir pre-create labels
