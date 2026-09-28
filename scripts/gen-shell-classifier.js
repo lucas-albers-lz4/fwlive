@@ -81,13 +81,17 @@ function awkTrimPattern(chars) {
 }
 
 function emitAwkPred(node) {
-	if (node.kv)
+	const keys = Object.keys(node);
+	if (keys.length !== 1)
+		throw new Error('CLASSIFY_SPEC predicate node must have exactly one key: ' + JSON.stringify(node));
+	const key = keys[0];
+	if (key === 'kv' && Array.isArray(node.kv))
 		return node.kv.map(function(k) { return 'has_kv(s, "' + k + '")'; }).join(' && ');
-	if (node.kvAny)
+	if (key === 'kvAny' && Array.isArray(node.kvAny))
 		return '(' + node.kvAny.map(function(k) { return 'has_kv(s, "' + k + '")'; }).join(' || ') + ')';
-	if (node.action === 'known')
+	if (key === 'action' && node.action === 'known')
 		return 'action != "UNKNOWN"';
-	if (node.hint)
+	if (key === 'hint' && node.hint === true)
 		return 'has_hint(s)';
 	throw new Error('unrecognised CLASSIFY_SPEC predicate node: ' + JSON.stringify(node));
 }
@@ -96,14 +100,20 @@ function emitAwkAnd(node) {
 	return node.and.map(emitAwkPred).join(' && ');
 }
 
-function emitAwkRules() {
+function emitAwkRules(rules) {
 	const lines = [];
-	for (let i = 0; i < SPEC.rules.length; i++) {
-		const rule = SPEC.rules[i];
-		if (rule.or) {
+	const sourceRules = rules === undefined ? SPEC.rules : rules;
+	for (let i = 0; i < sourceRules.length; i++) {
+		const rule = sourceRules[i];
+		const keys = rule && typeof rule === 'object' ? Object.keys(rule) : [];
+		if (keys.length !== 1 || (keys[0] !== 'or' && keys[0] !== 'and'))
+			throw new Error('unrecognised CLASSIFY_SPEC rule: ' + JSON.stringify(rule));
+		if (keys[0] === 'or') {
+			if (!Array.isArray(rule.or))
+				throw new Error('CLASSIFY_SPEC or rule must be an array');
 			for (let j = 0; j < rule.or.length; j++)
 				lines.push('\tif (' + emitAwkAnd(rule.or[j]) + ') return 1');
-		} else if (rule.and) {
+		} else {
 			lines.push('\tif (' + emitAwkAnd(rule) + ') return 1');
 		}
 	}
@@ -403,4 +413,4 @@ if (require.main === module) {
 	process.stdout.write(process.argv[2] === '--awk' ? awkOut : out);
 }
 
-module.exports = { emitAwkPred };
+module.exports = { emitAwkPred, emitAwkRules };
