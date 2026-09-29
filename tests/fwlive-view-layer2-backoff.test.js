@@ -1472,7 +1472,12 @@ function testLeaveSummaryModeClearsResolvePaintPending() {
 }
 
 async function testCatchupPollForcesPendingHostnamePaint() {
+	const frames = [];
 	const h = loadFwliveView({
+		requestAnimationFrame: function (fn) {
+			frames.push(fn);
+			return frames.length;
+		},
 		rpcMocks: {
 			'fwlive.poll': async function () {
 				return { log: [], adaptive: 1 };
@@ -1485,27 +1490,30 @@ async function testCatchupPollForcesPendingHostnamePaint() {
 	const v = h.view;
 	v.tablePaused = false;
 	v.summaryMode = false;
-	const scheduled = [];
-	v.scheduleRenderRows = function (force) {
-		scheduled.push(!!force);
+	const paints = [];
+	const renderRows = v.renderRows;
+	v.renderRows = function (force) {
+		paints.push(!!force);
+		return renderRows.call(this, force);
 	};
 	v.scheduleResolvePaint();
 	assert.strictEqual(
 		v.resolvePaintPending,
 		true,
-		'scheduleResolvePaint must keep pending until a later poll consumes it'
+		'scheduleResolvePaint must keep pending until the scheduled paint lands'
 	);
-	assert.deepStrictEqual(scheduled, [true], 'visible resolve paint is forced');
+	assert.ok(frames.length, 'visible resolve paint must queue a frame');
+	frames.shift()();
+	assert.deepStrictEqual(paints, [true], 'visible resolve paint must be forced');
+	assert.strictEqual(v.resolvePaintPending, false, 'the visible paint must clear the pending flag');
+
 	v.fetchEntries = async function () {};
 	v.resolveHostnamesForEntries = async function () {};
 	await v.runPollRequest(v.currentPollEpoch());
-	assert.deepStrictEqual(
-		scheduled,
-		[true, true],
-		'catch-up poll must force coalesced hostname paint'
-	);
+	while (frames.length) frames.shift()();
+	assert.deepStrictEqual(paints, [true, false], 'the next poll must not force a second paint');
 	assert.strictEqual(v.resolvePaintPending, false, 'catch-up poll must clear pending flag');
-	console.log('fwlive-view layer2: catch-up poll forces pending hostname paint OK');
+	console.log('fwlive-view layer2: visible resolve paint consumes pending force once OK');
 }
 
 async function testHiddenTabKeepsPendingResolvePaint() {

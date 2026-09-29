@@ -166,7 +166,7 @@ return view.extend({
 	hostnameFailed: null,
 	resolveInFlight: false,
 	resolveGeneration: 0,
-	/* Coalesce hostname-cache paints deferred while tablePaused. */
+	/* Track hostname paints queued or deferred until a visible forced paint. */
 	resolvePaintPending: false,
 	lastPollError: false,
 	lastPollErrorCode: null,
@@ -2118,6 +2118,7 @@ return view.extend({
 				actionRowTintClass: (action) => this.actionRowTintClass(action)
 			}
 		);
+		if (force && !this.isTabHidden()) this.resolvePaintPending = false;
 
 		if (scroll) {
 			if (!this.tablePaused && this.followLive) scroll.scrollTop = 0;
