@@ -26,7 +26,9 @@ sudo apt install build-essential libncurses-dev gawk docker.io docker-compose-v2
   qemu-system-x86 qemu-system-arm curl git nodejs iproute2 busybox binutils tar xz-utils pipx
 ```
 
-The host test suite also needs `ruff`; install it with `pipx install ruff`.
+The host test suite also needs `ruff`; install it with `pipx install ruff`, then
+run `pipx ensurepath`. Start a new shell or update `PATH` before running the
+suite.
 
 ## Minimal loop (x86 lab — ~5 commands)
 

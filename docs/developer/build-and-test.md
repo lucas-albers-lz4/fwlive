@@ -37,8 +37,9 @@ shell codegen + LuCI wrapper gate (`./scripts/gen-all.sh`), and shellcheck on sh
 rules for shipped JS (`./scripts/fwlive-ast-grep.sh`, ast-grep 0.45.3, rules in
 `scripts/ast-grep-rules/`). The supported test host is Linux x86_64. The host
 suite requires `busybox` and `ruff`; on Debian or Ubuntu install them with
-`sudo apt install busybox` and `pipx install ruff`. macOS is documentation-only;
-see [`environment.md`](environment.md).
+`sudo apt install busybox` and `pipx install ruff`. Then run `pipx ensurepath`
+and start a new shell (or update `PATH`) before running the suite. macOS is
+documentation-only; see [`environment.md`](environment.md).
 
 The BusyBox awk classifier lane needs outbound HTTPS plus `curl`, `sha256sum`,
 `ar`, `tar`, and `xz` on a cold cache. It fetches the pinned Debian
