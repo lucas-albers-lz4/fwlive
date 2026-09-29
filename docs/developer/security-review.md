@@ -391,13 +391,13 @@ should carry a note saying what would raise it.
 | Frontend rendering sinks (`E()` string children) | 2026-09-27 | Delta + recording harness | #866/#867 changed table paint/key paths; reviewed dynamic `E()` children and empty-only `innerHTML` clears; `fwlive-e-harness`, `fwlive-table-keyed`, view smoke passed. #907 passes the already computed render key into rebuilt rows; dynamic `E()` children and text-node behavior are unchanged. Last broader hostile-input sweep remains 2026-08-13 (#177) |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-09-27 | Delta + host harness | #866/#867 scoped-IP hostname/cache and keyed paints reviewed; hostile log/PTR/hash/chip paths exercised in `fwlive-e-harness`, `fwlive-chips-hash`, and mocked view smoke. Earlier broad UCI trace: #177 (2026-08-13); this was not a new full-source sweep |
 | rpcd plugin + ACL scope | 2026-09-27 | Delta + host test + lab | #894 parses anonymous/named UCI rule names from one `uci show` result, caps processing at 512 names, and removes per-section `uci get`; duplicate-name flood test asserts truncation and retained first name. #761 timeout provider unchanged. #768: non-zero filter stdout is kept only when it is a complete shipped `{"log":[],"error":…}` object; truncated bodies become `filter_failed`. #771: `slug_key` / cosmetic prefixes use `printf '%s\\n'`. #827: `resolve` budget uses `fwlive_adaptive_clock_cs` (`/proc/uptime`) against `RESOLVE_BUDGET * 100`; `RESOLVE_MAX` still bounds work if uptime is unreadable. ACL method parity/read-write split and no `ubus log.*` unchanged. #898 peer-drain fractional-sleep fallback and #896 selftest counter reset were checked against the root call path; #900 error-body parity is host-asserted. #416 retains anonymous/named UCI names; #378 remains nft-only. Installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
-| Shell helpers — injection and quoting | 2026-09-27 | Delta + host test | #898 changes only the peer-drain sleep fallback; positional timeout arguments and filtered stdin remain intact.  #768: `fwlive_adaptive_merge_reply` does not splice adaptive keys into an unclosed JSON array. #771: untrusted prefix/name strings no longer pass through `echo`. #761 GNU timeout arguments remain positional. #365/#366 retain quoted temp paths and `check_eq` behavior |
+| Shell helpers — injection and quoting | 2026-09-28 | Delta + host tests | #987: BusyBox awk test helper gates the amd64-only binary lane, keeps the artifact SHA-256 check after URL overrides, and bounds curl connection/transfer/retry time; each cached package is reverified and the executable plus wrapper are recreated from it. `tests/fwlive-test-busybox-awk.test.sh` covers skip/fail policy, poisoned extracted-cache recovery, checksum override enforcement, and timeout flags. The downloaded program runs as the test user, outside the privileged router path. #898 changes only the peer-drain sleep fallback; positional timeout arguments and filtered stdin remain intact. #768 merge-reply JSON and #771 prefix `printf` protections remain unchanged; #761 GNU timeout arguments remain positional; #365/#366 retain quoted temp paths and `check_eq` behavior |
 | Shell helpers — **file modes and lock ownership** | 2026-09-26 | Delta + host test | #869: baseline snapshot rejects symlink/unsafe `/etc/fwlive` dir and adaptive state refuses group/other-writable dirs (`tests/fwlive-logging.test.sh`, `tests/fwlive-adaptive-cap.test.sh`). Earlier lock 0600 and symlink checks: #204/#232 (`tests/fwlive-logging-lock.test.sh` Parts D–F); no new device-mode check in this delta |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-09-27 | Host + dated lab | `/etc/fwlive/wan-log-baseline`; packaged opkg `remove` and APK version-valued `pre-deinstall` restore, while `upgrade`/empty/unknown/`PKG_UPGRADE=1`/`1a2` and non-root staging roots skip (host matrix). Uninstall restoration: [#389 evidence](../evidence/issue-389-2026-09-20.md). A 25.12.5 version-changing APK upgrade preserved the bit/marker and invoked `post-upgrade`, not this `pre-deinstall` hook ([#848 evidence](../evidence/issue-848-2026-09-27.md)) |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-09-26 | Delta + host test | #606 rejects oversized `log`; #663 keeps baseline on failed reload; #869 snapshot checks unsafe directory paths. `tests/fwlive-logging.test.sh` passed on master. Earlier canonical `uci -X` cfg identity/B-1 and installed proof remain separately dated; package-wide commit residual still accepted |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
 | Release pipeline — version pins, fetch pinning and artifact selection | 2026-09-28 | Delta + targeted host tests | #804 via PR #852: SDK validation rejects off-pin versions; #806 maps numeric point-release labels to their major.minor feed line (`tests/sdk-matrix-release-labels.test.sh`, `tests/feed-publish-release-assets.test.sh`); #766 staging deletion guard remains in its 2026-09-26 delta. Issues #811–#814 via PR #864 cover Pages timeouts, SDK probe isolation, trap preservation and explicit build-all filters (`tests/wait-feed-pages.test.sh`, `tests/feed-sdk-wave15.test.sh`). #891 adds exact-label checks for the per-patch index-script pin and installer fallback (`tests/pin-sites.test.sh`). PR #854 (issue #841) and the R7 digest pin-before-secret-mount are recorded above; no live signing/publish or QEMU was run in this pass |
-| Workflow inputs into `run:` bodies | 2026-09-27 | Delta + source read | Actions remain SHA-pinned (including `FEED_DEPLOY_KEY`), no expression inserted directly into a `run:` body; dispatch tag still passes via `env:`. This is a source check, not a new tag/publish run |
+| Workflow inputs into `run:` bodies | 2026-09-29 | Delta + source read | `actions/cache` is pinned to v4.2.0 commit SHA; its key uses the checksum read from `scripts/busybox-awk-1.37.sha256`. No credential reaches the cache or new `run:` expression; prior `FEED_DEPLOY_KEY` pin and dispatch tag via `env:` remain unchanged. This is a source check, not a new tag/publish run |
 | LuCI view (templates / shipped JS) | 2026-09-27 | Delta + host / mocked view | #866/#867: scoped-IP display and hostname-keyed row reuse; text-child boundary rechecked in `tests/fwlive-e-harness.test.js` and `tests/fwlive-chips-hash.test.js`. #870–#873 harness assertions improved; `npm run test:view` passed with mocked services. No installed LuCI or new XSS proof is inferred from that smoke |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-09-26 | Delta + built artifacts + lab | #761: unconditional `+coreutils-timeout`; actual 23.05/24.10 IPK and 25.12 APK metadata checked; 24.10.8 opkg upgrade from 0.1.46 to test candidate 0.1.47 auto-installed provider. Existing lifecycle hooks unchanged |
 | #370 package payload | 2026-09-23 | Delta + host test | Required `test-ipk-payload` check always reports. Full 23.05 IPK / 24.10 IPK / 25.12 APK SDK build+inspect with `FWLIVE_REQUIRE_PACKAGE=1` runs on packaging-path diffs (and fail-closed detection); host `test` still runs the source-shaped payload/lifecycle inspectors every PR (#557). Inspectors check JS modules, ACL/menu files, libexec layout, executable modes, and packaged lifecycle contracts. IPK `prerm-pkg` cases are executed; APK data-only extraction does not execute the APK hook. |
@@ -689,6 +689,39 @@ transport failures are reported without replaying a command that may already
 have run. No new trust boundary, SSH credential, or privileged command source
 is introduced; the optional command remains explicit operator input. No QEMU
 behavior or host-key verification result is inferred from the stubs.
+
+### 2026-09-28 — #987 BusyBox awk host-test lane
+
+**Scope.** `scripts/fwlive-test.sh` platform/fetch policy,
+`scripts/ensure-busybox-awk.sh` package pin and cache path, and the matching CI
+cache and host-prerequisite docs. The cached package is SHA-256-verified on
+every run before extraction; cached executables and wrappers are recreated
+from that verified package. The test-only binary runs with the test user's
+privileges.
+
+**Non-findings.** The URL, cache directory, and expected checksum remain quoted
+data inputs; an alternate URL cannot bypass the checksum check. The lane adds
+no secret source, root command, ubus permission, or shipped package content.
+An explicit checksum override changes the locally trusted artifact and is not
+set by CI; the override is enforced on package cache hits. The cache key is
+derived from the same checksum manifest the helper reads.
+
+**Method.** `tests/fwlive-test-busybox-awk.test.sh` exercises supported and
+unsupported host policy, counted local skip, strict CI failure, the explicit
+offline opt-out, cache reuse, poisoned extracted-cache recovery, checksum
+override enforcement, and bounded curl flags. ShellCheck and workflow static
+checks cover the helper and cache step.
+
+**Result.** Non-x86_64 local hosts record an explicit counted lane skip;
+unsupported CI hosts and unavailable required downloads fail. Local network
+failure skips only when `FWLIVE_ALLOW_SKIP=1` is set. The pinned snapshot
+artifact checksum was verified before selecting its content-addressed URL.
+
+**Proof boundary / next.** New lane behavior is `host` proof; workflow action
+pin and cache key are `manual` source checks. No non-amd64 runner or offline
+host was used; those branches are exercised by controlled test stubs. No full
+surface re-pass was triggered because the delta remains inside host test
+tooling and CI configuration.
 
 ### 2026-09-29 — #988 hostfwd validation and #986 forced QEMU stop
 

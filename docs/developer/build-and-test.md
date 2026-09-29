@@ -35,13 +35,27 @@ Covers parser sync (`core/` vs LuCI `log.js`), schema, filters, CLI pipeline,
 shell codegen + LuCI wrapper gate (`./scripts/gen-all.sh`), and shellcheck on shipped
 `root/usr/libexec` scripts (`./scripts/fwlive-shellcheck.sh`), and the invariant
 rules for shipped JS (`./scripts/fwlive-ast-grep.sh`, ast-grep 0.45.3, rules in
-`scripts/ast-grep-rules/`). The host suite requires `busybox` and `ruff`.
-Linux: `apt install busybox` and `pipx install ruff`. macOS: `brew install busybox ruff`.
+`scripts/ast-grep-rules/`). The supported test host is Linux x86_64. The host
+suite requires `busybox` and `ruff`; on Debian or Ubuntu install them with
+`sudo apt install busybox` and `pipx install ruff`. Then run `pipx ensurepath`
+and start a new shell (or update `PATH`) before running the suite. macOS is
+documentation-only; see [`environment.md`](environment.md).
+
+The BusyBox awk classifier lane needs outbound HTTPS plus `curl`, `sha256sum`,
+`ar`, `tar`, and `xz` on a cold cache. It fetches the pinned Debian
+`busybox-static` 1.37 package from snapshot.debian.org, verifies its SHA-256,
+and stores the package and extracted files under `.cache/busybox-awk-1.37/`;
+each run rechecks the package and recreates the extracted binary and wrapper.
+CI caches that directory by the pinned artifact SHA-256. `FWLIVE_BUSYBOX_AWK_DIR`,
+`FWLIVE_BUSYBOX_AWK_URL`, and `FWLIVE_BUSYBOX_AWK_SHA256` override the cache
+directory, URL, and checksum. A non-x86_64 local run reports a counted skip
+for this lane. On Linux x86_64, a failed fetch is fatal unless the local run
+sets `FWLIVE_ALLOW_SKIP=1`; CI rejects that opt-out and requires the lane.
 It runs shell-filter parity as `SH='busybox sh'`.
 
 A missing eslint, prettier, stylelint, ruff, or busybox fails the run.
 `FWLIVE_ALLOW_SKIP=1` is the loud opt-out: the runner prints the skip and
-continues. CI does not set it. Do not use it to treat a skipped check as a pass.
+continues. CI rejects it. Do not use it to treat a skipped check as a pass.
 
 Docs changes must pass the link checker — it checks relative paths **and**
 heading anchors against a GitHub-style slugger.

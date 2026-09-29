@@ -18,6 +18,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           persist-credentials: false
+      - name: Read BusyBox awk artifact checksum
+        id: busybox-awk-pin
+        run: |
+          sha256="$(awk 'NR == 1 { print $1 }' scripts/busybox-awk-1.37.sha256)"
+          [[ "$sha256" =~ ^[0-9a-f]{64}$ ]] || { echo "invalid BusyBox awk SHA-256 pin" >&2; exit 1; }
+          echo "sha256=${sha256}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57  # v4.2.0
+        with:
+          path: .cache/busybox-awk-1.37
+          key: ${{ runner.os }}-busybox-awk-1.37-${{ steps.busybox-awk-pin.outputs.sha256 }}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
         with:
           node-version: '22'
