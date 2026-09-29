@@ -12,6 +12,8 @@ function withChildProcessTimeout(options) {
 		timed.timeout = Math.min(timed.timeout, DEFAULT_TIMEOUT_MS);
 	if (!timed.killSignal)
 		timed.killSignal = 'SIGKILL';
+	// These helpers pass executable and argv separately; never enable shell parsing.
+	timed.shell = false;
 	return timed;
 }
 

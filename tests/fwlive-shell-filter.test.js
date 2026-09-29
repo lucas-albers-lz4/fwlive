@@ -798,6 +798,8 @@ function testChildProcessTimeouts() {
 		'child helpers must apply their default timeout');
 	assert.equal(withChildProcessTimeout({ timeout: DEFAULT_TIMEOUT_MS * 2 }).timeout,
 		DEFAULT_TIMEOUT_MS, 'caller options must not remove the helper time bound');
+	assert.equal(withChildProcessTimeout({ shell: true }).shell, false,
+		'child helpers must keep executable and argv separate from shell parsing');
 	const result = spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2000)'], {
 		encoding: 'utf8',
 		timeout: 200
