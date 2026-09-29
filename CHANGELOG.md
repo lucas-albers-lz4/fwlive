@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Bound the Live View rules-map retry budget and skip retries while paused or after a failed poll (#993)
+- Size hostname caches for the maximum visible row set and clear the visible refresh paint latch (#982, #995)
+- Drop empty negated filters from shared URL hashes (#1019)
+- Show the correct opkg and apk install commands for missing kernel log modules (#1017)
+
 ## [v0.1.47] — 2026-09-28
 
 ### Fixed

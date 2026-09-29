@@ -242,6 +242,10 @@ function testRealRendererIntegration() {
 		'nf_log_missing empty state must name published kmods, got: ' + nfLogText
 	);
 	assert.ok(
+		nfLogText.includes('apk -U add kmod-nf-log kmod-nf-log6'),
+		'nf_log_missing empty state must include the OpenWrt 25.12 apk command, got: ' + nfLogText
+	);
+	assert.ok(
 		!nfLogText.includes('kmod-nf-log-ipv4'),
 		'empty state must not name unpublished kmod-nf-log-ipv4'
 	);

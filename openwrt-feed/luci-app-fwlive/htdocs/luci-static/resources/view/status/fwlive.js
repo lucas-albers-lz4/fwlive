@@ -222,7 +222,7 @@ return view.extend({
 
 	updateHash(filters) {
 		const parts = Object.keys(filters)
-			.filter((k) => filters[k])
+			.filter((k) => filters[k] && log.parseFilterValue(filters[k]).value)
 			.map((k) => '%s=%s'.format(encodeURIComponent(k), encodeURIComponent(filters[k])));
 		if (this.rowLimit !== constants.DEFAULT_ROW_LIMIT)
 			parts.push('limit=%s'.format(encodeURIComponent(this.rowLimit)));
