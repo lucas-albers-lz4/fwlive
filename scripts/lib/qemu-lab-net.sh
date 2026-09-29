@@ -112,14 +112,9 @@ qemu_lab_wait_pid_gone() {
 
 # 0 = procfs may hide process entries; 1 = procfs visibility is confirmed.
 qemu_lab_proc_hides_processes() {
-	local source mountpoint fstype options rest option
-	local proc_mount_seen=0
-	if [[ "${EUID:-1}" -eq 0 ]]; then
-		return 1
-	fi
+	local mounts_file="${1:-/proc/mounts}" source mountpoint fstype options rest option
 	while read -r source mountpoint fstype options rest; do
 		[[ "$mountpoint" == "/proc" && "$fstype" == "proc" ]] || continue
-		proc_mount_seen=1
 		local -a proc_options=()
 		IFS=, read -r -a proc_options <<<"$options"
 		for option in "${proc_options[@]}"; do
@@ -129,8 +124,8 @@ qemu_lab_proc_hides_processes() {
 			esac
 		done
 		return 1
-	done </proc/mounts 2>/dev/null || return 0
-	[[ "$proc_mount_seen" -eq 1 ]] || return 0
+	done <"$mounts_file" 2>/dev/null || return 0
+	return 0
 }
 
 qemu_lab_pattern_live() {
@@ -169,17 +164,27 @@ qemu_lab_prepare_pidfile() {
 		return 0
 	fi
 	pid="$(tr -d '[:space:]' <"$pidfile")"
-	if [[ "$pid" =~ ^[1-9][0-9]*$ ]] && kill -0 "$pid" 2>/dev/null; then
-		if [[ -n "$pattern" ]]; then
-			cmd="$(tr '\0' ' ' <"/proc/${pid}/cmdline" 2>/dev/null || true)"
-			if [[ -z "$cmd" || ! "$cmd" =~ $pattern ]]; then
-				echo "stale ${label} pidfile ${pidfile}: pid ${pid} is not ${label} QEMU (cmdline: ${cmd}) — removed (rm -f ${pidfile})" >&2
-				rm -f "$pidfile"
-				return 0
+	if [[ "$pid" =~ ^[1-9][0-9]*$ ]]; then
+		if kill -0 "$pid" 2>/dev/null; then
+			if [[ -n "$pattern" ]]; then
+				cmd="$(tr '\0' ' ' <"/proc/${pid}/cmdline" 2>/dev/null || true)"
+				if [[ -z "$cmd" ]]; then
+					echo "error: pidfile ${pidfile} references live pid ${pid} whose cmdline cannot be read; refusing to discard pidfile" >&2
+					return 1
+				fi
+				if [[ ! "$cmd" =~ $pattern ]]; then
+					echo "stale ${label} pidfile ${pidfile}: pid ${pid} is not ${label} QEMU (cmdline: ${cmd}) — removed (rm -f ${pidfile})" >&2
+					rm -f "$pidfile"
+					return 0
+				fi
 			fi
+			echo "error: pidfile ${pidfile} is live (pid ${pid}) — --stop first, or rm -f ${pidfile}" >&2
+			return 1
 		fi
-		echo "error: pidfile ${pidfile} is live (pid ${pid}) — --stop first, or rm -f ${pidfile}" >&2
-		return 1
+		if [[ -d "/proc/${pid}" ]] || qemu_lab_proc_hides_processes; then
+			echo "error: pidfile ${pidfile} references pid ${pid} that cannot be verified as absent; refusing to discard pidfile" >&2
+			return 1
+		fi
 	fi
 	rm -f "$pidfile"
 }

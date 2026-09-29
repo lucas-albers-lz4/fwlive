@@ -161,6 +161,16 @@ fi
 	[[ -f "$TMP/hidden-proc.pid" ]] || fail "potentially hidden PID must not clear its pidfile"
 )
 
+# The procfs hidepid policy is checked without assuming EUID 0 has CAP_SYS_PTRACE.
+printf 'proc /proc proc rw,nosuid,nodev,hidepid=2 0 0\n' >"$TMP/proc-mounts-hidden"
+if ! qemu_lab_proc_hides_processes "$TMP/proc-mounts-hidden"; then
+	fail "hidepid=2 must be treated as potentially hiding another user's PID"
+fi
+printf 'proc /proc proc rw,nosuid,nodev,hidepid=1 0 0\n' >"$TMP/proc-mounts-visible"
+if qemu_lab_proc_hides_processes "$TMP/proc-mounts-visible"; then
+	fail "hidepid=1 must not be confused with hidden process directories"
+fi
+
 # An unreadable cmdline for an accessible live PID is an error, not a stale PID.
 (
 	tr() {
@@ -267,6 +277,47 @@ if ! kill -0 "$prep_pid" 2>/dev/null; then
 fi
 kill "$prep_pid" 2>/dev/null || true
 wait "$prep_pid" 2>/dev/null || true
+
+# Start preflight must preserve a PID when kill -0 fails but procfs cannot
+# establish that the process is absent.
+(
+	kill() {
+		if [[ "$1" == "-0" ]]; then
+			return 1
+		fi
+		return 0
+	}
+	qemu_lab_proc_hides_processes() {
+		return 0
+	}
+	printf '%s\n' 999999 >"$TMP/prep-hidden.pid"
+	set +e
+	out="$(qemu_lab_prepare_pidfile "$TMP/prep-hidden.pid" 'qemu-system-x86_64' x86 2>&1)"
+	rc=$?
+	set -e
+	[[ "$rc" -ne 0 ]] || fail "start preflight must reject a potentially hidden PID"
+	grep -Fq "cannot be verified as absent" <<<"$out" \
+		|| fail "start preflight must explain unverifiable PID ($(cat "$TMP/prep-hidden.pid"))"
+	[[ -f "$TMP/prep-hidden.pid" ]] || fail "start preflight must preserve a potentially hidden PID file"
+)
+
+# A live PID with an unreadable cmdline is not a proven stale QEMU pidfile.
+(
+	tr() {
+		if [[ "${1:-}" == "-d" ]]; then
+			command tr "$@"
+		fi
+	}
+	printf '%s\n' "$BASHPID" >"$TMP/prep-unreadable.pid"
+	set +e
+	out="$(qemu_lab_prepare_pidfile "$TMP/prep-unreadable.pid" 'qemu-system-x86_64' x86 2>&1)"
+	rc=$?
+	set -e
+	[[ "$rc" -ne 0 ]] || fail "start preflight must reject a live PID with unreadable cmdline"
+	grep -Fq "cmdline cannot be read" <<<"$out" \
+		|| fail "start preflight must identify unreadable cmdline ($(cat "$TMP/prep-unreadable.pid"))"
+	[[ -f "$TMP/prep-unreadable.pid" ]] || fail "start preflight must preserve a PID with unreadable cmdline"
+)
 
 # --force must SIGKILL a SIGTERM-ignoring matching guest and only then print Stopped.
 bash -c 'trap "" TERM; echo ready >"$1"; exec -a fwlive-qemu-force-stubborn sleep 60' \

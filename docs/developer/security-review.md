@@ -693,22 +693,26 @@ behavior or host-key verification result is inferred from the stubs.
 ### 2026-09-29 — #988 hostfwd validation and #986 forced QEMU stop
 
 **Scope.** `scripts/lib/qemu-lab-net.sh` hostfwd construction and PID-file
-shutdown, plus the x86 and armsr QEMU entry points. Each runner now validates
-the bind address before checking image and port prerequisites. Hostfwd pair and
-NIC wrapper functions capture nested command-substitution statuses so invalid
-binds cannot turn into successful empty forwarding arguments. A live pidfile
-target that is unsignalable, inaccessible through procfs, unreadable, or has a
-nonmatching command line is retained and treated as an error; `--force` then
-attempts the established pattern-based fallback. A missing `/proc/${pid}` is
-only treated as stale when procfs visibility is known to be unrestricted.
+startup preflight and shutdown, plus the x86 and armsr QEMU entry points. Each
+runner now validates the bind address before checking image and port
+prerequisites. Hostfwd pair and NIC wrapper functions capture nested command
+substitution statuses so invalid binds cannot turn into successful empty
+forwarding arguments. During shutdown,
+a live pidfile target that is unsignalable, inaccessible through procfs,
+unreadable, or has a nonmatching command line is retained and treated as an
+error; `--force` then attempts the established pattern-based fallback. Startup
+preflight retains a PID file when a process cannot be verified as absent or
+its command line cannot be read. A missing `/proc/${pid}` is only treated as
+stale when procfs visibility is known to be unrestricted.
 The PID-file target is never signaled on that mismatch path. Final stop errors
 identify whether SIGTERM or SIGKILL failed.
 
 **Method.** `tests/qemu-lab-ports.test.sh` checks rule, pair, NIC-wrapper, and
 both runner rejection paths before QEMU launch. `tests/qemu-lifecycle.test.sh`
 checks plain-stop refusal, unsignalable, procfs-hidden, and unreadable PID
-handling, forced pattern fallback while preserving the decoy process, the
-ordinary SIGTERM/SIGKILL paths, and the final-signal diagnostic.
+handling during startup and shutdown, forced pattern fallback while preserving
+the decoy process, the ordinary SIGTERM/SIGKILL paths, and the final-signal
+diagnostic.
 Only host processes and shell stubs were used; no live QEMU guest was stopped.
 
 **Result.** Invalid bind values stop before QEMU setup, live mismatched
