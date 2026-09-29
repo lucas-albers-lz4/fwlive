@@ -2,7 +2,12 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { execFileSync, spawnSync } = require('node:child_process');
+const {
+	DEFAULT_TIMEOUT_MS,
+	execFileSync,
+	spawnSync,
+	withChildProcessTimeout
+} = require('./lib/child-process-timeout');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -15,7 +20,12 @@ const FILTER_SH = path.join(ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh');
 const FIXTURE = path.join(__dirname, 'fixtures', 'logread-mixed.json');
 /* Override with SH='busybox sh' for ash parity (#103). */
-const SH = process.env.SH || 'sh';
+const SH = (() => {
+	const requested = process.env.SH || 'sh';
+	if (requested === 'sh' || requested === 'busybox sh')
+		return requested;
+	throw new Error("SH must be exactly 'sh' or 'busybox sh'");
+})();
 
 function shSpawn(scriptOrFile, opts) {
 	const parts = SH.split(/\s+/).filter(Boolean);
@@ -766,6 +776,7 @@ function runOversizedStdin() {
 }
 
 function run() {
+	testChildProcessTimeouts();
 	runMsgParity();
 	runJsonParity();
 	runTempDirGuards();
@@ -785,6 +796,21 @@ function run() {
 	runMissingClassifier();
 	runOversizedStdin();
 	console.log('fwlive shell filter parity tests passed (SH=' + SH + ')');
+}
+
+function testChildProcessTimeouts() {
+	assert.equal(withChildProcessTimeout().timeout, DEFAULT_TIMEOUT_MS,
+		'child helpers must apply their default timeout');
+	assert.equal(withChildProcessTimeout({ timeout: DEFAULT_TIMEOUT_MS * 2 }).timeout,
+		DEFAULT_TIMEOUT_MS, 'caller options must not remove the helper time bound');
+	assert.equal(withChildProcessTimeout({ shell: true }).shell, false,
+		'child helpers must keep executable and argv separate from shell parsing');
+	const result = spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2000)'], {
+		encoding: 'utf8',
+		timeout: 200
+	});
+	assert.equal(result.error && result.error.code, 'ETIMEDOUT',
+		'a hung child must fail at the timeout');
 }
 
 run();

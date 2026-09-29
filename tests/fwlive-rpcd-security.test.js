@@ -23,8 +23,59 @@ function testFilterErrorWhitelistMatchesFilter() {
 	const bodies = [...filter.matchAll(/\{"log":\[\],"error":"[a-z_]+"\}/g)]
 		.map((match) => match[0]);
 	assert.ok(bodies.length > 0, 'filter error bodies must be discoverable');
-	for (const body of new Set(bodies))
-		assert.ok(rpcd.includes("'" + body + "'"), 'rpcd must preserve filter error body: ' + body);
+	assertFilterErrorWhitelist(rpcd, new Set(bodies));
+
+	const filterFailed = '{"log":[],"error":"filter_failed"}';
+	const filterFailedArm = "\t\t\t'" + filterFailed + "'|\\\n";
+	const omitted = rpcd.replace(filterFailedArm, '');
+	assert.notEqual(omitted, rpcd, 'negative fixture must remove filter_failed from the whitelist arm');
+	assert.throws(
+		() => assertFilterErrorWhitelist(omitted, [filterFailed]),
+		/filter_failed/,
+		'gate must reject a missing whitelist arm even while the fallback still names filter_failed'
+	);
+
+	const staleBody = '{"log":[],"error":"stale_filter_error"}';
+	const expanded = rpcd.replace(filterFailedArm,
+		"\t\t\t'" + staleBody + "'|\\\n" + filterFailedArm);
+	assert.notEqual(expanded, rpcd, 'negative fixture must find the first rpcd whitelist arm');
+	assert.throws(
+		() => assertFilterErrorWhitelist(expanded, new Set(bodies)),
+		/stale_filter_error/,
+		'gate must reject an rpcd whitelist body not produced by the shipped filter'
+	);
+
+	const wildcard = rpcd.replace(filterFailedArm, '\t\t\t*|\\\n' + filterFailedArm);
+	assert.notEqual(wildcard, rpcd, 'negative fixture must find the first rpcd whitelist arm');
+	assert.throws(
+		() => assertFilterErrorWhitelist(wildcard, new Set(bodies)),
+		/unsupported case pattern/,
+		'gate must reject an unparsed wildcard that accepts extra filter output'
+	);
+}
+
+function assertFilterErrorWhitelist(source, bodies) {
+	const match = source.match(
+		/if ! out=\$\(printf '%s' "\$raw" \| run_with_timeout "\$POLL_TIMEOUT" "\$FILTER_SH" \/tmp\); then[\s\S]*?case "\$out" in([\s\S]*?)\n[ \t]*\*\)/
+	);
+	assert.ok(match, 'rpcd poll filter-error whitelist arm must be discoverable');
+	const filterBodies = new Set(bodies);
+	const armLines = match[1].trim().split('\n').map((line) => line.trim());
+	assert.equal(armLines.at(-1), ';;', 'rpcd whitelist arm must end after its patterns');
+	const patternLines = armLines.slice(0, -1);
+	const whitelistBodies = new Set();
+	for (const [index, line] of patternLines.entries()) {
+		const finalPattern = index === patternLines.length - 1;
+		const parsed = line.match(finalPattern
+			? /^'(\{"log":\[\],"error":"[a-z_]+"\})'\)$/
+			: /^'(\{"log":\[\],"error":"[a-z_]+"\})'\|\\$/);
+		assert.ok(parsed, 'rpcd whitelist contains an unsupported case pattern: ' + line);
+		whitelistBodies.add(parsed[1]);
+	}
+	for (const body of bodies)
+		assert.ok(whitelistBodies.has(body), 'rpcd filter whitelist must preserve ' + body);
+	for (const body of whitelistBodies)
+		assert.ok(filterBodies.has(body), 'rpcd whitelist must not accept an unproduced filter body: ' + body);
 }
 
 const acl = JSON.parse(fs.readFileSync(ACL, 'utf8'));

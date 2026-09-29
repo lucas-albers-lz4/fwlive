@@ -64,6 +64,8 @@ extra="$(feed_publish_assert_staging_clearable "feed-staging-extra" 0)"
 assert_refused "${ROOT}/scripts"
 assert_refused "${ROOT}/scripts" 1
 assert_refused scripts
+assert_refused "${ROOT}/scripts/feed-staging"
+assert_refused "${ROOT}/scripts/feed-staging-nested"
 ln -s "${ROOT}/scripts" "${linkdir}/scriptslink"
 assert_refused "${linkdir}/scriptslink" 0
 assert_refused "${linkdir}/scriptslink" 1
@@ -71,12 +73,15 @@ assert_refused "${linkdir}/scriptslink" 1
 fixture="$(mktemp -d)"
 refuse_parent=""
 trap 'rm -rf "$outside" "$runner_tmp" "$linkdir" "$fixture" ${refuse_parent:+"$refuse_parent"}' EXIT
-mkdir -p "${fixture}/out/cell" "${fixture}/scripts"
+mkdir -p "${fixture}/out/cell" "${fixture}/scripts" "${fixture}/feed-staging-nested/child"
 FEED_PUBLISH_ROOT="$fixture"
 export FEED_PUBLISH_ROOT
 fixture_phys="$(cd "$fixture" && pwd -P)"
 out_ok="$(feed_publish_assert_staging_clearable "${fixture}/out/cell" 0)"
 [[ "$out_ok" == "${fixture_phys}/out/cell" ]] || fail "out/ staging (got '$out_ok')"
+stage_child_ok="$(feed_publish_assert_staging_clearable "${fixture}/feed-staging-nested" 0)"
+[[ "$stage_child_ok" == "${fixture_phys}/feed-staging-nested" ]] || fail "root-level feed-staging-* (got '$stage_child_ok')"
+assert_refused "${fixture}/feed-staging-nested/child"
 assert_refused "${fixture}/out"
 assert_refused "${fixture}/scripts"
 assert_refused "${fixture}/scripts" 1

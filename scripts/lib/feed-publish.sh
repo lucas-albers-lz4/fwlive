@@ -48,12 +48,15 @@ feed_publish_path_under() {
 	[[ -n "$parent" && ( "$child" == "$parent" || "$child" == "$parent"/* ) ]]
 }
 
-# In-repo rm -rf is only feed-staging* or a directory under out/.
+# In-repo rm -rf is only root-level feed-staging* or a directory under out/.
 feed_publish_staging_allowlisted() {
-	local canonical="$1" root="$2" base
-	base="${canonical##*/}"
-	if [[ "$base" == feed-staging || "$base" == feed-staging-* ]]; then
-		return 0
+	local canonical="$1" root="$2" root_prefix="${2%/}/" relative
+	if [[ "$canonical" == "${root_prefix}"* ]]; then
+		relative="${canonical#"$root_prefix"}"
+		if [[ "$relative" != */* &&
+			( "$relative" == feed-staging || "$relative" == feed-staging-* ) ]]; then
+			return 0
+		fi
 	fi
 	[[ "$canonical" == "${root}/out/"* ]]
 }

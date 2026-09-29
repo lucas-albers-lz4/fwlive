@@ -2,7 +2,13 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { execFileSync, spawn } = require('node:child_process');
+const {
+	DEFAULT_TIMEOUT_MS,
+	execFileSync,
+	spawn,
+	spawnSync,
+	withChildProcessTimeout
+} = require('./lib/child-process-timeout');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -1560,6 +1566,7 @@ function testBusyboxPathShadowGetent() {
 
 
 function run() {
+	testChildProcessTimeouts();
 	testProductionNft();
 	testNftPrefixNormalization();
 	testDashFlagUnlabeledPrefix();
@@ -1590,6 +1597,21 @@ function run() {
 	testBusyboxPathShadowStat();
 	testBusyboxPathShadowGetent();
 	console.log('fwlive rules map tests passed');
+}
+
+function testChildProcessTimeouts() {
+	assert.equal(withChildProcessTimeout().timeout, DEFAULT_TIMEOUT_MS,
+		'child helpers must apply their default timeout');
+	assert.equal(withChildProcessTimeout({ timeout: DEFAULT_TIMEOUT_MS * 2 }).timeout,
+		DEFAULT_TIMEOUT_MS, 'caller options must not remove the helper time bound');
+	assert.equal(withChildProcessTimeout({ shell: true }).shell, false,
+		'child helpers must keep executable and argv separate from shell parsing');
+	const result = spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2000)'], {
+		encoding: 'utf8',
+		timeout: 200
+	});
+	assert.equal(result.error && result.error.code, 'ETIMEDOUT',
+		'a hung child must fail at the timeout');
 }
 
 run();
