@@ -23,8 +23,42 @@ function testFilterErrorWhitelistMatchesFilter() {
 	const bodies = [...filter.matchAll(/\{"log":\[\],"error":"[a-z_]+"\}/g)]
 		.map((match) => match[0]);
 	assert.ok(bodies.length > 0, 'filter error bodies must be discoverable');
-	for (const body of new Set(bodies))
-		assert.ok(rpcd.includes("'" + body + "'"), 'rpcd must preserve filter error body: ' + body);
+	assertFilterErrorWhitelist(rpcd, new Set(bodies));
+
+	const filterFailed = '{"log":[],"error":"filter_failed"}';
+	const omitted = rpcd.replace("'" + filterFailed + "'", '');
+	assert.notEqual(omitted, rpcd, 'negative fixture must remove filter_failed from the whitelist arm');
+	assert.throws(
+		() => assertFilterErrorWhitelist(omitted, [filterFailed]),
+		/filter_failed/,
+		'gate must reject a missing whitelist arm even while the fallback still names filter_failed'
+	);
+
+	const staleBody = '{"log":[],"error":"stale_filter_error"}';
+	const expanded = rpcd.replace(
+		/(case "\$out" in\n)/,
+		"$1\t\t\t'" + staleBody + "'|\\\n"
+	);
+	assert.notEqual(expanded, rpcd, 'negative fixture must find the rpcd whitelist arm');
+	assert.throws(
+		() => assertFilterErrorWhitelist(expanded, new Set(bodies)),
+		/stale_filter_error/,
+		'gate must reject an rpcd whitelist body not produced by the shipped filter'
+	);
+}
+
+function assertFilterErrorWhitelist(source, bodies) {
+	const match = source.match(
+		/if ! out=\$\(printf '%s' "\$raw" \| run_with_timeout "\$POLL_TIMEOUT" "\$FILTER_SH" \/tmp\); then[\s\S]*?case "\$out" in([\s\S]*?)\n[ \t]*\*\)/
+	);
+	assert.ok(match, 'rpcd poll filter-error whitelist arm must be discoverable');
+	const filterBodies = new Set(bodies);
+	const whitelistBodies = new Set([...match[1].matchAll(/'(\{"log":\[\],"error":"[a-z_]+"\})'/g)]
+		.map((entry) => entry[1]));
+	for (const body of bodies)
+		assert.ok(whitelistBodies.has(body), 'rpcd filter whitelist must preserve ' + body);
+	for (const body of whitelistBodies)
+		assert.ok(filterBodies.has(body), 'rpcd whitelist must not accept an unproduced filter body: ' + body);
 }
 
 const acl = JSON.parse(fs.readFileSync(ACL, 'utf8'));
