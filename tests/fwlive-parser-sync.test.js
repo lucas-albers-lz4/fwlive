@@ -279,11 +279,45 @@ assert.strictEqual(luci.normalizeEntry(syncSamples[4]).direction, 'out');
 const originalCoreRules = core.CLASSIFY_SPEC.rules;
 const originalLuciRules = luci.CLASSIFY_SPEC.rules;
 try {
-	const malformedRules = [{ and: [{ kv: ['SRC'], hint: true }] }];
-	core.CLASSIFY_SPEC.rules = malformedRules;
-	luci.CLASSIFY_SPEC.rules = malformedRules;
-	assert.throws(() => core.evaluateClassifySpec('SRC=192.0.2.1'), /exactly one key/);
-	assert.throws(() => luci.evaluateClassifySpec('SRC=192.0.2.1'), /exactly one key/);
+	const malformedSpecs = [
+		[],
+		[{ and: [{ kv: [] }] }],
+		[{ or: [] }],
+		[{ and: [{ kv: 'SRC' }] }],
+		[{ and: [{ kv: [1] }] }],
+		[{ and: [{ kvAny: [] }] }],
+		[{ and: [{ kvAny: 'SRC' }] }],
+		[{ and: [{ action: 'knownx' }] }],
+		[{ and: [{ hint: 0 }] }],
+		[null],
+		[{ and: [{ kv: ['SRC'], hint: true }] }],
+		[{ or: [{ kv: ['SRC'] }, { kv: [] }] }]
+	];
+	for (let i = 0; i < malformedSpecs.length; i++) {
+		core.CLASSIFY_SPEC.rules = malformedSpecs[i];
+		luci.CLASSIFY_SPEC.rules = malformedSpecs[i];
+		let coreError;
+		let luciError;
+		try {
+			core.evaluateClassifySpec('SRC=192.0.2.1');
+		} catch (error) {
+			coreError = error;
+		}
+		try {
+			luci.evaluateClassifySpec('SRC=192.0.2.1');
+		} catch (error) {
+			luciError = error;
+		}
+		assert.ok(coreError instanceof Error, 'core validator accepted ' + JSON.stringify(malformedSpecs[i]));
+		assert.ok(luciError instanceof Error, 'LuCI validator accepted ' + JSON.stringify(malformedSpecs[i]));
+		assert.equal(luciError.message, coreError.message,
+			'validator error text mismatch for ' + JSON.stringify(malformedSpecs[i]));
+	}
+	const validOrRule = [{ or: [{ kv: ['SRC'] }] }];
+	core.CLASSIFY_SPEC.rules = validOrRule;
+	luci.CLASSIFY_SPEC.rules = validOrRule;
+	assert.equal(core.evaluateClassifySpec('SRC=192.0.2.1'), true);
+	assert.equal(luci.evaluateClassifySpec('SRC=192.0.2.1'), true);
 } finally {
 	core.CLASSIFY_SPEC.rules = originalCoreRules;
 	luci.CLASSIFY_SPEC.rules = originalLuciRules;
