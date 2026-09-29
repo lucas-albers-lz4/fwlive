@@ -18,12 +18,12 @@
 > workflow expression in a `run:` body, unpinned action, or secret staging path.
 > No new security finding was confirmed by this delta pass.
 
-> **2026-09-29 #1018 developer-tooling delta:** `scripts/fwlive-ast-grep.sh`
-> changed mode from 100644 to 100755 so its documented direct invocation works;
-> the script contents are unchanged. Source review confirmed it checks the
-> expected ast-grep version before scanning repository files. The direct
-> `./scripts/fwlive-ast-grep.sh` invocation passed. No shipped shell code,
-> untrusted-input flow, ACL, or release-pipeline behavior changed.
+**2026-09-29 #1018 developer-tooling delta:** `scripts/fwlive-ast-grep.sh`
+changed mode from 100644 to 100755 so its documented direct invocation works;
+the script contents are unchanged. Source review confirmed it checks the
+expected ast-grep version before scanning repository files. The direct
+`./scripts/fwlive-ast-grep.sh` invocation passed. No shipped shell code,
+untrusted-input flow, ACL, or release-pipeline behavior changed.
 
 > **2026-09-26 #774 / #767 / #777 / #776 / #779 delta:** `uci_rule_names`
 > captures `uci show firewall` once. `map_prefix_with_label` increments

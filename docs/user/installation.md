@@ -159,10 +159,15 @@ If logging was already on before fwlive saved its baseline, fwlive records an
 unset baseline. On uninstall, it removes the zone's `log` option; turn logging
 back on under **Network → Firewall** if you want it to remain enabled.
 
-Restore is skipped — the baseline file stays, and the only notice is a `fwlive`
-syslog line — when there is no WAN zone, the initial logging lock is unavailable,
-the lock cannot be reacquired after the firewall reload, firewall changes are
-already pending, the UCI commit does not verify, the firewall reload fails, or
-the value after reload does not match the baseline. WAN logging can stay on in
-those cases. Check `logread` for `WAN log baseline restore` and turn logging off
-in Live View (or edit the zone) if the bit is still set.
+The baseline file stays and a `fwlive` syslog notice is logged if restore cannot
+complete or be confirmed. This can happen when there is no WAN zone, the initial
+logging lock is unavailable, firewall changes are already pending, the UCI
+commit does not verify, the firewall reload fails, the lock cannot be
+reacquired after reload, or the value after reload does not match the baseline.
+
+A firewall reload can fail after fwlive commits the baseline to UCI, so the
+live firewall may keep using its previous value. If the lock cannot be
+reacquired after a successful reload or post-reload verification differs, the
+baseline file stays because fwlive cannot safely confirm completion. Check
+`logread` for `WAN log baseline restore` and turn logging off in Live View (or
+edit the zone) if the bit is still set.
