@@ -25,6 +25,15 @@ expected ast-grep version before scanning repository files. The direct
 `./scripts/fwlive-ast-grep.sh` invocation passed. No shipped shell code,
 untrusted-input flow, ACL, or release-pipeline behavior changed.
 
+**2026-09-29 #1008 release-pipeline delta:** the in-repo staging allowlist now
+accepts only root-level `feed-staging` / `feed-staging-*` paths (or a directory
+under `out/`); nested paths with a matching basename fail closed. The host
+staging-guard test covers root and nested spellings. No signing-key handling,
+public-key copying, workflow, or publish invocation changed; no live publish
+was run. Proof class is `host` for the guard behavior and `manual` for the
+unchanged release neighbors. The full-pass gate is not met; the existing
+next-tag pin checklist remains in force.
+
 > **2026-09-26 #774 / #767 / #777 / #776 / #779 delta:** `uci_rule_names`
 > captures `uci show firewall` once. `map_prefix_with_label` increments
 > `_map_lines` and trips `rules_truncated` at `RULES_MAP_MAX_LINES=512`
@@ -404,7 +413,7 @@ should carry a note saying what would raise it.
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-09-27 | Host + dated lab | `/etc/fwlive/wan-log-baseline`; packaged opkg `remove` and APK version-valued `pre-deinstall` restore, while `upgrade`/empty/unknown/`PKG_UPGRADE=1`/`1a2` and non-root staging roots skip (host matrix). Uninstall restoration: [#389 evidence](../evidence/issue-389-2026-09-20.md). A 25.12.5 version-changing APK upgrade preserved the bit/marker and invoked `post-upgrade`, not this `pre-deinstall` hook ([#848 evidence](../evidence/issue-848-2026-09-27.md)) |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-09-26 | Delta + host test | #606 rejects oversized `log`; #663 keeps baseline on failed reload; #869 snapshot checks unsafe directory paths. `tests/fwlive-logging.test.sh` passed on master. Earlier canonical `uci -X` cfg identity/B-1 and installed proof remain separately dated; package-wide commit residual still accepted |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
-| Release pipeline — version pins, fetch pinning and artifact selection | 2026-09-28 | Delta + targeted host tests | #804 via PR #852: SDK validation rejects off-pin versions; #806 maps numeric point-release labels to their major.minor feed line (`tests/sdk-matrix-release-labels.test.sh`, `tests/feed-publish-release-assets.test.sh`); #766 staging deletion guard remains in its 2026-09-26 delta. Issues #811–#814 via PR #864 cover Pages timeouts, SDK probe isolation, trap preservation and explicit build-all filters (`tests/wait-feed-pages.test.sh`, `tests/feed-sdk-wave15.test.sh`). #891 adds exact-label checks for the per-patch index-script pin and installer fallback (`tests/pin-sites.test.sh`). PR #854 (issue #841) and the R7 digest pin-before-secret-mount are recorded above; no live signing/publish or QEMU was run in this pass |
+| Release pipeline — version pins, fetch pinning and artifact selection | 2026-09-29 | Delta + targeted host tests | #1008 tightens #766's in-repo staging allowlist to root-level `feed-staging*` only; `tests/feed-publish-staging-guard.test.sh` rejects nested basename matches. #804 via PR #852: SDK validation rejects off-pin versions; #806 maps numeric point-release labels to their major.minor feed line (`tests/sdk-matrix-release-labels.test.sh`, `tests/feed-publish-release-assets.test.sh`). Issues #811–#814 via PR #864 cover Pages timeouts, SDK probe isolation, trap preservation and explicit build-all filters (`tests/wait-feed-pages.test.sh`, `tests/feed-sdk-wave15.test.sh`). #891 adds exact-label checks for the per-patch index-script pin and installer fallback (`tests/pin-sites.test.sh`). PR #854 (issue #841) and the R7 digest pin-before-secret-mount are recorded above; no live signing/publish or QEMU was run in this pass |
 | Workflow inputs into `run:` bodies | 2026-09-29 | Delta + source read | `actions/cache` is pinned to v4.2.0 commit SHA; its key uses the checksum read from `scripts/busybox-awk-1.37.sha256`. No credential reaches the cache or new `run:` expression; prior `FEED_DEPLOY_KEY` pin and dispatch tag via `env:` remain unchanged. This is a source check, not a new tag/publish run |
 | LuCI view (templates / shipped JS) | 2026-09-27 | Delta + host / mocked view | #866/#867: scoped-IP display and hostname-keyed row reuse; text-child boundary rechecked in `tests/fwlive-e-harness.test.js` and `tests/fwlive-chips-hash.test.js`. #870–#873 harness assertions improved; `npm run test:view` passed with mocked services. No installed LuCI or new XSS proof is inferred from that smoke |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-09-26 | Delta + built artifacts + lab | #761: unconditional `+coreutils-timeout`; actual 23.05/24.10 IPK and 25.12 APK metadata checked; 24.10.8 opkg upgrade from 0.1.46 to test candidate 0.1.47 auto-installed provider. Existing lifecycle hooks unchanged |
@@ -452,7 +461,7 @@ should carry a note saying what would raise it.
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
 | Only public keys reach `feed-staging/`; both opkg and apk public keys are required | `host` | `feed_publish_copy_keys`; `tests/feed-publish-copy-keys.test.sh` |
 | Packages index filtering has no `|| true` on either host or SDK path | `host` | `tests/feed-publish-copy-keys.test.sh` source-shape assertions count two filters and reject a swallowed status. The stronger claim that injected grep I/O failure aborts both publishing paths is only `manual` (source inspection); no behavioral fault-injection or live signing proof was found. |
-| Publish staging `rm -rf` refuses `/`, `$HOME`, repo root, and paths outside `$ROOT`/`$RUNNER_TEMP` unless `--allow-outside` (which still refuses `/`/`$HOME`/root); path is `pwd -P` so a symlink to `/` cannot bypass | `host` | `feed_publish_assert_staging_clearable` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-staging-guard.test.sh` |
+| Publish staging `rm -rf` refuses `/`, `$HOME`, repo root, and paths outside `$ROOT`/`$RUNNER_TEMP` unless `--allow-outside` (which still refuses `/`/`$HOME`/root); in-repo staging is root-level `feed-staging*` or a directory under `out/`; path is `pwd -P` so a symlink to `/` cannot bypass | `host` | `feed_publish_assert_staging_clearable` / `feed_publish_staging_allowlisted` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-staging-guard.test.sh` |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |
 | Publish job runs under Environment `feed-publish` | `manual` | `.github/workflows/publish-packages.yml` `environment:` — organizational gate (protection rules optional; none configured, matching usrmanage). Does NOT scope repo-level secrets — keys stay repository-scoped by design |
@@ -610,6 +619,28 @@ otherwise have overstated. Our docs are a summary of a past reading; upstream is
 the fact.
 
 ## Audit history
+
+### 2026-09-29 — #1008 root-level feed staging allowlist
+
+**Scope.** The existing in-repo staging path allowlist in
+`scripts/lib/feed-publish.sh`, narrowed by #1008 from basename matching at any
+depth to root-level `feed-staging` and `feed-staging-*` paths.
+
+**Method.** Read the canonicalization and clear-guard call path and checked the
+publish caller. Extended `tests/feed-publish-staging-guard.test.sh` to keep
+root staging accepted and reject nested paths whose basename matches. Checked
+workflow expressions/action pins, secret-key ignore entries and temporary
+siblings, and the helper's fetch / PATH / chmod sites. No signing key or live
+feed publish was used.
+
+**Non-findings.** `RUNNER_TEMP` staging and `$ROOT/out/` paths retain their
+existing rules; `--allow-outside` still cannot clear `/`, `$HOME`, or the repo
+root. No workflow, signing-key handling, public-key copying, ACL, DOM sink, or
+read/write-scope change was found.
+
+**Result.** The root-only allowlist is host-proven by the guard test; release
+neighbors remain manual and no live publish is claimed. This narrow hardening
+does not meet the full-pass gate; the next-tag pin checklist remains due.
 
 ### 2026-09-28 — #891/#923/#893 release/feed consistency
 
