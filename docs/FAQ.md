@@ -73,10 +73,19 @@ cat /proc/sys/net/netfilter/nf_log/2    # should be nf_log_ipv4, not NONE/none
 ```
 
 An empty value or `NONE` (case-insensitive) means that family has no kernel
-logging backend. Install the published modules:
+logging backend. Install the published modules using the package manager for
+your OpenWrt release:
+
+**OpenWrt 23.05 and 24.10 (`opkg`):**
 
 ```sh
 opkg update && opkg install kmod-nf-log kmod-nf-log6
+```
+
+**OpenWrt 25.12 and newer (`apk`):**
+
+```sh
+apk update && apk add kmod-nf-log kmod-nf-log6
 ```
 
 IPv6 is checked independently through `/proc/net/if_inet6`. A missing or

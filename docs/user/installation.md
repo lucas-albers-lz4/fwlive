@@ -155,4 +155,21 @@ apk del luci-app-fwlive        # 25.12.x
 
 **Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package tries to restore the zone `log` value from before the first time you enabled logging via Live View. If you never used **Enable logging**, there is no baseline file and uninstall does not change firewall UCI.
 
-Restore is skipped — the baseline file stays, and the only notice is a `fwlive` syslog line — when there is no WAN zone, the logging lock is unavailable, firewall changes are already pending, the UCI commit does not verify, the firewall reload fails, or the value after reload does not match the baseline. WAN logging can stay on in those cases. Check `logread` for `WAN log baseline restore` and turn logging off in Live View (or edit the zone) if the bit is still set.
+If logging was already on before fwlive saved its baseline, fwlive records an
+unset baseline. On uninstall, it removes the zone's `log` option; turn logging
+back on under **Network → Firewall** if you want it to remain enabled. Baseline
+saving is best effort. If fwlive cannot save the baseline, uninstall does not
+change the zone's `log` option, so logging remains enabled.
+
+The baseline file stays and a `fwlive` syslog notice is logged if restore cannot
+complete or be confirmed. This can happen when there is no WAN zone, the initial
+logging lock is unavailable, firewall changes are already pending, the UCI
+commit does not verify, the firewall reload fails, the lock cannot be
+reacquired after reload, or the value after reload does not match the baseline.
+
+A firewall reload can fail after fwlive commits the baseline to UCI, so the
+live firewall may keep using its previous value. If the lock cannot be
+reacquired after a successful reload or post-reload verification differs, the
+baseline file stays because fwlive cannot safely confirm completion. Check
+`logread` for `WAN log baseline restore` and turn logging off under **Network
+→ Firewall** (or edit the zone) if the bit is still set.
