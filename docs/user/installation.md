@@ -157,7 +157,9 @@ apk del luci-app-fwlive        # 25.12.x
 
 If logging was already on before fwlive saved its baseline, fwlive records an
 unset baseline. On uninstall, it removes the zone's `log` option; turn logging
-back on under **Network → Firewall** if you want it to remain enabled.
+back on under **Network → Firewall** if you want it to remain enabled. Baseline
+saving is best effort. If fwlive cannot save the baseline, uninstall does not
+change the zone's `log` option, so logging remains enabled.
 
 The baseline file stays and a `fwlive` syslog notice is logged if restore cannot
 complete or be confirmed. This can happen when there is no WAN zone, the initial
