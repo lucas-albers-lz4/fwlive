@@ -116,6 +116,8 @@ function captureError(fn) {
 }
 
 try {
+	const sparseValues = [];
+	sparseValues.length = 1;
 	const malformed = [
 		{
 			rules: [],
@@ -143,6 +145,10 @@ try {
 		},
 		{
 			rules: [{ and: [{ kv: [1] }] }],
+			message: 'CLASSIFY_SPEC kv predicate must be a non-empty array of non-empty strings'
+		},
+		{
+			rules: [{ and: [{ kv: sparseValues }] }],
 			message: 'CLASSIFY_SPEC kv predicate must be a non-empty array of non-empty strings'
 		},
 		{

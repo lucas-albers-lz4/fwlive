@@ -279,12 +279,15 @@ assert.strictEqual(luci.normalizeEntry(syncSamples[4]).direction, 'out');
 const originalCoreRules = core.CLASSIFY_SPEC.rules;
 const originalLuciRules = luci.CLASSIFY_SPEC.rules;
 try {
+	const sparseValues = [];
+	sparseValues.length = 1;
 	const malformedSpecs = [
 		[],
 		[{ and: [{ kv: [] }] }],
 		[{ or: [] }],
 		[{ and: [{ kv: 'SRC' }] }],
 		[{ and: [{ kv: [1] }] }],
+		[{ and: [{ kv: sparseValues }] }],
 		[{ and: [{ kvAny: [] }] }],
 		[{ and: [{ kvAny: 'SRC' }] }],
 		[{ and: [{ action: 'knownx' }] }],

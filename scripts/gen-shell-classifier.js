@@ -99,9 +99,12 @@ function validateAwkNode(node) {
 	}
 	if (key === 'kv' || key === 'kvAny') {
 		const values = node[key];
-		if (!Array.isArray(values) || values.length === 0 || values.some(function(value) {
-			return typeof value !== 'string' || value.trim().length === 0;
-		}))
+		let valid = Array.isArray(values) && values.length > 0;
+		for (let i = 0; valid && i < values.length; i++) {
+			if (typeof values[i] !== 'string' || values[i].trim().length === 0)
+				valid = false;
+		}
+		if (!valid)
 			throw new Error('CLASSIFY_SPEC ' + key + ' predicate must be a non-empty array of non-empty strings');
 		return key;
 	}
