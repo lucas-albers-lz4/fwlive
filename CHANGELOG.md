@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Harden feed point-release pin coverage, SDK build-all argument handling, and QEMU guest readiness deadlines (#968, #970, #976)
 - Strengthen view regression contracts and refresh BusyBox classifier/rpcd coverage (#941, #979)
 - Clarify Summary-mode recovery, QEMU release guidance, and required lab tooling (#959, #926, #975)
+- Name the published `kmod-nf-log` / `kmod-nf-log6` packages in the empty-state install command (#929)
+- Color logging failure notices with `--fwlive-deny-color` instead of success green (#938)
+- Skip a bare `!` filter chip so an empty negate does not look like a filter (#939)
 
 ### Changed
 - Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
