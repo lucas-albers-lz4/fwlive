@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Lab proofs for honest gaps in docs/developer/security-review.md:
 #   1. resolve wall-clock budget under flood
-#   2. flock hold vs enable_wan_logging (BusyBox flock has no -w)
+#   2. flock hold vs enable_wan_logging (BusyBox flock -n retry budget)
 #   3. pre-stage firewall_changes_pending refuse (package-commit ride-along = accepted residual)
 #
 #   ./scripts/qemu-security-gaps-smoke.sh
@@ -19,20 +19,20 @@ PORT="${OPENWRT_SSH_PORT:-2222}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
 # RESOLVE_BUDGET=5 + one in-flight RESOLVE_TIMEOUT=1 → ~6s; allow SSH slack.
 RESOLVE_SLACK_SEC="${RESOLVE_SLACK_SEC:-8}"
+# These bounds leave command/scheduling slack above the five one-second
+# acquisition intervals, while keeping an outer guard around the RPC/SSH.
+FLOCK_BUDGET_SEC=5
+FLOCK_SCHED_SLACK_SEC="${FLOCK_SCHED_SLACK_SEC:-3}"
 FLOCK_WAIT_SEC="${FLOCK_WAIT_SEC:-12}"
+FLOCK_EXPECTED_MAX_SEC=$((FLOCK_BUDGET_SEC + FLOCK_SCHED_SLACK_SEC))
 
 die() { echo "security-gaps smoke FAIL: $*" >&2; exit 1; }
 ok() { echo "security-gaps smoke OK: $*"; }
 
 ssh_guest() {
 	# ConnectTimeout bounds setup only — wrap the whole command so a hung
-	# guest cannot stall the lab run. Set FWLIVE_SSH_NO_TIMEOUT=1 for the
-	# intentional flock holder (sleep 120), which must outlive this bound.
-	if [[ -n "${FWLIVE_SSH_NO_TIMEOUT:-}" ]]; then
-		ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
-	else
-		timeout "${SSH_TIMEOUT_SEC:-60}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
-	fi
+	# guest cannot stall the lab run. The finite lock holder fits this bound.
+	timeout "${SSH_TIMEOUT_SEC:-60}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "$@"
 }
 
 echo "== fwlive security-gaps smoke (root@${HOST}:${PORT}) ==" >&2
@@ -81,8 +81,8 @@ ok "resolve flood returned ${NAME_COUNT} entries in ${ELAPSED_SEC}s (<= ${RESOLV
 
 # --- Gap 2: flock hold vs toggle -------------------------------------------
 # Unprivileged UID must not acquire LOCK_EX on the 0600 lock (#167).
-# A stuck *root* holder blocks BusyBox flock (no -w); ubus client must not
-# hang forever — we bound the client wait and record whether rpcd returns.
+# A stuck *root* holder keeps the BusyBox lock busy; fwlive must return
+# lock_failed after its five-second acquisition budget, before the host guard.
 LOCK_PATH=/etc/fwlive/logging.lock
 ssh_guest "test -d /etc/fwlive || mkdir -p /etc/fwlive; touch '$LOCK_PATH'; chmod 0600 '$LOCK_PATH'"
 
@@ -115,39 +115,43 @@ case "$UNPRIV_RC" in
 esac
 
 # Root holder blocks; call enable with host-side timeout (required above).
-# The holder must outlive the ssh_guest bound — bypass it explicitly.
-# EXIT trap kills the holder if we die() between start and the explicit release.
+# Give the guest holder a finite lifetime longer than the client guard. Killing
+# only the host SSH process would leave a remote flock/sleep holding fd 9;
+# wait for the guest command to finish instead, including on failure.
 release_flock_holder() {
 	if [[ -n "${HOLDER_PID:-}" ]]; then
-		kill "$HOLDER_PID" 2>/dev/null || true
 		wait "$HOLDER_PID" 2>/dev/null || true
 		HOLDER_PID=
 	fi
 }
-FWLIVE_SSH_NO_TIMEOUT=1 ssh_guest "flock '$LOCK_PATH' sleep 120" >/dev/null 2>&1 &
+ssh_guest "flock '$LOCK_PATH' sleep 20" >/dev/null 2>&1 &
 HOLDER_PID=$!
 trap release_flock_holder EXIT
-unset FWLIVE_SSH_NO_TIMEOUT
 sleep 1
+START_S="$(date +%s)"
 set +e
 ENABLE_OUT="$(timeout "${FLOCK_WAIT_SEC}" ssh "${SSH_OPTS[@]}" "root@${HOST}" "ubus call fwlive enable_wan_logging" 2>&1)"
 ENABLE_RC=$?
 set -e
+END_S="$(date +%s)"
+ENABLE_ELAPSED=$((END_S - START_S))
 release_flock_holder
 trap - EXIT
 
-if [[ "$ENABLE_RC" -eq 124 ]]; then
-	# Client timeout fired — rpcd worker still blocked on flock (accepted residual:
-	# BusyBox flock has no -w). Recorded, not a pass.
-	echo "security-gaps RESIDUAL: stuck root flock holder: ubus client timed out after ${FLOCK_WAIT_SEC}s (not a pass; BusyBox flock has no -w)" >&2
-elif printf '%s' "$ENABLE_OUT" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*(true|false)'; then
-	ok "enable returned while lock contention resolved or failed closed: $ENABLE_OUT"
-else
-	die "unexpected enable under lock hold (rc=${ENABLE_RC}): $ENABLE_OUT"
-fi
+[[ "$ENABLE_RC" -ne 124 ]] \
+	|| die "enable remained blocked past ${FLOCK_WAIT_SEC}s host guard (rpcd client timed out)"
+printf '%s' "$ENABLE_OUT" | grep -Eq '"error"[[:space:]]*:[[:space:]]*"lock_failed"' \
+	|| die "expected bounded lock_failed response under held lock, got (rc=${ENABLE_RC}): $ENABLE_OUT"
+[[ "$ENABLE_ELAPSED" -lt "$FLOCK_WAIT_SEC" ]] \
+	|| die "bounded lock failure took ${ENABLE_ELAPSED}s (host guard ${FLOCK_WAIT_SEC}s)"
+[[ "$ENABLE_ELAPSED" -le "$FLOCK_EXPECTED_MAX_SEC" ]] \
+	|| die "bounded lock failure took ${ENABLE_ELAPSED}s (budget ${FLOCK_BUDGET_SEC}s + ${FLOCK_SCHED_SLACK_SEC}s slack)"
+[[ "$ENABLE_RC" -eq 0 ]] \
+	|| die "unexpected enable under lock hold (rc=${ENABLE_RC}): $ENABLE_OUT"
+ok "enable returned lock_failed under held lock in ${ENABLE_ELAPSED}s (<= ${FLOCK_EXPECTED_MAX_SEC}s incl. slack)"
 
-# Ensure lock released for gap 3 — same inode, never rm+recreate. A timed-out
-# rpcd worker may still hold the old fd; a new inode would split serialization.
+# Ensure lock released for gap 3 — same inode, never rm+recreate. A new inode
+# would split serialization with any existing waiter or holder.
 if ! ssh_guest "flock -n '$LOCK_PATH' true" >/dev/null 2>&1; then
 	RELEASED=0
 	for ((_i = 0; _i < 10; _i++)); do

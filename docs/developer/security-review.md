@@ -394,6 +394,7 @@ currently rests on.
 |-------|-------|---------|
 | `host` | Asserted by a test in `tests/`, run by `./scripts/fwlive-test.sh` in PR CI | ACL does not grant `ubus log.*` |
 | `lab` | Demonstrated against a running QEMU guest | Live ACL enforcement on a real rpcd |
+| `formal` | Explicit finite-state model checked by pinned TLC; the model documents its source abstraction and does not prove code equivalence | Lock serialization and rollback interleavings |
 | `manual` | Confirmed by inspection or a one-off run, not re-checked automatically | Anything with no test behind it |
 
 `manual` is not a failure — some things cannot be cheaply automated — but a
@@ -410,11 +411,12 @@ should carry a note saying what would raise it.
 | Shell helpers — injection and quoting | 2026-09-28 | Delta + host tests | #987: BusyBox awk test helper gates the amd64-only binary lane, keeps the artifact SHA-256 check after URL overrides, and bounds curl connection/transfer/retry time; each cached package is reverified and the executable plus wrapper are recreated from it. `tests/fwlive-test-busybox-awk.test.sh` covers skip/fail policy, poisoned extracted-cache recovery, checksum override enforcement, and timeout flags. The downloaded program runs as the test user, outside the privileged router path. #898 changes only the peer-drain sleep fallback; positional timeout arguments and filtered stdin remain intact. #768 merge-reply JSON and #771 prefix `printf` protections remain unchanged; #761 GNU timeout arguments remain positional; #365/#366 retain quoted temp paths and `check_eq` behavior |
 | Developer tooling — AST-grep gate | 2026-09-29 | Delta + direct invocation | #1018 is a mode-only change to `scripts/fwlive-ast-grep.sh`; its source still pins ast-grep CLI 0.45.3 and scans repository files. Direct invocation passed. No shipped trust boundary changed |
 | Shell helpers — **file modes and lock ownership** | 2026-09-26 | Delta + host test | #869: baseline snapshot rejects symlink/unsafe `/etc/fwlive` dir and adaptive state refuses group/other-writable dirs (`tests/fwlive-logging.test.sh`, `tests/fwlive-adaptive-cap.test.sh`). Earlier lock 0600 and symlink checks: #204/#232 (`tests/fwlive-logging-lock.test.sh` Parts D–F); no new device-mode check in this delta |
+| WAN logging lock wait and reload rollback | 2026-09-29 | Delta + host + formal + focused lab | BusyBox `flock -n` retries for five seconds and fails closed with `lock_failed`; fd 9 closes on timeout. A volatile revision check prevents the reload-failure rollback from overwriting a later fwlive off→on toggle (host/formal, not guest ABA proof). Host tests: `tests/fwlive-logging-lock.test.sh`, `tests/fwlive-logging.test.sh`; models: `scripts/formal-tlc.sh`. 24.10.8 x86 QEMU source-synced helper: held lock returned `lock_failed` in 5s; see dated method below. No additional package dependency. |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-09-27 | Host + dated lab | `/etc/fwlive/wan-log-baseline`; packaged opkg `remove` and APK version-valued `pre-deinstall` restore, while `upgrade`/empty/unknown/`PKG_UPGRADE=1`/`1a2` and non-root staging roots skip (host matrix). Uninstall restoration: [#389 evidence](../evidence/issue-389-2026-09-20.md). A 25.12.5 version-changing APK upgrade preserved the bit/marker and invoked `post-upgrade`, not this `pre-deinstall` hook ([#848 evidence](../evidence/issue-848-2026-09-27.md)) |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-09-26 | Delta + host test | #606 rejects oversized `log`; #663 keeps baseline on failed reload; #869 snapshot checks unsafe directory paths. `tests/fwlive-logging.test.sh` passed on master. Earlier canonical `uci -X` cfg identity/B-1 and installed proof remain separately dated; package-wide commit residual still accepted |
 | Release pipeline — secrets and key handling | 2026-08-18 | Reproduced | #177 key-mode re-run; R7 pin-before-mount + `--network none` ([#179](https://github.com/lucas-albers-lz4/fwlive/issues/179)); 2026-08-18 hardening parity + R7 wrapper fix |
 | Release pipeline — version pins, fetch pinning and artifact selection | 2026-09-29 | Delta + targeted host tests | #1008 tightens #766's in-repo staging allowlist to root-level `feed-staging*` only; `tests/feed-publish-staging-guard.test.sh` rejects nested basename matches. #804 via PR #852: SDK validation rejects off-pin versions; #806 maps numeric point-release labels to their major.minor feed line (`tests/sdk-matrix-release-labels.test.sh`, `tests/feed-publish-release-assets.test.sh`). Issues #811–#814 via PR #864 cover Pages timeouts, SDK probe isolation, trap preservation and explicit build-all filters (`tests/wait-feed-pages.test.sh`, `tests/feed-sdk-wave15.test.sh`). #891 adds exact-label checks for the per-patch index-script pin and installer fallback (`tests/pin-sites.test.sh`). PR #854 (issue #841) and the R7 digest pin-before-secret-mount are recorded above; no live signing/publish or QEMU was run in this pass |
-| Workflow inputs into `run:` bodies | 2026-09-29 | Delta + source read | `actions/cache` is pinned to v4.2.0 commit SHA; its key uses the checksum read from `scripts/busybox-awk-1.37.sha256`. No credential reaches the cache or new `run:` expression; prior `FEED_DEPLOY_KEY` pin and dispatch tag via `env:` remain unchanged. This is a source check, not a new tag/publish run |
+| Workflow inputs into `run:` bodies | 2026-09-29 | Delta + source read | `actions/cache` is pinned to v4.2.0 commit SHA; its key uses the checksum read from `scripts/busybox-awk-1.37.sha256`. The manual-only formal workflow uses no workflow expressions in `run:` and checks the TLC jar against its fixed SHA-256; Java/TLC are workflow-only, not package dependencies. No credential reaches the cache or new `run:` expression; prior `FEED_DEPLOY_KEY` pin and dispatch tag via `env:` remain unchanged. This is a source check, not a new tag/publish run |
 | LuCI view (templates / shipped JS) | 2026-09-27 | Delta + host / mocked view | #866/#867: scoped-IP display and hostname-keyed row reuse; text-child boundary rechecked in `tests/fwlive-e-harness.test.js` and `tests/fwlive-chips-hash.test.js`. #870–#873 harness assertions improved; `npm run test:view` passed with mocked services. No installed LuCI or new XSS proof is inferred from that smoke |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-09-26 | Delta + built artifacts + lab | #761: unconditional `+coreutils-timeout`; actual 23.05/24.10 IPK and 25.12 APK metadata checked; 24.10.8 opkg upgrade from 0.1.46 to test candidate 0.1.47 auto-installed provider. Existing lifecycle hooks unchanged |
 | #370 package payload | 2026-09-23 | Delta + host test | Required `test-ipk-payload` check always reports. Full 23.05 IPK / 24.10 IPK / 25.12 APK SDK build+inspect with `FWLIVE_REQUIRE_PACKAGE=1` runs on packaging-path diffs (and fail-closed detection); host `test` still runs the source-shaped payload/lifecycle inspectors every PR (#557). Inspectors check JS modules, ACL/menu files, libexec layout, executable modes, and packaged lifecycle contracts. IPK `prerm-pkg` cases are executed; APK data-only extraction does not execute the APK hook. |
@@ -422,8 +424,8 @@ should carry a note saying what would raise it.
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-09-20 | Read + host test | #411: every `src-git` lock line is a 40-hex commit (`tests/feeds-lock-pins.test.sh`); 23.05 `base` is peeled `v23.05.5`; cache reuse checks HEAD and a clean work tree (including untracked files) |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
-| Lab feed/QEMU lifecycle helpers | 2026-09-29 | Delta + host/stub tests | #957: documents the `iproute2`/`ss` host prerequisite; both port-check helpers report an install hint when `ss` is missing and fail closed on errors. QEMU validation entry points preflight `ss` before baseline checks, SDK builds, image downloads, or preparation. #988: both runners validate `OWRT_HOSTFWD_BIND` before image/port preparation, and the NIC wrappers propagate errors through command substitutions. #986: live mismatched, unreadable, unsignalable, or procfs-hidden PID-file targets are not discarded as stale; plain stop refuses and `--force` reaches the bounded pattern fallback without signaling the decoy PID. Stop diagnostics name the final signal. #925/#1009: readiness and optional `--cmd` SSH processes use the remaining `MAX_WAIT` wall-clock budget; `--cmd` stays single-run and status-marker based. #1007: host `coreutils`/`timeout` is documented and named in the missing-tool hint. `tests/qemu-lab-ports.test.sh`, `tests/qemu-lifecycle.test.sh`, and `tests/qemu-wait-guest-feed-smoke.test.sh` cover these paths; no live QEMU guest was used. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
-| Lab honest-gap smokes | 2026-09-04 | Lab smoke | `scripts/qemu-security-gaps-smoke.sh` gaps 1–3 green 2026-09-04; gap-2 BusyBox `flock` (no `-w`) accepted residual; `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
+| Lab feed/QEMU lifecycle helpers | 2026-09-29 | Delta + host/stub tests | #957: documents the `iproute2`/`ss` host prerequisite; both port-check helpers report an install hint when `ss` is missing and fail closed on errors. QEMU validation entry points preflight `ss` before baseline checks, SDK builds, image downloads, or preparation. #988: both runners validate `OWRT_HOSTFWD_BIND` before image/port preparation, and the NIC wrappers propagate errors through command substitutions. #986: live mismatched, unreadable, unsignalable, or procfs-hidden PID-file targets are not discarded as stale; plain stop refuses and `--force` reaches the bounded pattern fallback without signaling the decoy PID. Stop diagnostics name the final signal. #925/#1009: readiness and optional `--cmd` SSH processes use the remaining `MAX_WAIT` wall-clock budget; `--cmd` stays single-run and status-marker based. #1007: host `coreutils`/`timeout` is documented and named in the missing-tool hint. `tests/qemu-lab-ports.test.sh`, `tests/qemu-lifecycle.test.sh`, and `tests/qemu-wait-guest-feed-smoke.test.sh` cover these paths; no live QEMU guest was used for those helper changes. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
+| Lab honest-gap smokes | 2026-09-29 | Source-synced lab + host | On a disposable 24.10.8 x86 KVM guest, `scripts/qemu-security-gaps-smoke.sh` returned 32 resolve entries in 1s, rejected unprivileged flock (rc 1), returned `lock_failed` in 5s under a root holder, verified release on the same lock inode, and refused foreign staging without committing/dropping it. This is not an artifact-only test of the branch's package. `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
 | CLASSIFY_SPEC evaluator and codegen | 2026-09-29 | Delta + host tests | #983/#984: core, LuCI, and awk generation reject malformed nodes and predicate values, including sparse key arrays, with matching errors; validation covers the full rules tree before evaluation, including otherwise-short-circuited branches. Bare predicates in or branches are emitted and evaluated consistently. Codegen and parser-sync tests cover parity, malformed shapes, and generated asset freshness; the host suite parses the generated classifier with pinned BusyBox awk. The log remains awk stdin data; no ACL, shell command input, or renderer sink changed |
 
 ## Controls in force
@@ -445,7 +447,7 @@ should carry a note saying what would raise it.
 | GitHub Release normal-path body is the CHANGELOG section; missing-section fallback is `--generate-notes` with a loud warning (body may be sparse — fold before tagging) | `host` | `feed_publish_release_notes_file` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-release-assets.test.sh` notes assertions; `publish_new` warn on fallback |
 | JSON filter unescapes libubox string escapes (`\b` `\f` `\n` `\r` `\t` `\u00XX`) before classify | `host` | `tests/fwlive-shell-filter.test.js` `runJsonGetMsgEscapes` / `runJsonParity` |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
-| WAN log toggle serialized against concurrent callers | `host` | `tests/fwlive-logging-lock.test.sh` (32-trial race) |
+| WAN log toggles serialize, bound lock acquisition, and do not roll back a later fwlive intent after an ABA | `host + formal` | `tests/fwlive-logging-lock.test.sh`, `tests/fwlive-logging.test.sh`, `scripts/formal-tlc.sh` |
 | Reload failure rolls back the UCI write; restore returns non-zero if `uci set`/`uci delete` never staged | `host` | `tests/fwlive-logging.test.sh` |
 | `resolve` stops starting lookups at its wall-clock budget and allows only the in-flight lookup plus TERM/KILL grace | `host` | `tests/fwlive-rpcd-security.test.js` `testResolveLoopBudgetIncludesFinalKillGrace`; host uses GNU timeout and matched 24.10 jshn/BusyBox shell |
 | `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` (clamp helper tested without jshn) |
@@ -551,7 +553,7 @@ path: `tests/validate-feed-keys-mode.test.sh` (gap 4 prefix; wired into
 | Property | Status | What would prove it |
 |----------|--------|---------------------|
 | `resolve` budget under loaded-router scheduling / blackhole DNS | host fault injection proves `budget + one in-flight lookup + TERM/KILL grace + integer-second clock slack`; lab smoke 2026-09-04 proves responsiveness only, not loaded-router scheduling | Run blackhole-DNS timing under a loaded QEMU/router if that latency envelope needs stronger evidence |
-| The rpcd script timeout actually bounds a blocked `flock` waiter | lab smoke 2026-09-04; BusyBox has no `flock -w` (**accepted residual** — client timed out, residual holds) | Host-side timeout fired; does not promote residual to cleared |
+| Installed guest returns `lock_failed` before the host safety timeout when a root holder keeps the lock busy | 2026-09-29 24.10.8 x86 KVM guest with source-synced `fwlive-logging.sh` returned `lock_failed` after 5s under a root holder; release on the same inode verified | Artifact-only build/install of this branch remains unproven; repeat on more guests if release scope requires it |
 | Pre-stage `firewall_changes_pending` refuse on a live device | lab smoke 2026-09-04 (**accepted residual** for package-commit publish of foreign staging — see above) | Foreign staging refused; foreign delta neither committed nor dropped |
 | Signing keys stay 0600 through validate rewrite path | `host` (validate-prefix) | `tests/validate-feed-keys-mode.test.sh` — write + shared `feed_keys_validate_*_rewrite_prefix` (decode/normalize/chmod; base64 branch). **Full usign docker sign + real publish** still prove-next on next `v*` tag |
 | Current master (`73a7a6a2f5`) on an installed router | This pass ran host tests and mocked LuCI view only; `__selftest` on the plain host explicitly skipped the jshn subcase (the separate matched BusyBox/jshn gate passed for 23.05/24.10/25.12) | Run a focused package-installed QEMU smoke if the new #854/#863 lab paths or #866/#867 browser paint behavior need installed-boundary evidence; do not relabel host stubs as lab |
@@ -1248,3 +1250,48 @@ deadline while preventing a tight `/proc` scan on reduced BusyBox builds.
 **Result.** No new RPC or session permission is introduced. The timeout
 wrapper still returns a failure when the hard deadline kills its process
 group; the fallback only changes peer-scan cadence on reduced BusyBox builds.
+
+### 2026-09-28 — WAN logging lock wait and rollback generation
+
+**Scope.** `fwlive-logging.sh` now polls BusyBox `flock -n` across five
+one-second intervals and returns `lock_failed` when the lock remains busy.
+Each fwlive toggle that reaches its locked state check, including a no-op,
+advances a root-only volatile generation under the same lock. Reload-failure
+rollback requires both the original UCI value and generation to match, closing
+the off→on ABA found in #953 F1.
+The existing `LUCI_DEPENDS` is unchanged; no package dependency was added.
+
+**Proof class.** `host` for retry count, fd close, fail-closed generation
+handling, no-op intent tracking, concurrent serialization, and reload rollback
+cases; `formal` for the finite retry model, revised ABA model, and retained
+counterexamples; focused `lab` for the bounded lock wait only. This does not
+prove guest-side ABA rollback or a built artifact of this branch.
+
+**Method.** `tests/fwlive-logging-lock.test.sh` covers a held lock with stubbed
+nonblocking attempts and asserts the fd closes at timeout, then exercises a
+disable/re-enable ABA while reload is in flight. `tests/fwlive-logging.test.sh`
+covers unsafe revision storage failing before UCI staging and confirms
+already-on/off requests still advance intent history. `scripts/formal-tlc.sh`
+checks the production-shaped models and asserts that the three intended
+counterfactual properties continue to fail. On 2026-09-29, a disposable
+24.10.8 x86 KVM guest upgraded from 0.1.44 to the published 0.1.47 IPK;
+`qemu-install-fwlive.sh` then source-synced this branch's libexec helper
+(host/guest SHA-256 `46d248df440a5b8c6309c7409ec9d32da8ac4cd228ca1670e1f6b27f68fade2d`).
+The guest needed `shadow-su` for the lab-only unprivileged check. The first
+smoke proved `lock_failed` in 5s but exposed a lab cleanup bug: killing the
+host SSH left a guest `flock sleep 120` holding the lock. After stopping only
+those observed guest holder processes, the smoke was changed to wait for a
+finite guest-side holder. Re-run: 32 resolve entries in 1s, unprivileged flock
+rc 1, `lock_failed` in 5s, same-inode lock release, and foreign UCI staging
+neither committed nor lost. A separate normal enable/disable on the same
+guest returned `ok:true,changed:true` both times; the generation file was
+root-only (directory 0700, file 0600) and status returned to `wan_log:false`.
+No persistent source image was modified.
+
+**Non-findings.** The lock still ends before firewall reload; no session ACL,
+RPC method, `ubus log.read` access, UCI commit scope, or DOM sink changed. The
+generation tracks fwlive writers that use this helper; a privileged direct UCI
+writer does not advance it. F2's kill-mid-critical-section QEMU experiment
+remains deferred because production timeout handling occurs before lock
+acquisition and cannot kill a process after it begins UCI staging. The timed
+TLA+ counterexample remains in the manual TLC run to guard that boundary.

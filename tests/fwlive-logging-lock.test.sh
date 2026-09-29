@@ -12,10 +12,10 @@
 #      outcome (never a torn or stale value), and every invocation reports
 #      well-formed ok/changed JSON (applied, no-op, or failed closed).
 #
-# BusyBox note: the production flock helper has no -w timeout, so the
-# critical section stays short (read->compute->set->commit); the firewall
-# reload runs outside the lock. Tests run hermetically by pointing
-# FWLIVE_WAN_LOG_LOCK_FILE at a temp path (default is /etc/fwlive/logging.lock).
+# BusyBox flock has no -w timeout, so production polls `flock -n` for a
+# bounded interval. The critical section stays short (read->compute->set->
+# commit); firewall reload runs outside the lock. Tests run hermetically by
+# pointing lock and generation state at temp paths.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,6 +25,8 @@ export FWLIVE_WAN_LOG_LOCK_FILE
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 FWLIVE_WAN_LOG_LOCK_FILE="$WORK/fwlive-logging.lock"
+FWLIVE_WAN_LOG_GENERATION_FILE="$WORK/runtime/wan-log-generation"
+export FWLIVE_WAN_LOG_GENERATION_FILE
 
 die() { echo "fwlive-logging-lock test FAIL: $*" >&2; exit 1; }
 ok() { echo "fwlive-logging-lock test OK: $*"; }
@@ -105,6 +107,48 @@ FWLIVE_WAN_LOG_LOCK_FILE="$WORK/path-shadow.lock" \
 	|| die "PATH-shadowed flock must fail closed"
 [ -s "$WORK/flock-called" ] || die "PATH-shadowed flock stub did not run"
 ok "PATH-shadowed flock fails closed"
+
+# BusyBox flock has no timed wait; the production helper polls non-blocking
+# flock and gives up at its configured budget. Shadow sleep so this stays fast.
+WAIT_SHADOW="$WORK/wait-shadow"
+mkdir -p "$WAIT_SHADOW"
+cat > "$WAIT_SHADOW/flock" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$FLOCK_WAIT_MARKER"
+case "$*" in
+	'-n 9') exit 1 ;;
+	'-u 9') exit 0 ;;
+esac
+exit 2
+EOF
+cat > "$WAIT_SHADOW/sleep" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$SLEEP_WAIT_MARKER"
+exit 0
+EOF
+chmod +x "$WAIT_SHADOW/flock" "$WAIT_SHADOW/sleep"
+cat > "$WORK/wait-child.sh" <<'EOF'
+#!/bin/sh
+. "$1"
+WAN_LOG_LOCK_WAIT_SEC=2
+if acquire_wan_log_lock; then
+	exit 2
+fi
+( : >&9 ) 2>/dev/null && exit 3
+exit 0
+EOF
+chmod +x "$WORK/wait-child.sh"
+FLOCK_WAIT_MARKER="$WORK/flock-wait-called" \
+SLEEP_WAIT_MARKER="$WORK/sleep-wait-called" \
+PATH="$WAIT_SHADOW:$PATH" \
+FWLIVE_WAN_LOG_LOCK_FILE="$WORK/busy.lock" \
+	sh "$WORK/wait-child.sh" "$LOGGING_SH" \
+	|| die "busy lock must time out and close fd 9"
+[ "$(wc -l < "$WORK/flock-wait-called")" -eq 3 ] \
+	|| die "two-second budget must make 3 nonblocking attempts"
+[ "$(wc -l < "$WORK/sleep-wait-called")" -eq 2 ] \
+	|| die "two-second budget must sleep only between attempts"
+ok "busy lock times out after bounded nonblocking retries and closes fd 9"
 
 # --- Part B: real functions, concurrent enable/disable on shared UCI -------
 # usage: $0 <logging-sh> <dir> <enable|disable> <seed>
@@ -247,14 +291,18 @@ ok "real enable/disable: 32 concurrent trials -> serial-consistent log bit, well
 # value is still what THIS caller committed. If a concurrent toggle changed it
 # after our commit, rollback must be SKIPPED (else the stale rollback clobbers
 # the newer toggle).
-# usage: $0 <logging-sh> <dir> <previous> <committed> -> writes the post-rollback value to stdout
+# usage: $0 <logging-sh> <dir> <previous> <committed> <generation> [aba]
+# -> writes the post-rollback value to stdout
 cat > "$WORK/rollback-child.sh" <<'EOF'
 #!/bin/sh
 . "$1"
 dir="$2"
 previous="$3"
 committed="$4"
+generation="$5"
+reload_mode="${6:-steady}"
 COMMIT_FILE="$dir/log"
+WAN_LOG_GENERATION_FILE="$FWLIVE_WAN_LOG_GENERATION_FILE"
 # uci stub (mirrors the child.sh one — keep it minimal for reload_and_report).
 uci() {
 	case "$1" in
@@ -277,13 +325,21 @@ uci() {
 	esac
 	return 0
 }
-reload_firewall() { return 1; }   # reload ALWAYS fails in this part
+reload_firewall() {
+	if [ "$reload_mode" = aba ]; then
+		printf '0' > "$COMMIT_FILE"
+		wan_log_generation_bump >/dev/null || return 2
+		printf '1' > "$COMMIT_FILE"
+		wan_log_generation_bump >/dev/null || return 2
+	fi
+	return 1
+}   # reload ALWAYS fails in this part
 logger() { return 0; }
 # zone = wan (first zone section)
 find_wan_zone_section() { printf 'wan'; }
 wan_zone_log_value() { cat "$COMMIT_FILE" 2>/dev/null || true; }
 zone_json='{"zone":"wan"}'
-reload_and_report_wan_log wan "$previous" "$committed" fail-msg success-msg "$zone_json" >/dev/null 2>&1
+reload_and_report_wan_log wan "$previous" "$committed" fail-msg success-msg "$zone_json" "$generation" >/dev/null 2>&1
 cat "$COMMIT_FILE" 2>/dev/null || true
 EOF
 chmod +x "$WORK/rollback-child.sh"
@@ -291,16 +347,29 @@ chmod +x "$WORK/rollback-child.sh"
 # C1: current still == committed -> rollback restores the previous value.
 mkdir -p "$WORK/rb1"
 printf '1' > "$WORK/rb1/log"        # current value: 1 (what we committed)
-out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb1" "" "1")
+printf '1\n' > "$FWLIVE_WAN_LOG_GENERATION_FILE"
+out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb1" "" "1" "1")
 [ -z "$out" ] || die "C1: expected rollback to restore previous (empty), got '$out'"
 ok "reload failure + unchanged value -> rollback restores previous"
 
 # C2: current != committed (concurrent toggle changed it) -> rollback SKIPPED.
 mkdir -p "$WORK/rb2"
 printf '2' > "$WORK/rb2/log"        # current value: 2 (NEWER commit by B)
-out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb2" "" "1")
+printf '2\n' > "$FWLIVE_WAN_LOG_GENERATION_FILE"
+out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb2" "" "1" "1")
 [ "$out" = "2" ] || die "C2: expected rollback skipped (value stays 2), got '$out'"
 ok "reload failure + concurrent change -> rollback skipped (newer toggle preserved)"
+
+# C3: the committed value returns to 1 after a disable and re-enable. The
+# generation changed twice, so the value-only ABA must not trigger rollback.
+mkdir -p "$WORK/rb3"
+printf '1' > "$WORK/rb3/log"
+printf '1\n' > "$FWLIVE_WAN_LOG_GENERATION_FILE"
+out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb3" "" "1" "1" aba)
+[ "$out" = "1" ] || die "C3: ABA must preserve later enable, got '$out'"
+[ "$(cat "$FWLIVE_WAN_LOG_GENERATION_FILE")" = 3 ] \
+	|| die "C3: ABA generation must advance twice"
+ok "reload failure + off/on ABA -> later enable preserved by generation check"
 
 # --- Part D: lock file mode 0600 (issue #167) ---------------------------------
 stat_mode() {

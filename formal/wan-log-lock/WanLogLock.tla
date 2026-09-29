@@ -3,73 +3,112 @@
    openwrt-feed/.../root/usr/libexec/fwlive-logging.sh: acquire_wan_log_lock ->
    read/commit -> release_wan_log_lock, run by concurrent ubus toggle callers.
 
-   Step-1 finding encoded here: the lock wait is an UNBOUNDED blocking flock
-   (line 185 `flock 9`; BusyBox flock has no -w, comments 39-45; callers never
-   wrap it in `timeout`; the timeout binary guards only rpcd read commands).
-   GiveUp therefore models fail-closed setup arms (167-188 return 1 ->
-   caller reports "error":"lock_failed", e.g. 1026-1029) — NOT a timed-out. *)
+   Current acquisition is bounded by `flock -n 9` retries with a five-second
+   budget (BusyBox flock has no -w; the implementation uses the existing
+   sleep applet). WaitTick abstracts each retry interval; Timeout models the
+   caller returning lock_failed if contention remains at the budget. *)
 EXTENDS Integers, TLC
 
-CONSTANT Procs            \* concurrent toggle callers
-\* Target[p]: committed log value p writes; odd callers enable (log=1),
-\* even callers disable (clear). Deriving it keeps cfg to sets only.
-Target == [p \in Procs |-> IF p % 2 = 1 THEN 1 ELSE 0]
+CONSTANTS Procs, WaitBudget \* callers and retry intervals
+\* A/C enable (log=1), B disables (clear). Deriving this keeps cfg simple.
+Target == [p \in Procs |-> IF p \in {"A", "C"} THEN 1 ELSE 0]
 ASSUME Procs # {}
+ASSUME WaitBudget \in Nat
 
-LCStates == {"Wait", "Hold", "Done", "Failed"}    \* caller lifecycle
-VARIABLES pc, log, result
+LCStates == {"Setup", "Wait", "Hold", "Done", "Failed"} \* caller lifecycle
+VARIABLES pc, log, remaining, result, owner
+vars == <<pc, log, remaining, result, owner>>
 
 TypeOK ==
   /\ pc \in [Procs -> LCStates]
   /\ log \in {0, 1}
+  /\ remaining \in [Procs -> 0..WaitBudget]
   /\ result \in [Procs -> {"pending", "committed", "lock_failed"}]
+  /\ owner \in Procs \cup {"none", "external"}
 
 Init ==
-  /\ pc = [p \in Procs |-> "Wait"]   \* one toggle call per caller (rpcd 1430-1435)
+  /\ pc = [p \in Procs |-> "Setup"]  \* one toggle call per caller (rpcd dispatch)
+  /\ remaining = [p \in Procs |-> 0]
   /\ result = [p \in Procs |-> "pending"]
+  /\ owner \in {"none", "external"} \* external models a stuck fd-9 holder
   /\ log \in {0, 1}                  \* committed bit starts on|off
 
-\* blocking `flock 9` (fwlive-logging.sh:185) grants EX to exactly one caller;
-\* grant timing is nondeterministic (idiomatic: no wall-clock countdown).
-AcquireLock(p) ==
-  /\ pc[p] = "Wait"
-  /\ \A q \in Procs: pc[q] # "Hold"
-  /\ pc' = [pc EXCEPT ![p] = "Hold"]
-  /\ UNCHANGED <<log, result>>
-
-\* fail-closed: symlink guards / open / flock unavailable (167-188) => "lock_failed"
-GiveUp(p) ==
-  /\ pc[p] = "Wait"
+\* File/path/open/flock setup can fail before a caller begins polling
+\* (fwlive-logging.sh acquire_wan_log_lock); caller returns lock_failed.
+FailSetup(p) ==
+  /\ pc[p] = "Setup"
   /\ pc' = [pc EXCEPT ![p] = "Failed"]
   /\ result' = [result EXCEPT ![p] = "lock_failed"]
-  /\ UNCHANGED log
+  /\ UNCHANGED <<log, remaining, owner>>
 
-\* Critical section, ATOMIC: re-read bit under lock (1037), uci set (861),
-\* uci commit (888), release (1053; flock -u 9 at 193). One action because no
-\* timeout wraps this window, so kill-mid-commit is unreachable by construction.
+\* Successful setup reaches the first non-blocking `flock -n 9` attempt.
+RequestLock(p) ==
+  /\ pc[p] = "Setup"
+  /\ pc' = [pc EXCEPT ![p] = "Wait"]
+  /\ remaining' = [remaining EXCEPT ![p] = WaitBudget]
+  /\ UNCHANGED <<log, result, owner>>
+
+\* A failed non-blocking attempt followed by one sleep interval.
+WaitTick(p) ==
+  /\ pc[p] = "Wait"
+  /\ remaining[p] > 0
+  /\ owner # "none"
+  /\ remaining' = [remaining EXCEPT ![p] = @ - 1]
+  /\ UNCHANGED <<pc, log, result, owner>>
+
+\* Contention remains after the finite retry budget; close the fd and fail.
+Timeout(p) ==
+  /\ pc[p] = "Wait"
+  /\ remaining[p] = 0
+  /\ owner # "none"
+  /\ pc' = [pc EXCEPT ![p] = "Failed"]
+  /\ result' = [result EXCEPT ![p] = "lock_failed"]
+  /\ UNCHANGED <<log, remaining, owner>>
+
+\* The kernel grants EX to exactly one caller when the lock is free.
+AcquireLock(p) ==
+  /\ pc[p] = "Wait"
+  /\ owner = "none"
+  /\ pc' = [pc EXCEPT ![p] = "Hold"]
+  /\ owner' = p
+  /\ UNCHANGED <<log, remaining, result>>
+
+\* Critical section, ATOMIC: re-read bit under lock, stage/commit the chosen
+\* value, then release fd 9. One action because the timeout budget applies
+\* only before acquisition; it never wraps this critical section.
 Commit(p) ==
   /\ pc[p] = "Hold"
+  /\ owner = p
   /\ pc' = [pc EXCEPT ![p] = "Done"]
+  /\ owner' = "none"
   /\ log' = Target[p]
   /\ result' = [q \in Procs |-> IF q = p THEN "committed" ELSE result[q]]
+  /\ UNCHANGED remaining
 
 \* IdleStep keeps the path check's behaviors infinite once every caller is
 \* terminal (Done/Failed) — pure stuttering, same effect as [Next]_vars.
-IdleStep == /\ pc' = pc /\ log' = log /\ result' = result
+IdleStep ==
+  /\ pc' = pc
+  /\ log' = log
+  /\ remaining' = remaining
+  /\ result' = result
+  /\ owner' = owner
 
-Next == (\E p \in Procs: AcquireLock(p) \/ GiveUp(p) \/ Commit(p)) \/ IdleStep
+Next ==
+  (\E p \in Procs: FailSetup(p) \/ RequestLock(p) \/ WaitTick(p) \/ Timeout(p) \/ AcquireLock(p) \/ Commit(p))
+  \/ IdleStep
 
 (* WF over COMPLETE action disjunctions: a fairness operator that references
    pc' without constraining every primed var trips TLC issue tlaplus#317. *)
-Resolve == (\E p \in Procs: AcquireLock(p)) \/ (\E p \in Procs: GiveUp(p))
+Resolve ==
+  (\E p \in Procs: FailSetup(p) \/ RequestLock(p) \/ WaitTick(p) \/ Timeout(p))
+  \/ (\E p \in Procs: AcquireLock(p))
 Release  == \E p \in Procs: Commit(p)
-
-vars == <<pc, log, result>>
 
 Spec ==
   /\ Init
   /\ [][Next]_vars
-  /\ WF_vars(Resolve)   \* waiting resolves: acquire or fail closed, never hang
+  /\ WF_vars(Resolve)   \* retries resolve: acquire or fail closed, never hang
   /\ WF_vars(Release)   \* short critical section always completes
 
 
@@ -79,7 +118,10 @@ MutualExclusion ==
 
 ConfigWhole == log \in {0, 1}   \* committed bit is always a whole intended value
 
+LockOwnership ==
+  \A p \in Procs: (pc[p] = "Hold") <=> (owner = p)
+
 NoEndlessWait == \A p \in Procs: <>[](pc[p] \in {"Done", "Failed"})
 
-THEOREM Spec => []TypeOK /\ []MutualExclusion /\ []ConfigWhole /\ NoEndlessWait
+THEOREM Spec => []TypeOK /\ []MutualExclusion /\ []LockOwnership /\ []ConfigWhole /\ NoEndlessWait
 ====

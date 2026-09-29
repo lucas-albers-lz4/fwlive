@@ -1,16 +1,17 @@
 ---- MODULE WanLogLockTimed ----
-(* HYPOTHETICAL regression model for Step-1 option (b) — IF the wait were
-   bounded by `timeout N flock ...` wrapping the whole critical section.
-   Production does NOT do this (see WanLogLock.tla); this appendix models the
-   hazard (b) would open: SIGKILL landing mid "compute -> commit".
+(* HYPOTHETICAL F2 regression model: if a wall-clock timeout wrapper covered
+   the whole lock-owning command, it could SIGKILL a holder mid
+   "compute -> commit". Production bounds acquisition before the lock is
+   owned (see WanLogLock.tla), so that timeout cannot kill this critical
+   section. This appendix records the failure mode if timeout scope expands.
 
    uci semantics kept honest: `uci commit firewall` rewrites the whole file
    atomically (temp+rename), so the COMMITTED bit never tears. The reachable
    damage under (b) is a stranded STAGED delta from the killed caller's
    `uci set`; the next toggle then aborts at firewall_changes_pending
-   (fwlive-logging.sh:850-854) — availability loss until manual `uci revert`,
+   (fwlive-logging.sh:854-857) — availability loss until manual `uci revert`,
    not config corruption. Production never strands its own staging because
-   nothing kills it mid-commit. *)
+   the acquisition retry loop returns before entering the critical section. *)
 EXTENDS Integers, TLC
 
 CONSTANT Procs
@@ -32,7 +33,7 @@ Init ==
   /\ committed \in {0, 1}
   /\ staged = committed            \* staging == committed at rest
 
-GiveUp(p) ==   \* timeout expired while blocked on flock — clean fail
+GiveUp(p) ==   \* hypothetical wrapper expires while blocked on flock — clean fail
   /\ pc[p] = "Wait"
   /\ pc' = [pc EXCEPT ![p] = "Failed"]
   /\ result' = [result EXCEPT ![p] = "timed_out"]
@@ -44,14 +45,14 @@ AcquireLock(p) ==
   /\ pc' = [pc EXCEPT ![p] = "Hold"]
   /\ UNCHANGED <<staged, committed, result>>
 
-WriteConfig1(p) ==  \* `uci set firewall.<wan>.log=target` (861): stages only
+WriteConfig1(p) ==  \* `uci set firewall.<wan>.log=target` (865): stages only
   /\ pc[p] = "Hold"
   /\ staged' = Target[p]
   /\ pc' = [pc EXCEPT ![p] = "Staged"]
   /\ UNCHANGED <<committed, result>>
 
-WriteConfig2(p) ==  \* `uci commit firewall` (888): atomic rename, then
-  /\ pc[p] = "Staged"   \* release_wan_log_lock (1053; flock -u 9, 193-194)
+WriteConfig2(p) ==  \* `uci commit firewall` (892): atomic rename, then
+  /\ pc[p] = "Staged"   \* release_wan_log_lock (1054/1113; flock -u 9, 192-194)
   /\ committed' = staged
   /\ pc' = [pc EXCEPT ![p] = "Done"]
   /\ result' = [result EXCEPT ![p] = "committed"]

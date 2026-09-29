@@ -2,14 +2,14 @@
 (* Race: outstanding fwlive.resolve lookup vs disposeView() (fwlive.js). Per
    address: Idle->Flight->Resolved->Applied/Ignored; cache = per-address
    verdict (LRU/TTL arithmetic out of scope = unit-test territory). REAL GATE:
-   post-await gen re-check at 1837 (`gen !== this.resolveGeneration`;
-   disposeView bumps 1317). 1837->last write 1865 contains NO await, so
+   post-await gen re-check at 1879 (`gen !== this.resolveGeneration`;
+   disposeView bumps 1360). 1879->last write 1907 contains NO await, so
    gate+writes are atomic in JS = ONE action guarded ~disposed. Gate := FALSE
    = counterfactual proving NoLateWrite is not vacuous. *)
 EXTENDS Integers, TLC
 
 CONSTANT Lookups      \* addresses of one in-flight batch (odd=hit, even=NXDOMAIN)
-CONSTANT Gate         \* TRUE = production (1837); FALSE = counterfactual
+CONSTANT Gate         \* TRUE = production (1879); FALSE = counterfactual
 
 VARIABLES pc, cache, disposed, lateWrite
 
@@ -28,7 +28,7 @@ ResolveLookup(a) ==   \* ubus reply lands — timing vs Dispose nondeterministic
   /\ pc' = [pc EXCEPT ![a] = "Resolved"]
   /\ UNCHANGED <<cache, disposed, lateWrite>>
 
-ApplyResolution(a) ==   \* gate passes (1837); lruSet/failMark (1859/1865) atomic
+ApplyResolution(a) ==   \* gate passes (1879); lruSet/failMark (1901/1907) atomic
   /\ pc[a] = "Resolved"  /\ disposed = FALSE
   /\ pc' = [pc EXCEPT ![a] = "Applied"]
   /\ cache' = [cache EXCEPT ![a] = IF a % 2 = 1 THEN "name" ELSE "failed"]
@@ -45,7 +45,7 @@ LateApplyResolution(a) ==   \* counterfactual (Gate=FALSE): write lands post-dis
   /\ cache' = [cache EXCEPT ![a] = IF a % 2 = 1 THEN "name" ELSE "failed"]
   /\ lateWrite' = TRUE  /\ UNCHANGED disposed
 
-Dispose ==   \* disposeView(): viewDisposed=true (1314), resolveGeneration++ (1317)
+Dispose ==   \* disposeView(): viewDisposed=true (1357), resolveGeneration++ (1360)
   /\ disposed = FALSE
   /\ disposed' = TRUE
   /\ UNCHANGED <<pc, cache, lateWrite>>

@@ -1,98 +1,92 @@
-# WAN-log lock — TLA+ fidelity map
+# WAN-log lock and rollback — TLA+ fidelity map
 
-Model: `WanLogLock.tla` (+ `.cfg`) — the enable/disable mutex of
-`openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh`
-(file paths below relative to that script unless noted).
+Models for the WAN logging controls in
+`openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-logging.sh`.
 
-## Step-1 finding (cited)
+## Production behavior
 
-The prompt asserts the implementation enforces a **bounded** lock wait via an
-additional package. Reading the code says otherwise — the answer is **neither
-(a) nor (b)**:
+`acquire_wan_log_lock` uses BusyBox `flock -n 9` and retries with the existing
+`sleep` applet across five one-second intervals. On continued contention it
+closes fd 9 and the RPC returns `lock_failed` (plus command/scheduling
+overhead). It does not block on a single `flock` call.
+The critical section remains the short read/stage/commit path; firewall reload
+stays outside the lock.
 
-- Makefile `LUCI_DEPENDS` (openwrt-feed/luci-app-fwlive/Makefile:11) does add
-  an additional package: `+coreutils-timeout`.
-- But `coreutils-timeout` (`/usr/bin/timeout`) is consumed **only** by rpcd's
-  `run_with_timeout` (root/usr/libexec/rpcd/fwlive:182–241), which wraps read-
-  path commands only: `nft list ruleset` (:418), `ubus call log read` (:643),
-  the filter script (:668), `nslookup` (:764). It never touches the lock.
-- The toggle path dispatches **without** any timeout wrapper:
-  `rpcd/fwlive:1430–1435` calls `enable_wan_logging` / `disable_wan_logging`
-  directly.
-- `acquire_wan_log_lock` (:162–189) ends in plain blocking
-  `exec 9>>"$WAN_LOG_LOCK_FILE"` + `flock 9` (:184–185) — BusyBox flock, no
-  `-w`, no `timeout` prefix. util-linux `flock` is NOT swapped in
-  (`flock -n` guest probe in scripts/qemu-security-gaps-smoke.sh:161 assumes
-  BusyBox applet semantics).
-- Comments confirm: :39 "BusyBox flock constraint: it has NO -w timeout";
-  tests/fwlive-logging-lock.test.sh:15 "the production flock helper has no -w
-  timeout"; scripts/qemu-security-gaps-smoke.sh:139–141 records "rpcd worker
-  still blocked on flock (accepted residual: BusyBox flock has no -w)".
+The package's existing `+coreutils-timeout` dependency is unchanged. It bounds
+read-path commands in rpcd and is not used by WAN lock acquisition. The new
+retry loop needs no package or production dependency.
 
-So the architecture doc is right about the **lock**; what is bounded is the
-**RPC replies** around it. Kill-mid-commit is unreachable because nothing
-kills the worker mid-commit. `WanLogLockTimed.tla` is a hypothetical appendix
-showing what a future `timeout N flock` refactor would expose.
+## `WanLogLock.tla`
 
-## Action → shell mapping
-
-| TLA+ action | Shell statement(s) abstracted |
+| TLA+ action | Shell behavior abstracted |
 |---|---|
-| `Init` (all `Wait`) | `ubus call fwlive enable_wan_logging` → `rpcd/fwlive:1430–1435` → function reaches `acquire_wan_log_lock` (caller gate :1026 / :1079) |
-| `AcquireLock(p)` | `exec 9>>lockfile` + `flock 9` (:184–185); kernel grants `LOCK_EX` to exactly one waiter → guard `\A q: pc[q] # "Hold"` |
-| `GiveUp(p)` | fail-closed arms of `acquire_wan_log_lock` returning 1 (:167–188: symlink guards, mkdir/open fail, `flock 9` fail); caller prints `"error":"lock_failed"` and returns (:1026–1029, :1079–1082) |
-| `Commit(p)` (one atomic action) | critical section under the lock: re-read `wan_zone_log_value` (:1037) → `uci set firewall.$zone.log=$target` (:861) or `uci delete` (:866) → `uci commit firewall` (:888) → `release_wan_log_lock` (:1053; `flock -u 9` + `exec 9>&-` :193–194) |
-| `[Next]_vars` stutter | firewall reload runs OUTSIDE the lock (:960–968) — inter-step gaps of a caller are invisible |
+| `FailSetup(p)` | Lock path, open, or `flock` setup fails; caller reports `lock_failed`. |
+| `RequestLock(p)` | File setup succeeds and the first `flock -n 9` attempt begins. |
+| `WaitTick(p)` | Nonblocking attempt finds contention, then one `sleep 1` interval elapses. `remaining` models the finite retry budget. |
+| `Timeout(p)` | Contention remains after the retry budget; caller closes fd 9 and reports `lock_failed`. |
+| `AcquireLock(p)` | `flock -n 9` succeeds while no caller owns the lock. |
+| `Commit(p)` | Re-read, stage, commit, and release while holding fd 9. This step also abstracts revision bumping before the UCI write. |
 
-`Target` derived in-module (odd p enables → `log=1` :1050/861; even p clears →
-`log=` unset, :1101/866) to keep the cfg a one-line set binding.
+TLC 2.19 checks the model with three callers and a five-interval budget.
+`TypeOK`, `MutualExclusion`, `LockOwnership`, `ConfigWhole`, and
+`NoEndlessWait` hold. Liveness uses weak fairness for retry/acquire/fail and
+commit actions. The model includes a permanently stuck external fd-9 holder;
+waiters still exhaust their retry budget and return `lock_failed`. It assumes
+the caller loop keeps getting scheduled, so it does not prove a wall-clock
+upper bound under a stalled CPU or process scheduler.
 
-## TLC results (TLC 2026.09.25, 3 callers)
+## Rollback ABA finding and fix (#953 F1)
 
-- `TypeOK`, `MutualExclusion`, `ConfigWhole`: **hold** (81 states, <1s).
-- `NoEndlessWait` under `WF(Resolve)`+`WF(Release)`: **holds** — i.e. every
-  toggle call eventually lands Done/Failed. Caveat: this assumes the holder
-  completes; the real script's worst case is a *stuck* holder + fd-9-
-  inheriting child (:40–43) blocking waiters until reboot — see divergences.
+`WanLogRollbackAba.tla` is the counterexample model for the original value-only
+guard. A enables logging, B disables it while A reloads, C enables it again,
+and A's failed reload then sees `log=1` and incorrectly restores `log=0`.
+`WanLogRollbackAba.cfg` intentionally violates `NoOverwriteForeignIntent`.
 
-## Timed appendix (hypothetical (b))
+Production now advances a root-only volatile generation file under the same
+lock for each toggle that reaches its locked state check, including requests
+that find the requested state already set. After reload fails, A re-acquires
+the lock and restores only if both the visible value and generation still
+match A's commit. `WanLogRollbackRevision.tla` models that guard; its config
+checks that a later enable survives the ABA. If revision tracking cannot be
+safely updated, the primary toggle fails before staging. A failed UCI write
+may leave a revision gap, which can suppress a rollback but cannot overwrite a
+later fwlive intent. The `/var/run` state is volatile, so reboot clears it only
+after all in-flight callers have ended.
 
-`WanLogLockTimed.tla` splits the CS into `WriteConfig1` (`uci set` = staging
-:861) / `WriteConfig2` (`uci commit` :888) + `Kill`. Results:
-- `CommittedWhole` holds even under Kill: uci's commit is temp-file+rename
-  (upstream openwrt/uci file.c:754–822 writes `.{name}.uci-XXXXXX`, fsyncs,
-  renames) — the committed file is never torn; only whole values appear.
-- `NoOrphanStaging` is **violated** (trace: AcquireLock(1)→WriteConfig1(1)→
-  Kill(1)): a kill between set and commit strands the staged delta; the next
-  toggle then aborts at `firewall_changes_pending` (:850–854) — availability
-  loss until `uci revert`, not corruption. This is the (b) tax, paid only if
-  anyone ever wraps the CS in `timeout`.
+This history marker covers fwlive writers that use this lock and helper. A
+separate privileged writer that edits UCI directly does not advance it; the
+existing current-value check still detects a different final value, but a
+direct writer's own off/on ABA is outside the model and coordination contract.
 
-## Known divergences (safe for this property set)
+## Why F2 stays a counterexample, not a QEMU experiment
 
-1. **No wall-clock at all.** `flock 9` blocking/grant duration, reload
-   seconds, `timeout` guards on read RPCs — none modeled. Timeout is
-   represented (where applicable) by the nondeterministic choice of `GiveUp`
-   / `Kill`, the idiomatic encoding.
-2. **GiveUp ≠ timeout.** As established, the wait is unbounded; GiveUp
-   abstracts the fail-closed setup arms. Liveness therefore rests on WF
-   ("holders finish, waiters eventually get an answer") — exactly the
-   assumption the accepted-residual smoke test flags as unguaranteed in
-   practice (stuck holder / inherited fd 9). The model would not catch a
-   permanently stuck holder; nothing short of `-w` can.
-3. **Atomic CS.** Read→set→commit→release is one step. Sound because no
-   killer targets this window; if (b) ever lands, use WanLogLockTimed.
-4. **Commit-success is assumed.** `uci commit` failure/revert (:888–905) and
-   post-commit verify race handling (:910–945) are error-reporting paths; the
-   committed value is always 0/1 either way → `ConfigWhole` unaffected.
-5. **One toggle per caller, no rollback re-acquire.** Reload-failure rollback
-   (:968–993) re-acquires the same lock; modeled callers do one CS. Rollback
-   composes two `Commit(p)`-shaped steps under the same mutex — ME and
-   ConfigWhole proofs carry over unchanged.
-6. **fd-9 inheritance leak.** :40–43 notes a live child can keep the lock
-   after the holder dies; the model assumes the lock tracks its holder. Only
-   affects liveness under a stuck holder, which (2) already disclaims.
-7. **Lock acquisition failure modes collapsed.** TOCTOU symlink re-checks,
-   0600 tightening, dir safety (:166–178) are all one `GiveUp` — they are
-   security hardening, not mutex behavior; ME/ConfigWhole don't depend on
-   which arm fired.
+`WanLogLockTimed.tla` asks what would happen if a timeout wrapper could send
+SIGKILL while the process owns the lock. Its
+`WanLogLockTimedStranding.cfg` deliberately violates `NoOrphanStaging`: a kill
+after `uci set` but before `uci commit` leaves a staged firewall delta, and
+later toggles refuse at `firewall_changes_pending`. The committed file remains
+whole because UCI commits by temporary-file rename.
+
+F2's proposed QEMU kill experiment was deferred because it targets that
+whole-critical-section timeout design. Production now times out only while
+trying to acquire the lock, before any UCI staging; a QEMU kill at the F2
+location would test a different implementation. The model remains an explicit
+guard against expanding timeout scope over the critical section. The QEMU
+security smoke instead checks the production behavior: a held lock returns
+`lock_failed` within the RPC's host-side safety bound.
+
+## Repeatable TLC run
+
+`scripts/formal-tlc.sh` downloads the official TLA+ v1.7.4 tools jar and checks
+its pinned SHA-256 before running TLC with one worker. It runs the production
+models as passing checks and asserts that three counterfactual configs still
+report their named violations: ungated hostname disposal (`NoLateWrite`),
+whole-critical-section kill (`NoOrphanStaging`), and value-only rollback ABA
+(`NoOverwriteForeignIntent`). No TLA+ tooling is included in the OpenWrt
+package. Run it locally with `./scripts/formal-tlc.sh`, or use the manual-only
+**formal TLC** Actions workflow. The workflow does not run on ordinary pushes
+or pull requests.
+
+These checks validate the stated models and their counterexamples. They do not
+prove the models match future code; the shell tests and QEMU smoke cover the
+implementation boundary separately.

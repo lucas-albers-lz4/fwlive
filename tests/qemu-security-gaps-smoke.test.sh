@@ -145,6 +145,16 @@ run_gaps() {
 
 bash -n "$SCRIPT" || die 'qemu-security-gaps-smoke.sh has invalid shell syntax'
 ok 'script syntax'
+# Killing only host ssh leaves remote flock/sleep holding the lock. The guest
+# holder must terminate itself, and the host must wait before testing release.
+grep -Fq 'ssh_guest "flock '\''$LOCK_PATH'\'' sleep 20"' "$SCRIPT" \
+	|| die 'guest-side flock holder must have a finite lifetime'
+grep -Fq 'wait "$HOLDER_PID"' "$SCRIPT" \
+	|| die 'host must wait for the guest holder to exit before checking release'
+if grep -Fq 'kill "$HOLDER_PID"' "$SCRIPT"; then
+	die 'killing only host ssh can strand the guest lock holder'
+fi
+ok 'finite guest-side holder release contract'
 
 if (FWLIVE_STUB_RESOLVE=error; export FWLIVE_STUB_RESOLVE; run_gaps resolve-error); then
 	die 'instant resolve error JSON passed as gap-proven'
@@ -188,13 +198,12 @@ grep -Fq 'succeeded' "$TMP/unpriv-0.log" \
 	|| die 'unprivileged success was not reported'
 ok 'unprivileged flock success fails gap 2'
 
-FWLIVE_STUB_ENABLE=timeout run_gaps enable-timeout || true
-grep -Fq 'security-gaps RESIDUAL' "$TMP/enable-timeout.log" \
-	|| die 'timeout was not recorded as residual'
-if grep -Fq 'smoke OK: stuck root flock holder' "$TMP/enable-timeout.log"; then
-	die 'timeout was labeled as a pass'
+if (FWLIVE_STUB_ENABLE=timeout; export FWLIVE_STUB_ENABLE; run_gaps enable-timeout); then
+	die 'host-side timeout was incorrectly accepted as bounded lock response'
 fi
-ok 'client timeout is residual, not a pass'
+grep -Fq 'enable remained blocked past' "$TMP/enable-timeout.log" \
+	|| die 'host-side timeout was not reported as a failed bounded-wait proof'
+ok 'client timeout fails the bounded-wait proof'
 
 # Happy path: stage after the unprivileged probe so gap 3 sees the marker.
 # The script stages mid-run; the ssh stub treats FWLIVE_STUB_STAGED as static.
@@ -270,8 +279,10 @@ grep -Fq 'resolve flood returned 32 entries' "$TMP/happy.log" \
 	|| die 'happy path did not prove 32 resolve entries'
 grep -Fq 'unprivileged cannot LOCK_EX logging.lock (rc=1)' "$TMP/happy.log" \
 	|| die 'happy path did not prove unprivileged rc=1'
+grep -Fq 'enable returned lock_failed under held lock' "$TMP/happy.log" \
+	|| die 'happy path did not prove bounded lock_failed response'
 grep -Fq 'security-gaps smoke passed' "$TMP/happy.log" \
 	|| die 'happy path did not reach overall pass'
-ok 'positive control: 32 resolve entries and unprivileged rc=1'
+ok 'positive control: 32 resolve entries, unprivileged rc=1, bounded lock_failed response'
 
 echo 'qemu security-gaps smoke tests passed'

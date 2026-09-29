@@ -1,0 +1,22 @@
+name: formal TLC
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  formal-tlc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+      - name: Install Java runtime for TLC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jre-headless
+      - name: Check TLA+ models (pinned TLC 1.7.4)
+        run: ./scripts/formal-tlc.sh
