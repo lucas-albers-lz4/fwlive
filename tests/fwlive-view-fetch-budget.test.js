@@ -757,6 +757,75 @@ async function testPollRetriesRulesFailureAndRepaintsLabels() {
 	console.log('fwlive-view fetch-budget: poll retries thrown rules RPC OK');
 }
 
+async function testRulesRetryBackoffIsCapped() {
+	let now = 0;
+	let rulesCalls = 0;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.rules': async function () {
+				rulesCalls++;
+				return { rules: {}, error: 'rules_unavailable' };
+			},
+			'fwlive.poll': async function () {
+				return pollReply();
+			}
+		}
+	});
+	const v = h.view;
+	v.nowMs = function () { return now; };
+	v.lastRulesError = 'rules_unavailable';
+
+	await v.fetchEntries();
+	assert.strictEqual(rulesCalls, 1, 'the first eligible poll must retry rules');
+	assert.strictEqual(v.nextRulesRetryAt, 5000, 'the first failure must wait five seconds');
+
+	for (let expectedCalls = 1; expectedCalls <= 5; expectedCalls++) {
+		const deadline = v.nextRulesRetryAt;
+		now = deadline - 1;
+		await v.fetchEntries();
+		assert.strictEqual(rulesCalls, expectedCalls, 'retry must wait until its deadline');
+		now = deadline;
+		await v.fetchEntries();
+		assert.strictEqual(rulesCalls, expectedCalls + 1, 'retry must run when due');
+	}
+
+	assert.strictEqual(v.rulesRetryAttempt, 6, 'the retry budget must stop at six failed calls');
+	assert.strictEqual(v.nextRulesRetryAt, 0, 'exhausted retries must clear the next deadline');
+	now += 60000;
+	await v.fetchEntries();
+	assert.strictEqual(rulesCalls, 6, 'an exhausted retry budget must not keep probing');
+	console.log('fwlive-view fetch-budget: rules retry backoff and cap OK');
+}
+
+async function testRulesRetrySkipsPausedAndFailedPolls() {
+	let pollFails = false;
+	let rulesCalls = 0;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.rules': async function () {
+				rulesCalls++;
+				return { rules: {}, error: 'rules_unavailable' };
+			},
+			'fwlive.poll': async function () {
+				return pollFails ? { log: [], error: 'filter_failed' } : pollReply();
+			}
+		}
+	});
+	const v = h.view;
+	v.lastRulesError = 'rules_unavailable';
+	v.nextRulesRetryAt = 0;
+	v.tablePaused = true;
+	await v.fetchEntries();
+	assert.strictEqual(rulesCalls, 0, 'paused tables must not trigger rules retries');
+
+	v.tablePaused = false;
+	pollFails = true;
+	await v.fetchEntries();
+	assert.strictEqual(v.lastPollError, true, 'fixture must produce a failed poll');
+	assert.strictEqual(rulesCalls, 0, 'failed polls must not trigger rules retries');
+	console.log('fwlive-view fetch-budget: rules retry skips paused and failed polls OK');
+}
+
 async function main() {
 	await testAutoAndManualBudgets();
 	await testManualSeeding();
@@ -777,6 +846,8 @@ async function main() {
 	await testRulesThrowKeepsGoodMap();
 	await testRulesThrowWipesEmptyMap();
 	await testPollRetriesRulesFailureAndRepaintsLabels();
+	await testRulesRetryBackoffIsCapped();
+	await testRulesRetrySkipsPausedAndFailedPolls();
 	console.log('fwlive-view fetch-budget tests passed');
 }
 

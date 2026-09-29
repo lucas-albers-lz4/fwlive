@@ -23,6 +23,10 @@
 'require fwlive.render-policy as renderPolicy';
 'require fwlive.render-scheduler as renderScheduler';
 
+const RULES_RETRY_BASE_MS = 5000;
+/* Includes the initial read; a page reload starts a fresh retry budget. */
+const RULES_RETRY_MAX_ATTEMPTS = 6;
+
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
 	method: 'poll',
@@ -167,6 +171,8 @@ return view.extend({
 	lastPollError: false,
 	lastPollErrorCode: null,
 	lastRulesError: null,
+	rulesRetryAttempt: 0,
+	nextRulesRetryAt: 0,
 	followLive: true,
 	rulesMap: {},
 	firewallBackend: 'nft',
@@ -703,7 +709,7 @@ return view.extend({
 			this.rulesMap = (res && res.rules) || {};
 			this.firewallBackend = (res && res.backend) || 'nft';
 			/* Bounds / mktemp failures are reply.error — same idea as poll. */
-			this.lastRulesError = (res && res.error) || null;
+			this.noteRulesMapOutcome((res && res.error) || null);
 			if (this.lastRulesError) console.warn('fwlive rules map error:', this.lastRulesError);
 			this.refreshBufferedRuleLabels();
 		} catch (_e) {
@@ -712,9 +718,33 @@ return view.extend({
 				this.rulesMap = {};
 				this.firewallBackend = 'nft';
 			}
-			this.lastRulesError = 'rules_unavailable';
+			this.noteRulesMapOutcome('rules_unavailable');
 		}
 		this.updateBackendUi();
+	},
+
+	noteRulesMapOutcome(error) {
+		this.lastRulesError = error;
+		if (error !== 'rules_unavailable') {
+			this.rulesRetryAttempt = 0;
+			this.nextRulesRetryAt = 0;
+			return;
+		}
+
+		/* Back off consecutive failures, then stop after a bounded retry budget. */
+		this.rulesRetryAttempt = Math.min(
+			(this.rulesRetryAttempt || 0) + 1,
+			RULES_RETRY_MAX_ATTEMPTS
+		);
+		if (this.rulesRetryAttempt >= RULES_RETRY_MAX_ATTEMPTS) {
+			this.nextRulesRetryAt = 0;
+			return;
+		}
+		const delay = Math.min(
+			RULES_RETRY_BASE_MS * Math.pow(2, this.rulesRetryAttempt - 1),
+			60000
+		);
+		this.nextRulesRetryAt = this.nowMs() + delay;
 	},
 
 	backendDisplayLabel() {
@@ -1185,7 +1215,13 @@ return view.extend({
 				/* A throw here is local UI work after a successful poll. Leave
 				 * lastPollError / lastPollErrorCode as applyPollReply set them. */
 			}
-		} else if (this.lastRulesError === 'rules_unavailable') {
+		} else if (
+			this.lastRulesError === 'rules_unavailable' &&
+			this.rulesRetryAttempt < RULES_RETRY_MAX_ATTEMPTS &&
+			!this.tablePaused &&
+			!this.lastPollError &&
+			this.nowMs() >= (this.nextRulesRetryAt || 0)
+		) {
 			await this.loadRulesMap(epoch);
 			if (epoch !== this.currentPollEpoch() || this.viewDisposed) return;
 		}
