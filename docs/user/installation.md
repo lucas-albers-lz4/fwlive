@@ -169,5 +169,5 @@ A firewall reload can fail after fwlive commits the baseline to UCI, so the
 live firewall may keep using its previous value. If the lock cannot be
 reacquired after a successful reload or post-reload verification differs, the
 baseline file stays because fwlive cannot safely confirm completion. Check
-`logread` for `WAN log baseline restore` and turn logging off in Live View (or
-edit the zone) if the bit is still set.
+`logread` for `WAN log baseline restore` and turn logging off under **Network
+→ Firewall** (or edit the zone) if the bit is still set.
