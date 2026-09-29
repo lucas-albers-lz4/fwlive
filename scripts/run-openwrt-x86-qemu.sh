@@ -68,6 +68,7 @@ if [[ "${qemu_lab_want_stop:-0}" -eq 1 ]]; then
 	exit $?
 fi
 
+qemu_lab_validate_hostfwd_bind || exit 1
 [[ -n "${OWRT_IMG}" && -f "${OWRT_IMG}" ]] || die "No disk image under ${IMG_DIR}/ — run: RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh"
 [[ -f "${OVMF_CODE}" ]] || die "Missing OVMF firmware (${OVMF_CODE}) — install qemu-system-x86 ovmf"
 if [[ ! -f "${OVMF_VARS}" ]]; then

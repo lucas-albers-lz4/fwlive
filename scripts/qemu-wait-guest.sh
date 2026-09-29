@@ -7,7 +7,7 @@
 #   ./scripts/qemu-wait-guest.sh
 #   ./scripts/qemu-wait-guest.sh --cmd 'uname -r'
 #   OPENWRT_SSH_PORT=2222 MAX_WAIT=600 ./scripts/qemu-wait-guest.sh
-# MAX_WAIT bounds readiness; --cmd runs once after the read-only probe succeeds.
+# MAX_WAIT bounds readiness and the optional --cmd SSH process; --cmd runs once after the probe.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -49,7 +49,8 @@ done
 
 TIMEOUT_BIN="$(command -v timeout || true)"
 if [[ -z "$TIMEOUT_BIN" ]]; then
-	echo "error: timeout command is required to bound SSH readiness probes" >&2
+	echo "error: timeout command is required to bound SSH readiness and --cmd processes" >&2
+	echo "hint: install package coreutils (Mint/Ubuntu: sudo apt install coreutils)" >&2
 	exit 1
 fi
 
@@ -91,7 +92,8 @@ while [[ $SECONDS -lt $deadline ]]; do
 
 		command_remaining=$((deadline - SECONDS))
 		if (( command_remaining <= 0 )); then
-			command_connect_timeout=1
+			echo "error: MAX_WAIT elapsed before --cmd could run" >&2
+			exit 1
 		elif (( command_remaining > 20 )); then
 			command_connect_timeout=20
 		else
@@ -99,7 +101,10 @@ while [[ $SECONDS -lt $deadline ]]; do
 		fi
 		status_marker="__FWLIVE_REMOTE_STATUS_$$_${RANDOM}__"
 		remote_command="sh -c $(quote_sh_arg "$CMD"); _fwlive_status=\$?; printf '\\n${status_marker}%s\\n' \"\$_fwlive_status\""
-		if command_out="$(ssh -p "$PORT" "${SSH_OPTS[@]}" -o "ConnectTimeout=$command_connect_timeout" "${USER}@${HOST}" "$remote_command" 2>&1)"; then
+		if command_out="$(
+			"$TIMEOUT_BIN" -s KILL "${command_remaining}s" ssh -p "$PORT" "${SSH_OPTS[@]}" \
+				-o "ConnectTimeout=$command_connect_timeout" "${USER}@${HOST}" "$remote_command" 2>&1
+		)"; then
 			if [[ "$command_out" == *"$status_marker"* ]]; then
 				remote_status=${command_out##*"$status_marker"}
 			else
@@ -119,6 +124,11 @@ while [[ $SECONDS -lt $deadline ]]; do
 			exit 1
 		else
 			ssh_status=$?
+			if [[ "$ssh_status" -eq 124 || "$ssh_status" -eq 137 || "$ssh_status" -eq 143 ]]; then
+				echo "error: --cmd SSH timed out within the remaining MAX_WAIT budget (${command_remaining}s; exit $ssh_status; command may have run)" >&2
+				[[ -n "$command_out" ]] && printf '%s\n' "$command_out" >&2
+				exit 1
+			fi
 			echo "error: SSH transport failed while running --cmd (ssh exit $ssh_status; command may have run and was not retried)" >&2
 			[[ -n "$command_out" ]] && printf '%s\n' "$command_out" >&2
 			exit 1
