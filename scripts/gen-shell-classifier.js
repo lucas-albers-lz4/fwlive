@@ -446,4 +446,4 @@ if (require.main === module) {
 	process.stdout.write(process.argv[2] === '--awk' ? awkOut : out);
 }
 
-module.exports = { emitAwkPred, emitAwkRules };
+module.exports = { emitAwkPred, emitAwkRules, emitAwkProgram };

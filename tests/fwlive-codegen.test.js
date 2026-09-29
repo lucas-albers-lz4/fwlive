@@ -93,7 +93,7 @@ try {
 
 const core = require(path.join(ROOT, 'core/fwlive-log.js'));
 
-const { emitAwkPred, emitAwkRules } = require(GEN_SHELL);
+const { emitAwkPred, emitAwkRules, emitAwkProgram } = require(GEN_SHELL);
 assert.equal(emitAwkPred({ hint: true }), 'has_hint(s)');
 assert.equal(emitAwkPred({ action: 'known' }), 'action != "UNKNOWN"');
 assert.throws(
@@ -192,8 +192,19 @@ try {
 
 	core.CLASSIFY_SPEC.rules = [{ or: [{ kv: ['SRC'] }] }];
 	assert.match(emitAwkRules(), /if \(\(has_kv\(s, \"SRC\"\)\)\) return 1/);
-	assert.equal(core.evaluateClassifySpec('SRC=192.0.2.1'), true,
-		'bare predicate branches in or must be supported by both evaluators');
+	const barePredicateMessages = ['SRC=192.0.2.1', 'DST=192.0.2.1'];
+	const barePredicateAwk = emitAwkProgram();
+	for (let i = 0; i < barePredicateMessages.length; i++) {
+		const message = barePredicateMessages[i];
+		const expected = core.evaluateClassifySpec(message) ? '1' : '0';
+		const result = spawnSync('awk', ['-v', 'MODE=msg', barePredicateAwk], {
+			input: message,
+			encoding: 'utf8'
+		});
+		assert.equal(result.status, 0, 'emitted awk failed for bare predicate: ' + result.stderr);
+		assert.equal(result.stdout.trim(), expected,
+			'emitted awk and JS evaluator disagree for bare predicate on ' + message);
+	}
 
 	core.CLASSIFY_SPEC.rules = [{ and: [{ kv: ['SRC'], hint: true }] }];
 	assert.throws(
