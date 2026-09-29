@@ -14,7 +14,7 @@ fwlive_test_prepare_busybox_awk() {
 			echo "FAIL: BusyBox awk >= 1.37 is required in CI, but this host is ${system}/${arch}." >&2
 			return 1
 		fi
-		fwlive_skipped_gates=$((fwlive_skipped_gates + 1))
+		fwlive_runner_gate_skips=$((fwlive_runner_gate_skips + 1))
 		echo "SKIP: BusyBox awk >= 1.37 lane requires Linux x86_64 (found ${system}/${arch}); counted." >&2
 		return 2
 	fi
@@ -24,7 +24,7 @@ fwlive_test_prepare_busybox_awk() {
 	fi
 
 	if [[ "$strict" -eq 0 && "${FWLIVE_ALLOW_SKIP:-}" == "1" ]]; then
-		fwlive_skipped_gates=$((fwlive_skipped_gates + 1))
+		fwlive_runner_gate_skips=$((fwlive_runner_gate_skips + 1))
 		echo "SKIP: BusyBox awk >= 1.37 lane could not be prepared; FWLIVE_ALLOW_SKIP=1. Counted." >&2
 		return 2
 	fi

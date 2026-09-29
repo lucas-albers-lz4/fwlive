@@ -33,7 +33,7 @@ run_prepare_case() (
 	local require_zero="$6" ensure_fail="$7" expected_rc="$8" expected_skips="$9"
 	local ensure_called="${10}" expected_text="${11}" root="${TMP}/${name}"
 	make_fixture_root "$root"
-	fwlive_skipped_gates=0
+	fwlive_runner_gate_skips=0
 	CI="$ci"
 	FWLIVE_ALLOW_SKIP="$allow_skip"
 	FWLIVE_TEST_REQUIRE_ZERO_SKIPS="$require_zero"
@@ -55,7 +55,7 @@ run_prepare_case() (
 	local rc=$?
 	set -e
 	[[ "$rc" -eq "$expected_rc" ]] || fail "${name}: expected status ${expected_rc}, got ${rc}"
-	[[ "$fwlive_skipped_gates" -eq "$expected_skips" ]] || fail "${name}: wrong skip count ${fwlive_skipped_gates}"
+	[[ "$fwlive_runner_gate_skips" -eq "$expected_skips" ]] || fail "${name}: wrong runner gate skip count ${fwlive_runner_gate_skips}"
 	if [[ "$ensure_called" == yes ]]; then
 		[[ -e "$FWLIVE_TEST_ENSURE_MARKER" ]] || fail "${name}: expected helper call"
 	else
