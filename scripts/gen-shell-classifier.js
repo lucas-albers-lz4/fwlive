@@ -80,43 +80,76 @@ function awkTrimPattern(chars) {
 	return '(' + parts.join('|') + ')';
 }
 
-function emitAwkPred(node) {
+function validateAwkNode(node) {
+	if (!node || typeof node !== 'object' || Array.isArray(node))
+		throw new Error('CLASSIFY_SPEC node must be an object');
 	const keys = Object.keys(node);
 	if (keys.length !== 1)
-		throw new Error('CLASSIFY_SPEC predicate node must have exactly one key: ' + JSON.stringify(node));
+		throw new Error('CLASSIFY_SPEC node must have exactly one key: ' + JSON.stringify(node));
 	const key = keys[0];
-	if (key === 'kv' && Array.isArray(node.kv))
+	if (key === 'and' || key === 'or') {
+		const children = node[key];
+		if (!Array.isArray(children))
+			throw new Error('CLASSIFY_SPEC ' + key + ' node must be an array');
+		if (children.length === 0)
+			throw new Error('CLASSIFY_SPEC ' + key + ' node must be a non-empty array');
+		for (let i = 0; i < children.length; i++)
+			validateAwkNode(children[i]);
+		return key;
+	}
+	if (key === 'kv' || key === 'kvAny') {
+		const values = node[key];
+		let valid = Array.isArray(values) && values.length > 0;
+		for (let i = 0; valid && i < values.length; i++) {
+			if (typeof values[i] !== 'string' || values[i].trim().length === 0)
+				valid = false;
+		}
+		if (!valid)
+			throw new Error('CLASSIFY_SPEC ' + key + ' predicate must be a non-empty array of non-empty strings');
+		return key;
+	}
+	if (key === 'action') {
+		if (node.action !== 'known')
+			throw new Error('CLASSIFY_SPEC action predicate must be "known"');
+		return key;
+	}
+	if (key === 'hint') {
+		if (node.hint !== true)
+			throw new Error('CLASSIFY_SPEC hint predicate must be true');
+		return key;
+	}
+	throw new Error('unrecognised CLASSIFY_SPEC predicate node: ' + JSON.stringify(node));
+}
+
+function emitAwkPred(node) {
+	const key = validateAwkNode(node);
+	if (key === 'kv')
 		return node.kv.map(function(k) { return 'has_kv(s, "' + k + '")'; }).join(' && ');
-	if (key === 'kvAny' && Array.isArray(node.kvAny))
+	if (key === 'kvAny')
 		return '(' + node.kvAny.map(function(k) { return 'has_kv(s, "' + k + '")'; }).join(' || ') + ')';
-	if (key === 'action' && node.action === 'known')
+	if (key === 'action')
 		return 'action != "UNKNOWN"';
-	if (key === 'hint' && node.hint === true)
+	if (key === 'hint')
 		return 'has_hint(s)';
 	throw new Error('unrecognised CLASSIFY_SPEC predicate node: ' + JSON.stringify(node));
 }
 
-function emitAwkAnd(node) {
-	return node.and.map(emitAwkPred).join(' && ');
+function emitAwkExpr(node) {
+	const key = validateAwkNode(node);
+	if (key === 'and')
+		return '(' + node.and.map(emitAwkExpr).join(' && ') + ')';
+	if (key === 'or')
+		return '(' + node.or.map(emitAwkExpr).join(' || ') + ')';
+	return emitAwkPred(node);
 }
 
 function emitAwkRules(rules) {
 	const lines = [];
 	const sourceRules = rules === undefined ? SPEC.rules : rules;
-	for (let i = 0; i < sourceRules.length; i++) {
-		const rule = sourceRules[i];
-		const keys = rule && typeof rule === 'object' ? Object.keys(rule) : [];
-		if (keys.length !== 1 || (keys[0] !== 'or' && keys[0] !== 'and'))
-			throw new Error('unrecognised CLASSIFY_SPEC rule: ' + JSON.stringify(rule));
-		if (keys[0] === 'or') {
-			if (!Array.isArray(rule.or))
-				throw new Error('CLASSIFY_SPEC or rule must be an array');
-			for (let j = 0; j < rule.or.length; j++)
-				lines.push('\tif (' + emitAwkAnd(rule.or[j]) + ') return 1');
-		} else {
-			lines.push('\tif (' + emitAwkAnd(rule) + ') return 1');
-		}
-	}
+	if (!Array.isArray(sourceRules) || sourceRules.length === 0)
+		throw new Error('CLASSIFY_SPEC rules must be a non-empty array');
+	for (let i = 0; i < sourceRules.length; i++)
+		lines.push('\tif (' + emitAwkExpr(sourceRules[i]) + ') return 1');
 	return lines.join('\n');
 }
 
@@ -413,4 +446,4 @@ if (require.main === module) {
 	process.stdout.write(process.argv[2] === '--awk' ? awkOut : out);
 }
 
-module.exports = { emitAwkPred, emitAwkRules };
+module.exports = { emitAwkPred, emitAwkRules, emitAwkProgram };

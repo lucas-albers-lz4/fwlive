@@ -93,7 +93,7 @@ try {
 
 const core = require(path.join(ROOT, 'core/fwlive-log.js'));
 
-const { emitAwkPred, emitAwkRules } = require(GEN_SHELL);
+const { emitAwkPred, emitAwkRules, emitAwkProgram } = require(GEN_SHELL);
 assert.equal(emitAwkPred({ hint: true }), 'has_hint(s)');
 assert.equal(emitAwkPred({ action: 'known' }), 'action != "UNKNOWN"');
 assert.throws(
@@ -106,14 +106,112 @@ assert.throws(
 );
 
 const originalRules = core.CLASSIFY_SPEC.rules;
+function captureError(fn) {
+	try {
+		fn();
+	} catch (error) {
+		return error;
+	}
+	assert.fail('expected the validator to reject malformed CLASSIFY_SPEC data');
+}
+
 try {
+	const sparseValues = [];
+	sparseValues.length = 1;
+	const malformed = [
+		{
+			rules: [],
+			message: 'CLASSIFY_SPEC rules must be a non-empty array'
+		},
+		{
+			rules: [{ and: [] }],
+			message: 'CLASSIFY_SPEC and node must be a non-empty array'
+		},
+		{
+			rules: [{ or: [] }],
+			message: 'CLASSIFY_SPEC or node must be a non-empty array'
+		},
+		{
+			rules: [{ and: 'SRC' }],
+			message: 'CLASSIFY_SPEC and node must be an array'
+		},
+		{
+			rules: [{ and: [{ kv: [] }] }],
+			message: 'CLASSIFY_SPEC kv predicate must be a non-empty array of non-empty strings'
+		},
+		{
+			rules: [{ and: [{ kv: [''] }] }],
+			message: 'CLASSIFY_SPEC kv predicate must be a non-empty array of non-empty strings'
+		},
+		{
+			rules: [{ and: [{ kv: [1] }] }],
+			message: 'CLASSIFY_SPEC kv predicate must be a non-empty array of non-empty strings'
+		},
+		{
+			rules: [{ and: [{ kv: sparseValues }] }],
+			message: 'CLASSIFY_SPEC kv predicate must be a non-empty array of non-empty strings'
+		},
+		{
+			rules: [{ and: [{ kvAny: [] }] }],
+			message: 'CLASSIFY_SPEC kvAny predicate must be a non-empty array of non-empty strings'
+		},
+		{
+			rules: [{ and: [{ kvAny: 'SRC' }] }],
+			message: 'CLASSIFY_SPEC kvAny predicate must be a non-empty array of non-empty strings'
+		},
+		{
+			rules: [{ and: [{ action: 'knownx' }] }],
+			message: 'CLASSIFY_SPEC action predicate must be "known"'
+		},
+		{
+			rules: [{ and: [{ hint: 0 }] }],
+			message: 'CLASSIFY_SPEC hint predicate must be true'
+		},
+		{
+			rules: [null],
+			message: 'CLASSIFY_SPEC node must be an object'
+		},
+		{
+			rules: [{ and: [{ kv: ['SRC'], hint: true }] }],
+			message: 'CLASSIFY_SPEC node must have exactly one key: {\"kv\":[\"SRC\"],\"hint\":true}'
+		},
+		{
+			rules: [{ or: [{ kv: ['SRC'] }, { kv: [] }] }],
+			message: 'CLASSIFY_SPEC kv predicate must be a non-empty array of non-empty strings'
+		}
+	];
+	for (let i = 0; i < malformed.length; i++) {
+		core.CLASSIFY_SPEC.rules = malformed[i].rules;
+		const jsError = captureError(() => core.evaluateClassifySpec('SRC=192.0.2.1'));
+		const codegenError = captureError(() => emitAwkRules());
+		assert.equal(jsError.message, malformed[i].message);
+		assert.equal(codegenError.message, malformed[i].message);
+		assert.equal(codegenError.message, jsError.message,
+			'codegen and JS validator error text differs for ' + JSON.stringify(malformed[i].rules));
+	}
+
+	core.CLASSIFY_SPEC.rules = [{ or: [{ kv: ['SRC'] }] }];
+	assert.match(emitAwkRules(), /if \(\(has_kv\(s, \"SRC\"\)\)\) return 1/);
+	const barePredicateMessages = ['SRC=192.0.2.1', 'DST=192.0.2.1'];
+	const barePredicateAwk = emitAwkProgram();
+	for (let i = 0; i < barePredicateMessages.length; i++) {
+		const message = barePredicateMessages[i];
+		const expected = core.evaluateClassifySpec(message) ? '1' : '0';
+		const result = spawnSync('awk', ['-v', 'MODE=msg', barePredicateAwk], {
+			input: message,
+			encoding: 'utf8'
+		});
+		assert.equal(result.status, 0, 'emitted awk failed for bare predicate: ' + result.stderr);
+		assert.equal(result.stdout.trim(), expected,
+			'emitted awk and JS evaluator disagree for bare predicate on ' + message);
+	}
+
 	core.CLASSIFY_SPEC.rules = [{ and: [{ kv: ['SRC'], hint: true }] }];
 	assert.throws(
 		() => core.evaluateClassifySpec('SRC=192.0.2.1'),
 		/exactly one key/
 	);
-	core.CLASSIFY_SPEC.rules = [{ malformed: true }];
-	assert.throws(() => emitAwkRules(), /unrecognised CLASSIFY_SPEC rule/);
+	assert.throws(() => emitAwkRules(), /exactly one key/);
 } finally {
 	core.CLASSIFY_SPEC.rules = originalRules;
 }

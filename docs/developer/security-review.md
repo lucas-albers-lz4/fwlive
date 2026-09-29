@@ -407,6 +407,7 @@ should carry a note saying what would raise it.
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
 | Lab feed/QEMU lifecycle helpers | 2026-09-29 | Delta + host/stub tests | #957: documents the `iproute2`/`ss` host prerequisite; both port-check helpers report an install hint when `ss` is missing and fail closed on errors. QEMU validation entry points preflight `ss` before baseline checks, SDK builds, image downloads, or preparation. #988: both runners validate `OWRT_HOSTFWD_BIND` before image/port preparation, and the NIC wrappers propagate errors through command substitutions. #986: live mismatched, unreadable, unsignalable, or procfs-hidden PID-file targets are not discarded as stale; plain stop refuses and `--force` reaches the bounded pattern fallback without signaling the decoy PID. Stop diagnostics name the final signal. #925/#1009: readiness and optional `--cmd` SSH processes use the remaining `MAX_WAIT` wall-clock budget; `--cmd` stays single-run and status-marker based. #1007: host `coreutils`/`timeout` is documented and named in the missing-tool hint. `tests/qemu-lab-ports.test.sh`, `tests/qemu-lifecycle.test.sh`, and `tests/qemu-wait-guest-feed-smoke.test.sh` cover these paths; no live QEMU guest was used. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
 | Lab honest-gap smokes | 2026-09-04 | Lab smoke | `scripts/qemu-security-gaps-smoke.sh` gaps 1–3 green 2026-09-04; gap-2 BusyBox `flock` (no `-w`) accepted residual; `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
+| CLASSIFY_SPEC evaluator and codegen | 2026-09-29 | Delta + host tests | #983/#984: core, LuCI, and awk generation reject malformed nodes and predicate values, including sparse key arrays, with matching errors; validation covers the full rules tree before evaluation, including otherwise-short-circuited branches. Bare predicates in or branches are emitted and evaluated consistently. Codegen and parser-sync tests cover parity, malformed shapes, and generated asset freshness; the host suite parses the generated classifier with pinned BusyBox awk. The log remains awk stdin data; no ACL, shell command input, or renderer sink changed |
 
 ## Controls in force
 
@@ -722,6 +723,39 @@ pin and cache key are `manual` source checks. No non-amd64 runner or offline
 host was used; those branches are exercised by controlled test stubs. No full
 surface re-pass was triggered because the delta remains inside host test
 tooling and CI configuration.
+
+### 2026-09-29 — #983/#984 CLASSIFY_SPEC validation and awk codegen
+
+**Scope.** The CLASSIFY_SPEC evaluator in core and its LuCI mirror, the awk
+classifier emitter, the generated awk asset, and the host BusyBox awk lane.
+The spec is validated before evaluation, so malformed values in an
+otherwise-matching branch cannot be hidden by short-circuiting. Empty
+rules/and/or lists and empty, sparse, or non-string kv/kvAny entries fail
+with deterministic messages; known action and true hint values are enforced.
+Nested boolean nodes, including bare predicate branches under or, are handled
+consistently by JS and generated awk.
+
+**Method.** tests/fwlive-codegen.test.js checks emitter/core error parity,
+empty and malformed shapes, the bare-predicate or branch, generated freshness,
+and host awk syntax. tests/fwlive-parser-sync.test.js checks identical
+core/LuCI validation errors and valid or behavior. The full fwlive host suite
+also runs awk -f against the generated classifier through the pinned
+BusyBox-awk wrapper.
+
+**Non-findings.** Firewall messages continue to reach awk on stdin as data.
+This change adds no command interpolation, DOM sink, ubus method, or ACL
+permission; read/write scopes and the no-log.read session boundary are
+unchanged. The audit was limited to this classifier delta; no full surface
+re-pass criterion was met.
+
+**Result / proof boundary.** tests/fwlive-codegen.test.js,
+tests/fwlive-parser-sync.test.js, and the full ./scripts/fwlive-test.sh suite
+passed; the host suite reported zero skipped gates. It exercised the pinned
+BusyBox awk -f syntax check on the generated asset. ./scripts/fwlive-linkcheck.sh
+reported 478 internal links checked with zero broken, plus 75 external URLs
+with zero failures or warnings (one local URL skipped). Host proof applies to
+the evaluator and codegen checks; no installed router or new device behavior
+was exercised.
 
 ### 2026-09-29 — #988 hostfwd validation and #986 forced QEMU stop
 
