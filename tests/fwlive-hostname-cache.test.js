@@ -9,19 +9,36 @@ const assert = require('node:assert/strict');
 const { loadFwliveModule } = require('./lib/load-fwlive-module');
 const luciE = require('./lib/luci-e-harness');
 
+const constants = loadFwliveModule('constants');
 const hostname = loadFwliveModule('hostname');
 
-function testDefaultCapCoversRowLimit() {
+function testDefaultCachesCoverTwoAddressesPerVisibleRow() {
+	const maxRows = Math.max.apply(null, constants.ROW_LIMIT_OPTIONS);
+	const workingSetSize = maxRows * 2;
 	const map = new Map();
-	for (let i = 0; i < 2000; i++)
+	for (let i = 0; i < workingSetSize; i++)
 		hostname.lruSet(map, 'ip' + i, 'h' + i);
-	assert.strictEqual(map.size, 2000, 'default cache must hold the 2000-row limit');
-	assert.strictEqual(map.has('ip0'), true, 'oldest visible address must stay cached');
+	assert.strictEqual(map.size, workingSetSize, 'default cache must hold the visible address set');
+	for (let i = 0; i < workingSetSize; i++) {
+		assert.strictEqual(
+			hostname.lruGet(map, 'ip' + i),
+			'h' + i,
+			'every address in the visible working set must stay warm'
+		);
+	}
 	hostname.lruSet(map, 'overflow', 'extra');
-	assert.strictEqual(map.size, 2000);
-	assert.strictEqual(map.has('ip0'), false);
-	assert.strictEqual(hostname.CACHE_MAX, 2000);
-	assert.strictEqual(hostname.FAIL_MAX, 2000);
+	assert.strictEqual(map.size, workingSetSize, 'the cache must remain bounded');
+
+	const failed = new Map();
+	for (let i = 0; i < workingSetSize; i++)
+		hostname.failMark(failed, 'ip' + i, 0);
+	assert.strictEqual(failed.size, workingSetSize, 'failure cache must hold the visible address set');
+	for (let i = 0; i < workingSetSize; i++)
+		assert.strictEqual(
+			hostname.failIsHot(failed, 'ip' + i, 1),
+			true,
+			'every address in the visible working set must keep its failure TTL'
+		);
 }
 
 function testLruEviction() {
@@ -118,7 +135,7 @@ function testFailCap() {
 	assert.strictEqual(failed.has('ip0'), false);
 }
 
-testDefaultCapCoversRowLimit();
+testDefaultCachesCoverTwoAddressesPerVisibleRow();
 testLruEviction();
 testLruGetTouches();
 testDisplayReadTouchesLru();

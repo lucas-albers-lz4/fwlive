@@ -184,6 +184,20 @@ function testBareBangRendersNoChip() {
 	const host = renderChips({ src: '!', dst: '!', q: '!' });
 	assert.strictEqual(host.style.display, 'none', 'bare ! must not render chips');
 	assert.strictEqual(collectText(host), '', 'bare ! must not leave chip text');
+	const h = loadFwliveView({ location: { hash: '' } });
+	withSelectOptions(h);
+	h.view.updateHash({ q: '!', src: '!' });
+	assert.deepStrictEqual(h.view.hashEntries(), [], 'bare ! filters must not persist in the hash');
+	h.view.applyHash();
+	assert.strictEqual(valueOf(h, 'fwlive-q'), '', 'bare ! must not restore into the search field');
+	h.view.updateHash({ q: '!wan' });
+	assert.deepStrictEqual(
+		h.view.hashEntries().filter(function (entry) { return entry.key === 'q'; })[0],
+		{ key: 'q', val: '!wan' },
+		'valid negated filters must survive the hash round-trip'
+	);
+	h.view.applyHash();
+	assert.strictEqual(valueOf(h, 'fwlive-q'), '!wan', 'valid negated filter must restore from the hash');
 	const real = renderChips({ src: '!10.0.0.1', action: '!' });
 	const text = collectText(real);
 	assert.ok(text.indexOf('10.0.0.1') >= 0, 'negated value must still render');
