@@ -20,7 +20,12 @@ const FILTER_SH = path.join(ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh');
 const FIXTURE = path.join(__dirname, 'fixtures', 'logread-mixed.json');
 /* Override with SH='busybox sh' for ash parity (#103). */
-const SH = process.env.SH || 'sh';
+const SH = (() => {
+	const requested = process.env.SH || 'sh';
+	if (requested === 'sh' || requested === 'busybox sh')
+		return requested;
+	throw new Error("SH must be exactly 'sh' or 'busybox sh'");
+})();
 
 function shSpawn(scriptOrFile, opts) {
 	const parts = SH.split(/\s+/).filter(Boolean);
