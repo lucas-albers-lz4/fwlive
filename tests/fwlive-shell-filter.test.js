@@ -2,7 +2,12 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { execFileSync, spawnSync } = require('node:child_process');
+const {
+	DEFAULT_TIMEOUT_MS,
+	execFileSync,
+	spawnSync,
+	withChildProcessTimeout
+} = require('./lib/child-process-timeout');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -766,6 +771,7 @@ function runOversizedStdin() {
 }
 
 function run() {
+	testChildProcessTimeouts();
 	runMsgParity();
 	runJsonParity();
 	runTempDirGuards();
@@ -785,6 +791,19 @@ function run() {
 	runMissingClassifier();
 	runOversizedStdin();
 	console.log('fwlive shell filter parity tests passed (SH=' + SH + ')');
+}
+
+function testChildProcessTimeouts() {
+	assert.equal(withChildProcessTimeout().timeout, DEFAULT_TIMEOUT_MS,
+		'child helpers must apply their default timeout');
+	assert.equal(withChildProcessTimeout({ timeout: DEFAULT_TIMEOUT_MS * 2 }).timeout,
+		DEFAULT_TIMEOUT_MS, 'caller options must not remove the helper time bound');
+	const result = spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2000)'], {
+		encoding: 'utf8',
+		timeout: 200
+	});
+	assert.equal(result.error && result.error.code, 'ETIMEDOUT',
+		'a hung child must fail at the timeout');
 }
 
 run();
