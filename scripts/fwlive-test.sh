@@ -35,6 +35,9 @@ fwlive_skip_missing() {
 	exit 1
 }
 
+# shellcheck source=lib/fwlive-test-busybox-awk.sh
+source "$ROOT/scripts/lib/fwlive-test-busybox-awk.sh"
+
 echo "== fwlive JS/CSS lint stack (#290) ==" >&2
 if [[ ! -x "$ROOT/node_modules/.bin/eslint" ||
 	! -x "$ROOT/node_modules/.bin/prettier" ||
@@ -110,6 +113,9 @@ echo "== fwlive classify spec ==" >&2
 echo "== fwlive parser corpus pin (#240 C1) ==" >&2
 "$NODE" tests/fwlive-parser-corpus.test.js
 
+echo "== fwlive BusyBox awk lane skip policy ==" >&2
+bash tests/fwlive-test-busybox-awk.test.sh
+
 if command -v busybox >/dev/null 2>&1; then
 	echo "== fwlive shell filter parity (busybox sh) ==" >&2
 	SH='busybox sh' "$NODE" tests/fwlive-shell-filter.test.js
@@ -118,10 +124,14 @@ if command -v busybox >/dev/null 2>&1; then
 	SH='busybox sh' "$NODE" tests/fwlive-parser-corpus.test.js
 
 	echo "== fwlive BusyBox awk >= 1.37 (classifier + rpcd selftest) ==" >&2
-	awk_bin="$("$ROOT/scripts/ensure-busybox-awk.sh")"
-	PATH="${awk_bin}:${PATH}" busybox sh \
-		"${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive" __selftest
-	PATH="${awk_bin}:${PATH}" SH='busybox sh' "$NODE" tests/fwlive-shell-filter.test.js
+	if fwlive_test_prepare_busybox_awk "$ROOT"; then
+		PATH="${FWLIVE_BUSYBOX_AWK_BIN}:${PATH}" busybox sh \
+			"${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive" __selftest
+		PATH="${FWLIVE_BUSYBOX_AWK_BIN}:${PATH}" SH='busybox sh' "$NODE" tests/fwlive-shell-filter.test.js
+	else
+		lane_status=$?
+		[[ "$lane_status" -eq 2 ]] || exit "$lane_status"
+	fi
 else
 	fwlive_skip_missing busybox "$(
 		if [[ "$(uname -s)" == Darwin ]]; then
