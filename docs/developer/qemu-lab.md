@@ -7,6 +7,10 @@ Headless OpenWrt guests for install and smoke testing without hardware.
 The QEMU scripts use `ss` from `iproute2` for fail-closed host port checks.
 Install it on Mint/Ubuntu with `sudo apt install iproute2`. If `ss` is missing
 or its check fails, the scripts stop rather than assuming the port is free.
+The guest waiter also requires host `timeout` from `coreutils` to bound the
+readiness probe and optional `--cmd` SSH process; install it on Mint/Ubuntu with
+`sudo apt install coreutils`. The waiter stops with this hint if `timeout` is
+missing.
 
 ## Images
 

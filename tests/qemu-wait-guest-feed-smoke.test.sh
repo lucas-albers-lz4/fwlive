@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Source-contract checks for qemu-wait-guest.sh (#839) and validate-feed-smoke.sh (#838).
+# Source-contract checks for qemu-wait-guest.sh (#839 #1007 #1009) and validate-feed-smoke.sh (#838).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -48,6 +48,10 @@ fi
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin"
+REAL_TIMEOUT="$(command -v timeout || true)"
+[[ -n "$REAL_TIMEOUT" ]] || fail "qemu-wait guest tests require the documented host timeout utility"
+TIMEOUT_LOG="$tmp/timeout.log"
+export REAL_TIMEOUT TIMEOUT_LOG
 cat >"$tmp/bin/ssh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -80,6 +84,13 @@ case "${SSH_BEHAVIOR:-ready}" in
 		fi
 		exec /bin/sh -c "$remote"
 		;;
+	hang-command)
+		if [[ "$remote" == "echo READY" ]]; then
+			echo READY
+			exit 0
+		fi
+		exec /bin/sleep 10
+		;;
 	slow-probe)
 		if [[ "$remote" == "echo READY" ]]; then
 			/bin/sleep 1
@@ -100,12 +111,28 @@ case "${SSH_BEHAVIOR:-ready}" in
 		;;
 esac
 EOF
+cat >"$tmp/bin/timeout" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$TIMEOUT_LOG"
+exec "$REAL_TIMEOUT" "$@"
+EOF
 cat >"$tmp/bin/sleep" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$1" >> "$SLEEP_LOG"
 exec /bin/sleep "$1"
 EOF
 chmod +x "$tmp/bin/ssh" "$tmp/bin/sleep"
+chmod +x "$tmp/bin/timeout"
+
+# Missing host timeout must fail closed with a package hint.
+mkdir -p "$tmp/no-timeout-bin"
+ln -s "$(command -v dirname)" "$tmp/no-timeout-bin/dirname"
+if output="$(PATH="$tmp/no-timeout-bin" /bin/bash "$WAIT" 2>&1)"; then
+	fail "missing host timeout must fail"
+fi
+[[ "$output" == *"timeout command is required"* && "$output" == *"sudo apt install coreutils"* ]] ||
+	fail "missing timeout must include an install hint (got: $output)"
 
 if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=fail SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
 	MAX_WAIT=1 INTERVAL=120 "$WAIT" 2>&1)"; then
@@ -163,6 +190,27 @@ command_connect_timeout="$(sed -n '2s/.*ConnectTimeout=\([0-9][0-9]*\).*/\1/p' "
 	fail "readiness and command SSH calls must both set ConnectTimeout"
 [[ "$command_connect_timeout" -lt "$first_connect_timeout" ]] ||
 	fail "command ConnectTimeout must be recomputed after readiness time is consumed"
+
+: >"$tmp/ssh.log"
+: >"$TIMEOUT_LOG"
+command_started=$SECONDS
+if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=hang-command SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
+	MAX_WAIT=4 INTERVAL=1 "$WAIT" --cmd 'sleep 30' 2>&1)"; then
+	fail "a hung remote --cmd must be bounded by MAX_WAIT"
+else
+	status=$?
+fi
+command_elapsed=$((SECONDS - command_started))
+[[ "$status" -eq 1 ]] || fail "hung --cmd must exit 1 (got $status; $output)"
+[[ "$output" == *"--cmd SSH timed out within the remaining MAX_WAIT budget"* ]] ||
+	fail "hung --cmd must be identified as a timeout (got: $output)"
+[[ "$(wc -l <"$tmp/ssh.log")" -eq 2 ]] || fail "hung --cmd must run once after one readiness probe"
+[[ "$(wc -l <"$TIMEOUT_LOG")" -eq 2 ]] || fail "readiness and --cmd SSH must both use timeout"
+command_timeout="$(sed -n '2p' "$TIMEOUT_LOG")"
+[[ "$command_timeout" =~ ^-s\ KILL\ ([1-4])s\ ssh\  ]] ||
+	fail "--cmd timeout must use the remaining MAX_WAIT budget (got: $command_timeout)"
+[[ "$command_elapsed" -le 5 ]] ||
+	fail "hung --cmd exceeded its MAX_WAIT budget by more than one shell second (${command_elapsed}s)"
 
 : >"$tmp/ssh.log"
 if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=drop-command SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \

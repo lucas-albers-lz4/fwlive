@@ -58,6 +58,7 @@ if [[ "${qemu_lab_want_stop:-0}" -eq 1 ]]; then
 	exit $?
 fi
 
+qemu_lab_validate_hostfwd_bind || exit 1
 resolve_disk() {
 	if [[ -n "${OWRT_IMG:-}" ]]; then echo "${OWRT_IMG}"; return; fi
 	if [[ -n "${OWRT_RELEASE:-}" ]]; then

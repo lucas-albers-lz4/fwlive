@@ -162,7 +162,7 @@ qemu_lab_prepare_pidfile() {
 }
 
 # Kill the PID recorded in pidfile when its cmdline matches pattern.
-# 0 = stopped; 1 = nothing to kill; 2 = live guest could not be stopped.
+# 0 = stopped; 1 = no live target; 2 = live target cannot be verified or stopped.
 qemu_lab_kill_pidfile() {
 	local pidfile="$1" label="$2" pattern="$3" force="${4:-0}" pid cmd
 	if [[ ! -f "$pidfile" ]]; then
@@ -175,15 +175,22 @@ qemu_lab_kill_pidfile() {
 		return 1
 	fi
 	if ! kill -0 "$pid" 2>/dev/null; then
+		if [[ -d "/proc/${pid}" ]]; then
+			echo "error: pidfile ${pidfile} references live pid ${pid}, but this user cannot signal it; refusing to treat it as stale" >&2
+			return 2
+		fi
 		echo "stale ${label} pidfile ${pidfile} (pid ${pid}) — removed (rm -f ${pidfile})" >&2
 		rm -f "$pidfile"
 		return 1
 	fi
 	cmd="$(tr '\0' ' ' <"/proc/${pid}/cmdline" 2>/dev/null || true)"
-	if [[ -z "$cmd" || ! "$cmd" =~ $pattern ]]; then
-		echo "stale ${label} pidfile ${pidfile}: pid ${pid} is not ${label} QEMU (cmdline: ${cmd}) — removed (rm -f ${pidfile})" >&2
-		rm -f "$pidfile"
-		return 1
+	if [[ -z "$cmd" ]]; then
+		echo "error: live ${label} pidfile ${pidfile}: cannot read cmdline for pid ${pid}; refusing to treat it as stale" >&2
+		return 2
+	fi
+	if [[ ! "$cmd" =~ $pattern ]]; then
+		echo "error: live ${label} pidfile ${pidfile}: pid ${pid} is not ${label} QEMU (cmdline: ${cmd}); refusing to treat it as stale" >&2
+		return 2
 	fi
 	if ! kill "$pid"; then
 		echo "error: failed to stop ${label} pid ${pid}" >&2
@@ -201,6 +208,8 @@ qemu_lab_kill_pidfile() {
 			echo "Stopped ${label} QEMU pid ${pid}"
 			return 0
 		fi
+		echo "error: ${label} pid ${pid} still running after SIGKILL" >&2
+		return 2
 	fi
 	echo "error: ${label} pid ${pid} still running after SIGTERM" >&2
 	return 2
@@ -266,40 +275,42 @@ qemu_lab_hostfwd_rule() {
 }
 
 qemu_lab_hostfwd_pair() {
-	local http_port="$1" ssh_port="$2"
-	printf 'hostfwd=%s,hostfwd=%s' \
-		"$(qemu_lab_hostfwd_rule tcp "$http_port" 80)" \
-		"$(qemu_lab_hostfwd_rule tcp "$ssh_port" 22)"
+	local http_port="$1" ssh_port="$2" http_rule ssh_rule
+	http_rule="$(qemu_lab_hostfwd_rule tcp "$http_port" 80)" || return 1
+	ssh_rule="$(qemu_lab_hostfwd_rule tcp "$ssh_port" 22)" || return 1
+	printf 'hostfwd=%s,hostfwd=%s' "$http_rule" "$ssh_rule"
 }
 
 # For qemu -nic user,... (x86 runner).
 qemu_lab_nic_user() {
-	local http_port="$1" ssh_port="$2"
+	local http_port="$1" ssh_port="$2" hostfwd
 	local model_arg=""
 	case "${OWRT_QEMU_NIC_MODEL:-}" in
 		'') ;;
 		e1000|virtio-net-pci) model_arg=",model=${OWRT_QEMU_NIC_MODEL}" ;;
 		*) echo "qemu-lab-net: unsupported QEMU management NIC model: ${OWRT_QEMU_NIC_MODEL}" >&2; return 1 ;;
 	esac
+	hostfwd="$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")" || return 1
 	if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]]; then
-		printf 'user,%s%s' "$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")" "$model_arg"
+		printf 'user,%s%s' "$hostfwd" "$model_arg"
 	else
 		printf 'user,id=%s,net=%s,dhcpstart=%s,host=%s,%s%s' \
 			"$OWRT_LAB_NETDEV_ID" "$OWRT_LAB_SUBNET" \
 			"$(qemu_lab_dhcp_start "$OWRT_LAB_IP")" "$OWRT_LAB_HOST" \
-			"$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")" "$model_arg"
+			"$hostfwd" "$model_arg"
 	fi
 }
 
 # For qemu -netdev user,... -device virtio-net-pci (armsr runner).
 qemu_lab_netdev_lan() {
-	local http_port="$1" ssh_port="$2"
+	local http_port="$1" ssh_port="$2" hostfwd
+	hostfwd="$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")" || return 1
 	if [[ "$OWRT_LAB_NET_MODE" == "dhcp" ]]; then
-		printf 'user,id=%s,%s' "$OWRT_LAB_NETDEV_ID" "$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")"
+		printf 'user,id=%s,%s' "$OWRT_LAB_NETDEV_ID" "$hostfwd"
 	else
 		printf 'user,id=%s,net=%s,dhcpstart=%s,host=%s,%s' \
 			"$OWRT_LAB_NETDEV_ID" "$OWRT_LAB_SUBNET" \
 			"$(qemu_lab_dhcp_start "$OWRT_LAB_IP")" "$OWRT_LAB_HOST" \
-			"$(qemu_lab_hostfwd_pair "$http_port" "$ssh_port")"
+			"$hostfwd"
 	fi
 }

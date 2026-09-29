@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PID-file stop, start liveness probe, and env-passed feed URLs (#815 #805 #808).
+# PID-file stop, start liveness probe, and env-passed feed URLs (#815 #805 #808 #986).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -100,7 +100,7 @@ if kill -0 "$live_pid" 2>/dev/null; then
 fi
 [[ ! -f "$TMP/live.pid" ]] || fail "pidfile must be removed after stop"
 
-# Live pidfile whose cmdline is not QEMU: report, remove the file, do not kill.
+# A live non-QEMU pidfile fails closed without --force and preserves the handle.
 sleep 60 &
 wrong_pid=$!
 printf '%s\n' "$wrong_pid" >"$TMP/wrong.pid"
@@ -108,27 +108,90 @@ set +e
 out="$(OWRT_QEMU_PIDFILE="$TMP/wrong.pid" "$X86" --stop 2>&1)"
 wrong_rc=$?
 set -e
-[[ "$wrong_rc" -eq 0 ]] || {
+[[ "$wrong_rc" -ne 0 ]] || {
 	kill "$wrong_pid" 2>/dev/null || true
-	fail "non-QEMU pidfile --stop must succeed (got $wrong_rc: $out)"
+	fail "non-QEMU pidfile --stop must refuse without --force (got $wrong_rc: $out)"
 }
 [[ "$out" == *"is not x86 QEMU"* ]] || {
 	kill "$wrong_pid" 2>/dev/null || true
 	fail "non-QEMU pidfile must name the mismatch ($out)"
 }
-[[ "$out" == *"rm -f ${TMP}/wrong.pid"* ]] || {
-	kill "$wrong_pid" 2>/dev/null || true
-	fail "non-QEMU pidfile must name rm -f ($out)"
-}
 if ! kill -0 "$wrong_pid" 2>/dev/null; then
 	fail "non-QEMU pidfile stop must not kill the process"
 fi
+
+# A live PID that this user cannot signal must not be cleared as stale.
+(
+	kill() {
+		if [[ "$1" == "-0" ]]; then
+			return 1
+		fi
+		return 0
+	}
+	printf '%s\n' "$BASHPID" >"$TMP/permission.pid"
+	set +e
+	qemu_lab_kill_pidfile "$TMP/permission.pid" x86 'qemu-system-x86_64' >"$TMP/permission.log" 2>&1
+	rc=$?
+	set -e
+	[[ "$rc" -eq 2 ]] || fail "a live unsignalable PID must return 2 (got $rc)"
+	grep -Fq "cannot signal it" "$TMP/permission.log" \
+		|| fail "unsignalable PID must be identified as live ($(cat "$TMP/permission.log"))"
+	[[ -f "$TMP/permission.pid" ]] || fail "unsignalable PID must not clear its pidfile"
+)
+
+# An unreadable cmdline for an accessible live PID is an error, not a stale PID.
+(
+	tr() {
+		if [[ "${1:-}" == "-d" ]]; then
+			command tr "$@"
+		fi
+	}
+	printf '%s\n' "$BASHPID" >"$TMP/unreadable.pid"
+	set +e
+	qemu_lab_kill_pidfile "$TMP/unreadable.pid" x86 'qemu-system-x86_64' >"$TMP/unreadable.log" 2>&1
+	rc=$?
+	set -e
+	[[ "$rc" -eq 2 ]] || fail "an unreadable live PID cmdline must return 2 (got $rc)"
+	grep -Fq "cannot read cmdline" "$TMP/unreadable.log" \
+		|| fail "unreadable live PID cmdline must be reported ($(cat "$TMP/unreadable.log"))"
+	[[ -f "$TMP/unreadable.pid" ]] || fail "unreadable live PID must not clear its pidfile"
+)
+
+# --force ignores the live mismatched PID but reaches the matching guest by pattern.
+bash -c 'exec -a fwlive-qemu-pattern-target sleep 60' pattern_target &
+pattern_pid=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+	cmdline="$(tr '\0' ' ' <"/proc/${pattern_pid}/cmdline" 2>/dev/null || true)"
+	[[ "$cmdline" == *"fwlive-qemu-pattern-target"* ]] && break
+	sleep 0.1
+done
+[[ "$cmdline" == *"fwlive-qemu-pattern-target"* ]] || {
+	kill "$wrong_pid" "$pattern_pid" 2>/dev/null || true
+	fail "pattern fixture did not adopt its QEMU-style argv0 (got: $cmdline)"
+}
+out="$(qemu_lab_stop_guest "$TMP/wrong.pid" 'fwlive-qemu-pattern-target' x86 1 2>&1)" || {
+	kill "$wrong_pid" "$pattern_pid" 2>/dev/null || true
+	fail "--force must use the pattern fallback for a live mismatched pidfile: $out"
+}
+[[ "$out" == *"via pattern (--force)"* ]] || {
+	kill "$wrong_pid" "$pattern_pid" 2>/dev/null || true
+	fail "--force fallback must identify the pattern stop ($out)"
+}
 [[ ! -f "$TMP/wrong.pid" ]] || {
 	kill "$wrong_pid" 2>/dev/null || true
-	fail "non-QEMU pidfile must be removed"
+	kill "$pattern_pid" 2>/dev/null || true
+	fail "successful --force pattern fallback must clear the mismatched pidfile"
 }
+if kill -0 "$pattern_pid" 2>/dev/null; then
+	kill "$wrong_pid" "$pattern_pid" 2>/dev/null || true
+	fail "--force pattern fallback left the matching guest alive"
+fi
+if ! kill -0 "$wrong_pid" 2>/dev/null; then
+	fail "--force pattern fallback must not kill the unrelated pidfile process"
+fi
 kill "$wrong_pid" 2>/dev/null || true
 wait "$wrong_pid" 2>/dev/null || true
+wait "$pattern_pid" 2>/dev/null || true
 
 # SIGTERM-ignored guest: kill_pidfile must return 2 so --stop is nonzero.
 bash -c 'trap "" TERM; echo ready >"$1"; exec -a fwlive-qemu-stubborn sleep 60' \
@@ -151,6 +214,8 @@ set -e
 	kill -KILL "$stubborn_pid" 2>/dev/null || true
 	fail "SIGTERM-ignored pid must return 2 (got $stubborn_rc: $(cat "$TMP/stubborn.log"))"
 }
+grep -Fq "still running after SIGTERM" "$TMP/stubborn.log" \
+	|| fail "non-forced stop must describe its final signal ($(cat "$TMP/stubborn.log"))"
 if ! kill -0 "$stubborn_pid" 2>/dev/null; then
 	fail "SIGTERM-ignored fixture exited unexpectedly"
 fi
@@ -211,6 +276,27 @@ grep -Fq "Stopped stubborn QEMU pid ${force_stubborn_pid}" "$TMP/force-stubborn.
 	|| fail "--force must confirm the pid stopped ($(cat "$TMP/force-stubborn.log"))"
 [[ ! -f "$TMP/force-stubborn.pid" ]] || fail "--force must remove the pidfile"
 wait "$force_stubborn_pid" 2>/dev/null || true
+
+# If force still cannot reap a PID after SIGKILL, the diagnostic must name SIGKILL.
+(
+	kill() {
+		return 0
+	}
+	qemu_lab_wait_pid_gone() {
+		return 1
+	}
+	printf '%s\n' "$BASHPID" >"$TMP/sigkill-still.pid"
+	set +e
+	qemu_lab_kill_pidfile "$TMP/sigkill-still.pid" stubborn bash 1 >"$TMP/sigkill-still.log" 2>&1
+	rc=$?
+	set -e
+	[[ "$rc" -eq 2 ]] || fail "unreaped forced stop must return 2 (got $rc)"
+	grep -Fq "still running after SIGKILL" "$TMP/sigkill-still.log" \
+		|| fail "forced-stop diagnostic must name SIGKILL ($(cat "$TMP/sigkill-still.log"))"
+	if grep -Fq "still running after SIGTERM" "$TMP/sigkill-still.log"; then
+		fail "forced-stop diagnostic must not still claim SIGTERM was final"
+	fi
+)
 
 # Stale pidfile is not treated as a live guest.
 printf '%s\n' 999999 >"$TMP/stale.pid"

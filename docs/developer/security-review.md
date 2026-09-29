@@ -405,7 +405,7 @@ should carry a note saying what would raise it.
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-09-20 | Read + host test | #411: every `src-git` lock line is a 40-hex commit (`tests/feeds-lock-pins.test.sh`); 23.05 `base` is peeled `v23.05.5`; cache reuse checks HEAD and a clean work tree (including untracked files) |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
-| Lab feed/QEMU lifecycle helpers | 2026-09-28 | Delta + host/stub tests | #957: documents the `iproute2`/`ss` host prerequisite; both port-check helpers report an install hint when `ss` is missing and fail closed on errors. QEMU validation entry points preflight `ss` before baseline checks, SDK builds, image downloads, or preparation. #925: readiness uses a read-only SSH probe, caps connect timeout and sleep to remaining `MAX_WAIT`, and wraps the full SSH process in a wall-clock timeout; optional `--cmd` runs once with a separately recomputed connection timeout/status marker. `tests/qemu-wait-guest-feed-smoke.test.sh` covers hung probes and SSH/sleep stubs; no guest-side QEMU result or SSH trust change is claimed. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
+| Lab feed/QEMU lifecycle helpers | 2026-09-29 | Delta + host/stub tests | #957: documents the `iproute2`/`ss` host prerequisite; both port-check helpers report an install hint when `ss` is missing and fail closed on errors. QEMU validation entry points preflight `ss` before baseline checks, SDK builds, image downloads, or preparation. #988: both runners validate `OWRT_HOSTFWD_BIND` before image/port preparation, and the NIC wrappers propagate errors through command substitutions. #986: live mismatched, unreadable, or unsignalable PID-file targets are not discarded as stale; plain stop refuses and `--force` reaches the bounded pattern fallback without signaling the decoy PID. Stop diagnostics name the final signal. #925/#1009: readiness and optional `--cmd` SSH processes use the remaining `MAX_WAIT` wall-clock budget; `--cmd` stays single-run and status-marker based. #1007: host `coreutils`/`timeout` is documented and named in the missing-tool hint. `tests/qemu-lab-ports.test.sh`, `tests/qemu-lifecycle.test.sh`, and `tests/qemu-wait-guest-feed-smoke.test.sh` cover these paths; no live QEMU guest was used. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
 | Lab honest-gap smokes | 2026-09-04 | Lab smoke | `scripts/qemu-security-gaps-smoke.sh` gaps 1–3 green 2026-09-04; gap-2 BusyBox `flock` (no `-w`) accepted residual; `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
 
 ## Controls in force
@@ -661,19 +661,20 @@ is claimed.
 **Scope.** `scripts/qemu-wait-guest.sh` readiness and optional `--cmd`
 execution. The retry loop now uses the fixed read-only `echo READY` probe,
 limits each SSH `ConnectTimeout` and post-failure sleep to the remaining
-`MAX_WAIT`, and wraps the full SSH probe process in a wall-clock timeout. It
-runs a caller-provided command only once after readiness, recomputing that
-connection's timeout from the remaining budget. The remote command runs
-through a quoted `sh -c` argument and returns its status through a
-per-invocation marker; SSH failures after readiness report that the command
-may have run and are not retried.
+`MAX_WAIT`, and wraps the full SSH process in a wall-clock timeout. The
+optional command runs only once after readiness, with its SSH process wrapped
+in the remaining `MAX_WAIT` budget. It recomputes the connection timeout from
+that same remainder. The remote command runs through a quoted `sh -c` argument
+and returns its status through a per-invocation marker; SSH failures or timeout
+after readiness report that the command may have run and are not retried.
 
 **Method.** `tests/qemu-wait-guest-feed-smoke.test.sh` covers bounded timeout
-and sleep, a probe that connects but hangs, recomputed command connection
-timeout after probe delay, nonzero remote command results including exit 255,
-a post-probe transport failure, and missing status-marker handling. Shell
-syntax and ShellCheck pass. No live QEMU guest was used. Documented `--cmd`
-usage is read-only (`uname -r`); the matrix caller supplies no command.
+and sleep, a probe that connects but hangs, a hung command, recomputed command
+connection timeout after probe delay, nonzero remote command results including
+exit 255, a post-probe transport failure, missing status-marker handling, and
+the missing-`timeout` install hint. Shell syntax and ShellCheck pass. No live
+QEMU guest was used. Documented `--cmd` usage is read-only (`uname -r`); the
+matrix caller supplies no command.
 
 **Non-findings.** The fixed readiness probe does not interpolate caller input.
 The optional command remains explicit operator input, quoted as one `sh -c`
@@ -681,14 +682,38 @@ argument, and is not retried after transport loss. This change adds no SSH
 credential source, ACL grant, rpcd method, or frontend sink. Existing disabled
 host-key checking is unchanged and was not revalidated as a trust control.
 
-**Result.** The SSH readiness probe and retry sleeps stay within the configured
-wait budget to shell-second precision. The optional command starts only after
-readiness succeeds, runs once, and may take as long as the remote command
-itself; command execution is outside the readiness wait budget. Failed
-commands are reported as command failures and are not replayed. No new trust
-boundary, SSH credential, or privileged command source is introduced; the
-optional command remains explicit operator input. No QEMU behavior or host-key
-verification result is inferred from the stubs.
+**Result.** The readiness probe, retry sleeps, and optional command SSH process
+stay within the configured wait budget to shell-second precision. The optional
+command starts only after readiness succeeds and runs once; timeout and
+transport failures are reported without replaying a command that may already
+have run. No new trust boundary, SSH credential, or privileged command source
+is introduced; the optional command remains explicit operator input. No QEMU
+behavior or host-key verification result is inferred from the stubs.
+
+### 2026-09-29 — #988 hostfwd validation and #986 forced QEMU stop
+
+**Scope.** `scripts/lib/qemu-lab-net.sh` hostfwd construction and PID-file
+shutdown, plus the x86 and armsr QEMU entry points. Each runner now validates
+the bind address before checking image and port prerequisites. Hostfwd pair and
+NIC wrapper functions capture nested command-substitution statuses so invalid
+binds cannot turn into successful empty forwarding arguments. A live pidfile
+target that is unsignalable, unreadable, or has a nonmatching command line is
+retained and treated as an error; `--force` then attempts the established
+pattern-based fallback.
+The PID-file target is never signaled on that mismatch path. Final stop errors
+identify whether SIGTERM or SIGKILL failed.
+
+**Method.** `tests/qemu-lab-ports.test.sh` checks rule, pair, NIC-wrapper, and
+both runner rejection paths before QEMU launch. `tests/qemu-lifecycle.test.sh`
+checks plain-stop refusal, unsignalable and unreadable PID handling, forced
+pattern fallback while preserving the decoy process, the ordinary
+SIGTERM/SIGKILL paths, and the final-signal diagnostic.
+Only host processes and shell stubs were used; no live QEMU guest was stopped.
+
+**Result.** Invalid bind values stop before QEMU setup, live mismatched
+pidfiles cannot report a successful no-op, and `--force` can still find a
+matching QEMU process by pattern without killing the recorded decoy PID. The
+fallback still signals only processes matching its configured QEMU pattern.
 
 ### 2026-09-27 — #894 bounded UCI rule-name map
 

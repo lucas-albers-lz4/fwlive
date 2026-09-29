@@ -4,7 +4,8 @@
 
 - **Linux Mint** (or other **x86_64** Linux) — current primary dev host
 - `iproute2` (`ss`) for the fail-closed host port checks
-- `podman compose`, `qemu-system-aarch64` (e.g. `sudo apt install iproute2 podman podman-compose qemu-system-arm` on Mint/Ubuntu; `podman compose` uses the `podman-compose` provider)
+- `coreutils` (`timeout`) for wall-clock bounds on SSH readiness and `--cmd`
+- `podman compose`, `qemu-system-aarch64` (e.g. `sudo apt install coreutils iproute2 podman podman-compose qemu-system-arm` on Mint/Ubuntu; `podman compose` uses the `podman-compose` provider)
 
 ## Expected image files (prefer download over build)
 
