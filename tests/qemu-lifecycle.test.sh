@@ -134,9 +134,31 @@ fi
 	rc=$?
 	set -e
 	[[ "$rc" -eq 2 ]] || fail "a live unsignalable PID must return 2 (got $rc)"
-	grep -Fq "cannot signal it" "$TMP/permission.log" \
+	grep -Fq "cannot be verified as absent" "$TMP/permission.log" \
 		|| fail "unsignalable PID must be identified as live ($(cat "$TMP/permission.log"))"
 	[[ -f "$TMP/permission.pid" ]] || fail "unsignalable PID must not clear its pidfile"
+)
+
+# If procfs can hide process entries, an absent directory does not prove ESRCH.
+(
+	kill() {
+		if [[ "$1" == "-0" ]]; then
+			return 1
+		fi
+		return 0
+	}
+	qemu_lab_proc_hides_processes() {
+		return 0
+	}
+	printf '%s\n' 999999 >"$TMP/hidden-proc.pid"
+	set +e
+	qemu_lab_kill_pidfile "$TMP/hidden-proc.pid" x86 'qemu-system-x86_64' >"$TMP/hidden-proc.log" 2>&1
+	rc=$?
+	set -e
+	[[ "$rc" -eq 2 ]] || fail "a potentially hidden PID must return 2 (got $rc)"
+	grep -Fq "cannot be verified as absent" "$TMP/hidden-proc.log" \
+		|| fail "potentially hidden PID must not be classified as stale ($(cat "$TMP/hidden-proc.log"))"
+	[[ -f "$TMP/hidden-proc.pid" ]] || fail "potentially hidden PID must not clear its pidfile"
 )
 
 # An unreadable cmdline for an accessible live PID is an error, not a stale PID.

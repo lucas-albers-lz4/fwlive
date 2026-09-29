@@ -110,6 +110,29 @@ qemu_lab_wait_pid_gone() {
 	return 0
 }
 
+# 0 = procfs may hide process entries; 1 = procfs visibility is confirmed.
+qemu_lab_proc_hides_processes() {
+	local source mountpoint fstype options rest option
+	local proc_mount_seen=0
+	if [[ "${EUID:-1}" -eq 0 ]]; then
+		return 1
+	fi
+	while read -r source mountpoint fstype options rest; do
+		[[ "$mountpoint" == "/proc" && "$fstype" == "proc" ]] || continue
+		proc_mount_seen=1
+		local -a proc_options=()
+		IFS=, read -r -a proc_options <<<"$options"
+		for option in "${proc_options[@]}"; do
+			case "$option" in
+				hidepid=0 | hidepid=1) ;;
+				hidepid=*) return 0 ;;
+			esac
+		done
+		return 1
+	done </proc/mounts 2>/dev/null || return 0
+	[[ "$proc_mount_seen" -eq 1 ]] || return 0
+}
+
 qemu_lab_pattern_live() {
 	pgrep -f "$1" >/dev/null 2>&1
 }
@@ -175,8 +198,8 @@ qemu_lab_kill_pidfile() {
 		return 1
 	fi
 	if ! kill -0 "$pid" 2>/dev/null; then
-		if [[ -d "/proc/${pid}" ]]; then
-			echo "error: pidfile ${pidfile} references live pid ${pid}, but this user cannot signal it; refusing to treat it as stale" >&2
+		if [[ -d "/proc/${pid}" ]] || qemu_lab_proc_hides_processes; then
+			echo "error: pidfile ${pidfile} references pid ${pid} that cannot be verified as absent; refusing to treat it as stale" >&2
 			return 2
 		fi
 		echo "stale ${label} pidfile ${pidfile} (pid ${pid}) — removed (rm -f ${pidfile})" >&2

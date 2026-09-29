@@ -405,7 +405,7 @@ should carry a note saying what would raise it.
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-09-20 | Read + host test | #411: every `src-git` lock line is a 40-hex commit (`tests/feeds-lock-pins.test.sh`); 23.05 `base` is peeled `v23.05.5`; cache reuse checks HEAD and a clean work tree (including untracked files) |
 | Dev tooling (`.cursor/mcp.json`) | 2026-08-23 | Read + fix | #205: unpinned `@playwright/mcp@latest` removed; UI tests use pinned `playwright` devDep |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-09-03 | Read + fix | #261: SSH host-key verification ON by default; `ALLOW_INSECURE_SSH=1` / `--lab-only` opt-in with warning |
-| Lab feed/QEMU lifecycle helpers | 2026-09-29 | Delta + host/stub tests | #957: documents the `iproute2`/`ss` host prerequisite; both port-check helpers report an install hint when `ss` is missing and fail closed on errors. QEMU validation entry points preflight `ss` before baseline checks, SDK builds, image downloads, or preparation. #988: both runners validate `OWRT_HOSTFWD_BIND` before image/port preparation, and the NIC wrappers propagate errors through command substitutions. #986: live mismatched, unreadable, or unsignalable PID-file targets are not discarded as stale; plain stop refuses and `--force` reaches the bounded pattern fallback without signaling the decoy PID. Stop diagnostics name the final signal. #925/#1009: readiness and optional `--cmd` SSH processes use the remaining `MAX_WAIT` wall-clock budget; `--cmd` stays single-run and status-marker based. #1007: host `coreutils`/`timeout` is documented and named in the missing-tool hint. `tests/qemu-lab-ports.test.sh`, `tests/qemu-lifecycle.test.sh`, and `tests/qemu-wait-guest-feed-smoke.test.sh` cover these paths; no live QEMU guest was used. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
+| Lab feed/QEMU lifecycle helpers | 2026-09-29 | Delta + host/stub tests | #957: documents the `iproute2`/`ss` host prerequisite; both port-check helpers report an install hint when `ss` is missing and fail closed on errors. QEMU validation entry points preflight `ss` before baseline checks, SDK builds, image downloads, or preparation. #988: both runners validate `OWRT_HOSTFWD_BIND` before image/port preparation, and the NIC wrappers propagate errors through command substitutions. #986: live mismatched, unreadable, unsignalable, or procfs-hidden PID-file targets are not discarded as stale; plain stop refuses and `--force` reaches the bounded pattern fallback without signaling the decoy PID. Stop diagnostics name the final signal. #925/#1009: readiness and optional `--cmd` SSH processes use the remaining `MAX_WAIT` wall-clock budget; `--cmd` stays single-run and status-marker based. #1007: host `coreutils`/`timeout` is documented and named in the missing-tool hint. `tests/qemu-lab-ports.test.sh`, `tests/qemu-lifecycle.test.sh`, and `tests/qemu-wait-guest-feed-smoke.test.sh` cover these paths; no live QEMU guest was used. #854/#857/#862/#863: URL validation/remote env quoting, source replacement, PID-owned stop, port/liveness checks and teardown; host lifecycle tests passed |
 | Lab honest-gap smokes | 2026-09-04 | Lab smoke | `scripts/qemu-security-gaps-smoke.sh` gaps 1–3 green 2026-09-04; gap-2 BusyBox `flock` (no `-w`) accepted residual; `tests/validate-feed-keys-mode.test.sh` (gap 4 validate-prefix → `host`) |
 
 ## Controls in force
@@ -697,17 +697,18 @@ shutdown, plus the x86 and armsr QEMU entry points. Each runner now validates
 the bind address before checking image and port prerequisites. Hostfwd pair and
 NIC wrapper functions capture nested command-substitution statuses so invalid
 binds cannot turn into successful empty forwarding arguments. A live pidfile
-target that is unsignalable, unreadable, or has a nonmatching command line is
-retained and treated as an error; `--force` then attempts the established
-pattern-based fallback.
+target that is unsignalable, inaccessible through procfs, unreadable, or has a
+nonmatching command line is retained and treated as an error; `--force` then
+attempts the established pattern-based fallback. A missing `/proc/${pid}` is
+only treated as stale when procfs visibility is known to be unrestricted.
 The PID-file target is never signaled on that mismatch path. Final stop errors
 identify whether SIGTERM or SIGKILL failed.
 
 **Method.** `tests/qemu-lab-ports.test.sh` checks rule, pair, NIC-wrapper, and
 both runner rejection paths before QEMU launch. `tests/qemu-lifecycle.test.sh`
-checks plain-stop refusal, unsignalable and unreadable PID handling, forced
-pattern fallback while preserving the decoy process, the ordinary
-SIGTERM/SIGKILL paths, and the final-signal diagnostic.
+checks plain-stop refusal, unsignalable, procfs-hidden, and unreadable PID
+handling, forced pattern fallback while preserving the decoy process, the
+ordinary SIGTERM/SIGKILL paths, and the final-signal diagnostic.
 Only host processes and shell stubs were used; no live QEMU guest was stopped.
 
 **Result.** Invalid bind values stop before QEMU setup, live mismatched
