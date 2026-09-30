@@ -1323,3 +1323,13 @@ existing text rendering path; no shell, ACL, RPC scope, or HTML sink changed.
 Privileged removal of volatile generation state and kill-before-rename temp
 files remain root-only residuals. The models remain bounded sanity checks,
 not proofs of every shell/runtime behavior; TLC remains a manual check.
+
+### 2026-09-29 — Luna hostname model reference correction
+
+**Scope.** The hostname-disposal TLA comments and fidelity map replace stale
+source line numbers with function names and generation/cache expressions.
+The mapping now names `onShowHostnamesChange()` as the other generation bump.
+The QEMU lock failure message also names finite holder exit rather than a kill.
+
+**Proof class.** `manual` source mapping and `host` pinned TLC checks. Model
+actions, configurations, runtime code, and trust boundaries are unchanged.

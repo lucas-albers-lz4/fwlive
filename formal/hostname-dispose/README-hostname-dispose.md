@@ -2,16 +2,16 @@
 
 Model: `HostnameDispose.tla` (+ `.cfg`, `HostnameDisposeUngated.cfg`).
 Source: `openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js`
-(all line numbers below are that file unless noted).
+Code references use function and expression names so the mapping survives line shifts.
 
 ## Direct answer
 
 **No — a post-disposal hostname lookup cannot mutate view state.** The gate is
-fwlive.js:1879, `if (gen !== this.resolveGeneration) return;`, re-checked
-after `await callFwliveResolve(...)` (:1878) and before every cache write
-(:1901 lruSet, :1902 delete, :1907 failMark). `disposeView()` bumps the very
-same counter (:1360) and clears `resolveInFlight` (:1361). Critically, between
-:1879 and the last write (:1907) the continuation contains **no `await`** —
+`if (gen !== this.resolveGeneration) return;` in `resolveHostnamesForEntries()`,
+re-checked after `await callFwliveResolve(...)` and before every cache write
+(`hostname.lruSet`, `hostnameFailed.delete`, `hostname.failMark`).
+`disposeView()` bumps the same counter and clears `resolveInFlight`.
+Between that guard and the final cache write, the continuation contains **no `await`** —
 JS run-to-completion makes gate+writes one uninterruptible region, so there is
 no interleaving where the gate passes and the write still lands post-disposal.
 This is a cancellation *token checked before the write*, not a merely-ignored
@@ -21,16 +21,16 @@ promise.
 
 | TLA+ action | Code abstracted |
 |---|---|
-| `IssueLookup` | `resolveHostnamesForEntries` body (:1851–1874): need-list built, `gen` captured (:1873–1874), then `await callFwliveResolve` (:1878) |
-| `ResolveLookup` | ubus reply settling the promise at `:1878` — nondeterministic vs `Dispose` (this race is the model) |
-| `ApplyResolution` | continuation passes the gate: :1879 false branch → `lruSet(cache, ip, name)` :1901 / `failMark(failed, ip)` :1907 — one atomic action (no await between) |
-| `IgnoreResolution` | `:1879` true branch: `return` — reply lands post-dispose, no mutation (`lateWrite` stays false) |
-| `Dispose` | `disposeView()`: `viewDisposed = true` :1357; `resolveGeneration++` :1360 (the actual gate mechanism — scheduler/coordinator disposals :1358–1359 are out of scope) |
+| `IssueLookup` | `resolveHostnamesForEntries()`: need-list built, `gen` captured from `resolveGeneration`, then `await callFwliveResolve(...)` |
+| `ResolveLookup` | ubus reply settling `callFwliveResolve(...)` — nondeterministic vs `Dispose` (this race is the model) |
+| `ApplyResolution` | continuation passes the generation guard → `hostname.lruSet(...)` / `hostname.failMark(...)` — one atomic action (no await between) |
+| `IgnoreResolution` | generation guard true branch: `return` — reply lands post-dispose, no mutation (`lateWrite` stays false) |
+| `Dispose` | `disposeView()`: `viewDisposed = true`; increment `resolveGeneration` (the gate mechanism — poll coordinator and render scheduler disposals are out of scope) |
 | `LateApplyResolution` | **counterfactual only** (`Gate=FALSE`): an unguarded post-await continuation |
 
 Cache abstraction: `cache[a]` ∈ none/name/failed = "has this address's verdict
-been written" — exactly the `hostname.js` LRU Map (`lruSet`, hostname.js:16) +
-failure Map (`failMark`, :47) collapsed to per-address flags.
+been written" — exactly the `hostname.js` LRU Map (`lruSet`) +
+failure Map (`failMark`) collapsed to per-address flags.
 
 ## TLC results (TLA+ release v1.7.4 / TLC 2.19, 3 lookups)
 
@@ -44,30 +44,30 @@ failure Map (`failMark`, :47) collapsed to per-address flags.
 
 ## Why the late write (if it existed) would ALSO be harmless — apply-site reading
 
-Even ungated, :1901–1907 only mutates the two Map caches on the view instance.
-Painting is separately disposed: `scheduleResolvePaint` (:1550) →
-`scheduleRenderRows` → render scheduler whose `schedule()` returns when
-`disposed` (render-scheduler.js:26–27) and whose rAF callback re-checks
-disposed+epoch (:47–51), and `render()` itself bails on `viewDisposed`
-(:2435). The Maps are per-view-instance (view-prototype fields, fresh object
+Even ungated, the cache-write loop in `resolveHostnamesForEntries()` only
+mutates the two Map caches on the view instance. Painting is separately disposed:
+`scheduleResolvePaint()` → `scheduleRenderRows()` → render scheduler whose
+`schedule()` returns when `disposed` and whose rAF callback re-checks
+`disposed` and epoch in `render-scheduler.js`; `render()` itself bails on
+`viewDisposed`. The Maps are per-view-instance (view-prototype fields, fresh object
 per LuCI view) — no global side effect, no row re-addition. The race is
-containment-grade by the render gate; correctness-grade by the 1879 gate.
+containment-grade by the render gate; correctness-grade by the generation guard.
 
 ## Known divergences (safe for this property set)
 
-1. **One batch.** `resolveInFlight` (:165/1851/1916) serializes batches in JS;
+1. **One batch.** `resolveInFlight` in `resolveHostnamesForEntries()` serializes batches in JS;
    2–3 lookups model one batch's addresses. Successive batches just reuse the
    same per-lookup lifecycle.
 2. **`disposed` ⊇ generation inequality.** The gate compares captured `gen` to
-   the live counter; disposal bumps it (:1360), and the filter-change path
-   bumps it too (:1681). Modeling `disposed=TRUE` as the single bumping event is
+   the live counter; `disposeView()` bumps it, and `onShowHostnamesChange()`
+   bumps it too. Modeling `disposed=TRUE` as the single bumping event is
    sound for dispose-race questions; other bumps are the same invalidation
    mechanism.
 3. **LRU/TTL arithmetic not modeled** (scope): `CACHE_MAX` eviction
-   (hostname.js:16–25), `FAIL_TTL_MS` expiry (:35–45) are sequential cache
+   in `hostname.lruSet()`, `FAIL_TTL_MS` expiry in `hostname.failIsHot()` are sequential cache
    correctness — unit tests (tests/fwlive-hostname*.test.js already cover).
-4. **`truncated` reply nuance** (:1895/1904) only chooses which per-address
+4. **`truncated` reply nuance** in `resolveHostnamesForEntries()` only chooses which per-address
    verdict lands; the write/no-write question is identical.
-5. **BFCache pagehide persist path** (load :2257–2261 returns before
-   disposal when `ev.persisted`) — out of scope: disposal is the event under
+5. **BFCache pagehide persist path** (`load()` installs a handler that returns
+   before disposal when `ev.persisted`) — out of scope: disposal is the event under
    study, not its trigger set.

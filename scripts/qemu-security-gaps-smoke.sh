@@ -162,7 +162,7 @@ if ! ssh_guest "flock -n '$LOCK_PATH' true" >/dev/null 2>&1; then
 		fi
 	done
 	[[ "$RELEASED" == "1" ]] \
-		|| die "logging.lock still held after holder kill (will not rm+recreate: stuck holder keeps old inode)"
+		|| die "logging.lock still held after finite holder exit (will not rm+recreate: stuck holder keeps old inode)"
 fi
 ok "logging.lock released on the same inode"
 
