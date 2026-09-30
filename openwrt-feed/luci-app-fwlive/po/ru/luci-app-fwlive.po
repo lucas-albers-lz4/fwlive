@@ -466,7 +466,7 @@ msgstr "Не сейчас"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:385
 msgid "Nothing changes until you click Enable logging."
-msgstr "Ничего не изменится, пока вы не нажмёте «Включить журнал»."
+msgstr "Ничего не изменится, пока вы не нажмёте «Включить журналирование»."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:41
 msgid "OUT"
