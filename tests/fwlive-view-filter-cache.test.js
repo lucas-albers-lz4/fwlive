@@ -55,6 +55,8 @@ function testFilteredRowsCache() {
 	view.updateStatus(first);
 	view.updateSummaryUi();
 	view.filteredRows();
+	assert.equal(view.compactCountText({ rows: null }), view.compactCountText(first),
+		'compact status must fall back to cached state for an invalid argument');
 	assert.equal(matchCalls, 320,
 		'status, summary, and render consumers must share one full-buffer filter pass');
 	assert.match(h.document.getElementById('fwlive-status').textContent,
@@ -91,10 +93,18 @@ function testFilteredRowsCache() {
 }
 
 async function testOneFilterPassPerPoll() {
+	const batch = Array.from({ length: 320 }, function (_, i) {
+		return Object.assign({}, SAMPLE_ROW, {
+			id: i + 1,
+			time: SAMPLE_ROW.time + i,
+			msg: i === 0 ? SAMPLE_ROW.msg.replace('192.0.2.1', '203.0.113.1') : SAMPLE_ROW.msg
+		});
+	});
 	for (const paused of [false, true]) {
 		const h = loadFwliveView({
+			location: { hash: '#limit=2000' },
 			rpcMocks: {
-				'fwlive.poll': async function () { return { log: [SAMPLE_ROW] }; }
+				'fwlive.poll': async function () { return { log: batch }; }
 			}
 		});
 		const view = h.view;
@@ -108,12 +118,15 @@ async function testOneFilterPassPerPoll() {
 		};
 		await view.runPollRequest(view.currentPollEpoch());
 		assert.equal(view.lastPollError, false, 'the poll must reach its render and resolve consumers');
-		assert.equal(calls, 1, 'render/status and hostname resolution must share one filter pass');
+		assert.equal(view.entries.length, batch.length, 'the poll must retain the full test buffer');
+		assert.equal(calls, batch.length,
+			'render/status and hostname resolution must share one full-buffer filter pass');
 		const first = view.filteredRowsState();
+		assert.equal(first.matchCount, batch.length - 1, 'the query must exclude the nonmatching row');
 		await view.runPollRequest(view.currentPollEpoch());
 		assert.notStrictEqual(view.filteredRowsState(), first,
 			'equal-length poll replacements must invalidate the previous cycle');
-		assert.equal(calls, 2, 'the next poll must perform exactly one new filter pass');
+		assert.equal(calls, batch.length * 2, 'the next poll must perform exactly one new full-buffer pass');
 	}
 	console.log('fwlive-view hot path: one filter pass per live/paused poll OK');
 }

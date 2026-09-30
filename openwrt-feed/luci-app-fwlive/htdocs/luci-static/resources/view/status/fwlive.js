@@ -1058,7 +1058,7 @@ return view.extend({
 			}
 		}
 
-		if (changed) this.filteredRowsCache = null;
+		if (changed) this.invalidateFilteredRows();
 
 		/* Keep buffered rows current without painting a paused or hidden table. */
 		if (changed && !this.tablePaused && (!this.summaryMode || this.summaryRowsShown))
@@ -1615,6 +1615,13 @@ return view.extend({
 		}
 	},
 
+	invalidateFilteredRows() {
+		/* Use after in-place edits: free-text query matching reads every row field. */
+		this.filteredRowsCache = null;
+	},
+
+	/* Internal shared result: consumers must treat the state and rows as read-only.
+	 * filteredRows() provides an array copy for callers that need to mutate it. */
 	filteredRowsState() {
 		/* Poll ingest and limit trimming replace the array, even at equal length.
 		 * Rule-label edits invalidate explicitly because query matches all fields. */
@@ -1660,7 +1667,8 @@ return view.extend({
 		const suffix = this.statusSuffix();
 		/* The filter state contains both visible rows and the full match count, so
 		 * paused status can report matches beyond the display cap without rescanning. */
-		const state = filtered || this.filteredRowsState();
+		const state =
+			filtered && Array.isArray(filtered.rows) ? filtered : this.filteredRowsState();
 		const shown = this.tablePaused ? state.matchCount : state.rows.length;
 
 		if (this.pauseBufferLoading && stored === 0) return _('loading…') + suffix;
