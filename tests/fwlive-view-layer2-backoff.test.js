@@ -570,7 +570,7 @@ async function testLoadConditionVocabulary() {
 		const banner = String(h.document.getElementById(bannerId).textContent);
 		assert.ok(v.statusSuffix().includes(tag), `status line must carry "${tag}"`);
 		assert.ok(
-			banner.toLowerCase().includes(tag),
+			banner.includes(tag) || banner.includes(tag.charAt(0).toUpperCase() + tag.slice(1)),
 			`banner must use the status tag "${tag}": ${banner}`
 		);
 	}

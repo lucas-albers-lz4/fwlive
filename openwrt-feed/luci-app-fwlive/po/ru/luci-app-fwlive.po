@@ -269,7 +269,7 @@ msgstr "Включить журналирование drop/reject для WAN-з�
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:96
 msgid "Enable logging"
-msgstr "Включить журнал"
+msgstr "Включить журналирование"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2486
 msgid "Enable logging turns on WAN zone drop/reject logging only (same as Network → Firewall). It does not add rules or log normal LAN browsing."

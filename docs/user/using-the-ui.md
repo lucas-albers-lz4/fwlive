@@ -90,7 +90,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | **WAN logging on · rate** | When logging is on, one merged control shows status and rate. Click it to disable. |
 | **Simple / Detail** | Segmented pair on the watch strip. The active segment is highlighted. Preferences saved in `localStorage`. |
 | **Wrap / One line** | Segmented pair next to Simple / Detail. Visible in Detailed view only. |
-| **Display options** | Inline bar below the watch strip: **Limit**, **Row tint** (checkbox + palette), and **Show hostnames**. |
+| **Display options** | Inline bar below the watch strip: **Limit**, **Fetch budget**, **Maximum raw lines**, **Row tint** (checkbox + palette), and **Show hostnames**. |
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. On a router reported as a weak device, the browser renders at most 250 rows and explains the cap in the status line; the larger limit remains available for buffering and stronger devices. |
 | **Fetch budget** | **Auto** requests `min(max(Limit × 4, 100), 2000)` raw log lines for live polls. **Manual** selects a bounded maximum from 25, 50, 100, 250, 500, 1000, or 2000. Both modes retain server protection and adaptive polling cadence. |
 | **Maximum raw lines** | Enabled in **Manual** mode. It is a raw-line fetch budget, not a number of firewall rows displayed. Paused Manual fetches use this maximum; paused Auto keeps the compatibility 2000-line request. |
