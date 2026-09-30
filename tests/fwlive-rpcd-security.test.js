@@ -238,6 +238,31 @@ function runCall(args, opts) {
 	throw new Error('dash not found for runCall');
 }
 
+function shellFunctionBody(src, name) {
+	const marker = new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\(\\) \\{', 'm');
+	const start = src.search(marker);
+	assert.ok(start >= 0, name + '() must be defined');
+	const lines = src.slice(start).split('\n');
+	const body = [];
+	for (const line of lines) {
+		body.push(line);
+		if (line === '}')
+			break;
+	}
+	assert.equal(body[body.length - 1], '}', name + '() must close at column 0');
+	return body.join('\n');
+}
+
+function rpcdLimits() {
+	const out = execFileSync('busybox', ['sh', RPCD, '__limits'], { encoding: 'utf8' }).trim();
+	const parts = out.split(' ');
+	assert.equal(parts.length, 5, 'rpcd __limits must print five integers: ' + out);
+	const [pollTimeout, killGrace, nftTimeout, resolveTimeout, resolveBudget] = parts.map(Number);
+	for (const value of [pollTimeout, killGrace, nftTimeout, resolveTimeout, resolveBudget])
+		assert.ok(Number.isInteger(value) && value > 0, 'limit must be a positive integer, got ' + out);
+	return { pollTimeout, killGrace, nftTimeout, resolveTimeout, resolveBudget };
+}
+
 function assertStructuredError(res, method) {
 	assert.equal(
 		typeof res.error,
@@ -420,24 +445,18 @@ exit 1
 function testRulesNftParseNoPerLineSed() {
 	// #504: map_from_nft_stream must not fork echo|sed per dump line.
 	const src = fs.readFileSync(RPCD, 'utf8');
-	const start = src.indexOf('map_from_nft_stream()');
-	const end = src.indexOf('\nnft_list_ruleset()', start);
-	assert.ok(start >= 0 && end > start, 'map_from_nft_stream must precede nft_list_ruleset');
-	const body = src.slice(start, end);
+	const body = shellFunctionBody(src, 'map_from_nft_stream');
 	assert.doesNotMatch(
 		body,
 		/echo\s+"\$line"\s+\|\s+sed/,
 		'map_from_nft_stream must not fork echo|sed per line'
 	);
-	assert.match(src, /nft_dump_fields\(\)/, 'one awk pass must live in nft_dump_fields');
+	/* The one awk pass must live in nft_dump_fields. */
+	shellFunctionBody(src, 'nft_dump_fields');
 }
 
 function testNftDumpFieldsTsvEscapeNoGsub() {
-	const src = fs.readFileSync(RPCD, 'utf8');
-	const start = src.indexOf('nft_dump_fields()');
-	const end = src.indexOf('\n_nft_tsv_unescape()', start);
-	assert.ok(start >= 0 && end > start, 'nft_dump_fields must precede _nft_tsv_unescape');
-	const body = src.slice(start, end);
+	const body = shellFunctionBody(fs.readFileSync(RPCD, 'utf8'), 'nft_dump_fields');
 	assert.match(body, /function tsv_escape\(/, 'TSV encode must walk bytes');
 	assert.doesNotMatch(body, /gsub\(/, 'BusyBox awk ≥1.37 gsub cannot encode TSV backslash or tab');
 }
@@ -584,21 +603,10 @@ function testPollHungUbusReturnsWithinBudget() {
 	// #491: a wedged log.read must not hold the poll worker for the ubus CLI
 	// default (~30s). POLL_TIMEOUT + run_with_timeout fail as log_read_failed
 	// so adaptive still skips the cold sample.
-	const src = fs.readFileSync(RPCD, 'utf8');
-	const match = src.match(/^POLL_TIMEOUT=([1-9][0-9]*)$/m);
-	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
-	assert.ok(match, 'POLL_TIMEOUT must be an integer timeout in seconds');
-	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
-	const pollTimeout = Number(match[1]);
-	const killGrace = Number(graceMatch[1]);
+	const { pollTimeout, killGrace } = rpcdLimits();
 	assert.ok(
 		pollTimeout >= 5 && pollTimeout <= 10,
 		`POLL_TIMEOUT must be 5-10s, got ${pollTimeout}`
-	);
-	assert.match(
-		src,
-		/run_with_timeout "\$POLL_TIMEOUT" ubus call log read/,
-		'poll log.read must run under run_with_timeout POLL_TIMEOUT'
 	);
 
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-491-hung-ubus-'));
@@ -666,13 +674,9 @@ function assertMarkedProcessStopped(pidFile, label) {
 function testRunWithTimeoutKillsTermResistantDescendant() {
 	const src = fs.readFileSync(RPCD, 'utf8');
 	const loggingSrc = fs.readFileSync(LOGGING_SH, 'utf8');
-	const helper = src.match(/^run_with_timeout\(\) \{[\s\S]*?^\}/m);
-	const providerCheck = loggingSrc.match(/^fwlive_timeout_available\(\) \{[\s\S]*?^\}/m);
-	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
-	assert.ok(helper, 'production run_with_timeout helper must exist');
-	assert.ok(providerCheck, 'shared provider check must exist in fwlive-logging.sh');
-	assert.ok(graceMatch, 'production timeout kill grace must be configured');
-	const grace = Number(graceMatch[1]);
+	const helper = shellFunctionBody(src, 'run_with_timeout');
+	const providerCheck = shellFunctionBody(loggingSrc, 'fwlive_timeout_available');
+	const { killGrace: grace } = rpcdLimits();
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-timeout-descendant-'));
 	const pidFile = path.join(stubDir, 'child.pid');
 	try {
@@ -680,7 +684,7 @@ function testRunWithTimeoutKillsTermResistantDescendant() {
 		assert.match(timeoutVersion, /GNU coreutils/, 'test requires the declared GNU timeout provider');
 		makeTermResistantStub(stubDir, 'term-resistant', pidFile);
 		const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin` };
-		const script = `FWLIVE_TIMEOUT_BIN=/usr/bin/timeout\nTIMEOUT_KILL_GRACE=${grace}\n${providerCheck[0]}\n${helper[0]}\n` +
+		const script = `FWLIVE_TIMEOUT_BIN=/usr/bin/timeout\nTIMEOUT_KILL_GRACE=${grace}\n${providerCheck}\n${helper}\n` +
 			'output=$(run_with_timeout 1 term-resistant)\n' +
 			'status=$?\nprintf \'%s\\n\' "$status"\n';
 		const started = Date.now();
@@ -711,13 +715,9 @@ function testRunWithTimeoutKillsTermResistantDescendant() {
 function testRunWithTimeoutBoundsDescendantAfterParentExit() {
 	const src = fs.readFileSync(RPCD, 'utf8');
 	const loggingSrc = fs.readFileSync(LOGGING_SH, 'utf8');
-	const helper = src.match(/^run_with_timeout\(\) \{[\s\S]*?^\}/m);
-	const providerCheck = loggingSrc.match(/^fwlive_timeout_available\(\) \{[\s\S]*?^\}/m);
-	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
-	assert.ok(helper, 'production run_with_timeout helper must exist');
-	assert.ok(providerCheck, 'shared provider check must exist in fwlive-logging.sh');
-	assert.ok(graceMatch, 'production timeout kill grace must be configured');
-	const grace = Number(graceMatch[1]);
+	const helper = shellFunctionBody(src, 'run_with_timeout');
+	const providerCheck = shellFunctionBody(loggingSrc, 'fwlive_timeout_available');
+	const { killGrace: grace } = rpcdLimits();
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-timeout-orphan-'));
 	try {
 		const timeoutVersion = execFileSync('timeout', ['--version'], { encoding: 'utf8' });
@@ -771,7 +771,7 @@ function testRunWithTimeoutBoundsDescendantAfterParentExit() {
 			].join('\n'));
 			const env = { ...process.env, PATH: `${stubDir}:/usr/bin:/bin`,
 				FWLIVE_REJECT_FRACTIONAL_SLEEP: scenario.name === 'child-closes-stdout' ? '1' : '' };
-			const script = `FWLIVE_TIMEOUT_BIN=/usr/bin/timeout\nTIMEOUT_KILL_GRACE=${grace}\n${providerCheck[0]}\n${helper[0]}\n` +
+			const script = `FWLIVE_TIMEOUT_BIN=/usr/bin/timeout\nTIMEOUT_KILL_GRACE=${grace}\n${providerCheck}\n${helper}\n` +
 				`output=$(run_with_timeout 1 ${scenario.name})\n` +
 				'status=$?\nprintf \'%s\\n\' "$status"\n';
 			const started = Date.now();
@@ -809,13 +809,7 @@ function testRunWithTimeoutBoundsDescendantAfterParentExit() {
 }
 
 function testRulesHungNftReturnsWithinBudget() {
-	const src = fs.readFileSync(RPCD, 'utf8');
-	const match = src.match(/^NFT_TIMEOUT=([1-9][0-9]*)$/m);
-	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
-	assert.ok(match, 'NFT_TIMEOUT must be an integer timeout in seconds');
-	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
-	const nftTimeout = Number(match[1]);
-	const killGrace = Number(graceMatch[1]);
+	const { nftTimeout, killGrace } = rpcdLimits();
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-761-hung-nft-'));
 	try {
 		makeStub(stubDir, 'nft', '#!/bin/sh\nexec /bin/sleep 30\n');
@@ -838,13 +832,7 @@ function testRulesHungNftReturnsWithinBudget() {
 }
 
 function testResolveHungNslookupReturnsWithinBudget() {
-	const src = fs.readFileSync(RPCD, 'utf8');
-	const match = src.match(/^RESOLVE_TIMEOUT=([1-9][0-9]*)$/m);
-	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
-	assert.ok(match, 'RESOLVE_TIMEOUT must be an integer timeout in seconds');
-	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
-	const lookupTimeout = Number(match[1]);
-	const killGrace = Number(graceMatch[1]);
+	const { resolveTimeout: lookupTimeout, killGrace } = rpcdLimits();
 	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
 	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	const jshn = path.join(prefix, release, 'bin', 'jshn');
@@ -879,16 +867,7 @@ function testResolveHungNslookupReturnsWithinBudget() {
 }
 
 function testResolveLoopBudgetIncludesFinalKillGrace() {
-	const src = fs.readFileSync(RPCD, 'utf8');
-	const budgetMatch = src.match(/^RESOLVE_BUDGET=([1-9][0-9]*)$/m);
-	const lookupMatch = src.match(/^RESOLVE_TIMEOUT=([1-9][0-9]*)$/m);
-	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
-	assert.ok(budgetMatch, 'RESOLVE_BUDGET must be an integer wall-clock budget');
-	assert.ok(lookupMatch, 'RESOLVE_TIMEOUT must be an integer timeout');
-	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
-	const budget = Number(budgetMatch[1]);
-	const lookupTimeout = Number(lookupMatch[1]);
-	const killGrace = Number(graceMatch[1]);
+	const { resolveBudget: budget, resolveTimeout: lookupTimeout, killGrace } = rpcdLimits();
 	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
 	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	const jshn = path.join(prefix, release, 'bin', 'jshn');
@@ -936,13 +915,7 @@ while :; do /bin/sleep 1; done
 }
 
 function testPollFilterDescendantReturnsWithinBudget() {
-	const src = fs.readFileSync(RPCD, 'utf8');
-	const pollMatch = src.match(/^POLL_TIMEOUT=([1-9][0-9]*)$/m);
-	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
-	assert.ok(pollMatch, 'POLL_TIMEOUT must be an integer timeout in seconds');
-	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
-	const stageTimeout = Number(pollMatch[1]);
-	const killGrace = Number(graceMatch[1]);
+	const { pollTimeout: stageTimeout, killGrace } = rpcdLimits();
 	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
 	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	const jshn = path.join(prefix, release, 'bin', 'jshn');
@@ -1081,31 +1054,7 @@ function testPollTruncatedFilterBodyIsFilterFailed() {
 }
 
 function testResolveBudgetIgnoresDateJump() {
-	const src = fs.readFileSync(RPCD, 'utf8');
-	assert.match(
-		src,
-		/start=\$\(fwlive_adaptive_clock_cs\)/,
-		'resolve budget start must use /proc/uptime centiseconds'
-	);
-	assert.match(
-		src,
-		/now=\$\(fwlive_adaptive_clock_cs\)/,
-		'resolve budget now must use /proc/uptime centiseconds'
-	);
-	assert.doesNotMatch(
-		src,
-		/date \+%s/,
-		'resolve must not measure the budget with date +%s'
-	);
-	const budgetMatch = src.match(/^RESOLVE_BUDGET=([1-9][0-9]*)$/m);
-	const lookupMatch = src.match(/^RESOLVE_TIMEOUT=([1-9][0-9]*)$/m);
-	const graceMatch = src.match(/^TIMEOUT_KILL_GRACE=([1-9][0-9]*)$/m);
-	assert.ok(budgetMatch, 'RESOLVE_BUDGET must be an integer wall-clock budget');
-	assert.ok(lookupMatch, 'RESOLVE_TIMEOUT must be an integer timeout');
-	assert.ok(graceMatch, 'TIMEOUT_KILL_GRACE must be a positive integer');
-	const budget = Number(budgetMatch[1]);
-	const lookupTimeout = Number(lookupMatch[1]);
-	const killGrace = Number(graceMatch[1]);
+	const { resolveBudget: budget, resolveTimeout: lookupTimeout, killGrace } = rpcdLimits();
 	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
 	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	const jshn = path.join(prefix, release, 'bin', 'jshn');
@@ -1576,11 +1525,6 @@ function testPollLinesJshnCauses() {
 	const jshnSh = path.join(pair, 'share', 'jshn.sh');
 	assert.ok(fs.existsSync(jshn), `matched jshn binary missing: ${jshn}`);
 	assert.ok(fs.existsSync(jshnSh), `matched jshn shell library missing: ${jshnSh}`);
-	assert.match(
-		fs.readFileSync(RPCD, 'utf8'),
-		/\$\{FWLIVE_JSHN_SH:-\/usr\/share\/libubox\/jshn\.sh\}/,
-		'production source must keep an overridable jshn library path'
-	);
 
 	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-441-poll-lines-'));
 	try {
@@ -1699,6 +1643,93 @@ printf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: 192.0.2.1\\n"
 		assert.match(lookedUp, /198\.51\.100\.2/);
 		assert.doesNotMatch(lookedUp, /(^|\n)5(\n|$)/);
 	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function resolveCallEnv(stubDir, work, extra) {
+	const { jshn, jshnSh } = resolveMatchedJshnPair();
+	return {
+		...process.env,
+		PATH: `${stubDir}:${path.dirname(jshn)}:/usr/bin:/bin`,
+		FWLIVE_JSHN_SH: jshnSh,
+		FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'adaptive-state-absent'),
+		FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent'),
+		...extra
+	};
+}
+
+function callResolve(env, payload) {
+	const raw = execFileSync('busybox', ['sh', '-eu', RPCD, 'call', 'resolve'], {
+		encoding: 'utf8',
+		env,
+		input: typeof payload === 'string' ? payload : JSON.stringify(payload)
+	});
+	return { raw, res: JSON.parse(raw) };
+}
+
+function testResolveJshnLibraryMissing() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-1045-jshn-lib-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-1045-jshn-lib-work-'));
+	try {
+		makeStub(stubDir, 'nslookup', '#!/bin/sh\nexit 1\n');
+		const missing = callResolve(resolveCallEnv(stubDir, work, {
+			FWLIVE_JSHN_SH: '/no/such/fwlive-jshn.sh'
+		}), { addresses: ['192.0.2.1'] });
+		assert.deepEqual(missing.res.names, {});
+		assert.equal(missing.res.error, 'jshn_lib_missing');
+
+		const bad = callResolve(resolveCallEnv(stubDir, work), 'not-json{{{');
+		assert.deepEqual(bad.res.names, {});
+		assert.equal(bad.res.error, 'invalid_input');
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testResolveNxdomainEmptyName() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-1045-nxdomain-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-1045-nxdomain-work-'));
+	try {
+		makeStub(stubDir, 'nslookup', `#!/bin/sh
+if [ "$1" = 192.0.2.1 ]; then
+	printf '%s\\n' 'name = ptr.example'
+	exit 0
+fi
+exit 1
+`);
+		const got = callResolve(resolveCallEnv(stubDir, work), {
+			addresses: ['192.0.2.1', '192.0.2.2']
+		});
+		assert.equal(
+			got.raw.trim(),
+			'{"names":{"192.0.2.1":"ptr.example","192.0.2.2":""}}'
+		);
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
+function testResolveBoundsNameLength() {
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-1045-resolve-cap-'));
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-1045-resolve-cap-work-'));
+	const longest = 'a'.repeat(253);
+	try {
+		for (const [name, want] of [
+			[longest, longest],
+			[longest + 'a', ''],
+			['a'.repeat(70000), '']
+		]) {
+			makeStub(stubDir, 'nslookup', '#!/bin/sh\nprintf \'%s\\n\' ' + shellQuote('name = ' + name) + '\n');
+			const got = callResolve(resolveCallEnv(stubDir, work), { addresses: ['192.0.2.1'] });
+			assert.equal(got.res.error, undefined);
+			assert.equal(got.res.truncated, undefined);
+			assert.equal(got.res.names['192.0.2.1'], want, `PTR of ${name.length} chars`);
+		}
+	} finally {
+		fs.rmSync(stubDir, { recursive: true, force: true });
 		fs.rmSync(work, { recursive: true, force: true });
 	}
 }
@@ -1931,6 +1962,9 @@ testAdaptiveMissingMessagesReceivedIsUnhealthy();
 testSummaryErrorValueDoesNotFailHealthGate();
 testTimeoutMissingIsDistinctAndSkipsCommands();
 testResolveJshnMissing();
+testResolveJshnLibraryMissing();
+testResolveNxdomainEmptyName();
+testResolveBoundsNameLength();
 testPollLinesJshnCauses();
 testResolveSkipsNonStringAddresses();
 testLoggingStatusNeverSilent();
