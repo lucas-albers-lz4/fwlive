@@ -39,14 +39,14 @@ async function testEmptyBatchStalenessHint(emptyBatch, paused) {
 	await view.fetchEntries();
 	view.updateStatus();
 	const status = h.document.getElementById('fwlive-status');
-	assert.doesNotMatch(String(status.textContent), /No new firewall events/,
+	assert.doesNotMatch(String(status.textContent), /Firewall log has no current entries/,
 		'the hint must stay hidden before the threshold');
 	assert.equal(view.entries.length, 1, 'an empty batch must retain the buffered row');
 
 	now += 1;
 	await view.fetchEntries();
 	view.updateStatus();
-	assert.match(String(status.textContent), /No new firewall events/,
+	assert.match(String(status.textContent), /Firewall log has no current entries/,
 		'the hint must appear at the three-slow-poll threshold');
 	assert.match(String(status.textContent), /15s ago/,
 		'the hint must show the age of the last non-empty batch');
@@ -58,12 +58,12 @@ async function testEmptyBatchStalenessHint(emptyBatch, paused) {
 	view.updateStatus();
 	assert.match(String(status.textContent), /Connection lost/,
 		'poll failure must take precedence over receipt age');
-	assert.doesNotMatch(String(status.textContent), /No new firewall events/);
+	assert.doesNotMatch(String(status.textContent), /Firewall log has no current entries/);
 	view.lastPollErrorCode = 'timeout_missing';
 	view.updateStatus();
 	assert.match(String(status.textContent), /Installation is incomplete/,
 		'typed poll errors must take precedence over receipt age');
-	assert.doesNotMatch(String(status.textContent), /No new firewall events/);
+	assert.doesNotMatch(String(status.textContent), /Firewall log has no current entries/);
 	view.lastPollError = false;
 	view.lastPollErrorCode = null;
 
@@ -74,7 +74,7 @@ async function testEmptyBatchStalenessHint(emptyBatch, paused) {
 	assert.equal(view.lastSuccessfulBatchEmpty, false,
 		'a later non-empty batch must clear the stale-poll state');
 	view.updateStatus();
-	assert.doesNotMatch(String(status.textContent), /No new firewall events/,
+	assert.doesNotMatch(String(status.textContent), /Firewall log has no current entries/,
 		'the hint must clear when new firewall rows arrive');
 	console.log('fwlive-view hot path: empty-poll staleness hint OK');
 }
@@ -90,6 +90,13 @@ function testHintBounds() {
 	assert.equal(view.stalenessHint(), '', 'a missing last receipt time must not show an age');
 	view.lastNonEmptyBatchAt = now;
 	now += 120000;
+	assert.equal(view.formatAgeShort(0), '0s');
+	assert.equal(view.formatAgeShort(59), '59s');
+	assert.equal(view.formatAgeShort(60), '1m');
+	assert.equal(view.formatAgeShort(3599), '59m');
+	assert.equal(view.formatAgeShort(3600), '1h');
+	assert.equal(view.formatAgeShort(86399), '23h');
+	assert.equal(view.formatAgeShort(86400), '1d');
 	assert.match(view.stalenessHint(), /2m ago/);
 	now += 3600000;
 	assert.match(view.stalenessHint(), /1h ago/);

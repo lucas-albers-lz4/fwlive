@@ -1716,6 +1716,13 @@ return view.extend({
 		return this.filteredRowsState().rows.slice();
 	},
 
+	formatAgeShort(seconds) {
+		if (seconds < 60) return _('%ds').format(seconds);
+		if (seconds < 3600) return _('%dm').format(Math.floor(seconds / 60));
+		if (seconds < 86400) return _('%dh').format(Math.floor(seconds / 3600));
+		return _('%dd').format(Math.floor(seconds / 86400));
+	},
+
 	stalenessHint() {
 		if (
 			!this.entries.length ||
@@ -1727,16 +1734,10 @@ return view.extend({
 		const elapsed = Math.max(0, this.nowMs() - this.lastNonEmptyBatchAt);
 		if (elapsed < constants.EMPTY_POLL_STALE_AFTER_MS) return '';
 
-		const seconds = Math.floor(elapsed / 1000);
-		const age =
-			seconds < 60
-				? _('%ds').format(seconds)
-				: seconds < 3600
-					? _('%dm').format(Math.floor(seconds / 60))
-					: seconds < 86400
-						? _('%dh').format(Math.floor(seconds / 3600))
-						: _('%dd').format(Math.floor(seconds / 86400));
-		return _('No new firewall events; showing entries last received %s ago.').format(age);
+		const age = this.formatAgeShort(Math.floor(elapsed / 1000));
+		return _('Firewall log has no current entries; showing rows last received %s ago.').format(
+			age
+		);
 	},
 
 	compactCountText(filtered) {
