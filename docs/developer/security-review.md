@@ -1333,3 +1333,21 @@ The QEMU lock failure message also names finite holder exit rather than a kill.
 
 **Proof class.** `manual` source mapping and `host` pinned TLC checks. Model
 actions, configurations, runtime code, and trust boundaries are unchanged.
+
+### 2026-09-29 — QEMU mixed-action fixture
+
+**Scope.** `scripts/qemu-playwright-lab-smoke.sh` seeds fixed synthetic ACCEPT
+and DROP messages with guest `logger` so the action-filter assertion changes
+visible rows under keyed rendering.
+Before starting Playwright, a bounded `logread` check confirms both messages
+are present; log content is passed through quoted `printf` data to fixed-string
+`grep`, never interpolated into a command.
+
+**Proof class.** `manual` for shell quoting: the SSH destination uses the
+existing quoted arguments and the remote command contains constant fixture
+strings, with no log-derived command interpolation. `lab` for the parser/UI
+path on OpenWrt 24.10.8 x86_64. Synthetic samples do not prove firewall drops;
+the separate required log-pipeline smoke checks real nft ping logging.
+
+**Result.** No shipped helper or ACL changes. Full surface re-pass deferred:
+the delta introduces no untrusted command construction or new privileged API.

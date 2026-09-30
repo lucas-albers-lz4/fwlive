@@ -35,6 +35,29 @@ elif ssh "${SSH_OPTS[@]}" "root@${HOST}" 'command -v iptables >/dev/null 2>&1'; 
 	ssh "${SSH_OPTS[@]}" "root@${HOST}" 'ping -c 3 -W 1 127.0.0.1 >/dev/null 2>&1' || true
 fi
 
+# Ping traffic alone produces pass rows. Seed both actions so selecting Pass
+# changes the visible rows even when keyed rendering reuses unchanged rows.
+# These are synthetic parser fixtures, not evidence of real dropped traffic.
+ssh "${SSH_OPTS[@]}" "root@${HOST}" '
+	set -e
+	logger -t kernel "fw4: ACCEPT IN=wan OUT= SRC=192.0.2.10 DST=198.51.100.10 PROTO=TCP SPT=12345 DPT=443"
+	logger -t kernel "fw4: DROP IN=wan OUT= SRC=192.0.2.11 DST=198.51.100.11 PROTO=TCP SPT=12346 DPT=443"
+' || die "could not seed synthetic pass/drop rows"
+
+# logger success does not guarantee logd accepted the messages. Bound this
+# publication check before starting the browser's action-filter assertions.
+ssh "${SSH_OPTS[@]}" "root@${HOST}" '
+	for attempt in 1 2 3 4 5; do
+		logs="$(logread)" || exit 1
+		if printf "%s\n" "$logs" | grep -Fq "fw4: ACCEPT IN=wan OUT= SRC=192.0.2.10 " &&
+			printf "%s\n" "$logs" | grep -Fq "fw4: DROP IN=wan OUT= SRC=192.0.2.11 "; then
+			exit 0
+		fi
+		sleep 1
+	done
+	exit 1
+' || die "synthetic pass/drop rows did not appear in logread"
+
 NODE="${NODE:-}"
 if [[ -z "$NODE" ]]; then
 	if command -v node >/dev/null 2>&1; then
