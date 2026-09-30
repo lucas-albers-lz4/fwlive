@@ -1429,6 +1429,7 @@ case "${1:-}" in
 		printf '%s %s %s %s %s\n' \
 			"$POLL_TIMEOUT" "$TIMEOUT_KILL_GRACE" "$NFT_TIMEOUT" \
 			"$RESOLVE_TIMEOUT" "$RESOLVE_BUDGET"
+		exit 0
 		;;
 	__poll_clamp)
 		poll_clamp_lines "${2:-}"
