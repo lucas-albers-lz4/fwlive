@@ -6,9 +6,9 @@ import { loginFwlive } from './lib/playwright-lab.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 
-const output = process.env.FWLIVE_RULES_DETAILS_OUT || path.join(os.tmpdir(), 'fwlive-rules-details');
+const output = process.env.FWLIVE_RULES_DETAILS_OUT || await mkdtemp(path.join(os.tmpdir(), 'fwlive-rules-details-'));
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const results = [];
