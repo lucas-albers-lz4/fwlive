@@ -138,8 +138,10 @@ fi
 # one-second deadline can expire during the failed probe, legitimately skipping
 # sleep altogether. Unsetting SECONDS removes its special clock behavior.
 # The hanging-probe and hanging-command cases below still use real time.
+# Variables in the script expand in the child Bash.
+# shellcheck disable=SC2016
 if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=fail SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
-	MAX_WAIT=1 INTERVAL=120 FWLIVE_WAIT_SCRIPT="$WAIT" /bin/bash -c '
+	MAX_WAIT=1 INTERVAL=120 FWLIVE_WAIT_SCRIPT="$WAIT" "$REAL_TIMEOUT" -s KILL 5s /bin/bash -c '
 		unset SECONDS
 		SECONDS=0
 		sleep() {
@@ -152,6 +154,7 @@ if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=fail SSH_LOG="$tmp/ssh.log" SLEE
 else
 	status=$?
 fi
+[[ "$status" -ne 137 ]] || fail "controlled-clock probe exceeded its five-second safety deadline"
 [[ "$status" -eq 1 ]] || fail "failed SSH probe must exit 1 (got $status)"
 [[ "$output" == *"SSH probe failed"* && "$output" == *"readiness probe did not succeed"* ]] ||
 	fail "probe failure should be reported as SSH readiness failure (got: $output)"

@@ -141,7 +141,8 @@ That regenerates `…/fwlive/css.js` (`styleText` string). Do not edit `css.js` 
 Checks: ubus, rpcd rules, LuCI HTTP, firewall log pipeline, uninstall baseline restore.
 
 The Playwright lab bundle seeds synthetic pass and drop messages using guest
-`logger`, alongside real ping traffic. Mixed actions ensure its action-filter
+`logger`, alongside real ping traffic, and waits up to five attempts for both
+messages to appear in `logread`. Mixed actions ensure its action-filter
 assertion changes visible rows even when keyed rendering reuses unchanged rows.
 The synthetic messages exercise parsing and UI filtering; the required
 `qemu-smoke-fwlive.sh --require-log-pipeline` check proves real firewall logging.

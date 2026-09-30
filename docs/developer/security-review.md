@@ -1339,6 +1339,9 @@ actions, configurations, runtime code, and trust boundaries are unchanged.
 **Scope.** `scripts/qemu-playwright-lab-smoke.sh` seeds fixed synthetic ACCEPT
 and DROP messages with guest `logger` so the action-filter assertion changes
 visible rows under keyed rendering.
+Before starting Playwright, a bounded `logread` check confirms both messages
+are present; log content is passed through quoted `printf` data to fixed-string
+`grep`, never interpolated into a command.
 
 **Proof class.** `manual` for shell quoting: the SSH destination uses the
 existing quoted arguments and the remote command contains constant fixture
