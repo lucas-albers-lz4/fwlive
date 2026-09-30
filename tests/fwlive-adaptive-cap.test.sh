@@ -221,6 +221,17 @@ _restore_lock
 ok "symlink lock path skips write"
 
 _seed_cold
+_lock_fifo="$WORKDIR/lock.fifo"
+mkfifo "$_lock_fifo"
+[ -w "$_lock_fifo" ] || die "fifo fixture must be -w so only the regular-file check rejects it"
+# A writable FIFO would block the fd-9 open waiting for a reader; bound it.
+timeout 5 env FWLIVE_ADAPTIVE_LOCK_FILE="$_lock_fifo" bash -c \
+	'. "$1"; fwlive_adaptive_record 900 2000' sh "$ADAPTIVE_SH" \
+	|| die "fifo lock must not hang or fail the record"
+_expect_lock_skipped "fifo lock"
+ok "fifo lock path skips write without blocking"
+
+_seed_cold
 _ro_dir="$WORKDIR/lock-ro-dir"
 mkdir -p "$_ro_dir"
 chmod 555 "$_ro_dir"
@@ -281,7 +292,7 @@ set -- $(fwlive_adaptive_read_state)
 [ "$3" = hot ] || die "busy lock must fail-open, bucket=$3"
 ok "busy lock fail-opens record"
 
-# Unopenable lock (unix socket: >> fails; not a dir/symlink) → skip write.
+# Non-regular lock (unix socket: not a dir/symlink, and >> would fail) → skip write.
 # Do not use ulimit -n: bash vs ash abort is environment-dependent (#619).
 fwlive_adaptive_write_state 0 2000 cold 0 0 0
 _sock="$WORKDIR/lock.sock"
@@ -292,7 +303,6 @@ python3 -c 'import socket,sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' 
 [ -L "$_sock" ] && die "socket fixture must not be a symlink"
 [ -d "$_sock" ] && die "socket fixture must not be a directory"
 [ -w "$_sock" ] || die "socket fixture must be -w so the fd-9 probe runs"
-# Confirm fd-9 append open fails so this hits the probe, not an early branch.
 ( exec 9>>"$_sock" ) 2>/dev/null && die "socket fixture must be unopenable for append"
 _saved_lock=${FWLIVE_ADAPTIVE_LOCK_FILE:-}
 export FWLIVE_ADAPTIVE_LOCK_FILE="$_sock"

@@ -243,7 +243,7 @@ fwlive_adaptive_with_lock() {
 		return $?
 	fi
 	_lock=$(fwlive_adaptive_lock_path)
-	if [ -L "$_lock" ] || [ -d "$_lock" ]; then
+	if [ -L "$_lock" ]; then
 		return 0
 	fi
 	# Create lock at 0600 (world-readable fd can take LOCK_EX).
@@ -251,7 +251,9 @@ fwlive_adaptive_with_lock() {
 		if ! ( umask 077; : >"$_lock" ) 2>/dev/null; then
 			return 0
 		fi
-	elif [ ! -w "$_lock" ]; then
+	fi
+	# Only a regular file: a writable FIFO would block the fd-9 open below.
+	if [ ! -f "$_lock" ] || [ ! -w "$_lock" ]; then
 		return 0
 	fi
 	# Probe in a subshell first: a failed fd-9 redirection aborts a POSIX

@@ -27,7 +27,7 @@ lock/generation order are unchanged. Host coverage:
 toggle and lock suites. No ACL, DOM sink, or read/write-scope change.
 
 **2026-09-29 #1046 adaptive-lock delta:** an unusable adaptive lock
-(create failure, unwritable file, symlink, directory, or fd open failure) and
+(create failure, unwritable file, symlink, directory, FIFO or other non-regular file, or fd open failure) and
 a failed state-directory check skip the state write. Missing `flock` and a
 busy lock still run the update unlocked. The directory `find` runs once per
 record, before the lock is opened. Host coverage:
