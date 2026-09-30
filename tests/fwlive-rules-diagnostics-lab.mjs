@@ -70,7 +70,7 @@ try {
 		results.push({ viewport: mobile ? '390x844, touch' : '1280x900, keyboard', healthyHidden: true, combinedDiagnostics: true, textNodes: true, recoveryHidden: true, initialWidth, finalWidth, startupPageErrors, diagnosticPageErrors: errors });
 		await context.close();
 	}
-	await writeFile(output + '/results.json', JSON.stringify(results, null, 2) + '\n');
+	await writeFile(path.join(output, 'results.json'), JSON.stringify(results, null, 2) + '\n', { mode: 0o600 });
 	console.log(JSON.stringify(results, null, 2));
 } finally {
 	await browser.close();
