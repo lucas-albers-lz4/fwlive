@@ -139,10 +139,9 @@ payload and lifecycle inspection, but package-manager install/upgrade was not
 run on 23.05 or 25.12 guests. Same-feed index comparison, deterministic local
 PTR validation, and guest-injected stalled-command timing remain open checks.
 
-The package version remains `0.1.46` in this implementation PR. To publish the
-dependency update for existing `0.1.46` installations, the maintainer must
-manually bump `PKG_VERSION` and `APP_VERSION` together to `0.1.47` in a direct
-`chore: release v0.1.47` commit on `master` before tagging; see the
+The #761 dependency update shipped in v0.1.47. Upgrading an existing `0.1.46`
+installation installs `coreutils-timeout` through the package dependencies.
+Future version bumps are maintainer-managed release commits; see the
 [release steps](../release.md#release-steps-automated-ci).
 
 ## Generate test traffic
