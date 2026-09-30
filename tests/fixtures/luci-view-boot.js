@@ -67,7 +67,8 @@
 		'fwlive.rules': function() {
 			return {
 				backend: 'nft',
-				rules: { 'wan-lan': 'Allow LAN', 'block-wan': '!fw4: Block WAN' }
+				rules: { 'wan-lan': 'Allow LAN', 'block-wan': '!fw4: Block WAN' },
+				truncated: false
 			};
 		},
 		'fwlive.resolve': function(opts) {
