@@ -1678,10 +1678,12 @@ return view.extend({
 		const seconds = Math.floor(elapsed / 1000);
 		const age =
 			seconds < 60
-				? seconds + 's'
+				? _('%ds').format(seconds)
 				: seconds < 3600
-					? Math.floor(seconds / 60) + 'm'
-					: Math.floor(seconds / 3600) + 'h';
+					? _('%dm').format(Math.floor(seconds / 60))
+					: seconds < 86400
+						? _('%dh').format(Math.floor(seconds / 3600))
+						: _('%dd').format(Math.floor(seconds / 86400));
 		return _('No new firewall events; showing entries last received %s ago.').format(age);
 	},
 
