@@ -152,7 +152,7 @@ install_ubus_stub() {
 	cat >"${SHIM_DIR}/ubus" <<EOF
 #!/bin/sh
 printf '%s\\n' "ubus" >>"$tally"
-if [ "\$1" = call ] && [ "\$2" = log ] && [ "\$3" = read ]; then
+if [ "\$1" = -t ] && [ "\$2" = 5 ] && [ "\$3" = call ] && [ "\$4" = log ] && [ "\$5" = read ]; then
 	# Harness: emit fixture via real cat (not shimmed) so we do not double-count.
 	exec /bin/cat "\${FWLIVE_CENSUS_FIXTURE:?}"
 fi

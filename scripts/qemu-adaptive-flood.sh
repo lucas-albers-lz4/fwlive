@@ -268,8 +268,8 @@ setup_shim() {
 	# Honor lines= from ubus JSON arg (Bugbot/Luna/Grok P1).
 	cat >"$SHIM_DIR/ubus" <<'UBUS'
 #!/bin/sh
-if [ "$1" = call ] && [ "$2" = log ] && [ "$3" = read ]; then
-	arg=${4:-}
+if [ "$1" = -t ] && [ "$2" = 5 ] && [ "$3" = call ] && [ "$4" = log ] && [ "$5" = read ]; then
+	arg=${6:-}
 	lines=2000
 	case "$arg" in
 		*\"lines\":*)
