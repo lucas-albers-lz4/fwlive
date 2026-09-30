@@ -14,10 +14,10 @@ On-page **Help** (collapsed at the bottom) covers the basics without leaving the
 
 1. **Title** — *Logging is off on this router* (cause first, not “broken table”).
 2. **Before you enable logging** — one-time panel: what changes, what does not, how to undo.
-3. **Enable WAN drop/reject logging** — intentional step; or pick **Not now**, or configure zones under **Network → Firewall** yourself.
+3. **Enable logging** — intentional step; or pick **Not now**, or configure zones under **Network → Firewall** yourself.
 4. Watch strip shows a short **Enable logging** button.
 
-Nothing changes until you click Enable.
+Nothing changes until you click **Enable logging**.
 
 ### 2. After you enable
 
@@ -116,6 +116,22 @@ with compact counts from the current sample. Three consecutive fast polls
 bring it back sooner; **Hide rows** returns to the card. Polling continues and
 filters still apply — the switch trims render work on a busy client or router,
 not a frozen display.
+
+Load conditions use the same name in the status line and in the banner below
+the watch strip, which adds one sentence of explanation:
+
+| Status line | Meaning |
+|---|---|
+| **polling slowed** | The router answers slowly, so polls run less often. |
+| **server limited fetch** | The router returned fewer raw log lines this poll to protect itself. |
+| **hostname lookup paused** | Reverse-DNS lookups wait while the router is under load. |
+| **table refresh throttled** | Events arrive faster than the browser should repaint; the buffer still updates. |
+
+When a poll fails, the status line says **Connection lost — retrying…** if no
+reply arrived, **The router could not read the firewall log — retrying…** if
+the router answered with an error, and **Installation is incomplete. Reinstall
+luci-app-fwlive.** when a required package file is missing (retrying cannot fix
+that).
 
 The router's log ring is finite and may evict older events before fwlive reads
 them. fwlive cannot recover evicted entries and does not change forwarding

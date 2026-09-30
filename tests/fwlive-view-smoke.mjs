@@ -243,7 +243,7 @@ async function testPollErrorBanner(page) {
 	try {
 		await page.waitForFunction(() => {
 			const el = document.getElementById('fwlive-status');
-			return el && /Connection lost/i.test(el.textContent || '');
+			return el && /could not read the firewall log/i.test(el.textContent || '');
 		}, { timeout: 10000 });
 		console.log('OK: poll error banner (#233)');
 	} finally {
@@ -288,7 +288,7 @@ async function testAdaptiveSummaryAndWarnings(page) {
 		}, { timeout: 10000 });
 		const banner = await page.locator('#fwlive-adaptive').textContent();
 		const summary = await page.locator('#fwlive-summary-body').textContent();
-		if (!/Server shedding/i.test(banner || '') || !/25/.test(banner || ''))
+		if (!/Server limited fetch/i.test(banner || '') || !/25/.test(banner || ''))
 			throw new Error(`adaptive shedding banner missing: ${banner}`);
 		if (!String(summary).includes('<img src=x onerror=alert(1)>') ||
 			!String(summary).includes('2001:db8::99'))
@@ -356,8 +356,8 @@ async function testAdaptiveSummaryAndWarnings(page) {
 			view.updateStatus();
 		});
 		const ordinaryPollError = await page.locator('#fwlive-status').textContent();
-		if (!/Connection lost/i.test(ordinaryPollError || ''))
-			throw new Error(`ordinary poll errors must keep the connection message: ${ordinaryPollError}`);
+		if (!/could not read the firewall log/i.test(ordinaryPollError || ''))
+			throw new Error(`typed poll errors must show the router-read message: ${ordinaryPollError}`);
 		if (/Installation is incomplete/i.test(ordinaryPollError || ''))
 			throw new Error(`a stale timeout warning must not replace the typed poll diagnosis: ${ordinaryPollError}`);
 		console.log('OK: adaptive summary, shedding, and warning rendering');

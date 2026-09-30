@@ -116,7 +116,7 @@ async function testWeakDeviceDisplayCap() {
 	assert.strictEqual(v.weakDevice, true);
 	assert.strictEqual(v.displayRowCap(), 250);
 	assert.strictEqual(v.filteredRows().length, 250);
-	assert.match(v.statusSuffix(), /Display limited to 250 rows on this device/);
+	assert.match(v.statusSuffix(), /display limited to 250 rows/);
 
 	status = { weak_device: false, ready: true, blockers: [], warnings: [] };
 	await v.loadLoggingStatus();
@@ -535,9 +535,46 @@ async function testAdaptiveOffDisablesBackoff() {
 	assert.ok(el);
 	assert.strictEqual(el.style.display, 'block', 'adaptive:0 states protection is disabled');
 	assert.match(el.textContent, /protection is disabled/i);
-	assert.match(v.statusSuffix(), /truncated/, 'status line matches banner at adaptive:0');
-	assert.match(el.textContent, /truncated|shedding/i, 'banner reports the same poll cap');
+	assert.match(v.statusSuffix(), /server limited fetch/, 'status line matches banner at adaptive:0');
+	assert.match(el.textContent, /Server limited fetch/, 'banner reports the same poll cap');
 	console.log('fwlive-view layer2: adaptive:0 gate OK');
+}
+
+/* One name per load condition: each status-line tag opens its banner sentence. */
+async function testLoadConditionVocabulary() {
+	const cases = [
+		['polling slowed', 'fwlive-adaptive', (v) => (v.degradedSampling = true)],
+		['server limited fetch', 'fwlive-adaptive', (v) => (v.serverTruncated = 1)],
+		[
+			'server limited fetch',
+			'fwlive-adaptive',
+			(v) => {
+				v.serverTruncated = 1;
+				v.serverShed = { level: 'hot', limit: 25 };
+			}
+		],
+		['hostname lookup paused', 'fwlive-adaptive', (v) => (v.resolveLoadShed = true)],
+		[
+			'table refresh throttled',
+			'fwlive-flood',
+			(v) => (v.ensureRenderScheduler().isFloodSuppressed = () => true)
+		]
+	];
+	for (const [tag, bannerId, apply] of cases) {
+		const h = loadFwliveView();
+		const v = h.view;
+		v.serverAdaptive = 1;
+		apply(v);
+		v.updateAdaptiveBanner();
+		v.updateFloodBanner();
+		const banner = String(h.document.getElementById(bannerId).textContent);
+		assert.ok(v.statusSuffix().includes(tag), `status line must carry "${tag}"`);
+		assert.ok(
+			banner.toLowerCase().includes(tag),
+			`banner must use the status tag "${tag}": ${banner}`
+		);
+	}
+	console.log('fwlive-view layer2: load-condition vocabulary OK');
 }
 
 async function testResolveLoadShed() {
@@ -1681,6 +1718,7 @@ async function testPausedDisplayControlsPaint() {
 		await testHiddenTabKeepsPendingResolvePaint();
 		await testHostnameToggleAsyncResolveDefersPaintWhilePaused();
 		await testPausedDisplayControlsPaint();
+		await testLoadConditionVocabulary();
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {
 		fail(e && e.stack ? e.stack : String(e));

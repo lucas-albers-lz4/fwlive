@@ -26,6 +26,8 @@
 const RULES_RETRY_BASE_MS = 5000;
 /* Includes the initial read; a page reload starts a fresh retry budget. */
 const RULES_RETRY_MAX_ATTEMPTS = 6;
+/* Poll error codes that only a reinstall fixes; retrying cannot help. */
+const INSTALL_POLL_ERRORS = ['timeout_missing', 'jsonfilter_missing', 'classifier_missing'];
 
 const callFwlivePoll = rpc.declare({
 	object: 'fwlive',
@@ -931,35 +933,8 @@ return view.extend({
 				this.updateEmptyStateUi();
 				this.updateLoggingToolbarUi();
 			},
-			failureNotice: (res) => {
-				if (res && res.error === 'nf_log_missing')
-					return _('Cannot enable logging until kernel log modules are installed.');
-				if (res && res.error === 'firewall_changes_pending')
-					return _(
-						'Another change is staged for the firewall; apply or revert it first.'
-					);
-				if (res && res.error === 'no_wan_zone')
-					return _('No WAN zone found; cannot toggle logging without one.');
-				if (res && res.error === 'lock_failed')
-					return _('Could not acquire the logging lock.');
-				if (res && res.error === 'rollback_tracking_failed')
-					return _('Could not track the logging change safely; logging was not changed.');
-				if (res && res.error === 'baseline_snapshot_failed')
-					return _('Could not snapshot the current logging state.');
-				if (res && res.error === 'firewall_reload_failed')
-					return _('The firewall did not reload; saved and live logging may differ.');
-				if (res && res.error === 'uci_set_failed')
-					return _('Could not write the WAN zone log option.');
-				if (res && res.error === 'uci_delete_failed')
-					return _('Could not clear the WAN zone log option.');
-				if (res && res.error === 'uci_commit_failed')
-					return _('Could not save the firewall configuration.');
-				if (res && res.error === 'firewall_commit_raced')
-					return _(
-						'Another change overwrote WAN logging after it was saved; check the current state.'
-					);
-				return _('Could not enable logging.');
-			},
+			failureNotice: (res) =>
+				logging.toggleFailureNotice(res && res.error, _('Could not enable logging.')),
 			successNotice: (res) =>
 				res.changed
 					? _(
@@ -976,31 +951,8 @@ return view.extend({
 			wanLog: false,
 			call: () => callFwliveDisableLogging(),
 			initialUi: () => this.updateLoggingToolbarUi(),
-			failureNotice: (res) => {
-				if (res && res.error === 'firewall_changes_pending')
-					return _(
-						'Another change is staged for the firewall; apply or revert it first.'
-					);
-				if (res && res.error === 'no_wan_zone')
-					return _('No WAN zone found; cannot toggle logging without one.');
-				if (res && res.error === 'lock_failed')
-					return _('Could not acquire the logging lock.');
-				if (res && res.error === 'rollback_tracking_failed')
-					return _('Could not track the logging change safely; logging was not changed.');
-				if (res && res.error === 'firewall_reload_failed')
-					return _('The firewall did not reload; saved and live logging may differ.');
-				if (res && res.error === 'uci_set_failed')
-					return _('Could not write the WAN zone log option.');
-				if (res && res.error === 'uci_delete_failed')
-					return _('Could not clear the WAN zone log option.');
-				if (res && res.error === 'uci_commit_failed')
-					return _('Could not save the firewall configuration.');
-				if (res && res.error === 'firewall_commit_raced')
-					return _(
-						'Another change overwrote WAN logging after it was saved; check the current state.'
-					);
-				return _('Could not disable logging.');
-			},
+			failureNotice: (res) =>
+				logging.toggleFailureNotice(res && res.error, _('Could not disable logging.')),
 			successNotice: (res) => (res.changed ? _('WAN drop/reject logging is off.') : ''),
 			catchNotice: () => _('Administrator access is required to disable logging.')
 		});
@@ -1326,16 +1278,14 @@ return view.extend({
 		const cap = this.ingestCap();
 		if (this.entries.length >= cap && cap > 0) bits.push(_('buffer full'));
 		if (this.ensureRenderScheduler().isFloodSuppressed())
-			bits.push(_('render paused (high rate)'));
+			bits.push(_('table refresh throttled'));
 		if (this.weakDevice && this.rowLimit > constants.WEAK_DEVICE_DISPLAY_ROW_CAP)
 			bits.push(
-				_('Display limited to %d rows on this device').format(
-					constants.WEAK_DEVICE_DISPLAY_ROW_CAP
-				)
+				_('display limited to %d rows').format(constants.WEAK_DEVICE_DISPLAY_ROW_CAP)
 			);
-		if (this.degradedSampling) bits.push(_('Degraded — sampling'));
-		if (this.serverTruncated) bits.push(_('truncated'));
-		if (this.resolveLoadShed) bits.push(_('resolve paused (load)'));
+		if (this.degradedSampling) bits.push(_('polling slowed'));
+		if (this.serverTruncated) bits.push(_('server limited fetch'));
+		if (this.resolveLoadShed) bits.push(_('hostname lookup paused'));
 		if (!this.tablePaused && !this.followLive)
 			bits.push(_('scroll frozen — scroll to top to follow live'));
 		return bits.length ? ' — ' + bits.join(', ') : '';
@@ -1502,14 +1452,21 @@ return view.extend({
 		else if (this.serverAdaptive === 0)
 			parts.push(_('Server adaptive protection is disabled.'));
 		if (this.degradedSampling)
-			parts.push(_('Degraded — sampling (slow poll RTT; cadence reduced).'));
+			parts.push(
+				_('Polling slowed: the router is responding slowly, so polls run less often.')
+			);
 		if (this.serverShed && this.serverShed.limit)
 			parts.push(
-				_('Server shedding — at most %d log lines per poll.').format(this.serverShed.limit)
+				_(
+					'Server limited fetch: the router is under load; at most %d log lines per poll.'
+				).format(this.serverShed.limit)
 			);
-		else if (this.serverTruncated) parts.push(_('Server truncated this poll (adaptive cap).'));
+		else if (this.serverTruncated)
+			parts.push(
+				_('Server limited fetch: this poll returned fewer lines to protect the router.')
+			);
 		if (this.resolveLoadShed)
-			parts.push(_('Hostname resolve paused while the router is under load.'));
+			parts.push(_('Hostname lookup paused while the router is under load.'));
 		return parts;
 	},
 
@@ -1664,7 +1621,7 @@ return view.extend({
 		if (this.ensureRenderScheduler().isFloodSuppressed()) {
 			el.style.display = 'block';
 			el.textContent = _(
-				'High event rate — table refresh is throttled to protect the browser. The buffer still updates; refresh will resume automatically.'
+				'Table refresh throttled: the event rate is high, so the table repaints less often to protect the browser. The buffer still updates; refresh resumes automatically.'
 			);
 		} else {
 			el.style.display = 'none';
@@ -1762,6 +1719,15 @@ return view.extend({
 		return '';
 	},
 
+	/* No reply is a transport failure; a typed code means rpcd answered. */
+	pollErrorText(suffix) {
+		const code = this.lastPollErrorCode;
+		if (INSTALL_POLL_ERRORS.indexOf(code) >= 0)
+			return _('Installation is incomplete. Reinstall luci-app-fwlive.');
+		if (code) return _('The router could not read the firewall log — retrying…') + suffix;
+		return _('Connection lost — retrying…') + suffix;
+	},
+
 	updateStatus(filtered) {
 		const status = document.getElementById('fwlive-status');
 		if (!status) return;
@@ -1772,10 +1738,7 @@ return view.extend({
 
 		if (this.lastPollError) {
 			status.className = 'fwlive-status fwlive-status-error';
-			status.textContent =
-				this.lastPollErrorCode === 'timeout_missing'
-					? _('Installation is incomplete. Reinstall luci-app-fwlive.')
-					: _('Connection lost — retrying…') + suffix;
+			status.textContent = this.pollErrorText(suffix);
 			this.updateAdaptiveBanner();
 			return;
 		}
@@ -2524,7 +2487,14 @@ return view.extend({
 						)
 					]),
 					E('li', {}, [
-						_('Display options on the bar set Limit, row tint, palette, and hostnames.')
+						_(
+							'Display options set Limit, Fetch budget, Maximum raw lines, row tint, palette, and hostnames.'
+						)
+					]),
+					E('li', {}, [
+						_(
+							'Summary mode: when the router responds slowly, a compact summary replaces the table. Use Show rows to see the table; it returns automatically after three fast polls.'
+						)
 					]),
 					E('li', {}, [
 						_(
