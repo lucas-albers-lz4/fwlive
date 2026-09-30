@@ -26,6 +26,13 @@ lock/generation order are unchanged. Host coverage:
 `tests/fwlive-logging.test.sh` (`wan_log_error_json` shape) plus the existing
 toggle and lock suites. No ACL, DOM sink, or read/write-scope change.
 
+**2026-09-29 #1046 adaptive-lock delta:** an unusable adaptive lock
+(create failure, unwritable file, symlink, directory, FIFO or other non-regular file, or fd open failure) and
+a failed state-directory check skip the state write. Missing `flock` and a
+busy lock still run the update unlocked. The directory `find` runs once per
+record, before the lock is opened. Host coverage:
+`tests/fwlive-adaptive-cap.test.sh`. No ACL or DOM-sink change.
+
 **2026-09-29 #1018 developer-tooling delta:** `scripts/fwlive-ast-grep.sh`
 changed mode from 100644 to 100755 so its documented direct invocation works;
 the script contents are unchanged. Source review confirmed it checks the
@@ -498,7 +505,7 @@ should carry a note saying what would raise it.
 | Non-zero filter stdout is kept only as a complete shipped error object; truncated bodies become `error:filter_failed` valid JSON | `host` | `fetch_firewall_logs` allow-list; `tests/fwlive-rpcd-security.test.js` `testPollTruncatedFilterBodyIsFilterFailed`; `tests/fwlive-adaptive-cap.test.sh` truncated merge_reply vectors |
 | Untrusted rules-map prefix/name strings use `printf '%s\\n'`; `-n`/`-E` unlabeled prefixes stay hints | `host` | `slug_key` / `map_prefix_with_label`; `tests/fwlive-rules-map.test.js` `testDashFlagUnlabeledPrefix`; rpcd selftest |
 | `resolve` wall-clock budget uses `/proc/uptime` centiseconds; a backward `date` step cannot stretch the loop | `host` | `fwlive_adaptive_clock_cs`; `tests/fwlive-rpcd-security.test.js` `testResolveBudgetIgnoresDateJump` |
-| Adaptive state at `/var/run/fwlive-state.json` — owner/dir checks, atomic rename, non-blocking `flock -n` on sibling `.lock` (fail-open; release by closing fd; busy ⇒ last-writer-wins; lock created 0600), never `source`/`eval` | `host` | same; lock only around short update, never across ubus/filter |
+| Adaptive state at `/var/run/fwlive-state.json` — owner/dir check once per record before the lock, atomic rename, non-blocking `flock -n` on sibling `.lock` (fail-open only when `flock` is missing or the lock is busy; fail-closed when the directory check fails or the lock cannot be created, opened, or is not a regular writable file; release by closing fd; busy ⇒ last-writer-wins; lock created 0600), never `source`/`eval` | `host` | `tests/fwlive-adaptive-cap.test.sh`; lock only around short update, never across ubus/filter |
 | Hot shed surfaces `shed` + `truncated`; `resolve` returns `disabled:load` when previous poll was hot; failed `log.read` or filter/classifier output does not clear prior bucket; expired hot/warm cooldown probes upward and retains only healthy recovery | `host` | `tests/fwlive-rpcd-security.test.js` `testAdaptiveHotSurvivesFailedPoll` / `testAdaptiveHotSurvivesFilterFailures`; `tests/fwlive-adaptive-cap.test.sh` deterministic cooldown vectors |
 | Forwarding-SLO lab topology owns only `fwlive-slo-*` network namespaces, bridges, TAPs, and veths; teardown validates the prefix before removing them; setup rollback is prefix-scoped; no shipped surface or runtime ACL is changed | `host + manual` | `scripts/qemu-forwarding-slo-net.sh` / `scripts/lib/qemu-forwarding-slo-net.sh`; static shell checks cover names/MAC/model and manual lab verification covers setup/rollback/teardown in #344 |
 | Forwarding-SLO guest helper resolves a unique interface by caller-supplied MAC, snapshots/restores test-link and IPv4-forwarding state, uses fixed temporary forwarding/logging rule comments, validates all four rules, validates rule handles as digits during cleanup, and changes no shipped package or ACL | `host + manual` | `scripts/qemu-forwarding-slo-guest.sh`; shell syntax/ShellCheck plus manual armsr/x86 verification in #344 |
