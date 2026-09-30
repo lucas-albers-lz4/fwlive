@@ -177,6 +177,25 @@ function defaultRpcReply(key) {
 	}
 }
 
+/* Invoke mocks with rpc.declare's named wire parameters, not caller arguments. */
+function rpcWireArguments(cfg, args) {
+	const params = {};
+	let offset = 0;
+	if (Array.isArray(cfg.params)) {
+		for (offset = 0; offset < cfg.params.length; offset++)
+			params[cfg.params[offset]] = args[offset];
+	} else if (cfg.params && typeof cfg.params === 'object') {
+		const argObj = args[0];
+		if (argObj && typeof argObj === 'object') {
+			for (const key in cfg.params) {
+				if (key in argObj)
+					params[key] = argObj[key];
+			}
+		}
+	}
+	return params;
+}
+
 function loadFwliveView(options) {
 	options = options || {};
 	const rpcMocks = Object.assign(Object.create(null), options.rpcMocks || {});
@@ -284,11 +303,12 @@ function loadFwliveView(options) {
 			const key = cfg.object + '.' + cfg.method;
 			const expect = cfg.expect;
 			return async function() {
+				const wireArgs = rpcWireArguments(cfg, arguments);
 				let raw;
 				if (rpcMocks[key])
-					raw = await rpcMocks[key].apply(null, arguments);
+					raw = await rpcMocks[key](wireArgs);
 				else if (typeof options.defaultRpc === 'function')
-					raw = await options.defaultRpc(key, arguments);
+					raw = await options.defaultRpc(key, wireArgs);
 				else
 					raw = defaultRpcReply(key);
 				if (Object.prototype.hasOwnProperty.call(rawRpcKeys, key)) return raw;

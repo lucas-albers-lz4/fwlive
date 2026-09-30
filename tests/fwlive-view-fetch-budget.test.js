@@ -44,6 +44,42 @@ async function testAutoAndManualBudgets() {
 	console.log('fwlive-view fetch-budget: Auto boundaries and Manual paused bound OK');
 }
 
+async function testPollAndResolveWireArguments() {
+	let pollWireArgs = null;
+	let resolveWireArgs = null;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function (wireArgs) {
+				pollWireArgs = wireArgs;
+				return pollReply();
+			},
+			'fwlive.resolve': async function (wireArgs) {
+				resolveWireArgs = wireArgs;
+				return { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	v.fetchMode = 'manual';
+	v.manualFetchLines = 1000;
+	v.rpcPreferencesResolved = true;
+	await v.fetchEntries();
+	assert.deepStrictEqual(
+		pollWireArgs,
+		{ addresses: ['1000'] },
+		'poll positional value must serialize as the declared addresses array'
+	);
+
+	v.showHostnames = true;
+	await v.resolveHostnamesForEntries([{ src: '192.0.2.1', dst: '198.51.100.2' }]);
+	assert.deepStrictEqual(
+		resolveWireArgs,
+		{ addresses: ['192.0.2.1', '198.51.100.2'] },
+		'resolve positional value must serialize as the declared addresses array'
+	);
+	console.log('fwlive-view fetch-budget: poll/resolve wire arguments OK');
+}
+
 async function testManualSeeding() {
 	for (const [limit, expected] of [
 		[25, 100],
@@ -828,6 +864,7 @@ async function testRulesRetrySkipsPausedAndFailedPolls() {
 
 async function main() {
 	await testAutoAndManualBudgets();
+	await testPollAndResolveWireArguments();
 	await testManualSeeding();
 	await testHashOrderAndAutoWriteThrough();
 	await testFirstRpcUsesResolvedPreferences();

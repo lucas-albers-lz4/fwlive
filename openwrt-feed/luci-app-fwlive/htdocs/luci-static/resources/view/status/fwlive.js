@@ -1087,9 +1087,7 @@ return view.extend({
 			/* Raw logd lines, not post-filter rows. Fetch a multiple of the
 			 * display limit so mixed syslog still fills the table; pause
 			 * reads the ring cap so the buffer can catch up. */
-			reply = await callFwlivePoll({
-				addresses: [String(fetchLines)]
-			});
+			reply = await callFwlivePoll([String(fetchLines)]);
 		} catch (_e) {
 			reply = null;
 		}
@@ -1157,12 +1155,17 @@ return view.extend({
 
 		this.notePollRtt(rtt, false);
 		this.updateAdaptiveBanner();
-		if (this.clientBackoffEnabled() && rtt > constants.POLL_RTT_SLOW_MS) {
-			if (!this.summaryMode) this.enterSummaryMode(reply.summary);
-			else {
+		if (this.clientBackoffEnabled()) {
+			if (this.summaryMode) {
 				this.summaryData =
-					reply.summary && typeof reply.summary === 'object' ? reply.summary : null;
+					reply.summary &&
+					typeof reply.summary === 'object' &&
+					!Array.isArray(reply.summary)
+						? reply.summary
+						: null;
 				this.renderSummary();
+			} else if (rtt > constants.POLL_RTT_SLOW_MS) {
+				this.enterSummaryMode(reply.summary);
 			}
 		}
 
@@ -1552,7 +1555,8 @@ return view.extend({
 	enterSummaryMode(summary) {
 		this.summaryMode = true;
 		this.summaryRowsShown = false;
-		this.summaryData = summary && typeof summary === 'object' ? summary : null;
+		this.summaryData =
+			summary && typeof summary === 'object' && !Array.isArray(summary) ? summary : null;
 		this.renderSummary();
 	},
 
@@ -1976,7 +1980,7 @@ return view.extend({
 		this.resolveInFlight = true;
 
 		try {
-			const res = await callFwliveResolve({ addresses: need });
+			const res = await callFwliveResolve(need);
 			if (gen !== this.resolveGeneration) return;
 
 			if (this.isLoadShedReply(res)) {

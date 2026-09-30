@@ -147,15 +147,33 @@
 		}
 	};
 	const view = { extend: function(desc) { return desc; } };
+	/* Match rpc.declare's named wire parameters before invoking service mocks. */
+	function rpcWireArguments(cfg, args) {
+		const params = {};
+		let offset = 0;
+		if (Array.isArray(cfg.params)) {
+			for (offset = 0; offset < cfg.params.length; offset++)
+				params[cfg.params[offset]] = args[offset];
+		} else if (cfg.params && typeof cfg.params === 'object') {
+			const argObj = args[0];
+			if (argObj && typeof argObj === 'object') {
+				for (const key in cfg.params) {
+					if (key in argObj)
+						params[key] = argObj[key];
+				}
+			}
+		}
+		return params;
+	}
 	const rpc = {
 		declare: function(cfg) {
 			const key = cfg.object + '.' + cfg.method;
 			const expect = cfg.expect;
 			return function() {
-				const args = arguments;
+				const wireArgs = rpcWireArguments(cfg, arguments);
 				return Promise.resolve().then(function() {
 					const mock = rpcMocks[key];
-					return mock ? mock.apply(null, args) : {};
+					return mock ? mock(wireArgs) : {};
 				}).then(function(raw) {
 					return FwliveRpcExpect.applyExpect(raw, expect);
 				});

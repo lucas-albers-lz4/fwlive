@@ -746,6 +746,88 @@ async function testSummaryFallbackAndRecovery() {
 	console.log('fwlive-view layer2: summary fallback/recovery OK');
 }
 
+function applySummaryPoll(view, id, ip, rtt, summary, includeSummary) {
+	const reply = {
+		adaptive: 1,
+		log: [{
+			id: id,
+			time: 1704067200 + id,
+			msg: 'fw4: DROP IN=wan OUT= SRC=' + ip + ' DST=192.0.2.2 PROTO=TCP DPT=22'
+		}]
+	};
+	if (includeSummary) reply.summary = summary;
+	view.applyPollReply({ rtt: rtt, reply: reply }, {
+		resumeMerge: false,
+		pausedAtStart: false,
+		fetchLines: 200,
+		beforeLength: view.entries.length
+	});
+}
+
+function summaryFor(ip, count) {
+	return {
+		top_talkers: [{ value: ip, count: count }],
+		top_drops: [{ value: 'drop-' + count, count: count }],
+		top_rules: []
+	};
+}
+
+async function testActiveSummaryRefreshAndInvalidation() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.nowMs = function () { return 10000; };
+	applySummaryPoll(v, 1, '203.0.113.1', 1601, summaryFor('203.0.113.1', 1), true);
+	assert.strictEqual(v.summaryMode, true, 'slow successful poll must enter summary mode');
+
+	for (let id = 2; id <= 4; id++) {
+		applySummaryPoll(v, id, '203.0.113.2', 700, summaryFor('203.0.113.2', id), true);
+		assert.strictEqual(v.summaryMode, true, 'middle-band poll must keep summary mode active');
+		assert.strictEqual(v.summaryData.top_talkers[0].value, '203.0.113.2');
+		assert.strictEqual(v.summaryData.top_talkers[0].count, id);
+		assert.match(h.document.getElementById('fwlive-summary-body').textContent, /203\.0\.113\.2/);
+	}
+	assert.strictEqual(v.entries[v.entries.length - 1].src, '203.0.113.2');
+
+	applySummaryPoll(v, 5, '203.0.113.2', 700, undefined, false);
+	assert.strictEqual(v.summaryData, null, 'a successful reply with no summary must invalidate prior data');
+	assert.match(
+		h.document.getElementById('fwlive-summary-body').textContent,
+		/Summary data is unavailable/
+	);
+	assert.doesNotMatch(
+		h.document.getElementById('fwlive-summary-body').textContent,
+		/203\.0\.113\.2/,
+		'missing summary must not leave old values visible'
+	);
+
+	applySummaryPoll(v, 6, '203.0.113.2', 700, {
+		top_talkers: [],
+		top_drops: [],
+		top_rules: []
+	}, true);
+	const body = h.document.getElementById('fwlive-summary-body').textContent;
+	assert.match(body, /Top talkers:\nnone/);
+	assert.doesNotMatch(body, /203\.0\.113\.2/, 'empty summary must replace previous values');
+	console.log('fwlive-view layer2: active summary refresh/invalidation OK');
+}
+
+async function testSummaryFastRecoveryUsesSuccessfulReplies() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.nowMs = function () { return 10000; };
+	applySummaryPoll(v, 1, '203.0.113.1', 1601, summaryFor('203.0.113.1', 1), true);
+	applySummaryPoll(v, 2, '203.0.113.2', 100, summaryFor('203.0.113.2', 2), true);
+	assert.strictEqual(v.summaryMode, true, 'first fast reply must not end recovery hysteresis');
+	assert.strictEqual(v.summaryData.top_talkers[0].value, '203.0.113.2');
+	applySummaryPoll(v, 3, '203.0.113.3', 100, summaryFor('203.0.113.3', 3), true);
+	assert.strictEqual(v.summaryMode, true, 'second fast reply must not end recovery hysteresis');
+	assert.strictEqual(v.summaryData.top_talkers[0].value, '203.0.113.3');
+	applySummaryPoll(v, 4, '203.0.113.4', 100, summaryFor('203.0.113.4', 4), true);
+	assert.strictEqual(v.summaryMode, false, 'third fast reply must restore normal rows');
+	assert.strictEqual(v.summaryData, null, 'leaving summary mode must clear compact data');
+	console.log('fwlive-view layer2: successful fast-poll summary recovery OK');
+}
+
 async function testSummaryShowRowsRepaintOnPoll() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -1705,6 +1787,8 @@ async function testPausedDisplayControlsPaint() {
 		await testWarmHostnameTogglePaintsCache();
 		await testShedSurfacing();
 		await testSummaryFallbackAndRecovery();
+		await testActiveSummaryRefreshAndInvalidation();
+		await testSummaryFastRecoveryUsesSuccessfulReplies();
 		await testSummaryShowRowsRepaintOnPoll();
 		await testSummaryEmptyStaysHiddenOnRepaint();
 		await testStreakResetOnAdaptiveOff();
