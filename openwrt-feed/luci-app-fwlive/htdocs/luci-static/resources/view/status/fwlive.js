@@ -1214,7 +1214,7 @@ return view.extend({
 				await Promise.all([this.loadRulesMap(epoch), this.loadLoggingStatus(epoch)]);
 				/* Recovery RPCs can outlive the poll epoch; don't repaint stale views. */
 				if (epoch !== this.currentPollEpoch() || this.viewDisposed) return;
-				this.refreshBufferedRuleLabels();
+				/* loadRulesMap refreshes buffered labels when its map read succeeds. */
 			} catch (_e) {
 				/* A throw here is local UI work after a successful poll. Leave
 				 * lastPollError / lastPollErrorCode as applyPollReply set them. */
