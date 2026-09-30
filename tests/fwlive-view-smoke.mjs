@@ -459,25 +459,51 @@ async function testRulesTruncatedDegraded(page) {
 	try {
 		await page.evaluate(async () => {
 			window.__fwlivePrevRulesMock = window.setFwliveRulesMock(function() {
-				return { rules: {}, error: 'rules_truncated' };
+				return { backend: 'nft', rules: {}, truncated: true, error: 'mktemp_failed' };
 			});
 			await window.fwliveView.loadRulesMap();
 			window.fwliveView.updateStatus();
 		});
 		await page.waitForFunction(() => {
 			const el = document.getElementById('fwlive-backend');
-			return el && /map truncated/i.test(el.textContent || '');
+			return el && /Some rule names may be missing/i.test(el.textContent || '');
 		}, { timeout: 10000 });
 		const status = await page.locator('#fwlive-status').textContent();
 		if (!/matching/i.test(status || ''))
-			throw new Error('counter must still render under rules_truncated, got: ' + status);
+			throw new Error('counter must still render under map truncation, got: ' + status);
 		const paused = await page.evaluate(() => {
 			const map = document.querySelector('.fwlive-map');
 			return !!(map && map.classList.contains('fwlive-watch-paused'));
 		});
 		if (!paused)
-			throw new Error('paused class must survive rules_truncated');
-		console.log('OK: rules_truncated backend-span + counter/paused (#274)');
+			throw new Error('paused class must survive map truncation');
+		const details = page.locator('#fwlive-rules-details');
+		const summary = details.locator('summary');
+		if (await details.getAttribute('open') !== null)
+			throw new Error('rule-name diagnostics must start collapsed');
+		await summary.focus();
+		await page.keyboard.press('Enter');
+		await page.waitForFunction(() => document.getElementById('fwlive-rules-details').open);
+		const diagnosis = await page.locator('#fwlive-rules-details-body').innerText();
+		if (!diagnosis.includes('truncated=true') || !diagnosis.includes('mktemp_failed'))
+			throw new Error('expanded diagnostics must expose both conditions: ' + diagnosis);
+		await page.evaluate(() => window.fwliveView.updateBackendUi());
+		if (await details.getAttribute('open') === null)
+			throw new Error('routine updates must preserve an opened disclosure');
+		await summary.click();
+		await page.waitForFunction(() => !document.getElementById('fwlive-rules-details').open);
+		await page.evaluate(async () => {
+			window.setFwliveRulesMock(() => ({
+				backend: 'nft', rules: {}, truncated: false, error: '<svg/onload=PWNED>'
+			}));
+			await window.fwliveView.loadRulesMap();
+		});
+		const textOnly = await page.locator('#fwlive-rules-details-body').evaluate(body =>
+			body.childNodes.length === 1 && body.firstChild.nodeType === Node.TEXT_NODE &&
+			body.textContent.includes('<svg/onload=PWNED>') && !body.querySelector('svg')
+		);
+		if (!textOnly) throw new Error('unknown diagnostic codes must render as literal text nodes');
+		console.log('OK: combined rule-name diagnostics, keyboard disclosure, text nodes and counter/paused (#1038 #274)');
 	} finally {
 		await page.evaluate(async () => {
 			if (typeof window.__fwlivePrevRulesMock !== 'undefined') {

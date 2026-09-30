@@ -581,10 +581,12 @@ build_rules_map() {
 		_enrich_error='no_backend'
 	fi
 	_rules_json="{\"backend\":\"$backend\",\"rules\":{$OUT}"
+	# Map limits and enrichment failures are independent outcomes.
+	_truncated=false
+	[ -n "$_map_overflow" ] && _truncated=true
+	_rules_json="${_rules_json},\"truncated\":${_truncated}"
 	if [ -n "$_enrich_error" ]; then
 		_rules_json="${_rules_json},\"error\":\"${_enrich_error}\""
-	elif [ -n "$_map_overflow" ]; then
-		_rules_json="${_rules_json},\"error\":\"rules_truncated\""
 	fi
 	printf '%s}' "$_rules_json"
 }

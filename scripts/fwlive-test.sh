@@ -195,6 +195,10 @@ echo "== fwlive retained-row staleness (#902) =="
 
 echo "== fwlive view logging toggles (#365 A2) =="
 "$NODE" tests/fwlive-view-logging-toggle.test.js
+
+echo "== fwlive rule-name diagnostics (#1038) =="
+"$NODE" tests/fwlive-view-rules-diagnostics.test.js
+
 echo "== fwlive rpc.declare expect contract (#369) =="
 "$NODE" tests/fwlive-rpc-expect.test.js
 

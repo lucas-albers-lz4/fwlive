@@ -490,6 +490,8 @@ fi
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
 			// merge: uci-only must be present (catches lost UCI when fragment overwrote)
+			assert.equal(res.truncated, false, `[${shell}] ordinary rules reply has explicit false truncation`);
+			assert.equal(res.error, undefined);
 			assert.equal(res.rules['uci-only'], 'uci-only', `[${shell}] uci+stream merge: uci-only present`);
 			assert.equal(res.rules['Allow-SSH'], 'Allow-SSH', `[${shell}] named UCI rule present`);
 			// merge: nft-only must be present (catches subshell discard)
@@ -697,6 +699,7 @@ exit 127
 			let res;
 			try { res = JSON.parse(raw); } catch (e) { throw new Error(`[${shell}] JSON malformed when mktemp absent: ${raw}: ${e.message}`); }
 			assert.equal(res.backend, 'nft', `[${shell}] backend should still be nft when mktemp absent`);
+			assert.equal(res.truncated, false, `[${shell}] uncapped UCI map must not be truncated`);
 			assert.equal(res.error, 'mktemp_failed', `[${shell}] mktemp skip must surface error (#231)`);
 			assert.equal(res.rules['uci-keep'], 'uci-keep', `[${shell}] uci-keep must survive mktemp absent (graceful degradation)`);
 			assert.equal(res.rules['another-rule'], 'another-rule', `[${shell}] another-rule must survive`);
@@ -772,6 +775,7 @@ exec "${realAwk}" "$@"
 				throw new Error(`[${shell}] JSON malformed when awk fails: ${raw}: ${e.message}`);
 			}
 			assert.equal(res.backend, 'nft', `[${shell}] backend stays nft when TSV awk fails`);
+			assert.equal(res.truncated, false, `[${shell}] uncapped UCI map must not be truncated`);
 			assert.equal(res.error, 'tsv_failed', `[${shell}] awk failure must surface tsv_failed`);
 			assert.equal(res.rules['uci-keep'], 'uci-keep', `[${shell}] UCI names survive TSV awk failure`);
 			assert.equal(res.rules['should-not-appear'], undefined, `[${shell}] nft enrichment must be skipped when awk fails`);
@@ -1158,6 +1162,46 @@ exit 0
 }
 
 
+function testTruncatedWithEnrichmentFailure() {
+	// Duplicate UCI names hit the processing limit with one key; retain both
+	// that fact and the independent discovery/enrichment failure (#1038).
+	const realAwk = hostCommand('awk');
+	for (const error of ['mktemp_failed', 'tsv_failed', 'no_backend']) {
+		const shells = error === 'mktemp_failed' ? pathHonouringShells('mktemp')
+			: error === 'tsv_failed' ? pathHonouringShells('awk') : posixShells();
+		let ran = 0;
+		for (const shell of shells) {
+			const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-combined-map-'));
+			try {
+				makeStub(stubDir, 'uci', `#!/bin/sh
+if [ "$1" = -q ] && [ "$2" = show ] && [ "$3" = firewall ]; then
+	i=0
+	while [ "$i" -lt 600 ]; do
+		printf "firewall.@rule[%s].name='keep-name'\\n" "$i"
+		i=$((i + 1))
+	done
+fi
+`);
+				makeStub(stubDir, 'nft', error === 'no_backend' ? '#!/bin/sh\nexit 1\n'
+					: '#!/bin/sh\nprintf \'table inet fw4 { }\\n\'\n');
+				if (error === 'mktemp_failed') makeStub(stubDir, 'mktemp', '#!/bin/sh\nexit 1\n');
+				if (error === 'tsv_failed') makeStub(stubDir, 'awk', `#!/bin/sh
+for arg in "$@"; do
+	case "$arg" in *'quoted_at'*) exit 7 ;; esac
+done
+exec "${realAwk}" "$@"
+`);
+				const res = JSON.parse(runWithShell(shell, { ...process.env, PATH: `${stubDir}:${process.env.PATH}` }));
+				assert.equal(res.truncated, true, `[${shell}] ${error} must not hide truncation`);
+				assert.equal(res.error, error, `[${shell}] truncation must not hide ${error}`);
+				assert.deepEqual(res.rules, { 'keep-name': 'keep-name' });
+				ran++;
+			} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+		}
+		assert.ok(ran > 0, `${error} combined outcome must run on a POSIX shell`);
+	}
+}
+
 function testRulesMapKeyBound() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-bound-'));
 	try {
@@ -1183,7 +1227,8 @@ fi
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
-			assert.equal(res.error, 'rules_truncated', `[${shell}] oversized map must set rules_truncated`);
+			assert.equal(res.error, undefined, `[${shell}] truncation alone is not an enrichment error`);
+			assert.equal(res.truncated, true, `[${shell}] oversized map must set truncated=true`);
 			const keys = Object.keys(res.rules || {});
 			assert.ok(keys.length <= 512, `[${shell}] keys ${keys.length} must be <= 512`);
 		}
@@ -1216,7 +1261,8 @@ fi
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
-			assert.equal(res.error, 'rules_truncated', `[${shell}] duplicate flood must set rules_truncated`);
+			assert.equal(res.error, undefined, `[${shell}] truncation alone is not an enrichment error`);
+			assert.equal(res.truncated, true, `[${shell}] duplicate flood must set truncated=true`);
 			assert.equal(res.rules['same-pfx'], 'Same-Rule', `[${shell}] first-wins still maps the prefix`);
 			const keys = Object.keys(res.rules || {});
 			assert.ok(keys.length <= 512, `[${shell}] keys ${keys.length} must be <= 512`);
@@ -1293,7 +1339,8 @@ fi
 			let raw;
 			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
 			const res = JSON.parse(raw);
-			assert.equal(res.error, 'rules_truncated', `[${shell}] duplicate UCI-name flood must hit the line cap`);
+			assert.equal(res.error, undefined, `[${shell}] truncation alone is not an enrichment error`);
+			assert.equal(res.truncated, true, `[${shell}] duplicate UCI-name flood must hit the line cap`);
 			assert.equal(res.rules['same-rule'], 'same-rule', `[${shell}] the first UCI name remains available`);
 			assert.deepEqual(fs.readFileSync(path.join(stubDir, 'uci.log'), 'utf8').trim().split('\n'),
 				['uci -q show firewall'], `[${shell}] the flood must not fork one uci get per rule`);
@@ -1335,7 +1382,8 @@ function testRulesMapByteBound() {
 				throw e;
 			}
 			const res = JSON.parse(raw);
-			assert.equal(res.error, 'rules_truncated', '[' + shell + '] byte cap must set rules_truncated');
+			assert.equal(res.error, undefined, `[${shell}] truncation alone is not an enrichment error`);
+			assert.equal(res.truncated, true, '[' + shell + '] byte cap must set truncated=true');
 			assert.equal(res.rules[hugeA], hugeA, '[' + shell + '] first ASCII huge key should fit');
 			assert.equal(res.rules[hugeB], undefined, '[' + shell + '] second huge key must be capped');
 		}
@@ -1578,6 +1626,7 @@ function run() {
 	testPollClampLinesContract();
 	testNoMktempGracefulDegradation();
 	testTsvAwkFailureKeepsStructuredReply();
+	testTruncatedWithEnrichmentFailure();
 	testRulesMapKeyBound();
 	testRulesMapLineBound();
 	testUciShowOnce();

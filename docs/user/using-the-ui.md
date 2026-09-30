@@ -143,6 +143,12 @@ signal to reduce the workload.
 
 When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint.
 
+If **Some rule names may be missing** appears near the title, open **Details**
+for the cause and diagnostic code. Some entries may use names derived from log
+prefixes, so searching by a friendly rule name may miss them. Rule-name lookup
+does not change your firewall rules. The live counter and paused status remain
+available; a failed refresh keeps previously loaded names when available.
+
 ## Empty table
 
 If no events appear after install, that is expected until logging is on — see [First visit](#first-visit). **Enable logging** sets WAN zone `log=1` (same as **Network → Firewall**). The empty state explains what will and will not appear (WAN drops/rejects, not normal LAN browsing).

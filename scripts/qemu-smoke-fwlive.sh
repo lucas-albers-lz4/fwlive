@@ -43,8 +43,8 @@ ssh_guest() {
 }
 
 # ubus exits 0 on method-level refusals. Require the success key. Reject an
-# "error" field except on rules, where no_backend / rules_truncated still
-# return a usable map (fw3/iptables guests).
+# "error" field except on rules, where no_backend still returns a usable
+# UCI map. Map truncation is an independent boolean, not an error.
 ubus_method_ok() {
 	local method="$1"
 	local remote="$2"
@@ -60,7 +60,7 @@ ubus_method_ok() {
 	if printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:'; then
 		if [[ "$allow_error" != allow_error ]]; then
 			die "ubus fwlive ${method} replied with error: ${body}"
-		elif ! printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:[[:space:]]*"(no_backend|rules_truncated)"'; then
+		elif ! printf '%s' "$body" | grep -Eq '"error"[[:space:]]*:[[:space:]]*"no_backend"'; then
 			die "ubus fwlive ${method} replied with disallowed error: ${body}"
 		fi
 	fi
@@ -73,6 +73,10 @@ ubus_method_ok() {
 				|| die "ubus fwlive ${method} log is not an array: ${body}"
 			;;
 		names | rules)
+			if [[ "$key" == rules ]]; then
+				printf '%s' "$body" | grep -Eq '"truncated"[[:space:]]*:[[:space:]]*(true|false)[[:space:]]*([,}]|$)' \
+					|| die "ubus fwlive rules missing boolean truncated: ${body}"
+			fi
 			printf '%s' "$body" | grep -Eq "\"${key}\"[[:space:]]*:[[:space:]]*\{" \
 				|| die "ubus fwlive ${method} ${key} is not an object: ${body}"
 			;;

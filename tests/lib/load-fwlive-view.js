@@ -154,7 +154,7 @@ function indexElementIds(node, idMap) {
 function defaultRpcReply(key) {
 	switch (key) {
 	case 'fwlive.rules':
-		return { rules: {} };
+		return { backend: 'nft', rules: {}, truncated: false };
 	case 'fwlive.resolve':
 		return { names: {} };
 	case 'fwlive.logging_status':

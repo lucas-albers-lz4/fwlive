@@ -62,9 +62,15 @@ elif [[ "$cmd" == *'ubus call fwlive rules'* ]]; then
 	elif [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == rules-unexpected ]]; then
 		printf '%s\n' '{"backend":"nft","rules":{},"error":"permission_denied"}'
 	elif [[ "${FWLIVE_STUB_RULES:-}" == no_backend ]]; then
-		printf '%s\n' '{"backend":"unknown","rules":{},"error":"no_backend"}'
-	else
+		printf '%s\n' '{"backend":"unknown","rules":{},"truncated":false,"error":"no_backend"}'
+	elif [[ "${FWLIVE_STUB_RULES:-}" == truncated ]]; then
+		printf '%s\n' '{"backend":"nft","rules":{},"truncated":true}'
+	elif [[ "${FWLIVE_STUB_RULES:-}" == pretty ]]; then
+		printf '%s\n' '{' '  "backend":"nft",' '  "rules":{},' '  "truncated":false' '}'
+	elif [[ "${FWLIVE_STUB_RULES:-}" == missing-truncated ]]; then
 		printf '%s\n' '{"backend":"nft","rules":{}}'
+	else
+		printf '%s\n' '{"backend":"nft","rules":{},"truncated":false}'
 	fi
 elif [[ "$cmd" == *'ubus call fwlive logging_status'* ]]; then
 	if [[ "${FWLIVE_STUB_UBUS_ERROR:-}" == logging_status ]]; then
@@ -180,6 +186,22 @@ fi
 grep -Fq 'smoke OK: ubus fwlive rules' "$TMP/rules-no-backend.log" \
 	|| die 'no_backend rules map was not accepted'
 ok 'accepts rules no_backend with a rules object'
+
+FWLIVE_STUB_RULES=truncated run_smoke rules-truncated \
+	|| die 'smoke rejected independent rules truncation'
+ok 'accepts truncated rules without an error'
+
+FWLIVE_STUB_RULES=pretty run_smoke rules-pretty \
+	|| die 'smoke rejected a multiline ubus rules reply'
+ok 'accepts pretty-printed boolean rules truncation'
+
+if (FWLIVE_STUB_RULES=missing-truncated; export FWLIVE_STUB_RULES; \
+	run_smoke rules-missing-truncated); then
+	die 'smoke accepted a rules reply without boolean truncated'
+fi
+grep -Fq 'ubus fwlive rules missing boolean truncated' "$TMP/rules-missing-truncated.log" \
+	|| die 'missing boolean truncated was not reported'
+ok 'requires boolean rules truncation state'
 
 if (FWLIVE_STUB_UBUS_ERROR=rules-unexpected; export FWLIVE_STUB_UBUS_ERROR; \
 	run_smoke rules-unexpected-error); then
