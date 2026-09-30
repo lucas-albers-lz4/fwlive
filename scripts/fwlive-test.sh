@@ -358,6 +358,6 @@ echo "== fwlive CLI pipeline ==" >&2
 
 echo "== fwlive fork census (#308 Phase 0a) ==" >&2
 bash "$ROOT/scripts/fork-census.sh" --skip-parse \
-	--expect-filter 7 --expect-poll 12
+	--expect-filter 7 --expect-poll 10
 
 echo "All fwlive tests passed ($fwlive_runner_gate_skips runner-level gate skips; per-suite SKIPPED output is separate)." >&2

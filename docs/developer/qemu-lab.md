@@ -69,7 +69,7 @@ Uses `apk` or `opkg` based on package extension and guest userspace.
 
 ### Historical GNU timeout validation (#761; superseded by #980)
 
-The following records the behavior validated for v0.1.47 and earlier. It is
+The following records the behavior validated for v0.1.47. It is
 historical evidence only; current packages do not depend on `coreutils-timeout`,
 and current rpcd read helpers run directly. Current behavior and its accepted
 reliability tradeoff are documented in the package [README](../../openwrt-feed/luci-app-fwlive/README.md#dependencies).
@@ -86,9 +86,8 @@ That released implementation wrapped rpcd helpers in GNU timeout and used a
 BusyBox `setsid` supervisor for process-group cleanup. Historical tests also
 removed the timeout symlink and confirmed the then-current `timeout_missing`
 responses. Those checks describe the old implementation and are not current
-acceptance criteria. The old source artifact hash, injected descendant test,
-and separate guest details remain in the repository's dated security review
-and evidence records.
+acceptance criteria. The earlier detailed run, including artifact hashes and descendant tests,
+remains in Git history; dated security-review entries retain its provenance.
 
 ## Generate test traffic
 
