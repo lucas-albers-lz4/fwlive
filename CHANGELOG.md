@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Live View no longer rewrites the URL hash on every poll-driven repaint; frontend helpers for scoped-IPv6 hostname lookup, substring filter fields, and retry/cooldown constants are shared instead of duplicated (#1043)
 - Share WAN logging toggle error replies and the enable/disable preamble (#1044)
 - Simplify adaptive limit and reply assembly, and skip the state write when the lock file is unusable (#1046)
+- Share rpcd jshn loading and uncapped JSON append so resolve reports a missing library on its own (#1045)
 
 ## [v0.1.47] — 2026-09-28
 
