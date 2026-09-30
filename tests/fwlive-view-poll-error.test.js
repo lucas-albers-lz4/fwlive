@@ -225,6 +225,12 @@ async function testBufferedRuleLabelsRefreshAfterTimeoutRecovery() {
 		const oldLabel = view.entries[0].rule_label;
 		assert.notEqual(oldLabel, recoveredLabel, 'fixture must begin with a fallback rule label');
 		const paints = [];
+		let refreshCalls = 0;
+		const refreshBufferedRuleLabels = view.refreshBufferedRuleLabels;
+		view.refreshBufferedRuleLabels = function() {
+			refreshCalls++;
+			return refreshBufferedRuleLabels.apply(this, arguments);
+		};
 		view.renderRows = (force) => paints.push({ force, label: view.entries[0].rule_label });
 
 		await view.fetchEntries();
@@ -232,6 +238,8 @@ async function testBufferedRuleLabelsRefreshAfterTimeoutRecovery() {
 			'provider recovery must keep the buffered row absent from the current poll when paused');
 		assert.equal(view.entries[0].rule_label, recoveredLabel,
 			'provider recovery must relabel retained rows from the refreshed map');
+		assert.equal(refreshCalls, 1,
+			'timeout recovery must refresh buffered labels only in loadRulesMap');
 		if (paused) {
 			assert.equal(paints.length, 0, 'recovery must not paint while the table is paused');
 		} else {
