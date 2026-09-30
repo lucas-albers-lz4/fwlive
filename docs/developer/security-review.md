@@ -1295,3 +1295,16 @@ writer does not advance it. F2's kill-mid-critical-section QEMU experiment
 remains deferred because production timeout handling occurs before lock
 acquisition and cannot kill a process after it begins UCI staging. The timed
 TLA+ counterexample remains in the manual TLC run to guard that boundary.
+
+### 2026-09-29 — formal runner review corrections
+
+**Scope.** The developer-only TLC runner resolves a caller-supplied relative
+JAR path before changing model directories. Timed-lock model comments now
+refer to the pending-changes check, UCI commands, and `release_wan_log_lock`
+instead of stale source line numbers.
+
+**Proof class.** `host`: the pinned JAR passes the same SHA-256 check and all
+model/counterexample checks using a relative path with spaces and a renamed
+filename, and an absolute path. Manual shell inspection found no new
+input-to-command interpolation or download trust change. Full surface re-pass
+deferred: this delta changes developer path handling and comments only.

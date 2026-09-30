@@ -23,6 +23,13 @@ else
 	curl -fsSL --retry 2 "$TLA_URL" -o "$JAR"
 fi
 
+# Both execution helpers change into model directories; preserve the caller's
+# JAR filename while making its location independent of those directories.
+case "$JAR" in
+	/*) ;;
+	*) JAR="$PWD/$JAR" ;;
+esac
+
 actual_sha="$(sha256sum "$JAR" | awk '{print $1}')"
 [[ "$actual_sha" == "$TLA_SHA256" ]] \
 	|| fail "TLA+ ${TLA_VERSION} jar SHA-256 mismatch: $actual_sha"

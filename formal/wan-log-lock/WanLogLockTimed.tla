@@ -9,7 +9,7 @@
    atomically (temp+rename), so the COMMITTED bit never tears. The reachable
    damage under (b) is a stranded STAGED delta from the killed caller's
    `uci set`; the next toggle then aborts at firewall_changes_pending
-   (fwlive-logging.sh:854-857) — availability loss until manual `uci revert`,
+   (fwlive-logging.sh pending-changes check) — availability loss until manual `uci revert`,
    not config corruption. Production never strands its own staging because
    the acquisition retry loop returns before entering the critical section. *)
 EXTENDS Integers, TLC
@@ -45,14 +45,14 @@ AcquireLock(p) ==
   /\ pc' = [pc EXCEPT ![p] = "Hold"]
   /\ UNCHANGED <<staged, committed, result>>
 
-WriteConfig1(p) ==  \* `uci set firewall.<wan>.log=target` (865): stages only
+WriteConfig1(p) ==  \* `uci set firewall.<wan>.log=target`: stages only
   /\ pc[p] = "Hold"
   /\ staged' = Target[p]
   /\ pc' = [pc EXCEPT ![p] = "Staged"]
   /\ UNCHANGED <<committed, result>>
 
-WriteConfig2(p) ==  \* `uci commit firewall` (892): atomic rename, then
-  /\ pc[p] = "Staged"   \* release_wan_log_lock (1054/1113; flock -u 9, 192-194)
+WriteConfig2(p) ==  \* `uci commit firewall`: atomic rename, then
+  /\ pc[p] = "Staged"   \* release_wan_log_lock (flock -u 9)
   /\ committed' = staged
   /\ pc' = [pc EXCEPT ![p] = "Done"]
   /\ result' = [result EXCEPT ![p] = "committed"]
