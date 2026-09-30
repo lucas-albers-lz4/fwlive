@@ -1430,3 +1430,39 @@ capture health.
 gate, cross-surface high/medium finding, or new privileged manual-only control.
 Luna/Bugbot/Grok review is scheduled against the draft PR per the owner's
 explicit instruction; no external reviewer approval is inferred from tests.
+
+### 2026-09-30 — #1053 direct execution of read helpers
+
+**Scope and decision.** Remove `coreutils-timeout` and all timeout-provider,
+watchdog/process-group-drain, missing-provider and provider-recovery paths.
+`ubus`, the filter pipeline, nft and nslookup run directly. Resolver elapsed
+budget checks admit new work only. The maintainer explicitly accepted loss of
+fwlive's shorter deadlines and descendant cleanup, with real user reliability
+reports as the reason to reconsider a dependency.
+
+**Method / proof.** `host`: full baseline with fresh POT scan, ordinary error
+and limit tests, provider-never-invoked regression, matched 23/24/25 jshn,
+package metadata/lifecycle/payload checks, and mocked browser smoke. `lab`:
+fresh artifact-only x86 installs on 23.05.5/24.10.8/25.12.5 without timeout;
+installed helper hashes match source; four read methods and required firewall
+log-pipeline smokes pass. Installed browser recovery/hostname/pause/filter checks
+pass on 24.10; authenticated session ACL enforcement and configuration cleanup
+pass on 25.12. Finite slow-helper probes confirm successful reads beyond the
+former deadlines. The rpcd boundary probe confirms stock configured timeout 30:
+plugin gone at about 30.1 seconds, helper still alive. Source inspection of the
+pinned rpcd callback confirms PID-only kill. Direct CLI execution lacks this
+rpcd bound. Full evidence and limitations:
+[#1053 validation](../evidence/issue-1053-2026-09-30.md).
+
+**Formal scope.** The seven pinned TLC configurations retain their expected
+outcomes. No TLA+ model/config changed. Safety gates and WAN lock/rollback do
+not rely on the read-helper timeout provider; fairness/eventual reply remains
+an environment assumption, not a runtime deadline proof.
+
+**Non-findings and limits.** No new command interpolation, DOM sink, ACL method,
+read/write grant, or configuration mutation was introduced. Existing input,
+map/line/name/count, sticky-directory and tempfile controls remain. Live stalled
+helpers, resource accumulation and loaded-router scheduling are not claimed
+contained. This is a scoped implementation/static/host/lab delta, not a full
+multi-model security review. The full-pass gate remains deferred; the requested
+model/bot/human rounds begin after the completed draft PR.
