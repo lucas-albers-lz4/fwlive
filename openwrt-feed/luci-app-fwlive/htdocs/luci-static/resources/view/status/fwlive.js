@@ -757,37 +757,34 @@ return view.extend({
 		return '';
 	},
 
+	rulesDiagnosticCause(error) {
+		switch (error) {
+			case 'mktemp_failed':
+				return _('Could not create a temporary file for rule names.');
+			case 'tsv_failed':
+				return _('Could not process firewall rule names.');
+			case 'no_backend':
+				return _('Could not read the active firewall rules.');
+			case 'timeout_missing':
+				return _('The required timeout utility is unavailable.');
+			case 'rules_unavailable':
+				if (!this.rulesMapLoaded) return _('Could not load rule names.');
+				if (this.rulesMap && Object.keys(this.rulesMap).length)
+					return _(
+						'Could not refresh rule names; previously loaded names are still shown.'
+					);
+				return _('Could not refresh rule names.');
+			default:
+				return _('Rule-name lookup failed.');
+		}
+	},
+
 	rulesDiagnosticLines() {
 		const lines = [];
 		if (this.rulesMapTruncated)
 			lines.push(_('Rule-name lookup reached a safety limit.') + ' (truncated=true)');
 		if (this.lastRulesError) {
-			let cause;
-			switch (this.lastRulesError) {
-				case 'mktemp_failed':
-					cause = _('Could not create a temporary file for rule names.');
-					break;
-				case 'tsv_failed':
-					cause = _('Could not process firewall rule names.');
-					break;
-				case 'no_backend':
-					cause = _('Could not read the active firewall rules.');
-					break;
-				case 'timeout_missing':
-					cause = _('The required timeout utility is unavailable.');
-					break;
-				case 'rules_unavailable':
-					cause = this.rulesMapLoaded
-						? this.rulesMap && Object.keys(this.rulesMap).length
-							? _(
-									'Could not refresh rule names; previously loaded names are still shown.'
-								)
-							: _('Could not refresh rule names.')
-						: _('Could not load rule names.');
-					break;
-				default:
-					cause = _('Rule-name lookup failed.');
-			}
+			const cause = this.rulesDiagnosticCause(this.lastRulesError);
 			/* Unknown RPC codes are bounded diagnostic text, never HTML. */
 			const code =
 				typeof this.lastRulesError === 'string' ? this.lastRulesError.slice(0, 80) : '';
@@ -832,7 +829,10 @@ return view.extend({
 		const details = document.getElementById('fwlive-rules-details');
 		const body = document.getElementById('fwlive-rules-details-body');
 		if (details && body) {
-			const degraded = !!(this.rulesMapTruncated || this.lastRulesError);
+			const degraded = !!(
+				this.rulesMapTruncated ||
+				(this.lastRulesError && this.lastRulesError !== 'timeout_missing')
+			);
 			details.style.display = degraded ? '' : 'none';
 			body.textContent = degraded ? this.rulesDiagnosticLines().join('\n\n') : '';
 			if (!degraded) details.open = false;
