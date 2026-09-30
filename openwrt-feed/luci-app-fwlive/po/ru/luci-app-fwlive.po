@@ -181,9 +181,8 @@ msgstr "Не удалось сохранить снимок текущего с�
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:894
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:937
-#, fuzzy
 msgid "Could not track the logging change safely; logging was not changed."
-msgstr "Не удалось обновить состояние журналирования; показан последний известный статус."
+msgstr "Не удалось безопасно отследить изменение журналирования; журналирование не изменено."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:900
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:941

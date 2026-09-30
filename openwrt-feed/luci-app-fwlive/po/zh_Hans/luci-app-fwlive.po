@@ -181,9 +181,8 @@ msgstr "无法快照当前日志记录状态。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:894
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:937
-#, fuzzy
 msgid "Could not track the logging change safely; logging was not changed."
-msgstr "无法刷新日志状态；显示上次已知状态。"
+msgstr "无法安全跟踪日志记录的更改；日志记录未更改。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:900
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:941

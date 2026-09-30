@@ -181,9 +181,8 @@ msgstr "Der aktuelle Protokollierungszustand konnte nicht gesichert werden."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:894
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:937
-#, fuzzy
 msgid "Could not track the logging change safely; logging was not changed."
-msgstr "Protokollstatus konnte nicht aktualisiert werden; zeige den zuletzt bekannten Zustand."
+msgstr "Die Änderung der Protokollierung konnte nicht sicher nachverfolgt werden; die Protokollierung wurde nicht geändert."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:900
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:941
