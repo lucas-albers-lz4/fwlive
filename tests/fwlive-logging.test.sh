@@ -26,6 +26,10 @@ got=$(printf 'a\n\nb' | json_escape)
 [ "$got" = "$(printf 'a\\n\\nb')" ] || die "json_escape must keep blank lines, got: $got"
 ok "json_escape keeps blank lines"
 
+got=$(wan_log_error_json '"wan"' lock_failed)
+[ "$got" = '{"ok":false,"changed":false,"wan_zone":"wan","error":"lock_failed"}' ] || die "wan_log_error_json shape, got: $got"
+ok "wan_log_error_json output shape"
+
 WAN_LOG_BASELINE_FILE="${FWLIVE_WAN_LOG_BASELINE_FILE:-$(mktemp)}"
 export WAN_LOG_BASELINE_FILE
 rm -f "$WAN_LOG_BASELINE_FILE"
