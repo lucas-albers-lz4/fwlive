@@ -19,8 +19,7 @@ async function testOutcomesAndRecovery() {
 	const causes = {
 		mktemp_failed: /temporary file/,
 		tsv_failed: /process firewall rule names/,
-		no_backend: /read the active firewall rules/,
-		timeout_missing: /timeout utility/
+		no_backend: /read the active firewall rules/
 	};
 	for (const truncated of [false, true]) {
 		for (const error of [undefined, ...Object.keys(causes)]) {
@@ -28,18 +27,16 @@ async function testOutcomesAndRecovery() {
 			await h.view.loadRulesMap();
 			assert.equal(h.view.rulesMapTruncated, truncated);
 			assert.equal(h.view.lastRulesError, error || null);
-			const degraded = truncated || !!(error && error !== 'timeout_missing');
+			const degraded = truncated || !!error;
 			assert.equal(details.style.display, degraded ? '' : 'none');
-			const visibleWarning = truncated || (error && error !== 'timeout_missing');
+			const visibleWarning = truncated || error;
 			assert.equal(/Some rule names may be missing/.test(label.textContent), !!visibleWarning);
 			assert.equal(/truncated=true/.test(body.textContent), truncated);
 			if (error && degraded) {
 				assert.match(body.textContent, causes[error]);
 				assert.ok(body.textContent.includes('(' + error + ')'));
 			}
-			if (error === 'timeout_missing' && !truncated) {
-				assert.equal(body.textContent, '', 'timeout-only diagnostics stay in the primary status');
-			}
+
 			if (degraded) {
 				assert.match(body.textContent, /does not change your firewall rules/);
 				assert.match(body.textContent, /Searching by a friendly rule name may miss/);

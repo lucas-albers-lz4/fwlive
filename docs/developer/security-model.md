@@ -88,8 +88,8 @@ metacharacters before `nslookup` runs. Its selftest asserts rejection of a liter
 ### 4. Caller-supplied numbers are validated and clamped
 
 `poll_lines_from_input` rejects non-numeric input and clamps to
-`POLL_LINES_MAX`. Never interpolate a caller value into the `ubus call log read`
-JSON without both steps.
+`POLL_LINES_MAX`. Never interpolate a caller value into the JSON passed to
+`ubus -t 5 call log read` without both steps.
 
 ### 5. All JSON string content passes through `json_escape`
 
@@ -118,7 +118,7 @@ The rpcd plugin runs as **root**. Its entire input surface is:
 | `logging_status` | none | read |
 | `enable_wan_logging` / `disable_wan_logging` | none | write |
 
-`__selftest`, `__limits`, `__poll_clamp`, `__tmp_dir_ok`, `__resolve_one`, and
+`__selftest`, `__poll_clamp`, `__tmp_dir_ok`, `__resolve_one`, and
 `__parse_nslookup` are CLI-only and must never become ubus methods.
 
 `rules` dumps nftables only. If `nft` is missing or the dump fails, the

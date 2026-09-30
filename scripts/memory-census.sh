@@ -425,7 +425,7 @@ case "$name" in
   sed) real=/bin/sed ;;
   jshn) real=/usr/bin/jshn ;;
   ubus)
-    if [ "$1" = call ] && [ "$2" = log ] && [ "$3" = read ]; then
+    if [ "$1" = -t ] && [ "$2" = 5 ] && [ "$3" = call ] && [ "$4" = log ] && [ "$5" = read ]; then
       exec /bin/cat /tmp/fwlive-logread-2000.json
     fi
     real=/bin/ubus ;;

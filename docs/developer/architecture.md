@@ -113,9 +113,10 @@ and rejects later paints. DOM construction, scroll position, and banner text sta
 | Choice | Rationale |
 |--------|-----------|
 | Poll `fwlive.poll` (adaptive 1s / 2s / 5s by client RTT; server adaptive cap may further bound lines) | Wraps `log.read` + server firewall filter; line count in `addresses[0]` |
-| ACL omits `log.read` | Session callers use `fwlive.poll` only; the rpcd plugin invokes `ubus call log read` as root |
+| ACL omits `log.read` | Session callers use `fwlive.poll` only; the rpcd plugin invokes `ubus -t 5 call log read` as root |
 | Client-side normalize/filter | Normalization stays in JS; `isFirewallEvent` retained as safety net |
 | Enable/disable concurrency | No confirm dialog; `fwlive-logging.sh` holds an exclusive flock via `acquire_wan_log_lock` across read→compute→commit; BusyBox `flock -n` retries across five one-second intervals, then returns `lock_failed` (plus scheduling overhead); UI uses `loggingBusy`. Each toggle re-reads state under the lock, so concurrent toggles do not become last-writer-wins |
+| rpcd helper execution | Read helpers run directly without GNU `timeout`; the `log.read` invocation uses ubus's native five-second reply timeout after object lookup, without cancelling a remote method already running. Existing size/count caps remain, and the resolver elapsed budget only stops starting more lookups. Other helpers have no fwlive deadline and can outlive the plugin process after rpcd times out the request, an accepted maintenance tradeoff to revisit if users report reliability problems |
 | Parser disagreement | After poll, the client re-applies `isFirewallEvent`; **client wins** (drops lines the shell kept if heuristics disagree) |
 | MAC redaction | Client display only (`formatMessageDisplay` strips `MAC=…`, including message `title`); poll JSON may still contain MACs on the wire |
 | Output encoding | Renderers must emit untrusted values as text nodes; server map keys are additionally gated by `is_uci_style_name` — [Security model § Invariants](security-model.md#invariants) |

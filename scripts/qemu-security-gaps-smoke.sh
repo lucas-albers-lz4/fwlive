@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Lab proofs for honest gaps in docs/developer/security-review.md:
-#   1. resolve wall-clock budget under flood
+#   1. resolve count/response shape under flood
 #   2. flock hold vs enable_wan_logging (BusyBox flock -n retry budget)
 #   3. pre-stage firewall_changes_pending refuse (package-commit ride-along = accepted residual)
 #
@@ -17,8 +17,6 @@ HOST="${OPENWRT_HOST:-127.0.0.1}"
 PORT="${OPENWRT_SSH_PORT:-2222}"
 # Lab guests often use ephemeral keys; this script is lab-only.
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
-# RESOLVE_BUDGET=5 + one in-flight RESOLVE_TIMEOUT=1 → ~6s; allow SSH slack.
-RESOLVE_SLACK_SEC="${RESOLVE_SLACK_SEC:-8}"
 # These bounds leave command/scheduling slack above the five one-second
 # acquisition intervals, while keeping an outer guard around the RPC/SSH.
 FLOCK_BUDGET_SEC=5
@@ -49,11 +47,9 @@ ssh_guest 'command -v su >/dev/null' \
 ssh_guest 'command -v flock >/dev/null' \
 	|| die "guest 'flock' required for lock probe (setup, not gap-proven)"
 
-# --- Gap 1: resolve responsiveness (budget smoke) ---------------------------
-# Flood with RESOLVE_MAX addresses. This is a wall-clock responsiveness smoke
-# against RESOLVE_BUDGET+slack — not a controlled blackhole-DNS proof. Prefer
-# non-routable TEST-NET; immediate NXDOMAIN still exercises the loop bound.
-# Instant refuse (empty body / error JSON / zero names) is not a pass.
+# --- Gap 1: resolve response/count smoke ------------------------------------
+# The elapsed budget stops new lookups only; an in-flight helper has no
+# application deadline. The host SSH guard bounds this smoke command.
 ADDR_JSON='["203.0.113.1","203.0.113.2","203.0.113.3","203.0.113.4","203.0.113.5","203.0.113.6","203.0.113.7","203.0.113.8","203.0.113.9","203.0.113.10","203.0.113.11","203.0.113.12","203.0.113.13","203.0.113.14","203.0.113.15","203.0.113.16","203.0.113.17","203.0.113.18","203.0.113.19","203.0.113.20","203.0.113.21","203.0.113.22","203.0.113.23","203.0.113.24","203.0.113.25","203.0.113.26","203.0.113.27","203.0.113.28","203.0.113.29","203.0.113.30","203.0.113.31","203.0.113.32"]'
 START_S="$(date +%s)"
 RESOLVE_OUT="$(ssh_guest "ubus call fwlive resolve '{\"addresses\":${ADDR_JSON}}'")" \
@@ -75,9 +71,7 @@ else
 	[[ "$NAME_COUNT" -eq 32 ]] \
 		|| die "resolve expected 32 TEST-NET entries, got ${NAME_COUNT}: $RESOLVE_OUT"
 fi
-[[ "$ELAPSED_SEC" -le "$RESOLVE_SLACK_SEC" ]] \
-	|| die "resolve flood took ${ELAPSED_SEC}s (limit ${RESOLVE_SLACK_SEC}s; RESOLVE_BUDGET=5 + lookup slack)"
-ok "resolve flood returned ${NAME_COUNT} entries in ${ELAPSED_SEC}s (<= ${RESOLVE_SLACK_SEC}s)"
+ok "resolve flood returned ${NAME_COUNT} entries in ${ELAPSED_SEC}s"
 
 # --- Gap 2: flock hold vs toggle -------------------------------------------
 # Unprivileged UID must not acquire LOCK_EX on the 0600 lock (#167).

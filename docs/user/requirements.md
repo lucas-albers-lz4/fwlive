@@ -9,7 +9,7 @@
 | **Not supported** | OpenWrt **21.02**, **22.03**, and earlier |
 | **Firewall** | **firewall4** / nftables — default on supported images |
 | **LuCI** | Modern JS LuCI (`luci-base`) |
-| **Logging** | `logd`, `jsonfilter`, `coreutils-timeout` (hard deps in package metadata; `opkg install` resolves them) |
+| **Logging** | `logd`, `jsonfilter` (hard deps in package metadata; `opkg install` resolves them) |
 | **RPC** | `rpcd` (for `ubus fwlive poll` / `resolve` / `rules`) |
 
 The menu entry is controlled by the `luci-app-fwlive` ACL and does not require

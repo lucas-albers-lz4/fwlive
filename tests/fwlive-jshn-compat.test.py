@@ -28,12 +28,12 @@ def main():
             libexec = work / 'libexec'
             shutil.copytree(RPC.parent.parent, libexec)
             plugin = libexec / 'rpcd/fwlive'
-            # BusyBox may prefer its timeout applet, whose nslookup applet
-            # bypasses PATH stubs. Bind the OS service to host timeout.
+            # Host BusyBox may prefer its nslookup applet over PATH fixtures.
+            # Override only in this harness using the host external env.
             # BusyBox ash also prefers its logger applet over PATH; intercept
             # it so poll-cap causes are observable without rewriting jshn.sh.
             text = (
-                'timeout() { /usr/bin/timeout "$@"; }\n'
+                'nslookup() { /usr/bin/env nslookup "$@"; }\n'
                 'logger() { printf "%s\\n" "$*" >> "$LOGGER_LOG"; }\n'
                 + source
             )
@@ -45,7 +45,9 @@ def main():
             logger_log = work / 'logger'
             stubs = {
                 'nslookup': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$LOOKUP_LOG"\nprintf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: 192.0.2.1\\n"\n',
-                'ubus': '#!/bin/sh\nprintf "%s" "$4" > "$POLL_REQUEST"\nexit 1\n',
+                # Production passes native `-t 5` before the call, so the JSON
+                # argument is now $6. The dedicated rpcd test pins full argv.
+                'ubus': '#!/bin/sh\nprintf "%s" "$6" > "$POLL_REQUEST"\nexit 1\n',
                 'logger': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$LOGGER_LOG"\n',
             }
             for name, body in stubs.items():
