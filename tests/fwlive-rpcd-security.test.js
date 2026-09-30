@@ -227,6 +227,16 @@ function makePassthrough(dir, name, real) {
 	makeStub(dir, name, `#!/bin/sh\nexec ${real} "$@"\n`);
 }
 
+// Host BusyBox standalone applets can bypass PATH. Override only when a
+// test supplies an nslookup fixture; production invokes nslookup directly.
+function busyboxRpcdArgs(rpcdPath, args, opts) {
+	const firstPath = (opts?.env?.PATH || '').split(path.delimiter)[0];
+	if (firstPath && fs.existsSync(path.join(firstPath, 'nslookup'))) {
+		return ['sh', '-eu', '-c', 'nslookup() { /usr/bin/env nslookup "$@"; }; . "$0"', rpcdPath, ...args];
+	}
+	return ['sh', '-eu', rpcdPath, ...args];
+}
+
 function runCall(args, opts) {
 	for (const p of ['/bin/dash', '/usr/bin/dash', 'dash']) {
 		try {
@@ -610,7 +620,7 @@ exit 1
 		assert.equal(poll.error, 'log_read_failed');
 		const rules = JSON.parse(runCall(['call', 'rules'], { encoding: 'utf8', env }));
 		assert.equal(rules.error, 'no_backend');
-		assert.throws(() => execFileSync('busybox', ['sh', RPCD, '__resolve_one', '192.0.2.1'], { encoding: 'utf8', env }), (error) => error.status === 1);
+		assert.throws(() => execFileSync('busybox', busyboxRpcdArgs(RPCD, ['__resolve_one', '192.0.2.1'], { env }), { encoding: 'utf8', env }), (error) => error.status === 1);
 		assert.deepEqual(fs.readFileSync(calls, 'utf8').trim().split('\n'), ['ubus', 'nft', 'nslookup']);
 		assert.ok(!fs.existsSync(marker), 'an installed timeout must never be invoked');
 		assert.doesNotMatch(fs.readFileSync(RPCD, 'utf8'), /run_with_timeout|FWLIVE_TIMEOUT|TIMEOUT_KILL_GRACE|__limits/);
@@ -729,7 +739,7 @@ printf '%s\\n' "$((1000000 - n * 60))"
 			FWLIVE_JSHN_SH: jshnSh
 		};
 		const started = Date.now();
-		const raw = execFileSync('busybox', ['sh', '-eu', RPCD, 'call', 'resolve'], {
+		const raw = execFileSync('busybox', busyboxRpcdArgs(RPCD, ['call', 'resolve'], { env }), {
 			encoding: 'utf8',
 			env,
 			input: JSON.stringify({ addresses }),
@@ -1215,7 +1225,7 @@ printf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: 192.0.2.1\\n"
 		const payload = JSON.stringify({
 			addresses: ['192.0.2.1', 5, null, true, '198.51.100.2']
 		});
-		const raw = execFileSync('busybox', ['sh', '-eu', plugin, 'call', 'resolve'], {
+		const raw = execFileSync('busybox', busyboxRpcdArgs(plugin, ['call', 'resolve'], { env }), {
 			encoding: 'utf8',
 			env,
 			input: payload
@@ -1252,7 +1262,7 @@ function resolveCallEnv(stubDir, work, extra) {
 }
 
 function callResolve(env, payload) {
-	const raw = execFileSync('busybox', ['sh', '-eu', RPCD, 'call', 'resolve'], {
+	const raw = execFileSync('busybox', busyboxRpcdArgs(RPCD, ['call', 'resolve'], { env }), {
 		encoding: 'utf8',
 		env,
 		input: typeof payload === 'string' ? payload : JSON.stringify(payload)

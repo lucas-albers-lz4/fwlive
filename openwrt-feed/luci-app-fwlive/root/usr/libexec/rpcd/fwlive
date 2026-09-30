@@ -724,9 +724,8 @@ resolve_hostname() {
 	[ -n "$ip" ] || return 1
 	is_resolvable_address "$ip" || return 1
 	command -v nslookup >/dev/null 2>&1 || return 1
-	# External env preserves PATH selection when ash prefers its nslookup applet.
 	# An unsuccessful nslookup is "no PTR", not a plugin abort.
-	out=$(/usr/bin/env nslookup "$ip") || return 1
+	out=$(nslookup "$ip") || return 1
 	[ -n "$out" ] || return 1
 	name=$(parse_nslookup_name "$out") || return 1
 	[ -n "$name" ] || return 1

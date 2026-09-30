@@ -28,12 +28,12 @@ def main():
             libexec = work / 'libexec'
             shutil.copytree(RPC.parent.parent, libexec)
             plugin = libexec / 'rpcd/fwlive'
-            # BusyBox may prefer its timeout applet, whose nslookup applet
-            # bypasses PATH stubs. Bind the OS service to host timeout.
+            # Host BusyBox may prefer its nslookup applet over PATH fixtures.
+            # Override only in this harness using the host external env.
             # BusyBox ash also prefers its logger applet over PATH; intercept
             # it so poll-cap causes are observable without rewriting jshn.sh.
             text = (
-                'timeout() { /usr/bin/timeout "$@"; }\n'
+                'nslookup() { /usr/bin/env nslookup "$@"; }\n'
                 'logger() { printf "%s\\n" "$*" >> "$LOGGER_LOG"; }\n'
                 + source
             )

@@ -26,11 +26,21 @@ function makeStub(dir, name, content) {
 	fs.writeFileSync(p, content, { mode: 0o755 });
 }
 
+// Host BusyBox standalone applets can bypass PATH. Override only when a
+// test supplies an nslookup fixture; production invokes nslookup directly.
+function busyboxRpcdArgs(rpcdPath, args, opts) {
+	const firstPath = (opts?.env?.PATH || '').split(path.delimiter)[0];
+	if (firstPath && fs.existsSync(path.join(firstPath, 'nslookup'))) {
+		return ['sh', '-eu', '-c', 'nslookup() { /usr/bin/env nslookup "$@"; }; . "$0"', rpcdPath, ...args];
+	}
+	return ['sh', '-eu', rpcdPath, ...args];
+}
+
 function runRpcd(shell, args, opts, rpcdPath = RPCD) {
 	if (shell === 'busybox') {
 		for (const p of ['/usr/bin/busybox', '/bin/busybox', 'busybox']) {
 			try {
-				return execFileSync(p, ['sh', rpcdPath, ...args], opts);
+				return execFileSync(p, busyboxRpcdArgs(rpcdPath, args, opts), opts);
 			} catch (e) {
 				if (e.code !== 'ENOENT') throw e;
 			}
@@ -1403,7 +1413,7 @@ EOF
 }
 
 function testBusyboxPathShadowNslookup() {
-	// External env preserves nslookup PATH selection across shells.
+	// The host-only nslookup function routes BusyBox fixture calls through PATH.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-ns-'));
 	try {
 		installNslookupStub(stubDir);
@@ -1527,7 +1537,7 @@ EOF
 			FWLIVE_ADAPTIVE_STATE_FILE: path.join(work, 'adaptive-state.json'),
 			FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'adaptive-off-absent')
 		};
-		const raw = execFileSync('busybox', ['sh', '-eu', plugin, 'call', 'resolve'], {
+		const raw = execFileSync('busybox', busyboxRpcdArgs(plugin, ['call', 'resolve'], { env }), {
 			encoding: 'utf8',
 			env,
 			input: JSON.stringify({ addresses: Array(33).fill('192.0.2.1') })
