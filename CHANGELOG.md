@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.48] — 2026-09-30
+
 ### Fixed
 - Report rules-map truncation independently of lookup failures, with concise rule-name warnings and expandable diagnostics that preserve retained-map state (#1038)
 - Bound the Live View rules-map retry budget and skip retries while paused or after a failed poll (#993)
@@ -23,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Share WAN logging toggle error replies and the enable/disable preamble (#1044)
 - Simplify adaptive limit and reply assembly, and skip the state write when the lock file is unusable (#1046)
 - Share rpcd jshn loading and JSON append so resolve reports a missing library on its own and bounds each hostname at 253 octets (#1045)
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.47] — 2026-09-28
 
@@ -721,4 +731,5 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.3]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.2...v0.1.3
 [v0.1.2]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.1...v0.1.2
 [v0.1.1]: https://github.com/lucas-albers-lz4/fwlive/releases/tag/v0.1.1
+[v0.1.48]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.47...v0.1.48
 [v0.1.47]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.46...v0.1.47
