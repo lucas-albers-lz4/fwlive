@@ -1308,3 +1308,18 @@ model/counterexample checks using a relative path with spaces and a renamed
 filename, and an absolute path. Manual shell inspection found no new
 input-to-command interpolation or download trust change. Full surface re-pass
 deferred: this delta changes developer path handling and comments only.
+
+### 2026-09-29 — logging generation failure notice
+
+**Scope.** Both logging toggle handlers map `rollback_tracking_failed` to a
+translated notice explaining that logging was not changed. The helper emits
+this error before UCI staging or from an already-on/off no-op path, so this
+notice matches the backend contract. Generation bumps on no-op requests remain
+necessary to fence an older in-flight rollback.
+
+**Proof class.** `host`: enable and disable view tests exercise the mapped error
+and unchanged toggle state. The notice is a fixed translated string using the
+existing text rendering path; no shell, ACL, RPC scope, or HTML sink changed.
+Privileged removal of volatile generation state and kill-before-rename temp
+files remain root-only residuals. The models remain bounded sanity checks,
+not proofs of every shell/runtime behavior; TLC remains a manual check.

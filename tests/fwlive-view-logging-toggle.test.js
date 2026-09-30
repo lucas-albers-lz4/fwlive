@@ -129,6 +129,11 @@ async function testEnableVariants() {
 		false
 	);
 	await testEnableReply(
+		{ ok: false, error: 'rollback_tracking_failed' },
+		'Could not track the logging change safely; logging was not changed.',
+		false
+	);
+	await testEnableReply(
 		{ ok: false, error: 'baseline_snapshot_failed' },
 		'Could not snapshot the current logging state.',
 		false
@@ -222,6 +227,10 @@ async function testDisableVariants() {
 	await testDisableReply(
 		{ ok: false, error: 'lock_failed' },
 		'Could not acquire the logging lock.'
+	);
+	await testDisableReply(
+		{ ok: false, error: 'rollback_tracking_failed' },
+		'Could not track the logging change safely; logging was not changed.'
 	);
 	await testDisableReply(
 		{ ok: false, error: 'firewall_reload_failed' },
