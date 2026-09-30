@@ -159,6 +159,9 @@ return view.extend({
 	messageLayout: 'wrap',
 	/* Session-new IDs from the last applied batch; this is not buffer growth. */
 	lastBatchNewIdCount: 0,
+	/* Monotonic time for age hints after successful empty poll batches. */
+	lastNonEmptyBatchAt: null,
+	lastSuccessfulBatchEmpty: false,
 	showHostnames: false,
 	rowTint: constants.DEFAULT_ROW_TINT,
 	/* Last non-off palette so toggling tint back on restores Classic/Accessible. */
@@ -1174,6 +1177,8 @@ return view.extend({
 
 		const batch = this.normalizePollBatch(raw);
 		this.lastBatchNewIdCount = batch.pollNew;
+		this.lastSuccessfulBatchEmpty = batch.rows.length === 0;
+		if (batch.rows.length) this.lastNonEmptyBatchAt = this.nowMs();
 
 		/* Oldest-first ring buffer; filteredRows() reverses for newest-first display. */
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
@@ -1659,12 +1664,36 @@ return view.extend({
 		return this.filteredRowsState().rows.slice();
 	},
 
+	stalenessHint() {
+		if (
+			!this.entries.length ||
+			!this.lastSuccessfulBatchEmpty ||
+			!Number.isFinite(this.lastNonEmptyBatchAt)
+		)
+			return '';
+
+		const elapsed = Math.max(0, this.nowMs() - this.lastNonEmptyBatchAt);
+		if (elapsed < constants.EMPTY_POLL_STALE_AFTER_MS) return '';
+
+		const seconds = Math.floor(elapsed / 1000);
+		const age =
+			seconds < 60
+				? _('%ds').format(seconds)
+				: seconds < 3600
+					? _('%dm').format(Math.floor(seconds / 60))
+					: seconds < 86400
+						? _('%dh').format(Math.floor(seconds / 3600))
+						: _('%dd').format(Math.floor(seconds / 86400));
+		return _('No new firewall events; showing entries last received %s ago.').format(age);
+	},
+
 	compactCountText(filtered) {
 		const stored = this.entries.length;
 		/* Keep the stored-buffer denominator tied to the user's Limit. A weak
 		 * device's rendered-row cap is called out separately in statusSuffix(). */
 		const limit = this.rowLimit;
-		const suffix = this.statusSuffix();
+		const stale = this.stalenessHint();
+		const suffix = this.statusSuffix() + (stale ? ' — ' + stale : '');
 		/* The filter state contains both visible rows and the full match count, so
 		 * paused status can report matches beyond the display cap without rescanning. */
 		const state =
