@@ -216,6 +216,13 @@ const logging = loadFwliveModule('logging', {
 assert.strictEqual(typeof logging.renderToolbar, 'function');
 assert.strictEqual(typeof logging.renderEmptyState, 'function');
 assert.strictEqual(typeof logging.renderManualTestNodes, 'function');
+assert.strictEqual(String(logging.toggleFailureNotice('lock_failed', 'fallback')),
+	'Could not acquire the logging lock.');
+assert.strictEqual(String(logging.toggleFailureNotice('nf_log_missing', 'fallback')),
+	'Cannot enable logging until kernel log modules are installed.');
+for (const code of ['other', undefined, null, 'constructor', '__proto__'])
+	assert.strictEqual(logging.toggleFailureNotice(code, 'fallback'), 'fallback',
+		'unknown toggle codes must use the per-action fallback: ' + code);
 const manualNftHost = luciE.E('li', { 'id': 'fwlive-manual-test' }, []);
 logging.renderManualTestNodes(manualNftHost, { firewallBackend: 'nft' }, {});
 const manualNftText = collectText(manualNftHost);

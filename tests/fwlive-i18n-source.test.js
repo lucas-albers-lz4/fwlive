@@ -39,12 +39,12 @@ const POT_FILE = path.join(
 );
 
 const REGRESSION_MSGIDS = [
-	'Degraded — sampling',
-	'resolve paused (load)',
-	'Degraded — sampling (slow poll RTT; cadence reduced).',
-	'Server shedding — at most %d log lines per poll.',
-	'Server truncated this poll (adaptive cap).',
-	'Hostname resolve paused while the router is under load.',
+	'polling slowed',
+	'hostname lookup paused',
+	'Polling slowed: the router is responding slowly, so polls run less often.',
+	'Server limited fetch: the router is under load; at most %d log lines per poll.',
+	'Server limited fetch: this poll returned fewer lines to protect the router.',
+	'Hostname lookup paused while the router is under load.',
 	/* Chip format/connector (#511): the scanner only sees existing _() literals. */
 	'%s: %s',
 	'does not contain'
@@ -693,71 +693,57 @@ function main() {
 		return 1;
 	}
 
-	const occupancyMsgid =
-		'Another change is staged for the firewall; apply or revert it first.';
-	const occupancySlotsByFile = new Map();
-	for (const message of sourceMessages) {
-		if (message.msgid !== occupancyMsgid) continue;
-		if (!occupancySlotsByFile.has(message.file)) occupancySlotsByFile.set(message.file, []);
-		occupancySlotsByFile.get(message.file).push(message);
-	}
-	let occupancyFile = '';
-	let occupancyFileSlots = [];
-	for (const [file, slots] of occupancySlotsByFile) {
-		const ordered = slots.slice().sort((a, b) => a.line - b.line);
-		if (ordered.length >= 2 && ordered[0].line !== ordered[0].msgidLine) {
-			occupancyFile = file;
-			occupancyFileSlots = ordered;
-			break;
-		}
-	}
-	if (!occupancyFile) {
-		console.error(
-			'Occupancy mutation fixture missing: expected one file with ≥2 slots and a wrapped first slot'
-		);
+	/* Synthetic fixture: shipped code need not duplicate a wrapped msgid. */
+	const occupancyMsgid = 'Occupancy fixture message';
+	const occupancyFile = 'fixture/occupancy.js';
+	const occupancySource = [
+		'const first = _(',
+		"\t'Occupancy fixture message'",
+		');',
+		"const second = _('Occupancy fixture message');",
+		''
+	].join('\n');
+	const occupancyFileSlots = extractI18nLiterals(occupancySource, occupancyFile);
+	if (
+		occupancyFileSlots.length !== 2 ||
+		occupancyFileSlots[0].line === occupancyFileSlots[0].msgidLine
+	) {
+		console.error('Occupancy fixture must yield two slots with a wrapped first slot');
 		return 1;
 	}
 	const firstSlot = occupancyFileSlots[0];
 	const secondSlot = occupancyFileSlots[1];
 	const firstTokenRef = `${occupancyFile}:${firstSlot.line}`;
 	const firstMsgidRef = `${occupancyFile}:${firstSlot.msgidLine}`;
-	const secondTokenRef = `${occupancyFile}:${secondSlot.line}`;
 	const secondMsgidRef = `${occupancyFile}:${secondSlot.msgidLine}`;
-	const occupancyRefs = parsePotEntries(potText).find(
-		(entry) => entry.msgid === occupancyMsgid
-	).refs;
-	const existingRefForSlot = (slot) => {
-		for (const line of [slot.msgidLine, slot.line]) {
-			if (occupancyRefs.some((ref) => ref.file === occupancyFile && ref.line === line))
-				return `${occupancyFile}:${line}`;
-		}
-		return '';
-	};
-	const firstExistingRef = existingRefForSlot(firstSlot);
-	const secondExistingRef = existingRefForSlot(secondSlot);
-	if (!firstExistingRef || !secondExistingRef) {
-		console.error('Occupancy mutation fixture is missing a checked-in POT reference');
+	const firstExistingRef = firstMsgidRef;
+	const secondExistingRef = secondMsgidRef;
+	const occupancyPot = [
+		'msgid ""',
+		'msgstr ""',
+		'',
+		`#: ${firstExistingRef}`,
+		`#: ${secondExistingRef}`,
+		`msgid "${occupancyMsgid}"`,
+		'msgstr ""',
+		''
+	].join('\n');
+	const occupancyKind = (mutated) => checkPotReferenceLocations(occupancyFileSlots, mutated);
+	const baseline = occupancyKind(occupancyPot);
+	if (baseline.extras.length || baseline.missing.length) {
+		console.error('Occupancy fixture baseline must pass');
 		return 1;
 	}
 
-	const occupancyResolvable = (mutated, label) => {
-		if (checkPotReferences(mutated).length) {
-			console.error(`Occupancy ${label} mutation failed resolvability`);
-			return false;
-		}
-		return true;
-	};
-	const occupancyKind = (mutated) => checkPotReferenceLocations(sourceMessages, mutated);
-
 	const insertedPot = replacePotReference(
-		potText,
+		occupancyPot,
 		occupancyMsgid,
 		firstExistingRef,
 		`${firstTokenRef}\n#: ${firstTokenRef}`
 	);
-	if (insertedPot === potText || !occupancyResolvable(insertedPot, 'insert-duplicate')) return 1;
 	const insertedOccupancy = occupancyKind(insertedPot);
 	if (
+		insertedPot === occupancyPot ||
 		insertedOccupancy.extras.join('|') !== firstTokenRef ||
 		insertedOccupancy.missing.length
 	) {
@@ -767,10 +753,10 @@ function main() {
 		return 1;
 	}
 
-	const droppedPot = removePotReference(potText, occupancyMsgid, secondExistingRef);
-	if (droppedPot === potText || !occupancyResolvable(droppedPot, 'drop')) return 1;
+	const droppedPot = removePotReference(occupancyPot, occupancyMsgid, secondExistingRef);
 	const droppedOccupancy = occupancyKind(droppedPot);
 	if (
+		droppedPot === occupancyPot ||
 		droppedOccupancy.extras.length ||
 		droppedOccupancy.missing.join('|') !== secondMsgidRef
 	) {
@@ -782,7 +768,7 @@ function main() {
 
 	const wrapTwicePot = removePotReference(
 		replacePotReference(
-			potText,
+			occupancyPot,
 			occupancyMsgid,
 			firstExistingRef,
 			`${firstTokenRef}\n#: ${firstMsgidRef}`
@@ -790,9 +776,9 @@ function main() {
 		occupancyMsgid,
 		secondExistingRef
 	);
-	if (wrapTwicePot === potText || !occupancyResolvable(wrapTwicePot, 'wrap-twice')) return 1;
 	const wrapTwiceOccupancy = occupancyKind(wrapTwicePot);
 	if (
+		wrapTwicePot === occupancyPot ||
 		wrapTwiceOccupancy.extras.join('|') !== firstMsgidRef ||
 		wrapTwiceOccupancy.missing.join('|') !== secondMsgidRef
 	) {
@@ -803,15 +789,18 @@ function main() {
 	}
 
 	const wrapPassPot = replacePotReference(
-		potText,
+		occupancyPot,
 		occupancyMsgid,
 		firstExistingRef,
-		firstExistingRef === firstTokenRef ? firstMsgidRef : firstTokenRef
+		firstTokenRef
 	);
-	if (wrapPassPot === potText || !occupancyResolvable(wrapPassPot, 'wrap-pass')) return 1;
 	const wrapPassOccupancy = occupancyKind(wrapPassPot);
-	if (wrapPassOccupancy.extras.length || wrapPassOccupancy.missing.length) {
-		console.error('Occupancy wrap-pass mutation failed after citing the first slot msgidLine');
+	if (
+		wrapPassPot === occupancyPot ||
+		wrapPassOccupancy.extras.length ||
+		wrapPassOccupancy.missing.length
+	) {
+		console.error('Occupancy wrap-pass mutation failed after citing the first slot token line');
 		return 1;
 	}
 

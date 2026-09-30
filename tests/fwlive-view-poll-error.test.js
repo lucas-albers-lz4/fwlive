@@ -35,8 +35,8 @@ async function testPollErrorField() {
 	view.updateStatus();
 	const status = h.document.getElementById('fwlive-status');
 	assert.ok(status, 'fwlive-status must exist after render');
-	assert.match(status.textContent, /Connection lost/i,
-		'error reply must show connection-lost banner');
+	assert.match(status.textContent, /could not read the firewall log/i,
+		'a typed error reply must show the router-read message');
 	assert.strictEqual(view.lastBatchNewIdCount, 0,
 		'failed poll must reset lastBatchNewIdCount');
 	console.log('fwlive-view poll-error: reply.error banner OK');
@@ -365,7 +365,7 @@ async function testLoggingWarningDoesNotOverridePollCause() {
 	view.lastPollErrorCode = 'filter_failed';
 
 	await view.loadLoggingStatus();
-	assert.match(String(status.textContent), /Connection lost/i,
+	assert.match(String(status.textContent), /could not read the firewall log/i,
 		'a stale timeout_missing warning must not override another poll error');
 	assert.ok(!/timeout/i.test(h.document.getElementById('fwlive-backend').textContent),
 		'logging_status warnings must not add timeout details to the backend label');
@@ -447,6 +447,29 @@ async function testConstructorHintDoesNotPaintObjectSource() {
 	console.log('fwlive-view poll-error: constructor rule hint OK');
 }
 
+async function testPollErrorClasses() {
+	const h = loadFwliveView({});
+	const view = h.view;
+	const status = h.document.getElementById('fwlive-status');
+	const cases = [
+		[null, 'Connection lost — retrying…'],
+		['log_read_failed', 'The router could not read the firewall log — retrying…'],
+		['filter_failed', 'The router could not read the firewall log — retrying…'],
+		['filter_tempfile_failed', 'The router could not read the firewall log — retrying…'],
+		['timeout_missing', 'Installation is incomplete. Reinstall luci-app-fwlive.'],
+		['jsonfilter_missing', 'Installation is incomplete. Reinstall luci-app-fwlive.'],
+		['classifier_missing', 'Installation is incomplete. Reinstall luci-app-fwlive.']
+	];
+	view.lastPollError = true;
+	for (const [code, expected] of cases) {
+		view.lastPollErrorCode = code;
+		view.updateStatus();
+		assert.ok(String(status.textContent).startsWith(expected),
+			`${code} must map to "${expected}", got "${status.textContent}"`);
+	}
+	console.log('fwlive-view poll-error: error classes OK');
+}
+
 async function testSummaryPollErrorRefreshesStatus() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -461,7 +484,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 
 	await view.runPollRequest(view.currentPollEpoch());
 	const status = h.document.getElementById('fwlive-status');
-	assert.match(status.textContent, /Connection lost/i,
+	assert.match(status.textContent, /could not read the firewall log/i,
 		'summary-mode poll errors must refresh the status line');
 	console.log('fwlive-view poll-error: summary error status OK');
 }
@@ -480,6 +503,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testLoggingWarningDoesNotOverridePollCause();
 		await testPollNonStringMsgSurvives();
 		await testConstructorHintDoesNotPaintObjectSource();
+		await testPollErrorClasses();
 		await testSummaryPollErrorRefreshesStatus();
 		console.log('fwlive-view poll-error tests passed');
 	} catch (e) {

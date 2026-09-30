@@ -14,10 +14,10 @@ On-page **Help** (collapsed at the bottom) covers the basics without leaving the
 
 1. **Title** — *Logging is off on this router* (cause first, not “broken table”).
 2. **Before you enable logging** — one-time panel: what changes, what does not, how to undo.
-3. **Enable WAN drop/reject logging** — intentional step; or pick **Not now**, or configure zones under **Network → Firewall** yourself.
+3. **Enable logging** — intentional step; or pick **Not now**, or configure zones under **Network → Firewall** yourself.
 4. Watch strip shows a short **Enable logging** button.
 
-Nothing changes until you click Enable.
+Nothing changes until you click **Enable logging**.
 
 ### 2. After you enable
 
@@ -90,7 +90,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | **WAN logging on · rate** | When logging is on, one merged control shows status and rate. Click it to disable. |
 | **Simple / Detail** | Segmented pair on the watch strip. The active segment is highlighted. Preferences saved in `localStorage`. |
 | **Wrap / One line** | Segmented pair next to Simple / Detail. Visible in Detailed view only. |
-| **Display options** | Inline bar below the watch strip: **Limit**, **Row tint** (checkbox + palette), and **Show hostnames**. |
+| **Display options** | Inline bar below the watch strip: **Limit**, **Fetch budget**, **Maximum raw lines**, **Row tint** (checkbox + palette), and **Show hostnames**. |
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. On a router reported as a weak device, the browser renders at most 250 rows and explains the cap in the status line; the larger limit remains available for buffering and stronger devices. |
 | **Fetch budget** | **Auto** requests `min(max(Limit × 4, 100), 2000)` raw log lines for live polls. **Manual** selects a bounded maximum from 25, 50, 100, 250, 500, 1000, or 2000. Both modes retain server protection and adaptive polling cadence. |
 | **Maximum raw lines** | Enabled in **Manual** mode. It is a raw-line fetch budget, not a number of firewall rows displayed. Paused Manual fetches use this maximum; paused Auto keeps the compatibility 2000-line request. |
@@ -116,6 +116,23 @@ with compact counts from the current sample. Three consecutive fast polls
 bring it back sooner; **Hide rows** returns to the card. Polling continues and
 filters still apply — the switch trims render work on a busy client or router,
 not a frozen display.
+
+Load conditions use the same name in the status line and in the banner below
+the watch strip, which adds one sentence of explanation:
+
+| Status line | Meaning |
+|---|---|
+| **polling slowed** | The router answers slowly, so polls run less often. |
+| **server limited fetch** | The router returned fewer raw log lines this poll to protect itself. |
+| **hostname lookup paused** | Reverse-DNS lookups wait while the router is under load. |
+| **table refresh throttled** | Events arrive faster than the browser should repaint; the buffer still updates. |
+| **display limited to 250 rows** | On a weak device the table paints at most 250 rows; a larger Limit still buffers rows. |
+
+When a poll fails, the status line says **Connection lost — retrying…** if no
+reply arrived, **The router could not read the firewall log — retrying…** if
+the router answered with an error, and **Installation is incomplete. Reinstall
+luci-app-fwlive.** when a required package file is missing (retrying cannot fix
+that).
 
 The router's log ring is finite and may evict older events before fwlive reads
 them. fwlive cannot recover evicted entries and does not change forwarding

@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drop empty negated filters from shared URL hashes (#1019)
 - Show the correct opkg and apk install commands for missing kernel log modules (#1017)
 
+### Changed
+- Live View names each load condition the same way in the status line and banner, tells transport, router-read, and installation poll errors apart, labels both enable buttons **Enable logging**, and explains Summary mode in Help (#1042)
+
 ## [v0.1.47] — 2026-09-28
 
 ### Fixed
@@ -26,11 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Name the published `kmod-nf-log` / `kmod-nf-log6` packages in the empty-state install command (#929)
 - Color logging failure notices with `--fwlive-deny-color` instead of success green (#938)
 - Skip a bare `!` filter chip so an empty negate does not look like a filter (#939)
-
-### Changed
-- Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
-
-### Fixed
 - Check same-file markdown anchors in linkcheck, and document the fail-closed test opt-out (#942, #908)
 - Run the classifier and rpcd selftest under BusyBox awk 1.37, and regenerate the 2000-line log fixture to 1250/750 (#880, #941)
 - Keep a verified upstream-cut branch when --replace cannot move a checked-out canonical ref, and reject a second outdir (#890, #922)
@@ -120,6 +118,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refuse an upstream cut on a dirty package tree, split onto a temporary branch unless `--replace`, and skip non-UTF-8 assets instead of crashing (#841)
 - Expand a log row from the Time cell, not Action — Action is a filter link (#822)
 - Enter Summary mode on the first slow poll; three fast samples still leave it (#786)
+
+### Changed
+- Record that a version-changing 25.12 APK upgrade keeps the WAN zone `log` bit (`post-upgrade` only) (#848)
 
 Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
 
