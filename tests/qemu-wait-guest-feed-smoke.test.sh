@@ -134,8 +134,20 @@ fi
 [[ "$output" == *"timeout command is required"* && "$output" == *"sudo apt install coreutils"* ]] ||
 	fail "missing timeout must include an install hint (got: $output)"
 
+# Control only this sleep-clamping case's clock. With real Bash SECONDS, a
+# one-second deadline can expire during the failed probe, legitimately skipping
+# sleep altogether. Unsetting SECONDS removes its special clock behavior.
+# The hanging-probe and hanging-command cases below still use real time.
 if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=fail SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
-	MAX_WAIT=1 INTERVAL=120 "$WAIT" 2>&1)"; then
+	MAX_WAIT=1 INTERVAL=120 FWLIVE_WAIT_SCRIPT="$WAIT" /bin/bash -c '
+		unset SECONDS
+		SECONDS=0
+		sleep() {
+			printf "%s\n" "$1" >> "$SLEEP_LOG"
+			SECONDS=$((SECONDS + $1))
+		}
+		source "$FWLIVE_WAIT_SCRIPT"
+	' 2>&1)"; then
 	fail "failed SSH probe must time out"
 else
 	status=$?
@@ -147,7 +159,7 @@ grep -Eq 'ConnectTimeout=1([[:space:]]|$)' "$tmp/ssh.log" ||
 	fail "ConnectTimeout must not exceed the one-second remaining deadline"
 sleep_arg="$(cat "$tmp/sleep.log")"
 [[ "$sleep_arg" =~ ^[0-9]+$ ]] || fail "a numeric bounded sleep must be used (got: $sleep_arg)"
-[[ "$sleep_arg" -le 1 ]] || fail "sleep must be capped to remaining time (got $sleep_arg)"
+[[ "$sleep_arg" -eq 1 ]] || fail "sleep must equal the one-second remaining budget (got $sleep_arg)"
 
 if output="$(PATH="$tmp/bin:$PATH" SSH_BEHAVIOR=hang-probe SSH_LOG="$tmp/ssh.log" SLEEP_LOG="$tmp/sleep.log" \
 	MAX_WAIT=1 INTERVAL=120 "$WAIT" 2>&1)"; then
