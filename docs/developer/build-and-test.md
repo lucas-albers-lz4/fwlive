@@ -63,6 +63,42 @@ heading anchors against a GitHub-style slugger.
 The criteria for deciding what to test and which environment to use are in
 [`test-approach.md`](test-approach.md).
 
+## Fresh .pot source scan
+
+`i18n-scan.pl` is provided by the OpenWrt LuCI source tree; it is not a file
+tracked in this repository. In the local OpenWrt checkout at the repository
+root, its path is `openwrt/feeds/luci/build/i18n-scan.pl`. Point the required
+source-parity run at it explicitly:
+
+```sh
+FWLIVE_I18N_REQUIRE_SCAN=1 \
+FWLIVE_I18N_SCAN="$PWD/openwrt/feeds/luci/build/i18n-scan.pl" \
+./scripts/fwlive-test.sh
+```
+
+The scanner and its runtime prerequisites come from the matching LuCI/OpenWrt
+checkout. In a separate Git worktree without `openwrt/`, use the absolute
+scanner path from the local checkout instead of `$PWD/openwrt/…`. The upstream
+cut procedure is in
+[`upstream-openwrt.md`](upstream-openwrt.md).
+
+## Formal models (TLA+/TLC)
+
+The versioned models, TLC configs, and runner are under `formal/` and
+`scripts/formal-tlc.sh`. Run the complete set, including the expected
+counterexamples, with:
+
+```sh
+./scripts/formal-tlc.sh
+```
+
+The runner fetches the official TLA+ v1.7.4 tools jar and verifies its pinned
+SHA-256 before execution. It needs Java, `curl`, and `sha256sum`; to use a
+pre-fetched jar, set `TLA2TOOLS_JAR=/path/to/tla2tools.jar` (the checksum is
+still verified). TLC state files go into a temporary directory and are removed
+when the run finishes. The **formal TLC** Actions workflow is manual-only, so
+ordinary push and pull-request CI do not install Java or run TLC.
+
 ### Renderer tests do not render
 
 `tests/lib/load-fwlive-module.js` stubs LuCI's `E()` as a plain object

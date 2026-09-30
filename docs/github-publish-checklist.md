@@ -8,6 +8,7 @@ Use before making this repo public upstream.
 - [ ] Review [LICENSE](../LICENSE) (Apache-2.0) and [ATTRIBUTION.md](../ATTRIBUTION.md) (OPNsense BSD 2-Clause)
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
+- [ ] Run `./scripts/formal-tlc.sh` on the release commit before tagging — see [Formal models](developer/build-and-test.md#formal-models-tlatlc)
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
 - [ ] Make sure that nothing in the removed `archive/` tree (deleted in #98) is required for new users
 - [ ] `rg -n 'archive/' docs scripts docker-compose.yml --glob '!CHANGELOG.md' --glob '!docs/github-publish-checklist.md'` must return no live path hints (historical `archive/` mentions in CHANGELOG and this checklist are expected)
@@ -51,10 +52,12 @@ Use before making this repo public upstream.
 | `openwrt-feed/` | Feed root (`luci-app-fwlive`) |
 | `core/fwlive-log.js` | Parser source of truth + Node tests |
 | `tests/`, `scripts/`, `docs/` | Tests, lab tooling, documentation |
+| `formal/` + `scripts/formal-tlc.sh` | Versioned TLC models and pinned repeatable runner |
 | `feeds.conf.example` | Feed wiring template (`src-link`) |
 | `scripts/feeds.lock/` | Pinned OpenWrt feed commits (reproducible SDK builds) |
 | `README.md`, `docs/user/`, `docs/developer/`, `.gitignore`, `docker-compose.yml` | Entry points |
 | `.github/workflows/fwlive-test.yml` | Parser CI on push/PR |
+| `.github/workflows/formal-tlc.yml` | Manual formal check; not run on pushes or PRs |
 | `.github/workflows/publish-packages.yml` | Release → build, feed deploy, QEMU smoke |
 
 **Exclude** (already in `.gitignore` or should stay untracked):

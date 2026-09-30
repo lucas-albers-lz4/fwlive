@@ -174,7 +174,10 @@ NF_LOG_IPV4="$NF_LOG_WORK/nf-log-4"
 NF_LOG_IPV6="$NF_LOG_WORK/nf-log-6"
 FWLIVE_IPV6_AVAILABLE_PATH="$NF_LOG_WORK/if-inet6"
 FWLIVE_WAN_LOG_LOCK_FILE="$NF_LOG_WORK/logging.lock"
+FWLIVE_WAN_LOG_GENERATION_FILE="$NF_LOG_WORK/wan-log-generation"
 WAN_LOG_LOCK_FILE="$FWLIVE_WAN_LOG_LOCK_FILE"
+WAN_LOG_GENERATION_FILE="$FWLIVE_WAN_LOG_GENERATION_FILE"
+export FWLIVE_WAN_LOG_GENERATION_FILE
 acquire_wan_log_lock() { return 0; }
 release_wan_log_lock() { return 0; }
 
@@ -888,6 +891,9 @@ CHANGES_CALLS=0
 # the toggle stdout.
 FWLIVE_TMP=$(mktemp -d)
 trap 'rm -rf "$FWLIVE_TMP" "${LEGACY_WORK:-}"' EXIT
+FWLIVE_WAN_LOG_GENERATION_FILE="$FWLIVE_TMP/wan-log-generation"
+WAN_LOG_GENERATION_FILE="$FWLIVE_WAN_LOG_GENERATION_FILE"
+export FWLIVE_WAN_LOG_GENERATION_FILE
 CHANGES_FILE="$FWLIVE_TMP/changes.count"
 READ_FILE="$FWLIVE_TMP/reads.count"
 OUT_FILE="$FWLIVE_TMP/out"
@@ -1056,6 +1062,47 @@ assert_no_commit_no_stage() {
 		*) die "#191 $label: abort not reported via logger: $LOGGER_MSGS" ;;
 	esac
 }
+
+# Revision tracking is a precondition for safe commits. An unsafe runtime
+# path must fail before staging, and state-setting no-ops still count as later
+# intent so an in-flight failed reload cannot roll them back.
+printf 'file' > "$FWLIVE_TMP/not-a-dir"
+FWLIVE_WAN_LOG_GENERATION_FILE="$FWLIVE_TMP/not-a-dir/generation"
+WAN_LOG_GENERATION_FILE="$FWLIVE_WAN_LOG_GENERATION_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable happy
+case "$OUT" in
+	*'"error":"rollback_tracking_failed"'*) ;;
+	*) die "unsafe generation path must fail closed, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "unsafe generation path must not commit"
+[ "$STAGED_LOG" = '__unset__' ] || die "unsafe generation path must not stage"
+ok "WAN log change fails closed before UCI staging when generation tracking is unsafe"
+
+FWLIVE_WAN_LOG_GENERATION_FILE="$FWLIVE_TMP/wan-log-generation"
+WAN_LOG_GENERATION_FILE="$FWLIVE_WAN_LOG_GENERATION_FILE"
+rm -f "$WAN_LOG_GENERATION_FILE"
+FWLIVE_CURRENT_LOG='1'
+drive_toggle enable happy
+case "$OUT" in
+	'{"ok":true,"changed":false,'*) ;;
+	*) die "already-on enable should remain a no-op, got: $OUT" ;;
+esac
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = 1 ] \
+	|| die "already-on enable must advance generation"
+[ "$UCI_COMMITS" -eq 0 ] || die "already-on enable must not commit"
+ok "already-on enable advances intent generation without changing UCI"
+
+FWLIVE_CURRENT_LOG='2'
+drive_toggle disable happy
+case "$OUT" in
+	'{"ok":true,"changed":false,'*) ;;
+	*) die "already-off disable should remain a no-op, got: $OUT" ;;
+esac
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = 2 ] \
+	|| die "already-off disable must advance generation"
+[ "$UCI_COMMITS" -eq 0 ] || die "already-off disable must not commit"
+ok "already-off disable advances intent generation without changing UCI"
 
 FWLIVE_CURRENT_LOG=''
 drive_toggle enable late_foreign

@@ -25,6 +25,11 @@ For upstream/release sign-off, require fresh source extraction by setting
 Missing scanner prerequisites then fail the sign-off run instead of being
 treated as a passing skip.
 
+Before creating the release tag, run `./scripts/formal-tlc.sh` on the release
+commit. The models and pinned runner are repeatable locally; Actions provides a
+manual-only **formal TLC** workflow for rerunning the same check on a selected
+ref. This keeps TLC out of the normal push and pull-request CI path.
+
 Optional QEMU confidence: `./scripts/validate-openwrt.sh --version 24.10` — see [validation matrix](validation-matrix.md).
 
 Full publish checklist: [github-publish-checklist.md](github-publish-checklist.md).

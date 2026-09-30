@@ -115,7 +115,7 @@ and rejects later paints. DOM construction, scroll position, and banner text sta
 | Poll `fwlive.poll` (adaptive 1s / 2s / 5s by client RTT; server adaptive cap may further bound lines) | Wraps `log.read` + server firewall filter; line count in `addresses[0]` |
 | ACL omits `log.read` | Session callers use `fwlive.poll` only; the rpcd plugin invokes `ubus call log read` as root |
 | Client-side normalize/filter | Normalization stays in JS; `isFirewallEvent` retained as safety net |
-| Enable/disable concurrency | No confirm dialog; `fwlive-logging.sh` holds an exclusive flock via `acquire_wan_log_lock` across read→compute→commit; UI uses `loggingBusy`. BusyBox `flock` has no `-w` timeout — concurrent toggles block until the holder exits, not last-writer-wins |
+| Enable/disable concurrency | No confirm dialog; `fwlive-logging.sh` holds an exclusive flock via `acquire_wan_log_lock` across read→compute→commit; BusyBox `flock -n` retries across five one-second intervals, then returns `lock_failed` (plus scheduling overhead); UI uses `loggingBusy`. Each toggle re-reads state under the lock, so concurrent toggles do not become last-writer-wins |
 | Parser disagreement | After poll, the client re-applies `isFirewallEvent`; **client wins** (drops lines the shell kept if heuristics disagree) |
 | MAC redaction | Client display only (`formatMessageDisplay` strips `MAC=…`, including message `title`); poll JSON may still contain MACs on the wire |
 | Output encoding | Renderers must emit untrusted values as text nodes; server map keys are additionally gated by `is_uci_style_name` — [Security model § Invariants](security-model.md#invariants) |

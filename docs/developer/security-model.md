@@ -137,7 +137,12 @@ sections.
 
 Serialization of the toggle uses a lock file created/tightened to `0600` so
 unprivileged UIDs cannot take `LOCK_EX` ([#167](https://github.com/lucas-albers-lz4/fwlive/issues/167)).
-BusyBox still has no `flock -w`; a stuck *root* holder can block callers indefinitely.
+BusyBox still has no `flock -w`; the helper polls with `flock -n` across five
+one-second intervals, then returns `lock_failed` (plus scheduling overhead).
+Firewall reload stays outside the lock. Reload-failure rollback also checks a
+root-only volatile generation advanced by fwlive writers under the lock, so a
+later off→on toggle cannot be mistaken for an unchanged value. This revision
+marker coordinates fwlive writers; direct privileged UCI edits do not advance it.
 
 ## Supply-chain surface
 

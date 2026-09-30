@@ -89,7 +89,7 @@ An in-tree snapshot with a clear “fwlive wins” rule fits LuCI practice bette
      (no do-not-edit, no “regenerate upstream”)
    - Keeps `PKG_VERSION` / `PKG_RELEASE` (lockstep with `APP_VERSION`)
    - Verifies file counts and absence of monorepo-only comment paths
-3. Run `FWLIVE_I18N_REQUIRE_SCAN=1 ./scripts/fwlive-test.sh` for upstream/release sign-off. Set `FWLIVE_I18N_SCAN` to the OpenWrt tree's `build/i18n-scan.pl` when it is not on `PATH`; missing scanner prerequisites fail this sign-off path.
+3. Run `FWLIVE_I18N_REQUIRE_SCAN=1 ./scripts/fwlive-test.sh` for upstream/release sign-off. In a local OpenWrt checkout at the repository root, the scanner is `openwrt/feeds/luci/build/i18n-scan.pl`; see [Build and test — Fresh .pot source scan](build-and-test.md#fresh-pot-source-scan) for the explicit invocation. Missing scanner prerequisites fail this sign-off path.
 4. Run `./scripts/validate-baseline.sh`.
 5. If you need guest proof, run the QEMU 24.10 lab
    ([qemu-lab.md](qemu-lab.md)).
