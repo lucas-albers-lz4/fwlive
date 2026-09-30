@@ -305,15 +305,15 @@ function testMktempFailedBackendLabel() {
 	h.view.updateBackendUi();
 	assert.equal(
 		String(label.textContent),
-		'using fw4 \u00b7 Rule labels unavailable — temp file failed',
-		'mktemp_failed must use the specialized temp-file notice'
+		'using fw4 \u00b7 Some rule names may be missing',
+		'mktemp_failed must use the concise rule-name notice'
 	);
 	h.view.lastRulesError = 'no_backend';
 	h.view.updateBackendUi();
 	assert.equal(
 		String(label.textContent),
-		'using fw4 \u00b7 Rule labels unavailable',
-		'other rules errors must keep the generic unavailable notice'
+		'using fw4 \u00b7 Some rule names may be missing',
+		'other rules errors must keep the same concise rule-name notice'
 	);
 	console.log('fwlive-view logging: mktemp_failed backend label OK');
 }
@@ -347,7 +347,7 @@ function testBackendDisplayLabels() {
 	h.view.updateBackendUi();
 	assert.equal(
 		String(label.textContent),
-		'Rule labels unavailable',
+		'Some rule names may be missing',
 		'unknown + no_backend must still render the error as text'
 	);
 	console.log('fwlive-view logging: nft/unknown backend labels OK');

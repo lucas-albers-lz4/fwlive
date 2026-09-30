@@ -1,0 +1,40 @@
+[
+  {
+    "viewport": "1280x900, keyboard",
+    "healthyHidden": true,
+    "combinedDiagnostics": true,
+    "textNodes": true,
+    "recoveryHidden": true,
+    "initialWidth": {
+      "scroll": 1280,
+      "client": 1280
+    },
+    "finalWidth": {
+      "scroll": 1280,
+      "client": 1280
+    },
+    "startupPageErrors": [
+      "RPCError: RPC call to uci/get failed with error -32002: Access denied\n  at ClassConstructor.handleCallReply (http://127.0.0.1:8088/luci-static/resources/rpc.js?v=26.205.85413~cac97ed-1790726619:11:3)"
+    ],
+    "diagnosticPageErrors": []
+  },
+  {
+    "viewport": "390x844, touch",
+    "healthyHidden": true,
+    "combinedDiagnostics": true,
+    "textNodes": true,
+    "recoveryHidden": true,
+    "initialWidth": {
+      "scroll": 441,
+      "client": 390
+    },
+    "finalWidth": {
+      "scroll": 441,
+      "client": 390
+    },
+    "startupPageErrors": [
+      "RPCError: RPC call to uci/get failed with error -32002: Access denied\n  at ClassConstructor.handleCallReply (http://127.0.0.1:8088/luci-static/resources/rpc.js?v=26.205.85413~cac97ed-1790726619:11:3)"
+    ],
+    "diagnosticPageErrors": []
+  }
+]

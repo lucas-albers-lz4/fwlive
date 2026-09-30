@@ -443,7 +443,7 @@ function testNftDumpFieldsTsvEscapeNoGsub() {
 }
 
 function testRulesOverflowStopsWithoutSecondDumpPass() {
-	// #504: overflow sets rules_truncated from one dump; sed must not scale
+	// #504: overflow sets truncated=true from one dump; sed must not scale
 	// with dump lines (old path: 2 seds x lines x 2 passes).
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-504-overflow-'));
 	const dumpLines = 600;
@@ -482,7 +482,8 @@ exec /usr/bin/sed "$@"
 		const raw = runCall(['call', 'rules'], { encoding: 'utf8', env });
 		const res = JSON.parse(raw);
 		assert.equal(res.backend, 'nft');
-		assert.equal(res.error, 'rules_truncated');
+		assert.equal(res.truncated, true);
+		assert.equal(res.error, undefined);
 		const keys = Object.keys(res.rules || {});
 		assert.ok(keys.length <= 512, `keys ${keys.length} must be <= 512`);
 		assert.deepEqual(
@@ -1535,6 +1536,18 @@ function testTimeoutMissingIsDistinctAndSkipsCommands() {
 		assert.equal(rules.backend, 'unknown');
 		assert.deepEqual(rules.rules, {});
 		assert.equal(rules.error, 'timeout_missing');
+		assert.equal(rules.truncated, false);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+i=0
+while [ "$i" -lt 600 ]; do
+	printf "firewall.@rule[%s].name='keep-name'\\n" "$i"
+	i=$((i + 1))
+done
+`);
+		const limitedRules = JSON.parse(runCall(['call', 'rules'], { encoding: 'utf8', env }));
+		assert.equal(limitedRules.truncated, true, 'missing timeout must not hide map truncation');
+		assert.equal(limitedRules.error, 'timeout_missing');
+		assert.deepEqual(limitedRules.rules, { 'keep-name': 'keep-name' });
 
 		const resolve = JSON.parse(runCall(['call', 'resolve', '{"addresses":["192.0.2.1"]}'], {
 			encoding: 'utf8', env

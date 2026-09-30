@@ -175,6 +175,8 @@ return view.extend({
 	lastPollError: false,
 	lastPollErrorCode: null,
 	lastRulesError: null,
+	rulesMapTruncated: false,
+	rulesMapLoaded: false,
 	rulesRetryAttempt: 0,
 	nextRulesRetryAt: 0,
 	followLive: true,
@@ -711,17 +713,16 @@ return view.extend({
 			const res = await callFwliveRules();
 			if (!this.isCurrentPollEpoch(epoch)) return;
 			this.rulesMap = (res && res.rules) || {};
+			this.rulesMapTruncated = !!(res && res.truncated === true);
+			this.rulesMapLoaded = true;
 			this.firewallBackend = (res && res.backend) || 'nft';
-			/* Bounds / mktemp failures are reply.error — same idea as poll. */
+			/* Truncation belongs to this map; error describes its lookup failure. */
 			this.noteRulesMapOutcome((res && res.error) || null);
 			if (this.lastRulesError) console.warn('fwlive rules map error:', this.lastRulesError);
 			this.refreshBufferedRuleLabels();
 		} catch (_e) {
 			if (!this.isCurrentPollEpoch(epoch)) return;
-			if (!(this.rulesMap && Object.keys(this.rulesMap).length)) {
-				this.rulesMap = {};
-				this.firewallBackend = 'nft';
-			}
+			/* Retain the entire last snapshot, including an empty truncated map. */
 			this.noteRulesMapOutcome('rules_unavailable');
 		}
 		this.updateBackendUi();
@@ -756,6 +757,51 @@ return view.extend({
 		return '';
 	},
 
+	rulesDiagnosticLines() {
+		const lines = [];
+		if (this.rulesMapTruncated)
+			lines.push(_('Rule-name lookup reached a safety limit.') + ' (truncated=true)');
+		if (this.lastRulesError) {
+			let cause;
+			switch (this.lastRulesError) {
+				case 'mktemp_failed':
+					cause = _('Could not create a temporary file for rule names.');
+					break;
+				case 'tsv_failed':
+					cause = _('Could not process firewall rule names.');
+					break;
+				case 'no_backend':
+					cause = _('Could not read the active firewall rules.');
+					break;
+				case 'timeout_missing':
+					cause = _('The required timeout utility is unavailable.');
+					break;
+				case 'rules_unavailable':
+					cause = this.rulesMapLoaded
+						? this.rulesMap && Object.keys(this.rulesMap).length
+							? _(
+									'Could not refresh rule names; previously loaded names are still shown.'
+								)
+							: _('Could not refresh rule names.')
+						: _('Could not load rule names.');
+					break;
+				default:
+					cause = _('Rule-name lookup failed.');
+			}
+			/* Unknown RPC codes are bounded diagnostic text, never HTML. */
+			const code =
+				typeof this.lastRulesError === 'string' ? this.lastRulesError.slice(0, 80) : '';
+			lines.push(cause + (code ? ' (' + code + ')' : ''));
+		}
+		lines.push(_('Rule-name lookup does not change your firewall rules.'));
+		lines.push(
+			_(
+				'Some entries may show names derived from their log prefixes. Searching by a friendly rule name may miss those entries.'
+			)
+		);
+		return lines;
+	},
+
 	updateBackendUi() {
 		const map = document.querySelector('.fwlive-map');
 		if (map) map.setAttribute('data-backend', this.firewallBackend || 'unknown');
@@ -765,13 +811,11 @@ return view.extend({
 			const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
 			let text = this.backendDisplayLabel();
 			let degraded = false;
-			if (this.lastRulesError && this.lastRulesError !== 'timeout_missing') {
-				let err = '';
-				if (this.lastRulesError === 'rules_truncated')
-					err = _('Rule labels incomplete — map truncated');
-				else if (this.lastRulesError === 'mktemp_failed')
-					err = _('Rule labels unavailable — temp file failed');
-				else err = _('Rule labels unavailable');
+			if (
+				this.rulesMapTruncated ||
+				(this.lastRulesError && this.lastRulesError !== 'timeout_missing')
+			) {
+				const err = _('Some rule names may be missing');
 				text = text ? text + ' \u00b7 ' + err : err;
 				degraded = true;
 			}
@@ -784,6 +828,14 @@ return view.extend({
 			}
 			label.textContent = text;
 			label.classList.toggle('fwlive-backend-warn', degraded);
+		}
+		const details = document.getElementById('fwlive-rules-details');
+		const body = document.getElementById('fwlive-rules-details-body');
+		if (details && body) {
+			const degraded = !!(this.rulesMapTruncated || this.lastRulesError);
+			details.style.display = degraded ? '' : 'none';
+			body.textContent = degraded ? this.rulesDiagnosticLines().join('\n\n') : '';
+			if (!degraded) details.open = false;
 		}
 
 		this.updateEmptyStateUi();
@@ -2579,6 +2631,18 @@ return view.extend({
 						)
 					])
 				]),
+				E(
+					'details',
+					{
+						'id': 'fwlive-rules-details',
+						'class': 'fwlive-rules-details',
+						'style': 'display:none'
+					},
+					[
+						E('summary', { 'aria-label': _('Rule name details') }, [_('Details')]),
+						E('div', { 'id': 'fwlive-rules-details-body' }, [])
+					]
+				),
 				E('div', { 'id': 'fwlive-watch-strip', 'class': 'fwlive-watch-strip' }, [
 					E('div', { 'class': 'fwlive-watch-group' }, [
 						E(

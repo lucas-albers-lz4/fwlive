@@ -164,7 +164,7 @@ async function testMissingTimeoutHasAccuratePollError() {
 	view.updateBackendUi();
 	assert.ok(/using fw4/i.test(String(backend.textContent)),
 		'a stale timeout warning must not blank a usable backend label');
-	assert.ok(/Rule labels unavailable/i.test(String(backend.textContent)),
+	assert.ok(/Some rule names may be missing/i.test(String(backend.textContent)),
 		'a stale timeout warning must not hide the rules-map diagnosis');
 	assert.ok(/legacy iptables table/i.test(String(backend.textContent)),
 		'a timeout warning must not hide a coexisting legacy-table warning');
@@ -193,7 +193,7 @@ async function testMissingTimeoutHasAccuratePollError() {
 		'a healthy poll after repair must clear the poll error banner');
 	assert.ok(/using fw4/i.test(String(backend.textContent)),
 		'a healthy poll after repair must restore the backend label');
-	assert.ok(!/timeout|Rule labels unavailable/i.test(String(backend.textContent)),
+	assert.ok(!/timeout|Some rule names may be missing/i.test(String(backend.textContent)),
 		'a healthy poll after repair must clear stale rules diagnostics and keep provider details hidden');
 	console.log('fwlive-view poll-error: missing timeout, stale warning, and recovery OK');
 }
