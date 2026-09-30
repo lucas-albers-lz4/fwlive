@@ -190,7 +190,7 @@
 		const renderScheduler = await loadModule(RES + '/fwlive/render-scheduler.js', [], []);
 		const chips = await loadModule(RES + '/fwlive/chips.js', ['log'], [log]);
 		const proto = await loadModule(RES + '/fwlive/proto.js', ['document'], [document]);
-		const table = await loadModule(RES + '/fwlive/table.js', ['log', 'links'], [log, links]);
+		const table = await loadModule(RES + '/fwlive/table.js', ['log', 'links', 'hostname'], [log, links, hostname]);
 		const logging = await loadModule(RES + '/fwlive/logging.js', ['log', 'links', 'E', '_'], [log, links, E, gettext]);
 
 		const viewSrc = await fetch(RES + '/view/status/fwlive.js').then(function(r) {

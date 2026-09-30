@@ -904,7 +904,7 @@ async function testResolveShedCooldown() {
 
 	/* After cooldown with a healthy reply, shed clears. */
 	shed = false;
-	v.resolveShedUntil = Date.now() - 1;
+	v.resolveShedUntil = v.nowMs() - 1;
 	await v.resolveHostnamesForEntries(entries);
 	assert.strictEqual(calls, 2);
 	assert.strictEqual(v.resolveLoadShed, false);

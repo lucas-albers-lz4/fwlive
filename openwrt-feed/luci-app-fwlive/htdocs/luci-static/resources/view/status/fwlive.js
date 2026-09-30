@@ -23,9 +23,6 @@
 'require fwlive.render-policy as renderPolicy';
 'require fwlive.render-scheduler as renderScheduler';
 
-const RULES_RETRY_BASE_MS = 5000;
-/* Includes the initial read; a page reload starts a fresh retry budget. */
-const RULES_RETRY_MAX_ATTEMPTS = 6;
 /* Poll error codes that only a reinstall fixes; retrying cannot help. */
 const INSTALL_POLL_ERRORS = ['timeout_missing', 'jsonfilter_missing', 'classifier_missing'];
 
@@ -112,12 +109,6 @@ function isIpv4Address(addr) {
 		if (!/^\d{1,3}$/.test(octets[i]) || Number(octets[i]) > 255) return false;
 	}
 	return true;
-}
-
-/* Scoped IPv6 (`fe80::1%eth0`) still resolves as the bare address. */
-function stripIpZone(addr) {
-	const zone = addr.lastIndexOf('%');
-	return zone === -1 ? addr : addr.slice(0, zone);
 }
 
 return view.extend({
@@ -606,7 +597,7 @@ return view.extend({
 
 	isLikelyIp(addr) {
 		if (typeof addr !== 'string' || !addr) return false;
-		addr = stripIpZone(addr);
+		addr = hostname.stripZone(addr);
 		if (!addr) return false;
 		if (isIpv4Address(addr)) return true;
 		if (!addr.includes(':') || !/^[\da-f:.]+$/i.test(addr) || addr.includes(':::'))
@@ -741,15 +732,15 @@ return view.extend({
 		/* Back off consecutive failures, then stop after a bounded retry budget. */
 		this.rulesRetryAttempt = Math.min(
 			(this.rulesRetryAttempt || 0) + 1,
-			RULES_RETRY_MAX_ATTEMPTS
+			constants.RULES_RETRY_MAX_ATTEMPTS
 		);
-		if (this.rulesRetryAttempt >= RULES_RETRY_MAX_ATTEMPTS) {
+		if (this.rulesRetryAttempt >= constants.RULES_RETRY_MAX_ATTEMPTS) {
 			this.nextRulesRetryAt = 0;
 			return;
 		}
 		const delay = Math.min(
-			RULES_RETRY_BASE_MS * Math.pow(2, this.rulesRetryAttempt - 1),
-			60000
+			constants.RULES_RETRY_BASE_MS * Math.pow(2, this.rulesRetryAttempt - 1),
+			constants.RULES_RETRY_MAX_DELAY_MS
 		);
 		this.nextRulesRetryAt = this.nowMs() + delay;
 	},
@@ -801,6 +792,14 @@ return view.extend({
 		return lines;
 	},
 
+	/* timeout_missing is an install problem shown elsewhere, not a rules-map gap. */
+	rulesMapDegraded() {
+		return !!(
+			this.rulesMapTruncated ||
+			(this.lastRulesError && this.lastRulesError !== 'timeout_missing')
+		);
+	},
+
 	updateBackendUi() {
 		const map = document.querySelector('.fwlive-map');
 		if (map) map.setAttribute('data-backend', this.firewallBackend || 'unknown');
@@ -810,10 +809,7 @@ return view.extend({
 			const warnings = (this.loggingStatus && this.loggingStatus.warnings) || [];
 			let text = this.backendDisplayLabel();
 			let degraded = false;
-			if (
-				this.rulesMapTruncated ||
-				(this.lastRulesError && this.lastRulesError !== 'timeout_missing')
-			) {
+			if (this.rulesMapDegraded()) {
 				const err = _('Some rule names may be missing');
 				text = text ? text + ' \u00b7 ' + err : err;
 				degraded = true;
@@ -831,10 +827,7 @@ return view.extend({
 		const details = document.getElementById('fwlive-rules-details');
 		const body = document.getElementById('fwlive-rules-details-body');
 		if (details && body) {
-			const degraded = !!(
-				this.rulesMapTruncated ||
-				(this.lastRulesError && this.lastRulesError !== 'timeout_missing')
-			);
+			const degraded = this.rulesMapDegraded();
 			details.style.display = degraded ? '' : 'none';
 			body.textContent = degraded ? this.rulesDiagnosticLines().join('\n\n') : '';
 			if (!degraded) details.open = false;
@@ -1234,7 +1227,7 @@ return view.extend({
 			}
 		} else if (
 			this.lastRulesError === 'rules_unavailable' &&
-			this.rulesRetryAttempt < RULES_RETRY_MAX_ATTEMPTS &&
+			this.rulesRetryAttempt < constants.RULES_RETRY_MAX_ATTEMPTS &&
 			!this.tablePaused &&
 			!this.lastPollError &&
 			this.nowMs() >= (this.nextRulesRetryAt || 0)
@@ -1480,7 +1473,6 @@ return view.extend({
 	updateAdaptiveBanner() {
 		const el = document.getElementById('fwlive-adaptive');
 		if (!el) return;
-		if (!el.style) el.style = { display: '' };
 
 		const parts = this.adaptiveBannerParts();
 
@@ -1555,11 +1547,9 @@ return view.extend({
 		const scroll = document.getElementById('fwlive-scroll');
 		const empty = document.getElementById('fwlive-empty');
 		if (scroll) {
-			if (!scroll.style) scroll.style = { display: '' };
 			scroll.style.display = hideTable ? 'none' : '';
 		}
 		if (empty) {
-			if (!empty.style) empty.style = { display: '' };
 			empty.style.display = hideTable ? 'none' : rowCount ? 'none' : 'block';
 		}
 	},
@@ -1568,7 +1558,6 @@ return view.extend({
 		const card = document.getElementById('fwlive-summary');
 		const toggle = document.getElementById('fwlive-summary-rows');
 		if (card) {
-			if (!card.style) card.style = { display: '' };
 			card.style.display = this.summaryMode ? 'block' : 'none';
 		}
 		this.syncEmptyScrollVisibility(this.filteredRowsState().rows.length);
@@ -1623,7 +1612,6 @@ return view.extend({
 	updateFloodBanner() {
 		const el = document.getElementById('fwlive-flood');
 		if (!el) return;
-		if (!el.style) el.style = { display: '' };
 
 		if (this.ensureRenderScheduler().isFloodSuppressed()) {
 			el.style.display = 'block';
@@ -1956,8 +1944,8 @@ return view.extend({
 
 		for (let i = 0; i < entries.length; i++) {
 			const r = entries[i];
-			if (r.src && this.isLikelyIp(r.src)) ips.add(stripIpZone(r.src));
-			if (r.dst && this.isLikelyIp(r.dst)) ips.add(stripIpZone(r.dst));
+			if (r.src && this.isLikelyIp(r.src)) ips.add(hostname.stripZone(r.src));
+			if (r.dst && this.isLikelyIp(r.dst)) ips.add(hostname.stripZone(r.dst));
 		}
 
 		return Array.from(ips);
@@ -1987,12 +1975,12 @@ return view.extend({
 
 		const ips = this.collectIpsFromEntries(entries);
 		const need = [];
-		const now = Date.now();
+		const now = this.nowMs();
 		/* While the router sheds resolve load, hold the paused banner without
 		 * re-asking every poll — retry after the cooldown expires. */
 		if (this.resolveLoadShed && now < (this.resolveShedUntil || 0)) return;
 
-		for (let i = 0; i < ips.length && need.length < 32; i++) {
+		for (let i = 0; i < ips.length && need.length < constants.RESOLVE_BATCH_MAX; i++) {
 			const ip = ips[i];
 			if (hostname.lruGet(this.hostnameCache, ip) !== undefined) continue;
 			if (hostname.failIsHot(this.hostnameFailed, ip, now)) continue;
@@ -2011,7 +1999,7 @@ return view.extend({
 
 			if (this.isLoadShedReply(res)) {
 				this.resolveLoadShed = true;
-				this.resolveShedUntil = Date.now() + 60000;
+				this.resolveShedUntil = this.nowMs() + constants.RESOLVE_SHED_COOLDOWN_MS;
 				this.updateAdaptiveBanner();
 				return;
 			}
@@ -2168,7 +2156,6 @@ return view.extend({
 
 		const body = el.querySelector('tbody');
 		const scroll = document.getElementById('fwlive-scroll');
-		this.updateHash(this.readFilters());
 
 		const filtered = this.filteredRowsState();
 		const rows = filtered.rows.slice();
@@ -2237,6 +2224,7 @@ return view.extend({
 	},
 
 	onFilterInput() {
+		this.updateHash(this.readFilters());
 		this.renderRows(true);
 	},
 
@@ -2247,7 +2235,7 @@ return view.extend({
 				this.filterInputTimer = null;
 				this.onFilterInput();
 			}.bind(this),
-			100
+			constants.FILTER_INPUT_DEBOUNCE_MS
 		);
 	},
 
@@ -2334,10 +2322,7 @@ return view.extend({
 				/* fetchEntries already accounts the poll RTT for every rpc
 				 * outcome; a throw here is a local normalize/buffer bug, not
 				 * network slowness, so count nothing further. */
-				if (epoch === this.currentPollEpoch()) {
-					this.lastPollError = true;
-					this.lastPollErrorCode = null;
-				}
+				this.markLocalPollFailure(epoch);
 			}
 
 			if (epoch !== this.currentPollEpoch()) return;
@@ -2370,11 +2355,15 @@ return view.extend({
 		} catch (_e) {
 			/* Keep the coordinator promise settling so a queued refresh cannot
 			 * be stranded by an unexpected local rendering failure. */
-			if (epoch === this.currentPollEpoch()) {
-				this.lastPollError = true;
-				this.lastPollErrorCode = null;
-			}
+			this.markLocalPollFailure(epoch);
 		}
+	},
+
+	/* No error code: the status line reports it as a lost connection. */
+	markLocalPollFailure(epoch) {
+		if (epoch !== this.currentPollEpoch()) return;
+		this.lastPollError = true;
+		this.lastPollErrorCode = null;
 	},
 
 	load() {
@@ -2869,6 +2858,7 @@ return view.extend({
 		this.updateEmptyStateUi();
 		this.updateBackendUi();
 		this.updateTintWarnUi();
+		this.updateHash(this.readFilters());
 		this.renderRows(true);
 		const testLi = document.getElementById('fwlive-manual-test');
 		if (testLi)

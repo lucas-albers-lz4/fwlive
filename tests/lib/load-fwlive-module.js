@@ -56,7 +56,7 @@ function loadFwliveModule(name, deps) {
 		baseclass,
 		deps.log || {},
 		deps.links || {},
-		deps.hostname || {},
+		deps.hostname || (name === 'hostname' ? {} : loadFwliveModule('hostname')),
 		deps.E || fakeE,
 		deps._ || fakeGettext,
 		deps.document || {

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Live View names each load condition the same way in the status line and banner, tells transport, router-read, and installation poll errors apart, labels both enable buttons **Enable logging**, and explains Summary mode in Help (#1042)
+- Live View no longer rewrites the URL hash on every poll-driven repaint; frontend helpers for scoped-IPv6 hostname lookup, substring filter fields, and retry/cooldown constants are shared instead of duplicated (#1043)
 
 ## [v0.1.47] — 2026-09-28
 
