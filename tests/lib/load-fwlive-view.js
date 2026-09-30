@@ -342,6 +342,7 @@ function loadFwliveView(options) {
 
 	return {
 		view: viewDesc,
+		constants: constants,
 		log: log,
 		document: document,
 		window: win,

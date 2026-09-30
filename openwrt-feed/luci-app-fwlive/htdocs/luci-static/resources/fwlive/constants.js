@@ -28,6 +28,8 @@ return baseclass.extend({
 	POLL_CADENCE_FAST_S: 1,
 	POLL_CADENCE_MID_S: 2,
 	POLL_CADENCE_SLOW_S: 5,
+	/* Three slow polls; keep empty-poll status quiet through adaptive cadence changes. */
+	EMPTY_POLL_STALE_AFTER_MS: 15000,
 	POLL_RTT_FAST_MS: 300,
 	POLL_RTT_SLOW_MS: 1500,
 	POLL_RTT_STREAK: 3,
