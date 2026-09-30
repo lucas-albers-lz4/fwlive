@@ -181,22 +181,105 @@ if grep -n 'log_read_failed' -A6 "$RPCD" | grep -q 'fwlive_adaptive_record'; the
 fi
 ok "failed-read keeps prior bucket (no record)"
 
-# Lock path is a directory: early branch still fail-opens unlocked (not the
-# fd-9 redirect). Busy-lock fail-open is unchanged; this is the sibling case.
-fwlive_adaptive_write_state 0 2000 cold 0 0 0
+# Unusable lock file: fail-closed (skip the write). Missing flock and a busy
+# lock stay fail-open.
+_saved_lock=${FWLIVE_ADAPTIVE_LOCK_FILE:-}
+_restore_lock() {
+	if [ -n "${_saved_lock:-}" ]; then
+		export FWLIVE_ADAPTIVE_LOCK_FILE="$_saved_lock"
+	else
+		unset FWLIVE_ADAPTIVE_LOCK_FILE
+	fi
+}
+_expect_lock_skipped() {
+	_why=$1
+	set -- $(fwlive_adaptive_read_state)
+	[ "$3" = cold ] || die "$_why: bucket=$3 want cold"
+	[ "$2" = 2000 ] || die "$_why: limit=$2 want 2000"
+}
+_seed_cold() {
+	fwlive_adaptive_write_state 0 2000 cold 0 0 0
+}
+
+_seed_cold
 _lock_dir="$WORKDIR/lock-as-dir"
 mkdir -p "$_lock_dir"
-_saved_lock=${FWLIVE_ADAPTIVE_LOCK_FILE:-}
 export FWLIVE_ADAPTIVE_LOCK_FILE="$_lock_dir"
 fwlive_adaptive_record 900 2000
+_expect_lock_skipped "directory lock"
+_restore_lock
+ok "directory lock path skips write"
+
+_seed_cold
+_lock_link_tgt="$WORKDIR/lock-link-target"
+: >"$_lock_link_tgt"
+ln -s "$_lock_link_tgt" "$WORKDIR/lock-symlink"
+export FWLIVE_ADAPTIVE_LOCK_FILE="$WORKDIR/lock-symlink"
+fwlive_adaptive_record 900 2000
+_expect_lock_skipped "symlink lock"
+_restore_lock
+ok "symlink lock path skips write"
+
+_seed_cold
+_ro_dir="$WORKDIR/lock-ro-dir"
+mkdir -p "$_ro_dir"
+chmod 555 "$_ro_dir"
+export FWLIVE_ADAPTIVE_LOCK_FILE="$_ro_dir/lock"
+fwlive_adaptive_record 900 2000
+_expect_lock_skipped "lock create failure"
+chmod 755 "$_ro_dir"
+_restore_lock
+ok "lock create failure skips write"
+
+_seed_cold
+_nw_lock="$WORKDIR/lock-unwritable"
+: >"$_nw_lock"
+chmod 444 "$_nw_lock"
+export FWLIVE_ADAPTIVE_LOCK_FILE="$_nw_lock"
+[ -w "$_nw_lock" ] && die "unwritable lock fixture must not be -w"
+fwlive_adaptive_record 900 2000
+_expect_lock_skipped "unwritable lock"
+_restore_lock
+ok "unwritable lock skips write"
+
+_seed_cold
+_nf_bin="$WORKDIR/path-no-flock"
+mkdir -p "$_nf_bin"
+for _c in find mv rm; do
+	ln -s "$(command -v "$_c")" "$_nf_bin/$_c"
+done
+PATH="$_nf_bin" command -v flock >/dev/null 2>&1 && die "stub PATH must hide flock"
+PATH="$_nf_bin" fwlive_adaptive_record 900 2000
 set -- $(fwlive_adaptive_read_state)
-[ "$3" = hot ] || die "directory lock path must fail-open unlocked, bucket=$3"
-if [ -n "$_saved_lock" ]; then
-	export FWLIVE_ADAPTIVE_LOCK_FILE="$_saved_lock"
-else
-	unset FWLIVE_ADAPTIVE_LOCK_FILE
-fi
-ok "directory lock path fail-opens record"
+[ "$3" = hot ] || die "missing flock must fail-open, bucket=$3"
+ok "missing flock fail-opens record"
+
+_seed_cold
+_busy_lock="$(fwlive_adaptive_lock_path)"
+: >"$_busy_lock"
+_busy_held="$WORKDIR/lock-held"
+_busy_done="$WORKDIR/lock-done"
+rm -f "$_busy_held" "$_busy_done"
+(
+	flock 9 || exit 1
+	echo held >"$_busy_held"
+	while [ ! -f "$_busy_done" ]; do
+		sleep 0.05
+	done
+) 9>>"$_busy_lock" &
+_busy_pid=$!
+_busy_i=0
+while [ ! -f "$_busy_held" ]; do
+	_busy_i=$((_busy_i + 1))
+	[ "$_busy_i" -gt 100 ] && die "busy-lock holder did not start"
+	sleep 0.05
+done
+fwlive_adaptive_record 900 2000
+echo done >"$_busy_done"
+wait "$_busy_pid" || die "busy-lock holder failed"
+set -- $(fwlive_adaptive_read_state)
+[ "$3" = hot ] || die "busy lock must fail-open, bucket=$3"
+ok "busy lock fail-opens record"
 
 # Unopenable lock (unix socket: >> fails; not a dir/symlink) → skip write.
 # Do not use ulimit -n: bash vs ash abort is environment-dependent (#619).
@@ -272,6 +355,36 @@ case "$got" in
 esac
 printf '%s' "$got" | python3 -c 'import json,sys; json.load(sys.stdin)' || \
 	die "merged error object must be valid JSON: $got"
+_merge_exact() {
+	_why=$1
+	_want=$2
+	shift 2
+	_got=$(fwlive_adaptive_merge_reply "$@")
+	[ "$_got" = "$_want" ] || die "$_why: got $_got want $_want"
+}
+_merge_exact "empty success" \
+	'{"adaptive":1,"messages_received":0,"effective_limit":50,"truncated":0}' \
+	'{}' 0 50 0 0 1
+_merge_exact "log shed" \
+	'{"log":[],"adaptive":1,"messages_received":3,"truncated":1,"shed":{"level":"hot","limit":250}}' \
+	'{"log":[]}' 1 250 1 3 0
+_merge_exact "log shed success" \
+	'{"log":[],"adaptive":1,"messages_received":3,"effective_limit":250,"truncated":1,"shed":{"level":"hot","limit":250}}' \
+	'{"log":[]}' 1 250 1 3 1
+_merge_exact "preserve count shed" \
+	'{"log":[],"messages_received":7,"adaptive":1,"effective_limit":50,"truncated":1,"shed":{"level":"hot","limit":50}}' \
+	'{"log":[],"messages_received":7}' 1 50 1 9 1
+FWLIVE_ADAPTIVE=0
+_merge_exact "adaptive off empty" \
+	'{"adaptive":0,"messages_received":0}' \
+	'{}' 0 50 0 0 1
+_merge_exact "adaptive off log" \
+	'{"log":[],"adaptive":0,"messages_received":3}' \
+	'{"log":[]}' 1 250 1 3
+_merge_exact "adaptive off preserve count" \
+	'{"log":[],"messages_received":7,"adaptive":0}' \
+	'{"log":[],"messages_received":7}' 1 250 1 3 1
+unset FWLIVE_ADAPTIVE
 ok "merge_reply"
 
 # Lock file mode 0600 on create (Grok #329 P2 / logging.lock #167).
@@ -370,11 +483,36 @@ chmod 0777 "$_ww"
 _saved_state=$FWLIVE_ADAPTIVE_STATE_FILE
 FWLIVE_ADAPTIVE_STATE_FILE="$_ww/state.json"
 fwlive_adaptive_state_dir_ok && die "world-writable adaptive state dir must fail"
-fwlive_adaptive_write_state 1 50 cold 0 0 1
+fwlive_adaptive_record 40 50
 [ ! -f "$FWLIVE_ADAPTIVE_STATE_FILE" ] || die "must not write into a world-writable adaptive state dir"
 FWLIVE_ADAPTIVE_STATE_FILE=$_saved_state
 rm -rf "$_ww"
 ok "world-writable adaptive state dir fails closed"
+
+# One find per record: the directory check runs before the lock, not again
+# inside the state write.
+_find_log="$WORKDIR/find-calls.log"
+_find_bin="$WORKDIR/find-on-path"
+_real_find=$(command -v find)
+mkdir -p "$_find_bin"
+cat >"$_find_bin/find" <<EOF
+#!/bin/sh
+printf '%s\n' "\$*" >> "$_find_log"
+exec "$_real_find" "\$@"
+EOF
+chmod +x "$_find_bin/find"
+rm -f "$_find_log" "$FWLIVE_ADAPTIVE_STATE_FILE" "$(fwlive_adaptive_lock_path)"
+fwlive_adaptive_write_state 0 2000 cold 0 0 0
+rm -f "$_find_log"
+PATH="$_find_bin${PATH:+:$PATH}" fwlive_adaptive_record 40 50
+_finds=0
+if [ -f "$_find_log" ]; then
+	_finds=$(wc -l <"$_find_log" | tr -d ' ')
+fi
+[ "$_finds" = 1 ] || die "record find count $_finds want 1"
+set -- $(fwlive_adaptive_read_state)
+[ "$1" = 40 ] || die "find-count record did not run, duration=$1"
+ok "record checks state dir once"
 
 # Table-driven characterization of fwlive_adaptive_compute_limit (#1046).
 # Captured before the limit-policy refactor. Clock is stubbed.
@@ -600,4 +738,23 @@ EOF
 	[ "$_char_n" = 200 ] || die "characterization rows $_char_n want 200"
 )
 ok "compute_limit characterization"
+
+# rpcd sources this helper under `set -eu` and runs it with dash. A helper
+# whose last `[` fails must still return 0, or plan prints nothing.
+dash -c '
+set -eu
+export FWLIVE_ADAPTIVE=1
+export FWLIVE_ADAPTIVE_STATE_FILE="$2"
+export FWLIVE_ADAPTIVE_OFF_FILE="$3"
+export POLL_LINES_MAX=2000
+rm -f "$FWLIVE_ADAPTIVE_STATE_FILE" "$FWLIVE_ADAPTIVE_OFF_FILE"
+. "$1"
+fwlive_adaptive_clock_cs() { printf "%s\n" 1000; }
+_out=$(fwlive_adaptive_plan 500)
+[ "$_out" = "500 0 cold" ] || exit 1
+_out=$(fwlive_adaptive_merge_reply "{}" 0 50 0 0)
+[ "$_out" = "{\"adaptive\":1,\"messages_received\":0,\"truncated\":0}" ] || exit 1
+' sh "$ADAPTIVE_SH" "$WORKDIR/dash-eu-state.json" "$WORKDIR/dash-eu-off" \
+	|| die "dash set -eu plan/merge"
+ok "dash set -eu plan and merge"
 echo "fwlive-adaptive-cap tests passed"
