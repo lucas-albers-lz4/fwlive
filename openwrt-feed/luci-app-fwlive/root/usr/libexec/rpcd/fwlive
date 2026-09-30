@@ -607,8 +607,9 @@ fetch_firewall_logs() {
 	shed_flag=${2:-0}
 	# Adaptive plan prints: lines shed bucket
 	start_cs=$(fwlive_adaptive_clock_cs)
-	# Drop dead oneshot flag — only consumed on logd's stream branch.
-	if ! raw=$(ubus call log read "{\"lines\":$lines,\"stream\":false}"); then
+	# Bound the log.read invocation with ubus's native client timeout. This
+	# begins after object lookup and does not cancel the remote logd method.
+	if ! raw=$(ubus -t 5 call log read "{\"lines\":$lines,\"stream\":false}"); then
 		# Do not record ~0 ms as cold: failure is not healthy fast processing
 		# and must not clear an existing hot/shed cap.
 		out='{"log":[],"error":"log_read_failed"}'

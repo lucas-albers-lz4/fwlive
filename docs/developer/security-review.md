@@ -1,24 +1,27 @@
 # Security review state
 
-> **2026-09-30 #1053 / #980 direct-execution delta:** Read helpers (`ubus`,
-> the filter pipeline, `nft`, and `nslookup`) execute directly on every
-> installation. The package no longer requires `coreutils-timeout`; provider
-> discovery, GNU/BusyBox timeout wrappers, process-group draining, `__limits`, and
-> `timeout_missing` diagnostics/recovery are removed. No new watchdog is
-> introduced. fwlive imposes no helper deadline. Stock rpcd kills the plugin process
-> after its configured execution timeout (30 seconds), without descendant
-> cleanup; helpers can outlive the request. Direct CLI calls lack this rpcd bound. Resolver count/elapsed-budget checks only prevent
-> starting additional lookups; they cannot interrupt the current lookup.
-> This reliability tradeoff was explicitly accepted by the maintainer to keep
-> the implementation simple; reconsider with real user stall/recovery reports.
+> **2026-09-30 #1053 / #980 direct-execution delta, with #1054 follow-up:** Read
+> helpers execute directly and the package no longer requires
+> `coreutils-timeout`; provider discovery, GNU/BusyBox timeout wrappers,
+> process-group draining, `__limits`, and `timeout_missing` diagnostics/recovery
+> are removed. The `ubus -t 5 call log read` invocation bounds the client's wait
+> for the method reply after object lookup; it does not bound connection/setup or
+> lookup, and does not cancel a remote method already running. The filter
+> pipeline, nft, and nslookup have no fwlive execution deadline. Stock rpcd kills
+> the plugin process after its configured execution timeout (30 seconds), without
+> descendant cleanup; other helpers can outlive the request. Direct CLI calls
+> lack this rpcd bound. Resolver count/elapsed-budget checks only prevent starting
+> additional lookups; they cannot interrupt the current lookup. The maintainer
+> accepted these remaining reliability limits; reconsider with real user
+> stall/recovery reports.
 > The #950/#953 TLA+ safety models and WAN lock acquisition/rollback safeguards
-> are independent of these read-helper deadlines. Formal progress assumptions
+> are independent of these helper execution controls. Formal progress assumptions
 > do not prove runtime termination or a real-time bound. Prior timeout proof
 > rows and the #761 historical delta below are superseded by this contract.
 > ACLs, argument validation, quoting, size/key/count caps, and text-node sinks
 > remain unchanged. Validation and its limits are recorded in the dated entry
-> at the end of this ledger. Model/bot/human review rounds are deferred until
-> the completed draft PR, following the maintainer's explicit instruction.
+> at the end of this ledger. This is a scoped delta, not a full multi-model
+> security review.
 
 > **2026-09-29 #1045 delta:** `jshn_load_input` is the shared jshn load
 > (status 2 library missing, status 1 parse failure). `poll` still
@@ -455,7 +458,7 @@ should carry a note saying what would raise it.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-09-30 | Delta + recording harness | #1053 removes provider-specific branches without adding sinks; focused view tests and mocked browser smoke exercise ordinary error recovery. #1038 adds an array-child disclosure and writes bounded diagnostic codes only through textContent; host assignments and real-browser text-node assertions cover unknown HTML-like codes. #866/#867 changed table paint/key paths; reviewed dynamic `E()` children and empty-only `innerHTML` clears; `fwlive-e-harness`, `fwlive-table-keyed`, view smoke passed. #907 passes the already computed render key into rebuilt rows; dynamic `E()` children and text-node behavior are unchanged. Last broader hostile-input sweep remains 2026-08-13 (#177) |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-09-30 | Delta + host harness | #1053 removes provider-specific branches without adding sinks; focused view tests and mocked browser smoke exercise ordinary error recovery. #1038 traces RPC error codes into bounded diagnostic text; map names remain on the existing label path. #866/#867 scoped-IP hostname/cache and keyed paints reviewed; hostile log/PTR/hash/chip paths exercised in `fwlive-e-harness`, `fwlive-chips-hash`, and mocked view smoke. Earlier broad UCI trace: #177 (2026-08-13); this was not a new full-source sweep |
-| rpcd plugin + ACL scope | 2026-09-30 | Delta + host test + lab | #1045 shares jshn load status and keeps resolve JSON pairs off the rules-map caps, bounding each PTR name at 253 octets instead; poll stays a silent clamped integer with syslog causes. #1038 emits independent boolean truncated on every rules reply, including combined lookup failures; host fixtures cover caps plus mktemp/awk/backend/timeout failures. No method, ACL, subprocess argument, or cap changes. #894 parses anonymous/named UCI rule names from one `uci show` result, caps processing at 512 names, and removes per-section `uci get`; duplicate-name flood test asserts truncation and retained first name. #1053 removes timeout dependency/wrappers; direct-helper stall risk is accepted. #768: non-zero filter stdout is kept only when it is a complete shipped `{"log":[],"error":…}` object; truncated bodies become `filter_failed`. #771: `slug_key` / cosmetic prefixes use `printf '%s\\n'`. #827: `resolve` budget uses `fwlive_adaptive_clock_cs` (`/proc/uptime`) against `RESOLVE_BUDGET * 100`; `RESOLVE_MAX` still bounds work if uptime is unreadable. ACL method parity/read-write split and no `ubus log.*` unchanged. #898 peer-drain machinery is removed by #1053; #896 selftest counter reset was checked against the root call path; #900 error-body parity is host-asserted. #416 retains anonymous/named UCI names; #378 remains nft-only. Installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
+| rpcd plugin + ACL scope | 2026-09-30 | Delta + host test + lab | #1045 shares jshn load status and keeps resolve JSON pairs off the rules-map caps, bounding each PTR name at 253 octets instead; poll stays a silent clamped integer with syslog causes. #1038 emits independent boolean truncated on every rules reply, including combined lookup failures; host fixtures cover caps plus mktemp/awk/backend/timeout failures. No method, ACL, subprocess argument, or cap changes. #894 parses anonymous/named UCI rule names from one `uci show` result, caps processing at 512 names, and removes per-section `uci get`; duplicate-name flood test asserts truncation and retained first name. #1053 removes timeout dependency/wrappers; #1054 uses native `ubus -t 5` for the `log.read` invocation only, after object lookup, without cancelling the remote method. Other direct-helper stall risks remain accepted. #768: non-zero filter stdout is kept only when it is a complete shipped `{"log":[],"error":…}` object; truncated bodies become `filter_failed`. #771: `slug_key` / cosmetic prefixes use `printf '%s\\n'`. #827: `resolve` budget uses `fwlive_adaptive_clock_cs` (`/proc/uptime`) against `RESOLVE_BUDGET * 100`; `RESOLVE_MAX` still bounds work if uptime is unreadable. ACL method parity/read-write split and no `ubus log.*` unchanged. #898 peer-drain machinery is removed by #1053; #896 selftest counter reset was checked against the root call path; #900 error-body parity is host-asserted. #416 retains anonymous/named UCI names; #378 remains nft-only. Installed-session enforcement in [#392 evidence](../evidence/issue-392-2026-09-20.md) |
 | Shell helpers — injection and quoting | 2026-09-28 | Delta + host tests | #987: BusyBox awk test helper gates the amd64-only binary lane, keeps the artifact SHA-256 check after URL overrides, and bounds curl connection/transfer/retry time; each cached package is reverified and the executable plus wrapper are recreated from it. `tests/fwlive-test-busybox-awk.test.sh` covers skip/fail policy, poisoned extracted-cache recovery, checksum override enforcement, and timeout flags. The downloaded program runs as the test user, outside the privileged router path. #898 changes only the peer-drain sleep fallback; positional timeout arguments and filtered stdin remain intact. #768 merge-reply JSON and #771 prefix `printf` protections remain unchanged; #761 GNU timeout arguments remain positional; #365/#366 retain quoted temp paths and `check_eq` behavior |
 | Developer tooling — AST-grep gate | 2026-09-29 | Delta + direct invocation | #1018 is a mode-only change to `scripts/fwlive-ast-grep.sh`; its source still pins ast-grep CLI 0.45.3 and scans repository files. Direct invocation passed. No shipped trust boundary changed |
 | Shell helpers — **file modes and lock ownership** | 2026-09-26 | Delta + host test | #869: baseline snapshot rejects symlink/unsafe `/etc/fwlive` dir and adaptive state refuses group/other-writable dirs (`tests/fwlive-logging.test.sh`, `tests/fwlive-adaptive-cap.test.sh`). Earlier lock 0600 and symlink checks: #204/#232 (`tests/fwlive-logging-lock.test.sh` Parts D–F); no new device-mode check in this delta |
@@ -498,6 +501,7 @@ should carry a note saying what would raise it.
 | WAN log toggles serialize, bound lock acquisition, and do not roll back a later fwlive intent after an ABA | `host + formal` | `tests/fwlive-logging-lock.test.sh`, `tests/fwlive-logging.test.sh`, `scripts/formal-tlc.sh` |
 | Reload failure rolls back the UCI write; restore returns non-zero if `uci set`/`uci delete` never staged | `host` | `tests/fwlive-logging.test.sh` |
 | `resolve` stops starting additional lookups when its elapsed budget is reached; in-progress lookups have no fwlive deadline | `host + manual` | Budget admission tests in `tests/fwlive-rpcd-security.test.js`; direct-execution source inspection. No whole-call duration or descendant-cleanup guarantee |
+| `poll` requests a five-second ubus invocation reply timeout after object lookup; a nonzero reply path maps to `log_read_failed` and does not clear adaptive load state | `host + manual` | `tests/fwlive-rpcd-security.test.js` `testPollUbusFailure` asserts argv/error path (plumbing only) and `testAdaptiveHotSurvivesFailedPoll` covers retained hot state; the exact ubus source revisions pinned by OpenWrt 23.05/24.10/25.12 pass this timeout to `ubus_invoke`. No native stalled-service integration test; lookup, connection and remote cancellation are outside this bound |
 | Missing jshn library is `jshn_lib_missing` for poll (syslog) and resolve (JSON), distinct from parse failure `invalid_input`; resolve pairs ignore rules-map caps, still emit NXDOMAIN `""`, and treat a PTR longer than `RESOLVE_NAME_MAX` (253) as no name, bounding the reply at `RESOLVE_MAX` names | `host` | `tests/fwlive-rpcd-security.test.js` `testResolveJshnLibraryMissing`, `testResolveNxdomainEmptyName`, `testResolveBoundsNameLength`, `testPollLinesJshnCauses` |
 | `poll` bounded by `POLL_LINES_MAX` | `host` | rpcd `__selftest` (clamp helper tested without jshn) |
 | Rules map temp file created only via `mktemp` (`_fwlive_mktemp`, fixed `/tmp` after a sticky-dir check, `TMPDIR` NOT honoured, no `rm`+reuse) with graceful degradation; accumulation via redirect keeps global first-wins dedup | `host` | `tests/fwlive-rules-map.test.js` production-path stubs under `dash` (and `busybox sh` when BusyBox honours PATH); `testNoMktempGracefulDegradation`; `testTmpDirSticky` |
@@ -588,7 +592,7 @@ Known, judged acceptable. Reopen only with new evidence.
 |----------|--------------|
 | Any local UID can inject syslog lines that pass the firewall classifier | `logd` chmods its socket 0666 upstream (ubox `log/syslog.c`). Not fixable from this package; the consequence is forged rows in the view, and every field is already rendered as text |
 | `/proc/uptime` unreadable during `resolve` prints 0 elapsed, so the budget admission check never trips | `RESOLVE_MAX` still caps lookup count, but each direct lookup can stall indefinitely regardless of clock availability. No duration bound is claimed |
-| Direct read helpers may outlive rpcd requests and retain processes/pipes | Maintainer explicitly accepted in #980/#1053 in exchange for simpler code and no timeout dependency. Stock rpcd limits the plugin process (configured 30 seconds), but fwlive adds no shorter deadline or descendant cleanup; direct CLI calls can stall indefinitely. Adaptive polling cannot cancel an in-progress RPC; real user reliability reports are the trigger to reconsider containment |
+| Direct read helpers may outlive rpcd requests and retain processes/pipes | Maintainer accepted this in #980/#1053 in exchange for simpler code and no GNU timeout dependency. `ubus -t 5` bounds the client wait for `log.read` after object lookup, but does not bound lookup/connection setup or cancel a remote method already running. The filter, nft and nslookup helpers have no fwlive deadline or descendant cleanup; stock rpcd kills only the plugin process (configured 30 seconds). Direct CLI calls to those helpers can stall indefinitely. Adaptive polling cannot cancel an in-progress RPC; real user reliability reports are the trigger to reconsider containment |
 | A LuCI admin session is root-equivalent | Structural to LuCI. It is the reason script execution on this page is treated as a root compromise, not a lesser bug |
 | `uci commit firewall` is package-wide ([#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) residual) | OpenWrt has no option-scoped commit. Pre/post-stage gates refuse when foreign staging is visible. A second privileged writer can still stage in the short interval before commit and publish those changes in the same `uci commit` — two root processes publishing each other's already-staged work. Unprivileged staging is blocked by libuci dir modes. Reopen only with an unprivileged or cross-session path. |
 | `feed_publish_ensure_usign` leaves its build dir for the process lifetime | `PATH` points into it and `usign` is called later; the name is unpredictable per invocation, and `/tmp` is reaped on reboot |
@@ -602,7 +606,7 @@ path: `tests/validate-feed-keys-mode.test.sh` (gap 4 prefix; wired into
 
 | Property | Status | What would prove it |
 |----------|--------|---------------------|
-| Read-helper termination under loaded-router scheduling / blackhole DNS | No fwlive deadline after #1053; neither host nor guest checks prove termination of an arbitrary helper. Resolver elapsed budget only controls admission | Track real user reliability reports; revisiting a timeout dependency would require new containment and guest evidence |
+| Read-helper termination under loaded-router scheduling / blackhole DNS | `log.read` client wait is timed after object lookup, but remote cancellation is not established; filter/nft/nslookup still have no fwlive deadline. Neither host nor guest checks prove termination of arbitrary helpers. Resolver elapsed budget only controls admission | Run stalled native-ubus and loaded-router helper probes if tighter latency or remote cancellation guarantees become necessary; track real user reliability reports |
 | Installed guest returns `lock_failed` before the host safety timeout when a root holder keeps the lock busy | 2026-09-29 24.10.8 x86 KVM guest with source-synced `fwlive-logging.sh` returned `lock_failed` after 5s under a root holder; release on the same inode verified | Artifact-only build/install of this branch remains unproven; repeat on more guests if release scope requires it |
 | Pre-stage `firewall_changes_pending` refuse on a live device | lab smoke 2026-09-04 (**accepted residual** for package-commit publish of foreign staging — see above) | Foreign staging refused; foreign delta neither committed nor dropped |
 | Signing keys stay 0600 through validate rewrite path | `host` (validate-prefix) | `tests/validate-feed-keys-mode.test.sh` — write + shared `feed_keys_validate_*_rewrite_prefix` (decode/normalize/chmod; base64 branch). **Full usign docker sign + real publish** still prove-next on next `v*` tag |
@@ -1465,4 +1469,24 @@ map/line/name/count, sticky-directory and tempfile controls remain. Live stalled
 helpers, resource accumulation and loaded-router scheduling are not claimed
 contained. This is a scoped implementation/static/host/lab delta, not a full
 multi-model security review. The full-pass gate remains deferred; the requested
-model/bot/human rounds begin after the completed draft PR.
+model/bot/human rounds remain subject to the PR review gate.
+
+### 2026-09-30 — #1054 native ubus reply timeout
+
+**Scope.** `poll` invokes `ubus -t 5 call log read`. The CLI's native timeout
+applies to `ubus_invoke` after `ubus_lookup_id`; it is not a whole-command bound,
+and it does not cancel an already-dispatched method. No wrapper or package
+dependency returns. The existing nonzero path remains `log_read_failed` and
+does not record a healthy/cold adaptive sample.
+
+**Proof and limits.** `host`: `testPollUbusFailure` checks the exact argv and
+structured failure/adaptive reply path. This stub proves argument plumbing only,
+not that ubus enforces elapsed time. `manual`: inspected `cli.c` at the ubus
+source revisions pinned by OpenWrt 23.05 (`f787c97b34894a38b15599886cacbca01271684f`),
+24.10 (`60e04048a0e2f3e33651c19e62861b41be4c290f`), and 25.12
+(`24864e7840b3a02a9ef76284a373f6b2f00b8a9b`); each parses `-t` and passes its
+seconds value to `ubus_invoke`. No native stalled-service integration test was
+run because the host has no `ubus`/`ubusd` executables. Connection setup, object
+lookup, remote method cancellation, and other helper lifetimes remain outside
+this timeout. The earlier #1053 artifact and 30-second rpcd probes predate this
+follow-up; they do not verify its invocation-timeout behavior.

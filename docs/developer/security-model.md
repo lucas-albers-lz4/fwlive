@@ -88,8 +88,8 @@ metacharacters before `nslookup` runs. Its selftest asserts rejection of a liter
 ### 4. Caller-supplied numbers are validated and clamped
 
 `poll_lines_from_input` rejects non-numeric input and clamps to
-`POLL_LINES_MAX`. Never interpolate a caller value into the `ubus call log read`
-JSON without both steps.
+`POLL_LINES_MAX`. Never interpolate a caller value into the JSON passed to
+`ubus -t 5 call log read` without both steps.
 
 ### 5. All JSON string content passes through `json_escape`
 

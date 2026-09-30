@@ -182,8 +182,10 @@ and `CENSUS_POLL_TOTAL=12`.
 Removing the two timeout pipe readers reduces the production-shaped poll to
 **10** PATH-shim-observable execs on the same mixed-log fixture. The filter
 remains **7**. The current host gate is `CENSUS_FILTER_TOTAL=7` and
-`CENSUS_POLL_TOTAL=10`. These counts exclude commands outside the shim list
-and builtin-only subshell forks; they are not complete process counts.
+`CENSUS_POLL_TOTAL=10`. The two removed execs were the timeout wrapper's pipe
+readers. Adding `ubus -t 5` changes argv only; it does not add a process, so the
+poll count remains 10. These counts exclude commands outside the shim list and
+builtin-only subshell forks; they are not complete process counts.
 
 ### Device budget-split table (Phase 0b — armsr TCG)
 

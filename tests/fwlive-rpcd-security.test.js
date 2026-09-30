@@ -569,12 +569,18 @@ exit 1
 
 function testPollUbusFailure() {
 	// Dead logd must surface log_read_failed, not an empty table that looks
-	// like "no firewall events". The reply bypasses the filter, so this is
-	// deterministic with or without jsonfilter on PATH.
+	// like "no firewall events". The ubus invocation timeout is passed as argv;
+	// this stub checks plumbing, not the native ubus timeout mechanism. The
+	// reply bypasses the filter, so this is deterministic with or without
+	// jsonfilter on PATH.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-poll-'));
 	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-303-adapt-'));
+	const argsFile = path.join(stubDir, 'ubus-args');
 	try {
-		makeStub(stubDir, 'ubus', '#!/bin/sh\nexit 1\n');
+		makeStub(stubDir, 'ubus', `#!/bin/sh
+printf '%s\\n' "$@" > ${shellQuote(argsFile)}
+exit 1
+`);
 		const env = {
 			...process.env,
 			PATH: `${stubDir}:/usr/bin:/bin`,
@@ -593,6 +599,9 @@ function testPollUbusFailure() {
 			0,
 			'failed log.read must keep the messages_received fallback at 0'
 		);
+		assert.deepEqual(fs.readFileSync(argsFile, 'utf8').trim().split('\n'), [
+			'-t', '5', 'call', 'log', 'read', '{"lines":50,"stream":false}'
+		], 'poll must pass the native invocation timeout before the ubus command');
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 		fs.rmSync(work, { recursive: true, force: true });
