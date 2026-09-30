@@ -60,30 +60,6 @@ async function testPollErrorResetsBatchNewIdCount() {
 	console.log('fwlive-view poll-error: lastBatchNewIdCount reset OK');
 }
 
-async function testTimeoutRecoveryThrowKeepsPollSuccess() {
-	const h = loadFwliveView({
-		rpcMocks: {
-			'fwlive.poll': async function() {
-				return { log: [SAMPLE_ROW] };
-			}
-		}
-	});
-	const view = h.view;
-	view.lastPollErrorCode = 'timeout_missing';
-	view.loadRulesMap = async function() {
-		throw new Error('recovery ui');
-	};
-	await view.runPollRequest(view.currentPollEpoch());
-	assert.strictEqual(view.lastPollError, false, 'recovery throw must not mark the poll failed');
-	assert.notStrictEqual(
-		view.lastPollErrorCode,
-		'timeout_missing',
-		'successful poll must clear timeout_missing'
-	);
-	assert.ok(view.entries.length >= 1, 'successful poll must keep the row');
-	console.log('fwlive-view poll-error: timeout recovery throw OK');
-}
-
 async function testPollHappyPath() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -128,185 +104,6 @@ async function testPollTransportThrow() {
 	console.log('fwlive-view poll-error: transport throw OK');
 }
 
-async function testMissingTimeoutHasAccuratePollError() {
-	let timeoutMissing = false;
-	const h = loadFwliveView({
-		rpcMocks: {
-			'fwlive.poll': async function() {
-				return timeoutMissing
-					? { log: [], error: 'timeout_missing' }
-					: { log: [SAMPLE_ROW] };
-			},
-			'fwlive.rules': async function() {
-				return timeoutMissing
-					? { backend: 'unknown', rules: {}, error: 'timeout_missing' }
-					: { backend: 'nft', rules: {} };
-			},
-			'fwlive.logging_status': async function() {
-				return { warnings: timeoutMissing ? ['timeout_missing'] : [] };
-			}
-		}
-	});
-	const view = h.view;
-	const status = h.document.getElementById('fwlive-status');
-	const backend = h.document.getElementById('fwlive-backend');
-	assert.ok(status, 'fwlive-status must exist after render');
-	assert.ok(backend, 'fwlive-backend must exist after render');
-
-	await Promise.all([view.loadRulesMap(), view.loadLoggingStatus()]);
-	assert.ok(/using fw4/i.test(String(backend.textContent)),
-		'a healthy install must retain its backend label');
-
-	/* A stale warning must not erase the known backend or coexist in place of
-	 * a more useful rules/legacy-table explanation. */
-	view.loggingStatus = { warnings: ['timeout_missing', 'legacy_iptables_detected'] };
-	view.lastRulesError = 'no_backend';
-	view.updateBackendUi();
-	assert.ok(/using fw4/i.test(String(backend.textContent)),
-		'a stale timeout warning must not blank a usable backend label');
-	assert.ok(/Some rule names may be missing/i.test(String(backend.textContent)),
-		'a stale timeout warning must not hide the rules-map diagnosis');
-	assert.ok(/legacy iptables table/i.test(String(backend.textContent)),
-		'a timeout warning must not hide a coexisting legacy-table warning');
-	assert.ok(!/timeout/i.test(String(backend.textContent)),
-		'a stale warning during a healthy poll must not appear in the backend label');
-
-	/* The next poll itself identifies a provider removed while this page is
-	 * open; it must not depend on logging_status being refreshed first. */
-	await Promise.all([view.loadRulesMap(), view.loadLoggingStatus()]);
-	timeoutMissing = true;
-	await view.fetchEntries();
-	view.updateStatus();
-	assert.equal(String(status.textContent), 'Installation is incomplete. Reinstall luci-app-fwlive.',
-		'a timeout_missing poll reply must show the concise repair message only');
-	assert.ok(/using fw4/i.test(String(backend.textContent)),
-		'a timeout_missing poll reply must preserve the known backend');
-	assert.ok(!/timeout/i.test(String(backend.textContent)),
-		'a timeout_missing diagnosis must stay out of the backend label');
-
-	/* A successful poll after repair triggers fresh rules and warning reads;
-	 * verify the banner clears and backend context remains in this session. */
-	timeoutMissing = false;
-	await view.fetchEntries();
-	view.updateStatus();
-	assert.ok(!/Connection lost|Installation is incomplete/i.test(String(status.textContent)),
-		'a healthy poll after repair must clear the poll error banner');
-	assert.ok(/using fw4/i.test(String(backend.textContent)),
-		'a healthy poll after repair must restore the backend label');
-	assert.ok(!/timeout|Some rule names may be missing/i.test(String(backend.textContent)),
-		'a healthy poll after repair must clear stale rules diagnostics and keep provider details hidden');
-	console.log('fwlive-view poll-error: missing timeout, stale warning, and recovery OK');
-}
-
-async function testBufferedRuleLabelsRefreshAfterTimeoutRecovery() {
-	const raw = {
-		id: 77,
-		time: 1780797240,
-		msg: '[  239.247521] fwlive-pingIN=lo OUT= MAC=00:00:00:00:00:00:00:00:00:00:00:00:08:00 SRC=127.0.0.1 DST=127.0.0.1 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=6376 DF PROTO=ICMP TYPE=8 CODE=0 ID=3139 SEQ=2'
-	};
-	const recoveredLabel = 'Recovered ping rule';
-
-	for (const paused of [true, false]) {
-		const h = loadFwliveView({
-			rpcMocks: {
-				'fwlive.poll': async function() { return { log: paused ? [] : [raw] }; },
-				'fwlive.rules': async function() {
-					return { backend: 'nft', rules: { 'fwlive-ping': recoveredLabel } };
-				},
-				'fwlive.logging_status': async function() { return { warnings: [] }; }
-			}
-		});
-		const view = h.view;
-		view.rulesMap = {};
-		view.entries = view.normalizePollBatch([raw]).rows;
-		view.tablePaused = paused;
-		view.lastPollError = true;
-		view.lastPollErrorCode = 'timeout_missing';
-		const oldLabel = view.entries[0].rule_label;
-		assert.notEqual(oldLabel, recoveredLabel, 'fixture must begin with a fallback rule label');
-		const paints = [];
-		let refreshCalls = 0;
-		const refreshBufferedRuleLabels = view.refreshBufferedRuleLabels;
-		view.refreshBufferedRuleLabels = function() {
-			refreshCalls++;
-			return refreshBufferedRuleLabels.apply(this, arguments);
-		};
-		view.renderRows = (force) => paints.push({ force, label: view.entries[0].rule_label });
-
-		await view.fetchEntries();
-		assert.equal(view.entries.length, 1,
-			'provider recovery must keep the buffered row absent from the current poll when paused');
-		assert.equal(view.entries[0].rule_label, recoveredLabel,
-			'provider recovery must relabel retained rows from the refreshed map');
-		assert.equal(refreshCalls, 1,
-			'timeout recovery must refresh buffered labels only in loadRulesMap');
-		if (paused) {
-			assert.equal(paints.length, 0, 'recovery must not paint while the table is paused');
-		} else {
-			assert.ok(paints.some((paint) => paint.force && paint.label === recoveredLabel),
-				'active recovery must repaint rows with the refreshed rule label');
-		}
-	}
-
-	let releaseRecovery;
-	let startedRules;
-	let startedLoggingStatus;
-	const rulesStarted = new Promise((resolve) => { startedRules = resolve; });
-	const loggingStatusStarted = new Promise((resolve) => { startedLoggingStatus = resolve; });
-	const recoveryGate = new Promise((resolve) => { releaseRecovery = resolve; });
-	const stale = loadFwliveView({
-		rpcMocks: {
-			'fwlive.poll': async function() { return { log: [] }; },
-			'fwlive.rules': async function() {
-				startedRules();
-				await recoveryGate;
-				return { backend: 'nft', rules: { 'fwlive-ping': recoveredLabel } };
-			},
-			'fwlive.logging_status': async function() {
-				startedLoggingStatus();
-				await recoveryGate;
-				return { warnings: [], weak_device: true };
-			}
-		}
-	});
-	const staleView = stale.view;
-	staleView.rulesMap = { 'fwlive-ping': 'Previously known ping label' };
-	staleView.firewallBackend = 'iptables';
-	staleView.lastRulesError = 'previous_rules_error';
-	staleView.loggingStatus = { warnings: ['legacy_iptables_detected'] };
-	staleView.weakDevice = false;
-	staleView.entries = staleView.normalizePollBatch([raw]).rows;
-	staleView.tablePaused = true;
-	staleView.lastPollError = true;
-	staleView.lastPollErrorCode = 'timeout_missing';
-	const staleLabel = staleView.entries[0].rule_label;
-	const previousRulesMap = staleView.rulesMap;
-	const previousLoggingStatus = staleView.loggingStatus;
-	let epoch = 0;
-	staleView.currentPollEpoch = () => epoch;
-	const stalePaints = [];
-	staleView.renderRows = (force) => stalePaints.push(force);
-	const recovery = staleView.fetchEntries();
-	await Promise.all([rulesStarted, loggingStatusStarted]);
-	epoch++;
-	releaseRecovery();
-	await recovery;
-	assert.equal(staleView.entries[0].rule_label, staleLabel,
-		'a rules response from an old poll epoch must not relabel stale buffered rows');
-	assert.strictEqual(staleView.rulesMap, previousRulesMap,
-		'a rules response from an old epoch must not replace rulesMap');
-	assert.equal(staleView.firewallBackend, 'iptables',
-		'a rules response from an old epoch must not replace the backend');
-	assert.equal(staleView.lastRulesError, 'previous_rules_error',
-		'a rules response from an old epoch must not replace the rules error');
-	assert.strictEqual(staleView.loggingStatus, previousLoggingStatus,
-		'a status response from an old epoch must not replace loggingStatus');
-	assert.equal(staleView.weakDevice, false,
-		'a status response from an old epoch must not replace weakDevice');
-	assert.equal(stalePaints.length, 0, 'a stale recovery epoch must not paint rows');
-	console.log('fwlive-view poll-error: buffered rule labels refresh safely after provider recovery OK');
-}
-
 async function testLoggingToggleInvalidatesOlderStatusRead() {
 	let startedOldRead;
 	let releaseOldRead;
@@ -349,48 +146,29 @@ async function testLoggingToggleInvalidatesOlderStatusRead() {
 }
 
 async function testLoggingWarningDoesNotOverridePollCause() {
-	let timeoutMissing = true;
 	const h = loadFwliveView({
 		rpcMocks: {
 			'fwlive.logging_status': async function () {
-				return { warnings: timeoutMissing ? ['timeout_missing'] : [] };
+				return { warnings: ['legacy_iptables_detected'] };
 			}
 		}
 	});
 	const view = h.view;
-	const status = h.document.getElementById('fwlive-status');
-	view.updateLoggingToolbarUi = function () {};
-	view.updateEmptyStateUi = function () {};
 	view.lastPollError = true;
 	view.lastPollErrorCode = 'filter_failed';
-
 	await view.loadLoggingStatus();
+	const status = h.document.getElementById('fwlive-status');
 	assert.match(String(status.textContent), /could not read the firewall log/i,
-		'a stale timeout_missing warning must not override another poll error');
-	assert.ok(!/timeout/i.test(h.document.getElementById('fwlive-backend').textContent),
-		'logging_status warnings must not add timeout details to the backend label');
-
-	view.lastPollErrorCode = 'timeout_missing';
+		'logging warnings must not override the typed poll cause');
+	assert.match(String(h.document.getElementById('fwlive-backend').textContent), /legacy iptables table/i);
+	view.lastPollErrorCode = 'jsonfilter_missing';
 	view.updateStatus();
-	assert.equal(String(status.textContent), 'Installation is incomplete. Reinstall luci-app-fwlive.',
-		'a typed timeout_missing poll error must show the repair message');
-	assert.ok(!/timeout/i.test(h.document.getElementById('fwlive-backend').textContent),
-		'a typed timeout_missing poll error must not add a second diagnosis to the backend label');
-
-	timeoutMissing = false;
-	await view.loadLoggingStatus();
-	assert.equal(String(status.textContent), 'Installation is incomplete. Reinstall luci-app-fwlive.',
-		'only a later successful poll may clear the typed provider error');
-	view.lastPollError = false;
-	view.lastPollErrorCode = null;
+	assert.equal(String(status.textContent), 'Installation is incomplete. Reinstall luci-app-fwlive.');
+	await view.fetchEntries();
 	view.updateStatus();
-	assert.ok(!/Installation is incomplete/i.test(String(status.textContent)),
-		'a successful poll must clear the provider diagnosis');
-	assert.ok(/using fw4/i.test(String(h.document.getElementById('fwlive-backend').textContent)),
-		`the backend label must retain context: ${h.document.getElementById('fwlive-backend').textContent}`);
-	assert.ok(!/timeout/i.test(String(h.document.getElementById('fwlive-backend').textContent)),
-		'backend label must not expose provider details after recovery');
-	console.log('fwlive-view poll-error: logging status warnings do not override typed poll errors OK');
+	assert.equal(view.lastPollError, false, 'a successful poll must clear the typed installation error');
+	assert.doesNotMatch(String(status.textContent), /Installation is incomplete/i);
+	console.log('fwlive-view poll-error: logging warnings and ordinary installation recovery OK');
 }
 
 async function testPollNonStringMsgSurvives() {
@@ -456,7 +234,6 @@ async function testPollErrorClasses() {
 		['log_read_failed', 'The router could not read the firewall log — retrying…'],
 		['filter_failed', 'The router could not read the firewall log — retrying…'],
 		['filter_tempfile_failed', 'The router could not read the firewall log — retrying…'],
-		['timeout_missing', 'Installation is incomplete. Reinstall luci-app-fwlive.'],
 		['jsonfilter_missing', 'Installation is incomplete. Reinstall luci-app-fwlive.'],
 		['classifier_missing', 'Installation is incomplete. Reinstall luci-app-fwlive.']
 	];
@@ -494,11 +271,8 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testPollErrorField();
 		await testPollErrorResetsBatchNewIdCount();
 		await testPollHappyPath();
-		await testTimeoutRecoveryThrowKeepsPollSuccess();
 		await testPollBadShape();
 		await testPollTransportThrow();
-		await testMissingTimeoutHasAccuratePollError();
-		await testBufferedRuleLabelsRefreshAfterTimeoutRecovery();
 		await testLoggingToggleInvalidatesOlderStatusRead();
 		await testLoggingWarningDoesNotOverridePollCause();
 		await testPollNonStringMsgSurvives();

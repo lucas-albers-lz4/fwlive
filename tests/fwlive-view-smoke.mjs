@@ -302,10 +302,11 @@ async function testAdaptiveSummaryAndWarnings(page) {
 				loggingStatus: view.loggingStatus,
 				firewallBackend: view.firewallBackend,
 				lastRulesError: view.lastRulesError,
-				lastPollError: view.lastPollError
+				lastPollError: view.lastPollError,
+				lastPollErrorCode: view.lastPollErrorCode
 			};
 			view.loggingStatus = Object.assign({}, view.loggingStatus, {
-				warnings: ['timeout_missing', 'legacy_iptables_detected']
+				warnings: ['legacy_iptables_detected']
 			});
 			view.firewallBackend = 'nft';
 			view.lastRulesError = null;
@@ -323,16 +324,16 @@ async function testAdaptiveSummaryAndWarnings(page) {
 		await page.evaluate(() => {
 			const view = window.fwliveView;
 			view.lastPollError = true;
-			view.lastPollErrorCode = 'timeout_missing';
+			view.lastPollErrorCode = 'jsonfilter_missing';
 			view.updateBackendUi();
 			view.updateStatus();
 		});
 		const installError = await page.locator('#fwlive-status').textContent();
 		if (installError !== 'Installation is incomplete. Reinstall luci-app-fwlive.')
-			throw new Error(`missing timeout must show only the concise repair line: ${installError}`);
+			throw new Error(`missing jsonfilter must show only the concise repair line: ${installError}`);
 		const backendContext = await page.locator('#fwlive-backend').textContent();
 		if (!/using fw4/i.test(backendContext || '') || /timeout/i.test(backendContext || ''))
-			throw new Error(`missing timeout must preserve backend context without a second diagnosis: ${backendContext}`);
+			throw new Error(`missing jsonfilter must preserve backend context without a second diagnosis: ${backendContext}`);
 
 		await page.evaluate(() => {
 			const view = window.fwliveView;
@@ -344,22 +345,22 @@ async function testAdaptiveSummaryAndWarnings(page) {
 		const recoveredBackend = await page.locator('#fwlive-backend').textContent();
 		const recoveredStatus = await page.locator('#fwlive-status').textContent();
 		if (!/using fw4/i.test(recoveredBackend || '') || /timeout/i.test(recoveredBackend || ''))
-			throw new Error(`provider recovery must restore the backend label: ${recoveredBackend}`);
+			throw new Error(`installation recovery must restore the backend label: ${recoveredBackend}`);
 		if (/Installation is incomplete/i.test(recoveredStatus || ''))
-			throw new Error(`provider recovery must clear the installation error: ${recoveredStatus}`);
+			throw new Error(`installation recovery must clear the installation error: ${recoveredStatus}`);
 
 		await page.evaluate(() => {
 			const view = window.fwliveView;
 			view.lastPollError = true;
 			view.lastPollErrorCode = 'filter_failed';
-			view.loggingStatus.warnings = ['timeout_missing', 'legacy_iptables_detected'];
+			view.loggingStatus.warnings = ['legacy_iptables_detected'];
 			view.updateStatus();
 		});
 		const ordinaryPollError = await page.locator('#fwlive-status').textContent();
 		if (!/could not read the firewall log/i.test(ordinaryPollError || ''))
 			throw new Error(`typed poll errors must show the router-read message: ${ordinaryPollError}`);
 		if (/Installation is incomplete/i.test(ordinaryPollError || ''))
-			throw new Error(`a stale timeout warning must not replace the typed poll diagnosis: ${ordinaryPollError}`);
+			throw new Error(`a logging warning must not replace the typed poll diagnosis: ${ordinaryPollError}`);
 		console.log('OK: adaptive summary, shedding, and warning rendering');
 	} finally {
 		await page.evaluate(() => {
@@ -373,6 +374,7 @@ async function testAdaptiveSummaryAndWarnings(page) {
 			view.firewallBackend = state.firewallBackend;
 			view.lastRulesError = state.lastRulesError;
 			view.lastPollError = state.lastPollError;
+			view.lastPollErrorCode = state.lastPollErrorCode;
 			delete window.__fwliveWarningState;
 			view.updateBackendUi();
 			view.updateStatus();
@@ -415,7 +417,7 @@ async function testResolverError(page) {
 			view.hostnameFailed.clear();
 			view.resolveLoadShed = false;
 			view.resolveShedUntil = 0;
-			let reply = { names: {}, error: 'timeout_missing' };
+			let reply = { names: {}, error: 'jshn_lib_missing' };
 			window.__fwlivePrevResolveMock = window.setFwliveResolveMock(function() {
 				return reply;
 			});
@@ -423,7 +425,7 @@ async function testResolverError(page) {
 				{ src: '2001:db8::1', dst: '2001:db8::2' }
 			]);
 			if (view.hostnameFailed.size !== 0)
-				throw new Error('timeout_missing must not enter the negative hostname cache');
+				throw new Error('jshn_lib_missing must not enter the negative hostname cache');
 			reply = 5;
 			await view.resolveHostnamesForEntries([
 				{ src: '2001:db8::1', dst: '2001:db8::2' }

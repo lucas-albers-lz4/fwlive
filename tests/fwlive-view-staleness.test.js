@@ -59,7 +59,7 @@ async function testEmptyBatchStalenessHint(emptyBatch, paused) {
 	assert.match(String(status.textContent), /Connection lost/,
 		'poll failure must take precedence over receipt age');
 	assert.doesNotMatch(String(status.textContent), /Firewall log has no current entries/);
-	view.lastPollErrorCode = 'timeout_missing';
+	view.lastPollErrorCode = 'jsonfilter_missing';
 	view.updateStatus();
 	assert.match(String(status.textContent), /Installation is incomplete/,
 		'typed poll errors must take precedence over receipt age');

@@ -42,6 +42,13 @@ failure Map (`failMark`) collapsed to per-address flags.
   `Init → IssueLookup(1) → ResolveLookup(1) → Dispose → LateApplyResolution(1)`
   with `disposed = TRUE`, `lateWrite = TRUE`. The safety check is non-vacuous.
 
+The modeled liveness result assumes a pending ubus lookup eventually replies:
+`Spec` gives weak fairness to `Arrive` and `Settle`. It does not show that a
+runtime helper finishes within a wall-clock bound. rpcd invokes helpers
+directly without GNU `timeout`; the resolver elapsed budget stops starting
+additional lookups but cannot interrupt one already running, which can hold
+its rpcd worker indefinitely. This is an accepted maintenance tradeoff.
+
 ## Why the late write (if it existed) would ALSO be harmless — apply-site reading
 
 Even ungated, the cache-write loop in `resolveHostnamesForEntries()` only

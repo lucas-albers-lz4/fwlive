@@ -1403,12 +1403,11 @@ EOF
 }
 
 function testBusyboxPathShadowNslookup() {
-	// Production: GNU timeout executes nslookup by PATH after its explicit
-	// /usr/bin/timeout path bypasses any BusyBox timeout applet.
+	// External env preserves nslookup PATH selection across shells.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-ns-'));
 	try {
 		installNslookupStub(stubDir);
-		const env = { ...stubPathEnv(stubDir), FWLIVE_TIMEOUT_BIN: '/usr/bin/timeout' };
+		const env = stubPathEnv(stubDir);
 		for (const shell of posixShells()) {
 			resetCalled(stubDir);
 			const out = runRpcd(shell, ['__resolve_one', '192.0.2.1'], { encoding: 'utf8', env }).trim();
@@ -1420,26 +1419,20 @@ function testBusyboxPathShadowNslookup() {
 }
 
 function testBusyboxPathShadowTimeout() {
-	// The two-layer helper uses its injected GNU timeout path for both the
-	// outer hard deadline and the inner foreground TERM deadline.
+	// Even an installed timeout provider must never be invoked.
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-bbshadow-to-'));
 	try {
 		makeStub(stubDir, 'timeout', `#!/bin/sh
 echo "marker-timeout $*" >> "${stubDir}/called"
-case "$1" in
-	-s) [ "$2" = KILL ] || exit 2; shift 3 ;;
-	--foreground) shift 2 ;;
-	*) exit 2 ;;
-esac
-exec "$@"
+exit 99
 `);
 		installNftUciStubs(stubDir);
-		const env = { ...stubPathEnv(stubDir), FWLIVE_TIMEOUT_BIN: path.join(stubDir, 'timeout') };
+		const env = stubPathEnv(stubDir);
 		for (const shell of posixShells()) {
 			resetCalled(stubDir);
 			assertNftSshRules(shell, runWithShell(shell, env));
-			assert.ok(readCalled(stubDir).includes('marker-timeout'),
-				`[${shell}] timeout stub ran`);
+			assert.ok(!fs.existsSync(path.join(stubDir, 'called')) || !readCalled(stubDir).includes('marker-timeout'),
+				`[${shell}] timeout provider must never run`);
 		}
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
@@ -1500,7 +1493,7 @@ exec "${realFind}" "$@"
 
 function testResolveDedupesBeforeLookup() {
 	// Dash rejects libubox `export -n`; matched jshn + busybox ash,
-	// same timeout() prefix as tests/fwlive-jshn-compat.test.py.
+	// Uses the same BusyBox shell as the compat harness.
 	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
 	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	const pair = path.join(prefix, release);
@@ -1514,7 +1507,7 @@ function testResolveDedupesBeforeLookup() {
 		const libexec = path.join(work, 'libexec');
 		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
 		const plugin = path.join(libexec, 'rpcd', 'fwlive');
-		fs.writeFileSync(plugin, 'timeout() { /usr/bin/timeout "$@"; }\n' + fs.readFileSync(RPCD, 'utf8'), { mode: 0o755 });
+		fs.writeFileSync(plugin, fs.readFileSync(RPCD, 'utf8'), { mode: 0o755 });
 		const stubDir = path.join(work, 'stubs');
 		fs.mkdirSync(stubDir);
 		makeStub(stubDir, 'nslookup', `#!/bin/sh
@@ -1562,23 +1555,14 @@ function testRulesTempsCleanedOnKill() {
 	try {
 		makeStub(stubDir, 'nft', `#!/bin/sh
 echo started >> "${stubDir}/called"
-sleep 30
+sleep 2
 `);
 		makeStub(stubDir, 'uci', `#!/bin/sh
 exit 0
 `);
-		makeStub(stubDir, 'timeout', `#!/bin/sh
-case "$1" in
-	-s) shift 3 ;;
-	--foreground) shift 2 ;;
-	*) exit 2 ;;
-esac
-exec "$@"
-`);
 		const env = {
 			...process.env,
-			PATH: `${stubDir}:${process.env.PATH}`,
-			FWLIVE_TIMEOUT_BIN: path.join(stubDir, 'timeout')
+			PATH: `${stubDir}:${process.env.PATH}`
 		};
 		const before = new Set(listTemps());
 		const child = spawn('/bin/dash', [RPCD, 'call', 'rules'], {

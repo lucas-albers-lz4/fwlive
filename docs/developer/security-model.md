@@ -118,7 +118,7 @@ The rpcd plugin runs as **root**. Its entire input surface is:
 | `logging_status` | none | read |
 | `enable_wan_logging` / `disable_wan_logging` | none | write |
 
-`__selftest`, `__limits`, `__poll_clamp`, `__tmp_dir_ok`, `__resolve_one`, and
+`__selftest`, `__poll_clamp`, `__tmp_dir_ok`, `__resolve_one`, and
 `__parse_nslookup` are CLI-only and must never become ubus methods.
 
 `rules` dumps nftables only. If `nft` is missing or the dump fails, the
