@@ -877,6 +877,7 @@ return view.extend({
 		this.updateLoggingToolbarUi();
 		this.updateEmptyStateUi();
 		this.updateStatus();
+		if (wasWeakDevice !== this.weakDevice) this.updateAdaptiveBanner();
 		if (wasWeakDevice !== this.weakDevice && document.getElementById('fwlive-table'))
 			this.renderRows(true);
 	},
@@ -1467,6 +1468,12 @@ return view.extend({
 			);
 		if (this.resolveLoadShed)
 			parts.push(_('Hostname lookup paused while the router is under load.'));
+		if (this.weakDevice && this.rowLimit > constants.WEAK_DEVICE_DISPLAY_ROW_CAP)
+			parts.push(
+				_(
+					'Display limited to %d rows on this device; the larger Limit still buffers rows.'
+				).format(constants.WEAK_DEVICE_DISPLAY_ROW_CAP)
+			);
 		return parts;
 	},
 
@@ -1879,6 +1886,7 @@ return view.extend({
 		this.applyRowLimit(n);
 		this.saveRowLimit();
 		this.updateHash(this.readFilters());
+		this.updateAdaptiveBanner();
 		/* Reset flood throttle so Limit changes paint even during ping -A. */
 		this.ensureRenderScheduler().resetBudget();
 		const cancelForce = this.ensureRenderScheduler().forceNextRender();

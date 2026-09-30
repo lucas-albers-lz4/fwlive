@@ -126,6 +126,7 @@ the watch strip, which adds one sentence of explanation:
 | **server limited fetch** | The router returned fewer raw log lines this poll to protect itself. |
 | **hostname lookup paused** | Reverse-DNS lookups wait while the router is under load. |
 | **table refresh throttled** | Events arrive faster than the browser should repaint; the buffer still updates. |
+| **display limited to 250 rows** | On a weak device the table paints at most 250 rows; a larger Limit still buffers rows. |
 
 When a poll fails, the status line says **Connection lost — retrying…** if no
 reply arrived, **The router could not read the firewall log — retrying…** if

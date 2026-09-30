@@ -555,6 +555,14 @@ async function testLoadConditionVocabulary() {
 		],
 		['hostname lookup paused', 'fwlive-adaptive', (v) => (v.resolveLoadShed = true)],
 		[
+			'display limited to 250 rows',
+			'fwlive-adaptive',
+			(v) => {
+				v.weakDevice = true;
+				v.rowLimit = 1000;
+			}
+		],
+		[
 			'table refresh throttled',
 			'fwlive-flood',
 			(v) => (v.ensureRenderScheduler().isFloodSuppressed = () => true)
