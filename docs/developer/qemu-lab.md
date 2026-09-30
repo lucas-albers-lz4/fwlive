@@ -168,14 +168,22 @@ filter chain). The earlier count of 8 did not see the absolute `/bin/cat`
 readers through its PATH shims; the updated count includes them. The census
 records `CENSUS_FILTER_TOTAL=5` and `CENSUS_POLL_TOTAL=10`.
 
-### Post-#932 empty-log buffer
+### Post-#932 empty-log buffer (before #1053)
 
-`fwlive-log-filter.sh` now copies stdin to a second tempfile so a failed
+At #932, `fwlive-log-filter.sh` began copying stdin to a second tempfile so a failed
 `jsonfilter -e '@.log[*]'` can distinguish a healthy empty array (`-t '@.log'`
 → `array`) from malformed JSON. Host census is **7** filter execs (`dirname`,
 stdin `cat`, `jsonfilter`, `awk`, `mktemp`×2, `rm`) and **12** for the
-production-shaped poll. The host gate is `CENSUS_FILTER_TOTAL=7` and
-`CENSUS_POLL_TOTAL=12`.
+production-shaped poll. The then-current host gate was `CENSUS_FILTER_TOTAL=7`
+and `CENSUS_POLL_TOTAL=12`.
+
+### Direct-execution host census (#1053)
+
+Removing the two timeout pipe readers reduces the production-shaped poll to
+**10** PATH-shim-observable execs on the same mixed-log fixture. The filter
+remains **7**. The current host gate is `CENSUS_FILTER_TOTAL=7` and
+`CENSUS_POLL_TOTAL=10`. These counts exclude commands outside the shim list
+and builtin-only subshell forks; they are not complete process counts.
 
 ### Device budget-split table (Phase 0b — armsr TCG)
 

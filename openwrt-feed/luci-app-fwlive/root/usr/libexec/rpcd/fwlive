@@ -24,7 +24,7 @@ RESOLVE_MAX=32
 # DNS names are at most 253 octets; a longer PTR answer is treated as no name.
 RESOLVE_NAME_MAX=253
 # Elapsed budget stops starting additional lookups; it cannot interrupt an
-# in-progress helper. A stalled helper can hold the RPC worker indefinitely.
+# in-progress helper. fwlive adds no helper deadline; rpcd limits the plugin process, not descendants.
 # /proc/uptime avoids NTP steps; RESOLVE_MAX bounds work if uptime is unreadable.
 RESOLVE_BUDGET=5
 # Cap raw logd lines per poll (~2000 ≈ typical logd ring / ~200 KB JSON before filter).

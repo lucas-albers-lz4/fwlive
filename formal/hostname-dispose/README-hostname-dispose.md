@@ -46,8 +46,9 @@ The modeled liveness result assumes a pending ubus lookup eventually replies:
 `Spec` gives weak fairness to `Arrive` and `Settle`. It does not show that a
 runtime helper finishes within a wall-clock bound. rpcd invokes helpers
 directly without GNU `timeout`; the resolver elapsed budget stops starting
-additional lookups but cannot interrupt one already running, which can hold
-its rpcd worker indefinitely. This is an accepted maintenance tradeoff.
+additional lookups but cannot interrupt one already running. Stock rpcd applies its configured execution timeout
+(30 seconds) to the plugin process, without descendant cleanup; a helper can
+outlive the request. This is an accepted maintenance tradeoff.
 
 ## Why the late write (if it existed) would ALSO be harmless — apply-site reading
 

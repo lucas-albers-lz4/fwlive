@@ -3,10 +3,11 @@
 > **2026-09-30 #1053 / #980 direct-execution delta:** Read helpers (`ubus`,
 > the filter pipeline, `nft`, and `nslookup`) execute directly on every
 > installation. The package no longer requires `coreutils-timeout`; provider
-> discovery, GNU/BusyBox timeout wrappers, process-group draining, and
+> discovery, GNU/BusyBox timeout wrappers, process-group draining, `__limits`, and
 > `timeout_missing` diagnostics/recovery are removed. No new watchdog is
-> introduced. A stalled helper or descendant holding a pipe can hold an RPC
-> worker indefinitely. Resolver count/elapsed-budget checks only prevent
+> introduced. fwlive imposes no helper deadline. Stock rpcd kills the plugin process
+> after its configured execution timeout (30 seconds), without descendant
+> cleanup; helpers can outlive the request. Direct CLI calls lack this rpcd bound. Resolver count/elapsed-budget checks only prevent
 > starting additional lookups; they cannot interrupt the current lookup.
 > This reliability tradeoff was explicitly accepted by the maintainer to keep
 > the implementation simple; reconsider with real user stall/recovery reports.
@@ -587,7 +588,7 @@ Known, judged acceptable. Reopen only with new evidence.
 |----------|--------------|
 | Any local UID can inject syslog lines that pass the firewall classifier | `logd` chmods its socket 0666 upstream (ubox `log/syslog.c`). Not fixable from this package; the consequence is forged rows in the view, and every field is already rendered as text |
 | `/proc/uptime` unreadable during `resolve` prints 0 elapsed, so the budget admission check never trips | `RESOLVE_MAX` still caps lookup count, but each direct lookup can stall indefinitely regardless of clock availability. No duration bound is claimed |
-| Direct read helpers may stall indefinitely and retain RPC workers/pipes | Maintainer explicitly accepted in #980/#1053 in exchange for simpler code and no timeout dependency. Adaptive polling cannot cancel an in-progress RPC; real user reliability reports are the trigger to reconsider containment |
+| Direct read helpers may outlive rpcd requests and retain processes/pipes | Maintainer explicitly accepted in #980/#1053 in exchange for simpler code and no timeout dependency. Stock rpcd limits the plugin process (configured 30 seconds), but fwlive adds no shorter deadline or descendant cleanup; direct CLI calls can stall indefinitely. Adaptive polling cannot cancel an in-progress RPC; real user reliability reports are the trigger to reconsider containment |
 | A LuCI admin session is root-equivalent | Structural to LuCI. It is the reason script execution on this page is treated as a root compromise, not a lesser bug |
 | `uci commit firewall` is package-wide ([#191](https://github.com/lucas-albers-lz4/fwlive/issues/191) residual) | OpenWrt has no option-scoped commit. Pre/post-stage gates refuse when foreign staging is visible. A second privileged writer can still stage in the short interval before commit and publish those changes in the same `uci commit` — two root processes publishing each other's already-staged work. Unprivileged staging is blocked by libuci dir modes. Reopen only with an unprivileged or cross-session path. |
 | `feed_publish_ensure_usign` leaves its build dir for the process lifetime | `PATH` points into it and `usign` is called later; the name is unpredictable per invocation, and `/tmp` is reaped on reboot |

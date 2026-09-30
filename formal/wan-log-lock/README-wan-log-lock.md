@@ -15,7 +15,9 @@ stays outside the lock.
 The rpcd read helpers are invoked directly and have no GNU `timeout` package
 dependency. The rules and poll paths retain their existing size/count limits;
 the resolver elapsed budget only stops additional lookups. A helper already in
-progress is not interrupted and can hold an rpcd worker indefinitely. That
+progress is not interrupted by fwlive. Stock rpcd applies its configured
+execution timeout (30 seconds) to the plugin process, without descendant
+cleanup; a helper can outlive the request. That
 accepted maintenance tradeoff is outside this lock model; revisit it if users
 report reliability problems. WAN lock acquisition itself has no added package
 or production dependency.

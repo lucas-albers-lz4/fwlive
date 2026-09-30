@@ -47,8 +47,9 @@ No `luasrc/` — modern JS-only app.
 The rpcd plugin invokes its read helpers directly and does not require GNU
 `timeout`. Existing line, byte, and count limits still apply, and reverse DNS
 stops starting lookups after its elapsed-time budget. These controls do not
-interrupt a helper already running; a stalled helper can hold its rpcd worker
-indefinitely. This is an accepted maintenance tradeoff, to be reconsidered if
+interrupt a helper already running; a stalled helper has no fwlive deadline. Stock rpcd kills the plugin process
+after its configured execution timeout (30 seconds), but does not kill its
+descendants; helpers can outlive the request. This is an accepted maintenance tradeoff, to be reconsidered if
 users report reliability problems.
 
 ## Maintenance
