@@ -119,6 +119,58 @@ function testScopedIpv6UsesBareCacheKey() {
 	);
 }
 
+function testStripZoneAndCachedName() {
+	assert.strictEqual(hostname.stripZone('fe80::1%eth0'), 'fe80::1');
+	assert.strictEqual(hostname.stripZone('192.0.2.1'), '192.0.2.1');
+	assert.strictEqual(hostname.stripZone(''), '');
+	assert.strictEqual(hostname.stripZone(undefined), undefined);
+
+	const map = new Map([['fe80::1', 'host.local']]);
+	assert.strictEqual(hostname.cachedName(map, 'fe80::1%eth0'), 'host.local');
+	assert.strictEqual(hostname.cachedName(map, '192.0.2.9'), null);
+	assert.strictEqual(hostname.cachedName(null, 'fe80::1'), null);
+	assert.strictEqual(hostname.cachedName(map, ''), null);
+}
+
+function testTableScopedIpv6ReadTouchesLru() {
+	const log = loadFwliveModule('log');
+	const links = loadFwliveModule('links', { log: log, hostname: hostname, E: luciE.E });
+	const table = loadFwliveModule('table', {
+		log: log,
+		links: links,
+		hostname: hostname,
+		E: luciE.E
+	});
+	const map = new Map();
+	hostname.lruSet(map, 'fe80::1', 'host.local', 2);
+	hostname.lruSet(map, 'b', 'two.example', 2);
+	const body = luciE.E('tbody', {}, []);
+	table.renderRows(
+		body,
+		{
+			rows: [{ id: 'scoped', src: 'fe80::1%eth0' }],
+			columns: ['src'],
+			forceRender: true,
+			viewMode: 'detailed',
+			messageLayout: 'wrap',
+			expandedRowId: null,
+			rowTint: false,
+			showHostnames: true,
+			hostnameCache: map
+		},
+		{
+			onRowClick: function () {},
+			onFilterClick: function () {},
+			actionRowTintClass: function () { return ''; }
+		}
+	);
+	const linkText = body.childNodes[0].childNodes[0].childNodes[0].childNodes[0].textContent;
+	assert.strictEqual(linkText, 'host.local', 'scoped row must render the bare-address hostname');
+	hostname.lruSet(map, 'c', 'three.example', 2);
+	assert.strictEqual(map.has('fe80::1'), true, 'table reads must refresh the visible entry');
+	assert.strictEqual(map.has('b'), false);
+}
+
 function testFailTtl() {
 	const failed = new Map();
 	hostname.failMark(failed, '192.0.2.1', 10_000);
@@ -141,6 +193,8 @@ testLruGetTouches();
 testDisplayReadTouchesLru();
 testAddressCellUsesWarmHostname();
 testScopedIpv6UsesBareCacheKey();
+testStripZoneAndCachedName();
+testTableScopedIpv6ReadTouchesLru();
 testFailTtl();
 testFailCap();
 console.log('fwlive hostname cache tests passed');

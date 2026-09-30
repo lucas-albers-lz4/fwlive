@@ -28,6 +28,16 @@ assert.ok(constants.COLUMN_SETS.simple.indexOf('flow') >= 0);
 assert.ok(constants.COLUMN_SETS.detailed.indexOf('message') >= 0);
 assert.deepStrictEqual(constants.ROW_TINT_OPTIONS, ['off', 'classic', 'accessible']);
 assert.strictEqual(constants.DEFAULT_ROW_TINT, 'classic');
+{
+	const rpcdSrc = fs.readFileSync(path.join(PKG, 'root/usr/libexec/rpcd/fwlive'), 'utf8');
+	const resolveMax = rpcdSrc.match(/^RESOLVE_MAX=(\d+)$/m);
+	assert.ok(resolveMax, 'rpcd RESOLVE_MAX assignment not found');
+	assert.strictEqual(
+		constants.RESOLVE_BATCH_MAX,
+		Number(resolveMax[1]),
+		'RESOLVE_BATCH_MAX must equal rpcd RESOLVE_MAX'
+	);
+}
 assert.ok(
 	typeof constants.APP_VERSION === 'string' && /^\d+\.\d+\.\d+$/.test(constants.APP_VERSION)
 );
@@ -144,6 +154,19 @@ assert.strictEqual(typeof log.formatCell, 'function');
 assert.strictEqual(typeof log.parseFilterValue, 'function');
 assert.strictEqual(typeof log.formatFilterChipLabel, 'function');
 assert.strictEqual(typeof log.filterFieldLabel, 'function');
+
+/* Chip "contains" wording must follow matchesFilter's substring semantics. */
+for (const field of ['q', 'action', 'interface', 'proto', 'src', 'dst', 'sport', 'dport']) {
+	const row = {};
+	row[field] = 'abcdef';
+	const filters = {};
+	filters[field] = 'bcd';
+	assert.strictEqual(
+		log.isSubstringFilterField(field),
+		log.matchesFilter(row, filters),
+		'isSubstringFilterField(' + field + ') disagrees with matchesFilter'
+	);
+}
 
 /* --- links --- */
 const links = loadFwliveModule('links', { log: log });
@@ -439,6 +462,7 @@ const row = {
 table.renderRows(
 	body,
 	{
+		forceRender: true,
 		rows: [row],
 		columns: ['action', 'time', 'flow', 'proto'],
 		viewMode: 'detailed',
@@ -470,6 +494,7 @@ const simpleBody = {
 table.renderRows(
 	simpleBody,
 	{
+		forceRender: true,
 		rows: [row],
 		columns: ['time', 'action'],
 		viewMode: 'simple',
@@ -507,6 +532,7 @@ const outboundOnlyBody = {
 table.renderRows(
 	outboundOnlyBody,
 	{
+		forceRender: true,
 		rows: [
 			Object.assign({}, row, { interface_in: '', interface_out: 'eth0', interface: 'eth0' })
 		],

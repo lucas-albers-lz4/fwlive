@@ -379,6 +379,24 @@ function testUpdateHashUsesReplaceState() {
 	assert.deepStrictEqual(h.view.hashEntries(), []);
 }
 
+function testPollPaintLeavesHashAlone() {
+	const h = loadFwliveView({ location: { hash: '#q=wan' } });
+	const tableEl = h.document.createElement('table');
+	tableEl.setAttribute('id', 'fwlive-table');
+	const body = h.document.createElement('tbody');
+	tableEl.appendChild(body);
+	h.view.entries = [{ id: '1', src: '192.0.2.1', message: 'wan drop' }];
+	h.history.calls.length = 0;
+
+	h.view.renderRows(true);
+	h.view.renderRows(false);
+	assert.ok(body.childNodes.length > 0, 'fixture must reach the table paint');
+	assert.strictEqual(h.history.calls.length, 0, 'paints must not rewrite the URL hash');
+
+	h.view.onFilterInput();
+	assert.strictEqual(h.history.calls.length, 1, 'filter input must write the URL hash');
+}
+
 function testApplyHashIgnoresUnlistedAndPersistedKeys() {
 	const h = loadFwliveView({
 		location: {
@@ -445,5 +463,6 @@ testApplyHashUnlistedActionStaysSelected();
 testApplyHashPreservesEqualsInValue();
 testUpdateHashRoundTripsEqualsAndAmpersand();
 testUpdateHashUsesReplaceState();
+testPollPaintLeavesHashAlone();
 testApplyHashHostileAsText();
 console.log('fwlive chips/hash sink tests passed');

@@ -33,6 +33,14 @@ return baseclass.extend({
 	POLL_RTT_FAST_MS: 300,
 	POLL_RTT_SLOW_MS: 1500,
 	POLL_RTT_STREAK: 3,
+	/* Rules-map retry backoff; attempts include the initial read, a reload starts fresh. */
+	RULES_RETRY_BASE_MS: 5000,
+	RULES_RETRY_MAX_DELAY_MS: 60000,
+	RULES_RETRY_MAX_ATTEMPTS: 6,
+	/* Addresses per fwlive.resolve call; must equal rpcd RESOLVE_MAX. */
+	RESOLVE_BATCH_MAX: 32,
+	RESOLVE_SHED_COOLDOWN_MS: 60000,
+	FILTER_INPUT_DEBOUNCE_MS: 100,
 	VIEW_MODES: ['simple', 'detailed'],
 	COLUMN_SETS: {
 		simple: ['action', 'time', 'iface', 'flow', 'proto', 'rule'],
