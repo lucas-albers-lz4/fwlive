@@ -444,12 +444,15 @@ exit 1
 
 function testRulesNftParseNoPerLineSed() {
 	// #504: map_from_nft_stream must not fork echo|sed per dump line.
-	const body = shellFunctionBody(fs.readFileSync(RPCD, 'utf8'), 'map_from_nft_stream');
+	const src = fs.readFileSync(RPCD, 'utf8');
+	const body = shellFunctionBody(src, 'map_from_nft_stream');
 	assert.doesNotMatch(
 		body,
 		/echo\s+"\$line"\s+\|\s+sed/,
 		'map_from_nft_stream must not fork echo|sed per line'
 	);
+	/* The one awk pass must live in nft_dump_fields. */
+	shellFunctionBody(src, 'nft_dump_fields');
 }
 
 function testNftDumpFieldsTsvEscapeNoGsub() {
@@ -1709,16 +1712,22 @@ exit 1
 	}
 }
 
-function testResolveIgnoresRulesMapCaps() {
+function testResolveBoundsNameLength() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-1045-resolve-cap-'));
 	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-1045-resolve-cap-work-'));
-	const huge = 'a'.repeat(70000);
+	const longest = 'a'.repeat(253);
 	try {
-		makeStub(stubDir, 'nslookup', '#!/bin/sh\nprintf \'%s\\n\' ' + shellQuote('name = ' + huge) + '\n');
-		const got = callResolve(resolveCallEnv(stubDir, work), { addresses: ['192.0.2.1'] });
-		assert.equal(got.res.error, undefined);
-		assert.equal(got.res.truncated, undefined);
-		assert.equal(got.res.names['192.0.2.1'], huge);
+		for (const [name, want] of [
+			[longest, longest],
+			[longest + 'a', ''],
+			['a'.repeat(70000), '']
+		]) {
+			makeStub(stubDir, 'nslookup', '#!/bin/sh\nprintf \'%s\\n\' ' + shellQuote('name = ' + name) + '\n');
+			const got = callResolve(resolveCallEnv(stubDir, work), { addresses: ['192.0.2.1'] });
+			assert.equal(got.res.error, undefined);
+			assert.equal(got.res.truncated, undefined);
+			assert.equal(got.res.names['192.0.2.1'], want, `PTR of ${name.length} chars`);
+		}
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
 		fs.rmSync(work, { recursive: true, force: true });
@@ -1955,7 +1964,7 @@ testTimeoutMissingIsDistinctAndSkipsCommands();
 testResolveJshnMissing();
 testResolveJshnLibraryMissing();
 testResolveNxdomainEmptyName();
-testResolveIgnoresRulesMapCaps();
+testResolveBoundsNameLength();
 testPollLinesJshnCauses();
 testResolveSkipsNonStringAddresses();
 testLoggingStatusNeverSilent();

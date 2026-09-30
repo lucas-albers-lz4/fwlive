@@ -21,6 +21,8 @@ LOGGING_SH="$LIBEXEC_DIR/fwlive-logging.sh"
 ADAPTIVE_SH="$LIBEXEC_DIR/fwlive-adaptive-cap.sh"
 # Max reverse-DNS lookups per resolve call (~32 names keeps nslookup load bounded on small routers).
 RESOLVE_MAX=32
+# DNS names are at most 253 octets; a longer PTR answer is treated as no name.
+RESOLVE_NAME_MAX=253
 # Per-lookup nslookup timeout (integer seconds — BusyBox `timeout` truncates
 # fractional values to 0 on OpenWrt 23.05/1.36, so 0.5 would silently
 # degrade to no timeout; luna fold 2026-08-10). The wall-clock budget
@@ -996,6 +998,7 @@ resolve_addresses() {
 		# NXDOMAIN / timeout: resolve_hostname returns 1. set -e
 		# cannot apply to this assignment.
 		name=$(resolve_hostname "$ip") || name=
+		[ "${#name}" -le "$RESOLVE_NAME_MAX" ] || name=
 		esc_key=$(printf '%s' "$ip" | json_escape)
 		esc_val=
 		if [ -n "$name" ]; then
