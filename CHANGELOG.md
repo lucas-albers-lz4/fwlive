@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.49] — 2026-10-01
+
+### Fixed
+- Refresh Summary data on successful polls, back off resolver errors, clear expired load-shed status, and avoid duplicate polling during load, visibility, and cadence changes (#1057)
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
+
 ## [v0.1.48] — 2026-09-30
 
 ### Fixed
@@ -731,5 +744,6 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.3]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.2...v0.1.3
 [v0.1.2]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.1...v0.1.2
 [v0.1.1]: https://github.com/lucas-albers-lz4/fwlive/releases/tag/v0.1.1
+[v0.1.49]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.48...v0.1.49
 [v0.1.48]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.47...v0.1.48
 [v0.1.47]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.46...v0.1.47
