@@ -551,9 +551,9 @@ should carry a note saying what would raise it.
 | Forwarding-SLO paired runner scopes and restores the adaptive sentinel, uses a separate local Playwright worker with traffic-bound marker-file IPC, tracks requests through completion, requires successful drained viewer requests, and atomically publishes caller-selected reports | `host + manual` | `scripts/qemu-forwarding-slo-run.sh`, `tests/fwlive-forwarding-slo-viewer.mjs`, `tests/lib/fwlive-forwarding-slo-report.mjs`; shell syntax/ShellCheck/Node behavioral checks plus manual paired runs in #344 |
 | Adaptive poll reply carries accurate `messages_received` (all entries enumerated by `jsonfilter`, before firewall classification); failed reads fall back to `0` | `host` | `tests/fwlive-shell-filter.test.js`, `tests/fwlive-rpcd-security.test.js`, and adaptive merge test |
 | Adaptive summary is same-pass, top-of-shown-sample data; values are JSON-escaped and bounded to ≤1 KiB, and adaptive-off omits it | `host` | `tests/fwlive-shell-filter.test.js` `runSummaryContract`; generated classifier + rpcd gate |
-| Layer 2 client backoff: visibility pause, RTT cadence, adaptive/shed banners; resolve honors `disabled:load` with a 60s retry cooldown | `host` | `tests/fwlive-view-layer2-backoff.test.js`; banners via `textContent` only (`#fwlive-adaptive`) |
+| Layer 2 client backoff: visibility pause, RTT cadence, adaptive/shed banners; active summary follows each successful poll and three fast replies restore rows; resolve honors `disabled:load` with a 60s retry cooldown | `host` | `tests/fwlive-view-layer2-backoff.test.js`; banners and summary via `textContent` only |
 | Weak-device row rendering is capped at 250 rows while stronger devices retain the selected Limit; cap notice is text-only and uses the server's strict boolean | `host` | `tests/fwlive-view-layer2-backoff.test.js` `testWeakDeviceDisplayCap`; browser matrix in #339 |
-| Auto/Manual fetch-budget values are validated against a bounded client option set, URL/localStorage state is cosmetic and does not widen ACLs, and budget/effective-limit status is rendered with text nodes | `host` | `tests/fwlive-view-fetch-budget.test.js`; source-to-POT/i18n gates; `view/status/fwlive.js` |
+| Auto/Manual fetch-budget values are validated against a bounded client option set; poll and resolve pass declared positional address arrays; URL/localStorage state does not widen ACLs and budget/effective-limit status uses text nodes | `host` | `tests/fwlive-view-fetch-budget.test.js`; host/browser RPC adapters map declared positional values to named wire fields; source-to-POT/i18n gates; `view/status/fwlive.js` |
 | Empty filter output on `poll` returns `error:filter_empty` | `manual` | Source inspection of the guard in `fetch_firewall_logs`; the shipped filter normally prints `{"log":[…]}`. No fault-injection test drives a zero-exit empty filter through the production rpcd entry point, so this is not `host` proof. Promote only with a focused test of that path. |
 | `resolve` without `jshn` / with malformed input returns `error:jshn_missing` / `error:invalid_input` | `host` | same file `testResolveJshnMissing`; `invalid_input` runs only where `jshn` exists (skips on stock hosts). UI keeps the full resolve reply (no `expect` unwrap) so `disabled:load` / `error` siblings reach the view (#306 Layer 2). |
 | `logging_status` always returns the full 10-key shape; failures travel as `blockers`/`warnings` with `ready:false`, never a silent empty object | `host` | same file `testLoggingStatusNeverSilent`; #378 `legacy_iptables_detected` warning uses fixtureable procfs table-name probes and remains diagnostic-only |
@@ -1490,3 +1490,29 @@ run because the host has no `ubus`/`ubusd` executables. Connection setup, object
 lookup, remote method cancellation, and other helper lifetimes remain outside
 this timeout. The earlier #1053 artifact and 30-second rpcd probes predate this
 follow-up; they do not verify its invocation-timeout behavior.
+
+### 2026-09-30 — #1055 summary refresh and #1056 LuCI RPC arguments
+
+**Scope.** The view passes poll and resolve address arrays as positional values
+to their `params: ['addresses']` declarations. While summary mode remains
+active, every successful valid poll refreshes or invalidates the displayed
+summary regardless of RTT; the slow threshold still gates initial entry and
+three fast replies still return to rows. Missing, invalid, or empty summary
+data replaces the prior values.
+
+**Proof and limits.** `host`: `tests/fwlive-view-layer2-backoff.test.js`
+checks repeated middle-band refresh, missing/empty summary replacement, and
+successful fast recovery. `tests/fwlive-view-fetch-budget.test.js` checks the
+manual poll budget and resolver IP array at the serialized named-argument
+boundary. The host and browser RPC mocks now apply `rpc.declare` positional
+mapping before invoking mocks. Manual inspection of the supported 24.10
+`rpc.js` confirms that array declarations map each positional argument to its
+named wire field. Separate local captures used the shipped view and real reply
+parser with both the actual `rpc.js` at local LuCI base `421e084c97` and the
+official supported 24.10 `rpc.js`. Poll budget 1000 reached matched 24.10
+BusyBox/jshn. The resolver wire array was asserted, then a mocked resolver
+reply was parsed and its names reached the cache; this did not exercise
+resolver addresses through jshn. The browser smoke passed with mocked
+services; no installed-device LuCI/ubus session was run for this patch.
+Summary values continue to reach the page through `textContent`; no ACL scope
+or RPC method grant changed.

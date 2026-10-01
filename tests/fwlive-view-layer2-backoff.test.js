@@ -460,7 +460,7 @@ async function testRefreshTriggersSerialize() {
 	v2.loadLoggingStatus = function () {
 		return Promise.resolve();
 	};
-	v2.requestPoll = function () {
+	v2.catchUpPoll = function () {
 		startupRequests++;
 		return Promise.resolve();
 	};
@@ -746,6 +746,88 @@ async function testSummaryFallbackAndRecovery() {
 	console.log('fwlive-view layer2: summary fallback/recovery OK');
 }
 
+function applySummaryPoll(view, id, ip, rtt, summary, includeSummary) {
+	const reply = {
+		adaptive: 1,
+		log: [{
+			id: id,
+			time: 1704067200 + id,
+			msg: 'fw4: DROP IN=wan OUT= SRC=' + ip + ' DST=192.0.2.2 PROTO=TCP DPT=22'
+		}]
+	};
+	if (includeSummary) reply.summary = summary;
+	view.applyPollReply({ rtt: rtt, reply: reply }, {
+		resumeMerge: false,
+		pausedAtStart: false,
+		fetchLines: 200,
+		beforeLength: view.entries.length
+	});
+}
+
+function summaryFor(ip, count) {
+	return {
+		top_talkers: [{ value: ip, count: count }],
+		top_drops: [{ value: 'drop-' + count, count: count }],
+		top_rules: []
+	};
+}
+
+async function testActiveSummaryRefreshAndInvalidation() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.nowMs = function () { return 10000; };
+	applySummaryPoll(v, 1, '203.0.113.1', 1601, summaryFor('203.0.113.1', 1), true);
+	assert.strictEqual(v.summaryMode, true, 'slow successful poll must enter summary mode');
+
+	for (let id = 2; id <= 4; id++) {
+		applySummaryPoll(v, id, '203.0.113.2', 700, summaryFor('203.0.113.2', id), true);
+		assert.strictEqual(v.summaryMode, true, 'middle-band poll must keep summary mode active');
+		assert.strictEqual(v.summaryData.top_talkers[0].value, '203.0.113.2');
+		assert.strictEqual(v.summaryData.top_talkers[0].count, id);
+		assert.match(h.document.getElementById('fwlive-summary-body').textContent, /203\.0\.113\.2/);
+	}
+	assert.strictEqual(v.entries[v.entries.length - 1].src, '203.0.113.2');
+
+	applySummaryPoll(v, 5, '203.0.113.2', 700, undefined, false);
+	assert.strictEqual(v.summaryData, null, 'a successful reply with no summary must invalidate prior data');
+	assert.match(
+		h.document.getElementById('fwlive-summary-body').textContent,
+		/Summary data is unavailable/
+	);
+	assert.doesNotMatch(
+		h.document.getElementById('fwlive-summary-body').textContent,
+		/203\.0\.113\.2/,
+		'missing summary must not leave old values visible'
+	);
+
+	applySummaryPoll(v, 6, '203.0.113.2', 700, {
+		top_talkers: [],
+		top_drops: [],
+		top_rules: []
+	}, true);
+	const body = h.document.getElementById('fwlive-summary-body').textContent;
+	assert.match(body, /Top talkers:\nnone/);
+	assert.doesNotMatch(body, /203\.0\.113\.2/, 'empty summary must replace previous values');
+	console.log('fwlive-view layer2: active summary refresh/invalidation OK');
+}
+
+async function testSummaryFastRecoveryUsesSuccessfulReplies() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.nowMs = function () { return 10000; };
+	applySummaryPoll(v, 1, '203.0.113.1', 1601, summaryFor('203.0.113.1', 1), true);
+	applySummaryPoll(v, 2, '203.0.113.2', 100, summaryFor('203.0.113.2', 2), true);
+	assert.strictEqual(v.summaryMode, true, 'first fast reply must not end recovery hysteresis');
+	assert.strictEqual(v.summaryData.top_talkers[0].value, '203.0.113.2');
+	applySummaryPoll(v, 3, '203.0.113.3', 100, summaryFor('203.0.113.3', 3), true);
+	assert.strictEqual(v.summaryMode, true, 'second fast reply must not end recovery hysteresis');
+	assert.strictEqual(v.summaryData.top_talkers[0].value, '203.0.113.3');
+	applySummaryPoll(v, 4, '203.0.113.4', 100, summaryFor('203.0.113.4', 4), true);
+	assert.strictEqual(v.summaryMode, false, 'third fast reply must restore normal rows');
+	assert.strictEqual(v.summaryData, null, 'leaving summary mode must clear compact data');
+	console.log('fwlive-view layer2: successful fast-poll summary recovery OK');
+}
+
 async function testSummaryShowRowsRepaintOnPoll() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -937,6 +1019,85 @@ async function testResolveRpcErrorNoFailMark() {
 		assert.strictEqual(v.hostnameCache.size, 0, code + ': must not cache names on rpc error');
 	}
 	console.log('fwlive-view layer2: resolve rpc error OK');
+}
+
+async function testResolveRpcErrorBacksOff() {
+	for (const failure of ['no_resolver', 'invalid_input', 'throw']) {
+		let calls = 0;
+		let healthy = false;
+		const h = loadFwliveView({
+			rpcMocks: {
+				'fwlive.poll': async function () {
+					return { log: [], adaptive: 1 };
+				},
+				'fwlive.resolve': async function () {
+					calls++;
+					if (healthy) return { names: { '192.0.2.1': 'host.example' } };
+					if (failure === 'throw') throw new Error('rpc unavailable');
+					return { names: {}, error: failure };
+				}
+			}
+		});
+		const v = h.view;
+		v.showHostnames = true;
+		v.hostnameCache = new Map();
+		v.hostnameFailed = new Map();
+		const entries = [{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }];
+		await v.resolveHostnamesForEntries(entries);
+		await v.resolveHostnamesForEntries(entries);
+		await v.resolveHostnamesForEntries(entries);
+		assert.strictEqual(calls, 1, failure + ': resolver failures must not retry every poll');
+		assert.strictEqual(v.hostnameFailed.size, 0, failure + ': back-off is not a DNS miss');
+
+		v.resolveErrorUntil = v.nowMs() - 1;
+		await v.resolveHostnamesForEntries(entries);
+		assert.strictEqual(calls, 2, failure + ': resolve retries after the back-off');
+
+		v.onShowHostnamesChange({ target: { checked: false } });
+		v.onShowHostnamesChange({ target: { checked: true } });
+		assert.strictEqual(v.resolveErrorUntil, 0, failure + ': re-enabling hostnames clears the back-off');
+		await v.resolveHostnamesForEntries(entries);
+		assert.strictEqual(calls, 3, failure + ': re-enabling hostnames retries immediately');
+
+		healthy = true;
+		v.resolveErrorUntil = 0;
+		await v.resolveHostnamesForEntries(entries);
+		assert.strictEqual(v.resolveErrorUntil, 0, failure + ': success clears the back-off');
+		assert.strictEqual(v.hostnameCache.get('192.0.2.1'), 'host.example');
+	}
+	console.log('fwlive-view layer2: resolve rpc error back-off OK');
+}
+
+async function testResolveShedLabelClears() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				return { names: {}, disabled: 'load' };
+			}
+		}
+	});
+	const v = h.view;
+	v.showHostnames = true;
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	await v.resolveHostnamesForEntries([{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }]);
+	assert.strictEqual(v.resolveLoadShed, true);
+
+	/* Cooldown expired and nothing needs resolving: no reply can clear it. */
+	v.resolveShedUntil = v.nowMs() - 1;
+	await v.resolveHostnamesForEntries([]);
+	assert.strictEqual(v.resolveLoadShed, false, 'expired shed must not stay paused without a lookup');
+	assert.ok(!/hostname lookup paused/.test(v.statusSuffix()));
+
+	await v.resolveHostnamesForEntries([{ id: '2', src: '192.0.2.2', dst: '198.51.100.1' }]);
+	assert.strictEqual(v.resolveLoadShed, true);
+	v.onShowHostnamesChange({ target: { checked: false } });
+	assert.strictEqual(v.resolveLoadShed, false, 'turning hostnames off clears the paused state');
+	assert.ok(!/hostname lookup paused/.test(v.statusSuffix()));
+	console.log('fwlive-view layer2: resolve shed label clears OK');
 }
 
 async function testResolveTruncatedNoFailMark() {
@@ -1705,11 +1866,15 @@ async function testPausedDisplayControlsPaint() {
 		await testWarmHostnameTogglePaintsCache();
 		await testShedSurfacing();
 		await testSummaryFallbackAndRecovery();
+		await testActiveSummaryRefreshAndInvalidation();
+		await testSummaryFastRecoveryUsesSuccessfulReplies();
 		await testSummaryShowRowsRepaintOnPoll();
 		await testSummaryEmptyStaysHiddenOnRepaint();
 		await testStreakResetOnAdaptiveOff();
 		await testResolveShedCooldown();
 		await testResolveRpcErrorNoFailMark();
+	await testResolveRpcErrorBacksOff();
+	await testResolveShedLabelClears();
 		await testResolveTruncatedNoFailMark();
 		await testResumeStaleSkipsRender();
 		await testResumeMergeSurvivesVisibilityRace();
