@@ -114,7 +114,7 @@ The rpcd plugin runs as **root**. Its entire input surface is:
 |--------|-------|-------|
 | `rules` | none | read |
 | `poll` | line count in `addresses[0]` | read |
-| `resolve` | address array (max `RESOLVE_MAX`) | read |
+| `resolve` | address array; at most `RESOLVE_MAX` lookup starts | read |
 | `logging_status` | none | read |
 | `enable_wan_logging` / `disable_wan_logging` | none | write |
 
