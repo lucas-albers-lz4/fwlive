@@ -126,10 +126,16 @@ async function testCadenceRegistration() {
 		}),
 		[
 			['add', 1],
-			['remove', undefined],
-			['add', 5]
+			['add', 5],
+			['remove', undefined]
 		]
 	);
+	assert.notStrictEqual(
+		h.pollOps[1].fn,
+		h.pollOps[0].fn,
+		'each registration is a distinct entry'
+	);
+	assert.strictEqual(h.pollOps[2].fn, h.pollOps[0].fn, 'the previous entry is removed');
 	h.hide();
 	c.setCadence(10);
 	assert.strictEqual(h.pollOps.length, 4, 'hidden cadence changes must not register polling');
@@ -232,8 +238,8 @@ async function testRegistrationAndInitialHidden() {
 		h.pollOps.map((op) => [op.op, op.interval]),
 		[
 			['add', 5],
-			['remove', undefined],
-			['add', 3]
+			['add', 3],
+			['remove', undefined]
 		],
 		'fallback uses the injected cadence'
 	);
@@ -297,8 +303,134 @@ async function testSynchronousReentryAndDisposal() {
 	console.log('poll coordinator: synchronous reentry and disposal OK');
 }
 
+/* Mirrors luci.js Poll: dedupe by fn, an idle add starts the loop and steps
+ * synchronously, and removing the last entry stops it. */
+function createLuciPoll() {
+	const p = {
+		queue: [],
+		tick: 0,
+		timer: null,
+		active: function () {
+			return p.timer != null;
+		},
+		add: function (fn, interval) {
+			for (const e of p.queue) if (e.fn === fn) return false;
+			p.queue.push({ r: true, i: interval >>> 0, fn: fn });
+			if (p.tick != null && !p.active()) p.start();
+			return true;
+		},
+		remove: function (fn) {
+			p.queue = p.queue.filter((e) => e.fn !== fn);
+			if (!p.queue.length && p.active()) {
+				p.timer = null;
+				p.tick = 0;
+			}
+		},
+		start: function () {
+			p.tick = 0;
+			if (p.queue.length) {
+				p.timer = 1;
+				p.step();
+			}
+		},
+		step: function () {
+			for (const e of p.queue.slice()) {
+				if (p.tick % e.i !== 0 || !e.r) continue;
+				e.r = false;
+				Promise.resolve(e.fn()).finally(() => {
+					e.r = true;
+				});
+			}
+			p.tick++;
+		}
+	};
+	return p;
+}
+
+async function testLuciPollNoBackToBackRequests() {
+	let hidden = false;
+	const handlers = [];
+	const runs = [];
+	const luciPoll = createLuciPoll();
+	const c = pollCoordinator.create({
+		poll: luciPoll,
+		visibility: {
+			add: (fn) => handlers.push(fn),
+			remove: () => {}
+		},
+		isHidden: () => hidden,
+		run: function (epoch) {
+			let release;
+			const promise = new Promise((resolve) => {
+				release = resolve;
+			});
+			runs.push({ epoch: epoch, release: release });
+			return promise;
+		},
+		initialCadence: 1
+	});
+
+	c.startPolling();
+	assert.strictEqual(runs.length, 1, 'an idle LuCI loop runs the new entry immediately');
+	const loadCatchUp = c.catchUp();
+	assert.strictEqual(c.getState().queued, false, 'load catch-up joins the running request');
+	runs[0].release('first');
+	assert.strictEqual(await loadCatchUp, 'first');
+	await new Promise((resolve) => setImmediate(resolve));
+	assert.strictEqual(runs.length, 1, 'load must not issue a back-to-back request');
+
+	c.setCadence(5);
+	assert.strictEqual(luciPoll.active(), true, 'cadence change keeps the LuCI loop running');
+	assert.strictEqual(runs.length, 1, 'cadence change must not fire an immediate request');
+	assert.strictEqual(luciPoll.queue.length, 1, 'cadence change leaves one entry');
+	assert.strictEqual(luciPoll.queue[0].i, 5);
+
+	hidden = true;
+	handlers.forEach((fn) => fn());
+	assert.strictEqual(luciPoll.active(), false, 'hiding removes the only entry');
+	hidden = false;
+	handlers.forEach((fn) => fn());
+	assert.strictEqual(runs.length, 2, 'becoming visible starts one catch-up');
+	assert.strictEqual(c.getState().queued, false, 'visible catch-up joins the immediate request');
+	runs[1].release();
+	await new Promise((resolve) => setImmediate(resolve));
+	assert.strictEqual(runs.length, 2, 'visibility must not issue a back-to-back request');
+
+	const explicit = c.requestPoll();
+	const followUp = c.requestPoll();
+	assert.strictEqual(c.getState().queued, true, 'explicit refreshes still queue a follow-up');
+	runs[2].release();
+	await explicit;
+	runs[3].release();
+	await followUp;
+	c.dispose();
+	console.log('poll coordinator: LuCI poll restart does not double requests OK');
+}
+
+async function testCatchUpAfterStaleRequest() {
+	const h = setup();
+	const c = h.coordinator;
+	c.startPolling();
+	const stale = c.requestPoll();
+	h.hide();
+	h.setVisible();
+	const catchUp = c.catchUp();
+	assert.strictEqual(c.getState().queued, true, 'catch-up waits behind a stale-epoch request');
+	h.runs[0].release();
+	await stale;
+	assert.strictEqual(h.runs.length, 2);
+	assert.strictEqual(h.runs[1].epoch, c.getState().epoch);
+	h.runs[1].release('fresh');
+	assert.strictEqual(await catchUp, 'fresh');
+	c.dispose();
+	assert.strictEqual(await c.catchUp(), undefined, 'disposed catch-up is inert');
+	console.log('poll coordinator: catch-up behind stale request OK');
+}
+
 (async function main() {
 	await testCoalescing();
+	await testLuciPollNoBackToBackRequests();
+	await testCatchUpAfterStaleRequest();
 	await testVisibilityCatchup();
 	await testCadenceRegistration();
 	await testDisposeSettlesAndDiscards();

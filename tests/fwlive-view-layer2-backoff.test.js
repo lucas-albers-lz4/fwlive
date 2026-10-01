@@ -460,7 +460,7 @@ async function testRefreshTriggersSerialize() {
 	v2.loadLoggingStatus = function () {
 		return Promise.resolve();
 	};
-	v2.requestPoll = function () {
+	v2.catchUpPoll = function () {
 		startupRequests++;
 		return Promise.resolve();
 	};
@@ -1019,6 +1019,85 @@ async function testResolveRpcErrorNoFailMark() {
 		assert.strictEqual(v.hostnameCache.size, 0, code + ': must not cache names on rpc error');
 	}
 	console.log('fwlive-view layer2: resolve rpc error OK');
+}
+
+async function testResolveRpcErrorBacksOff() {
+	for (const failure of ['no_resolver', 'invalid_input', 'throw']) {
+		let calls = 0;
+		let healthy = false;
+		const h = loadFwliveView({
+			rpcMocks: {
+				'fwlive.poll': async function () {
+					return { log: [], adaptive: 1 };
+				},
+				'fwlive.resolve': async function () {
+					calls++;
+					if (healthy) return { names: { '192.0.2.1': 'host.example' } };
+					if (failure === 'throw') throw new Error('rpc unavailable');
+					return { names: {}, error: failure };
+				}
+			}
+		});
+		const v = h.view;
+		v.showHostnames = true;
+		v.hostnameCache = new Map();
+		v.hostnameFailed = new Map();
+		const entries = [{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }];
+		await v.resolveHostnamesForEntries(entries);
+		await v.resolveHostnamesForEntries(entries);
+		await v.resolveHostnamesForEntries(entries);
+		assert.strictEqual(calls, 1, failure + ': resolver failures must not retry every poll');
+		assert.strictEqual(v.hostnameFailed.size, 0, failure + ': back-off is not a DNS miss');
+
+		v.resolveErrorUntil = v.nowMs() - 1;
+		await v.resolveHostnamesForEntries(entries);
+		assert.strictEqual(calls, 2, failure + ': resolve retries after the back-off');
+
+		v.onShowHostnamesChange({ target: { checked: false } });
+		v.onShowHostnamesChange({ target: { checked: true } });
+		assert.strictEqual(v.resolveErrorUntil, 0, failure + ': re-enabling hostnames clears the back-off');
+		await v.resolveHostnamesForEntries(entries);
+		assert.strictEqual(calls, 3, failure + ': re-enabling hostnames retries immediately');
+
+		healthy = true;
+		v.resolveErrorUntil = 0;
+		await v.resolveHostnamesForEntries(entries);
+		assert.strictEqual(v.resolveErrorUntil, 0, failure + ': success clears the back-off');
+		assert.strictEqual(v.hostnameCache.get('192.0.2.1'), 'host.example');
+	}
+	console.log('fwlive-view layer2: resolve rpc error back-off OK');
+}
+
+async function testResolveShedLabelClears() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				return { names: {}, disabled: 'load' };
+			}
+		}
+	});
+	const v = h.view;
+	v.showHostnames = true;
+	v.hostnameCache = new Map();
+	v.hostnameFailed = new Map();
+	await v.resolveHostnamesForEntries([{ id: '1', src: '192.0.2.1', dst: '198.51.100.1' }]);
+	assert.strictEqual(v.resolveLoadShed, true);
+
+	/* Cooldown expired and nothing needs resolving: no reply can clear it. */
+	v.resolveShedUntil = v.nowMs() - 1;
+	await v.resolveHostnamesForEntries([]);
+	assert.strictEqual(v.resolveLoadShed, false, 'expired shed must not stay paused without a lookup');
+	assert.ok(!/hostname lookup paused/.test(v.statusSuffix()));
+
+	await v.resolveHostnamesForEntries([{ id: '2', src: '192.0.2.2', dst: '198.51.100.1' }]);
+	assert.strictEqual(v.resolveLoadShed, true);
+	v.onShowHostnamesChange({ target: { checked: false } });
+	assert.strictEqual(v.resolveLoadShed, false, 'turning hostnames off clears the paused state');
+	assert.ok(!/hostname lookup paused/.test(v.statusSuffix()));
+	console.log('fwlive-view layer2: resolve shed label clears OK');
 }
 
 async function testResolveTruncatedNoFailMark() {
@@ -1794,6 +1873,8 @@ async function testPausedDisplayControlsPaint() {
 		await testStreakResetOnAdaptiveOff();
 		await testResolveShedCooldown();
 		await testResolveRpcErrorNoFailMark();
+	await testResolveRpcErrorBacksOff();
+	await testResolveShedLabelClears();
 		await testResolveTruncatedNoFailMark();
 		await testResumeStaleSkipsRender();
 		await testResumeMergeSurvivesVisibilityRace();
