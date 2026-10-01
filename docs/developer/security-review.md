@@ -1545,5 +1545,23 @@ additions expose no class failure or new cross-surface security finding.
 
 **Next.** Revisit the SDK index failure with a container-boundary check when
 that path changes or escapes; retain real jsonfilter and installed-service
-proof distinctions. Resolve the existing weekly 25.12 QEMU workflow's frequency
-conflict with the owner policy in `test-approach.md` before changing its scope.
+proof distinctions. The workflow frequency conflict is resolved by the
+following scoped workflow change.
+
+### 2026-10-01 — remove the scheduled 25.12 QEMU smoke
+
+**Scope and decision.** The maintainer selected removal of the weekly trigger
+and its `smoke-from-feed-25-12` job to match `test-approach.md`. The obsolete
+schedule-only exclusion on `build-publish` is removed. Tag publication and
+manual dispatch still use the existing build/publish job and selected-cell
+feed smoke; 25.12 remains selectable through the manual smoke-version input.
+Release/feed/checklist documentation and the APK readiness helper comment now
+reflect those entry points.
+
+**Proof class and non-findings.** `host`: existing workflow-pin and feed-helper
+tests plus actionlint/zizmor syntax/security gates; `manual`: source review of
+the remaining triggers, job conditions, permissions and pinned actions. This changes invocation
+frequency, with no signing, secret-mount, ACL, DOM or shipped-helper change.
+No new publish, installed QEMU or live-signing result is claimed. The full
+security surface pass remains deferred; no new class failure or cross-surface
+security finding was established.
