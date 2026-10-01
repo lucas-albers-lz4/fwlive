@@ -44,7 +44,15 @@ def main():
             lookup_log = work / 'lookups'
             logger_log = work / 'logger'
             stubs = {
-                'nslookup': '#!/bin/sh\nprintf "%s\\n" "$*" >> "$LOOKUP_LOG"\nprintf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: 192.0.2.1\\n"\n',
+                'nslookup': '''#!/bin/sh
+printf "%s\\n" "$*" >> "$LOOKUP_LOG"
+case "$1" in
+    192.0.2.1) printf "1.2.0.192.in-addr.arpa name = v4.example.\\nAddress: 192.0.2.1\\n" ;;
+    2001:db8::1) printf "Server: 2001:db8::53\\nAddress: 2001:db8::53#53\\n\\n1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa name = v6-bind.example.\\n" ;;
+    2001:db8::2) printf "Server:\\t\\t2001:db8::53\\nAddress:\\t2001:db8::53#53\\n\\nAddress 1: 2001:db8::2 v6-busybox.example.\\n" ;;
+    *) printf "1.2.0.192.in-addr.arpa name = host.example.\\nAddress: %s\\n" "$1" ;;
+esac
+''',
                 # Production passes native `-t 5` before the call, so the JSON
                 # argument is now $6. The dedicated rpcd test pins full argv.
                 'ubus': '#!/bin/sh\nprintf "%s" "$6" > "$POLL_REQUEST"\nexit 1\n',
@@ -73,7 +81,20 @@ def main():
             for data in ('{}', '{"addresses":[]}', '{"addresses":null}', '{"addresses":"bad"}'):
                 assert run('resolve', data) == {'names': {}}, (release, data)
             resolved = run('resolve', '{"addresses":["192.0.2.1"]}')
-            assert resolved == {'names': {'192.0.2.1': 'host.example'}}, (release, resolved, lookup_log.read_text() if lookup_log.exists() else 'no lookup')
+            assert resolved == {'names': {'192.0.2.1': 'v4.example'}}, (release, resolved, lookup_log.read_text() if lookup_log.exists() else 'no lookup')
+            # Exercise IPv4 and both IPv6 nslookup response formats through
+            # the complete production resolve path. Distinct names catch a
+            # result-key mix-up; logged argv pins the queried addresses.
+            lookup_log.unlink(missing_ok=True)
+            address_pair = ['192.0.2.1', '2001:db8::1', '2001:db8::2']
+            correlated = run('resolve', json.dumps({'addresses': address_pair}))
+            assert correlated == {'names': {
+                '192.0.2.1': 'v4.example',
+                '2001:db8::1': 'v6-bind.example',
+                '2001:db8::2': 'v6-busybox.example',
+            }}, (release, correlated)
+            assert lookup_log.read_text().splitlines() == address_pair, (
+                release, lookup_log.read_text())
             # G4 / RESOLVE_MAX=32: 33 successful addresses must return 32 names.
             assert 'RESOLVE_MAX=32' in source, (release, 'rpcd resolve cap drifted')
             many_addresses = [f'192.0.2.{index}' for index in range(1, 34)]
@@ -84,7 +105,7 @@ def main():
             # Repeats must not consume a lookup slot (#772 / #828).
             lookup_log.unlink(missing_ok=True)
             dups = run('resolve', json.dumps({'addresses': ['192.0.2.1'] * 33}))
-            assert dups == {'names': {'192.0.2.1': 'host.example'}}, (release, dups)
+            assert dups == {'names': {'192.0.2.1': 'v4.example'}}, (release, dups)
             hits = lookup_log.read_text().count('192.0.2.1') if lookup_log.exists() else 0
             assert hits == 1, (release, hits)
 
@@ -110,16 +131,16 @@ def main():
                 json.dumps({'addresses': ['192.0.2.1', '192.0.2.2']}),
                 plugin=budget_plugin,
             )
-            assert budgeted == {'names': {'192.0.2.1': 'host.example'}, 'truncated': True}, (release, budgeted)
+            assert budgeted == {'names': {'192.0.2.1': 'v4.example'}, 'truncated': True}, (release, budgeted)
 
             assert run('resolve', json.dumps({'addresses': ['bad', '192.0.2.1', '2001:db8::1']})) == {
-                'names': {'192.0.2.1': 'host.example', '2001:db8::1': 'host.example'}}
+                'names': {'192.0.2.1': 'v4.example', '2001:db8::1': 'v6-bind.example'}}
             # Non-string elements must be skipped; later valid IPs still resolve
             # and skipped types do not set truncated (#501).
             mixed = run('resolve', json.dumps({
                 'addresses': ['192.0.2.1', 5, None, True, '198.51.100.2']}))
             assert mixed == {
-                'names': {'192.0.2.1': 'host.example', '198.51.100.2': 'host.example'}
+                'names': {'192.0.2.1': 'v4.example', '198.51.100.2': 'host.example'}
             }, (release, mixed)
             lookup_log.unlink()
             assert run('resolve', json.dumps({'addresses': ['192.0.2.1\n192.0.2.2']})) == {'names': {}}
