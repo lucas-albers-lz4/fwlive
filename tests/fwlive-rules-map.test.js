@@ -1553,6 +1553,41 @@ EOF
 	}
 }
 
+function testRulesPrefixUtilitiesAreBounded() {
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-prefix-cost-'));
+	const calls = path.join(work, 'calls');
+	try {
+		makeStub(work, 'uci', '#!/bin/sh\nexit 0\n');
+		for (const utility of ['sed', 'tr', 'awk', 'cat'])
+			makeStub(work, utility, `#!/bin/sh
+printf '%s\\n' ${utility} >> "${calls}"
+exec /usr/bin/${utility} "$@"
+`);
+		for (const count of [1, 400]) {
+			const entries = Array.from({ length: count }, (_, i) => `log prefix "pfx-${i}" comment "!fw4: Rule-${i}"`);
+			// Include non-whitespace controls through the real prepared JSON path.
+			entries.push('log prefix "A\x01B\x7fC" comment "!fw4: Control-Rule"');
+			makeStub(work, 'nft', '#!/bin/sh\n/bin/cat <<\'EOF\'\n' + entries.join('\n') + '\nEOF\n');
+			fs.rmSync(calls, { force: true });
+			const raw = runRpcd('dash', ['call', 'rules'], {
+				encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', PATH: `${work}:/usr/bin:/bin` }
+			});
+			const reply = JSON.parse(raw);
+			const expected = Object.fromEntries(Array.from({ length: count }, (_, i) => [`pfx-${i}`, `Rule-${i}`]));
+			expected['A\x01B\x7fC'] = 'Control-Rule';
+			expected['a\x01b\x7fc'] = 'Control-Rule';
+			assert.deepEqual(reply.rules, expected, 'prepared fields preserve labels and controls');
+			assert.equal(reply.truncated, false);
+			const invoked = fs.readFileSync(calls, 'utf8').trim().split('\n');
+			assert.ok(invoked.length <= 4, `${count} prefixes must use bounded utility calls, got ${invoked.length}`);
+			assert.ok(invoked.every((utility) => utility === 'awk'),
+				`nft prefix mapping must not fork sed/tr/cat per field: ${invoked}`);
+		}
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function testRulesTempsCleanedOnKill() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-killtmp-'));
 	const listTemps = () => {
@@ -1633,7 +1668,8 @@ function run() {
 	testUciStyleNameCharset();
 	testResolveNslookup();
 	testResolveDedupesBeforeLookup();
-	testRulesTempsCleanedOnKill();
+	testRulesPrefixUtilitiesAreBounded();
+testRulesTempsCleanedOnKill();
 	testBusyboxPathShadowNslookup();
 	testBusyboxPathShadowTimeout();
 	testBusyboxPathShadowJsonfilter();

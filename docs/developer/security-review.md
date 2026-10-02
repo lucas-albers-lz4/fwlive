@@ -1718,3 +1718,26 @@ field-bound and shell-parity cases still pass on host awk and the required
 BusyBox awk lane; codegen freshness and core/LuCI parity pass. Review uses the
 Codex + independent GPT-6-luna/xhigh workflow in #1135. This is a scoped delta;
 installed logd/jsonfilter representation is not established by these fixtures.
+
+
+### 2026-10-02 — prepared nft rules-map fields (#1128)
+
+The existing single nft dump parser prepares normalization, aliases, cosmetic
+values and JSON escapes in one awk process. At most 513 records per priority
+class are prepared, retaining an excess record to signal the shared 512-line
+map cap. The shell consumer only splits already escaped fields and appends
+with the same global first-wins, 512-key and 65,536-byte limits. UCI remains
+authoritative before labeled fw4 prefixes and unlabeled cosmetics. Raw TSV
+mode remains for the CLI encoder selftests; it is not the production map path.
+
+Host proof: rules-map and rpcd security suites retain precedence, duplicate,
+hostile/control-byte, tab/backslash, overflow and failure fixtures. A regression
+executes the shipped rules entry with 1 and 400 prefixes and checks independently
+expected maps plus fixed/bounded utility invocation counts. Same-host 400-prefix
+evidence: before 3.53 s and 2,802 measured awk/cat/sed/tr calls; after 0.048 s
+and two awk calls, same 8,225-byte reply. Timings are informational, not a CI
+threshold or A7/device result. UCI-name slug/escape work still has bounded
+per-name helper costs; this change specifically removes nft-prefix costs.
+Shipped ShellCheck passes; no new command-string sink, ACL or helper deadline.
+Codex and independent GPT-6-luna/xhigh review and installed evidence are tracked
+in #1135. This delta does not trigger a fresh full audit.
