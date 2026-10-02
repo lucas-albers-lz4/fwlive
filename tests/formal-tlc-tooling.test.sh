@@ -92,5 +92,14 @@ expect_bad_property_cfg property-different
 printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY RestoreLandsWithoutForeignCommit\nPROPERTY RollbackCompletes\n' \
 	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
 expect_bad_property_cfg property-additional
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY RestoreLandsWithoutForeignCommit RollbackCompletes\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-same-line
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY RestoreLandsWithoutForeignCommit\n  RollbackCompletes\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-continuation
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY RestoreLandsWithoutForeignCommit\nPROPERTIES RollbackCompletes\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-plural
 
 echo 'formal TLC tooling host tests passed (stubbed transfers, Java, and property attribution)'

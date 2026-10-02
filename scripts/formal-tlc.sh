@@ -68,7 +68,20 @@ run_expected_property_violation() {
 	local dir="$1" module="$2" cfg="$3" property="$4" output status config_file declared_properties
 	config_file="$ROOT/formal/$dir/$cfg"
 	[[ -f "$config_file" ]] || fail "$module / $cfg config is missing"
-	declared_properties="$(awk '$1 == "PROPERTY" { print $2 }' "$config_file")"
+	# This counterexample cfg deliberately uses only one identifier per
+	# SPECIFICATION/INVARIANT/PROPERTY line. Fail closed on richer TLC syntax:
+	# TLC accepts additional PROPERTY operands on this or following lines.
+	declared_properties="$(awk '
+		{ sub(/\\\*.*/, "") }
+		NF == 0 { next }
+		NF != 2 || $1 !~ /^(SPECIFICATION|INVARIANT|PROPERTY)$/ ||
+			$2 !~ /^[A-Za-z_][A-Za-z0-9_]*$/ { bad = 1; next }
+		$1 == "PROPERTY" { properties = properties $2 "\n" }
+		END {
+			if (bad) print "unsupported configuration syntax"
+			else printf "%s", properties
+		}
+	' "$config_file")"
 	if [[ "$declared_properties" != "$property" ]]; then
 		fail "$module / $cfg must declare exactly PROPERTY $property (found: ${declared_properties:-none})"
 	fi

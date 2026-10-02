@@ -107,7 +107,12 @@ whole-critical-section kill (`NoOrphanStaging`), value-only rollback ABA
 (`NoOverwriteForeignIntent`), and rollback effectiveness with the fairness
 conjunct removed (`RestoreLandsWithoutForeignCommit`, which TLC reports as an
 unnamed temporal-property violation). No TLA+ tooling is included in the OpenWrt
-package. Run it locally with `./scripts/formal-tlc.sh`, or use the manual-only
+package. The unnamed temporal-failure check intentionally requires a simple
+counterexample configuration: one identifier per SPECIFICATION, INVARIANT or
+PROPERTY line and exactly the expected PROPERTY. It rejects additional operands,
+continuation lines and richer configuration syntax before invoking TLC, so a
+second temporal failure cannot be credited to the intended property.
+Run it locally with `./scripts/formal-tlc.sh`, or use the manual-only
 **formal TLC** Actions workflow. The workflow does not run on ordinary pushes
 or pull requests.
 
