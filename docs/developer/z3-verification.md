@@ -15,6 +15,7 @@ rpcd behavior (file separate issues for behavior fixes).
 | F2 CLASSIFY_SPEC | [#198](https://github.com/lucas-albers-lz4/fwlive/issues/198) | `scripts/z3-verify.py` |
 | F3 adversarial parity | [#199](https://github.com/lucas-albers-lz4/fwlive/issues/199) | `scripts/z3-verify.py` |
 | F4 parser robustness | [#200](https://github.com/lucas-albers-lz4/fwlive/issues/200) | `scripts/z3-verify.py`, `scripts/z3-robustness.js` |
+| F5 prepared nft prefix normalization | [#275](https://github.com/lucas-albers-lz4/fwlive/issues/275) | `scripts/z3-verify.py` |
 
 ## Commands
 
@@ -105,3 +106,14 @@ ECMA `/i` proofs: [regexproof#571](https://github.com/lucas-albers-lz4/regexproo
 **string** corpus (no throw). Non-string `entry.msg` values are out of scope —
 rpcd/JSON paths always pass strings. `--full` also runs `rpcd/fwlive __selftest` (sed prefix/comment
 captures and address selftests).
+
+## F5 scope note
+
+F5 pins the trailing space/tab/colon strip and prepared-mode dispatch inside
+the shipped `nft_dump_fields()` function. Its Z3 idempotency and fixpoint
+proofs cover strings of length ≤ 8 over the declared content and strip
+alphabet; they are bounded proofs, not length-independent claims. `--full`
+also runs the actual prepared AWK stage twice on 13 synthetic nft rows,
+checks the expected normalized prefixes, and checks core/LuCI
+`parseRuleHint` parity for the resulting keys (#254). The weakened-quantifier
+and colon-drop controls must produce counterexamples.
