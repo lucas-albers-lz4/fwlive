@@ -545,6 +545,15 @@ executes the extracted shipped shim against independent bytes; installed
 profiling evidence is recorded in the PR. No runtime execution deadline or
 router ACL change; full profiling/security review remains deferred.
 
+### 2026-10-01: native flock denial smoke (#1098)
+
+The lab smoke accepts denied-open status 66 only with verified util-linux
+provider output and retains the separate BusyBox status-1 path. Root lock
+setup, provider availability, unexpected success and timeout remain fail
+closed. Host fixtures distinguish supported/unsupported providers; native
+installed-provider evidence is recorded in the PR. No logging-helper/ACL
+change. This scoped smoke review is not a full security audit.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
@@ -567,7 +576,7 @@ router ACL change; full profiling/security review remains deferred.
 | Dev tooling (`.cursor/mcp.json`) | 2026-10-01 | Full source + scoped fresh proof | Current config contains no MCP servers; repository/developer-tool configs inspected. Host dependencies are separate from shipped router payload. |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-10-01 | Full source + scoped fresh proof | Full source/default host-key policy and its host regression checked. Insecure SSH remains explicit lab opt-in. No general remote deployment was performed. |
 | Lab feed/QEMU lifecycle helpers | 2026-10-01 | Full source + scoped fresh proof | Full source/config/test pass; process/path/transport ownership controls checked. The #1090 staging guard spelling exception is resolved with physical-path normalization and host fixtures; #1095 now uses private invocation-owned mountpoints and source-verified cleanup, covered by host failure/concurrency fixtures. PR #1113 routes corrupt pidfiles through the explicit force backstop and diagnoses start cleanup; exact disposable process fixtures prove target exit and unrelated-process survival. |
-| Lab honest-gap smokes | 2026-10-01 | Full source + scoped fresh proof | Current artifact 24.10 native flock denial is 66; original helper fails (#1098), scratch-adapted probe passed lookup cap, denial, held-lock/inode and foreign-staging checks. Full dummy-key sign/verify ran. Arbitrary helper termination unproven. |
+| Lab honest-gap smokes | 2026-10-01 | Full source + scoped fresh proof | PR #1119 recognizes denied-open status 66 only for a verified util-linux provider. The checked-in smoke passed on a disposable 24.10.8 IPK guest with util-linux 2.40.2: lookup cap, native denial, held-lock/inode and foreign-staging checks. Host fixtures retain failure controls; BusyBox native denial was separately observed. Full dummy-key sign/verify ran. Arbitrary helper termination unproven. |
 | CLASSIFY_SPEC evaluator and codegen | 2026-10-01 | Full source + scoped fresh proof | Full core/mirror/generator/generated-asset review and freshness/parity gates passed. #1060/#1067 now validate trusted rules at module initialization/build gates and restore AND/OR short-circuiting. Host malformed-config, parity and syntax tests pass; a host benchmark retains counts while reducing evaluation cost. KV identifier restrictions do not claim validation of every other static spec string. Logs remain stdin data. |
 
 
@@ -703,7 +712,7 @@ historical; completed seams below do not imply a complete release/hardware sign-
 | Property | Current status | Next proof / limit |
 |----------|----------------|--------------------|
 | Arbitrary read-helper termination, loaded-router scheduling, blackhole DNS and descendant cleanup | Accepted residual; no whole-call bound established. Native ubus wait starts after lookup and does not cancel remote work | Revisit with real reliability reports or a requirement for tighter containment; finite models and successful smoke do not prove it |
-| Installed held-lock refusal and foreign-staging preservation | Fresh artifact-only 24.10 guest passed a narrowly adapted native-provider probe | Original smoke rejects valid denied-open status 66 (#1098); fix its expectation before declaring that checked-in helper green |
+| Installed held-lock refusal and foreign-staging preservation | Repaired artifact-only 24.10.8 same-version IPK installs and the checked-in security-gap smoke passed with util-linux 2.40.2 (PR #1119) | New proof is scoped to this disposable guest; APK transition and arbitrary helper termination remain unproven |
 | Signing rewrite and local signatures | Full SDK usign/RSA validate and local three-line opkg/APK signed staging passed with dummy keys; signature/hash/public-key rechecks passed | Real signing keys, live workflow and deployment were not exercised |
 | Current baseline installed matrix | Fresh 24.10 IPK and 25.12 APK hashes, native pipeline, ACL roles and uninstall proof; 24.10 installed browser | No fresh 23.05 installed guest, armsr, hardware, forwarding load soak, exhaustive theme/browser matrix or APK version-changing upgrade was run |
 | Native jsonfilter fixture semantics | Selected filter/parity/corpus fixtures passed using actual 24.10 guest jsonfilter via bounded SSH | Hybrid dependency evidence; full native pipeline separately passed on 24.10/25.12, not every fixture on every platform |
