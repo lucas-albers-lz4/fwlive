@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Run the small TLA+ models and assert that the three known counterexamples
+# Run the small TLA+ models and assert that the four known counterexamples
 # remain counterexamples. TLC runs in single-worker mode for stable liveness
 # checking. This script is CI/developer tooling only; it is not packaged.
 set -euo pipefail
@@ -62,10 +62,49 @@ run_expected_violation() {
 	ok "$module / $cfg reports expected $property counterexample"
 }
 
+# A violated temporal property prints "Temporal properties were violated." with no
+# property name (TLC 2.19), so this arm is keyed to the cfg's single PROPERTY.
+run_expected_property_violation() {
+	local dir="$1" module="$2" cfg="$3" property="$4" output status config_file declared_properties
+	config_file="$ROOT/formal/$dir/$cfg"
+	[[ -f "$config_file" ]] || fail "$module / $cfg config is missing"
+	# This counterexample cfg deliberately uses only one identifier per
+	# SPECIFICATION/INVARIANT/PROPERTY line. Fail closed on richer TLC syntax:
+	# TLC accepts additional PROPERTY operands on this or following lines.
+	declared_properties="$(awk '
+		{ sub(/\\\*.*/, "") }
+		NF == 0 { next }
+		NF != 2 || $1 !~ /^(SPECIFICATION|INVARIANT|PROPERTY)$/ ||
+			$2 !~ /^[A-Za-z_][A-Za-z0-9_]*$/ { bad = 1; next }
+		$1 == "PROPERTY" { properties = properties $2 "\n" }
+		END {
+			if (bad) print "unsupported configuration syntax"
+			else printf "%s", properties
+		}
+	' "$config_file")"
+	if [[ "$declared_properties" != "$property" ]]; then
+		fail "$module / $cfg must declare exactly PROPERTY $property (found: ${declared_properties:-none})"
+	fi
+	set +e
+	output="$(cd "$ROOT/formal/$dir" && java -jar "$JAR" -workers 1 \
+		-metadir "$WORK/${module}-${cfg}-states" -config "$cfg" "$module.tla" 2>&1)"
+	status=$?
+	set -e
+	if [[ "$status" -eq 0 ]]; then
+		fail "$module / $cfg unexpectedly passed; expected a $property violation"
+	fi
+	if ! grep -Fq "Temporal properties were violated" <<<"$output"; then
+		printf '%s\n' "$output" >&2
+		fail "$module / $cfg failed for a reason other than the $property property"
+	fi
+	ok "$module / $cfg reports expected $property property counterexample"
+}
+
 run_pass wan-log-lock WanLogLock WanLogLock.cfg
 run_pass wan-log-lock WanLogLockTimed WanLogLockTimedSafety.cfg
 run_pass wan-log-lock WanLogRollbackRevision WanLogRollbackRevision.cfg
 run_expected_violation wan-log-lock WanLogLockTimed WanLogLockTimedStranding.cfg NoOrphanStaging
 run_expected_violation wan-log-lock WanLogRollbackAba WanLogRollbackAba.cfg NoOverwriteForeignIntent
+run_expected_property_violation wan-log-lock WanLogRollbackRevision WanLogRollbackRevisionUnfair.cfg RestoreLandsWithoutForeignCommit
 run_pass hostname-dispose HostnameDispose HostnameDispose.cfg
 run_expected_violation hostname-dispose HostnameDispose HostnameDisposeUngated.cfg NoLateWrite

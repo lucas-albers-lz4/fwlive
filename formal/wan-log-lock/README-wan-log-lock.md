@@ -51,13 +51,29 @@ and A's failed reload then sees `log=1` and incorrectly restores `log=0`.
 Production now advances a root-only volatile generation file under the same
 lock for each toggle that reaches its locked state check, including requests
 that find the requested state already set. After reload fails, A re-acquires
-the lock and restores only if both the visible value and generation still
-match A's commit. `WanLogRollbackRevision.tla` models that guard; its config
-checks that a later enable survives the ABA. If revision tracking cannot be
-safely updated, the primary toggle fails before staging. A failed UCI write
-may leave a revision gap, which can suppress a rollback but cannot overwrite a
-later fwlive intent. The `/var/run` state is volatile, so reboot clears it only
-after all in-flight callers have ended.
+the lock and may attempt restoration only if both the visible value and
+generation still match A's commit; the restore helper can still refuse or fail.
+`WanLogRollbackRevision.tla` models that guard and a single primary enable.
+Its config checks that a later enable survives the ABA. It also checks that the
+rollback decision reaches either restore or skip after lock
+reacquisition (`RollbackCompletes`), and that the positive-guard case reaches
+the original value under the model's idealized successful restore
+(`RestoreLandsWithoutForeignCommit`). Decision completion is not successful
+restoration: the model represents restore as one atomic, successful action and
+does not model shell refusal/failure paths or restore's own generation bump.
+See #1126 for the failure-aware follow-up and its generation abstraction.
+
+`WF_vars(NoStutter)` is weak fairness of the whole finite action disjunction,
+not separate fairness for each named action or caller. Here it is a scheduling
+assumption for the single modeled caller; it does not establish command success,
+progress under recurring unmodeled environment actions, or a wall-clock
+runtime bound. `WanLogRollbackRevisionUnfair.cfg` removes that conjunct and
+checks only `RestoreLandsWithoutForeignCommit`; it does not check
+`RollbackCompletes`. If generation tracking cannot be updated for the primary
+toggle, production fails before staging. A failed UCI write may leave a
+revision gap, which can suppress a rollback but cannot overwrite a later
+fwlive intent. The `/var/run` state is volatile, so reboot clears it only after
+all in-flight callers have ended.
 
 This history marker covers fwlive writers that use this lock and helper. A
 separate privileged writer that edits UCI directly does not advance it; the
@@ -85,11 +101,18 @@ security smoke instead checks the production behavior: a held lock returns
 
 `scripts/formal-tlc.sh` downloads the official TLA+ v1.7.4 tools jar and checks
 its pinned SHA-256 before running TLC with one worker. It runs the production
-models as passing checks and asserts that three counterfactual configs still
-report their named violations: ungated hostname disposal (`NoLateWrite`),
-whole-critical-section kill (`NoOrphanStaging`), and value-only rollback ABA
-(`NoOverwriteForeignIntent`). No TLA+ tooling is included in the OpenWrt
-package. Run it locally with `./scripts/formal-tlc.sh`, or use the manual-only
+models as passing checks and asserts that four counterfactual configs still
+report their violations: ungated hostname disposal (`NoLateWrite`),
+whole-critical-section kill (`NoOrphanStaging`), value-only rollback ABA
+(`NoOverwriteForeignIntent`), and rollback effectiveness with the fairness
+conjunct removed (`RestoreLandsWithoutForeignCommit`, which TLC reports as an
+unnamed temporal-property violation). No TLA+ tooling is included in the OpenWrt
+package. The unnamed temporal-failure check intentionally requires a simple
+counterexample configuration: one identifier per SPECIFICATION, INVARIANT or
+PROPERTY line and exactly the expected PROPERTY. It rejects additional operands,
+continuation lines and richer configuration syntax before invoking TLC, so a
+second temporal failure cannot be credited to the intended property.
+Run it locally with `./scripts/formal-tlc.sh`, or use the manual-only
 **formal TLC** Actions workflow. The workflow does not run on ordinary pushes
 or pull requests.
 
