@@ -32,6 +32,23 @@
 : "${FWLIVE_SLO_WAN_MAC:=52:54:00:30:77:02}"
 : "${FWLIVE_SLO_PREFIX:=fwlive-slo-}"
 : "${FWLIVE_SLO_QEMU_NET_MODEL:=virtio-net-pci}"
+: "${FWLIVE_SLO_QEMU_VHOST:=0}"
+: "${FWLIVE_SLO_QEMU_QUEUES:=1}"
+
+fwlive_slo_net_validate_backend() {
+	case "$FWLIVE_SLO_QEMU_NET_MODEL" in
+		virtio-net-pci|e1000) ;;
+		*) echo "forwarding-slo-net: unsupported QEMU test NIC model: $FWLIVE_SLO_QEMU_NET_MODEL" >&2; return 1 ;;
+	esac
+	[[ "$FWLIVE_SLO_QEMU_VHOST" =~ ^[01]$ ]] || { echo "forwarding-slo-net: vhost must be 0 or 1" >&2; return 1; }
+	[[ "$FWLIVE_SLO_QEMU_QUEUES" =~ ^([1-9]|1[0-6])$ ]] || { echo "forwarding-slo-net: queues must be 1..16" >&2; return 1; }
+	if [[ "$FWLIVE_SLO_QEMU_NET_MODEL" != virtio-net-pci && ( "$FWLIVE_SLO_QEMU_VHOST" != 0 || "$FWLIVE_SLO_QEMU_QUEUES" != 1 ) ]]; then
+		echo "forwarding-slo-net: vhost/multiqueue require virtio-net-pci" >&2; return 1
+	fi
+	if [[ "$FWLIVE_SLO_QEMU_QUEUES" != 1 && "$FWLIVE_SLO_QEMU_VHOST" != 1 ]]; then
+		echo "forwarding-slo-net: multiqueue requires explicit vhost=1" >&2; return 1
+	fi
+}
 
 fwlive_slo_net_die() {
 	echo "forwarding-slo-net: $*" >&2
@@ -110,7 +127,10 @@ fwlive_slo_net_rollback() {
 }
 
 fwlive_slo_net_setup() {
+	fwlive_slo_net_validate_backend || return 1
 	local qemu_user="${1:-${SUDO_USER:-${USER:-}}}"
+	local -a tap_options=()
+	[[ "$FWLIVE_SLO_QEMU_QUEUES" == 1 ]] || tap_options+=(multi_queue)
 	fwlive_slo_net_require_root
 	fwlive_slo_net_require_tools
 	fwlive_slo_net_validate_names
@@ -131,8 +151,8 @@ fwlive_slo_net_setup() {
 	ip link add name "$FWLIVE_SLO_WAN_BRIDGE" type bridge
 	ip link set dev "$FWLIVE_SLO_LAN_BRIDGE" up
 	ip link set dev "$FWLIVE_SLO_WAN_BRIDGE" up
-	ip tuntap add dev "$FWLIVE_SLO_LAN_TAP" mode tap user "$qemu_user"
-	ip tuntap add dev "$FWLIVE_SLO_WAN_TAP" mode tap user "$qemu_user"
+	ip tuntap add dev "$FWLIVE_SLO_LAN_TAP" mode tap user "$qemu_user" "${tap_options[@]}"
+	ip tuntap add dev "$FWLIVE_SLO_WAN_TAP" mode tap user "$qemu_user" "${tap_options[@]}"
 	ip link set dev "$FWLIVE_SLO_LAN_TAP" master "$FWLIVE_SLO_LAN_BRIDGE"
 	ip link set dev "$FWLIVE_SLO_WAN_TAP" master "$FWLIVE_SLO_WAN_BRIDGE"
 	ip link set dev "$FWLIVE_SLO_LAN_TAP" up
@@ -210,14 +230,22 @@ fwlive_slo_net_status() {
 }
 
 fwlive_slo_net_qemu_args() {
-	case "$FWLIVE_SLO_QEMU_NET_MODEL" in
-		virtio-net-pci|e1000) ;;
-		*) echo "forwarding-slo-net: unsupported QEMU test NIC model: $FWLIVE_SLO_QEMU_NET_MODEL" >&2; return 1 ;;
-	esac
-	cat <<EOF
-	-netdev tap,id=fwlive-slo-lan,ifname=${FWLIVE_SLO_LAN_TAP},script=no,downscript=no
--device ${FWLIVE_SLO_QEMU_NET_MODEL},netdev=fwlive-slo-lan,mac=${FWLIVE_SLO_LAN_MAC}
-	-netdev tap,id=fwlive-slo-wan,ifname=${FWLIVE_SLO_WAN_TAP},script=no,downscript=no
--device ${FWLIVE_SLO_QEMU_NET_MODEL},netdev=fwlive-slo-wan,mac=${FWLIVE_SLO_WAN_MAC}
-EOF
+	fwlive_slo_net_validate_names
+	fwlive_slo_net_validate_backend || return 1
+	local mac netdev device id tap vhost=off
+	[[ "$FWLIVE_SLO_QEMU_VHOST" == 0 ]] || vhost=on
+	for mac in "$FWLIVE_SLO_LAN_MAC" "$FWLIVE_SLO_WAN_MAC"; do
+		[[ "$mac" =~ ^([[:xdigit:]]{2}:){5}[[:xdigit:]]{2}$ ]] || { echo "forwarding-slo-net: invalid MAC address" >&2; return 1; }
+	done
+	[[ "$FWLIVE_SLO_LAN_MAC" != "$FWLIVE_SLO_WAN_MAC" ]] || { echo "forwarding-slo-net: LAN/WAN MAC addresses must differ" >&2; return 1; }
+	for id in lan wan; do
+		if [[ "$id" == lan ]]; then tap="$FWLIVE_SLO_LAN_TAP"; mac="$FWLIVE_SLO_LAN_MAC"; else tap="$FWLIVE_SLO_WAN_TAP"; mac="$FWLIVE_SLO_WAN_MAC"; fi
+		netdev="tap,id=fwlive-slo-$id,ifname=$tap,script=no,downscript=no,vhost=$vhost"
+		device="$FWLIVE_SLO_QEMU_NET_MODEL,netdev=fwlive-slo-$id,mac=$mac"
+		if [[ "$FWLIVE_SLO_QEMU_QUEUES" != 1 ]]; then
+			netdev+=",queues=$FWLIVE_SLO_QEMU_QUEUES"
+			device+=",mq=on,vectors=$((2 * FWLIVE_SLO_QEMU_QUEUES + 2))"
+		fi
+		printf '%s %s\n' -netdev "$netdev" -device "$device"
+	done
 }

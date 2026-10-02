@@ -1,0 +1,14 @@
+4	4	1	7
+lan_dev=eth1
+wan_dev=eth2
+lan_ip=192.0.2.1
+wan_ip=198.51.100.1
+lan_added=1
+wan_added=1
+lan_up=0
+wan_up=0
+ip_forward=1
+console_loglevel=7
+console_changed=1
+log_rate=25
+d2513f5851914756aa1f1b12b16effd794bf2580823f17966383e3a3f5e79a48  /usr/libexec/rpcd/fwlive

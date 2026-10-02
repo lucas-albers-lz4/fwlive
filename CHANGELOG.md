@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Preserve the forwarding lab log-prefix separator and add reversible console controls, configurable x86 guest sizing, and explicit vhost/multiqueue experiments (#1134).
 - Unlink rules-map dump/TSV files before blocking helpers, preventing pathname residue after plugin-only SIGKILL during that work; surviving helpers can still retain anonymous tmpfs storage (#1133).
 - Prepare nft rule prefixes, aliases and JSON string content in one bounded awk stage, removing per-prefix utility forks while retaining precedence, first-wins and reply caps (#1128).
 - Preserve representable C0 control bytes and DEL in generated poll summaries using JSON escapes, matching the shell escaper (#1124).

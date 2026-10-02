@@ -44,6 +44,9 @@ OWRT_CONSOLE_LOG="${OWRT_CONSOLE_LOG:-${ROOT}/lab/qemu-x86-console.log}"
 OWRT_QEMU_PIDFILE="${OWRT_QEMU_PIDFILE:-${IMG_DIR}/openwrt-x86-64.pid}"
 OWRT_SERIAL_TCP="${OWRT_SERIAL_TCP:-127.0.0.1:4444}"
 OWRT_QEMU_MEM="${OWRT_QEMU_MEM:-1024}"
+OWRT_QEMU_SMP="${OWRT_QEMU_SMP:-2}"
+OWRT_QEMU_DISK_FORMAT="${OWRT_QEMU_DISK_FORMAT:-raw}"
+OWRT_QEMU_FORWARDING_SLO="${OWRT_QEMU_FORWARDING_SLO:-0}"
 OVMF_CODE="${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}"
 OVMF_VARS="${OVMF_VARS:-${IMG_DIR}/OVMF_VARS_4M.fd}"
 
@@ -68,6 +71,20 @@ if [[ "${qemu_lab_want_stop:-0}" -eq 1 ]]; then
 	exit $?
 fi
 
+[[ "$OWRT_QEMU_SMP" =~ ^([1-9]|[1-5][0-9]|6[0-4])$ ]] || die "OWRT_QEMU_SMP must be 1..64"
+[[ "$OWRT_QEMU_MEM" =~ ^[1-9][0-9]{0,6}$ ]] || die "OWRT_QEMU_MEM must be a positive integer in MiB"
+case "$OWRT_QEMU_DISK_FORMAT" in raw|qcow2) ;; *) die "OWRT_QEMU_DISK_FORMAT must be raw or qcow2" ;; esac
+[[ "$OWRT_QEMU_FORWARDING_SLO" =~ ^[01]$ ]] || die "OWRT_QEMU_FORWARDING_SLO must be 0 or 1"
+SLO_ARGS=()
+if [[ "$OWRT_QEMU_FORWARDING_SLO" == 1 ]]; then
+	# Keep the management virtio device first: mixing e1000 management with
+	# virtio traffic NICs changes guest enumeration and can move DHCP to a TAP.
+	export OWRT_QEMU_NIC_MODEL=virtio-net-pci
+	# shellcheck source=lib/qemu-forwarding-slo-net.sh
+	source "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh"
+	slo_args=$(fwlive_slo_net_qemu_args) || exit 1
+	while read -r option value; do SLO_ARGS+=("$option" "$value"); done <<< "$slo_args"
+fi
 qemu_lab_validate_hostfwd_bind || exit 1
 [[ -n "${OWRT_IMG}" && -f "${OWRT_IMG}" ]] || die "No disk image under ${IMG_DIR}/ — run: RELEASE=24.10.8 ./scripts/download-openwrt-x86-64.sh"
 [[ -f "${OVMF_CODE}" ]] || die "Missing OVMF firmware (${OVMF_CODE}) — install qemu-system-x86 ovmf"
@@ -102,6 +119,7 @@ NIC_USER="$(qemu_lab_nic_user "${OWRT_HOSTFWD_HTTP}" "${OWRT_HOSTFWD_SSH}")"
 
 echo "Using disk:  ${OWRT_IMG}"
 echo "Console log: ${OWRT_CONSOLE_LOG}"
+echo "Guest:       ${OWRT_QEMU_SMP} vCPUs, ${OWRT_QEMU_MEM} MiB, ${OWRT_QEMU_DISK_FORMAT}"
 echo "Accel:       ${ACCEL} (cpu ${CPU})"
 echo "NIC:         -nic ${NIC_USER}"
 echo "LuCI  http://localhost:${OWRT_HOSTFWD_HTTP}/cgi-bin/luci/"
@@ -113,14 +131,15 @@ fi
 
 QEMU_ARGS=(
 	-machine q35 -accel "${ACCEL}" -cpu "${CPU}"
-	-smp 2 -m "${OWRT_QEMU_MEM}"
+	-smp "${OWRT_QEMU_SMP}" -m "${OWRT_QEMU_MEM}"
 	-display none -nographic
 	-monitor none
 	-drive "if=pflash,format=raw,readonly=on,file=${OVMF_CODE}"
 	-drive "if=pflash,format=raw,file=${OVMF_VARS}"
-	-drive "file=${OWRT_IMG},format=raw,if=virtio"
+	-drive "file=${OWRT_IMG},format=${OWRT_QEMU_DISK_FORMAT},if=virtio"
 	-pidfile "${OWRT_QEMU_PIDFILE}"
 	-nic "${NIC_USER}"
+	"${SLO_ARGS[@]}"
 )
 
 # Default: mon:stdio (headless boot + tee console log). Socket serial: OWRT_QEMU_SERIAL_SOCKET=1

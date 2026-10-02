@@ -735,11 +735,30 @@ on/off split, and five-pair report. Durable raw reports and the summarized
 qualification result are kept in [`lab/forwarding-slo/`](../../lab/forwarding-slo/)
 and tracked in [#344](https://github.com/lucas-albers-lz4/fwlive/issues/344).
 
-The default routed NIC model is `virtio-net-pci`, which is appropriate for the
-armsr runner. For x86, use `OWRT_QEMU_NIC_MODEL=virtio-net-pci` on the stock
-runner and `FWLIVE_SLO_QEMU_NET_MODEL=e1000` when printing the routed TAP
-arguments. This keeps the management slirp NIC first in the guest's interface
-enumeration; the guest helper still identifies the two test links by MAC.
+The default routed NIC model is `virtio-net-pci`. For the x86 high-rate lab,
+`OWRT_QEMU_FORWARDING_SLO=1` adds both routed TAP NICs after a virtio management
+NIC, keeping DHCP on the first interface; the guest helper identifies the test
+links by MAC. The topology must already exist before starting QEMU:
+
+```sh
+sudo FWLIVE_SLO_QEMU_VHOST=1 ./scripts/qemu-forwarding-slo-net.sh setup "$USER"
+OWRT_QEMU_FORWARDING_SLO=1 OWRT_QEMU_SMP=8 OWRT_QEMU_MEM=1024 \
+  FWLIVE_SLO_QEMU_VHOST=1 ./scripts/run-openwrt-x86-qemu.sh
+```
+
+`OWRT_QEMU_SMP` defaults to 2 (accepts 1..64); more vCPUs do not establish host
+physical-core capacity. `OWRT_QEMU_DISK_FORMAT=qcow2` permits a private
+copy-on-write overlay selected by `OWRT_X86_IMG`, retaining raw as the default.
+Never run two guests against the same writable disk or OVMF variables file.
+Use the same network selectors for setup and launch. `FWLIVE_SLO_QEMU_VHOST`
+defaults to 0; explicitly select 1 for kernel vhost. The queue count defaults
+to 1; `FWLIVE_SLO_QEMU_QUEUES=4` on both commands creates multiqueue TAPs and
+requests four virtio queues (`mq=on`, ten MSI-X vectors). Counts 1..16 are
+accepted; multiple queues require virtio and vhost. Requested queues are not
+proof of guest activation: inspect guest `/sys/class/net/eth*/queues/`, IRQs,
+and `ethtool -l` where available. Changing queue count requires stopping the
+guest and recreating its owned topology. Historical e1000 runs remain
+reproducible with `FWLIVE_SLO_QEMU_NET_MODEL=e1000`, vhost disabled, one queue.
 
 Install `iperf3` in the armsr guest with its signed release feed when preparing
 the image (the router is useful for the package/tool preflight, but is not one
@@ -751,7 +770,7 @@ ssh -p 2222 root@127.0.0.1 'opkg update && opkg install iperf3'
 
 After adding the TAP arguments to the QEMU command, configure the guest links
 by MAC and install temporary forwarding/logging rules in the existing firewall.
-The two directional rules log up to 25 messages per second with the fixed
+The two directional rules default to 25 messages per second with the fixed
 `fwlive-slo ` prefix and accept every packet; logging is therefore identical
 for the no-viewer and active-viewer halves of every pair while the test avoids
 turning an unrestricted packet log into a logger-only benchmark:
@@ -759,6 +778,8 @@ turning an unrestricted packet log into a logger-only benchmark:
 ```sh
 ./scripts/qemu-forwarding-slo-guest.sh configure
 ./scripts/qemu-forwarding-slo-guest.sh check
+# After sending routed traffic:
+./scripts/qemu-forwarding-slo-guest.sh check-logs
 ./scripts/qemu-forwarding-slo-guest.sh cleanup
 ```
 
@@ -766,7 +787,23 @@ The guest helper only touches the two uniquely MAC-selected TAP interfaces,
 its four temporary `fwlive-slo-*` forwarding/logging rules, the IPv4-forwarding
 sysctl, and its mode-0600 saved-state file under `/var/run`. Cleanup restores
 the prior interface/link and forwarding state and refuses to proceed without
-the saved state.
+the saved state. Rules are installed through `nft -f -` so nft receives the
+literal quoted trailing separator. `check` rejects incorrect rule text;
+`check-logs` additionally requires real LAN-to-WAN kernel log visibility and
+rejects the malformed `fwlive-sloIN=` prefix. Old malformed logs in logd will
+fail this check: use a clean guest/log window rather than weakening it.
+
+For high-rate experiments, explicitly use `FWLIVE_SLO_CONSOLE_LEVEL=4` on
+`configure` to suppress warning emission to the slow serial console while
+retaining those warnings in logd. This is a temporary **lab-only** setting;
+normal configuration leaves the console unchanged. The helper saves the prior
+console level and restores it on cleanup and caught configure failures/signals.
+Only the first printk field is changed; the other three remain untouched.
+SIGKILL or guest power loss cannot run cleanup: preserve the state file and
+clean up after reconnecting. `FWLIVE_SLO_LOG_RATE=250` selects a pressure limit
+instead of the default 25 (accepts 1..10000 logged packets/s/direction).
+Always record the chosen limit, console policy, ring size, and real log
+visibility with the result. These helpers do not change production defaults.
 
 Once both helpers report ready, one traffic sample can be collected with the
 same endpoint namespaces on every run:

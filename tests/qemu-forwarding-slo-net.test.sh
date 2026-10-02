@@ -73,4 +73,22 @@ model_args="$(FWLIVE_SLO_QEMU_NET_MODEL=e1000 bash -c \
 grep -Fq -- '-device e1000,' <<<"$model_args" || die "QEMU NIC model override missing"
 ok "QEMU NIC model is validated and configurable"
 
+# Validate options before any privileged setup and pin QEMU's on/off syntax.
+mq_args="$(FWLIVE_SLO_QEMU_VHOST=1 FWLIVE_SLO_QEMU_QUEUES=4 bash -c \
+	'source "$1"; fwlive_slo_net_qemu_args' bash "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh")"
+grep -Fq 'vhost=on,queues=4' <<<"$mq_args" || die "vhost/multiqueue backend missing"
+grep -Fq 'mq=on,vectors=10' <<<"$mq_args" || die "virtio queue vectors missing"
+grep -Fq 'vhost=off' <<<"$args" || die "default vhost must remain disabled"
+for invalid in 'FWLIVE_SLO_QEMU_VHOST=on' 'FWLIVE_SLO_QEMU_QUEUES=0' \
+	'FWLIVE_SLO_QEMU_QUEUES=17' 'FWLIVE_SLO_QEMU_QUEUES=2' \
+	'FWLIVE_SLO_LAN_MAC=invalid' 'FWLIVE_SLO_LAN_TAP=fwlive-slo-bad,script=evil'; do
+	if env "$invalid" bash -c 'source "$1"; fwlive_slo_net_qemu_args' bash \
+		"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" >/dev/null 2>&1; then die "accepted $invalid"; fi
+done
+if FWLIVE_SLO_QEMU_NET_MODEL=e1000 FWLIVE_SLO_QEMU_VHOST=1 bash -c \
+	'source "$1"; fwlive_slo_net_validate_backend' bash "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null; then
+	die "e1000 cannot use vhost"
+fi
+ok "backend options reject incompatible and injectable values"
+
 echo "qemu-forwarding-slo-net tests passed"
