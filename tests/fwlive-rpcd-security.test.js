@@ -131,6 +131,9 @@ function runMatchedRpcdSelftest(prefix, release = process.env.FWLIVE_JSHN_RELEAS
 			...process.env,
 			PATH: `${path.dirname(jshn)}:${process.env.PATH || ''}`,
 			FWLIVE_JSHN_SH: jshnSh,
+			// The privileged CLI selftest must use checked /tmp rather than a
+			// caller-selected path. A nonexistent TMPDIR makes reliance fail.
+			TMPDIR: path.join(work, 'must-not-be-created'),
 		};
 		const resolved = execFileSync(busybox, ['sh', '-c', 'command -v jshn'], {
 			encoding: 'utf8',
