@@ -1018,6 +1018,78 @@ function testAdaptiveHotSurvivesFilterFailures() {
 	}
 }
 
+function testAdaptiveHotSurvivesUnavailableClock() {
+	// Copy shipped assets; override only the clock in the sourced fixture.
+	// The poll, filter and classifier are production code, with a jsonfilter
+	// dependency fixture that only enumerates input entries.
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-clock-'));
+	const libexec = path.join(work, 'libexec');
+	const stateFile = path.join(work, 'state.json');
+	const clockCalls = path.join(work, 'clock-calls');
+	const initial = '{"duration_ms":900,"limit":250,"bucket":"hot","warm_halved":0,"shed":1,"completed_cs":1000}\n';
+	try {
+		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+		const adaptive = path.join(libexec, 'fwlive-adaptive-cap.sh');
+		fs.appendFileSync(adaptive, `
+fwlive_adaptive_clock_cs() {
+	_n=0
+	if [ -f "$TEST_CLOCK_CALLS" ]; then read -r _n <"$TEST_CLOCK_CALLS"; fi
+	_n=$((_n + 1))
+	printf '%s\\n' "$_n" >"$TEST_CLOCK_CALLS"
+	case "$_n" in
+		2) printf '%s\\n' "$TEST_CLOCK_START" ;;
+		3) printf '%s\\n' "$TEST_CLOCK_END" ;;
+		*) printf '%s\\n' 1001 ;;
+	esac
+}
+`);
+		makeStub(work, 'ubus', '#!/bin/sh\nprintf \'{"log":[{"msg":"fw4: DROP IN=wan SRC=192.0.2.1 DST=198.51.100.2 PROTO=TCP"}]}\'\n');
+		makeStub(work, 'jsonfilter', `#!/usr/bin/env node
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+assert.deepEqual(process.argv.slice(2), ['-e', '@.log[*]']);
+for (const entry of JSON.parse(fs.readFileSync(0, 'utf8')).log)
+	process.stdout.write(JSON.stringify(entry) + '\\n');
+`);
+		for (const [name, start, end, healthy] of [
+			['both unavailable', 0, 0, false],
+			['start unavailable', 0, 1001, false],
+			['end unavailable', 1001, 0, false],
+			['backward clock', 1002, 1001, false],
+			['equal nonzero clocks', 1001, 1001, true],
+			['valid positive duration', 1001, 1002, true]
+		]) {
+			for (const shell of ['/bin/dash', 'busybox']) {
+				fs.writeFileSync(stateFile, initial);
+				fs.rmSync(clockCalls, { force: true });
+				const args = [path.join(libexec, 'rpcd', 'fwlive'), 'call', 'poll', '{"addresses":["50"]}'];
+				if (shell === 'busybox') args.unshift('sh');
+				const raw = execFileSync(shell, args, { encoding: 'utf8', env: {
+					...process.env,
+					PATH: `${work}:${process.env.PATH}`,
+					FWLIVE_ADAPTIVE: '1',
+					FWLIVE_ADAPTIVE_STATE_FILE: stateFile,
+					FWLIVE_ADAPTIVE_OFF_FILE: path.join(work, 'off-absent'),
+					TEST_CLOCK_CALLS: clockCalls,
+					TEST_CLOCK_START: String(start), TEST_CLOCK_END: String(end)
+				} });
+				const reply = JSON.parse(raw);
+				assert.equal(reply.error, undefined, `${shell}: ${name} keeps a valid poll`);
+				assert.equal(reply.messages_received, 1);
+				assert.equal(reply.log.length, 1, 'the shipped classifier retains the input');
+				const recorded = fs.readFileSync(stateFile, 'utf8');
+				if (!healthy) assert.equal(recorded, initial, `${shell}: ${name} must preserve state byte-for-byte`);
+				else {
+					assert.equal(JSON.parse(recorded).bucket, 'cold', `${shell}: ${name} still records`);
+					assert.equal(JSON.parse(recorded).duration_ms, (end - start) * 10);
+				}
+			}
+		}
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function testAdaptiveMissingMessagesReceivedIsUnhealthy() {
 	// A zero-exit {"log":[]} body without messages_received must not be
 	// recorded as a healthy sample (clears hot/shed). A valid empty ring
@@ -1613,6 +1685,7 @@ testPollTruncatedFilterBodyIsFilterFailed();
 testResolveBudgetIgnoresDateJump();
 testAdaptiveHotSurvivesFailedPoll();
 testAdaptiveHotSurvivesFilterFailures();
+testAdaptiveHotSurvivesUnavailableClock();
 testAdaptiveMissingMessagesReceivedIsUnhealthy();
 testSummaryErrorValueDoesNotFailHealthGate();
 testResolveJshnMissing();

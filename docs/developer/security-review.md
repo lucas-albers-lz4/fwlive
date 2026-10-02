@@ -1682,3 +1682,22 @@ review. Coverage dates and falsified claims above are current; historical entrie
 remain dated. Proof boundaries, findings, retained residuals and quality issue
 links are in [the audit record](../evidence/audit-2026-10-01.md). No implementation
 fix, release, live feed deployment or advisory publication was performed during the audit.
+
+
+### 2026-10-02 — adaptive timing and override delta (#1125, #1127)
+
+Scoped Codex implementation with independent GPT-6-luna/xhigh review in tracker
+#1135. The poll records only successful filter replies with nonzero ordered
+clock samples; equal nonzero samples remain valid. Clock-unavailable/skew cases
+retain prior protective state. Adaptive-off words now match every letter case
+using shell patterns, with no new utility fork. The sentinel remains independent.
+
+Host proof: the rpcd security suite copies shipped assets and overrides only the
+clock seam; real poll/filter/classifier entry points run with a limited jsonfilter
+array-enumeration fixture under dash and BusyBox ash. Both/start/end unavailable
+and backward samples preserve seeded state byte-for-byte; equal/forward valid
+samples still record. The adaptive suite covers mixed-case override values,
+unchanged enabled defaults and metadata. Both suites and shipped ShellCheck pass.
+No ACL, command-string, lock policy or helper-lifetime change was introduced.
+Installed clock/read behavior is not established by these host fixtures. This
+is a touched-surface delta; the full-pass gate is not triggered by these fixes.
