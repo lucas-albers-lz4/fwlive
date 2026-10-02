@@ -464,6 +464,14 @@ should carry a note saying what would raise it.
 
 ## Surface coverage map
 
+> **#1066 logging lock delta:** existing non-regular lock paths are rejected before
+> the first append; absent locks are still created and type/symlink checks precede
+> fd 9 acquisition. `tests/fwlive-logging-lock.test.sh` exercises missing/regular
+> locks and bounded FIFO/directory/symlink refusal with dash and BusyBox (`host`).
+> No ACL, UCI, or rollback contract changes; no new installed-guest proof is claimed.
+> Full surface re-audit deferred: this is a local lock-type guard in the existing
+> protected directory; privileged replacement races remain outside this guarantee.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
@@ -471,7 +479,7 @@ should carry a note saying what would raise it.
 | rpcd plugin + ACL scope | 2026-10-01 | Full source + scoped fresh proof | Full input/output/method/tempfile/control review; matched real jshn on all three supported pins. The #1059 host follow-up calls the shipped resolver through BusyBox ash with distinct IPv4 and IPv6 PTR fixtures, asserting exact lookup arguments and returned name maps. Fresh 24.10 grant/all-six-deny/read-only sessions and 25.12 read-only/all-six-deny checks; no session log.read. Direct-helper residual retained. |
 | Shell helpers — injection and quoting | 2026-10-01 | Full source + scoped fresh proof | Full shipped helper flows rechecked; log/PTR/UCI values remain data. Host tests, actual guest jsonfilter dependency fixtures and installed nft pipeline on 24.10/25.12 passed. Lab-root configuration interpolation does not establish new authority. |
 | Developer tooling — AST-grep gate | 2026-10-01 | Full source + scoped fresh proof | Pinned CLI/version, rules, invocation and generated/source paths inspected; configured baseline gate passed. Dynamic identifier/call children also require source/harness review. |
-| Shell helpers — **file modes and lock ownership** | 2026-10-01 | Full source + scoped fresh proof | Fresh host mode/directory/symlink checks and installed 0600 unprivileged denial. Existing #1066 FIFO-open exception confirmed; adaptive nonregular lock rejection is safe but setup skip remains silent (#1068). |
+| Shell helpers — **file modes and lock ownership** | 2026-10-01 | Full source + scoped fresh proof | Fresh host mode/directory/symlink checks and installed 0600 unprivileged denial. #1066 now rejects existing non-regular paths before append/open; dash and BusyBox host fixtures preserve missing/regular lock behavior. Privileged replacement races still rely on the protected directory; adaptive nonregular lock rejection is safe but setup skip remains silent (#1068). |
 | WAN logging lock wait and reload rollback | 2026-10-01 | Full source + scoped fresh proof | Host fault/race suites and all seven TLC configurations rerun. Artifact-only 24.10 held-lock refusal in 5 seconds and same-inode release verified with scratch provider-status adaptation. No installed ABA or scheduling-bound proof. |
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-10-01 | Full source + scoped fresh proof | Current hook/metadata matrix and fresh actual IPK/APK uninstall restoration on 24.10/25.12 passed; APK same-version reinstall preserves marker. Installer preclear failure is distinct and tracked as #1097. |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-10-01 | Full source + scoped fresh proof | Full source/host fixtures, current UCI grammar and named/anonymous identity rechecked. Installed artifact refuses foreign staging without committing or dropping it. Privileged package-wide commit race remains accepted. |
@@ -587,13 +595,13 @@ should carry a note saying what would raise it.
 | #1090 | Medium | [Existing issue](https://github.com/lucas-albers-lz4/fwlive/issues/1090) | Privileged staging home-directory guard exception; independent guard-only recheck added. |
 | #1095 | Medium | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1095) | Lab image cleanup can unmount a mount it did not acquire. |
 | #1096 | Low | [Hardening issue](https://github.com/lucas-albers-lz4/fwlive/issues/1096) | Release tag validation follows npm installation; no additional privilege demonstrated. |
-| #1066 | Low | [Existing issue](https://github.com/lucas-albers-lz4/fwlive/issues/1066) | Root-controlled FIFO lock blocks before nonblocking flock loop. |
 | #1068 | Low | [Existing issue](https://github.com/lucas-albers-lz4/fwlive/issues/1068) | Adaptive lock setup can silently skip state update. |
 
 ## Verified findings (closed in this ledger)
 
 | ID | Severity | Issue | Summary | Verified |
 |----|----------|-------|---------|----------|
+| #1066 | Low | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1066) | Existing non-regular logging locks rejected before append; normal creation and inode retained | 2026-10-01 — scoped dash/BusyBox host fixtures, PR #1106; privileged races excluded |
 | B-1 | Low | `wan_firewall_zone_same` class-matched any `name=wan` zone | Canonical `uci -X` cfg id compare; duplicate wan `.log` stays foreign | 2026-09-03 — multi-model audit |
 | [#204](https://github.com/lucas-albers-lz4/fwlive/issues/204) | Low | Predictable lock path opened O_TRUNC without symlink check | Lock under `/etc/fwlive/`; `acquire_wan_log_lock` rejects `-L` before create/tighten/open; Part E | 2026-08-23 — security-audit PR |
 | [#205](https://github.com/lucas-albers-lz4/fwlive/issues/205) | Low | Unpinned `@playwright/mcp@latest` in `.cursor/mcp.json` | MCP entry removed; tests use pinned `playwright@1.60.0` | 2026-08-23 — security-audit PR |
