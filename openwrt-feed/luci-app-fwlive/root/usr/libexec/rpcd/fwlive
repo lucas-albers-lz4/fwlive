@@ -1268,7 +1268,9 @@ Address: 127.0.0.1:53")
 	# jshn failures must log a named cause; stdout stays the numeric default.
 	# logger() override is inherited by the $() subshell; command -v still finds
 	# the binary, so the unqualified logger call is what this intercepts.
-	_poll_log="/tmp/fwlive-poll-cause.$$"
+	# Root-run selftest; mktemp keeps the scratch path unpredictable, matching
+	# the other temp use in this file.
+	_poll_log=$(mktemp "${TMPDIR:-/tmp}/fwlive-poll-cause.XXXXXX") || return 1
 	: > "$_poll_log"
 	logger() { printf '%s\n' "$*" >> "$_poll_log"; }
 
