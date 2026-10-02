@@ -11,9 +11,10 @@ boundaries, prefix+boundary, flag-token/ws language, glue site). Not
 ECMA-direct. NETFILTER_KV_GLUE lookahead is string-ops, not the lookahead
 regex. Pinned for stock z3-solver==5.0.0 (default seq backend; no z3str3).
 
-F5: normalize_log_prefix idempotency (P1) + fixpoint (P2) over a bounded
-domain, with quantifier-weaken and colon-drop guards (negative controls).
-P3 (client parity): shell normalize → JS parseRuleHint capture (#254).
+F5: prepared nft prefix normalization idempotency (P1) + fixpoint (P2)
+over a bounded domain, with quantifier-weaken and colon-drop guards
+(negative controls). Shell replay runs shipped nft_dump_fields prepared.
+P3 (client parity): prepared prefix → JS parseRuleHint capture (#254).
 
 Usage:
   ./scripts/z3-verify.py --fast
@@ -22,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -788,20 +790,22 @@ def run_f3_full() -> int:
 
 
 # ---------------------------------------------------------------------------
-# F5: normalize_log_prefix idempotency (#275 / #254).
-# The shipped shell (rpcd/fwlive) strips trailing spaces/tabs/colons with
-# sed 's/[[:space:]:]*$//'. P1 proves idempotency, P2 proves the fixpoint.
+# F5: prepared nft prefix normalization idempotency (#275 / #254).
+# The shipped rpcd/fwlive AWK stage strips trailing spaces/tabs/colons with
+# sub(/[[:space:]:]*$/, "", prefix). P1 proves idempotency, P2 the fixpoint.
 # Guards (must flip P1/P2 to SAT):
 #   - quantifier-weaken: '*' -> '?' (2026-08 regression ed4486829c)
 #   - colon-drop: strip [[:space:]] only, leave trailing ':' (adjacent mode)
-# P3: after shell normalize, JS parseRuleHint never captures a key that
-# still ends with a strip char (cross-module contract into rulesMap).
+# P3: after prepared-stage normalization, JS parseRuleHint never captures a
+# key that still ends with a strip char (contract into rulesMap).
 # Domain: strings up to F5_MAX_LEN over content + strip chars. Proofs are
 # valid up to this length (not length-independent); real prefixes are short.
-# F5_GROUND_CORPUS is shell-replay / P3 only and may use chars outside
+# F5_GROUND_CORPUS is prepared-stage replay / P3 only and may use chars outside
 # F5_CONTENT_CHARS (intentionally not in the Z3 alphabet).
 # ---------------------------------------------------------------------------
-F5_SHIPPED_SED = "sed 's/[[:space:]:]*$//'"
+F5_SHIPPED_AWK_NORMALIZE = 'sub(/[[:space:]:]*$/, "", prefix)'
+F5_SHIPPED_AWK_DISPATCH = 'if (mode == "prepared") {\n\t\t\tprepared(prefix, comment)'
+F5_PREPARED_PREFIX_MARKER = "x"
 F5_STRIP_CHARS = (" ", "	", ":")
 F5_SPACE_CHARS = (" ", "	")
 F5_CONTENT_CHARS = "abZ019_.-"
@@ -882,103 +886,141 @@ def _f5_domain(s):
 	return And(*conds)
 
 
-def _f5_extract_normalize_log_prefix(body: str):
-	"""Return the normalize_log_prefix() body via brace-depth, or None."""
+def _f5_extract_nft_dump_fields(body: str):
+	"""Return the shipped nft_dump_fields() function body, or None."""
 	lines = body.splitlines()
 	start = next(
-		(i for i, ln in enumerate(lines) if ln == "normalize_log_prefix() {"),
+		(i for i, ln in enumerate(lines) if ln == "nft_dump_fields() {"),
 		None,
 	)
 	if start is None:
 		return None
-	depth = 0
-	end = None
-	for i in range(start, len(lines)):
-		depth += lines[i].count("{") - lines[i].count("}")
-		if i > start and depth == 0:
-			end = i
-			break
-	if end is None:
-		return None
-	return "\n".join(lines[start : end + 1])
+	for i in range(start + 1, len(lines)):
+		# Shell's function close is unindented; embedded awk braces are not.
+		if lines[i] == "}":
+			return "\n".join(lines[start : i + 1])
+	return None
 
 
-def _f5_shipped_text_ok() -> bool:
-	"""The proof means nothing if the shell no longer carries the '*' form."""
+def _f5_shipped_function():
+	"""Pin and return the production prepared-stage source used by F5."""
 	if not RPCD.is_file():
 		print("FAIL: F5 missing rpcd path", file=sys.stderr)
-		return False
+		return None
 	body = RPCD.read_text(encoding="utf-8", errors="replace")
-	func = _f5_extract_normalize_log_prefix(body)
+	func = _f5_extract_nft_dump_fields(body)
 	if func is None:
-		print("FAIL: F5 normalize_log_prefix not found", file=sys.stderr)
-		return False
-	# Pin the sed form inside the extracted body so a leftover comment or a
-	# later nested `}` elsewhere cannot keep Z3 on `*` while shell replay
-	# runs different text.
-	if F5_SHIPPED_SED not in func:
+		print("FAIL: F5 nft_dump_fields not found or unterminated", file=sys.stderr)
+		return None
+	# Pin the suffix operation and its prepared-mode call site, not a comment
+	# or a dormant compatibility helper elsewhere in the rpcd plugin.
+	if F5_SHIPPED_AWK_NORMALIZE not in func or F5_SHIPPED_AWK_DISPATCH not in func:
 		print(
-			"FAIL: F5 shipped sed form changed — re-verify P1/P2",
+			"FAIL: F5 shipped prepared awk normalization changed — re-verify P1/P2",
 			file=sys.stderr,
 		)
-		return False
-	print("ok: F5 shipped sed form present")
-	return True
+		return None
+	print("ok: F5 shipped prepared awk normalization present")
+	return func
 
 
-def _f5_shell_ground_truth() -> bool:
-	"""Run the shipped function twice over a tricky corpus: f(f(x)) == f(x)."""
-	if not RPCD.is_file():
-		print("FAIL: F5 missing rpcd path", file=sys.stderr)
-		return False
-	body = RPCD.read_text(encoding="utf-8", errors="replace")
-	func = _f5_extract_normalize_log_prefix(body)
+def _f5_run_shipped_prepared_stage(values):
+	"""Run production nft_dump_fields prepared on nft text; return decoded prefixes."""
+	func = _f5_shipped_function()
 	if func is None:
-		print("FAIL: F5 normalize_log_prefix not found or unterminated", file=sys.stderr)
-		return False
+		return None
+	# A nonempty marker ensures the empty prefix case reaches prepared()'s
+	# output row; after parsing we remove only that marker.
+	source = "".join(
+		f'log prefix "{F5_PREPARED_PREFIX_MARKER}{value}"\n' for value in values
+	)
 	prog = (
-		func
-		+ '\nfor x in "$@"; do\n'
-		+ '  one=$(normalize_log_prefix "$x");\n'
-		+ '  two=$(normalize_log_prefix "$one");\n'
-		+ '  printf "%s\\n" "$one";\n'
-		+ '  printf "%s\\n" "$two";\n'
-		+ "done\n"
+		"FW4_TAG='!fw4: '\nRULES_MAP_MAX_LINES=512\n"
+		+ func
+		+ "\nnft_dump_fields prepared\n"
 	)
-	out = subprocess.run(
-		["sh", "-c", prog, "f5", *F5_GROUND_CORPUS],
-		cwd=ROOT,
-		capture_output=True,
-		text=True,
-	)
+	try:
+		out = subprocess.run(
+			["sh", "-c", prog, "f5"],
+			cwd=ROOT,
+			input=source,
+			capture_output=True,
+			text=True,
+			timeout=30,
+		)
+	except (OSError, subprocess.TimeoutExpired) as exc:
+		print(f"FAIL: F5 prepared awk replay did not complete: {exc}", file=sys.stderr)
+		return None
 	if out.returncode != 0:
-		print(f"FAIL: F5 shell replay — {out.stderr.strip()}", file=sys.stderr)
-		return False
-	outs = out.stdout.split("\n")
-	outs = outs[: len(F5_GROUND_CORPUS) * 2]
-	for i, x in enumerate(F5_GROUND_CORPUS):
-		one, two = outs[2 * i], outs[2 * i + 1]
+		print(f"FAIL: F5 prepared awk replay — {out.stderr.strip()}", file=sys.stderr)
+		return None
+	lines = out.stdout.splitlines()
+	if len(lines) != len(values):
+		print(
+			f"FAIL: F5 prepared awk row count {len(lines)} != {len(values)}",
+			file=sys.stderr,
+		)
+		return None
+	normalized = []
+	for i, line in enumerate(lines):
+		fields = line.split("\t", 3)
+		if len(fields) != 4 or fields[0] != "unlabeled":
+			print(
+				f"FAIL: F5 prepared awk row {i} has unexpected TSV shape: {line!r}",
+				file=sys.stderr,
+			)
+			return None
+		try:
+			# json_string() returns escaped content without JSON's quotes.
+			prefix = json.loads('"' + fields[1] + '"')
+		except (TypeError, json.JSONDecodeError) as exc:
+			print(f"FAIL: F5 prepared awk JSON prefix {i}: {exc}", file=sys.stderr)
+			return None
+		if not isinstance(prefix, str) or not prefix.startswith(F5_PREPARED_PREFIX_MARKER):
+			print(f"FAIL: F5 prepared awk lost the input marker at row {i}", file=sys.stderr)
+			return None
+		normalized.append(prefix[len(F5_PREPARED_PREFIX_MARKER) :])
+	return normalized
+
+
+def _f5_shell_ground_truth():
+	"""Run the shipped prepared stage twice over the shell/client corpus."""
+	once = _f5_run_shipped_prepared_stage(F5_GROUND_CORPUS)
+	if once is None:
+		return None
+	twice = _f5_run_shipped_prepared_stage(once)
+	if twice is None:
+		return None
+	for i, raw in enumerate(F5_GROUND_CORPUS):
+		one, two = once[i], twice[i]
+		expected = raw.rstrip(" \t:")
+		if one != expected:
+			print(
+				f"FAIL: F5 prepared normalization on {raw!r}: {one!r} != {expected!r}",
+				file=sys.stderr,
+			)
+			return None
 		if one != two:
 			print(
-				f"FAIL: F5 not idempotent on {x!r}: {one!r} -> {two!r}",
+				f"FAIL: F5 prepared stage not idempotent on {raw!r}: {one!r} -> {two!r}",
 				file=sys.stderr,
 			)
-			return False
-		if one != "" and one[-1] in (" ", "	", ":"):
+			return None
+		if one != "" and one[-1] in F5_STRIP_CHARS:
 			print(
-				f"FAIL: F5 fixpoint violated on {x!r}: {one!r}",
+				f"FAIL: F5 prepared stage fixpoint violated on {raw!r}: {one!r}",
 				file=sys.stderr,
 			)
-			return False
-	print(f"ok: F5 shell ground truth ({len(F5_GROUND_CORPUS)} inputs)")
-	return True
+			return None
+	print(f"ok: F5 prepared awk ground truth ({len(F5_GROUND_CORPUS)} inputs)")
+	return once
 
 
 def run_f5_fast() -> int:
-	"""F5 --fast: shipped-text pin + P1/P2 proofs + weaken/colon-drop guards."""
-	fail = 0
-	if not _f5_shipped_text_ok():
+	"""F5 --fast: production-source pin + P1/P2 proofs and negative controls."""
+	if _f5_shipped_function() is None:
 		return 1
+	fail = 0
 	s = String("f5s")
 	if not check_unsat(
 		"F5 P1 idempotency",
@@ -1006,9 +1048,7 @@ def run_f5_fast() -> int:
 		And(_f5_domain(w), Length(u) > 0, _f5_is_strip_char(ulast)),
 	):
 		fail += 1
-	# Negative control: space-only strip leaves trailing ':' (adjacent mode).
-	# Space-star remains idempotent; the failure mode is the fixpoint (P2),
-	# not a second-pass drift — so only P2 is required to flip SAT.
+	# Space-only strip leaves ':' (adjacent mode); P2 catches the gap.
 	c = String("f5c")
 	v = _f5_strip_space_star(c)
 	vlast = SubString(v, Length(v) - 1, 1)
@@ -1020,41 +1060,15 @@ def run_f5_fast() -> int:
 	return fail
 
 
-def _f5_p3_client_parity() -> bool:
-	"""Shell normalize → JS parseRuleHint (core + LuCI): no strip-char keys."""
-	if not RPCD.is_file():
-		print("FAIL: F5 P3 missing rpcd path", file=sys.stderr)
-		return False
-	body = RPCD.read_text(encoding="utf-8", errors="replace")
-	func = _f5_extract_normalize_log_prefix(body)
-	if func is None:
-		print("FAIL: F5 P3 normalize_log_prefix not found", file=sys.stderr)
-		return False
-	prog = (
-		func
-		+ '\nfor x in "$@"; do\n'
-		+ '  printf "%s\\n" "$(normalize_log_prefix "$x")"\n'
-		+ "done\n"
-	)
-	out = subprocess.run(
-		["sh", "-c", prog, "f5p3", *F5_GROUND_CORPUS],
-		cwd=ROOT,
-		capture_output=True,
-		text=True,
-	)
-	if out.returncode != 0:
-		print(f"FAIL: F5 P3 shell normalize — {out.stderr.strip()}", file=sys.stderr)
-		return False
-	# Exact cardinality — do not zip-truncate a short stdout into a false pass.
-	normalized = out.stdout.splitlines()
+def _f5_p3_client_parity(normalized) -> bool:
+	"""Prepared nft prefix → JS parseRuleHint (core + LuCI): no strip-char keys."""
 	if len(normalized) != len(F5_GROUND_CORPUS):
 		print(
-			f"FAIL: F5 P3 normalize line count {len(normalized)} != "
-			f"{len(F5_GROUND_CORPUS)}",
+			f"FAIL: F5 P3 normalized corpus {len(normalized)} != {len(F5_GROUND_CORPUS)}",
 			file=sys.stderr,
 		)
 		return False
-	# Node: core + LuCI parseRuleHint on "<norm> IN=wan ..." for each line.
+	# Node: core + LuCI parseRuleHint on "<normalized> IN=wan ..." for each line.
 	node_script = r"""
 const core = require('./core/fwlive-log.js');
 const { loadFwliveModule } = require('./tests/lib/load-fwlive-module');
@@ -1125,8 +1139,8 @@ for (const line of lines) {
 				file=sys.stderr,
 			)
 			return False
-		# When the normalized prefix is itself a parseRuleHint-shaped tag,
-		# the capture must equal it (rulesMap key contract).
+		# When the normalized prefix is parseRuleHint-shaped, the capture must
+		# equal it (rulesMap key contract).
 		if norm and re.match(r"^[A-Za-z0-9_.-]+$", norm):
 			if core_hint != norm:
 				print(
@@ -1139,11 +1153,12 @@ for (const line of lines) {
 
 
 def run_f5_full() -> int:
-	"""F5 --full: fast suite + shell ground-truth replay + P3 client parity."""
+	"""F5 --full: fast suite + actual prepared-stage replay + client parity."""
 	fail = run_f5_fast()
-	if not _f5_shell_ground_truth():
+	normalized = _f5_shell_ground_truth()
+	if normalized is None:
 		fail += 1
-	if not _f5_p3_client_parity():
+	elif not _f5_p3_client_parity(normalized):
 		fail += 1
 	return fail
 
