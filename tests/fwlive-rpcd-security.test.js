@@ -680,7 +680,6 @@ for (const entry of log) process.stdout.write(JSON.stringify(entry) + '\\n');
 		assert.throws(() => assertFilterIgnoresTimeout(plugin),
 			/installed timeout must never be invoked on the filter path/);
 		fs.unlinkSync(marker);
-		assert.ok(!fs.existsSync(marker), 'an installed timeout must never be invoked');
 		assert.doesNotMatch(fs.readFileSync(RPCD, 'utf8'), /run_with_timeout|FWLIVE_TIMEOUT|TIMEOUT_KILL_GRACE|__limits/);
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
