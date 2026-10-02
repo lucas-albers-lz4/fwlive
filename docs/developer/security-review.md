@@ -1711,3 +1711,20 @@ unchanged enabled defaults and metadata. Both suites and shipped ShellCheck pass
 No ACL, command-string, lock policy or helper-lifetime change was introduced.
 Installed clock/read behavior is not established by these host fixtures. This
 is a touched-surface delta; the full-pass gate is not triggered by these fixes.
+
+
+### 2026-10-02 — generated summary JSON escaping (#1124)
+
+The classifier generator initializes a small C0/DEL byte table once and uses
+Unicode escapes instead of space-collapse or raw DEL in JSON string content.
+Quote/backslash and tab/CR/LF branches, NUL-drop decoding, field truncation and
+the final escaped 1 KiB summary limit retain their contracts. Generated assets
+come from the generator, not manual edits. No new shell command/data sink.
+
+Host proof: the shell-filter suite invokes the actual generated escaper for
+bytes 1..31 and 127 with independent encoded/decoded expectations, then drives
+retained 0x01/0x1f/0x7f values through the shipped reply path. Existing Unicode,
+field-bound and shell-parity cases still pass on host awk and the required
+BusyBox awk lane; codegen freshness and core/LuCI parity pass. Review uses the
+Codex + independent GPT-6-luna/xhigh workflow in #1135. This is a scoped delta;
+installed logd/jsonfilter representation is not established by these fixtures.
