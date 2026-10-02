@@ -16,31 +16,46 @@ feed_publish_root() {
 	printf '%s' "$here"
 }
 
+# Keep a single leading separator even when pwd preserves a // spelling.
+feed_publish_physical_dir() {
+	local physical
+	physical="$(cd "$1" && pwd -P)" || return 1
+	while [[ "$physical" == //* ]]; do physical="${physical#/}"; done
+	printf '%s' "$physical"
+}
+
 feed_publish_abspath() {
-	local path="$1"
+	local path="$1" parent base
 	if [[ "$path" != /* ]]; then
 		path="$(feed_publish_root)/${path#./}"
 	fi
-	(
-		cd "$(dirname "$path")"
-		printf '%s/%s' "$(pwd)" "$(basename "$path")"
-	)
+	parent="$(feed_publish_physical_dir "$(dirname "$path")")" || return 1
+	base="$(basename "$path")"
+	if [[ "$base" == / ]]; then printf '%s' /; else printf '%s/%s' "${parent%/}" "$base"; fi
 }
 
 # Resolve staging to a physical path so a symlink to / cannot bypass the clear guard.
 feed_publish_canonical_staging() {
 	local path="$1" parent
-	path="$(feed_publish_abspath "$path")"
+	path="$(feed_publish_abspath "$path")" || return 1
 	if [[ -d "$path" ]]; then
-		(cd "$path" && pwd -P)
-		return 0
+		feed_publish_physical_dir "$path"
+		return
 	fi
 	if [[ -e "$path" || -L "$path" ]]; then
 		echo "feed_publish: staging path is not a directory: $path" >&2
 		return 1
 	fi
-	parent="$(cd "$(dirname "$path")" && pwd -P)" || return 1
-	printf '%s/%s' "$parent" "$(basename "$path")"
+	parent="$(feed_publish_physical_dir "$(dirname "$path")")" || return 1
+	printf '%s/%s' "${parent%/}" "$(basename "$path")"
+}
+
+# A separate read-only helper lets guard fixtures supply a protected home
+# without changing the process HOME or attempting any filesystem deletion.
+feed_publish_physical_home() {
+	if [[ -n "${HOME:-}" && -d "$HOME" ]]; then
+		feed_publish_physical_dir "$HOME"
+	fi
 }
 
 feed_publish_path_under() {
@@ -73,14 +88,11 @@ feed_publish_assert_staging_clearable() {
 		return 1
 	fi
 	canonical="$(feed_publish_canonical_staging "$staging")" || return 1
-	root="$(cd "$(feed_publish_root)" && pwd -P)"
-	home=""
-	if [[ -n "${HOME:-}" && -d "$HOME" ]]; then
-		home="$(cd "$HOME" && pwd -P)"
-	fi
+	root="$(feed_publish_physical_dir "$(feed_publish_root)")" || return 1
+	home="$(feed_publish_physical_home)" || return 1
 	runner=""
 	if [[ -n "${RUNNER_TEMP:-}" && -d "$RUNNER_TEMP" ]]; then
-		runner="$(cd "$RUNNER_TEMP" && pwd -P)"
+		runner="$(feed_publish_physical_dir "$RUNNER_TEMP")" || return 1
 	fi
 	if [[ "$canonical" == "/" ]]; then
 		echo "feed_publish: refusing to clear /" >&2
