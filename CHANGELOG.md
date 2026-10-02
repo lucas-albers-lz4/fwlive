@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Preserve adaptive hot/shed state when either poll duration clock sample is unavailable, and accept case-insensitive adaptive-off overrides (#1125, #1127).
 
+### Changed
+- Check formal rollback decision completion and conditional idealized restore effectiveness, retaining an unfair counterexample and rejecting ambiguous temporal-property attribution (PR #1123).
+
 ## [v0.1.50] — 2026-10-02
 
 ### Fixed
