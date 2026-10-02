@@ -1784,3 +1784,21 @@ per-name helper costs; this change specifically removes nft-prefix costs.
 Shipped ShellCheck passes; no new command-string sink, ACL or helper deadline.
 Codex and independent GPT-6-luna/xhigh review and installed evidence are tracked
 in #1135. This delta does not trigger a fresh full audit.
+
+### 2026-10-02 combined implementation validation (#1135)
+
+The scoped fixes in PRs #1122 and #1136–#1142 have fresh combined host and
+24.10.8 x86_64 artifact-only proof in the [implementation record](../evidence/implementation-2026-10-02.md).
+The required-scan baseline has zero runner-level skips; the full Z3 adapter
+checks the shipped prepared awk path. Installed payload identity, native
+poll/filter control-byte and adaptive-off checks, 400-prefix rules RPC/caps,
+real nft/logd traffic and built LuCI keyboard/focus/text-node wiring passed.
+The installed browser uses explicitly controlled HTTP poll replies and allows
+one known no-password guest `uci/get` denial; its result does not establish
+logd input or an error-free session. Native logd proof is recorded separately.
+#1133 remains a partial pathname mitigation: surviving helper-held anonymous
+storage and the initial setup window remain. Formal #1123 proof retains its
+model/fairness limits. This extends the named seams of the October 1 full
+source baseline; it is a scoped implementation delta, with reviews/merges
+still gated by the owner. No fresh APK, 23.05, physical-device or full audit
+result is claimed.
