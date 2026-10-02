@@ -232,26 +232,29 @@ _expect_lock_skipped "fifo lock"
 ok "fifo lock path skips write without blocking"
 
 _seed_cold
-_ro_dir="$WORKDIR/lock-ro-dir"
-mkdir -p "$_ro_dir"
-chmod 555 "$_ro_dir"
-export FWLIVE_ADAPTIVE_LOCK_FILE="$_ro_dir/lock"
+_missing_lock_parent="$WORKDIR/lock-missing-parent"
+[ ! -e "$_missing_lock_parent" ] || die "lock-create fixture parent must not exist"
+export FWLIVE_ADAPTIVE_LOCK_FILE="$_missing_lock_parent/lock"
 fwlive_adaptive_record 900 2000
 _expect_lock_skipped "lock create failure"
-chmod 755 "$_ro_dir"
+[ ! -e "$_missing_lock_parent" ] || die "lock create failure must not create its missing parent"
 _restore_lock
-ok "lock create failure skips write"
+ok "missing lock parent skips write for any uid"
 
-_seed_cold
-_nw_lock="$WORKDIR/lock-unwritable"
-: >"$_nw_lock"
-chmod 444 "$_nw_lock"
-export FWLIVE_ADAPTIVE_LOCK_FILE="$_nw_lock"
-[ -w "$_nw_lock" ] && die "unwritable lock fixture must not be -w"
-fwlive_adaptive_record 900 2000
-_expect_lock_skipped "unwritable lock"
-_restore_lock
-ok "unwritable lock skips write"
+if [ "$(id -u)" -eq 0 ]; then
+	echo "skip: unwritable lock mode fixture (root bypasses permission bits; non-root run covers it)"
+else
+	_seed_cold
+	_nw_lock="$WORKDIR/lock-unwritable"
+	: >"$_nw_lock"
+	chmod 444 "$_nw_lock"
+	export FWLIVE_ADAPTIVE_LOCK_FILE="$_nw_lock"
+	[ -w "$_nw_lock" ] && die "unwritable lock fixture must not be -w"
+	fwlive_adaptive_record 900 2000
+	_expect_lock_skipped "unwritable lock"
+	_restore_lock
+	ok "unwritable lock skips write"
+fi
 
 _seed_cold
 _nf_bin="$WORKDIR/path-no-flock"
