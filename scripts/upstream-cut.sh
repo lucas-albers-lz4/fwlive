@@ -119,6 +119,9 @@ done
 
 if [ "$DROP_CSS" -eq 1 ]; then
 	rm -f "$OUT/htdocs/luci-static/resources/fwlive/fwlive.css"
+	# ...and its README row: the cut ships css.js, not the source asset, and
+	# the row names the monorepo-only embed-fwlive-css.js generator.
+	sed -i '/htdocs\/luci-static\/resources\/fwlive\/fwlive\.css/d' "$OUT/README.md"
 fi
 
 # Package README: luci copy is layout + deps only. Drop Maintenance and
@@ -164,13 +167,25 @@ if [ -f "$css_js" ]; then
 		"$css_js"
 fi
 
+# Rewrites of a file that the .pot references must not change its line count:
+# the #: refs are copied from the monorepo template, whose line numbers were
+# generated against the monorepo files. A shifted line silently invalidates
+# them; 4/5 asserts the counts stay equal.
 log_js="$OUT/htdocs/luci-static/resources/fwlive/log.js"
 if [ -f "$log_js" ]; then
 	sed -i \
 		-e 's|Shared classify logic mirrors core/fwlive-log\.js CLASSIFY_SPEC — keep in sync|Shared CLASSIFY_SPEC.|' \
-		-e '/gen-luci-wrapper\.js gates full-spec/d' \
+		-e 's|^ \* (gen-luci-wrapper\.js gates full-spec + regex drift; \./scripts/gen-all\.sh verifies)\.$| * Full-spec and regex drift are verified by the generator test suite.|' \
 		-e 's|spec-derived classification regexes (mirror core/fwlive-log\.js)|spec-derived classification regexes|' \
 		"$log_js"
+fi
+
+# The view header points at a monorepo-only design doc; the luci tree does not
+# ship it. Substitution, not deletion — the .pot holds 151 refs into this file.
+view_js="$OUT/htdocs/luci-static/resources/view/status/fwlive.js"
+if [ -f "$view_js" ]; then
+	sed -i 's|^ \* for OpenWrt (Apache-2\.0)\. See docs/fwlive-ui-design-target\.md in the fwlive repo\.$| * for OpenWrt (Apache-2.0).|' \
+		"$view_js"
 fi
 
 constants_js="$OUT/htdocs/luci-static/resources/fwlive/constants.js"
@@ -178,6 +193,16 @@ if [ -f "$constants_js" ]; then
 	sed -i \
 		's|Keep in sync with openwrt-feed/luci-app-fwlive/Makefile PKG_VERSION\.|Keep in sync with Makefile PKG_VERSION.|' \
 		"$constants_js"
+fi
+
+# Internal tracker/audit refs do not ship. Two comment lines in, two out, so
+# the file's (unreferenced) line count stays put.
+logging_sh="$OUT/root/usr/libexec/fwlive-logging.sh"
+if [ -f "$logging_sh" ]; then
+	sed -i \
+		-e 's|^# Resolve a firewall section id to its canonical cfgXXXX form (issue B-1 /$|# Resolve a firewall section id to its canonical cfgXXXX form.|' \
+		-e 's|^# multi-model audit)\. `uci -X show` disables|# `uci -X show` disables|' \
+		"$logging_sh"
 fi
 
 # Drop fwlive tracker ids from comments. GitHub would auto-link them to
@@ -228,6 +253,82 @@ for path in root.rglob('*'):
     if new != raw:
         path.write_text(new, encoding='utf-8')
 PY
+
+# .pot #: refs are copied from the monorepo template, where they read
+# openwrt-feed/luci-app-fwlive/... . In the luci tree the same files live at
+# applications/luci-app-fwlive/..., which is what ./build/i18n-scan.pl emits
+# when it is run there. Ship that shape, so the template in the PR names paths
+# a maintainer can resolve; 4/5 checks the line numbers behind them.
+pot_out="$OUT/po/templates/luci-app-fwlive.pot"
+if [ -f "$pot_out" ]; then
+	sed -i -e '/^#: /s|openwrt-feed/luci-app-fwlive/|applications/luci-app-fwlive/|g' \
+		"$pot_out"
+fi
+
+# .pot #: refs must be luci-shaped, resolvable, and line-accurate — and the
+# line numbers only stay accurate while the rewrites above keep the referenced
+# files' line counts (checked here, not assumed).
+upstream_cut_verify_pot_refs() {
+	local out="$1" pkg="$2"
+	python3 - "$out" "$pkg" <<'PY'
+import sys
+from pathlib import Path
+
+out, pkg = Path(sys.argv[1]), Path(sys.argv[2])
+pot = out / 'po/templates/luci-app-fwlive.pot'
+if not pot.is_file():
+    sys.exit(0)
+prefix = 'applications/luci-app-fwlive/'
+bad = []
+refs = {}
+for line in pot.read_text(encoding='utf-8').splitlines():
+    if not line.startswith('#: '):
+        continue
+    for token in line[3:].split():
+        path, sep, lineno = token.rpartition(':')
+        if not sep or not lineno.isdigit():
+            bad.append('unparseable ref %r' % token)
+            continue
+        if not path.startswith(prefix):
+            bad.append('ref is not luci-shaped: %s' % token)
+            continue
+        refs.setdefault(path[len(prefix):], []).append(int(lineno))
+for rel in sorted(refs):
+    target = out / rel
+    source = pkg / rel
+    if not target.is_file():
+        bad.append('ref target missing from cut: %s' % rel)
+        continue
+    cut_lines = len(target.read_text(encoding='utf-8', errors='replace').splitlines())
+    if source.is_file():
+        src_lines = len(source.read_text(encoding='utf-8', errors='replace').splitlines())
+        if src_lines != cut_lines:
+            bad.append('referenced file changed line count: %s (%d -> %d)'
+                       % (rel, src_lines, cut_lines))
+    for n in refs[rel]:
+        if n < 1 or n > cut_lines:
+            bad.append('ref line out of range: %s:%d (%d lines)' % (rel, n, cut_lines))
+for msg in bad[:20]:
+    print('  FAIL: %s' % msg)
+sys.exit(1 if bad else 0)
+PY
+}
+
+# README table rows must not name a path the cut does not ship; a dropped file
+# or monorepo-only generator otherwise leaves a dangling row behind.
+upstream_cut_verify_readme_rows() {
+	local out="$1" path missing=0
+	while IFS= read -r path; do
+		case "$path" in
+			'' | *'*'* | /*) continue ;;
+		esac
+		if [[ ! -e "$out/$path" ]]; then
+			echo "  FAIL: README row names a path the cut does not ship: $path"
+			missing=1
+		fi
+	done < <(grep -oE '^\| `[^`]+`' "$out/README.md" 2>/dev/null | cut -d'`' -f2)
+	return "$missing"
+}
 
 echo "== 4/5 verify =="
 fail=0
@@ -291,6 +392,14 @@ if [ ! -f "$OUT/po/templates/luci-app-fwlive.pot" ]; then
 	fail=1
 fi
 
+if ! upstream_cut_verify_pot_refs "$OUT" "$PKG"; then
+	fail=1
+fi
+
+if ! upstream_cut_verify_readme_rows "$OUT"; then
+	fail=1
+fi
+
 if grep -rn 'TOPDIR)/feeds/luci' "$OUT/Makefile" >/dev/null 2>&1; then
 	echo "  FAIL: feed-path luci.mk include remains in Makefile" >&2
 	fail=1
@@ -306,9 +415,9 @@ if grep -qE 'openwrt-feed/|\./scripts/gen-all|core/fwlive-log|embed-fwlive-css' 
 	fail=1
 fi
 
-if grep -rqE '[Dd]o not edit|regenerate(d)? upstream of this tree|Snapshot from the fwlive monorepo' \
+if grep -rqE '[Dd]o not edit|regenerate(d)? upstream of this tree|Snapshot from the fwlive monorepo|in the fwlive repo|docs/fwlive-ui-design-target|embed-fwlive-css|multi-model audit|issue [A-Z]{1,3}-[0-9]+' \
 	"$OUT" 2>/dev/null; then
-	echo "  FAIL: luci cut still tells maintainers not to edit, or names the fwlive repo" >&2
+	echo "  FAIL: luci cut still names the monorepo, or ships out-of-tree/internal references" >&2
 	fail=1
 fi
 
@@ -385,5 +494,5 @@ echo "  OK: luci README has no out-of-tree GitHub links; po template present; lo
 
 echo "== 5/5 next steps =="
 echo "  Copy $OUT into a luci fork at luci/applications/luci-app-fwlive/"
-echo "  Run luci ./build/i18n-scan.pl on that tree for a fresh .pot, then open the PR."
+echo "  Optional: re-run luci ./build/i18n-scan.pl in that tree and diff — the cut .pot is already luci-shaped (paths + line numbers)."
 echo "  Apache-2.0 in PR body (PKG_LICENSE already set)."
