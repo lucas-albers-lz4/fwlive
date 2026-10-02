@@ -53,6 +53,33 @@ assert.ok(/(^|\s)\+jsonfilter(\s|$)/.test(luciDepends), 'LUCI_DEPENDS must decla
 assert.ok(/(^|\s)\+luci-base(\s|$)/.test(luciDepends), 'LUCI_DEPENDS must declare +luci-base');
 assert.ok(/(^|\s)\+logd(\s|$)/.test(luciDepends), 'LUCI_DEPENDS must declare +logd');
 assert.doesNotMatch(luciDepends, /coreutils-timeout/, 'LUCI_DEPENDS must not require GNU timeout');
+// All local packaging inputs, including appended/continued assignments and any
+// future control/APK metadata, must retain the source contract without a build.
+function assertNoTimeoutPackaging(root) {
+	for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+		const file = path.join(root, entry.name);
+		if (entry.isDirectory()) assertNoTimeoutPackaging(file);
+		else if (entry.name === 'Makefile' || /(?:control|manifest|APKBUILD|\.apk\.json)$/.test(entry.name)) {
+			const text = fs.readFileSync(file, 'utf8').replace(/^\s*#.*$/gm, '');
+			assert.doesNotMatch(text, /coreutils-timeout/, 'packaging input must not require GNU timeout: ' + file);
+		}
+	}
+}
+assertNoTimeoutPackaging(PKG);
+const packagingFixture = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'fwlive-packaging-'));
+try {
+	for (const assignment of ['LUCI_DEPENDS +=', 'DEPENDS :=', 'PKG_BUILD_DEPENDS =']) {
+		fs.writeFileSync(path.join(packagingFixture, 'Makefile'), assignment + ' +coreutils-timeout\n');
+		assert.throws(() => assertNoTimeoutPackaging(packagingFixture), /packaging input must not require/);
+	}
+	fs.unlinkSync(path.join(packagingFixture, 'Makefile'));
+	fs.writeFileSync(path.join(packagingFixture, 'manifest'), '{"depends":["coreutils-timeout"]}');
+	assert.throws(() => assertNoTimeoutPackaging(packagingFixture), /packaging input must not require/);
+} finally {
+	fs.rmSync(packagingFixture, { recursive: true, force: true });
+}
+
+
 const viewSrc = fs.readFileSync(
 	path.join(PKG, 'htdocs/luci-static/resources/view/status/fwlive.js'),
 	'utf8'
