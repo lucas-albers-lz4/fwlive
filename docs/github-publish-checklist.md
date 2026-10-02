@@ -85,7 +85,12 @@ Checklist:
 
 - [ ] `./scripts/upstream-cut.sh` → `out/upstream/luci-app-fwlive/`
 - [ ] Copy into `luci/applications/luci-app-fwlive/` on a feature branch
-- [ ] `./build/i18n-scan.pl` refresh of `.pot` (same luci commit); copy back + `msgmerge` feed `.po`
+- [ ] From the LuCI checkout, run
+  `./build/i18n-scan.pl applications/luci-app-fwlive > /tmp/luci-app-fwlive.pot`
+  and compare it with
+  `applications/luci-app-fwlive/po/templates/luci-app-fwlive.pot`; then
+  `msgmerge` the feed `.po` files. See the
+  [full scan-and-diff procedure](developer/upstream-openwrt.md#luci-shaped-copy--pot).
 - [ ] FormalityCheck commit (Signed-off-by, body ≤100 cols, linked GitHub email)
 - [ ] State Apache-2.0 in the PR body; do not paste CodeRabbit threads upstream
 
