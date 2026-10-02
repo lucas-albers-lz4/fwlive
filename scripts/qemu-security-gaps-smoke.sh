@@ -94,8 +94,15 @@ case "$UNPRIV_RC" in
 	1)
 		ok "unprivileged cannot LOCK_EX logging.lock (rc=1)"
 		;;
+	66)
+		provider="$(ssh_guest 'flock --version' 2>/dev/null)" || die "cannot verify denied-open flock provider"
+		case "$provider" in
+			'flock from util-linux '*) ok "unprivileged cannot open logging.lock (util-linux rc=66)" ;;
+			*) die "unprivileged rc=66 without supported util-linux provider (not gap-proven)" ;;
+		esac
+		;;
 	0)
-		die "unprivileged flock -n on logging.lock succeeded (expected rc=1)"
+		die "unprivileged flock -n on logging.lock succeeded (expected denial)"
 		;;
 	127)
 		die "unprivileged flock probe: flock not found (setup, not gap-proven)"
@@ -104,7 +111,7 @@ case "$UNPRIV_RC" in
 		die "unprivileged flock probe setup failed (need nobody or adduser + su)"
 		;;
 	*)
-		die "unprivileged flock probe unexpected rc=${UNPRIV_RC} (want 1; not gap-proven)"
+		die "unprivileged flock probe unexpected rc=${UNPRIV_RC} (want 1 or verified util-linux 66; not gap-proven)"
 		;;
 esac
 

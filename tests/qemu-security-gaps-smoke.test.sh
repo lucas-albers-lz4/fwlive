@@ -67,6 +67,10 @@ fi
 if [[ "$cmd" == *"mkdir -p /etc/fwlive"* || "$cmd" == *"chmod 0600"* ]]; then
 	exit 0
 fi
+if [[ "$cmd" == 'flock --version' ]]; then
+	printf '%s\n' "${FWLIVE_STUB_FLOCK_VERSION:-flock from util-linux 2.40.2}"
+	exit 0
+fi
 if [[ "$cmd" == *"id nobody"* || "$cmd" == *"flock -n /etc/fwlive/logging.lock true"* ]]; then
 	printf '%s\n' "${FWLIVE_STUB_UNPRIV_RC:-1}"
 	exit 0
@@ -135,6 +139,7 @@ run_gaps() {
 		FWLIVE_STUB_RESOLVE="${FWLIVE_STUB_RESOLVE:-ok}" \
 		FWLIVE_STUB_FLOCK="${FWLIVE_STUB_FLOCK:-present}" \
 		FWLIVE_STUB_UNPRIV_RC="${FWLIVE_STUB_UNPRIV_RC:-1}" \
+		FWLIVE_STUB_FLOCK_VERSION="${FWLIVE_STUB_FLOCK_VERSION:-flock from util-linux 2.40.2}" \
 		FWLIVE_STUB_ENABLE="${FWLIVE_STUB_ENABLE:-ok}" \
 		FWLIVE_STUB_STAGED="${FWLIVE_STUB_STAGED:-0}" \
 		bash "$SCRIPT" >"$output" 2>&1; then
@@ -232,8 +237,12 @@ if [[ "$cmd" == *"ubus call fwlive resolve"* ]]; then
 	printf '{"names":%s}\n' "${out}}"
 	exit 0
 fi
+if [[ "$cmd" == 'flock --version' ]]; then
+	printf '%s\n' "${FWLIVE_STUB_FLOCK_VERSION:-flock from util-linux 2.40.2}"
+	exit 0
+fi
 if [[ "$cmd" == *"id nobody"* || "$cmd" == *"flock -n /etc/fwlive/logging.lock true"* ]]; then
-	printf '%s\n' 1
+	printf '%s\n' "${FWLIVE_STUB_UNPRIV_RC:-1}"
 	exit 0
 fi
 if [[ "$cmd" == *"ubus call fwlive enable_wan_logging"* ]]; then
@@ -286,3 +295,23 @@ grep -Fq 'security-gaps smoke passed' "$TMP/happy.log" \
 ok 'positive control: 32 resolve entries, unprivileged rc=1, bounded lock_failed response'
 
 echo 'qemu security-gaps smoke tests passed'
+
+# Retain foreign-staging happy-path fixture while verifying native denial status.
+(
+	FWLIVE_STUB_STAGED_FILE="$TMP/staged"
+	export FWLIVE_STUB_STAGED_FILE
+	FWLIVE_STUB_UNPRIV_RC=66
+	export FWLIVE_STUB_UNPRIV_RC
+	run_gaps util-linux-denied || die 'verified util-linux denied-open 66 must pass'
+	grep -q 'util-linux rc=66' "$TMP/util-linux-denied.log" || die 'provider-aware verdict'
+	FWLIVE_STUB_FLOCK_VERSION='BusyBox unknown option'
+	export FWLIVE_STUB_FLOCK_VERSION
+	if run_gaps unknown-provider-66; then die '66 without util-linux provider must fail'; fi
+	grep -q 'without supported util-linux provider' "$TMP/unknown-provider-66.log" || die 'unsupported provider diagnostic'
+)
+(
+	FWLIVE_STUB_UNPRIV_RC=124
+	export FWLIVE_STUB_UNPRIV_RC
+	if run_gaps unpriv-timeout; then die 'unprivileged timeout must fail'; fi
+)
+ok 'verified util-linux 66 accepted; unsupported provider and timeout fail'
