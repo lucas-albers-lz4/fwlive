@@ -664,8 +664,10 @@ fetch_firewall_logs() {
 		*) _filter_ok=0 ;;
 	esac
 	end_cs=$(fwlive_adaptive_clock_cs)
-	# Uptime wrap / skew: end < start — do not record as cold.
-	if [ "$_filter_ok" = 1 ] && [ "$end_cs" -ge "$start_cs" ]; then
+	# Missing uptime (zero) or wrap/skew is not a healthy cold sample.
+	# Equal nonzero samples remain a valid sub-centisecond duration.
+	if [ "$_filter_ok" = 1 ] && [ "$start_cs" -gt 0 ] && \
+		[ "$end_cs" -gt 0 ] && [ "$end_cs" -ge "$start_cs" ]; then
 		_dur=$(((end_cs - start_cs) * 10))
 		fwlive_adaptive_record "$_dur" "$lines"
 	fi

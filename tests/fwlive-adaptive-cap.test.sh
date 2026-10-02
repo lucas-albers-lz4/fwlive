@@ -142,6 +142,22 @@ set -- $(fwlive_adaptive_plan 50)
 [ "$1" = 50 ] || die "cool must not raise 50 → $1"
 ok "cool respects small request"
 
+# Accepted words are case-insensitive without a new per-poll utility fork.
+for _off in 0 false FALSE False fAlSe off OFF Off oFf no NO No nO; do
+	FWLIVE_ADAPTIVE=$_off
+	fwlive_adaptive_enabled && die "$_off must disable"
+	set -- $(fwlive_adaptive_plan 2000)
+	[ "$1 $2 $3" = "2000 0 off" ] || die "$_off disabled plan=$*"
+	[ "$(fwlive_adaptive_merge_reply '{"log":[]}' 0 50 0 0)" = '{"log":[],"adaptive":0,"messages_received":0}' ] \
+		|| die "$_off must report adaptive off without cap/shed metadata"
+done
+for _on in 1 true TRUE yes YES unknown ''; do
+	FWLIVE_ADAPTIVE=$_on
+	fwlive_adaptive_enabled || die "$_on must remain enabled"
+done
+unset FWLIVE_ADAPTIVE
+ok "case-insensitive adaptive override contract"
+
 # Override: env and sentinel.
 FWLIVE_ADAPTIVE=0
 fwlive_adaptive_enabled && die "FWLIVE_ADAPTIVE=0 must disable"
