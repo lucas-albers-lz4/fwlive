@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prepare nft rule prefixes, aliases and JSON string content in one bounded awk stage, removing per-prefix utility forks while retaining precedence, first-wins and reply caps (#1128).
 - Preserve representable C0 control bytes and DEL in generated poll summaries using JSON escapes, matching the shell escaper (#1124).
 - Preserve adaptive hot/shed state when either poll duration clock sample is unavailable, and accept case-insensitive adaptive-off overrides (#1125, #1127).
+- Give filter-chip invert buttons translated Include/Exclude accessible names while retaining the existing tooltip and filter controls (#1129).
 
 ## [v0.1.50] — 2026-10-02
 

@@ -107,7 +107,7 @@ msgstr ""
 msgid "Classic uses green/red; Accessible uses teal/orange"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:157
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:159
 msgid "Clear all"
 msgstr ""
 
@@ -292,7 +292,7 @@ msgstr ""
 msgid "Exclude"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:93
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:83
 msgid "Exclude instead"
 msgstr ""
 
@@ -384,7 +384,7 @@ msgstr ""
 msgid "Inbound"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:93
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:83
 msgid "Include instead"
 msgstr ""
 
@@ -553,7 +553,7 @@ msgstr ""
 msgid "Quick search"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:116
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:118
 msgid "Remove filter"
 msgstr ""
 

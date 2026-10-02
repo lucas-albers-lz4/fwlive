@@ -1,5 +1,15 @@
 # Security review state
 
+**2026-10-02 #1129 renderer delta.** The chip inversion button now exposes the
+same static translated Include/Exclude action text as its existing CSS tooltip.
+The filter value remains an array child and is not used in the accessible-name
+attribute; the removal link and inversion callback remain intact. Host proof:
+`tests/fwlive-chips-hash.test.js` checks both translated action states and the
+recording `E()` sink contract; `npm run test:view` uses Chromium role/name lookup
+and Enter/Space to confirm one inversion per activation. This is a mocked
+browser harness, not an installed-router or assistive-technology check, and is
+a scoped renderer delta rather than a full source re-audit.
+
 > **2026-10-01 from-scratch full audit:** Baseline
 > `20c6ef541cfec12bf95f32cd646c0a55178caaac` (v0.1.49). The orchestrator and
 > three GPT-6-Luna/xhigh reviewers independently reassessed all current surfaces,
@@ -572,7 +582,7 @@ change. This scoped smoke review is not a full security audit.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
-| Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
+| Frontend rendering sinks (`E()` string children) | 2026-10-02 | Scoped delta (full source pass 2026-10-01) | #1129: action label is static translated text; filter values remain array children. Recording harness and mocked Chromium role/name keyboard smoke passed; no installed guest or assistive-technology proof. |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-10-01 | Full source + scoped fresh proof | Full source-to-sink trace across parser, view, chips, links, labels, caches and summaries. Host hostile-input checks passed; no new injection mechanism confirmed. Backend reply-size dependence remains an explicit limit. |
 | rpcd plugin + ACL scope | 2026-10-01 | Full source + scoped fresh proof | Full input/output/method/tempfile/control review; matched real jshn on all three supported pins. The #1059 host follow-up calls the shipped resolver through BusyBox ash with distinct IPv4 and IPv6 PTR fixtures, asserting exact lookup arguments and returned name maps. Fresh 24.10 grant/all-six-deny/read-only sessions and 25.12 read-only/all-six-deny checks; no session log.read. #1054 host coverage asserts native `ubus -t 5` argv and structured error handling only; it does not emulate a stalled service, and the native wait starts after object lookup without cancelling remote work. #1053 removed the GNU timeout wrappers and peer-drain. Direct-helper residual retained. |
 | Shell helpers — injection and quoting | 2026-10-01 | Full source + scoped fresh proof | Full shipped helper flows rechecked; log/PTR/UCI values remain data. Host tests, actual guest jsonfilter dependency fixtures and installed nft pipeline on 24.10/25.12 passed. Lab-root configuration interpolation does not establish new authority. Historical #898 peer-drain fallback and #761 positional GNU-timeout proof describe the removed wrapper (#1053); current provider calls execute without that wrapper, while `poll` retains its separate native `ubus -t 5` invocation timeout. Filtered-stdin handling remains intact. |
@@ -584,7 +594,7 @@ change. This scoped smoke review is not a full security audit.
 | Release pipeline — secrets and key handling | 2026-10-01 | Full source + scoped fresh proof | Full source and both storage-format mode tests; full SDK usign/RSA validation plus three-line local signed feed staging with dummy keys. Native opkg/APK signatures and manifest hashes checked. No real keys or live publication. |
 | Release pipeline — version pins, fetch pinning and artifact selection | 2026-10-01 | Full source + scoped fresh proof | Current pin/fetch/cache/selection paths and tests rechecked. The #1059 host follow-up injects a partial-output grep failure in Packages filtering and asserts the production host helper aborts before gzip/usign; the SDK-contained path remains source-only. Fresh three-cell build, payload inspection and repeated clean bit-identical builds passed. #1090 physical-path normalization and read-only host guard fixtures now close the home-path spelling exception; #1096 ordering hardening remains open. |
 | Workflow inputs into `run:` bodies | 2026-10-01 | Full source + scoped fresh proof | All workflow inputs/actions/permissions reviewed; actionlint and pedantic zizmor output adjudicated. #1096 validation-before-install ordering confirmed as hardening; no additional repository-writer privilege demonstrated. No live workflow. |
-| LuCI view (templates / shipped JS) | 2026-10-01 | Full source + scoped fresh proof | Full source/state/cache/lifecycle pass, host and real mocked browser checks, plus installed 24.10 recovery/hostname/pause/filter/leave/revisit checks. Initial bootstrap access-denied pageerror is disclosed; no global error-free claim. |
+| LuCI view (templates / shipped JS) | 2026-10-02 | Scoped UI delta (full source pass 2026-10-01) | #1129 accessible-name behavior passed in the mocked Chromium fixture; prior installed 24.10 evidence remains dated 2026-10-01 and does not cover this change. |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-10-01 | Full source + scoped fresh proof | All current package metadata/hooks/ACL/menu and generated payload modes checked; real artifacts on all three lines inspected. Actual 24.10/25.12 lifecycle checked. #1097 installer preclear defect is resolved in PR #1114, with host negative controls and two actual same-version 24.10.8 IPK reinstall checks; this does not add an APK transition result. |
 | #370 package payload | 2026-10-01 | Full source + scoped fresh proof | Fresh 23.05/24.10 IPK and 25.12 APK SDK artifacts inspected, including 14 JS modules, ACL/menu/libexec, modes and lifecycle metadata. Actual APK lifecycle separately checked on 25.12. |
 | #370 installed matrix | 2026-10-01 | Full source + scoped fresh proof | Fresh artifact-only current 24.10 IPK/25.12 APK, helper/ACL hashes, real nft/log pipeline and uninstall restore. 24.10 browser and authenticated roles, 25.12 read-only roles checked. No fresh 23.05/armsr/hardware run. |

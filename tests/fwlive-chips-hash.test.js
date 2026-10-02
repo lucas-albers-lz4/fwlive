@@ -71,6 +71,20 @@ function collectText(node) {
 	return out;
 }
 
+function findElementByClass(root, className) {
+	if (!root) return null;
+	if (root.nodeType === 1) {
+		const classes = String((root._attrs && root._attrs['class']) || '').split(/\s+/);
+		if (classes.indexOf(className) !== -1) return root;
+	}
+	const kids = root.childNodes || [];
+	for (let i = 0; i < kids.length; i++) {
+		const found = findElementByClass(kids[i], className);
+		if (found) return found;
+	}
+	return null;
+}
+
 function assertPayloadNeverInSink(host, payload) {
 	const writes = collectInnerHTMLWrites(host);
 	for (let i = 0; i < writes.length; i++) {
@@ -165,6 +179,59 @@ function testTranslatedChipCatalog() {
 		srcText.indexOf('ENTHAELT-NICHT') >= 0,
 		'negated src chip must show translated does not contain, got: ' + srcText
 	);
+}
+
+function testInvertButtonAccessibleNameTracksFilterMode() {
+	const log = loadFwliveModule('log', { _: translatedGettext });
+	const chips = loadFwliveModule('chips', {
+		log: log,
+		E: luciE.E,
+		document: luciE.document,
+		_: translatedGettext
+	});
+	const host = luciE.E('div', {}, []);
+	host.style = { display: '' };
+	const state = {
+		filters: { action: 'drop' },
+		chipFields: [{ key: 'action', label: 'action' }]
+	};
+	let invertCalls = 0;
+	let clearCalls = 0;
+	function render() {
+		chips.renderFilterChips(host, state, {
+			onInvert: function (field) {
+				invertCalls++;
+				state.filters[field] = state.filters[field].charAt(0) === '!'
+					? state.filters[field].substring(1)
+					: '!' + state.filters[field];
+				render();
+			},
+			onClear: function () { clearCalls++; },
+			onClearAll: function () {}
+		});
+	}
+	function assertInvertName(expected) {
+		const button = findElementByClass(host, 'fwlive-chip-invert');
+		const wrapper = findElementByClass(host, 'fwlive-chip-invert-wrap');
+		assert.ok(button, 'chip invert button remains present');
+		assert.ok(wrapper, 'chip tooltip wrapper remains present');
+		assert.strictEqual(button.getAttribute('aria-label'), expected);
+		assert.strictEqual(wrapper.getAttribute('data-tip'), expected);
+		assert.strictEqual(collectText(button), '≠', 'the existing icon stays in the button');
+		assert.ok(findElementByClass(host, 'fwlive-chip-remove'), 'remove-filter control remains present');
+		return button;
+	}
+
+	render();
+	let button = assertInvertName('STATTDESSEN-AUS');
+	button._listeners.click[0]({ type: 'click' });
+	assert.strictEqual(state.filters.action, '!drop');
+	assert.strictEqual(invertCalls, 1, 'one activation inverts exactly once');
+	button = assertInvertName('STATTDESSEN-EIN');
+	button._listeners.click[0]({ type: 'click' });
+	assert.strictEqual(state.filters.action, 'drop');
+	assert.strictEqual(invertCalls, 2, 'the inverse action also toggles exactly once');
+	assert.strictEqual(clearCalls, 0, 'inversion does not invoke filter removal');
 }
 
 function testUnknownChipFieldLabel() {
@@ -456,6 +523,7 @@ testNegatedTextChips();
 testHostileTextChipSink();
 testIdentityChipFieldLabels();
 testTranslatedChipCatalog();
+testInvertButtonAccessibleNameTracksFilterMode();
 testUnknownChipFieldLabel();
 testApplyHashValidAndMalformed();
 testApplyHashIgnoresUnlistedAndPersistedKeys();
