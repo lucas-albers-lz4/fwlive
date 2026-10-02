@@ -31,7 +31,7 @@ msgid ""
 "messages returned"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:550
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:580
 msgid "%s: %s"
 msgstr ""
 
@@ -43,7 +43,7 @@ msgstr ""
 msgid "Accessible (teal/orange)"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:410
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:440
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:38
 msgid "Action"
 msgstr ""
@@ -207,7 +207,7 @@ msgstr ""
 msgid "DPort"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:414
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:444
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:46
 msgid "Destination"
 msgstr ""
@@ -216,7 +216,7 @@ msgstr ""
 msgid "Destination IP contains (! to exclude)"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:416
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:446
 msgid "Destination port"
 msgstr ""
 
@@ -402,7 +402,7 @@ msgstr ""
 msgid "Installation is incomplete. Reinstall luci-app-fwlive."
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:411
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:441
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:40
 msgid "Interface"
 msgstr ""
@@ -544,7 +544,7 @@ msgid ""
 "Polling slowed: the router is responding slowly, so polls run less often."
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:412
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:442
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:44
 msgid "Proto"
 msgstr ""
@@ -606,7 +606,7 @@ msgstr ""
 msgid "SPort"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:409
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:439
 msgid "Search"
 msgstr ""
 
@@ -664,7 +664,7 @@ msgstr ""
 msgid "Some rule names may be missing"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:413
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:443
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:45
 msgid "Source"
 msgstr ""
@@ -673,7 +673,7 @@ msgstr ""
 msgid "Source IP contains (! to exclude)"
 msgstr ""
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:415
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:445
 msgid "Source port"
 msgstr ""
 

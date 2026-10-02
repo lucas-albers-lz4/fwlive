@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a translated, keyboard-operable full-message button to Simple-view rows, preserve expansion focus across keyed repaints, and clarify the Help instructions (#1130).
 - Give filter-chip invert buttons translated Include/Exclude accessible names while retaining the existing tooltip and filter controls (#1129).
 
+### Changed
+- Reuse validated firewall KV patterns during classification, removing per-message RegExp construction from the poll path (#1131).
+
 ## [v0.1.50] — 2026-10-02
 
 ### Fixed

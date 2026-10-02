@@ -41,6 +41,31 @@ const CLASSIFY_SPEC = {
 /* Static trusted configuration: fail once at load/build, never per log line. */
 validateClassifySpec(CLASSIFY_SPEC);
 
+/* Compile only the finite KV vocabulary from the validated static rules. */
+const KV_HAS_PATTERNS = Object.create(null);
+
+function compileKvHasPatterns(node) {
+	const keys = Object.keys(node);
+	const operator = keys[0];
+	if (operator === 'and' || operator === 'or') {
+		for (let i = 0; i < node[operator].length; i++)
+			compileKvHasPatterns(node[operator][i]);
+		return;
+	}
+	if (operator !== 'kv' && operator !== 'kvAny')
+		return;
+
+	const names = node[operator];
+	for (let i = 0; i < names.length; i++) {
+		const name = names[i];
+		if (!Object.prototype.hasOwnProperty.call(KV_HAS_PATTERNS, name))
+			KV_HAS_PATTERNS[name] = new RegExp('(^|[^A-Za-z0-9_])' + name + '=');
+	}
+}
+
+for (let i = 0; i < CLASSIFY_SPEC.rules.length; i++)
+	compileKvHasPatterns(CLASSIFY_SPEC.rules[i]);
+
 function validateClassifySpec(spec) {
 	const validateNode = function(node) {
 		if (!node || typeof node !== 'object' || Array.isArray(node))
@@ -100,6 +125,11 @@ function wordPattern(words) {
 
 /** Presence of `K=` in the normalized message — matches shell `_has_kv`, empty values included. */
 function kvHas(msg, key) {
+	if (typeof key === 'string' && Object.prototype.hasOwnProperty.call(KV_HAS_PATTERNS, key))
+		return KV_HAS_PATTERNS[key].test(msg);
+
+	/* Preserve kvHas's public behavior for direct, non-spec callers without
+	 * retaining arbitrary keys in a module-lifetime cache. */
 	return new RegExp('(^|[^A-Za-z0-9_])' + key + '=').test(msg);
 }
 
