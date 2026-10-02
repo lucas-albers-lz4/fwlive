@@ -58,12 +58,13 @@ rollback actions, which is how straight-line shell code is represented — that
 the rollback completes once the lock is re-held (`RollbackCompletes`) and
 restores the original value exactly when the revision still matches
 (`RestoreLandsWithoutForeignCommit`). `WanLogRollbackRevisionUnfair.cfg` runs the
-same model with the fairness conjunct removed and shows both properties fail, so
-the passing run is not vacuous. If revision tracking cannot be
-safely updated, the primary toggle fails before staging. A failed UCI write
-may leave a revision gap, which can suppress a rollback but cannot overwrite a
-later fwlive intent. The `/var/run` state is volatile, so reboot clears it only
-after all in-flight callers have ended.
+same model with the fairness conjunct removed and checks that
+`RestoreLandsWithoutForeignCommit` fails, so the passing run is not vacuous.
+It does not check `RollbackCompletes` in this unfair configuration. If revision
+tracking cannot be safely updated, the primary toggle fails before staging. A
+failed UCI write may leave a revision gap, which can suppress a rollback but
+cannot overwrite a later fwlive intent. The `/var/run` state is volatile, so
+reboot clears it only after all in-flight callers have ended.
 
 This history marker covers fwlive writers that use this lock and helper. A
 separate privileged writer that edits UCI directly does not advance it; the

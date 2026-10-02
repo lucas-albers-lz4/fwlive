@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Run the small TLA+ models and assert that the three known counterexamples
+# Run the small TLA+ models and assert that the four known counterexamples
 # remain counterexamples. TLC runs in single-worker mode for stable liveness
 # checking. This script is CI/developer tooling only; it is not packaged.
 set -euo pipefail
