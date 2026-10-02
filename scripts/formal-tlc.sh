@@ -65,7 +65,13 @@ run_expected_violation() {
 # A violated temporal property prints "Temporal properties were violated." with no
 # property name (TLC 2.19), so this arm is keyed to the cfg's single PROPERTY.
 run_expected_property_violation() {
-	local dir="$1" module="$2" cfg="$3" property="$4" output status
+	local dir="$1" module="$2" cfg="$3" property="$4" output status config_file declared_properties
+	config_file="$ROOT/formal/$dir/$cfg"
+	[[ -f "$config_file" ]] || fail "$module / $cfg config is missing"
+	declared_properties="$(awk '$1 == "PROPERTY" { print $2 }' "$config_file")"
+	if [[ "$declared_properties" != "$property" ]]; then
+		fail "$module / $cfg must declare exactly PROPERTY $property (found: ${declared_properties:-none})"
+	fi
 	set +e
 	output="$(cd "$ROOT/formal/$dir" && java -jar "$JAR" -workers 1 \
 		-metadir "$WORK/${module}-${cfg}-states" -config "$cfg" "$module.tla" 2>&1)"

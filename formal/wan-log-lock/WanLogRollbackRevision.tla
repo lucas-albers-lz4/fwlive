@@ -2,11 +2,14 @@
 (*
   Fixed abstraction of reload-failure rollback in fwlive-logging.sh.
 
-  Each fwlive toggle that reaches its locked state check advances revision;
-  changed operations do so before their UCI write. A can restore its previous
-  value only when the revision still matches A's commit revision. B's disable
-  and C's re-enable advance the revision even though the visible value returns
-  to A's committed value; an already-on enable also advances revision.
+  Focused single-primary-enable abstraction for reload-failure rollback.
+  Each modeled cooperating toggle attempt advances revision; changed operations
+  do so before their UCI write. A can decide to restore only when revision and
+  the visible value still match A's commit. Restore itself is an idealized
+  atomic successful action; shell refusals/failures and its generation bump are
+  omitted here and tracked by #1126. B's disable and C's re-enable advance the
+  revision even though the visible value returns to A's committed value; an
+  already-on enable also advances revision.
 *)
 EXTENDS Naturals, TLC
 
@@ -71,6 +74,10 @@ ReacquireRollback ==
   /\ phase' = "Holding"
   /\ UNCHANGED <<log, revision, lastIntent>>
 
+(* Idealized successful restore: one atomic model transition. This omits shell
+   refusal/failure paths and the restore's own generation bump; #1126 expands
+   those outcomes. The effectiveness property below is conditional on this
+   abstract successful primitive being available. *)
 RestoreByRevision ==
   /\ phase = "Holding"
   /\ revision = 1
@@ -85,20 +92,10 @@ SkipRestore ==
   /\ phase' = "Done"
   /\ UNCHANGED <<log, revision, lastIntent>>
 
-Next ==
-  \/ PrimaryCommit
-  \/ ReloadFails
-  \/ ForeignDisable
-  \/ ForeignEnable
-  \/ ForeignEnableAlreadyOn
-  \/ ReacquireRollback
-  \/ RestoreByRevision
-  \/ SkipRestore
-  \/ UNCHANGED vars
-
-(* The rollback is straight-line shell code once the lock is held again: no loop
-   can stall it. NoStutter is the complete action disjunction with every primed
-   variable pinned, which is what a fairness operator must reference. *)
+(* The rollback decision is sequential after reacquiring the lock in this
+   finite abstraction. This does not model command success, command stalls, or
+   a wall-clock bound. Weak fairness below applies to this whole disjunction,
+   not separately to each named action or caller. *)
 NoStutter ==
   \/ PrimaryCommit
   \/ ReloadFails
@@ -109,23 +106,26 @@ NoStutter ==
   \/ RestoreByRevision
   \/ SkipRestore
 
+Next == NoStutter \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars /\ WF_vars(NoStutter)
 
-(* Identical behavior set without the fairness conjunct. Only the effectiveness
-   properties below are checked against it, to show they hold for a reason
-   instead of passing because the model may stall forever. *)
+(* Identical behavior set without the fairness conjunct. Only the single
+   property named in WanLogRollbackRevisionUnfair.cfg is checked against it;
+   TLC does not print which temporal property failed in its generic error. *)
 SpecNoFairness == Init /\ [][Next]_vars
 
 NoOverwriteForeignIntent ==
   ~(phase = "Done" /\ lastIntent = "enable" /\ log # 1)
 
-(* Effectiveness: once the caller holds the lock again, the rollback decision
-   completes. *)
+(* Decision completion: once this single modeled caller holds the lock again,
+   it eventually reaches either restore or skip. This is a finite-state
+   scheduling claim under WF_vars(NoStutter), not per-action fairness or proof
+   that shell commands succeed or return by a deadline. *)
 RollbackCompletes == (phase = "Holding") ~> (phase = "Done")
 
-(* Effectiveness of the guard's positive case: the revision still matches this
-   caller's commit and UCI still carries this caller's value, so the restore
-   lands and returns the original value exactly. *)
+(* Conditional idealized effectiveness: if the guard's positive case holds,
+   this abstraction's atomic successful restore reaches the original value.
+   Production can refuse/fail restore; those paths are outside this model. *)
 RestoreLandsWithoutForeignCommit ==
   (phase = "Holding" /\ revision = 1 /\ log = 1) ~> (phase = "Done" /\ log = 0)
 
