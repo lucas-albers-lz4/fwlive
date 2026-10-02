@@ -31,6 +31,7 @@ case "$*" in
 	*WanLogLockTimedStranding.cfg*) echo 'Invariant NoOrphanStaging is violated'; exit 12 ;;
 	*WanLogRollbackAba.cfg*) echo 'Invariant NoOverwriteForeignIntent is violated'; exit 12 ;;
 	*HostnameDisposeUngated.cfg*) echo 'Invariant NoLateWrite is violated'; exit 12 ;;
+	*WanLogRollbackRevisionUnfair.cfg*) echo 'Error: Temporal properties were violated.'; exit 13 ;;
 esac
 EOF
 cat > "$WORK/bin/sha256sum" <<'EOF'
@@ -44,10 +45,61 @@ fi
 ! grep -q '^java ' "$TLC_TOOL_LOG" || fail "failed download must not run Java"
 : > "$TLC_TOOL_LOG"
 PATH="$WORK/bin" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/download" 2>&1
-[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 7 ]] || fail "expected seven model invocations"
+[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 8 ]] || fail "expected eight model invocations"
 : > "$TLC_TOOL_LOG"
 printf fixture > "$WORK/cached.jar"
 PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/cached" 2>&1
-[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 7 ]] || fail "cached jar expected seven invocations"
+[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 8 ]] || fail "cached jar expected eight invocations"
 ! grep -q 'connect-timeout' "$TLC_TOOL_LOG" || fail "cached jar must not download"
-echo 'formal TLC tooling host tests passed (stubbed transfers and Java only)'
+
+# The generic temporal-failure message is attributed only to the one property
+# actually declared in the selected cfg. Use an isolated runner root so these
+# fixtures never mutate the checked-in configuration.
+PROBE="$WORK/property-probe"
+mkdir -p "$PROBE/scripts" "$PROBE/formal/wan-log-lock" "$PROBE/formal/hostname-dispose"
+cp "$ROOT/scripts/formal-tlc.sh" "$PROBE/scripts/formal-tlc.sh"
+cp "$ROOT/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg" \
+	"$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg() {
+	local label="$1"
+	: > "$TLC_TOOL_LOG"
+	if PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" \
+		/bin/bash "$PROBE/scripts/formal-tlc.sh" > "$WORK/$label" 2>&1; then
+		fail "$label property configuration must fail"
+	fi
+	grep -q 'must declare exactly PROPERTY RestoreLandsWithoutForeignCommit' \
+		"$WORK/$label" || fail "$label must report the mismatched property declaration"
+	! grep -Fq 'WanLogRollbackRevisionUnfair.cfg' "$TLC_TOOL_LOG" \
+		|| fail "$label must reject the cfg before attributing its temporal failure"
+}
+: > "$TLC_TOOL_LOG"
+if ! PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" \
+	/bin/bash "$PROBE/scripts/formal-tlc.sh" > "$WORK/property-valid" 2>&1; then
+	cat "$WORK/property-valid" >&2
+	fail "single expected PROPERTY declaration must pass"
+fi
+valid_invocations="$(grep -c '^java ' "$TLC_TOOL_LOG")"
+if [[ "$valid_invocations" != 8 ]]; then
+	cat "$TLC_TOOL_LOG" >&2
+	fail "valid property config must run all eight models (ran $valid_invocations)"
+fi
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-missing
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY OtherProperty\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-different
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY RestoreLandsWithoutForeignCommit\nPROPERTY RollbackCompletes\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-additional
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY RestoreLandsWithoutForeignCommit RollbackCompletes\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-same-line
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY RestoreLandsWithoutForeignCommit\n  RollbackCompletes\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-continuation
+printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\nPROPERTY RestoreLandsWithoutForeignCommit\nPROPERTIES RollbackCompletes\n' \
+	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+expect_bad_property_cfg property-plural
+
+echo 'formal TLC tooling host tests passed (stubbed transfers, Java, and property attribution)'

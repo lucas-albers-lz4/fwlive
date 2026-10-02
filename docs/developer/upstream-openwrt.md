@@ -110,17 +110,26 @@ cp -a "$FWLIVE/out/upstream/luci-app-fwlive/." \
   "$LUCI/applications/luci-app-fwlive/"
 
 cd "$LUCI"
-./build/i18n-scan.pl applications/luci-app-fwlive \
-  > applications/luci-app-fwlive/po/templates/luci-app-fwlive.pot
+./build/i18n-scan.pl applications/luci-app-fwlive > /tmp/luci-app-fwlive.pot
+diff /tmp/luci-app-fwlive.pot \
+  applications/luci-app-fwlive/po/templates/luci-app-fwlive.pot
 ```
+
+The scan is a **parity check**, not a rewrite: `upstream-cut.sh` already ships
+the cut `.pot` with luci-shaped `#:` refs (`applications/luci-app-fwlive/...`)
+and luci-tree line numbers, so scanning the copied tree must come out
+identical — `tests/fwlive-upstream-cut.test.sh` asserts exactly that when a
+scanner is available. Do **not** copy a luci-shaped `.pot` back into this
+monorepo: the ref gate here (`tests/fwlive-i18n-source.test.js`) resolves
+`openwrt-feed/...` paths. To regenerate the monorepo `.pot`, scan the monorepo
+tree and then run `./scripts/normalize-pot-paths.sh` so its `#:` refs stay
+repo-relative (`openwrt-feed/...`) — never `/home/...` absolute build-machine
+paths (#256).
 
 The POT must include JS `_()` strings **and** the menu title
 `Firewall Live View` **and** the ACL description
 `Grant access to firewall live log view`.
 
-Copy the `.pot` back into this monorepo.
-Then run `./scripts/normalize-pot-paths.sh` so `#:` refs are repo-relative
-(`openwrt-feed/...`) — never `/home/...` absolute build-machine paths (#256).
 Then `msgmerge` the feed `.po` files.
 The header shape
 `msgstr "Content-Type: text/plain; charset=UTF-8"` (no embedded `\n`) is what
@@ -157,7 +166,7 @@ Feature branch (not `master`). Subject example:
    human → file vs master → CodeRabbit → triage → merge).
 2. **Re-cut** with `./scripts/upstream-cut.sh` from merged master (or from the
    final prep tip if filing luci before the prep merge).
-3. **Copy + i18n-scan** into the luci feature branch (commands above).
+3. **Copy + i18n-scan parity check** into the luci feature branch (commands above).
 4. **FormalityCheck commit** on that luci branch.
 5. **Same pr-cycle gate on the luci branch** (luna → Bugbot → human). Skip
    CodeRabbit unless `openwrt/luci` (or your fork) is configured for it.
