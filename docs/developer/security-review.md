@@ -480,6 +480,15 @@ should carry a note saying what would raise it.
 > No DOM sink, ACL or command-string boundary changed. Full surface re-audit
 > deferred: this is a bounded classifier delta, not a new trust boundary.
 
+### 2026-10-01: startup polling delta (#1073)
+
+Capture the bootstrap poll promise during registration rather than after metadata
+RPCs settle. Host view tests cover fast, pending and rejected polls, explicit
+refresh, scheduled polling, visibility and disposal. This changes startup
+scheduling only; RPC arguments, ACLs, untrusted text sinks and later request
+semantics retain their existing boundaries. No guest timing proof or full
+surface audit is claimed; those remain deferred to review and installed smoke.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
