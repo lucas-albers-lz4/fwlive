@@ -472,6 +472,14 @@ should carry a note saying what would raise it.
 > Full surface re-audit deferred: this is a local lock-type guard in the existing
 > protected directory; privileged replacement races remain outside this guarantee.
 
+> **#1060/#1067 classifier delta:** trusted rules are validated at core/LuCI module
+> initialization and build gates, not for each attacker-influenced log line.
+> KV names are restricted to identifier tokens before regex/awk interpolation.
+> Host tests check malformed module-load failure, short-circuit branches, invalid
+> quote/backslash/control names, source/mirror parity and generated awk syntax.
+> No DOM sink, ACL or command-string boundary changed. Full surface re-audit
+> deferred: this is a bounded classifier delta, not a new trust boundary.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
@@ -495,7 +503,7 @@ should carry a note saying what would raise it.
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-10-01 | Full source + scoped fresh proof | Full source/default host-key policy and its host regression checked. Insecure SSH remains explicit lab opt-in. No general remote deployment was performed. |
 | Lab feed/QEMU lifecycle helpers | 2026-10-01 | Full source + scoped fresh proof | Full source/config/test pass; process/path/transport ownership controls checked. New #1095 mount ownership defect and existing #1090 staging guard exception confirmed. QEMU stop/status/PID issues remain in existing tracker; no duplicate. |
 | Lab honest-gap smokes | 2026-10-01 | Full source + scoped fresh proof | Current artifact 24.10 native flock denial is 66; original helper fails (#1098), scratch-adapted probe passed lookup cap, denial, held-lock/inode and foreign-staging checks. Full dummy-key sign/verify ran. Arbitrary helper termination unproven. |
-| CLASSIFY_SPEC evaluator and codegen | 2026-10-01 | Full source + scoped fresh proof | Full core/mirror/generator/generated-asset review and freshness/parity gates passed. Existing #1060 hot-path validation cost and #1067 AWK literal emission gap rechecked in separate quality pass. Logs remain stdin data. |
+| CLASSIFY_SPEC evaluator and codegen | 2026-10-01 | Full source + scoped fresh proof | Full core/mirror/generator/generated-asset review and freshness/parity gates passed. #1060/#1067 now validate trusted rules at module initialization/build gates and restore AND/OR short-circuiting. Host malformed-config, parity and syntax tests pass; a host benchmark retains counts while reducing evaluation cost. KV identifier restrictions do not claim validation of every other static spec string. Logs remain stdin data. |
 
 
 ## Controls in force

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Reject non-regular WAN logging lock files before opening them, while preserving normal first-use lock creation (#1066)
+- Validate the static classifier once before processing logs, restore short-circuit evaluation, and reject invalid KV names before generating awk (#1060, #1067)
 
 ## [v0.1.49] — 2026-10-01
 

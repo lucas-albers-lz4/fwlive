@@ -293,6 +293,8 @@ try {
 		[{ and: [{ action: 'knownx' }] }],
 		[{ and: [{ hint: 0 }] }],
 		[null],
+		[{ kv: ['a"b'] }],
+		[{ kvAny: ['a\\b'] }],
 		[{ and: [{ kv: ['SRC'], hint: true }] }],
 		[{ or: [{ kv: ['SRC'] }, { kv: [] }] }]
 	];
@@ -302,12 +304,12 @@ try {
 		let coreError;
 		let luciError;
 		try {
-			core.evaluateClassifySpec('SRC=192.0.2.1');
+			core.validateClassifySpec(core.CLASSIFY_SPEC);
 		} catch (error) {
 			coreError = error;
 		}
 		try {
-			luci.evaluateClassifySpec('SRC=192.0.2.1');
+			luci.validateClassifySpec(luci.CLASSIFY_SPEC);
 		} catch (error) {
 			luciError = error;
 		}
@@ -324,6 +326,33 @@ try {
 } finally {
 	core.CLASSIFY_SPEC.rules = originalCoreRules;
 	luci.CLASSIFY_SPEC.rules = originalLuciRules;
+}
+
+// A later unneeded predicate must not be evaluated or revalidated per line.
+for (const parser of [core, luci]) {
+	const original = parser.CLASSIFY_SPEC.rules;
+	const unreachable = { get hint() { throw new Error('unreachable predicate was read'); } };
+	try {
+		parser.CLASSIFY_SPEC.rules = [{ or: [{ kv: ['SRC'] }, unreachable] }];
+		assert.equal(parser.evaluateClassifySpec('SRC=192.0.2.1'), true,
+			'OR must stop after its first true branch without per-line validation');
+		parser.CLASSIFY_SPEC.rules = [{ and: [{ kv: ['SRC'] }, unreachable] }];
+		assert.equal(parser.evaluateClassifySpec('DST=192.0.2.1'), false,
+			'AND must stop after its first false branch without per-line validation');
+	} finally {
+		parser.CLASSIFY_SPEC.rules = original;
+	}
+}
+
+// Malformed trusted source fails at module initialization, before any log is read.
+for (const sourcePath of [CORE, LUCI]) {
+	const original = fs.readFileSync(sourcePath, 'utf8');
+	const broken = original.replace('rules: [', 'rules: [{ invalidPredicate: true },');
+	assert.notEqual(broken, original, 'module fault must modify the static spec');
+	const load = new Function('module', 'require', 'baseclass', broken);
+	assert.throws(() => load({ exports: {} }, require, { extend: (desc) => desc }),
+		/unrecognised CLASSIFY_SPEC predicate node/,
+		'malformed spec must fail at load time in both runtimes');
 }
 
 console.log('fwlive parser sync OK (normalize + filter)');
