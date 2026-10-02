@@ -45,10 +45,17 @@ Before cutting a `v*` tag, make sure that the `peaceiris/actions-gh-pages` SHA i
 2. **Mirror `APP_VERSION`** in
    [`openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/constants.js`](../openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/constants.js)
    — it MUST equal `PKG_VERSION` (AGENTS.md lock).
-3. **Fold the changelog**: move the `## [Unreleased]` entries into a new
-   `## [v0.1.N] — YYYY-MM-DD` section at the top of [`CHANGELOG.md`](../CHANGELOG.md),
-   grouped under `### Security` / `### Changed` / `### Added` / `### Fixed` with
-   issue/PR references appended, and add the compare link at the bottom to the
+3. **Audit and fold the changelog**: before moving the `## [Unreleased]` entries
+   into a new version section, audit the exact range since the previous released
+   tag with `git log --oneline <previous-released-tag>..HEAD` and inspect the
+   changes in each merged PR and direct commit. Match every notable user-visible
+   change in that range to an entry, following [the per-PR changelog rule](developer/contributing.md#changelog-entries);
+   the PR-only release-note generator can miss direct commits. Test-only,
+   tooling, and internal refactors may be omitted unless they change a user or
+   maintainer workflow. Group related changes by outcome and append issue/PR
+   references. Create a new `## [v0.1.N] — YYYY-MM-DD` section at the top of
+   [`CHANGELOG.md`](../CHANGELOG.md), grouped under `### Security` / `### Changed`
+   / `### Added` / `### Fixed`, and add the compare link at the bottom to the
    previous **released** tag (not `N-1` if that number was skipped):
    `[v0.1.N]: https://github.com/lucas-albers-lz4/fwlive/compare/<previous-released-tag>...v0.1.N`.
    Example: `v0.1.21` compares to `v0.1.19` because **v0.1.20 was never tagged**.
@@ -110,6 +117,10 @@ tag range and ships a near-empty body when the range holds direct commits
 - Keep each folded section readable standalone on the release page: it is
   copied verbatim; the workflow appends the feed-install footer and the
   previous-tag compare link.
+- Describe behavior as it existed at the tagged release; record later changes
+  in the release where they landed. For example, v0.1.47 shipped the GNU
+  timeout-helper contract, while v0.1.48 removed that dependency and wrapper
+  (#1053 / PR #1054). Keep both version histories accurate.
 
 Include in each release (CHANGELOG section content):
 

@@ -43,6 +43,15 @@ Use a **Linux x86_64** host for build and test commands — see [Environment](en
    ./scripts/validate-openwrt.sh --version 24.10 --skip-build
    ```
 
+## Changelog entries
+
+Each PR that changes a notable user-visible behavior must update
+[`CHANGELOG.md`](../../CHANGELOG.md) under `## [Unreleased]` in that same PR.
+Describe the observable outcome concisely and include an issue or PR reference;
+cover each distinct user change in a bundled PR. Test-only, tooling, and
+internal refactor changes can omit a user changelog entry unless they change a
+user or maintainer workflow.
+
 ## Parser sync / codegen
 
 `fwlive-test.sh` includes classify goldens, shell↔JS parity, and freshness checks:

@@ -38,18 +38,24 @@ Manual install: [installation.md](docs/user/installation.md)
 ## [v0.1.48] — 2026-09-30
 
 ### Fixed
-- Report rules-map truncation independently of lookup failures, with concise rule-name warnings and expandable diagnostics that preserve retained-map state (#1038)
+- Report rules-map truncation independently of lookup failures, with concise rule-name warnings and expandable diagnostics that preserve retained-map state (#1038; PR #1039)
 - Bound the Live View rules-map retry budget and skip retries while paused or after a failed poll (#993)
 - Size hostname caches for the maximum visible row set and clear the visible refresh paint latch (#982, #995)
 - Drop empty negated filters from shared URL hashes (#1019)
 - Show the correct opkg and apk install commands for missing kernel log modules (#1017)
+- Bound WAN logging lock waits to five one-second intervals, report persistent contention, and skip rollback if a later fwlive toggle intervenes (#1030)
+- Refresh buffered rule labels once after a successful rules-map recovery (#1031)
+- Keep received rows through empty successful polls and show their age; clarify the stale-row hint (#1033, #1041)
 
 ### Changed
 - Remove the `coreutils-timeout` runtime dependency and invoke read helpers directly; the log.read invocation uses ubus's native five-second reply timeout after object lookup, while the resolver budget only stops new lookups (#980)
 - Live View names each load condition the same way in the status line and banner, tells transport, router-read, and installation poll errors apart, labels both enable buttons **Enable logging**, and explains Summary mode in Help (#1042)
 - Live View no longer rewrites the URL hash on every poll-driven repaint; frontend helpers for scoped-IPv6 hostname lookup, substring filter fields, and retry/cooldown constants are shared instead of duplicated (#1043)
 - Share WAN logging toggle error replies and the enable/disable preamble (#1044)
-- Simplify adaptive limit and reply assembly, and skip the state write when the lock file is unusable (#1046)
+- Reuse filtered-row results across status and render consumers when the buffer, filters, and display cap are unchanged (#1032)
+- Reject malformed or sparse `CLASSIFY_SPEC` structures in code generation and JS classification; the runtime guard validates on each classification call (#1026)
+- Explain already-on WAN-log baseline snapshots and uninstall restore skip conditions in the install guide (#1015, #1016; PR #1027)
+- Simplify adaptive limit and reply assembly, skip state writes on an unusable lock path, and reject non-regular poll locks that could block on a FIFO (#1046, #1051)
 - Share rpcd jshn loading and JSON append so resolve reports a missing library on its own and bounds each hostname at 253 octets (#1045)
 
 Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
