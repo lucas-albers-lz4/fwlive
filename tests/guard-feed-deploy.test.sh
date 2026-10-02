@@ -199,7 +199,32 @@ awk '
 grep -Fq -- '--live-http' "$WF" \
 	|| fail "workflow must pass curl status as --live-http"
 grep -Fq '([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})' "$WF" \
-	|| fail "Resolve release tag must require vMAJOR.MINOR.PATCH with {1,9} digits"
+	|| fail "release tag validation must require vMAJOR.MINOR.PATCH with {1,9} digits"
+grep -Fq "format('refs/tags/{0}', steps.validate-tag-input.outputs.tag)" "$WF" \
+	|| fail "dispatch checkout must use the qualified validated tag, not the raw input"
+if grep -Fq 'github.event.inputs.tag || github.ref' "$WF"; then
+	fail "no checkout may use the raw workflow_dispatch tag input as a ref"
+fi
+grep -Fq "format('refs/tags/{0}', needs.build-publish.outputs.release_tag)" "$WF" \
+	|| fail "smoke checkout must use the qualified tag verified by build-publish"
+awk '
+	/^  build-publish:/ { in_build = 1 }
+	/^  smoke-from-feed:/ { in_build = 0 }
+	in_build && /name: Validate requested release tag/ { validate = NR }
+	in_build && !checkout && /uses: actions\/checkout@/ { checkout = NR }
+	in_build && /name: Verify checked-out release tag/ { verify = NR }
+	in_build && /name: Install validation tools/ { tools = NR }
+	in_build && /npm ci/ { npm = NR }
+	END { exit !(validate < checkout && checkout < verify && verify < tools && tools < npm) }
+' "$WF" || fail "input validation, qualified checkout, commit verification, and npm install must stay ordered"
+awk '
+	/^  smoke-from-feed:/ { in_smoke = 1 }
+	/^  smoke-from-feed-25-12:/ { in_smoke = 0 }
+	in_smoke && !checkout && /uses: actions\/checkout@/ { checkout = NR }
+	in_smoke && /name: Verify checked-out release tag/ { verify = NR }
+	in_smoke && /name: Install lab dependencies/ { install = NR }
+	END { exit !(checkout < verify && verify < install) }
+' "$WF" || fail "feed smoke must verify its checked-out release tag before repository scripts"
 grep -Fq 'tests/guard-feed-deploy.test.sh' "$ROOT/scripts/fwlive-test.sh" \
 	|| fail "fwlive-test.sh must run this host test"
 ok "publish-packages.yml wires the guard"

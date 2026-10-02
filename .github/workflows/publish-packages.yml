@@ -44,6 +44,8 @@ concurrency:
 jobs:
   build-publish:
     if: github.event_name != 'schedule'
+    outputs:
+      release_tag: ${{ steps.validate-tag-input.outputs.tag }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     # Required reviewers / secret gate — configure Environment "feed-publish" in repo settings.
@@ -51,12 +53,54 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Validate requested release tag
+        id: validate-tag-input
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            tag="$TAG_INPUT"
+          else
+            if [[ "$RELEASE_REF" != refs/tags/* ]]; then
+              echo "release event ref is not a tag: '$RELEASE_REF'" >&2
+              exit 1
+            fi
+            tag="${RELEASE_REF#refs/tags/}"
+          fi
+          if [[ "$tag" == *[[:cntrl:]]* ]]; then
+            echo "invalid tag: contains control characters" >&2
+            exit 1
+          fi
+          if [[ ! "$tag" =~ ^v([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$ ]]; then
+            echo "invalid tag '$tag' (expected vMAJOR.MINOR.PATCH, e.g. v0.1.34)" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', steps.validate-tag-input.outputs.tag) || github.ref }}
           # R1: do not write GITHUB_TOKEN into .git/config (workspace is bind-mounted into SDK).
           persist-credentials: false
+
+      - name: Verify checked-out release tag
+        env:
+          TAG: ${{ steps.validate-tag-input.outputs.tag }}
+        run: |
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "not a tag in this repository: '${TAG}'" >&2
+            exit 1
+          fi
+          tag_commit="$(git rev-parse "refs/tags/${TAG}^{commit}" 2>/dev/null || true)"
+          if [[ -z "$tag_commit" || "$(git rev-parse HEAD)" != "$tag_commit" ]]; then
+            echo "checked out ref is not the tag '${TAG}' (HEAD $(git rev-parse --short HEAD))" >&2
+            exit 1
+          fi
+          echo "FWLIVE_RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Release tag: $TAG"
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
         with:
@@ -73,41 +117,6 @@ jobs:
           pipx install 'ruff==0.16.8'
           pipx install 'ast-grep-cli==0.45.3'
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Resolve release tag
-        env:
-          TAG: ${{ github.event.inputs.tag }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            tag="$TAG"
-          else
-            tag="${GITHUB_REF#refs/tags/}"
-          fi
-          # Reject control chars before GITHUB_ENV write (R5): CR/LF would break
-          # the env file, other control chars (tab, ESC, …) would corrupt logs.
-          if [[ "$tag" == *[[:cntrl:]]* ]]; then
-            echo "invalid tag: contains control characters" >&2
-            exit 1
-          fi
-          if [[ ! "$tag" =~ ^v([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$ ]]; then
-            echo "invalid tag '$tag' (expected vMAJOR.MINOR.PATCH, e.g. v0.1.34)" >&2
-            exit 1
-          fi
-          # The checkout above used the raw dispatch input as ref: a v…-shaped
-          # BRANCH name would have been checked out. Verify the input is a real
-          # tag and that HEAD is that tag before any repository script runs.
-          if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
-            echo "not a tag in this repository: '${tag}'" >&2
-            exit 1
-          fi
-          tag_commit="$(git rev-parse "refs/tags/${tag}^{commit}" 2>/dev/null || true)"
-          if [[ -n "$tag_commit" && "$(git rev-parse HEAD)" != "$tag_commit" ]]; then
-            echo "checked out ref is not the tag '${tag}' (HEAD $(git rev-parse --short HEAD))" >&2
-            exit 1
-          fi
-          echo "FWLIVE_RELEASE_TAG=$tag" >> "$GITHUB_ENV"
-          echo "Release tag: $tag"
 
       - name: Set SOURCE_DATE_EPOCH from release tag
         run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
@@ -401,47 +410,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+          ref: ${{ format('refs/tags/{0}', needs.build-publish.outputs.release_tag) }}
           # R1: do not write GITHUB_TOKEN into .git/config (workspace is bind-mounted into SDK).
           persist-credentials: false
+
+      - name: Verify checked-out release tag
+        env:
+          TAG: ${{ needs.build-publish.outputs.release_tag }}
+        run: |
+          tag_commit="$(git rev-parse "refs/tags/${TAG}^{commit}" 2>/dev/null || true)"
+          if [[ -z "$tag_commit" || "$(git rev-parse HEAD)" != "$tag_commit" ]]; then
+            echo "checked out ref is not the validated tag '${TAG}'" >&2
+            exit 1
+          fi
+          echo "FWLIVE_RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Release tag: $TAG"
 
       - name: Install lab dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 ovmf openssh-client curl
-
-      - name: Resolve release tag
-        env:
-          TAG: ${{ github.event.inputs.tag }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            tag="$TAG"
-          else
-            tag="${GITHUB_REF#refs/tags/}"
-          fi
-          # R5 parity with build-publish: the checkout above used the raw input
-          # as ref, so verify it is a real tag (not a v…-shaped branch) before
-          # any repository script runs.
-          if [[ "$tag" == *[[:cntrl:]]* ]]; then
-            echo "invalid tag: contains control characters" >&2
-            exit 1
-          fi
-          if [[ ! "$tag" =~ ^v([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})$ ]]; then
-            echo "invalid tag '$tag' (expected vMAJOR.MINOR.PATCH, e.g. v0.1.34)" >&2
-            exit 1
-          fi
-          if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null 2>&1; then
-            echo "not a tag in this repository: '${tag}'" >&2
-            exit 1
-          fi
-          tag_commit="$(git rev-parse "refs/tags/${tag}^{commit}" 2>/dev/null || true)"
-          if [[ -n "$tag_commit" && "$(git rev-parse HEAD)" != "$tag_commit" ]]; then
-            echo "checked out ref is not the tag '${tag}' (HEAD $(git rev-parse --short HEAD))" >&2
-            exit 1
-          fi
-          echo "FWLIVE_RELEASE_TAG=$tag" >> "$GITHUB_ENV"
-          echo "Release tag: $tag"
 
       - name: Wait for GitHub Pages propagation
         run: ./scripts/wait-feed-pages.sh "$FWLIVE_FEED_BASE_URL"

@@ -206,7 +206,8 @@ next-tag pin checklist remains in force.
 > still validates the staged manifest `git_tag` against the release tag and
 > skips only the live-version comparison (bootstrap / wiped `gh-pages`).
 > Other non-200 or curl failures fail the job. Tags must be
-> `vMAJOR.MINOR.PATCH` (1–9 digits per component) at Resolve release tag,
+> `vMAJOR.MINOR.PATCH` (1–9 digits per component) in the pre-checkout
+release-tag validation step,
 > not only in the guard. `allow_rollback` defaults false. A rejected or
 > failed downgrade guard aborts the `build-publish` job, so GitHub Release
 > assets are also not uploaded for that run. No ACL, DOM sink, or
@@ -1516,3 +1517,27 @@ resolver addresses through jshn. The browser smoke passed with mocked
 services; no installed-device LuCI/ubus session was run for this patch.
 Summary values continue to reach the page through `textContent`; no ACL scope
 or RPC method grant changed.
+
+### 2026-10-02 — #1096 validate release tag before install
+
+**Scope.** `publish-packages.yml` now validates the dispatch/tag-push version
+shape before checkout, checks out dispatch inputs only as `refs/tags/<tag>`,
+and verifies `HEAD` against that fetched tag before Node setup or `npm ci`.
+The dependent feed-smoke job uses the validated tag output and verifies its
+checkout before running repository scripts. Secret bindings, build, and publish
+steps are unchanged; this patch adds no approval gate.
+
+**Proof class and limits.** `host`: `tests/guard-feed-deploy.test.sh` pins
+qualified refs and the order of input validation, checkout, commit verification,
+and package installation in both jobs. `static`: workflow review confirms
+inputs are passed through environment/action inputs, not interpolated into a
+`run:` body; action SHAs, permissions, and signing paths are unchanged. This
+closes the raw-branch selection and pre-validation `npm ci` ordering gap; it
+does not make mutable Git tags immutable. A read-only settings check on
+2026-10-02 found no repository rulesets; the `feed-publish` environment reported
+no protection rules and no deployment-branch policy. The legacy tag-protection
+query was unavailable (404), so this is not proof that tags have an independent
+protection boundary. No live publish, signing secret, or GitHub environment was
+exercised. Full security
+re-pass deferred: this is a scoped workflow-ordering delta, with no changed
+secret boundary or newly identified cross-surface path.
