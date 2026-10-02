@@ -975,8 +975,8 @@ fi
 }
 
 function testUciStyleNameCharset() {
-	// #615: is_uci_style_name admits non-empty [A-Za-z0-9_-]+ on the
-	// whole string. First-char-ok / later-char-illegal names must not
+	// #615: both UCI and nft comment labels admit non-empty [A-Za-z0-9_-]+
+	// on the whole string. First-char-ok / later-char-illegal names must not
 	// become map keys (the old [!class]* glob accepted them).
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-uci-cs-'));
 	try {
@@ -989,6 +989,8 @@ table inet fw4 {
 		log prefix "later-semi" comment "!fw4: rule;id"
 		log prefix "lead-hyphen" comment "!fw4: -lead"
 		log prefix "ok-rule" comment "!fw4: Rule"
+		log prefix "underscore-ok" comment "!fw4: Rule_1"
+		log prefix "dot-bad" comment "!fw4: Rule.1"
 	}
 }
 EOF
@@ -1005,6 +1007,8 @@ firewall.@rule[2].name='rule$x'
 firewall.@rule[3].name='rule;id'
 firewall.@rule[4].name='-lead'
 firewall.@rule[5].name=''
+firewall.@rule[6].name='Rule_1'
+firewall.@rule[7].name='Rule.1'
 UCI
 else
 	exit 0
@@ -1021,12 +1025,17 @@ fi
 			assert.equal(res.rules['rule;id'], undefined, `[${shell}] later-char ; must not be a map key`);
 			assert.equal(res.rules['-lead'], '-lead', `[${shell}] leading hyphen is in the charset`);
 			assert.equal(res.rules[''], undefined, `[${shell}] empty name is skipped`);
+			assert.equal(res.rules['Rule_1'], 'Rule_1', `[${shell}] UCI underscore and digit are in the charset`);
+			assert.equal(res.rules['rule-1'], 'Rule_1', `[${shell}] UCI slug retains underscore-to-hyphen mapping`);
+			assert.equal(res.rules['Rule.1'], undefined, `[${shell}] UCI dot is outside the charset`);
 			assert.equal(res.rules['later-dollar'], 'later dollar',
 				`[${shell}] !fw4: rule$x must not label; got ${JSON.stringify(res.rules['later-dollar'])}`);
 			assert.equal(res.rules['later-semi'], 'later semi',
 				`[${shell}] !fw4: rule;id must not label; got ${JSON.stringify(res.rules['later-semi'])}`);
 			assert.equal(res.rules['lead-hyphen'], '-lead', `[${shell}] !fw4: -lead is an admitted suffix`);
 			assert.equal(res.rules['ok-rule'], 'Rule', `[${shell}] !fw4: Rule is an admitted suffix`);
+			assert.equal(res.rules['underscore-ok'], 'Rule_1', `[${shell}] !fw4: underscore and digit are in the charset`);
+			assert.equal(res.rules['dot-bad'], 'dot bad', `[${shell}] !fw4: dot is outside the charset`);
 		}
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
