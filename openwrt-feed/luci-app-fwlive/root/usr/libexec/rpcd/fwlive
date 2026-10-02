@@ -442,6 +442,9 @@ _fwlive_tmp_cleanup() {
 		rm -f "$_nft_tsv"
 		_nft_tsv=
 	fi
+	# Closing these reserved descriptors releases anonymous dump/TSV files
+	# when no surviving helper still holds them. SIGKILL cannot run this trap.
+	command exec 7>&- 8>&-
 }
 # Same five traps as fwlive-log-filter.sh. The nft dump waits in the
 # background so a trapped SIGTERM is not deferred behind a foreground helper.
@@ -453,47 +456,53 @@ trap '_fwlive_tmp_cleanup; exit 143' 15
 
 enrich_rules_dump() {
 	_dump_prefix="$1"
-
 	_rules_dump=$(_fwlive_mktemp "$_dump_prefix") || _rules_dump=''
-	if [ -n "$_rules_dump" ]; then
-		# One dump serves detect + parse. Empty/failed dump is not nft
-		# (unknown/no_backend, same as a failed detect probe).
-		# Background + wait: dash defers trapped SIGTERM until a
-		# foreground child exits; wait is interruptible.
-		# Clear inherited traps so the child's EXIT cannot rm the dump.
-		( trap - 0 1 2 3 15; nft_list_ruleset >"$_rules_dump" 2>/dev/null ) &
-		_nft_wait=$!
-		if wait "$_nft_wait"; then
-			_nft_wait=
-			backend=nft
-			# Stream awk output to a second temp so a huge dump is
-			# not materialized in the rpcd worker's shell heap.
-			_nft_tsv=$(_fwlive_mktemp "fwlive-nft-tsv")
-			if [ -z "$_nft_tsv" ]; then
-				_enrich_error='mktemp_failed'
-			else
-				# awk under set -eu must not abort the plugin before JSON.
-				if nft_dump_fields prepared <"$_rules_dump" >"$_nft_tsv"; then
-					map_from_nft_stream labeled <"$_nft_tsv"
-					if [ -z "$_map_overflow" ]; then
-						map_from_nft_stream unlabeled <"$_nft_tsv"
-					fi
-				else
-					_enrich_error='tsv_failed'
-				fi
-				rm -f "$_nft_tsv"
-				_nft_tsv=
-			fi
-		else
-			_nft_wait=
-		fi
-		rm -f "$_rules_dump"
-		_rules_dump=
-	else
-		# nft is on PATH (caller checked); skip enrichment without a dump.
+	# Open then unlink before starting long-running work. command removes
+	# exec special-builtin fatal-exit behavior if the open fails under dash.
+	if [ -z "$_rules_dump" ] || ! command exec 7<>"$_rules_dump"; then
 		_enrich_error='mktemp_failed'
 		backend=nft
+		_fwlive_tmp_cleanup
+		return 0
 	fi
+	if ! rm -f "$_rules_dump"; then
+		_enrich_error='mktemp_failed'
+		backend=nft
+		_fwlive_tmp_cleanup
+		return 0
+	fi
+	_rules_dump=''
+
+	# SIGKILL after unlink cannot leave a directory entry, but an orphan can
+	# retain this tmpfs inode through its fd. The setup window before unlink
+	# and accepted direct-helper lifetime/resource limits are unchanged.
+	( trap - 0 1 2 3 15; nft_list_ruleset >&7 2>/dev/null ) &
+	_nft_wait=$!
+	if wait "$_nft_wait"; then
+		_nft_wait=
+		backend=nft
+		_nft_tsv=$(_fwlive_mktemp "fwlive-nft-tsv") || _nft_tsv=''
+		if [ -z "$_nft_tsv" ] || ! command exec 8<>"$_nft_tsv"; then
+			_enrich_error='mktemp_failed'
+		elif ! rm -f "$_nft_tsv"; then
+			_enrich_error='mktemp_failed'
+		else
+			_nft_tsv=''
+			# Reopen via procfs for a fresh file offset. A direct fd dup would
+			# share the writer offset at EOF, including on the second TSV pass.
+			if nft_dump_fields prepared </proc/self/fd/7 >&8; then
+				map_from_nft_stream labeled </proc/self/fd/8
+				if [ -z "$_map_overflow" ]; then
+					map_from_nft_stream unlabeled </proc/self/fd/8
+				fi
+			else
+				_enrich_error='tsv_failed'
+			fi
+		fi
+	else
+		_nft_wait=
+	fi
+	_fwlive_tmp_cleanup
 }
 
 build_rules_map() {
