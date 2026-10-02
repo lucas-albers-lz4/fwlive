@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preflight Java before TLC downloads and bound each curl transfer (#1087).
 - Canonicalize repeated leading separators before feed staging deletion guards compare protected paths (#1090).
 - Prepare lab images at private mountpoints and clean up only acquired mounts with verified sources and owned loop devices (#1095).
+- Treat corrupt QEMU pidfiles as unverifiable so force-stop reaches its pattern backstop, and report invalid pidfile removal on start (#1084, #1089).
 
 ## [v0.1.49] — 2026-10-01
 
