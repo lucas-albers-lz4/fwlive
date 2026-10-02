@@ -55,13 +55,13 @@ the lock and may attempt restoration only if both the visible value and
 generation still match A's commit; the restore helper can still refuse or fail.
 `WanLogRollbackRevision.tla` models that guard and a single primary enable.
 Its config checks that a later enable survives the ABA. It also checks that the
-rollback decision reaches either restore or skip after lock
-reacquisition (`RollbackCompletes`), and that the positive-guard case reaches
-the original value under the model's idealized successful restore
+rollback decision reaches either restore or skip after lock reacquisition
+(`RollbackCompletes`), and that the positive-guard case reaches the original
+value under the model's idealized successful restore
 (`RestoreLandsWithoutForeignCommit`). Decision completion is not successful
-restoration: the model represents restore as one atomic, successful action and
-does not model shell refusal/failure paths or restore's own generation bump.
-See #1126 for the failure-aware follow-up and its generation abstraction.
+restoration: this smaller model represents restore as one atomic, successful
+action. The failure-aware follow-up below models refusal/failure outcomes and
+the restore's own generation bump; neither model claims shell conformance.
 
 `WF_vars(NoStutter)` is weak fairness of the whole finite action disjunction,
 not separate fairness for each named action or caller. Here it is a scheduling
@@ -79,6 +79,59 @@ This history marker covers fwlive writers that use this lock and helper. A
 separate privileged writer that edits UCI directly does not advance it; the
 existing current-value check still detects a different final value, but a
 direct writer's own off/on ABA is outside the model and coordination contract.
+
+## Failure-aware rollback outcomes (#1126)
+
+`WanLogRollbackOutcomes.tla` keeps decision completion separate from
+successful restoration. It runs the primary operation as either enable or
+disable, with an initial unset/explicit-off value for enable or an enabled
+value for disable. A `present` bit distinguishes unset from explicit-off, and
+`rest` preserves one of two representative non-log settings. These are finite
+abstract values, not a UCI parser.
+
+While the primary reload is pending, up to two cooperating later attempts may
+occur: a commit changes the log bit, a no-op leaves it unchanged, and a failed
+write after its generation bump leaves committed UCI unchanged. All three
+advance the shared generation; the latter two are still intents that must
+prevent an older rollback. Each records its requested direction in `lastIntent`
+(`AttemptRecordsIntent`). The revision guard checks both generation and value.
+The positive `NoRestoreAfterNewerIntent` checks cover every later-attempt kind.
+`valueOnly` counterexample deliberately removes the generation check and
+violates that invariant.
+
+After reacquisition, the model can skip for a newer intent, finish with
+reacquisition unavailable, refuse before restoration for pending changes or
+unavailable generation tracking, or begin restoration. `BeginRestore` advances
+generation before staging. Subsequent terminal outcomes distinguish stage
+failure, a post-stage foreign-change refusal, commit failure, and successful
+restore. The exact-restore configs check that success restores the original
+value; the `wrong` mutation deliberately violates that check.
+
+The enable/disable configs with refusals disabled check
+`RollbackDecisionCompletes`, exact restoration when eligible, and the safety
+invariants. The two failure-enabled configs check decision completion and
+invariants while TLC explores all optional refusal/failure branches. A terminal
+decision (including a skip or failure) is not proof restoration succeeded.
+`restoreBaseGeneration` records the live generation immediately before the
+restore bump; `RestoreGenerationAdvancedExactly` checks the modeled bump.
+
+`WF_vars(DecisionProgress)` is weak fairness of the whole local post-reload
+decision disjunction. It allows at most two later attempts, then requires some
+reacquire/skip/restore-outcome step eventually to occur in fair behaviors. It
+is not fairness per action or per caller, does not force restoration over a
+permitted refusal, and does not prove command success or a wall-clock bound.
+The two-later-attempt cap and generation ceiling of 4 bound the TLC state
+space; they are not production limits. The model is deliberately finite and is
+not a shell/model conformance proof: it does not execute UCI, force any
+particular failure, model arbitrary UCI values or direct non-cooperating
+writers, or establish how provider commands behave. Separately,
+`tests/fwlive-logging.test.sh` checks no-op and failed-write generation advances,
+plus restore-stage refusal/failure after its own bump;
+`tests/fwlive-logging-lock.test.sh` checks successful restore, newer-value skip,
+and ABA preservation. These are shell implementation fixtures, not model/code
+conformance. This extends the decision/effectiveness split in #1123; any
+test-only trace/conformance pilot belongs in #1121 and should use this
+abstraction. Refs #953, #1121, #1123.
 
 ## Why F2 stays a counterexample, not a QEMU experiment
 
@@ -101,12 +154,14 @@ security smoke instead checks the production behavior: a held lock returns
 
 `scripts/formal-tlc.sh` downloads the official TLA+ v1.7.4 tools jar and checks
 its pinned SHA-256 before running TLC with one worker. It runs the production
-models as passing checks and asserts that four counterfactual configs still
+models as passing checks and asserts that six counterfactual configs still
 report their violations: ungated hostname disposal (`NoLateWrite`),
 whole-critical-section kill (`NoOrphanStaging`), value-only rollback ABA
-(`NoOverwriteForeignIntent`), and rollback effectiveness with the fairness
+(`NoOverwriteForeignIntent`), rollback effectiveness with the fairness
 conjunct removed (`RestoreLandsWithoutForeignCommit`, which TLC reports as an
-unnamed temporal-property violation). No TLA+ tooling is included in the OpenWrt
+unnamed temporal-property violation), value-only rollback despite later intent
+(`NoRestoreAfterNewerIntent`), and an incorrect restore value
+(`RestoreValueIsPrevious`). No TLA+ tooling is included in the OpenWrt
 package. The unnamed temporal-failure check intentionally requires a simple
 counterexample configuration: one identifier per SPECIFICATION, INVARIANT or
 PROPERTY line and exactly the expected PROPERTY. It rejects additional operands,

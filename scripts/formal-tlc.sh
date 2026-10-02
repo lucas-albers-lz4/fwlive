@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Run the small TLA+ models and assert that the four known counterexamples
+# Run the small TLA+ models and assert that the six known counterexamples
 # remain counterexamples. TLC runs in single-worker mode for stable liveness
 # checking. This script is CI/developer tooling only; it is not packaged.
 set -euo pipefail
@@ -106,5 +106,13 @@ run_pass wan-log-lock WanLogRollbackRevision WanLogRollbackRevision.cfg
 run_expected_violation wan-log-lock WanLogLockTimed WanLogLockTimedStranding.cfg NoOrphanStaging
 run_expected_violation wan-log-lock WanLogRollbackAba WanLogRollbackAba.cfg NoOverwriteForeignIntent
 run_expected_property_violation wan-log-lock WanLogRollbackRevision WanLogRollbackRevisionUnfair.cfg RestoreLandsWithoutForeignCommit
+run_pass wan-log-lock WanLogRollbackOutcomes WanLogRollbackOutcomesEnable.cfg
+run_pass wan-log-lock WanLogRollbackOutcomes WanLogRollbackOutcomesDisable.cfg
+run_pass wan-log-lock WanLogRollbackOutcomes WanLogRollbackOutcomesFailuresEnable.cfg
+run_pass wan-log-lock WanLogRollbackOutcomes WanLogRollbackOutcomesFailuresDisable.cfg
+run_expected_violation wan-log-lock WanLogRollbackOutcomes \
+	WanLogRollbackOutcomesValueOnly.cfg NoRestoreAfterNewerIntent
+run_expected_violation wan-log-lock WanLogRollbackOutcomes \
+	WanLogRollbackOutcomesWrongRestore.cfg RestoreValueIsPrevious
 run_pass hostname-dispose HostnameDispose HostnameDispose.cfg
 run_expected_violation hostname-dispose HostnameDispose HostnameDisposeUngated.cfg NoLateWrite
