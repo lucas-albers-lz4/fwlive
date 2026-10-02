@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Keep upstream-cut translation paths and references aligned with the exported LuCI tree, remove dangling source-only references, and use checked temporary storage for the CLI selftest (#1120; PR #1122).
+
 - Preserve adaptive hot/shed state when either poll duration clock sample is unavailable, and accept case-insensitive adaptive-off overrides (#1125, #1127).
 
 ## [v0.1.50] — 2026-10-02
