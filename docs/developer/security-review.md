@@ -1792,7 +1792,7 @@ The scoped fixes in PRs #1122 and #1136–#1142 have fresh combined host and
 The required-scan baseline has zero runner-level skips; the full Z3 adapter
 checks the shipped prepared awk path. Installed payload identity, native
 poll/filter control-byte and adaptive-off checks, 400-prefix rules RPC/caps,
-real nft/logd traffic and built LuCI keyboard/focus/text-node wiring passed.
+real IPv4 nft/logd traffic and built LuCI keyboard/focus/text-node wiring passed.
 The installed browser uses explicitly controlled HTTP poll replies and allows
 one known no-password guest `uci/get` denial; its result does not establish
 logd input or an error-free session. Native logd proof is recorded separately.

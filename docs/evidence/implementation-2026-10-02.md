@@ -25,8 +25,8 @@ baseline ran at `23bef8c682d9a104a4954a7bf97b73123eb8debd` and passed with
 zero runner-level skips and no per-suite SKIPPED results. The later delta
 contains only the Z3 verifier and its documentation; full pinned Z3 and Ruff
 passed at `8351a6cab2`. The product/package inputs are identical between
-those revisions. A real LuCI scan/cut comparison has 229 msgids and 246
-references, with byte parity. The mocked Chromium view smoke passed.
+those revisions. A fresh LuCI scan matches 229 msgids and 246
+references; the cited package files match line-for-line. The mocked Chromium view smoke passed.
 
 The cached pinned OpenWrt 24.10.8 x86_64 SDK built the combined candidate's
 actual `luci-app-fwlive_0.1.50-r1_all.ipk`, SHA-256
@@ -41,7 +41,8 @@ The failed setup attempts are not counted as validation.
 
 ## Fresh installed results
 
-- Actual nft/logd/rpcd pipeline smoke passed with three parsed rows.
+- Actual IPv4 nft/logd/rpcd pipeline smoke passed with three parsed rows.
+  The guest lacked an `icmpv6` match, so the IPv6 ping-rule lane was skipped.
 - A private unhooked nft table with 400 labeled prefixes passed installed
   `rules` RPC normalization, aliases, comment-only labels, precedence and
   first-wins checks (15,291-byte reply, 23 centiseconds). Raising that private
@@ -92,7 +93,8 @@ separate follow-ups.
 
 #1133 removes dump/TSV pathnames before blocking work and corrects #775's
 absolute cleanup wording. Host SIGKILL tests also prove a surviving helper
-can retain deleted-file tmpfs storage. The short mktemp/open/unlink setup
+can retain deleted-file tmpfs storage until the inheriting processes close
+their descriptors. The short mktemp/open/unlink setup
 window, helper lifetime and immediate resource reclamation limits remain.
 No deadline, process-group supervisor or stale-file sweep was added. The issue
 stays open for the owner's residual disposition. QEMU timings do not establish
@@ -100,5 +102,5 @@ A7 hardware latency, and no fresh APK/23.05/physical-device cell is claimed.
 
 The original dirty working tree was preserved. Current PR heads, CI status,
 owner-required reviews and merge dispositions are tracked in #1135; an older
-review label does not attest to a changed head. No release/version bump,
-upstream push or merge was performed.
+review label does not attest to a changed head. No OpenWrt/LuCI upstream publication, release/version bump or merge was
+performed.
