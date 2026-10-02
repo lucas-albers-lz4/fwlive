@@ -223,6 +223,9 @@ bash tests/qemu-acl-session-harness.test.sh
 
 echo "== qemu-wait-guest / feed-smoke source-contract (#839 / #838) ==" >&2
 bash tests/qemu-wait-guest-feed-smoke.test.sh
+echo "== qemu image mount ownership (#1095) ==" >&2
+bash tests/qemu-lab-prepare-image.test.sh
+
 echo "== qemu lab ports (#816 #809) ==" >&2
 bash tests/qemu-lab-ports.test.sh
 echo "== qemu lifecycle pidfile / start probe (#815 #805 #808) ==" >&2

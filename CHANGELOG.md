@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Join the initial poll before startup metadata settles, avoiding a second read on fast routers while preserving later refresh and resume requests (#1073). Add label-refresh and filtered-count regressions (#1075, #1083).
 - Preflight Java before TLC downloads and bound each curl transfer (#1087).
 - Canonicalize repeated leading separators before feed staging deletion guards compare protected paths (#1090).
+- Prepare lab images at private mountpoints and clean up only acquired mounts with verified sources and owned loop devices (#1095).
 
 ## [v0.1.49] — 2026-10-01
 
