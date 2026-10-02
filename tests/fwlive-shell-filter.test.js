@@ -439,6 +439,39 @@ function jsonGetMsgReply(line) {
 	);
 }
 
+function runSummaryControlEscaping() {
+	const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-summary-escape-'));
+	try {
+		// Call the actual generated function, not a copied implementation. MODE=json
+		// suppresses the classifier's empty-input END output for this driver.
+		const driver = path.join(work, 'escape.awk');
+		fs.writeFileSync(driver, 'BEGIN { for (n = 1; n < 32; n++) printf "\\\"%s\\\"\\n", json_escape("A" sprintf("%c", n) "B"); printf "\\\"%s\\\"\\n", json_escape("A" sprintf("%c", 127) "B") }\n');
+		const raw = shSpawn('LC_ALL=C awk -v MODE=json -f "$CLASSIFIER" -f "$DRIVER" </dev/null', {
+			env: { ...process.env, CLASSIFIER: path.join(path.dirname(IS_FW), 'fwlive-is-firewall-event.awk'), DRIVER: driver }
+		});
+		const codes = Array.from({ length: 31 }, (_, i) => i + 1).concat(127);
+		const encoded = raw.trim().split('\n');
+		assert.equal(encoded.length, codes.length);
+		for (let i = 0; i < codes.length; i++) {
+			const code = codes[i];
+			const value = 'A' + String.fromCharCode(code) + 'B';
+			assert.equal(JSON.parse(encoded[i]), value, `summary escaper byte ${code} must round-trip`);
+			const escape = ({ 9: '\\t', 10: '\\n', 13: '\\r' })[code] || '\\u' + code.toString(16).padStart(4, '0');
+			assert.equal(encoded[i], '"A' + escape + 'B"', `byte ${code} uses the independent JSON encoding contract`);
+		}
+		// These non-whitespace controls survive summary KV parsing. Two distinct
+		// values must not collapse to the same space-bearing talker string.
+		for (const code of [1, 31, 127]) {
+			const value = 'A' + String.fromCharCode(code) + 'B';
+			const body = jsonGetMsgReply(JSON.stringify({ msg: 'fw4: DROP IN=wan SRC=' + value + ' DST=192.0.2.1 PROTO=TCP' }));
+			assert.equal(JSON.parse(body).summary.top_talkers[0].value, value);
+			assert.ok(body.includes('\\u' + code.toString(16).padStart(4, '0')), 'the shipped reply encodes the control');
+		}
+	} finally {
+		fs.rmSync(work, { recursive: true, force: true });
+	}
+}
+
 function runJsonGetMsgUnicodeSummary() {
 	const euro = jsonGetMsgReply(
 		'{"msg":"euro\\u20acrule IN=wan OUT= SRC=203.0.113.1 DST=192.0.2.1 PROTO=TCP DROP"}'
@@ -786,6 +819,7 @@ function run() {
 	runJsonGetMsgEscapes();
 	runJsonModeTwoEntries();
 	runJsonGetMsgUnicodeSummary();
+	runSummaryControlEscaping();
 	runEmptyMalformedInput();
 	runSummaryContract();
 	runSummaryRuleHintParity();
