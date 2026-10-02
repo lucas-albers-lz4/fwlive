@@ -51,8 +51,9 @@ UCI: `option log '1'` on a `@rule` or wan zone where your image supports it.
 ## Current LuCI UI
 
 On supported releases, when `rules` reports nft, the page shows **`using fw4`**.
-Stock images without `timeout` report `backend: unknown` instead. Rule-name
-links use `admin/network/firewall/rules`; there is no iptables-save rules-map
+If nft is absent or its ruleset probe fails, `rules` reports `backend: unknown`
+(with a diagnostic such as `no_backend`); fwlive has no `timeout` dependency.
+Rule-name links use `admin/network/firewall/rules`; there is no iptables-save rules-map
 fallback. An iptables-tagged log can still classify, and a registered legacy
 table may add a diagnostic warning, but neither changes the supported
 rules-map contract.
