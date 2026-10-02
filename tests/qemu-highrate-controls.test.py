@@ -35,7 +35,14 @@ class Controls(unittest.TestCase):
             (p / 'flags').write_text('0x0')
         (self.p / 'printk').write_text('7 4 1 7\n')
         (self.p / 'forward').write_text('0\n')
-        self.stub('ip', '#!/bin/sh\nexit 0\n')
+        self.stub('ip', """#!/bin/sh
+case "$*" in
+  '-4 addr show dev eth1') [ "${ADDR_PRESENT:-0}" = 1 ] && echo 'inet 192.0.2.1/24' ;;
+  '-4 addr show dev eth2') [ "${ADDR_PRESENT:-0}" = 1 ] && echo 'inet 198.51.100.1/24' ;;
+  'addr del '*) [ "${FAIL_ADDR:-0}" = 1 ] && exit 1 ;;
+esac
+exit 0
+""")
         self.stub('sysctl', '#!/bin/sh\nprintf "%s\\n" "$*" >> "$LAB/sysctl-calls"\n')
         self.stub('logread', '#!/bin/sh\ncat "$LAB/logs"\n')
         self.stub('nft', '''#!/usr/bin/env python3
@@ -103,6 +110,17 @@ else: sys.exit(2)
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue((self.p / 'state').exists())
         self.assertEqual((self.p / 'printk').read_text(), '7\n')
+
+    def test_failed_address_removal_retains_retry_state(self):
+        self.guest_setup()
+        self.assertEqual(self.guest('configure').returncode, 0)
+        result = self.guest('cleanup', ADDR_PRESENT='1', FAIL_ADDR='1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue((self.p / 'state').exists())
+        self.assertEqual((self.p / 'printk').read_text(), '7\n')
+        # Retry treats an already absent address as restored.
+        self.assertEqual(self.guest('cleanup').returncode, 0)
+        self.assertFalse((self.p / 'state').exists())
 
     def launcher(self, **options):
         self.stub('ss', '#!/bin/sh\nexit 0\n')

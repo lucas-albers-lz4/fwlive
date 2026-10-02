@@ -134,6 +134,17 @@ remove_rules() {
 	[ "$failed" -eq 0 ]
 }
 
+restore_saved_addr() {
+	addr=$1
+	dev=$2
+	addresses=$(ip -4 addr show dev "$dev") || return 1
+	if printf '%s\n' "$addresses" | grep -Fq "inet $addr/24"; then
+		ip addr del "$addr/24" dev "$dev" || return 1
+		addresses=$(ip -4 addr show dev "$dev") || return 1
+		! printf '%s\n' "$addresses" | grep -Fq "inet $addr/24"
+	fi
+}
+
 restore_saved_state() {
 	restore_failed=0
 	# A single value changes only console_loglevel, keeping logd warning
@@ -146,10 +157,10 @@ restore_saved_state() {
 	[ "$saved_lan_dev" = "$lan_dev" ] || { echo "LAN interface changed since configure" >&2; return 1; }
 	[ "$saved_wan_dev" = "$wan_dev" ] || { echo "WAN interface changed since configure" >&2; return 1; }
 	if [ "$(state_get lan_added)" = 1 ]; then
-		ip addr del "$(state_get lan_ip)/24" dev "$lan_dev" 2>/dev/null || true
+		restore_saved_addr "$(state_get lan_ip)" "$lan_dev" || restore_failed=1
 	fi
 	if [ "$(state_get wan_added)" = 1 ]; then
-		ip addr del "$(state_get wan_ip)/24" dev "$wan_dev" 2>/dev/null || true
+		restore_saved_addr "$(state_get wan_ip)" "$wan_dev" || restore_failed=1
 	fi
 	sysctl -w "net.ipv4.ip_forward=$(state_get ip_forward)" >/dev/null || restore_failed=1
 	if [ "$(state_get lan_up)" = 1 ]; then ip link set "$lan_dev" up; else ip link set "$lan_dev" down; fi || restore_failed=1
@@ -275,9 +286,9 @@ EOF
 		echo "guest_logs_verified prefix='fwlive-slo IN=' direction=$lan_dev:$wan_dev"
 		;;
 	cleanup)
-		command -v nft >/dev/null 2>&1 || { echo "nft is required on the guest" >&2; exit 1; }
 		[ -s "$state_file" ] || { echo "forwarding-SLO state is missing; refusing cleanup" >&2; exit 1; }
 		rollback_enabled=1
+		command -v nft >/dev/null 2>&1 || { echo "nft is required on the guest" >&2; exit 1; }
 		remove_rules
 		restore_saved_state
 		rm -f "$state_file"

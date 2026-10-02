@@ -9,12 +9,15 @@ cleanup targets the existing four owned comments and two MAC-selected links.
 QEMU adds only validated TAP arguments without eval or command strings, and
 management remains first. Host proof: `tests/qemu-highrate-controls.test.py`
 executes stubbed launch argv, invalid-option rejection, guest configure/cleanup,
-failed nft-batch rollback, and real-log shape rejection; net tests cover
+failed nft-batch rollback, address/rule deletion failure with retained retry
+state, and real-log shape rejection; net tests cover
 backend incompatibility and delimiter injection. Lab proof: an 8-vCPU KVM
 24.10.8 guest forwarded a 1-Gb/s probe, passed rule and actual log checks, and
 restored `7 4 1 7` after temporarily selecting `4 4 1 7`. No shipped runtime,
 ACL, renderer, or release trust boundary changes. This is a scoped delta;
-post-filing review remains pending. Full-source audit deferred because no
+post-filing Luna review found swallowed address deletion errors; the fix
+verifies absence and retains state on failures. Bugbot/human review remains
+pending. Full-source audit deferred because no
 full-pass gate was triggered. SIGKILL/power loss cannot run cleanup.
 
 **2026-10-02 #1130 renderer delta.** Simple-view expansion uses a native

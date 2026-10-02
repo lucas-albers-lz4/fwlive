@@ -21,4 +21,3 @@ RX:		0
 TX:		0
 Other:		0
 Combined:	4
-
