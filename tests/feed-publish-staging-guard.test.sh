@@ -113,3 +113,29 @@ if grep -Eq '^[[:space:]]*\*\)[[:space:]]*sha=' <<<"$ipkg_fn"; then
 fi
 
 echo "feed publish staging allowlist test passed"
+
+# Read-only guard probes for depth-one roots; never repurpose HOME or clear them.
+(
+	# shellcheck disable=SC2329 # Invoked indirectly by the guard under test.
+	feed_publish_physical_home() { printf '%s' /tmp; }
+	for spelling in /tmp //tmp ///tmp /tmp/ /tmp/../tmp; do
+		assert_refused "$spelling" 1
+		[[ "$(feed_publish_abspath "$spelling")" != //* ]] || fail "double separator: $spelling"
+	done
+	ln -s /tmp "$linkdir/homelink"
+	assert_refused "$linkdir/homelink" 1
+	# shellcheck disable=SC2329 # Invoked indirectly by the guard under test.
+	feed_publish_physical_home() { printf '%s' /; }
+	assert_refused // 1
+	assert_refused /// 1
+	[[ "$(feed_publish_abspath ///)" == / ]] || fail "root spelling canonicalization"
+)
+for spelling in "//$ROOT" "$ROOT/" "$ROOT/../$(basename "$ROOT")"; do
+	assert_refused "$spelling" 1
+done
+not_created="/fwlive-staging-guard-$$-not-created"
+[[ ! -e "$not_created" ]] || fail "fixture must not exist"
+[[ "$(feed_publish_abspath "$not_created")" == "$not_created" ]] || fail "depth-one absent path"
+[[ "$(feed_publish_canonical_staging "//$not_created")" == "$not_created" ]] || fail "absent repeated-separator path"
+[[ "$(feed_publish_assert_staging_clearable "//$not_created" 1)" == "$not_created" ]] || fail "allow outside absent target"
+echo "feed publish depth-one and repeated-separator guards passed (no deletion probes)"

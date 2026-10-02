@@ -497,6 +497,15 @@ verification precedes execution. PATH fixtures cover missing Java, failed
 transfers and cached jars with stubbed Java; no new TLC/model result is claimed.
 No router surface changes. Full host/toolchain audit remains deferred.
 
+### 2026-10-01: feed staging path delta (#1090)
+
+Physical paths now use one leading separator, including root-parent joins and
+protected home/repository/runner comparisons. Read-only host guard fixtures
+cover depth-one protected home, `/`, repeated separators, symlinks and absent
+allowed targets without clearing protected paths or changing HOME. The clear
+allowlist is unchanged. This scoped audit does not claim race-free deletion
+against privileged path replacement; full publication/host review is deferred.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
@@ -509,7 +518,7 @@ No router surface changes. Full host/toolchain audit remains deferred.
 | Shell helpers — **uninstall baseline restore (`prerm`)** | 2026-10-01 | Full source + scoped fresh proof | Current hook/metadata matrix and fresh actual IPK/APK uninstall restoration on 24.10/25.12 passed; APK same-version reinstall preserves marker. Installer preclear failure is distinct and tracked as #1097. |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-10-01 | Full source + scoped fresh proof | Full source/host fixtures, current UCI grammar and named/anonymous identity rechecked. Installed artifact refuses foreign staging without committing or dropping it. Privileged package-wide commit race remains accepted. |
 | Release pipeline — secrets and key handling | 2026-10-01 | Full source + scoped fresh proof | Full source and both storage-format mode tests; full SDK usign/RSA validation plus three-line local signed feed staging with dummy keys. Native opkg/APK signatures and manifest hashes checked. No real keys or live publication. |
-| Release pipeline — version pins, fetch pinning and artifact selection | 2026-10-01 | Full source + scoped fresh proof | Current pin/fetch/cache/selection paths and tests rechecked. The #1059 host follow-up injects a partial-output grep failure in Packages filtering and asserts the production host helper aborts before gzip/usign; the SDK-contained path remains source-only. Fresh three-cell build, payload inspection and repeated clean bit-identical builds passed. Existing home-path guard exception #1090 confirmed; #1096 ordering hardening remains open. |
+| Release pipeline — version pins, fetch pinning and artifact selection | 2026-10-01 | Full source + scoped fresh proof | Current pin/fetch/cache/selection paths and tests rechecked. The #1059 host follow-up injects a partial-output grep failure in Packages filtering and asserts the production host helper aborts before gzip/usign; the SDK-contained path remains source-only. Fresh three-cell build, payload inspection and repeated clean bit-identical builds passed. #1090 physical-path normalization and read-only host guard fixtures now close the home-path spelling exception; #1096 ordering hardening remains open. |
 | Workflow inputs into `run:` bodies | 2026-10-01 | Full source + scoped fresh proof | All workflow inputs/actions/permissions reviewed; actionlint and pedantic zizmor output adjudicated. #1096 validation-before-install ordering confirmed as hardening; no additional repository-writer privilege demonstrated. No live workflow. |
 | LuCI view (templates / shipped JS) | 2026-10-01 | Full source + scoped fresh proof | Full source/state/cache/lifecycle pass, host and real mocked browser checks, plus installed 24.10 recovery/hostname/pause/filter/leave/revisit checks. Initial bootstrap access-denied pageerror is disclosed; no global error-free claim. |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-10-01 | Full source + scoped fresh proof | All current package metadata/hooks/ACL/menu and generated payload modes checked; real artifacts on all three lines inspected. Actual 24.10/25.12 lifecycle checked. Artifact-only same-version opkg installation defect #1097 reproduced. |
@@ -518,7 +527,7 @@ No router surface changes. Full host/toolchain audit remains deferred.
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-10-01 | Full source + scoped fresh proof | All current pins/cache ownership/freshness and locked dependencies reassessed; fresh three-cell SDK builds and within-cell reproducibility passed. npm install audit reported no known vulnerabilities at execution time. |
 | Dev tooling (`.cursor/mcp.json`) | 2026-10-01 | Full source + scoped fresh proof | Current config contains no MCP servers; repository/developer-tool configs inspected. Host dependencies are separate from shipped router payload. |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-10-01 | Full source + scoped fresh proof | Full source/default host-key policy and its host regression checked. Insecure SSH remains explicit lab opt-in. No general remote deployment was performed. |
-| Lab feed/QEMU lifecycle helpers | 2026-10-01 | Full source + scoped fresh proof | Full source/config/test pass; process/path/transport ownership controls checked. New #1095 mount ownership defect and existing #1090 staging guard exception confirmed. QEMU stop/status/PID issues remain in existing tracker; no duplicate. |
+| Lab feed/QEMU lifecycle helpers | 2026-10-01 | Full source + scoped fresh proof | Full source/config/test pass; process/path/transport ownership controls checked. The #1090 staging guard spelling exception is resolved with physical-path normalization and host fixtures; #1095 mount ownership remains open. QEMU stop/status/PID issues remain in existing tracker; no duplicate. |
 | Lab honest-gap smokes | 2026-10-01 | Full source + scoped fresh proof | Current artifact 24.10 native flock denial is 66; original helper fails (#1098), scratch-adapted probe passed lookup cap, denial, held-lock/inode and foreign-staging checks. Full dummy-key sign/verify ran. Arbitrary helper termination unproven. |
 | CLASSIFY_SPEC evaluator and codegen | 2026-10-01 | Full source + scoped fresh proof | Full core/mirror/generator/generated-asset review and freshness/parity gates passed. #1060/#1067 now validate trusted rules at module initialization/build gates and restore AND/OR short-circuiting. Host malformed-config, parity and syntax tests pass; a host benchmark retains counts while reducing evaluation cost. KV identifier restrictions do not claim validation of every other static spec string. Logs remain stdin data. |
 
@@ -560,7 +569,7 @@ No router surface changes. Full host/toolchain audit remains deferred.
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
 | Only public keys reach `feed-staging/`; both opkg and apk public keys are required | `host` | `feed_publish_copy_keys`; `tests/feed-publish-copy-keys.test.sh` |
 | Packages index filtering has no `\|\| true` on either host or SDK path; host filtering aborts before signing on grep I/O failure | `host + manual` | `tests/feed-publish-copy-keys.test.sh` retains source-shape assertions for both paths and behaviorally injects nonempty partial-output grep failure into the production host helper, asserting nonzero status and no gzip/usign invocation. The SDK-contained failure path remains `manual` source inspection; the host signing command is a stub, not live-signature proof. |
-| Publish staging guard rejects protected/non-allowlisted paths in tested ordinary spellings; direct-child home spelling has open #1090 exception | `host + manual` | `feed_publish_assert_staging_clearable` / allowlist tests; natural-root container guard-only probe accepted `//root` with outside override on 2026-10-01. No deletion attempted. Blanket home-refusal claim is falsified until #1090 is resolved. |
+| Publish staging guard normalizes physical paths before protected-path and allowlist checks | `host` | `feed_publish_assert_staging_clearable`; read-only guard fixtures cover depth-one home, repeated separators, root, repository, symlinks and absent allowed targets (#1090, PR #1111). No protected path is cleared; privileged path replacement races remain outside this proof. |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |
 | Publish job is bound to Environment `feed-publish` | `manual` | Workflow binding and current API inspected 2026-10-01: no protection rules configured. This does not establish required approval or scope repository signing secrets. |
@@ -617,7 +626,6 @@ No router surface changes. Full host/toolchain audit remains deferred.
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
 | Private-2026-10-01 | Low | Maintainer private draft reporting | Independently validated finding; details and advisory identifier retained privately pending review. |
-| #1090 | Medium | [Existing issue](https://github.com/lucas-albers-lz4/fwlive/issues/1090) | Privileged staging home-directory guard exception; independent guard-only recheck added. |
 | #1095 | Medium | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1095) | Lab image cleanup can unmount a mount it did not acquire. |
 | #1096 | Low | [Hardening issue](https://github.com/lucas-albers-lz4/fwlive/issues/1096) | Release tag validation follows npm installation; no additional privilege demonstrated. |
 | #1068 | Low | [Existing issue](https://github.com/lucas-albers-lz4/fwlive/issues/1068) | Adaptive lock setup can silently skip state update. |
@@ -626,6 +634,7 @@ No router surface changes. Full host/toolchain audit remains deferred.
 
 | ID | Severity | Issue | Summary | Verified |
 |----|----------|-------|---------|----------|
+| #1090 | Medium | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1090) | Protected staging paths compared after physical-path normalization | 2026-10-01 — read-only host guard fixtures, PR #1111; privileged path replacement excluded |
 | #1066 | Low | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1066) | Existing non-regular logging locks rejected before append; normal creation and inode retained | 2026-10-01 — scoped dash/BusyBox host fixtures, PR #1106; privileged races excluded |
 | B-1 | Low | `wan_firewall_zone_same` class-matched any `name=wan` zone | Canonical `uci -X` cfg id compare; duplicate wan `.log` stays foreign | 2026-09-03 — multi-model audit |
 | [#204](https://github.com/lucas-albers-lz4/fwlive/issues/204) | Low | Predictable lock path opened O_TRUNC without symlink check | Lock under `/etc/fwlive/`; `acquire_wan_log_lock` rejects `-L` before create/tighten/open; Part E | 2026-08-23 — security-audit PR |
