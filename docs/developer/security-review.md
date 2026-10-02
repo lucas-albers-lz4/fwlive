@@ -300,7 +300,7 @@ next-tag pin checklist remains in force.
 > (`nft_failed` is no longer produced). Host coverage asserts a single dump.
 > No ACL, DOM sink, or read/write-scope change.
 
-> **2026-09-22 #491 delta:** poll ubus log-read and the firewall filter each
+> **2026-09-22 #491 delta (superseded by #1053):** poll ubus log-read and the firewall filter each
 > run under `POLL_TIMEOUT` (5s) via `run_with_timeout`. Timeout or a missing
 > `timeout` binary fails closed (`log_read_failed` / `filter_failed`) instead
 > of hanging the rpcd worker. Host coverage uses a hung ubus stub. No ACL,
@@ -428,7 +428,7 @@ reopen an accepted residual without new evidence.
 >
 > **2026-09-23 #557:** The `test-ipk-payload` check still always reports (job id stays required). The three-cell SDK build and `FWLIVE_REQUIRE_PACKAGE=1` inspect run only when packaging-relevant paths change, or when path detection fail-closes (missing/all-zero/unusable base SHA, fetch failure, or diff failure). Host `test` still runs the source-shaped payload/lifecycle inspectors on every PR.
 >
-> **2026-09-19 #378 Phase 2 delta:** `rules` is nft-only. The `iptables-save` dump path, `IPTABLES_TIMEOUT`, and `__rulesmap_iptables` CLI hook are gone. Detect failure is `unknown`/`no_backend`; a selected nft dump still uses `nft_failed`. Sticky `/tmp`, mktemp fail-closed, timeout, size/key caps, and first-wins dedup are unchanged. No ACL, DOM sink, or LuCI change.
+> **2026-09-19 #378 Phase 2 delta:** `rules` is nft-only. The `iptables-save` dump path, `IPTABLES_TIMEOUT`, and `__rulesmap_iptables` CLI hook are gone. Detect failure is `unknown`/`no_backend`; a selected nft dump still uses `nft_failed`. Sticky `/tmp`, mktemp fail-closed, the then-current timeout arrangement (later removed by #1053), size/key caps, and first-wins dedup are unchanged at this historical snapshot. No ACL, DOM sink, or LuCI change.
 
 > **2026-09-19 #373 delta:** WAN-zone selection now considers the exact zone name `wan` or effective `network` membership in `wan`/`wan6`, where an omitted network option falls back to the zone name. The first matching zone in firewall config order wins; no-zone replies JSON-escape the discovered zone names. The repository's 25.12-era firewall/network fixtures and lab preparation scripts were also checked for device- or subnet-scoped firewall zones; none appeared, so no device tokens were added to the match set. No ACL, command-input, or DOM-sink change.
 
@@ -558,8 +558,8 @@ change. This scoped smoke review is not a full security audit.
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-10-01 | Full source + scoped fresh proof | Full source-to-sink trace across parser, view, chips, links, labels, caches and summaries. Host hostile-input checks passed; no new injection mechanism confirmed. Backend reply-size dependence remains an explicit limit. |
-| rpcd plugin + ACL scope | 2026-10-01 | Full source + scoped fresh proof | Full input/output/method/tempfile/control review; matched real jshn on all three supported pins. The #1059 host follow-up calls the shipped resolver through BusyBox ash with distinct IPv4 and IPv6 PTR fixtures, asserting exact lookup arguments and returned name maps. Fresh 24.10 grant/all-six-deny/read-only sessions and 25.12 read-only/all-six-deny checks; no session log.read. Direct-helper residual retained. |
-| Shell helpers — injection and quoting | 2026-10-01 | Full source + scoped fresh proof | Full shipped helper flows rechecked; log/PTR/UCI values remain data. Host tests, actual guest jsonfilter dependency fixtures and installed nft pipeline on 24.10/25.12 passed. Lab-root configuration interpolation does not establish new authority. |
+| rpcd plugin + ACL scope | 2026-10-01 | Full source + scoped fresh proof | Full input/output/method/tempfile/control review; matched real jshn on all three supported pins. The #1059 host follow-up calls the shipped resolver through BusyBox ash with distinct IPv4 and IPv6 PTR fixtures, asserting exact lookup arguments and returned name maps. Fresh 24.10 grant/all-six-deny/read-only sessions and 25.12 read-only/all-six-deny checks; no session log.read. #1054 host coverage asserts native `ubus -t 5` argv and structured error handling only; it does not emulate a stalled service, and the native wait starts after object lookup without cancelling remote work. #1053 removed the GNU timeout wrappers and peer-drain. Direct-helper residual retained. |
+| Shell helpers — injection and quoting | 2026-10-01 | Full source + scoped fresh proof | Full shipped helper flows rechecked; log/PTR/UCI values remain data. Host tests, actual guest jsonfilter dependency fixtures and installed nft pipeline on 24.10/25.12 passed. Lab-root configuration interpolation does not establish new authority. Historical #898 peer-drain fallback and #761 positional GNU-timeout proof describe the removed wrapper (#1053); current provider calls execute without that wrapper, while `poll` retains its separate native `ubus -t 5` invocation timeout. Filtered-stdin handling remains intact. |
 | Developer tooling — AST-grep gate | 2026-10-01 | Full source + scoped fresh proof | Pinned CLI/version, rules, invocation and generated/source paths inspected; configured baseline gate passed. Dynamic identifier/call children also require source/harness review. |
 | Shell helpers — **file modes and lock ownership** | 2026-10-01 | Full source + scoped fresh proof | Fresh host mode/directory/symlink checks and installed 0600 unprivileged denial. #1066 now rejects existing non-regular paths before append/open; dash and BusyBox host fixtures preserve missing/regular lock behavior. Privileged replacement races still rely on the protected directory; adaptive nonregular lock rejection is safe but setup skip remains silent (#1068). |
 | WAN logging lock wait and reload rollback | 2026-10-01 | Full source + scoped fresh proof | Host fault/race suites and all seven TLC configurations rerun. Artifact-only 24.10 held-lock refusal in 5 seconds and same-inode release verified with scratch provider-status adaptation. No installed ABA or scheduling-bound proof. |
@@ -1139,7 +1139,7 @@ links to this ledger for review state.
 
 **Fixes (minimal, POSIX sh).**
 
-- **Task 1 (pipeline):** The first cut captured fragments via `frag=$(nft_list_ruleset | { OUT=''; map_from_nft_stream; printf '%s' "$OUT"; })` so the map escaped the pipeline subshell. That left no global first-wins `OUT` across backends. R4 (below) replaced it with `_fwlive_mktemp` + redirect so accumulation stays in the main shell. `run_with_timeout $NFT_TIMEOUT` and the `ip6tables-save` presence check are unchanged. `rulesmap_from_iptables_file` (redirect path) was already on the non-pipeline path. Verified both shells; test fails before fix (empty map) and passes after.
+- **Task 1 (pipeline):** The first cut captured fragments via `frag=$(nft_list_ruleset | { OUT=''; map_from_nft_stream; printf '%s' "$OUT"; })` so the map escaped the pipeline subshell. That left no global first-wins `OUT` across backends. R4 (below) replaced it with `_fwlive_mktemp` + redirect so accumulation stays in the main shell. At that time, `run_with_timeout $NFT_TIMEOUT` (superseded by #1053) and the `ip6tables-save` presence check (removed by #378 Phase 2) were unchanged. `rulesmap_from_iptables_file` (redirect path) was already on the non-pipeline path. Verified both shells; test fails before fix (empty map) and passes after.
 - **Task 2 (duplicate keys):** Two layers. `map_prefix_with_label` / `map_uci_rule_names` skip a second `map_add` when `slug==raw` (fw4 lower-hyphen identity). `map_add` itself is global first-wins against `$OUT` (`case "$OUT" in *"\"$esc_key\":"*)`), so the same key from UCI + nft + iptables is emitted once. The slug==raw skip is not a substitute for that global state.
 - **Task 3 (poll clamp):** Added `poll_clamp_lines` helper: strip leading zeros, if empty →50, if `${#tmp} > ${#POLL_LINES_MAX}` →2000 before any `test -gt`, else safe numeric clamp. `poll_lines_from_input` delegates to helper. `0` now →50, over-long (`99999999999999999999`, `18446744073709551616`) →2000, `2001` →2000, `500` passes. Helper tested without `jshn` (direct `poll_clamp_lines` calls) and with `jshn` via `poll_lines_from_input`; read-ACL reachable `poll` is now defence-in-depth clamped without relying on silenced `test` error.
 
@@ -1157,7 +1157,7 @@ links to this ledger for review state.
 - **Single helper:** `_fwlive_mktemp <prefix>` — `_fwlive_tmp_dir_ok` then `mktemp "/tmp/<prefix>.XXXXXX" 2>/dev/null` only. `TMPDIR` is **deliberately not honoured** and there is **no bare-`mktemp` fallback**: bare `mktemp` consults `TMPDIR`, and an attacker-writable non-sticky `TMPDIR` would restore the create-then-reopen (TOCTOU) symlink-write primitive, since `build_rules_map` reopens the path with `>` while running as root. Stickiness of `/tmp` is **checked** with POSIX `[ -k ]` (not `stat -c`, which default OpenWrt BusyBox may omit). Fail closed → skip enrichment. Never `rm`+reuse, never `touch`/`chmod`. If `mktemp` fails, the backend enrichment is skipped and a well-formed map is still returned. BusyBox `mktemp` sane.
 - **Graceful degradation:** ``_tmp=$(_fwlive_mktemp fwlive-nft) || _tmp=''`` then `if [ -n "$_tmp" ]; then nft_list_ruleset >"$_tmp" ...; rm -f "$_tmp"; fi` — if `mktemp` absent/failing, backend enrichment skipped, still returns well-formed `{"backend":...,"rules":{...}}` with UCI names. No fixed-path write.
 - **Cleanup guaranteed:** `rm -f "$_tmp"` is unconditional inside the `if [ -n "$_tmp" ]` block, immediately after use, with no early `return`/`exit` between creation and removal. nft, iptables, and ip6tables each get a fresh `_fwlive_mktemp` into the same `_tmp` after the previous file is removed. Failure path (`mktemp` empty) never creates a file, so no cleanup needed. The `map_from_*` helpers do not `exit` the shell.
-- **tmpfs/RAM:** `/tmp` on OpenWrt is `tmpfs` (RAM). `NFT_TIMEOUT=5` bounds the nft dump's **duration, not its size**, and `iptables-save`/`ip6tables-save` run with **no timeout at all**; size is not bounded by code. Typical firewall dumps are <100KB and the file is removed immediately after parsing, so RAM impact is negligible in practice. No pipeline subshell reintroduced (global `OUT` dedup preserved). **Superseded 2026-09-19 #378 Phase 2:** the iptables-save dump path is gone; only nft is invoked and timed.
+- **tmpfs/RAM:** `/tmp` on OpenWrt is `tmpfs` (RAM). In the historical R4 implementation, `NFT_TIMEOUT=5` bounded the nft dump's **duration, not its size**, while then-present `iptables-save`/`ip6tables-save` ran with **no timeout at all**; dump size was not bounded by code. Typical firewall dumps were <100KB and the file was removed immediately after parsing, so RAM impact was negligible in practice. No pipeline subshell was reintroduced (global `OUT` dedup preserved). **Later supersession:** #378 Phase 2 removed the iptables-save dump path; #1053 removed the GNU timeout wrappers, so this dated entry makes no current helper-duration claim.
 - **Cleanup:** inline `rm -f` immediately after parsing, plus EXIT/HUP/INT/TERM traps on `_rules_dump` / `_nft_tsv` so a killed `rules` call does not leak `/tmp/fwlive-nft*` (#775). `testRulesTempsCleanedOnKill` sends SIGTERM while `nft` is blocked.
 
 **Test.** `testNoMktempGracefulDegradation` in `tests/fwlive-rules-map.test.js` — shadows `mktemp` (exit 127) at front of `PATH`, calls `rules` under `dash` (and `busybox sh` only when BusyBox honours PATH; Ubuntu standalone applets skip). Asserts: (1) well-formed JSON + `backend==nft` + UCI names still present (catches missing degradation / malformed JSON), (2) no `/tmp/fwlive-{nft,ipt,ip6t}*` file created (catches predictable-path symlink write), (3) nft-derived key `should-not-appear` absent (catches fixed-path dump still being parsed). `testTmpDirSticky` pins reject of a non-sticky dir and of a symlink. Verified `grep -n '\$\$' rpcd/fwlive` empty and `grep -n 'mktemp'` shows only helper + call sites.
@@ -1391,9 +1391,9 @@ checks.
 the existing collision or whitespace behavior. This is a ledger update for the
 implemented behavior, not a new security finding.
 
-### 2026-09-27 — filter error and timeout follow-up
+### 2026-09-27 — filter error and timeout follow-up (timeout wrapper superseded by #1053)
 
-**Scope.** The rpcd timeout peer-drain loop now falls back to a whole-second
+**Scope.** At that revision, the rpcd timeout peer-drain loop fell back to a whole-second
 BusyBox sleep when fractional sleep is unavailable. Its filter error-body
 allowlist is checked against every complete error body emitted by the shipped
 filter. The output shape and ACL are unchanged.
@@ -1406,9 +1406,10 @@ timeout descendant cases cover a child that retains or closes stdout after
 the parent exits. The fractional-sleep fallback preserves the hard outer
 deadline while preventing a tight `/proc` scan on reduced BusyBox builds.
 
-**Result.** No new RPC or session permission is introduced. The timeout
-wrapper still returns a failure when the hard deadline kills its process
-group; the fallback only changes peer-scan cadence on reduced BusyBox builds.
+**Result.** No new RPC or session permission was introduced. At that time, the
+timeout wrapper returned a failure when its hard deadline killed the process
+group; #1053 later removed that wrapper. The fallback only changed peer-scan
+cadence on reduced BusyBox builds.
 
 ### 2026-09-28 — WAN logging lock wait and rollback generation
 

@@ -134,6 +134,13 @@ the router answered with an error, and **Installation is incomplete. Reinstall
 luci-app-fwlive.** when a required package file is missing (retrying cannot fix
 that).
 
+After a successful poll with no current firewall entries, the status line can
+show **“Firewall log has no current entries; showing rows last received %s
+ago.”** while previously received rows remain buffered. It appears once at
+least 15 seconds have passed since the last non-empty batch. The age is rounded
+down: seconds below one minute, minutes below one hour, hours below one day,
+then days. New rows reset the age; a poll error takes precedence over this hint.
+
 The router's log ring is finite and may evict older events before fwlive reads
 them. fwlive cannot recover evicted entries and does not change forwarding
 behavior. If events arrive faster than the UI can display them, use a lower
