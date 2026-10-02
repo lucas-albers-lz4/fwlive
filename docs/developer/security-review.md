@@ -620,7 +620,7 @@ change. This scoped smoke review is not a full security audit.
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-10-01 | Full source + scoped fresh proof | Full source/default host-key policy and its host regression checked. Insecure SSH remains explicit lab opt-in. No general remote deployment was performed. |
 | Lab feed/QEMU lifecycle helpers | 2026-10-01 | Full source + scoped fresh proof | Full source/config/test pass; process/path/transport ownership controls checked. The #1090 staging guard spelling exception is resolved with physical-path normalization and host fixtures; #1095 now uses private invocation-owned mountpoints and source-verified cleanup, covered by host failure/concurrency fixtures. PR #1113 routes corrupt pidfiles through the explicit force backstop and diagnoses start cleanup; exact disposable process fixtures prove target exit and unrelated-process survival. |
 | Lab honest-gap smokes | 2026-10-01 | Full source + scoped fresh proof | PR #1119 recognizes denied-open status 66 only for a verified util-linux provider. The checked-in smoke passed on a disposable 24.10.8 IPK guest with util-linux 2.40.2: lookup cap, native denial, held-lock/inode and foreign-staging checks. Host fixtures retain failure controls; BusyBox native denial was separately observed. Full dummy-key sign/verify ran. Arbitrary helper termination unproven. |
-| CLASSIFY_SPEC evaluator and codegen | 2026-10-01 | Full source + scoped fresh proof | Full core/mirror/generator/generated-asset review and freshness/parity gates passed. #1060/#1067 now validate trusted rules at module initialization/build gates and restore AND/OR short-circuiting. Host malformed-config, parity and syntax tests pass; a host benchmark retains counts while reducing evaluation cost. KV identifier restrictions do not claim validation of every other static spec string. Logs remain stdin data. |
+| CLASSIFY_SPEC evaluator and codegen | 2026-10-02 | Scoped delta + fresh proof | The prior 2026-10-01 full core/mirror/generator/generated-asset review remains the baseline. #1060/#1067 validate trusted rules at module initialization/build gates and restore AND/OR short-circuiting. #1131 compiles a finite module-local set from those validated keys; direct non-spec `kvHas` calls retain the original uncached behavior. The shipped `normalizePollBatch(2000)` harness reproduced the old `kvHas` body and measured 4,000 RegExp constructions per batch versus 0 after caching (13 total module-init constructions). One same-process timing sample measured 11.60 vs 10.05 ms/batch over 25 batches and is informational only. Host malformed-config, parity, boundary, corpus and syntax tests pass; no installed-router result. KV identifier restrictions do not claim validation of every other static spec string. Logs remain stdin data. |
 
 
 ## Controls in force
@@ -1794,3 +1794,21 @@ per-name helper costs; this change specifically removes nft-prefix costs.
 Shipped ShellCheck passes; no new command-string sink, ACL or helper deadline.
 Codex and independent GPT-6-luna/xhigh review and installed evidence are tracked
 in #1135. This delta does not trigger a fresh full audit.
+
+### 2026-10-02 combined implementation validation (#1135)
+
+The scoped fixes in PRs #1122 and #1136–#1142 have fresh combined host and
+24.10.8 x86_64 artifact-only proof in the [implementation record](../evidence/implementation-2026-10-02.md).
+The required-scan baseline has zero runner-level skips; the full Z3 adapter
+checks the shipped prepared awk path. Installed payload identity, native
+poll/filter control-byte and adaptive-off checks, 400-prefix rules RPC/caps,
+real IPv4 nft/logd traffic and built LuCI keyboard/focus/text-node wiring passed.
+The installed browser uses explicitly controlled HTTP poll replies and allows
+one known no-password guest `uci/get` denial; its result does not establish
+logd input or an error-free session. Native logd proof is recorded separately.
+#1133 remains a partial pathname mitigation: surviving helper-held anonymous
+storage and the initial setup window remain. Formal #1123 proof retains its
+model/fairness limits. This extends the named seams of the October 1 full
+source baseline; it is a scoped implementation delta. The owner’s additional
+reviews are complete; finding dispositions, CI and merges are tracked in #1135. No fresh APK, 23.05, physical-device or full audit
+result is claimed.

@@ -110,6 +110,9 @@ echo "== fwlive shell filter parity ==" >&2
 echo "== fwlive classify spec ==" >&2
 "$NODE" tests/fwlive-classify-spec.test.js
 
+echo "== fwlive KV RegExp cache ==" >&2
+"$NODE" tests/fwlive-kv-regexp-cache.test.js
+
 echo "== fwlive parser corpus pin (#240 C1) ==" >&2
 "$NODE" tests/fwlive-parser-corpus.test.js
 
