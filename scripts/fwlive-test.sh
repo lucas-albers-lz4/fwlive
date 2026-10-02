@@ -225,6 +225,8 @@ echo "== qemu-wait-guest / feed-smoke source-contract (#839 / #838) ==" >&2
 bash tests/qemu-wait-guest-feed-smoke.test.sh
 echo "== qemu image mount ownership (#1095) ==" >&2
 bash tests/qemu-lab-prepare-image.test.sh
+echo "== qemu budget fixture shim (#1062) ==" >&2
+"$NODE" tests/qemu-budget-split-shim.test.js
 
 echo "== qemu lab ports (#816 #809) ==" >&2
 bash tests/qemu-lab-ports.test.sh

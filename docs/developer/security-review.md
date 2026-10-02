@@ -536,6 +536,15 @@ timeout absence. Host fixtures distinguish setup and verification failures;
 installed guest evidence is recorded in the PR. This is a scoped host/lifecycle
 review; full package-manager and privileged-path race review remains deferred.
 
+### 2026-10-01: budget fixture argv delta (#1062)
+
+The guest profiling shim matches `ubus -t 5 call log read`, serves the pinned
+fixture, and rejects other argv rather than accidentally reading real logd.
+Its poll result must contain 2000 received messages and no error. The host test
+executes the extracted shipped shim against independent bytes; installed
+profiling evidence is recorded in the PR. No runtime execution deadline or
+router ACL change; full profiling/security review remains deferred.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |

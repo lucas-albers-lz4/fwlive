@@ -82,7 +82,7 @@ stage_jshn() { jshn -r '{"addresses":["50"]}'; }
 stage_log_capture() { ubus call log read '{"lines":2000,"stream":false,"oneshot":true}'; }
 stage_read_rpc_input() {
 	printf '%s' '{"addresses":["50"]}' \
-		| sh -c '. /usr/libexec/rpcd/fwlive; read_rpc_input ""' /usr/libexec/rpcd/fwlive
+		| sh -c 'set -- list; . /usr/libexec/rpcd/fwlive >/dev/null; read_rpc_input ""' /usr/libexec/rpcd/fwlive
 }
 stage_jsonfilter() { jsonfilter -e '@.log[*]' <"$fixture"; }
 stage_classifier_file() {
@@ -136,10 +136,11 @@ case "$name" in
   sed) real=/bin/sed ;;
   jshn) real=/usr/bin/jshn ;;
   ubus)
-    if [ "$1" = call ] && [ "$2" = log ] && [ "$3" = read ]; then
+    if [ "$1" = -t ] && [ "$2" = 5 ] && [ "$3" = call ] && [ "$4" = log ] && [ "$5" = read ]; then
       exec /bin/cat /tmp/fwlive-logread-2000.json
     fi
-    real=/bin/ubus ;;
+    echo "PROFILE_ERROR unexpected ubus argv: $*" >&2
+    exit 96 ;;
   *) exit 127 ;;
 esac
 exec "$real" "$@"
@@ -150,6 +151,14 @@ for command in cat jsonfilter awk dirname sed jshn ubus; do
 done
 : >"$tally"
 printf '%s' '{"addresses":["50"]}' \
-	| PATH="$shim_dir:$PATH" /usr/libexec/rpcd/fwlive call poll >/dev/null 2>&1
+	| PATH="$shim_dir:$PATH" /usr/libexec/rpcd/fwlive call poll > "$shim_dir/poll.json"
+received=$(jsonfilter -i "$shim_dir/poll.json" -e '@.messages_received')
+[ "$received" = 2000 ] || { echo "PROFILE_ERROR fixture poll received=$received (want 2000)" >&2; exit 1; }
+if jsonfilter -i "$shim_dir/poll.json" -e '@.error' >/dev/null 2>&1; then
+	echo "PROFILE_ERROR fixture poll returned error" >&2
+	cat "$shim_dir/poll.json" >&2
+	exit 1
+fi
+echo "PROFILE_FIXTURE messages_received=$received"
 sort "$tally" | uniq -c | awk '{ printf "PROFILE_EXEC command=%s count=%s\n", $2, $1 }'
 REMOTE
