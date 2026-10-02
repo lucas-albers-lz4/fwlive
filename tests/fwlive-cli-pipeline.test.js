@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
+const { execFileSync } = require('./lib/child-process-timeout');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
