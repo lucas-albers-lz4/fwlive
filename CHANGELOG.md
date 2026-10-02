@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Unlink rules-map dump/TSV files before blocking helpers, preventing pathname residue after plugin-only SIGKILL during that work; surviving helpers can still retain anonymous tmpfs storage (#1133).
 - Prepare nft rule prefixes, aliases and JSON string content in one bounded awk stage, removing per-prefix utility forks while retaining precedence, first-wins and reply caps (#1128).
 - Preserve representable C0 control bytes and DEL in generated poll summaries using JSON escapes, matching the shell escaper (#1124).
 - Preserve adaptive hot/shed state when either poll duration clock sample is unavailable, and accept case-insensitive adaptive-off overrides (#1125, #1127).
@@ -141,7 +142,7 @@ Manual install: [installation.md](docs/user/installation.md)
 - Keep uninstall stdout free of rpcd JSON when baseline restore fails (#779)
 - Dedup `map_add` keys before `json_escape` so repeated prefixes skip a fork (#825)
 - Skip already-validated resolve repeats before they consume a lookup slot (#772, #828)
-- Remove rules-map dump temps on EXIT/HUP/INT/TERM so a killed `rules` call cannot leak `/tmp/fwlive-nft*` (#775)
+- Remove rules-map dump temps on normal exit and catchable EXIT/HUP/INT/TERM paths (#775); SIGKILL cannot run traps. The later #1133 mitigation removes pathnames before blocking work, while preserving the accepted helper/storage lifetime limit.
 - Key row reuse on resolved hostnames so expand and resolve paints rebuild only changed rows (#784)
 - Refresh the status line on scroll only when `followLive` flips (#782)
 - Reset `lastBatchNewIdCount` on a failed poll so the next paint is not costed from the previous batch (#789)

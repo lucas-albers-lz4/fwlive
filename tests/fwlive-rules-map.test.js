@@ -29,6 +29,10 @@ function makeStub(dir, name, content) {
 // Host BusyBox standalone applets can bypass PATH. Override only when a
 // test supplies an nslookup fixture; production invokes nslookup directly.
 function busyboxRpcdArgs(rpcdPath, args, opts) {
+	// Standalone BusyBox applets can bypass PATH; intercept only explicitly
+	// supplied dependency fixtures while retaining the actual ash/plugin code.
+	if (opts?.env?.FWLIVE_TEST_TEMP_FIXTURES === '1')
+		return ['sh', '-eu', '-c', 'mktemp() { /usr/bin/env mktemp "$@"; }; rm() { /usr/bin/env rm "$@"; }; awk() { /usr/bin/env awk "$@"; }; . "$0"', rpcdPath, ...args];
 	const firstPath = (opts?.env?.PATH || '').split(path.delimiter)[0];
 	if (firstPath && fs.existsSync(path.join(firstPath, 'nslookup'))) {
 		return ['sh', '-eu', '-c', 'nslookup() { /usr/bin/env nslookup "$@"; }; . "$0"', rpcdPath, ...args];
@@ -385,7 +389,7 @@ exit 0
 // --- New tests for R3 findings ---
 
 function testIdempotentNormalization() {
-	// Verifies BLOCKER: normalize_log_prefix must be idempotent and strip all
+	// Prefix normalization must be idempotent and strip all
 	// trailing colons/spaces in any interleaving (foo:: , foo: : , etc.).
 	const cases = [
 		{ raw: 'zz::', expect: 'zz' },
@@ -1588,47 +1592,125 @@ exec /usr/bin/${utility} "$@"
 	}
 }
 
-function testRulesTempsCleanedOnKill() {
-	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-killtmp-'));
-	const listTemps = () => {
-		try {
-			return execFileSync('sh', ['-c',
-				'ls -1 /tmp/fwlive-nft.* /tmp/fwlive-nft-tsv.* 2>/dev/null || true'],
-			{ encoding: 'utf8' }).trim().split('\n').filter(Boolean);
-		} catch { return []; }
-	};
-	try {
-		makeStub(stubDir, 'nft', `#!/bin/sh
-echo started >> "${stubDir}/called"
-sleep 2
+function testRulesAnonymousTempSetupFailures() {
+	for (const shell of ['dash', 'busybox']) {
+		for (const [operation, failedAt] of [['open', 1], ['open', 2], ['unlink', 1], ['unlink', 2]]) {
+			const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-anonymous-setup-'));
+			const pathsFile = path.join(work, 'paths');
+			try {
+				makeStub(work, 'uci', '#!/bin/sh\nprintf "firewall.@rule[0].name=\'keep\'\\n"\n');
+				makeStub(work, 'nft', '#!/bin/sh\nprintf \'log prefix "must-not-appear"\\n\'\n');
+				makeStub(work, 'mktemp', `#!/bin/sh
+n=0
+[ ! -f "${work}/mk-count" ] || read -r n < "${work}/mk-count"
+n=$((n + 1)); printf '%s\\n' "$n" > "${work}/mk-count"
+if [ "${operation}" = open ] && [ "$n" = "${failedAt}" ]; then
+	printf '%s\\n' "${work}/missing-parent/open"
+else
+	file=$(/usr/bin/mktemp "$@") || exit $?
+	printf '%s\\n' "$file" >> "${pathsFile}"
+	printf '%s\\n' "$file"
+fi
 `);
-		makeStub(stubDir, 'uci', `#!/bin/sh
-exit 0
+				makeStub(work, 'rm', `#!/bin/sh
+n=0
+[ ! -f "${work}/rm-count" ] || read -r n < "${work}/rm-count"
+n=$((n + 1)); printf '%s\\n' "$n" > "${work}/rm-count"
+if [ "${operation}" = unlink ] && [ "$n" = "${failedAt}" ]; then exit 1; fi
+exec /bin/rm "$@"
 `);
-		const env = {
-			...process.env,
-			PATH: `${stubDir}:${process.env.PATH}`
-		};
-		const before = new Set(listTemps());
-		const child = spawn('/bin/dash', [RPCD, 'call', 'rules'], {
-			env,
-			stdio: 'ignore'
-		});
-		const started = Date.now();
-		while (!fs.existsSync(path.join(stubDir, 'called')) && Date.now() - started < 3000) {
-			execFileSync('sleep', ['0.05']);
+				const reply = JSON.parse(runRpcd(shell, ['call', 'rules'], {
+					encoding: 'utf8', env: { ...process.env, PATH: `${work}:/usr/bin:/bin`, FWLIVE_TEST_TEMP_FIXTURES: '1' }
+				}));
+				assert.equal(reply.backend, 'nft');
+				assert.equal(reply.error, 'mktemp_failed', `${shell}: ${operation}/${failedAt} must remain structured`);
+				assert.deepEqual(reply.rules, { keep: 'keep' }, 'setup failure preserves UCI-only map');
+				if (fs.existsSync(pathsFile))
+					for (const file of fs.readFileSync(pathsFile, 'utf8').trim().split('\n'))
+						assert.equal(fs.existsSync(file), false, 'failed setup cleans its own named file');
+			} finally {
+				if (fs.existsSync(pathsFile))
+					for (const file of fs.readFileSync(pathsFile, 'utf8').trim().split('\n'))
+						if (file) fs.rmSync(file, { force: true });
+				fs.rmSync(work, { recursive: true, force: true });
+			}
 		}
-		assert.ok(fs.existsSync(path.join(stubDir, 'called')), 'nft stub must start so a dump exists');
-		child.kill('SIGTERM');
-		const dead = Date.now();
-		while (child.exitCode === null && child.signalCode === null && Date.now() - dead < 3000) {
-			execFileSync('sleep', ['0.05']);
-		}
-		const leftover = listTemps().filter((f) => !before.has(f));
-		assert.equal(leftover.length, 0,
-			`SIGTERM must not leak /tmp/fwlive-nft*, got: ${leftover.join(' ')}`);
-	} finally {
-		fs.rmSync(stubDir, { recursive: true, force: true });
+	}
+}
+
+async function testRulesTempsCleanedOnKill() {
+	// Track only this invocation's mktemp results, never a global /tmp snapshot:
+	// other suites/requests may legitimately create matching files concurrently.
+	for (const shell of ['dash', 'busybox']) {
+		// Concurrent invocations must clean only their own files/descriptors.
+		await Promise.all([['SIGTERM', 'dump'], ['SIGKILL', 'dump'], ['SIGKILL', 'tsv']].map(async ([signal, stage]) => {
+			const work = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-rules-kill-'));
+			const pathsFile = path.join(work, 'paths');
+			const startedFile = path.join(work, 'started');
+			let child;
+			try {
+				makeStub(work, 'mktemp', `#!/bin/sh
+file=$(/usr/bin/mktemp "$@") || exit $?
+printf '%s\\n' "$file" >> "${pathsFile}"
+printf '%s\\n' "$file"
+`);
+				makeStub(work, 'uci', '#!/bin/sh\nexit 0\n');
+				makeStub(work, 'nft', stage === 'dump' ? `#!/bin/sh
+printf '%s\\n' "$$" > "${startedFile}"
+exec /bin/sleep 20
+` : '#!/bin/sh\nprintf \'log prefix "fixture"\\n\'\n');
+				makeStub(work, 'awk', stage === 'tsv' ? `#!/bin/sh
+case "$*" in
+	*mode=prepared*) printf '%s\\n' "$$" > "${startedFile}"; exec /bin/sleep 20 ;;
+esac
+exec /usr/bin/awk "$@"
+` : '#!/bin/sh\nexec /usr/bin/awk "$@"\n');
+				const env = { ...process.env, PATH: `${work}:/usr/bin:/bin`, FWLIVE_TEST_TEMP_FIXTURES: '1' };
+				const args = shell === 'busybox'
+					? busyboxRpcdArgs(RPCD, ['call', 'rules'], { env })
+					: [RPCD, 'call', 'rules'];
+				child = spawn(shell === 'dash' ? '/bin/dash' : 'busybox', args, {
+					env,
+					detached: true, stdio: 'ignore'
+				});
+				const deadline = Date.now() + 3000;
+				while (!fs.existsSync(startedFile) && Date.now() < deadline)
+					await new Promise((resolve) => setTimeout(resolve, 10));
+				assert.ok(fs.existsSync(startedFile), `${shell}: ${stage} must start`);
+				const helperPid = Number(fs.readFileSync(startedFile, 'utf8').trim());
+				const paths = fs.readFileSync(pathsFile, 'utf8').trim().split('\n');
+				assert.equal(paths.length, stage === 'tsv' ? 2 : 1, 'the selected phase must create its actual temporaries');
+				const exited = new Promise((resolve, reject) => {
+					const timer = setTimeout(() => reject(new Error('plugin signal exit exceeded bound')), 3000);
+					child.once('exit', () => { clearTimeout(timer); resolve(); });
+				});
+				child.kill(signal);
+				await exited;
+				for (const file of paths)
+					assert.equal(fs.existsSync(file), false, `${shell}: ${signal}/${stage} must leave no owned pathname: ${file}`);
+				if (signal === 'SIGKILL') {
+					// This intentionally demonstrates the accepted residual, not full
+					// cleanup: a surviving helper retains the unlinked tmpfs inode.
+					process.kill(helperPid, 0);
+					const fdDir = `/proc/${helperPid}/fd`;
+					const held = fs.readdirSync(fdDir).some((fd) => {
+						try { return paths.some((file) => fs.readlinkSync(path.join(fdDir, fd)) === file + ' (deleted)'); }
+						catch { return false; }
+					});
+					assert.ok(held, 'surviving helper can retain anonymous tmpfs storage after plugin-only SIGKILL');
+				}
+			} finally {
+				// This detached process group belongs only to this fixture. No
+				// global process pattern or foreign temp sweep is used.
+				if (child && child.pid) {
+					try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+				}
+				if (fs.existsSync(pathsFile))
+					for (const file of fs.readFileSync(pathsFile, 'utf8').trim().split('\n'))
+						if (file) fs.rmSync(file, { force: true });
+				fs.rmSync(work, { recursive: true, force: true });
+			}
+		}));
 	}
 }
 
@@ -1642,7 +1724,7 @@ function testBusyboxPathShadowGetent() {
 }
 
 
-function run() {
+async function run() {
 	testChildProcessTimeouts();
 	testProductionNft();
 	testNftPrefixNormalization();
@@ -1669,7 +1751,8 @@ function run() {
 	testResolveNslookup();
 	testResolveDedupesBeforeLookup();
 	testRulesPrefixUtilitiesAreBounded();
-testRulesTempsCleanedOnKill();
+	testRulesAnonymousTempSetupFailures();
+	await testRulesTempsCleanedOnKill();
 	testBusyboxPathShadowNslookup();
 	testBusyboxPathShadowTimeout();
 	testBusyboxPathShadowJsonfilter();
@@ -1693,4 +1776,4 @@ function testChildProcessTimeouts() {
 		'a hung child must fail at the timeout');
 }
 
-run();
+run().catch((error) => { console.error(error); process.exitCode = 1; });

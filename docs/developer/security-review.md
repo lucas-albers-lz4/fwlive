@@ -10,6 +10,21 @@
 > No implementation fixes or publication occurred during the audit. Private finding details are
 > retained through private reporting. Review the findings before implementation.
 
+> **2026-10-02 #1133 scoped delta:** Rules-map dump and TSV files are
+> opened on reserved descriptors 7/8 and unlinked before blocking nft/awk
+> work. `/proc/self/fd/N` reopening supplies independent read offsets for
+> both TSV passes. Open/unlink failures retain the structured UCI-only reply;
+> normal cleanup closes both descriptors. Host production-entry tests under
+> dash and BusyBox ash cover both setup failures, trapped SIGTERM, plugin-only
+> SIGKILL during dump and TSV, concurrent calls, and exact invocation-owned
+> pathname cleanup.
+> SIGKILL tests also prove that a surviving helper can retain an unlinked
+> inode: tmpfs resource reclamation and descendant lifetime are not fixed.
+> The short mktemp/open/unlink setup window remains; no deadline, supervisor,
+> process-group cleanup or stale-file sweep was added. #1133 stays open for
+> owner disposition of these accepted #1053 limits. No ACL or input authority
+> changes. This is a scoped delta, not a fresh full audit.
+
 > **2026-09-30 #1053 / #980 direct-execution delta, with #1054 follow-up:** Read
 > helpers execute directly and the package no longer requires
 > `coreutils-timeout`; provider discovery, GNU/BusyBox timeout wrappers,
@@ -114,7 +129,8 @@ next-tag pin checklist remains in force.
 > metacharacters and is already present in `$OUT`. `resolve` skips
 > producer-validated repeats before they increment `lookups` or start a
 > `nslookup`. Rules-map dump temps (`_rules_dump`, `_nft_tsv`) are
-> removed on EXIT/HUP/INT/QUIT/TERM as well as after parse. The nft
+> removed on normal exit and catchable HUP/INT/QUIT/TERM, not SIGKILL.
+> The later #1133 delta above unlinks them before blocking work. The nft
 > dump is waited in the background so a trapped SIGTERM is not deferred
 > behind `setsid`. Host coverage:
 > `tests/fwlive-rules-map.test.js` `testResolveDedupesBeforeLookup`,
