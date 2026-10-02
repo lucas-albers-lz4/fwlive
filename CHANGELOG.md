@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prepare lab images at private mountpoints and clean up only acquired mounts with verified sources and owned loop devices (#1095).
 - Treat corrupt QEMU pidfiles as unverifiable so force-stop reaches its pattern backstop, and report invalid pidfile removal on start (#1084, #1089).
 - Preserve installed helpers through artifact reinstall, then verify package payload and RPC registration before reporting success (#1097). Pin timeout absence across local packaging inputs (#1079).
+- Match the native ubus timeout arguments in the budget fixture shim and reject accidental real-log fallback; require its poll to read the pinned 2000-line fixture (#1062).
 
 ## [v0.1.49] — 2026-10-01
 
