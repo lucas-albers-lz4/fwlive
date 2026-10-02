@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
 		--artifact-only) ARTIFACT_ONLY=1; shift ;;
 		-h|--help)
 			sed -n '1,9p' "$0"
-			echo '  --artifact-only  install only the package (force-reinstall; drop leftover source-sync files)'
+			echo '  --artifact-only  install only the package (force-reinstall; verify installed payload and RPC)'
 			exit 0
 			;;
 		--)
@@ -109,22 +109,8 @@ else
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"cat > ${REMOTE}" < "$IPK"
 fi
-if [[ "$ARTIFACT_ONLY" -eq 1 ]]; then
-	# Same-version opkg/apk is a no-op; a prior non-artifact install can leave
-	# source-synced files that the package manager will not replace.
-	echo "Clearing leftover source-sync files for artifact-only install..."
-	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
-		'rm -f /www/luci-static/resources/view/status/fwlive.js
-		rm -rf /www/luci-static/resources/fwlive
-		rm -f /usr/libexec/rpcd/fwlive \
-			/usr/libexec/fwlive-logging.sh \
-			/usr/libexec/fwlive-adaptive-cap.sh \
-			/usr/libexec/fwlive-log-filter.sh \
-			/usr/libexec/fwlive-is-firewall-event.sh \
-			/usr/libexec/fwlive-is-firewall-event.awk \
-			/usr/share/rpcd/acl.d/luci-app-fwlive.json \
-			/usr/share/luci/menu.d/luci-app-fwlive.json'
-fi
+# Keep installed helpers intact: opkg prerm sources fwlive-logging.sh during
+# same-version removal/reinstall. The package manager replaces owned files.
 if [[ "$pkg_ext" == apk ]] || ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 	'command -v apk >/dev/null'; then
 	_apk_flags='--allow-untrusted'
@@ -136,6 +122,69 @@ else
 	[[ "$ARTIFACT_ONLY" -eq 1 ]] && _opkg_flags='--force-reinstall '
 	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" \
 		"opkg install ${_opkg_flags}${REMOTE} && rm -f ${REMOTE}"
+fi
+
+if [[ "$ARTIFACT_ONLY" -eq 1 ]]; then
+	# Verify package-owned entry points before reporting success. Remove only a
+	# retired source-sync module, after the manager has finished its transition.
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" '
+		set -e
+		test -x /usr/libexec/rpcd/fwlive
+		test -f /usr/libexec/fwlive-logging.sh
+		test -f /usr/libexec/fwlive-adaptive-cap.sh
+		test -x /usr/libexec/fwlive-log-filter.sh
+		test -s /usr/libexec/fwlive-is-firewall-event.sh
+		test -s /usr/libexec/fwlive-is-firewall-event.awk
+		test -s /www/luci-static/resources/view/status/fwlive.js
+		test -s /www/luci-static/resources/fwlive/log.js
+		test -s /usr/share/rpcd/acl.d/luci-app-fwlive.json
+		test -s /usr/share/luci/menu.d/luci-app-fwlive.json
+		rm -f /www/luci-static/resources/fwlive/parser.js
+		/etc/init.d/rpcd restart
+	'
+	if [[ "$pkg_ext" == ipk ]]; then
+		# Derive identity from the supplied artifact, never from the source tree.
+		VERIFY_WORK="$(mktemp -d)"
+		trap 'rm -rf "$VERIFY_WORK"' EXIT
+		extract_ipk_member() {
+			local member="$1" dest="$2"
+			tar -xOf "$IPK" "./$member" > "$dest" 2>/dev/null ||
+				tar -xOf "$IPK" "$member" > "$dest" 2>/dev/null ||
+				ar p "$IPK" "$member" > "$dest"
+		}
+		extract_ipk_member data.tar.gz "$VERIFY_WORK/data.tar.gz"
+		extract_ipk_member control.tar.gz "$VERIFY_WORK/control.tar.gz"
+		tar -xOf "$VERIFY_WORK/control.tar.gz" ./control > "$VERIFY_WORK/control" 2>/dev/null ||
+			tar -xOf "$VERIFY_WORK/control.tar.gz" control > "$VERIFY_WORK/control"
+		expected_version="$(sed -n 's/^Version: //p' "$VERIFY_WORK/control")"
+		[[ "$expected_version" =~ ^[A-Za-z0-9.+_~:-]+$ ]] || { echo 'invalid artifact Version' >&2; exit 1; }
+		installed_status="$(ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" 'opkg status luci-app-fwlive')"
+		grep -Fxq "Version: $expected_version" <<< "$installed_status"
+		grep -Eq '^Status: install (ok|user) installed$' <<< "$installed_status"
+		tar -tzf "$VERIFY_WORK/data.tar.gz" > "$VERIFY_WORK/entries"
+		: > "$VERIFY_WORK/manifest"
+		while IFS= read -r entry; do
+			[[ "$entry" != */ ]] || continue
+			file="${entry#./}"
+			[[ "$file" =~ ^(lib|usr|www)/[A-Za-z0-9_./-]+$ && "$file" != *'..'* ]] 				|| { echo "unsupported payload path: $entry" >&2; exit 1; }
+			hash="$(tar -xzOf "$VERIFY_WORK/data.tar.gz" "$entry" | sha256sum)"
+			printf '%s  /%s\n' "${hash%% *}" "$file" >> "$VERIFY_WORK/manifest"
+		done < "$VERIFY_WORK/entries"
+		[[ -s "$VERIFY_WORK/manifest" ]] || { echo 'empty artifact payload' >&2; exit 1; }
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" 			'sha256sum -c -' < "$VERIFY_WORK/manifest"
+	else
+		# APK lifecycle is separate; its manager verifies package membership.
+		ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" 			'apk info -e luci-app-fwlive'
+	fi
+	# Stock rpcd re-registers plugins asynchronously following restart.
+	ssh -p "$OPENWRT_SSH_PORT" "${SSH_OPTS[@]}" "${OPENWRT_USER}@${OPENWRT_HOST}" '
+		for attempt in 1 2 3 4 5; do
+			if ubus -v list fwlive 2>/dev/null | grep -q "poll"; then exit 0; fi
+			sleep 1
+		done
+		echo "fwlive RPC did not register after install" >&2
+		exit 1
+	'
 fi
 
 if [[ "$ARTIFACT_ONLY" -eq 0 ]]; then
