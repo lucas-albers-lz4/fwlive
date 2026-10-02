@@ -196,6 +196,48 @@ async function testFirstRpcUsesResolvedPreferences() {
 	console.log('fwlive-view fetch-budget: preferences precede first RPC OK');
 }
 
+async function testStartupPollFinishesBeforeMetadata() {
+	for (const mode of ['fast', 'slow', 'rejected']) {
+		let pollCalls = 0;
+		let releasePoll;
+		const firstReply = new Promise((resolve) => { releasePoll = resolve; });
+		const h = loadFwliveView({ rpcMocks: {
+			'fwlive.poll': async function () {
+				pollCalls++;
+				if (pollCalls === 1 && mode === 'slow') return firstReply;
+				if (pollCalls === 1 && mode === 'rejected') throw new Error('transport failure');
+				return pollReply();
+			}
+		} });
+		// Model LuCI's idle add: the first registered entry runs immediately.
+		const add = h.poll.add;
+		h.poll.add = function (fn, interval) {
+			const idle = this._entries.length === 0;
+			add.call(this, fn, interval);
+			if (idle) fn();
+		};
+		let releaseMetadata;
+		const metadata = new Promise((resolve) => { releaseMetadata = resolve; });
+		h.view.loadRulesMap = () => metadata;
+		h.view.loadLoggingStatus = () => metadata;
+		const startup = h.view.load();
+		await waitFor(() => pollCalls === 1);
+		if (mode !== 'slow') {
+			await waitFor(() => !h.view.ensurePollCoordinator().getState().inFlight);
+		}
+		releaseMetadata();
+		if (mode === 'slow') releasePoll(pollReply());
+		await startup;
+		assert.strictEqual(pollCalls, 1, mode + ' startup must reuse the original poll after metadata settles');
+		await h.view.fetchEntries();
+		assert.strictEqual(pollCalls, 2, mode + ' explicit refresh must still request new data');
+		await h.poll._fn();
+		assert.strictEqual(pollCalls, 3, mode + ' scheduled polls must continue normally');
+		h.view.disposeView();
+	}
+	console.log('fwlive-view fetch-budget: completed/in-flight/rejected startup deduplication OK');
+}
+
 async function testBudgetControlsAndMetadata() {
 	const replies = [
 		{ log: [], adaptive: 1, effective_limit: 250 },
@@ -587,6 +629,7 @@ async function testPagehideDropsLateStartupUi() {
 	v.updateEmptyStateUi = function () { emptyUpdates++; };
 	const loading = v.load();
 	await waitFor(function () { return startupCalls === 2; });
+	assert.strictEqual(pollCalls, 1, 'initial poll must start before metadata settles');
 	h.dispatchPagehide();
 	releaseRules();
 	releaseStatus();
@@ -605,7 +648,7 @@ async function testPagehideDropsLateStartupUi() {
 	assert.strictEqual(toolbarUpdates, 0, 'late status reply must not update logging UI');
 	assert.strictEqual(emptyUpdates, 0, 'late startup replies must not update empty state');
 	assert.strictEqual(pollRequests, 0, 'late startup completion must not request a poll');
-	assert.strictEqual(pollCalls, 0, 'disposed startup must not start a poll');
+	assert.strictEqual(pollCalls, 1, 'disposed startup completion must not start another poll');
 	console.log('fwlive-view fetch-budget: pagehide drops late startup UI OK');
 }
 
@@ -655,6 +698,7 @@ async function testPagehideDropsLateStartupFailures() {
 
 	const loading = v.load();
 	await waitFor(function () { return startupCalls === 2; });
+	assert.strictEqual(pollCalls, 1, 'initial poll must start before metadata settles');
 	h.dispatchPagehide();
 	rejectRules(new Error('late rules failure'));
 	rejectStatus(new Error('late status failure'));
@@ -668,7 +712,7 @@ async function testPagehideDropsLateStartupFailures() {
 	);
 	assert.strictEqual(v.weakDevice, true, 'late status failure must preserve state');
 	assert.strictEqual(updates, 0, 'late startup failures must not update UI');
-	assert.strictEqual(pollCalls, 0, 'failed disposed startup must not poll');
+	assert.strictEqual(pollCalls, 1, 'failed disposed startup must not start another poll');
 	console.log('fwlive-view fetch-budget: pagehide drops late startup failures OK');
 }
 
@@ -785,12 +829,43 @@ async function testPollRetriesRulesFailureAndRepaintsLabels() {
 	};
 	v.updateBackendUi = function () {};
 	v.resolveHostnamesForEntries = async function () {};
+	let refreshCalls = 0;
+	const refreshLabels = v.refreshBufferedRuleLabels;
+	v.refreshBufferedRuleLabels = function () {
+		refreshCalls++;
+		return refreshLabels.apply(this, arguments);
+	};
 	await v.runPollRequest(v.currentPollEpoch());
+	assert.strictEqual(refreshCalls, 1, 'successful rules recovery must refresh labels exactly once');
 	assert.strictEqual(rulesCalls, 1, 'poll must retry rules after a thrown failure');
 	assert.strictEqual(v.lastRulesError, null, 'successful rules retry must clear the error');
 	assert.strictEqual(v.entries[0].rule_label, 'WAN drop', 'retry must refresh buffered rule labels');
 	assert.strictEqual(painted, true, 'label refresh must force a row paint');
 	console.log('fwlive-view fetch-budget: poll retries thrown rules RPC OK');
+}
+
+async function testRulesSuccessRefreshesLabelsOnce() {
+	for (const paused of [false, true]) {
+		const h = loadFwliveView({ rpcMocks: {
+			'fwlive.rules': async () => ({ rules: { 'wan-drop': 'WAN drop' }, backend: 'nft' })
+		} });
+		const v = h.view;
+		v.tablePaused = paused;
+		v.entries = [{ id: '1', rule_hint: 'wan-drop', rule_label: 'old label' }];
+		let refreshCalls = 0;
+		let paints = 0;
+		const refresh = v.refreshBufferedRuleLabels;
+		v.refreshBufferedRuleLabels = function () {
+			refreshCalls++;
+			return refresh.apply(this, arguments);
+		};
+		v.renderRows = () => { paints++; };
+		v.updateBackendUi = () => {};
+		await v.loadRulesMap();
+		assert.strictEqual(refreshCalls, 1, 'successful rules load refreshes buffered labels once');
+		assert.strictEqual(v.entries[0].rule_label, 'WAN drop');
+		assert.strictEqual(paints, paused ? 0 : 1, 'paused rows stay current without painting');
+	}
 }
 
 async function testRulesRetryBackoffIsCapped() {
@@ -868,6 +943,7 @@ async function main() {
 	await testManualSeeding();
 	await testHashOrderAndAutoWriteThrough();
 	await testFirstRpcUsesResolvedPreferences();
+	await testStartupPollFinishesBeforeMetadata();
 	await testBudgetControlsAndMetadata();
 	await testMalformedEffectiveLimits();
 	await testBudgetChangesRespectCadence();
@@ -883,6 +959,7 @@ async function main() {
 	await testRulesThrowKeepsGoodMap();
 	await testRulesThrowWipesEmptyMap();
 	await testPollRetriesRulesFailureAndRepaintsLabels();
+	await testRulesSuccessRefreshesLabelsOnce();
 	await testRulesRetryBackoffIsCapped();
 	await testRulesRetrySkipsPausedAndFailedPolls();
 	console.log('fwlive-view fetch-budget tests passed');

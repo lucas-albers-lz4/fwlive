@@ -2397,10 +2397,12 @@ return view.extend({
 			window.addEventListener('pagehide', this.pagehideHandler);
 		}
 		coordinator.startPolling();
-		return Promise.all([this.loadRulesMap(), this.loadLoggingStatus()]).then(() => {
-			if (this.viewDisposed) return;
-			return this.catchUpPoll();
-		});
+		/* Join the bootstrap request before metadata can outlast it. Later
+		 * refresh, resume and visibility catch-ups must still request fresh data. */
+		const startupPoll = this.catchUpPoll();
+		return Promise.all([startupPoll, this.loadRulesMap(), this.loadLoggingStatus()]).then(
+			() => undefined
+		);
 	},
 
 	renderDisplayDrawer() {

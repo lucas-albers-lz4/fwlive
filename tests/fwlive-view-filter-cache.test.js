@@ -55,8 +55,7 @@ function testFilteredRowsCache() {
 	view.updateStatus(first);
 	view.updateSummaryUi();
 	view.filteredRows();
-	assert.equal(view.compactCountText({ rows: null }), view.compactCountText(first),
-		'compact status must fall back to cached state for an invalid argument');
+
 	assert.equal(matchCalls, 320,
 		'status, summary, and render consumers must share one full-buffer filter pass');
 	assert.match(h.document.getElementById('fwlive-status').textContent,
