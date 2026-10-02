@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve adaptive hot/shed state when either poll duration clock sample is unavailable, and accept case-insensitive adaptive-off overrides (#1125, #1127).
 - Add a translated, keyboard-operable full-message button to Simple-view rows, preserve expansion focus across keyed repaints, and clarify the Help instructions (#1130).
 - Give filter-chip invert buttons translated Include/Exclude accessible names while retaining the existing tooltip and filter controls (#1129).
+- Keep upstream-cut translation paths and references aligned with the exported LuCI tree, remove dangling source-only references, and use checked temporary storage for the CLI selftest (#1120; PR #1122).
+
+### Changed
+- Check formal rollback decision completion and conditional idealized restore effectiveness, retaining an unfair counterexample and rejecting ambiguous temporal-property attribution (PR #1123).
 
 ### Changed
 - Reuse validated firewall KV patterns during classification, removing per-message RegExp construction from the poll path (#1131).

@@ -137,6 +137,56 @@ ok "rename failure keeps the verified split"
 )
 ok "--replace force-updates canonical before deleting the temp branch"
 
+# The two cut verifiers must fail closed, not merely pass on a good tree: a
+# monorepo-shaped ref, an out-of-range line, a referenced-file line-count
+# change, or a README row naming a dropped file are the regressions they exist
+# for. Extract them the way the promote helper above is exercised.
+pot_fn="$(awk '/^upstream_cut_verify_pot_refs\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+row_fn="$(awk '/^upstream_cut_verify_readme_rows\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+[[ -n "$pot_fn" && -n "$row_fn" ]] || die "cut verifier functions not found in upstream-cut.sh"
+# shellcheck disable=SC1090
+eval "$pot_fn"
+# shellcheck disable=SC1090
+eval "$row_fn"
+
+FX="$CUT_WORK/verifier-fx"
+REL=htdocs/luci-static/resources/fwlive
+mkdir -p "$FX/out/po/templates" "$FX/out/$REL" "$FX/pkg/$REL"
+printf 'one\ntwo\nthree\n' >"$FX/out/$REL/log.js"
+cp "$FX/out/$REL/log.js" "$FX/pkg/$REL/log.js"
+fixture_pot() {
+	{
+		printf '#: %s\n' "$1"
+		printf 'msgid "one"\nmsgstr ""\n'
+	} >"$FX/out/po/templates/luci-app-fwlive.pot"
+}
+
+fixture_pot "applications/luci-app-fwlive/$REL/log.js:2"
+upstream_cut_verify_pot_refs "$FX/out" "$FX/pkg" >/dev/null 2>&1 \
+	|| die "pot ref verifier rejected a valid ref"
+fixture_pot "applications/luci-app-fwlive/$REL/log.js:9"
+upstream_cut_verify_pot_refs "$FX/out" "$FX/pkg" >/dev/null 2>&1 \
+	&& die "pot ref verifier accepted an out-of-range line"
+fixture_pot "openwrt-feed/luci-app-fwlive/$REL/log.js:2"
+upstream_cut_verify_pot_refs "$FX/out" "$FX/pkg" >/dev/null 2>&1 \
+	&& die "pot ref verifier accepted a monorepo-shaped ref"
+fixture_pot "applications/luci-app-fwlive/$REL/missing.js:1"
+upstream_cut_verify_pot_refs "$FX/out" "$FX/pkg" >/dev/null 2>&1 \
+	&& die "pot ref verifier accepted an unresolvable ref"
+printf 'one\ntwo\nthree\nfour\n' >"$FX/pkg/$REL/log.js"
+fixture_pot "applications/luci-app-fwlive/$REL/log.js:2"
+upstream_cut_verify_pot_refs "$FX/out" "$FX/pkg" >/dev/null 2>&1 \
+	&& die "pot ref verifier accepted a referenced-file line-count change"
+ok "pot ref verifier fails closed"
+
+printf '| `%s/log.js` | shipped |\n' "$REL" >"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
+	|| die "README row verifier rejected a shipped path"
+printf '| `%s/fwlive.css` | dropped |\n' "$REL" >>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
+	&& die "README row verifier accepted a dangling row"
+ok "README row verifier fails closed"
+
 # Gap 4: the cut must stay luci-shaped. Time it for the wave record.
 # Keep stderr so named invariant failures from the cut script reach CI.
 _start=$(date +%s)
@@ -176,6 +226,20 @@ fi
 grep -q '^## Dependencies$' "$CUT_WORK/cut/README.md" \
 	|| die "cut README lost the Dependencies section"
 ok "cut README is layout/deps only, no out-of-tree GitHub links"
+
+# The cut drops fwlive.css (DROP_CSS=1), so its row must go too, and the view
+# header must not point at a monorepo-only design doc. Both classes are covered
+# by the cut's own grep; pin them here so a regression names the test.
+! grep -q 'fwlive\.css' "$CUT_WORK/cut/README.md" \
+	|| die "cut README still documents the dropped fwlive.css asset"
+grep -q '^ \* for OpenWrt (Apache-2\.0)\.$' \
+	"$CUT_WORK/cut/htdocs/luci-static/resources/view/status/fwlive.js" \
+	|| die "cut view header still points at the monorepo design doc"
+if grep -rqE 'embed-fwlive-css|in the fwlive repo|fwlive-ui-design-target|multi-model audit|issue [A-Z]{1,3}-[0-9]+' \
+	"$CUT_WORK/cut"; then
+	die "cut ships out-of-tree or internal references"
+fi
+ok "cut ships no dropped-file row, design-doc pointer, or internal tracker ref"
 
 check_comment_policy() {
 	local root="$1"
@@ -249,12 +313,31 @@ for lang in de ru zh_Hans; do
 done
 ok "cut ships .pot only (template present, locale dirs dropped)"
 
-# The cut keeps the checked-in .pot byte-identical (monorepo paths); the fresh
-# luci-tree .pot comes from i18n-scan.pl in Gap 5. Pin repo-relative refs.
-if grep -E '^#: /' "$CUT_WORK/cut/po/templates/luci-app-fwlive.pot" >/dev/null; then
+# The cut re-shapes the .pot: the PR ships this file, so its refs must resolve
+# in a luci tree (applications/luci-app-fwlive/...), not only in this monorepo.
+# Line numbers come from the monorepo template, so a rewrite that shifts a
+# referenced file invalidates them silently; the cut verifier asserts the
+# counts and the shape below pins the result.
+POT_CUT="$CUT_WORK/cut/po/templates/luci-app-fwlive.pot"
+if grep -E '^#: /' "$POT_CUT" >/dev/null; then
 	die "absolute #: refs in cut .pot"
 fi
-ok "cut .pot has repo-relative #: refs"
+grep -q '^#: applications/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive\.js:' \
+	"$POT_CUT" || die "cut .pot refs are not luci-shaped"
+if grep -q 'openwrt-feed/' "$POT_CUT"; then
+	die "cut .pot still carries monorepo-shaped refs"
+fi
+ok "cut .pot #: refs are luci-shaped"
+
+# Referenced files must keep their monorepo line counts, or every ref into them
+# points somewhere else (log.js lost a line before this was pinned).
+for rel in htdocs/luci-static/resources/fwlive/log.js \
+	htdocs/luci-static/resources/view/status/fwlive.js; do
+	src="$ROOT/openwrt-feed/luci-app-fwlive/$rel"
+	[ "$(wc -l <"$src")" -eq "$(wc -l <"$CUT_WORK/cut/$rel")" ] \
+		|| die "cut $rel line count differs from source (.pot refs invalid)"
+done
+ok "cut keeps .pot-referenced files line-for-line"
 
 # Gap 5: fresh-scan msgid parity. Scanner source: env override, PATH, else skip.
 SCAN="${FWLIVE_I18N_SCAN:-}"
@@ -318,5 +401,37 @@ if only_fresh or only_checked:
 print("msgid parity: %d/%d" % (len(fresh), len(checked)))
 EOF
 ok "fresh-scan msgids match the checked-in .pot"
+
+# Same scanner run, refs this time: the cut .pot must already be what a luci
+# tree scan emits (applications/... paths, luci-tree line numbers), so the PR
+# does not ship a template that disagrees with the tree it lands in.
+python3 - "$CUT_WORK/scanwork/fresh.pot" "$POT_CUT" <<'EOF' || die "ref parity failed"
+import sys
+
+def refs(p):
+    out = set()
+    for line in open(p, encoding='utf-8', errors='replace'):
+        if not line.startswith('#: '):
+            continue
+        for tok in line[3:].split():
+            path, sep, lineno = tok.rpartition(':')
+            if not sep:
+                continue
+            # The scan runs from its own root; luci-app-fwlive/ is the anchor
+            # both sides share, so compare from there.
+            parts = path.split('/')
+            if 'luci-app-fwlive' in parts:
+                path = '/'.join(parts[parts.index('luci-app-fwlive'):])
+            out.add('%s:%s' % (path, lineno))
+    return out
+
+fresh, cut = refs(sys.argv[1]), refs(sys.argv[2])
+if fresh != cut:
+    print('fresh-only refs: %s' % sorted(fresh - cut)[:5])
+    print('cut-only refs: %s' % sorted(cut - fresh)[:5])
+    sys.exit(1)
+print('ref parity: %d refs' % len(fresh))
+EOF
+ok "fresh-scan #: refs match the cut .pot"
 
 echo "fwlive-upstream-cut tests passed"
