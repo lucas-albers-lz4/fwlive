@@ -470,3 +470,38 @@ grep -Fxq x86 "$TMP/stopped" || fail "stop_qemu must still attempt x86"
 grep -Fxq armsr "$TMP/stopped" || fail "stop_qemu must still attempt armsr after x86 fails"
 
 echo "qemu lifecycle (#815 #805 #808 #924 #888) passed"
+
+# Corrupt handles cannot prove guest absence. Use exact disposable argv0 patterns.
+for kind in garbage empty whitespace; do (
+	pidfile="$TMP/corrupt-$kind.pid"
+	case "$kind" in
+		garbage) payload=invalid ;;
+		empty) payload='' ;;
+		whitespace) payload='  ' ;;
+	esac
+	printf '%s\n' "$payload" > "$pidfile"
+	out="$(qemu_lab_prepare_pidfile "$pidfile" '' fixture 2>&1)"
+	[[ "$out" == *'invalid pid'* && "$out" == *removed* ]] || fail 'start must report corrupt removal'
+	[[ ! -e "$pidfile" ]] || fail 'start removes invalid handle'
+	sleep 60 & unrelated=$!
+	target_name="fwlive-corrupt-$BASHPID-$kind"
+	bash -c 'exec -a "$1" sleep 60' fixture "$target_name" & target=$!
+	trap 'kill "$target" "$unrelated" 2>/dev/null || true; wait "$target" "$unrelated" 2>/dev/null || true' EXIT
+	for _ in {1..20}; do
+		cmd="$(tr '\0' ' ' < "/proc/$target/cmdline" 2>/dev/null || true)"
+		[[ "$cmd" == "$target_name "* ]] && break
+		sleep .05
+	done
+	[[ "$cmd" == "$target_name "* ]] || fail 'fixture adopted exact argv0'
+	printf '%s\n' "$payload" > "$pidfile"
+	if qemu_lab_stop_guest "$pidfile" "^$target_name " fixture 0 > "$TMP/$kind-no-force.log" 2>&1; then
+		fail 'corrupt non-force stop must report unverifiable failure'
+	fi
+	kill -0 "$target" || fail 'non-force must not kill untracked guest'
+	printf '%s\n' "$payload" > "$pidfile"
+	qemu_lab_stop_guest "$pidfile" "^$target_name " fixture 1 > "$TMP/$kind-force.log" 2>&1 		|| fail 'force reaches pattern fallback for corrupt handle'
+	! kill -0 "$target" 2>/dev/null || fail 'force must stop exact guest'
+	kill -0 "$unrelated" || fail 'force must preserve unrelated process'
+	grep -q 'via pattern (--force)' "$TMP/$kind-force.log" || fail 'force reports pattern stop'
+); done
+echo 'qemu corrupt/empty/whitespace pidfile lifecycle tests passed'

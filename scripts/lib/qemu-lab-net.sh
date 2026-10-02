@@ -185,12 +185,14 @@ qemu_lab_prepare_pidfile() {
 			echo "error: pidfile ${pidfile} references pid ${pid} that cannot be verified as absent; refusing to discard pidfile" >&2
 			return 1
 		fi
+	else
+		echo "stale ${label} pidfile ${pidfile}: invalid pid — removed (rm -f ${pidfile})" >&2
 	fi
 	rm -f "$pidfile"
 }
 
 # Kill the PID recorded in pidfile when its cmdline matches pattern.
-# 0 = stopped; 1 = no live target; 2 = live target cannot be verified or stopped.
+# 0 = stopped; 1 = verified absent target; 2 = target cannot be verified or stopped.
 qemu_lab_kill_pidfile() {
 	local pidfile="$1" label="$2" pattern="$3" force="${4:-0}" pid cmd
 	if [[ ! -f "$pidfile" ]]; then
@@ -200,7 +202,7 @@ qemu_lab_kill_pidfile() {
 	if [[ ! "$pid" =~ ^[1-9][0-9]*$ ]]; then
 		echo "error: invalid pid in ${pidfile}" >&2
 		rm -f "$pidfile"
-		return 1
+		return 2
 	fi
 	if ! kill -0 "$pid" 2>/dev/null; then
 		if [[ -d "/proc/${pid}" ]] || qemu_lab_proc_hides_processes; then
@@ -259,7 +261,7 @@ qemu_lab_stop_guest() {
 			fi
 			return 1
 		fi
-		# stale / invalid pidfile already reported; nothing live to stop
+		# Verified stale pidfile already reported; nothing live to stop
 		return 0
 	fi
 	if [[ "$force" == 1 ]]; then

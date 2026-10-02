@@ -516,6 +516,15 @@ concurrent private mounts; no real mount or installed-guest result is claimed.
 Private paths reduce accidental overlap; privileged replacement races remain
 outside this scoped guarantee. Router configuration changes are still lab-only.
 
+### 2026-10-01: corrupted lab pidfile delta (#1084, #1089)
+
+Invalid pidfiles now return the unverifiable status rather than claiming no
+live target. Explicit force-stop reaches the existing pattern backstop;
+non-force does not kill untracked processes. Start reports invalid-handle
+removal. Host fixtures use exact disposable argv0 patterns, verify actual
+exit and unrelated-process survival, and retain mismatched/unreadable PID
+safeguards. No real QEMU guest result or full host/process audit is claimed.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
