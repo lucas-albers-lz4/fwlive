@@ -62,10 +62,30 @@ run_expected_violation() {
 	ok "$module / $cfg reports expected $property counterexample"
 }
 
+# A violated temporal property prints "Temporal properties were violated." with no
+# property name (TLC 2.19), so this arm is keyed to the cfg's single PROPERTY.
+run_expected_property_violation() {
+	local dir="$1" module="$2" cfg="$3" property="$4" output status
+	set +e
+	output="$(cd "$ROOT/formal/$dir" && java -jar "$JAR" -workers 1 \
+		-metadir "$WORK/${module}-${cfg}-states" -config "$cfg" "$module.tla" 2>&1)"
+	status=$?
+	set -e
+	if [[ "$status" -eq 0 ]]; then
+		fail "$module / $cfg unexpectedly passed; expected a $property violation"
+	fi
+	if ! grep -Fq "Temporal properties were violated" <<<"$output"; then
+		printf '%s\n' "$output" >&2
+		fail "$module / $cfg failed for a reason other than the $property property"
+	fi
+	ok "$module / $cfg reports expected $property property counterexample"
+}
+
 run_pass wan-log-lock WanLogLock WanLogLock.cfg
 run_pass wan-log-lock WanLogLockTimed WanLogLockTimedSafety.cfg
 run_pass wan-log-lock WanLogRollbackRevision WanLogRollbackRevision.cfg
 run_expected_violation wan-log-lock WanLogLockTimed WanLogLockTimedStranding.cfg NoOrphanStaging
 run_expected_violation wan-log-lock WanLogRollbackAba WanLogRollbackAba.cfg NoOverwriteForeignIntent
+run_expected_property_violation wan-log-lock WanLogRollbackRevision WanLogRollbackRevisionUnfair.cfg RestoreLandsWithoutForeignCommit
 run_pass hostname-dispose HostnameDispose HostnameDispose.cfg
 run_expected_violation hostname-dispose HostnameDispose HostnameDisposeUngated.cfg NoLateWrite

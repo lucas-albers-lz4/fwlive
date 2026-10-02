@@ -31,6 +31,7 @@ case "$*" in
 	*WanLogLockTimedStranding.cfg*) echo 'Invariant NoOrphanStaging is violated'; exit 12 ;;
 	*WanLogRollbackAba.cfg*) echo 'Invariant NoOverwriteForeignIntent is violated'; exit 12 ;;
 	*HostnameDisposeUngated.cfg*) echo 'Invariant NoLateWrite is violated'; exit 12 ;;
+	*WanLogRollbackRevisionUnfair.cfg*) echo 'Error: Temporal properties were violated.'; exit 13 ;;
 esac
 EOF
 cat > "$WORK/bin/sha256sum" <<'EOF'
@@ -44,10 +45,10 @@ fi
 ! grep -q '^java ' "$TLC_TOOL_LOG" || fail "failed download must not run Java"
 : > "$TLC_TOOL_LOG"
 PATH="$WORK/bin" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/download" 2>&1
-[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 7 ]] || fail "expected seven model invocations"
+[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 8 ]] || fail "expected eight model invocations"
 : > "$TLC_TOOL_LOG"
 printf fixture > "$WORK/cached.jar"
 PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/cached" 2>&1
-[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 7 ]] || fail "cached jar expected seven invocations"
+[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 8 ]] || fail "cached jar expected eight invocations"
 ! grep -q 'connect-timeout' "$TLC_TOOL_LOG" || fail "cached jar must not download"
 echo 'formal TLC tooling host tests passed (stubbed transfers and Java only)'

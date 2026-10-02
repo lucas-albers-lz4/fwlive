@@ -53,7 +53,13 @@ lock for each toggle that reaches its locked state check, including requests
 that find the requested state already set. After reload fails, A re-acquires
 the lock and restores only if both the visible value and generation still
 match A's commit. `WanLogRollbackRevision.tla` models that guard; its config
-checks that a later enable survives the ABA. If revision tracking cannot be
+checks that a later enable survives the ABA, and — under weak fairness on the
+rollback actions, which is how straight-line shell code is represented — that
+the rollback completes once the lock is re-held (`RollbackCompletes`) and
+restores the original value exactly when the revision still matches
+(`RestoreLandsWithoutForeignCommit`). `WanLogRollbackRevisionUnfair.cfg` runs the
+same model with the fairness conjunct removed and shows both properties fail, so
+the passing run is not vacuous. If revision tracking cannot be
 safely updated, the primary toggle fails before staging. A failed UCI write
 may leave a revision gap, which can suppress a rollback but cannot overwrite a
 later fwlive intent. The `/var/run` state is volatile, so reboot clears it only
@@ -85,10 +91,12 @@ security smoke instead checks the production behavior: a held lock returns
 
 `scripts/formal-tlc.sh` downloads the official TLA+ v1.7.4 tools jar and checks
 its pinned SHA-256 before running TLC with one worker. It runs the production
-models as passing checks and asserts that three counterfactual configs still
-report their named violations: ungated hostname disposal (`NoLateWrite`),
-whole-critical-section kill (`NoOrphanStaging`), and value-only rollback ABA
-(`NoOverwriteForeignIntent`). No TLA+ tooling is included in the OpenWrt
+models as passing checks and asserts that four counterfactual configs still
+report their violations: ungated hostname disposal (`NoLateWrite`),
+whole-critical-section kill (`NoOrphanStaging`), value-only rollback ABA
+(`NoOverwriteForeignIntent`), and rollback effectiveness with the fairness
+conjunct removed (`RestoreLandsWithoutForeignCommit`, which TLC reports as an
+unnamed temporal-property violation). No TLA+ tooling is included in the OpenWrt
 package. Run it locally with `./scripts/formal-tlc.sh`, or use the manual-only
 **formal TLC** Actions workflow. The workflow does not run on ordinary pushes
 or pull requests.

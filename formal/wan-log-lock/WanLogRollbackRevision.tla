@@ -96,10 +96,38 @@ Next ==
   \/ SkipRestore
   \/ UNCHANGED vars
 
-Spec == Init /\ [][Next]_vars
+(* The rollback is straight-line shell code once the lock is held again: no loop
+   can stall it. NoStutter is the complete action disjunction with every primed
+   variable pinned, which is what a fairness operator must reference. *)
+NoStutter ==
+  \/ PrimaryCommit
+  \/ ReloadFails
+  \/ ForeignDisable
+  \/ ForeignEnable
+  \/ ForeignEnableAlreadyOn
+  \/ ReacquireRollback
+  \/ RestoreByRevision
+  \/ SkipRestore
+
+Spec == Init /\ [][Next]_vars /\ WF_vars(NoStutter)
+
+(* Identical behavior set without the fairness conjunct. Only the effectiveness
+   properties below are checked against it, to show they hold for a reason
+   instead of passing because the model may stall forever. *)
+SpecNoFairness == Init /\ [][Next]_vars
 
 NoOverwriteForeignIntent ==
   ~(phase = "Done" /\ lastIntent = "enable" /\ log # 1)
+
+(* Effectiveness: once the caller holds the lock again, the rollback decision
+   completes. *)
+RollbackCompletes == (phase = "Holding") ~> (phase = "Done")
+
+(* Effectiveness of the guard's positive case: the revision still matches this
+   caller's commit and UCI still carries this caller's value, so the restore
+   lands and returns the original value exactly. *)
+RestoreLandsWithoutForeignCommit ==
+  (phase = "Holding" /\ revision = 1 /\ log = 1) ~> (phase = "Done" /\ log = 0)
 
 THEOREM Spec => []TypeOK /\ []NoOverwriteForeignIntent
 ====
