@@ -31,6 +31,53 @@ export FWLIVE_WAN_LOG_GENERATION_FILE
 die() { echo "fwlive-logging-lock test FAIL: $*" >&2; exit 1; }
 ok() { echo "fwlive-logging-lock test OK: $*"; }
 
+# Verify both supported shell providers at the lock entry point. These checks
+# must precede the canary: a missing lock is normal, a FIFO must never be opened.
+cat > "$WORK/type-child.sh" <<'EOF'
+#!/bin/sh
+. "$1"
+case "$2" in
+	regular)
+		acquire_wan_log_lock || exit 2
+		release_wan_log_lock
+		[ -f "$FWLIVE_WAN_LOG_LOCK_FILE" ] || exit 3
+		;;
+	reject)
+		if acquire_wan_log_lock; then
+			release_wan_log_lock
+			exit 4
+		fi
+		( : >&9 ) 2>/dev/null && exit 5
+		;;
+esac
+exit 0
+EOF
+for shell in dash busybox; do
+	shell_argv=("$shell")
+	[ "$shell" != busybox ] || shell_argv+=(sh)
+	lock="$WORK/type-$shell.lock"
+	FWLIVE_WAN_LOG_LOCK_FILE="$lock" timeout 3 "${shell_argv[@]}" \
+		"$WORK/type-child.sh" "$LOGGING_SH" regular \
+		|| die "$shell missing lock must be created and acquired"
+	inode=$(stat -c '%i' "$lock")
+	FWLIVE_WAN_LOG_LOCK_FILE="$lock" timeout 3 "${shell_argv[@]}" \
+		"$WORK/type-child.sh" "$LOGGING_SH" regular \
+		|| die "$shell existing regular lock must be acquired"
+	[ "$(stat -c '%i' "$lock")" = "$inode" ] || die "$shell must retain the lock inode"
+	for kind in fifo directory symlink; do
+		rejected="$WORK/type-$shell-$kind"
+		case "$kind" in
+			fifo) mkfifo "$rejected" ;;
+			directory) mkdir "$rejected" ;;
+			symlink) ln -s "$lock" "$rejected" ;;
+		esac
+		FWLIVE_WAN_LOG_LOCK_FILE="$rejected" timeout 3 "${shell_argv[@]}" \
+			"$WORK/type-child.sh" "$LOGGING_SH" reject \
+			|| die "$shell $kind lock must fail closed without blocking or opening fd 9"
+	done
+	ok "$shell creates missing locks, preserves regular lock inode and rejects non-regular locks"
+done
+
 # --- Part A: canary read-modify-write counter (harness sensitivity) --------
 # usage: $0 <logging-sh> <dir> <locked|unlocked>
 cat > "$WORK/canary.sh" <<'EOF'

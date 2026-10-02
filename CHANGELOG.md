@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Reject non-regular WAN logging lock files before opening them, while preserving normal first-use lock creation (#1066)
+
 ## [v0.1.49] — 2026-10-01
 
 ### Fixed
