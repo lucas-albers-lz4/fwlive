@@ -9,18 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.50] — 2026-10-02
+
 ### Fixed
-- Reject non-regular WAN logging lock files before opening them, while preserving normal first-use lock creation (#1066)
-- Validate the static classifier once before processing logs, restore short-circuit evaluation, and reject invalid KV names before generating awk (#1060, #1067)
-- Join the initial poll before startup metadata settles, avoiding a second read on fast routers while preserving later refresh and resume requests (#1073). Add label-refresh and filtered-count regressions (#1075, #1083).
-- Preflight Java before TLC downloads and bound each curl transfer (#1087).
-- Canonicalize repeated leading separators before feed staging deletion guards compare protected paths (#1090).
-- Prepare lab images at private mountpoints and clean up only acquired mounts with verified sources and owned loop devices (#1095).
-- Treat corrupt QEMU pidfiles as unverifiable so force-stop reaches its pattern backstop, and report invalid pidfile removal on start (#1084, #1089).
-- Preserve installed helpers through artifact reinstall, then verify package payload and RPC registration before reporting success (#1097). Pin timeout absence across local packaging inputs (#1079).
-- Match the native ubus timeout arguments in the budget fixture shim and reject accidental real-log fallback; require its poll to read the pinned 2000-line fixture (#1062).
-- Recognize util-linux flock denied-open status 66 in the security-gap smoke only after verifying the provider; retain setup, success and timeout failures (#1098).
-- Match Source/Destination IP substrings case-insensitively, including uppercase IPv6 hex, while preserving exclusion filters (#1071).
+- Reject non-regular WAN logging lock files before opening them, while preserving first-use creation and the existing lock inode (#1066; PR #1106).
+- Validate the static classifier once before processing logs, restore short-circuit evaluation, and reject invalid KV names before generating awk (#1060, #1067; PR #1107).
+- Join the initial poll before startup metadata settles, avoiding a second startup read while preserving later refresh and resume requests (#1073; PR #1109).
+- Match Source/Destination IP substrings case-insensitively, including uppercase IPv6 hex, while preserving exclusion filters (#1071; PR #1116).
+- Canonicalize repeated leading separators before feed staging deletion guards compare protected paths (#1090; PR #1111).
+- Prepare lab images at private mountpoints and clean up only acquired mounts with verified sources and owned loop devices (#1095; PR #1112).
+- Route corrupt QEMU pidfiles through the explicit force-stop backstop and explain invalid pidfile removal on start (#1084, #1089; PR #1113).
+- Preserve installed helpers through artifact reinstall, then verify package status, payload and RPC registration before reporting success (#1097; PR #1114).
+- Match native ubus timeout arguments in the budget fixture, reject accidental real-log fallback, and require the pinned 2000-line poll input (#1062; PR #1115).
+- Accept util-linux flock denied-open status 66 in the security-gap smoke only after verifying the provider, retaining setup, success and timeout failures (#1098; PR #1119).
+- Check Java before TLC downloads and bound each curl transfer (#1087; PR #1108).
+
+### Changed
+- Remove the weekly scheduled 25.12 APK feed smoke while keeping release-tag and manual feed validation; strengthen exact resolver-argument and host feed-index failure coverage (PR #1059).
+- Publish dated security/code-quality audit reports and refresh the security ledger with scoped proof and accepted residuals (PRs #1100, #1101, #1102).
+- Bound identified host-test subprocesses, improve direct-filter and label/count regression oracles, test adaptive lock-create failures under root and non-root users, and check timeout absence across packaging inputs (#1061, #1065, #1075, #1077, #1079, #1081, #1083; PRs #1105, #1110, #1109, #1114).
+- Clarify current helper lifetime, nft backend discovery, retained-row age and stylesheet-source guidance; correct the v0.1.48 changelog and require notable per-PR entries (#1082, #1091, #1092, #1093, #1103, #1063; PRs #1117, #1118).
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.49] — 2026-10-01
 
@@ -766,3 +782,4 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.49]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.48...v0.1.49
 [v0.1.48]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.47...v0.1.48
 [v0.1.47]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.46...v0.1.47
+[v0.1.50]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.49...v0.1.50
