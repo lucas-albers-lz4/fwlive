@@ -112,7 +112,19 @@ async function testChipInvert(page) {
 	await page.locator('a.fwlive-filter-link', { hasText: /^pass$/i }).first().click();
 	await page.waitForSelector('.fwlive-chip', { timeout: 5000 });
 	const before = await page.locator('.fwlive-chip-label').first().textContent();
-	await page.locator('.fwlive-chip-invert').first().click();
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		const original = view.invertFilter;
+		window.__fwliveInvertCalls = 0;
+		view.invertFilter = function() {
+			window.__fwliveInvertCalls++;
+			return original.apply(this, arguments);
+		};
+	});
+	let invert = page.getByRole('button', { name: 'Exclude instead', exact: true });
+	if (await invert.count() !== 1)
+		throw new Error('include chip must expose an Exclude instead button');
+	await invert.press('Enter');
 	await page.waitForFunction(() => {
 		const chip = document.querySelector('.fwlive-chip-label');
 		return chip && /not pass/i.test(chip.textContent || '');
@@ -120,7 +132,23 @@ async function testChipInvert(page) {
 	const after = await page.locator('.fwlive-chip-label').first().textContent();
 	if (before === after || !/not pass/i.test(after || ''))
 		throw new Error(`chip invert failed: ${before} -> ${after}`);
-	console.log('OK: chip invert');
+	const firstCount = await page.evaluate(() => window.__fwliveInvertCalls);
+	if (firstCount !== 1)
+		throw new Error(`Enter must invert exactly once, got ${firstCount} calls`);
+	invert = page.getByRole('button', { name: 'Include instead', exact: true });
+	if (await invert.count() !== 1)
+		throw new Error('excluded chip must expose an Include instead button');
+	await invert.press('Space');
+	await page.waitForFunction(() => {
+		const chip = document.querySelector('.fwlive-chip-label');
+		return chip && !/not pass/i.test(chip.textContent || '');
+	}, { timeout: 5000 });
+	const secondCount = await page.evaluate(() => window.__fwliveInvertCalls);
+	if (secondCount !== 2)
+		throw new Error(`Space must invert exactly once more, got ${secondCount} total calls`);
+	if (await page.getByRole('button', { name: 'Exclude instead', exact: true }).count() !== 1)
+		throw new Error('included chip must restore the Exclude instead accessible name');
+	console.log('OK: chip accessible name and Enter/Space inversion');
 }
 
 async function testSegmentToggles(page) {
