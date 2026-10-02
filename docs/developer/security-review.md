@@ -506,6 +506,16 @@ allowed targets without clearing protected paths or changing HOME. The clear
 allowlist is unchanged. This scoped audit does not claim race-free deletion
 against privileged path replacement; full publication/host review is deferred.
 
+### 2026-10-01: lab image mount ownership (#1095)
+
+The host image helper uses a private mountpoint, records successful mount
+acquisition, and verifies its source before unmounting. Failed or unverifiable
+unmounts retain the loop device instead of detaching under a possibly live
+mount. PATH fixtures cover acquisition failures, source replacement and
+concurrent private mounts; no real mount or installed-guest result is claimed.
+Private paths reduce accidental overlap; privileged replacement races remain
+outside this scoped guarantee. Router configuration changes are still lab-only.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |
@@ -527,7 +537,7 @@ against privileged path replacement; full publication/host review is deferred.
 | Build inputs (`feeds.lock`, `package-lock.json`) | 2026-10-01 | Full source + scoped fresh proof | All current pins/cache ownership/freshness and locked dependencies reassessed; fresh three-cell SDK builds and within-cell reproducibility passed. npm install audit reported no known vulnerabilities at execution time. |
 | Dev tooling (`.cursor/mcp.json`) | 2026-10-01 | Full source + scoped fresh proof | Current config contains no MCP servers; repository/developer-tool configs inspected. Host dependencies are separate from shipped router payload. |
 | Lab deploy helper (`scripts/agent-build-and-deploy.sh`) | 2026-10-01 | Full source + scoped fresh proof | Full source/default host-key policy and its host regression checked. Insecure SSH remains explicit lab opt-in. No general remote deployment was performed. |
-| Lab feed/QEMU lifecycle helpers | 2026-10-01 | Full source + scoped fresh proof | Full source/config/test pass; process/path/transport ownership controls checked. The #1090 staging guard spelling exception is resolved with physical-path normalization and host fixtures; #1095 mount ownership remains open. QEMU stop/status/PID issues remain in existing tracker; no duplicate. |
+| Lab feed/QEMU lifecycle helpers | 2026-10-01 | Full source + scoped fresh proof | Full source/config/test pass; process/path/transport ownership controls checked. The #1090 staging guard spelling exception is resolved with physical-path normalization and host fixtures; #1095 now uses private invocation-owned mountpoints and source-verified cleanup, covered by host failure/concurrency fixtures. QEMU stop/status/PID issues remain in existing tracker; no duplicate. |
 | Lab honest-gap smokes | 2026-10-01 | Full source + scoped fresh proof | Current artifact 24.10 native flock denial is 66; original helper fails (#1098), scratch-adapted probe passed lookup cap, denial, held-lock/inode and foreign-staging checks. Full dummy-key sign/verify ran. Arbitrary helper termination unproven. |
 | CLASSIFY_SPEC evaluator and codegen | 2026-10-01 | Full source + scoped fresh proof | Full core/mirror/generator/generated-asset review and freshness/parity gates passed. #1060/#1067 now validate trusted rules at module initialization/build gates and restore AND/OR short-circuiting. Host malformed-config, parity and syntax tests pass; a host benchmark retains counts while reducing evaluation cost. KV identifier restrictions do not claim validation of every other static spec string. Logs remain stdin data. |
 
@@ -626,7 +636,6 @@ against privileged path replacement; full publication/host review is deferred.
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
 | Private-2026-10-01 | Low | Maintainer private draft reporting | Independently validated finding; details and advisory identifier retained privately pending review. |
-| #1095 | Medium | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1095) | Lab image cleanup can unmount a mount it did not acquire. |
 | #1096 | Low | [Hardening issue](https://github.com/lucas-albers-lz4/fwlive/issues/1096) | Release tag validation follows npm installation; no additional privilege demonstrated. |
 | #1068 | Low | [Existing issue](https://github.com/lucas-albers-lz4/fwlive/issues/1068) | Adaptive lock setup can silently skip state update. |
 
@@ -634,6 +643,7 @@ against privileged path replacement; full publication/host review is deferred.
 
 | ID | Severity | Issue | Summary | Verified |
 |----|----------|-------|---------|----------|
+| #1095 | Medium | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1095) | Private acquired mounts checked against their owned loop source before cleanup | 2026-10-01 — stubbed host failure/concurrency fixtures, PR #1112; privileged mount races excluded |
 | #1090 | Medium | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1090) | Protected staging paths compared after physical-path normalization | 2026-10-01 — read-only host guard fixtures, PR #1111; privileged path replacement excluded |
 | #1066 | Low | [Issue](https://github.com/lucas-albers-lz4/fwlive/issues/1066) | Existing non-regular logging locks rejected before append; normal creation and inode retained | 2026-10-01 — scoped dash/BusyBox host fixtures, PR #1106; privileged races excluded |
 | B-1 | Low | `wan_firewall_zone_same` class-matched any `name=wan` zone | Canonical `uci -X` cfg id compare; duplicate wan `.log` stays foreign | 2026-09-03 — multi-model audit |

@@ -15,25 +15,42 @@ export OWRT_LAB_NET_MODE="${OWRT_LAB_NET_MODE:-dhcp}"
 # shellcheck source=lib/qemu-lab-net.sh
 source "${ROOT}/scripts/lib/qemu-lab-net.sh"
 IMG="${OWRT_IMG:-${ROOT}/lab/images/openwrt-armsr-armv8.img}"
-MNT="/mnt/owrt-lab"
+MNT=""
+LOOP=""
+MOUNTED=0
 LAB_MASK="${OWRT_LAB_SUBNET#*/}"
 
 [[ -f "$IMG" ]] || { echo "missing image: $IMG" >&2; exit 1; }
 [[ "$(id -u)" -eq 0 ]] || { echo "run as root (needs loop mount)" >&2; exit 1; }
 
-LOOP="$(losetup -fP --show "$IMG")"
+command -v findmnt >/dev/null 2>&1 || { echo "findmnt is required (install util-linux)" >&2; exit 1; }
 cleanup() {
-	umount "$MNT" 2>/dev/null || true
-	losetup -d "$LOOP" 2>/dev/null || true
+	local source
+	if [[ "$MOUNTED" == 1 ]]; then
+		source="$(findmnt -rn -M "$MNT" -o SOURCE 2>/dev/null)" || source=""
+		if [[ "$source" != "${LOOP}p2" ]]; then
+			echo "warning: mount source changed or unverifiable; retaining $MNT and $LOOP" >&2
+			return
+		fi
+		if ! umount "$MNT"; then
+			echo "warning: unmount failed; retaining $MNT and $LOOP" >&2
+			return
+		fi
+	fi
+	[[ -z "$LOOP" ]] || losetup -d "$LOOP" 2>/dev/null || true
+	[[ -z "$MNT" ]] || rmdir "$MNT" 2>/dev/null || true
 }
 trap cleanup EXIT
+MNT="$(mktemp -d "${TMPDIR:-/tmp}/fwlive-image.XXXXXXXX")"
+LOOP="$(losetup -fP --show "$IMG")"
+[[ -n "$LOOP" ]] || { echo "loop allocation returned no device" >&2; exit 1; }
 
 if [[ -b "${LOOP}p2" ]] && command -v e2fsck >/dev/null 2>&1; then
 	e2fsck -fy "${LOOP}p2" >/dev/null 2>&1 || true
 fi
 
-mkdir -p "$MNT"
 mount -o rw "${LOOP}p2" "$MNT"
+MOUNTED=1
 
 # LuCI/uhttpd tweaks (release images; snapshot minimal images may omit uhttpd).
 if [[ -f "$MNT/etc/config/uhttpd" ]]; then
