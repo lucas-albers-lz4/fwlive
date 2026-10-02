@@ -151,6 +151,289 @@ async function testChipInvert(page) {
 	console.log('OK: chip accessible name and Enter/Space inversion');
 }
 
+async function ensureSimpleView(page) {
+	const simple = await requireControl(page, '#fwlive-view-simple');
+	if ((await simple.getAttribute('aria-pressed')) !== 'true') {
+		await simple.click();
+		await page.waitForFunction(
+			() => {
+				const el = document.getElementById('fwlive-view-simple');
+				return el && el.getAttribute('aria-pressed') === 'true';
+			},
+			{ timeout: 5000 }
+		);
+	}
+}
+
+async function expansionButtonByRowId(page, rowId, name) {
+	const buttons = page.locator('button.fwlive-row-expand');
+	const index = await buttons.evaluateAll(
+		(nodes, wanted) => nodes.findIndex((button) => button._fwliveRowId === wanted),
+		rowId
+	);
+	if (index < 0) throw new Error(`Simple-view expansion button missing for ${rowId}`);
+	const named = page.getByRole('button', { name, exact: true });
+	if ((await named.count()) <= index)
+		throw new Error(`button ${rowId} is not exposed as ${name}`);
+	return named.nth(index);
+}
+
+async function isFocused(locator) {
+	return locator.evaluate((element) => element === document.activeElement);
+}
+
+async function testSimpleExpansionKeyboard(page) {
+	await clearFilters(page);
+	await ensureSimpleView(page);
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		const original = view.onRowClick;
+		window.__fwliveRowClickCalls = 0;
+		view.onRowClick = function () {
+			window.__fwliveRowClickCalls++;
+			return original.apply(this, arguments);
+		};
+	});
+
+	const structure = await page.locator('#fwlive-table').evaluate((table) => {
+		const row = table.querySelector('tbody tr');
+		const button = row && row.querySelector('button.fwlive-row-expand');
+		return {
+			table: table.tagName,
+			head: table.querySelector('thead th') && table.querySelector('thead th').tagName,
+			row: row && row.tagName,
+			rowRole: row && row.getAttribute('role'),
+			rowTabindex: row && row.getAttribute('tabindex'),
+			button: button && button.tagName,
+			buttonCell: button && button.closest('td') && button.closest('td').tagName,
+			rowExpansionRoles: table.querySelectorAll('tbody tr[role]').length
+		};
+	});
+	if (
+		structure.table !== 'TABLE' ||
+		structure.head !== 'TH' ||
+		structure.row !== 'TR' ||
+		structure.rowRole !== null ||
+		structure.rowTabindex !== null ||
+		structure.button !== 'BUTTON' ||
+		structure.buttonCell !== 'TD' ||
+		structure.rowExpansionRoles !== 0
+	)
+		throw new Error(
+			`expansion must preserve native table semantics: ${JSON.stringify(structure)}`
+		);
+
+	const link = page.locator('#fwlive-table tbody tr a.fwlive-filter-link').first();
+	await link.click();
+	await page.waitForSelector('.fwlive-chip', { timeout: 5000 });
+	const linkState = await page.evaluate(() => ({
+		expanded: window.fwliveView.expandedRowId,
+		panels: document.querySelectorAll('#fwlive-table tbody tr.fwlive-msg-expand').length
+	}));
+	if (linkState.expanded !== null || linkState.panels !== 0)
+		throw new Error(
+			`filter-link clicks must not also expand rows: ${JSON.stringify(linkState)}`
+		);
+	await clearFilters(page);
+
+	const firstRowId = await page
+		.locator('button.fwlive-row-expand')
+		.first()
+		.evaluate((button) => button._fwliveRowId);
+	let clicks = await page.evaluate(() => window.__fwliveRowClickCalls);
+	await page.locator('#fwlive-table tbody tr').first().locator('td.fwlive-time').click();
+	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, firstRowId);
+	let afterMouseOpen = await page.evaluate(() => window.__fwliveRowClickCalls);
+	if (afterMouseOpen !== clicks + 1)
+		throw new Error(`existing row click must toggle once, got ${afterMouseOpen - clicks}`);
+	clicks = afterMouseOpen;
+	await page.locator('#fwlive-table tbody tr').first().locator('td.fwlive-time').click();
+	await page.waitForFunction(() => window.fwliveView.expandedRowId === null);
+	const afterMouseClose = await page.evaluate(() => window.__fwliveRowClickCalls);
+	if (afterMouseClose !== clicks + 1)
+		throw new Error(`second row click must collapse once, got ${afterMouseClose - clicks}`);
+
+	const targetId = 'log:5';
+	let show = await expansionButtonByRowId(page, targetId, 'Show full message');
+	const actionLink = show.locator('xpath=ancestor::tr').locator('a.fwlive-filter-link').first();
+	if ((await actionLink.count()) !== 1)
+		throw new Error('target row must retain its action filter link');
+	await actionLink.focus();
+	await page.keyboard.press('Tab');
+	if (!(await isFocused(show)))
+		throw new Error('Tab from the action filter link must reach the message button');
+
+	clicks = await page.evaluate(() => window.__fwliveRowClickCalls);
+	await show.press('Enter');
+	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, targetId);
+	const afterEnter = await page.evaluate(() => window.__fwliveRowClickCalls);
+	if (afterEnter !== clicks + 1)
+		throw new Error(`Enter must expand exactly once, got ${afterEnter - clicks}`);
+	let hide = page.getByRole('button', { name: 'Hide full message', exact: true });
+	if ((await hide.count()) !== 1 || !(await isFocused(hide)))
+		throw new Error('expanded control must update its accessible name and retain focus');
+	const expanded = await page.evaluate(() => {
+		const button = document.activeElement;
+		const id = button && button.getAttribute('aria-controls');
+		const panel = id && document.getElementById(id);
+		return {
+			label: button && button.getAttribute('aria-label'),
+			expanded: button && button.getAttribute('aria-expanded'),
+			controls: id,
+			panelTag: panel && panel.tagName,
+			panelText: panel && panel.textContent,
+			images: panel ? panel.querySelectorAll('img').length : -1,
+			rowId: button && button._fwliveRowId
+		};
+	});
+	if (
+		expanded.label !== 'Hide full message' ||
+		expanded.expanded !== 'true' ||
+		expanded.controls !== 'fwlive-expanded-message' ||
+		expanded.panelTag !== 'PRE' ||
+		expanded.rowId !== targetId ||
+		!String(expanded.panelText).includes('<img src=x onerror=alert(1)>') ||
+		expanded.images !== 0
+	)
+		throw new Error(`expanded panel association/text failed: ${JSON.stringify(expanded)}`);
+
+	clicks = afterEnter;
+	await hide.press('Space');
+	await page.waitForFunction(() => window.fwliveView.expandedRowId === null);
+	const afterSpace = await page.evaluate(() => window.__fwliveRowClickCalls);
+	if (afterSpace !== clicks + 1)
+		throw new Error(`Space must collapse exactly once, got ${afterSpace - clicks}`);
+	show = await expansionButtonByRowId(page, targetId, 'Show full message');
+	if (!(await isFocused(show)) || (await page.locator('#fwlive-expanded-message').count()))
+		throw new Error('collapsed control must keep focus and remove its panel association');
+
+	clicks = afterSpace;
+	await show.press('Enter');
+	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, targetId);
+	hide = page.getByRole('button', { name: 'Hide full message', exact: true });
+	await page.evaluate((id) => {
+		const view = window.fwliveView;
+		window.__fwliveOldExpandButton = document.activeElement;
+		const row = view.entries.find((entry) => String(entry.id) === id);
+		if (!row) throw new Error('target row missing before same-row refresh');
+		row.message += ' refreshed-keyed-row';
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+	}, targetId);
+	const refreshFocus = await page.evaluate(() => ({
+		oldConnected: window.__fwliveOldExpandButton.isConnected,
+		sameNode: document.activeElement === window.__fwliveOldExpandButton,
+		rowId: document.activeElement && document.activeElement._fwliveRowId,
+		panelText: document.getElementById('fwlive-expanded-message')?.textContent || ''
+	}));
+	if (
+		refreshFocus.oldConnected ||
+		refreshFocus.sameNode ||
+		refreshFocus.rowId !== targetId ||
+		!refreshFocus.panelText.includes('refreshed-keyed-row') ||
+		!(await isFocused(hide))
+	)
+		throw new Error(
+			`same-row keyed rebuild must restore focus and updated message: ${JSON.stringify(refreshFocus)}`
+		);
+
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		view.entries.reverse();
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+	});
+	const reorderedFocus = await page.evaluate(() => {
+		const button = document.activeElement;
+		const row = button && button.closest('tr');
+		return {
+			rowId: button && button._fwliveRowId,
+			focused: !!(button && button.classList.contains('fwlive-row-expand')),
+			panelImmediatelyFollows: !!(
+				row &&
+				row.nextElementSibling &&
+				row.nextElementSibling.classList.contains('fwlive-msg-expand')
+			)
+		};
+	});
+	if (
+		reorderedFocus.rowId !== targetId ||
+		!reorderedFocus.focused ||
+		!reorderedFocus.panelImmediatelyFollows
+	)
+		throw new Error(
+			`reordered row must keep disclosure focus and association: ${JSON.stringify(reorderedFocus)}`
+		);
+
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		const query = document.getElementById('fwlive-q');
+		query.value = 'u2-filter-no-match';
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+	});
+	const filteredOut = await page.evaluate(() => ({
+		button: Array.from(document.querySelectorAll('button.fwlive-row-expand')).some(
+			(node) => node._fwliveRowId === 'log:5'
+		),
+		panel: !!document.getElementById('fwlive-expanded-message'),
+		oldConnected: !window.__fwliveOldExpandButton.isConnected,
+		focusedExpander: !!document.activeElement.closest?.('button.fwlive-row-expand')
+	}));
+	if (
+		filteredOut.button ||
+		filteredOut.panel ||
+		!filteredOut.oldConnected ||
+		filteredOut.focusedExpander
+	)
+		throw new Error(
+			`filtering must remove the row and stale focus target: ${JSON.stringify(filteredOut)}`
+		);
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		document.getElementById('fwlive-q').value = '';
+		view.expandedRowId = null;
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+	});
+
+	const removable = await expansionButtonByRowId(page, targetId, 'Show full message');
+	await removable.focus();
+	await page.evaluate((id) => {
+		const view = window.fwliveView;
+		view.entries = view.entries.filter((entry) => String(entry.id) !== id);
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+	}, targetId);
+	if (
+		await page
+			.locator('button.fwlive-row-expand')
+			.evaluateAll((nodes) => nodes.some((button) => button._fwliveRowId === 'log:5'))
+	)
+		throw new Error('removing a row must remove its expansion control');
+
+	const remaining = page.locator('button.fwlive-row-expand').first();
+	await remaining.focus();
+	await page.evaluate(() => window.fwliveView.setViewMode('detailed'));
+	await page.waitForFunction(() => window.fwliveView.viewMode === 'detailed');
+	const detail = await page.evaluate(() => ({
+		controls: document.querySelectorAll('button.fwlive-row-expand').length,
+		panels: document.querySelectorAll('#fwlive-table tbody tr.fwlive-msg-expand').length,
+		rows: document.querySelectorAll('#fwlive-table tbody tr').length,
+		messageCells: document.querySelectorAll('#fwlive-table tbody td.fwlive-message').length,
+		rowRoles: document.querySelectorAll('#fwlive-table tbody tr[role]').length
+	}));
+	if (detail.controls || detail.panels || !detail.rows || !detail.messageCells || detail.rowRoles)
+		throw new Error(
+			`Detail view must remain native and keep message columns: ${JSON.stringify(detail)}`
+		);
+	await page.evaluate(() => window.fwliveView.setViewMode('simple'));
+	await page.waitForFunction(() => window.fwliveView.viewMode === 'simple');
+	console.log(
+		'OK: Simple message button tab order, keyboard, focus, association, filtering and table semantics'
+	);
+}
+
 async function testSegmentToggles(page) {
 	const { detail, oneline } = await requireSegmentButtons(page);
 	await detail.click();
@@ -574,6 +857,7 @@ async function runSmoke(browser) {
 		await testStorageFailure(page);
 		await testResolverError(page);
 		await testRulesTruncatedDegraded(page);
+		await testSimpleExpansionKeyboard(page);
 
 		if (pageErrors.length)
 			throw new Error('pageerror(s) during smoke: ' + pageErrors.join('; '));
