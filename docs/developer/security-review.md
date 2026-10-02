@@ -1710,6 +1710,16 @@ links are in [the audit record](../evidence/audit-2026-10-01.md). No implementat
 fix, release, live feed deployment or advisory publication was performed during the audit.
 
 
+### 2026-10-02 — upstream-cut selftest scratch delta (#1120 / #1122)
+
+The CLI-only poll-cause selftest uses the existing checked sticky-/tmp mktemp
+helper instead of honoring caller-controlled TMPDIR. No ACL method or runtime
+helper deadline changes. Host rpcd security and matched-jshn selftests execute
+with a nonexistent TMPDIR; upstream-cut tests include real fresh LuCI scanner
+msgid/reference parity. The selftest remains outside the ubus surface. Codex
+and GPT-6-luna/xhigh review is tracked in #1135; installed proof is separate.
+This touched-surface change does not trigger a new full audit.
+
 ### 2026-10-02 — adaptive timing and override delta (#1125, #1127)
 
 Scoped Codex implementation with independent GPT-6-luna/xhigh review in tracker
