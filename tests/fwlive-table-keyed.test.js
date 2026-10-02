@@ -62,6 +62,17 @@ function newChildCount(before, host) {
 	return n;
 }
 
+function findElementByClass(root, className) {
+	if (!root) return null;
+	if (root.nodeType === 1 && root.classList && root.classList.contains(className)) return root;
+	const kids = root.childNodes || [];
+	for (let i = 0; i < kids.length; i++) {
+		const found = findElementByClass(kids[i], className);
+		if (found) return found;
+	}
+	return null;
+}
+
 {
 	const rows = [row(1), row(2), row(3), row(4), row(5)];
 	const body = luciE.E('tbody', {}, []);
@@ -69,7 +80,9 @@ function newChildCount(before, host) {
 	table.renderRows(body, baseState(rows), cb);
 	assert.strictEqual(body.childNodes.length, 5);
 	const before = Array.prototype.slice.call(body.childNodes);
-	const reused = before.find(function (n) { return n._fwliveRowId === '2'; });
+	const reused = before.find(function (n) {
+		return n._fwliveRowId === '2';
+	});
 
 	table.renderRows(body, baseState(rows, { expandedRowId: '1' }), cb);
 	assert.ok(newChildCount(before, body) <= 3, 'row expand must rebuild at most 3 tr nodes');
@@ -93,6 +106,71 @@ function newChildCount(before, host) {
 	table.renderRows(body, state, cb);
 	assert.ok(newChildCount(before, body) <= 1, 'one resolved name rebuilds only that row');
 	assert.strictEqual(body.childNodes[1], untouched, 'rows without a new name are reused');
+}
+
+{
+	const rows = [row(1), row(2)];
+	const body = luciE.E('tbody', {}, []);
+	const cb = callbacks();
+	let toggles = 0;
+	let stopped = 0;
+	cb.onRowClick = function (id) {
+		assert.strictEqual(id, '1');
+		toggles++;
+	};
+	table.renderRows(body, baseState(rows, { columns: ['action', 'time'] }), cb);
+
+	let firstRow = body.childNodes[0];
+	let button = findElementByClass(firstRow, 'fwlive-row-expand');
+	assert.ok(button, 'Simple-view action cell has a native expansion button');
+	assert.strictEqual(button.tagName, 'button');
+	assert.strictEqual(button.getAttribute('type'), 'button');
+	assert.strictEqual(button.getAttribute('aria-label'), 'Show full message');
+	assert.strictEqual(button.getAttribute('aria-expanded'), 'false');
+	assert.strictEqual(
+		button.getAttribute('aria-controls'),
+		null,
+		'collapsed controls have no dangling panel id'
+	);
+	assert.strictEqual(button.parentNode.tagName, 'td', 'button stays inside a native cell');
+	assert.strictEqual(firstRow.tagName, 'tr');
+	assert.strictEqual(firstRow.getAttribute('role'), null, 'row keeps native table semantics');
+	assert.strictEqual(firstRow.getAttribute('tabindex'), null, 'row does not become a button');
+	button._listeners.click[0]({
+		currentTarget: button,
+		stopPropagation: function () {
+			stopped++;
+		}
+	});
+	assert.strictEqual(stopped, 1, 'button click does not bubble to the row click path');
+	assert.strictEqual(toggles, 1, 'button activation calls the row callback once');
+
+	table.renderRows(
+		body,
+		baseState(rows, { columns: ['action', 'time'], expandedRowId: '1' }),
+		cb
+	);
+	firstRow = body.childNodes[0];
+	button = findElementByClass(firstRow, 'fwlive-row-expand');
+	const expansion = body.childNodes[1];
+	const message = findElementByClass(expansion, 'fwlive-msg-expand-body');
+	assert.strictEqual(button.getAttribute('aria-label'), 'Hide full message');
+	assert.strictEqual(button.getAttribute('aria-expanded'), 'true');
+	assert.strictEqual(button.getAttribute('aria-controls'), 'fwlive-expanded-message');
+	assert.strictEqual(message.getAttribute('id'), button.getAttribute('aria-controls'));
+	assert.strictEqual(message.childNodes[0].textContent, rows[0].message);
+
+	const detailBody = luciE.E('tbody', {}, []);
+	table.renderRows(
+		detailBody,
+		baseState(rows, { viewMode: 'detailed', columns: ['action', 'time'] }),
+		cb
+	);
+	assert.strictEqual(
+		findElementByClass(detailBody, 'fwlive-row-expand'),
+		null,
+		'Detail view does not add Simple expansion controls'
+	);
 }
 
 console.log('fwlive table keyed reuse tests passed');

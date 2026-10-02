@@ -1,5 +1,22 @@
 # Security review state
 
+**2026-10-02 #1130 renderer delta.** Simple-view expansion uses a native
+button inside the existing Action cell, keeping `<table>/<tr>/<td>` semantics
+and the existing mouse-row handler. Its translated accessible name and
+`aria-expanded` state are static UI values; `aria-controls` points to the
+single stable ID on the expanded `<pre>`. The uncapped log message remains an
+array text child. Filtering links keep their propagation guard, Detail view
+gets no expansion button, and keyed repaint/reorder paths restore focus to the
+same row when it remains visible. Host proof: `tests/fwlive-table-keyed.test.js`
+checks the recording `E()` sink and callback contracts; `npm run test:view`
+uses Chromium to check table structure, accessible role/name, keyboard toggles,
+focus restoration, filtering/removal, and hostile text. CSS was checked at
+desktop and mobile widths in the mocked browser harness: the desktop table
+fits, while the 390px Simple view shows its fixed-column content extending
+horizontally; the new disclosure remains inside the Action cell and this unit
+does not adjust column sizing. This is a scoped renderer delta, not
+installed-router, assistive-technology, or full-source re-audit evidence.
+
 **2026-10-02 #1129 renderer delta.** The chip inversion button now exposes the
 same static translated Include/Exclude action text as its existing CSS tooltip.
 The filter value remains an array child and is not used in the accessible-name
