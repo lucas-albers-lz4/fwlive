@@ -489,6 +489,14 @@ scheduling only; RPC arguments, ACLs, untrusted text sinks and later request
 semantics retain their existing boundaries. No guest timing proof or full
 surface audit is claimed; those remain deferred to review and installed smoke.
 
+### 2026-10-01: TLC downloader delta (#1087)
+
+The host-only TLC launcher preflights Java before downloading and bounds each
+curl connection/transfer; retries retain separate per-transfer limits. SHA-256
+verification precedes execution. PATH fixtures cover missing Java, failed
+transfers and cached jars with stubbed Java; no new TLC/model result is claimed.
+No router surface changes. Full host/toolchain audit remains deferred.
+
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Frontend rendering sinks (`E()` string children) | 2026-10-01 | Full source + scoped fresh proof | All shipped dynamic sinks traced; supported pinned LuCI E semantics inspected. Host recording harness and mocked browser passed; installed browser checked on 24.10. Empty-only HTML clears, arrays/text nodes for untrusted values. Not exhaustive render proof. |

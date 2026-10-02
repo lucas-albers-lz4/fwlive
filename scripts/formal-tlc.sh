@@ -9,18 +9,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TLA_VERSION=1.7.4
 TLA_SHA256=936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
 TLA_URL="https://github.com/tlaplus/tlaplus/releases/download/v${TLA_VERSION}/tla2tools.jar"
-WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
-
 fail() { echo "formal TLC FAIL: $*" >&2; exit 1; }
 ok() { echo "formal TLC OK: $*"; }
+
+command -v java >/dev/null 2>&1 || fail "java is required; install a JRE (for example openjdk-17-jre-headless)"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
 
 if [[ -n "${TLA2TOOLS_JAR:-}" ]]; then
 	JAR="$TLA2TOOLS_JAR"
 	[[ -f "$JAR" ]] || fail "TLA2TOOLS_JAR does not name a file: $JAR"
 else
 	JAR="$WORK/tla2tools.jar"
-	curl -fsSL --retry 2 "$TLA_URL" -o "$JAR"
+	curl -fsSL --connect-timeout 10 --max-time 120 --retry 2 "$TLA_URL" -o "$JAR"
 fi
 
 # Both execution helpers change into model directories; preserve the caller's
