@@ -13,7 +13,7 @@
  *   node tests/fwlive-i18n-spotcheck.mjs
  */
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawnSync } from './lib/child-process-timeout.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { execFileSync, spawnSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('./lib/child-process-timeout');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -612,6 +612,7 @@ function testDirectHelpersIgnoreTimeoutProvider() {
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-direct-helpers-'));
 	const marker = path.join(stubDir, 'timeout-called');
 	const calls = path.join(stubDir, 'helpers-called');
+	const libexec = path.join(stubDir, 'libexec');
 	try {
 		makeStub(stubDir, 'timeout', `#!/bin/sh
 printf called > ${shellQuote(marker)}
@@ -631,7 +632,54 @@ exit 1
 		assert.equal(rules.error, 'no_backend');
 		assert.throws(() => execFileSync('busybox', busyboxRpcdArgs(RPCD, ['__resolve_one', '192.0.2.1'], { env }), { encoding: 'utf8', env }), (error) => error.status === 1);
 		assert.deepEqual(fs.readFileSync(calls, 'utf8').trim().split('\n'), ['ubus', 'nft', 'nslookup']);
-		assert.ok(!fs.existsSync(marker), 'an installed timeout must never be invoked');
+
+		// Reach the actual filter/classifier after a successful log.read, rather
+		// than proving provider absence only on the log_read_failed early return.
+		fs.cpSync(path.dirname(path.dirname(RPCD)), libexec, { recursive: true });
+		const plugin = path.join(libexec, 'rpcd', 'fwlive');
+		const firewallMessage = 'kernel: DROP IN=wan OUT= SRC=192.0.2.1 DST=198.51.100.2 PROTO=TCP DPT=443';
+		const payload = JSON.stringify({ log: [
+			{ msg: 'dnsmasq[1]: started, version 2.92' },
+			{ msg: firewallMessage }
+		] });
+		makeStub(stubDir, 'ubus', `#!/bin/sh
+printf '%s' ${shellQuote(payload)}
+`);
+		// Limited jsonfilter dependency fixture: extract the log array; the
+		// firewall decision and reply formatting remain the shipped awk's work.
+		makeStub(stubDir, 'jsonfilter', `#!/usr/bin/env node
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+assert.deepEqual(process.argv.slice(2), ['-e', '@.log[*]']);
+const log = JSON.parse(fs.readFileSync(0, 'utf8')).log;
+for (const entry of log) process.stdout.write(JSON.stringify(entry) + '\\n');
+`);
+		const filterEnv = {
+			...env,
+			PATH: `${stubDir}:${process.env.PATH || '/usr/bin:/bin'}`,
+			FWLIVE_ADAPTIVE: '0'
+		};
+		function assertFilterIgnoresTimeout(pluginPath) {
+			const filtered = JSON.parse(execFileSync('/bin/dash',
+				[pluginPath, 'call', 'poll', '{"addresses":["50"]}'],
+				{ encoding: 'utf8', env: filterEnv }));
+			assert.ok(!fs.existsSync(marker), 'an installed timeout must never be invoked on the filter path');
+			assert.equal(filtered.error, undefined, 'the successful poll must reach the shipped filter');
+			assert.equal(filtered.messages_received, 2, 'the classifier must enumerate both dependency-fixture entries');
+			assert.deepEqual(filtered.log.map((entry) => entry.msg), [firewallMessage],
+				'the shipped classifier must retain the firewall entry and reject daemon noise');
+		}
+		assertFilterIgnoresTimeout(plugin);
+
+		// Non-vacuous control: a raw timeout wrapper must fail the same oracle,
+		// even without any of the removed wrapper/provider identifier names.
+		const original = fs.readFileSync(plugin, 'utf8');
+		const mutated = original.replace('| "$FILTER_SH" /tmp', '| timeout 5 "$FILTER_SH" /tmp');
+		assert.notEqual(mutated, original, 'fault fixture must wrap the actual poll filter invocation');
+		fs.writeFileSync(plugin, mutated);
+		assert.throws(() => assertFilterIgnoresTimeout(plugin),
+			/installed timeout must never be invoked on the filter path/);
+		fs.unlinkSync(marker);
 		assert.doesNotMatch(fs.readFileSync(RPCD, 'utf8'), /run_with_timeout|FWLIVE_TIMEOUT|TIMEOUT_KILL_GRACE|__limits/);
 	} finally {
 		fs.rmSync(stubDir, { recursive: true, force: true });
@@ -718,7 +766,9 @@ function testPollTruncatedFilterBodyIsFilterFailed() {
 }
 
 function testResolveBudgetIgnoresDateJump() {
-	const budget = Number(fs.readFileSync(RPCD, 'utf8').match(/^RESOLVE_BUDGET=(\d+)$/m)[1]);
+	const budgetMatch = fs.readFileSync(RPCD, 'utf8').match(/^RESOLVE_BUDGET=(\d+)$/m);
+	assert.ok(budgetMatch, 'rpcd RESOLVE_BUDGET not found');
+	const budget = Number(budgetMatch[1]);
 	const prefix = process.env.FWLIVE_JSHN_PREFIX || path.join(os.homedir(), '.cache/fwlive-jshn');
 	const release = process.env.FWLIVE_JSHN_RELEASE || '24.10';
 	const jshn = path.join(prefix, release, 'bin', 'jshn');
