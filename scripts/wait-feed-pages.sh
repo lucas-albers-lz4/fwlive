@@ -2,7 +2,7 @@
 # Wait until GitHub Pages feed URLs respond (post-deploy).
 #
 #   ./scripts/wait-feed-pages.sh https://lucas-albers-lz4.github.io/fwlive-packages
-#   ./scripts/wait-feed-pages.sh --apk-25.12 BASE_URL   # scheduled 25.12 APK smoke
+#   ./scripts/wait-feed-pages.sh --apk-25.12 BASE_URL   # explicit 25.12 APK readiness check
 set -euo pipefail
 
 wait_feed_validate_int() {

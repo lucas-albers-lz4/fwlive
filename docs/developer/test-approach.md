@@ -245,8 +245,9 @@ armsr IPK (`opkg remove` via `qemu-logging-uninstall-smoke.sh`, port
 reusable smoke now branches `opkg remove` vs `apk del` and, on 25.12,
 adds a same-version `--force-reinstall` preservation cell (expected:
 `post-upgrade`, no `pre-deinstall`) using `--artifact-only` installs.
-That 25.12 cell has not yet run on QEMU; the host tests model
-`PKG_UPGRADE=1`. Host packaged-hook matrix (#405) shows remove
+The retained #389 artifact records that 25.12 cell as executed: it ran
+`post-upgrade` only and preserved the WAN bit and baseline. The host tests
+separately model `PKG_UPGRADE=1`. Host packaged-hook matrix (#405) shows remove
 restores, while upgrade / `PKG_UPGRADE=1` / empty/unknown do not.
 Same-version reinstall cells are no-op preservation, not skip-upgrade
 hook proof (#406). A version-changing APK upgrade (0.1.43-r1 →
