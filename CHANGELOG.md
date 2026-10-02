@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve installed helpers through artifact reinstall, then verify package payload and RPC registration before reporting success (#1097). Pin timeout absence across local packaging inputs (#1079).
 - Match the native ubus timeout arguments in the budget fixture shim and reject accidental real-log fallback; require its poll to read the pinned 2000-line fixture (#1062).
 - Recognize util-linux flock denied-open status 66 in the security-gap smoke only after verifying the provider; retain setup, success and timeout failures (#1098).
+- Match Source/Destination IP substrings case-insensitively, including uppercase IPv6 hex, while preserving exclusion filters (#1071).
 
 ## [v0.1.49] — 2026-10-01
 

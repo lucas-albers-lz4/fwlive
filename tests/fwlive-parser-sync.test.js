@@ -356,3 +356,15 @@ for (const sourcePath of [CORE, LUCI]) {
 }
 
 console.log('fwlive parser sync OK (normalize + filter)');
+
+// Independent IPv6 substring expectations for both source and destination.
+for (const implementation of [core, luci]) {
+	for (const field of ['src', 'dst']) {
+		const row = { src: '2001:db8:ABCD::1', dst: '2001:db8:ABCD::2' };
+		assert.strictEqual(implementation.matchesFilter(row, { [field]: 'DB8:abcd' }), true);
+		assert.strictEqual(implementation.matchesFilter(row, { [field]: '!DB8:abcd' }), false);
+		assert.strictEqual(implementation.matchesFilter(row, { [field]: '!DB8:ffff' }), true);
+		assert.strictEqual(implementation.matchesFilter(row, { [field]: 'DB8:ffff' }), false);
+		assert.strictEqual(implementation.matchesFilter(row, { [field]: '' }), true);
+	}
+}

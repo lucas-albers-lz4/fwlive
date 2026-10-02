@@ -147,6 +147,10 @@ signal to reduce the workload.
 - You can also prefix text filters with **`!`** for negation (same as **≠** on a chip).
 - **URL hash** stores filters, limit, `view=detailed`, and in Manual mode `poll=manual` plus `maxraw=` (raw-line fetch budget) for shareable links.
 
+Source and Destination IP fields match substrings without regard to case, so
+uppercase IPv6 hex matches lowercase log addresses. Prefix `!` to exclude the
+matching substring.
+
 ### Filter tips
 
 | Goal | Approach |
