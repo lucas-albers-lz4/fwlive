@@ -85,7 +85,7 @@ Checklist:
 
 - [ ] `./scripts/upstream-cut.sh` → `out/upstream/luci-app-fwlive/`
 - [ ] Copy into `luci/applications/luci-app-fwlive/` on a feature branch
-- [ ] `./build/i18n-scan.pl` refresh of `.pot` (same luci commit); copy back + `msgmerge` feed `.po`
+- [ ] `./build/i18n-scan.pl` parity check on the copied tree (the cut `.pot` is already luci-shaped); `msgmerge` feed `.po`
 - [ ] FormalityCheck commit (Signed-off-by, body ≤100 cols, linked GitHub email)
 - [ ] State Apache-2.0 in the PR body; do not paste CodeRabbit threads upstream
 
