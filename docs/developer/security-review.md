@@ -1809,6 +1809,6 @@ logd input or an error-free session. Native logd proof is recorded separately.
 #1133 remains a partial pathname mitigation: surviving helper-held anonymous
 storage and the initial setup window remain. Formal #1123 proof retains its
 model/fairness limits. This extends the named seams of the October 1 full
-source baseline; it is a scoped implementation delta, with reviews/merges
-still gated by the owner. No fresh APK, 23.05, physical-device or full audit
+source baseline; it is a scoped implementation delta. The owner’s additional
+reviews are complete; finding dispositions, CI and merges are tracked in #1135. No fresh APK, 23.05, physical-device or full audit
 result is claimed.

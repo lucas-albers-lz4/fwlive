@@ -2,8 +2,9 @@
 
 Tracker: [#1135](https://github.com/lucas-albers-lz4/fwlive/issues/1135). Codex
 implemented and integrated the work with GPT-6-luna at xhigh design and final
-diff reviews. All new PRs are drafts; additional owner-required review and
-merge gates remain pending. This record does not authorize merging.
+diff reviews. The owner’s additional reviews approved all nine units, and
+findings were triaged before merging. Final heads, CI and merge dispositions
+are tracked in #1135.
 
 | Unit | Issues | PR |
 |---|---|---|
@@ -97,10 +98,32 @@ can retain deleted-file tmpfs storage until the inheriting processes close
 their descriptors. The short mktemp/open/unlink setup
 window, helper lifetime and immediate resource reclamation limits remain.
 No deadline, process-group supervisor or stale-file sweep was added. The issue
-stays open for the owner's residual disposition. QEMU timings do not establish
+stays open for those residuals after owner approval of the partial mitigation. QEMU timings do not establish
 A7 hardware latency, and no fresh APK/23.05/physical-device cell is claimed.
 
 The original dirty working tree was preserved. Current PR heads, CI status,
 owner-required reviews and merge dispositions are tracked in #1135; an older
-review label does not attest to a changed head. No OpenWrt/LuCI upstream publication, release/version bump or merge was
-performed.
+review label does not attest to a changed head. No OpenWrt/LuCI upstream
+publication or release/version bump was performed.
+
+
+## Review and integration follow-up
+
+The owner approved each prepared head on October 2. Codex and
+GPT-6-luna/xhigh checked every note against the actual code. The only test
+addition, `25ec5e2772`, pairs accepted `Rule_1` and rejected `Rule.1` labels
+through both real UCI and nft-comment paths; the rules-map suite passed.
+All seven inline notes received evidence-backed replies and were resolved.
+
+After #1122/#1123 landed, master `38fa3f203a` was merged through the stack.
+Each unit’s code/test patch identity stayed unchanged, including the paired
+charset cases. The final package subtree is exactly
+`ccf98886ee3fa2a4c76f4663300624a2dc019e0c`, identical to the validated combined
+candidate; this follow-up requires no rebuilt installed artifact. Documentation
+entry ordering and review status were reconciled, and CI ran on the final heads.
+
+CodeRabbit completed the original adaptive unit at `6b1f20d7de` with no
+actionable findings. Later triggers were rate-limited; those rounds are
+unreviewed, not green reviews. Execution uses the completed owner reviews as
+the required review gate under the owner’s instruction to complete and merge
+#1135. Exact-head CI and unresolved-finding checks remain separate gates.
