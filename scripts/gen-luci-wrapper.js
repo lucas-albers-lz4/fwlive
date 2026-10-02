@@ -102,6 +102,8 @@ function loadLuciLogModule(text) {
 }
 
 const luciSpec = extractClassifySpec(src);
+core.validateClassifySpec(core.CLASSIFY_SPEC);
+core.validateClassifySpec(luciSpec);
 assert.deepEqual(core.CLASSIFY_SPEC, luciSpec,
 	'LuCI wrapper CLASSIFY_SPEC drifted from core');
 

@@ -180,9 +180,15 @@ try {
 			message: 'CLASSIFY_SPEC kv predicate must be a non-empty array of non-empty strings'
 		}
 	];
+	for (const key of ['kv', 'kvAny']) {
+		for (const value of ['a"b', 'a\\b', 'a\nb', 'a.b', 'a b']) {
+			malformed.push({ rules: [{ [key]: [value] }],
+				message: 'CLASSIFY_SPEC ' + key + ' predicate contains an invalid KV name' });
+		}
+	}
 	for (let i = 0; i < malformed.length; i++) {
 		core.CLASSIFY_SPEC.rules = malformed[i].rules;
-		const jsError = captureError(() => core.evaluateClassifySpec('SRC=192.0.2.1'));
+		const jsError = captureError(() => core.validateClassifySpec(core.CLASSIFY_SPEC));
 		const codegenError = captureError(() => emitAwkRules());
 		assert.equal(jsError.message, malformed[i].message);
 		assert.equal(codegenError.message, malformed[i].message);
@@ -208,7 +214,7 @@ try {
 
 	core.CLASSIFY_SPEC.rules = [{ and: [{ kv: ['SRC'], hint: true }] }];
 	assert.throws(
-		() => core.evaluateClassifySpec('SRC=192.0.2.1'),
+		() => core.validateClassifySpec(core.CLASSIFY_SPEC),
 		/exactly one key/
 	);
 	assert.throws(() => emitAwkRules(), /exactly one key/);
