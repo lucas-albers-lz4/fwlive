@@ -446,7 +446,7 @@ function matchesTextField(haystack, spec) {
 	if (!p.value)
 		return true;
 
-	const hit = (haystack || '').indexOf(p.value) !== -1;
+	const hit = (haystack || '').toLowerCase().indexOf(p.value.toLowerCase()) !== -1;
 	return p.negate ? !hit : hit;
 }
 
