@@ -208,7 +208,7 @@ function readPoMessage(locale, msgid) {
 
 async function testSimpleActionLayout(page) {
 	const actions = ['pass', 'block', 'drop', 'reject'];
-	const locales = ['en', 'de', 'ru'].map((name) => {
+	const locales = ['en', 'de', 'ru', 'zh_Hans'].map((name) => {
 		const translations = {};
 		if (name !== 'en') {
 			for (const msgid of [...actions, ...Object.values(SIMPLE_INSTRUCTION_MESSAGES)])
@@ -383,7 +383,7 @@ async function testSimpleActionLayout(page) {
 			await localePage.close().catch(() => {});
 			}
 		}
-	console.log('OK: Simple Action/Time geometry for en/de/ru at 13px/16px narrow/desktop widths');
+	console.log('OK: Simple Action/Time geometry for en/de/ru/zh_Hans at 13px/16px narrow/desktop widths');
 }
 
 async function expansionButtonByRowId(page, rowId, name) {

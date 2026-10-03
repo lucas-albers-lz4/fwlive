@@ -63,7 +63,7 @@ msgstr "动作"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:184
 msgid ""
 "Activate the message button or click a row to show or hide the full message"
-msgstr "激活消息按钮或单击行即可显示或隐藏完整的日志行"
+msgstr "激活消息按钮或单击行即可显示或隐藏完整消息"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:977
 msgid "Administrator access is required to disable logging."
@@ -133,7 +133,7 @@ msgid ""
 "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for "
 "firewall settings · in Simple view, activate the message button or click a "
 "row to show or hide the full message"
-msgstr "点击单元格筛选 · 芯片上的 ≠ 排除 · Ctrl+点击规则打开防火墙设置 · 在简洁视图中，激活消息按钮或单击行即可显示或隐藏完整的日志行"
+msgstr "点击单元格筛选 · 芯片上的 ≠ 排除 · Ctrl+点击规则打开防火墙设置 · 在简洁视图中，激活消息按钮或单击行即可显示或隐藏完整消息"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2584
 msgid ""
