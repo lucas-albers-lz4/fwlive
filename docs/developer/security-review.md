@@ -13,6 +13,20 @@ prevention and hash updates. The browser harness mocks LuCI services; this is
 a scoped renderer delta, not installed-router, assistive-technology, or
 full-source re-audit evidence.
 
+**2026-10-03 #1149 renderer delta.** Chip rendering compares ordered fields,
+labels, raw values/polarity, substring mode, visibility and callback identities
+before replacing DOM. Unchanged strips keep their nodes through real table
+paints; changed strips restore focus to the same field/action when it survives,
+otherwise to Clear all, the associated filter, or Quick search when the strip
+empties. View callbacks remain stable and inert after disposal. Filter values
+continue through LuCI array-form text children. Host proof:
+`tests/fwlive-chips-hash.test.js` checks stable nodes, changed content/order,
+polarity, and current callback binding. Chromium `npm run test:view` checks
+repeated paints, row insertion/reorder, polarity/value refresh, removal, Clear
+all, outside-input focus, and disposal using mocked LuCI services. This is a
+scoped renderer delta, not installed-router, assistive-technology, or
+full-source re-audit evidence.
+
 **2026-10-03 #1134 qualification evidence.** The lab-control and measurement
 PRs #1143/#1144 were reviewed, their posted findings triaged/fixed, and merged
 as `c2f9d2468881267bd421ee3c4eac11141daaafba` and

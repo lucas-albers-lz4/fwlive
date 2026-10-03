@@ -219,6 +219,7 @@ return view.extend({
 	consentDismissedSession: false,
 	_loggingToolbarSig: '',
 	_loggingEmptySig: '',
+	_filterChipCallbacks: null,
 	tintFallbackActive: false,
 	tintProbeDone: false,
 
@@ -2140,9 +2141,38 @@ return view.extend({
 		this.onFilterInput();
 	},
 
+	focusFilterFallback(field) {
+		if (this.viewDisposed) return;
+		let target = field ? document.getElementById('fwlive-' + field) : null;
+		if (!target || typeof target.focus !== 'function')
+			target = document.getElementById('fwlive-q');
+		if (target && typeof target.focus === 'function') target.focus();
+	},
+
 	renderFilterChips() {
 		const bar = document.getElementById('fwlive-chips');
-		if (!bar) return;
+		if (!bar || this.viewDisposed) return;
+
+		if (!this._filterChipCallbacks) {
+			this._filterChipCallbacks = {
+				onInvert: (field, ev) => {
+					if (!this.viewDisposed) this.invertFilter(field, ev);
+					else {
+						if (ev && ev.preventDefault) ev.preventDefault();
+						if (ev && ev.stopPropagation) ev.stopPropagation();
+					}
+				},
+				onClear: (field, ev) => {
+					if (!this.viewDisposed) this.clearFilter(field, ev);
+					else if (ev && ev.preventDefault) ev.preventDefault();
+				},
+				onClearAll: (ev) => {
+					if (!this.viewDisposed) this.clearAllFilters(ev);
+					else if (ev && ev.preventDefault) ev.preventDefault();
+				},
+				onFocusFallback: (field) => this.focusFilterFallback(field)
+			};
+		}
 
 		chips.renderFilterChips(
 			bar,
@@ -2150,11 +2180,7 @@ return view.extend({
 				filters: Object.assign({}, this.readFilters()),
 				chipFields: this.FILTER_CHIP_FIELDS
 			},
-			{
-				onInvert: (field, ev) => this.invertFilter(field, ev),
-				onClear: (field, ev) => this.clearFilter(field, ev),
-				onClearAll: (ev) => this.clearAllFilters(ev)
-			}
+			this._filterChipCallbacks
 		);
 	},
 
