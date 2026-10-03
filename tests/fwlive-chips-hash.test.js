@@ -276,6 +276,71 @@ function testActionPickerAccessibleNameAndHash() {
 	);
 }
 
+function testChipStripSignatureAndCallbackRefresh() {
+	const log = loadFwliveModule('log');
+	const chips = loadFwliveModule('chips', { log: log, E: luciE.E, document: luciE.document });
+	const host = luciE.E('div', {}, []);
+	host.style = { display: '' };
+	const state = {
+		filters: { src: '192.0.2.1', dst: '192.0.2.2' },
+		chipFields: [
+			{ key: 'src', label: 'src' },
+			{ key: 'dst', label: 'dst' }
+		]
+	};
+	let clearCalls = 0;
+	const callbacks = {
+		onInvert: function () {},
+		onClear: function () { clearCalls++; },
+		onClearAll: function () {}
+	};
+	chips.renderFilterChips(host, state, callbacks);
+	const initialNodes = host.childNodes.slice();
+	const initialWrites = host._innerHTMLWrites.length;
+	chips.renderFilterChips(host, state, callbacks);
+	assert.deepStrictEqual(host.childNodes, initialNodes, 'unchanged strip must keep the same nodes');
+	assert.strictEqual(host._innerHTMLWrites.length, initialWrites, 'unchanged strip must skip clearing');
+
+	state.filters.src = '198.51.100.1';
+	chips.renderFilterChips(host, state, callbacks);
+	assert.notStrictEqual(host.childNodes[0], initialNodes[0], 'changed value must refresh its chip');
+	assert.ok(collectText(host).indexOf('198.51.100.1') >= 0, 'changed value must be rendered');
+	assert.ok(collectText(host).indexOf('192.0.2.1') < 0, 'old value must be removed');
+
+	state.filters.src = '!198.51.100.1';
+	chips.renderFilterChips(host, state, callbacks);
+	assert.ok(
+		String(host.childNodes[0].getAttribute('class')).indexOf('fwlive-chip-negated') >= 0,
+		'polarity changes must refresh chip classes and content'
+	);
+
+	state.chipFields.reverse();
+	chips.renderFilterChips(host, state, callbacks);
+	const reorderedText = collectText(host);
+	assert.ok(
+		reorderedText.indexOf('192.0.2.2') < reorderedText.indexOf('198.51.100.1'),
+		'chip-field order changes must refresh the rendered order'
+	);
+
+	const previousRemove = findElementByClass(host, 'fwlive-chip-remove');
+	const replacementCallbacks = {
+		onInvert: function () {},
+		onClear: function () { clearCalls += 10; },
+		onClearAll: function () {}
+	};
+	chips.renderFilterChips(host, state, replacementCallbacks);
+	const replacementRemove = findElementByClass(host, 'fwlive-chip-remove');
+	assert.notStrictEqual(replacementRemove, previousRemove, 'new callbacks must refresh click closures');
+	replacementRemove._listeners.click[0]({ type: 'click' });
+	assert.strictEqual(clearCalls, 10, 'replacement node must call only the current callback');
+
+	state.filters.src = '';
+	state.filters.dst = '!';
+	chips.renderFilterChips(host, state, replacementCallbacks);
+	assert.strictEqual(host.style.display, 'none', 'empty/bare-negation state hides the strip');
+	assert.strictEqual(collectText(host), '', 'empty/bare-negation state removes all chip nodes');
+}
+
 function testUnknownChipFieldLabel() {
 	const host = renderChips({ custom: 'x' }, [{ key: 'custom', label: 'widget' }]);
 	const text = collectText(host);
@@ -567,6 +632,7 @@ testIdentityChipFieldLabels();
 testTranslatedChipCatalog();
 testInvertButtonAccessibleNameTracksFilterMode();
 testActionPickerAccessibleNameAndHash();
+testChipStripSignatureAndCallbackRefresh();
 testUnknownChipFieldLabel();
 testApplyHashValidAndMalformed();
 testApplyHashIgnoresUnlistedAndPersistedKeys();
