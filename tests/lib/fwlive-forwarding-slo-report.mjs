@@ -18,12 +18,13 @@ export function median(values) {
 }
 
 function stats(values) {
-	return values.length ? {
-		count: values.length,
-		median: median(values),
-		min: Math.min(...values),
-		max: Math.max(...values),
-		spread: Math.max(...values) - Math.min(...values)
+	const numeric = values.filter(Number.isFinite);
+	return numeric.length ? {
+		count: numeric.length,
+		median: median(numeric),
+		min: Math.min(...numeric),
+		max: Math.max(...numeric),
+		spread: Math.max(...numeric) - Math.min(...numeric)
 	} : { count: 0, median: null, min: null, max: null, spread: null };
 }
 
@@ -34,6 +35,8 @@ export function buildReport({
 	duration,
 	pingCount,
 	bitrate,
+	streams = 1,
+	metadata = {},
 	startedAt,
 	generatedAt = new Date().toISOString()
 }) {
@@ -46,19 +49,27 @@ export function buildReport({
 			pairs.push({ pair, complete: false, rows });
 			continue;
 		}
+		const trafficValid = [baseline, active].every((row) =>
+			row.traffic?.status === 'valid' &&
+			Number.isFinite(row.throughput_bps) && row.throughput_bps > 0 &&
+			Number.isFinite(row.ping_rtt_stddev_ms) &&
+			row.traffic.ping_loss_pct === 0 &&
+			row.traffic.streams === Number(streams) &&
+			row.traffic.observed_streams === Number(streams));
 		pairs.push({
 			pair,
 			complete: true,
-			throughput_degradation_pct: (1 - active.throughput_bps / baseline.throughput_bps) * 100,
-			ping_stddev_ratio: baseline.ping_rtt_stddev_ms === 0
+			traffic_valid: trafficValid,
+			throughput_degradation_pct: !trafficValid ? null : (1 - active.throughput_bps / baseline.throughput_bps) * 100,
+			ping_stddev_ratio: !trafficValid || baseline.ping_rtt_stddev_ms === 0
 				? null
 				: active.ping_rtt_stddev_ms / baseline.ping_rtt_stddev_ms
 		});
 	}
 	const baselines = records.filter((row) => row.mode === 'no-viewer');
 	const actives = records.filter((row) => row.mode === 'active-viewer');
-	const degradation = pairs.filter((row) => row.complete).map((row) => row.throughput_degradation_pct);
-	const ratios = pairs.filter((row) => row.complete && row.ping_stddev_ratio !== null).map((row) => row.ping_stddev_ratio);
+	const degradation = pairs.filter((row) => Number.isFinite(row.throughput_degradation_pct)).map((row) => row.throughput_degradation_pct);
+	const ratios = pairs.filter((row) => Number.isFinite(row.ping_stddev_ratio)).map((row) => row.ping_stddev_ratio);
 	const report = {
 		schema: REPORT_SCHEMA,
 		issue: 306,
@@ -69,13 +80,24 @@ export function buildReport({
 			duration_s: Number(duration),
 			ping_count: Number(pingCount),
 			iperf_bitrate: bitrate || 'unlimited',
+			iperf_bitrate_semantics: 'aggregate across all TCP streams',
+			iperf_streams: Number(streams),
 			viewer_baseline: 'no-viewer',
 			viewer_comparison: 'active-viewer',
-			traffic: 'iperf3 receive throughput plus routed ping RTT standard deviation'
+			traffic: 'iperf3 receive throughput/retransmits plus routed ping loss and RTT standard deviation'
 		},
 		acceptance: {
 			all_pairs_complete: pairs.length === Number(expectedPairs) && pairs.every((row) => row.complete),
+			traffic_samples_valid: records.length === Number(expectedPairs) * 2 && pairs.every((row) => row.complete && row.traffic_valid),
+			raw_iperf_and_ping_retained: records.length === Number(expectedPairs) * 2 && records.every((row) =>
+				['iperf-client.json', 'iperf-server.json', 'ping.txt'].every((name) => typeof row.raw?.[name] === 'string')),
+			telemetry_captured: records.length === Number(expectedPairs) * 2 && records.every((row) =>
+				row.telemetry?.host && row.telemetry?.guest &&
+				row.telemetry.host.cpu_per_core && row.telemetry.guest.cpu_per_core),
 			active_viewer_poll_observed: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.polls_in_window > 0),
+		viewer_poll_response_details_captured: actives.length === Number(expectedPairs) && actives.every((row) =>
+			Array.isArray(row.viewer.poll_responses) && row.viewer.poll_responses.length > 0 &&
+			row.viewer.poll_responses.every((poll) => Number.isFinite(poll.received_rows) && Number.isFinite(poll.requested_lines))),
 			viewer_requests_drained: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.in_flight_after_drain === 0),
 			viewer_requests_succeeded: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.request_failures === 0),
 			median_throughput_degradation_lt_10_pct: median(degradation) !== null && median(degradation) < 10,
@@ -91,6 +113,19 @@ export function buildReport({
 			no_viewer: stats(baselines.map((row) => row.ping_rtt_stddev_ms)),
 			active_viewer: stats(actives.map((row) => row.ping_rtt_stddev_ms))
 		},
+		generator_cpu_pct: {
+			no_viewer: stats(baselines.map((row) => row.traffic?.generator_cpu_pct).filter(Number.isFinite)),
+			active_viewer: stats(actives.map((row) => row.traffic?.generator_cpu_pct).filter(Number.isFinite))
+		},
+		iperf_retransmits: {
+			no_viewer: stats(baselines.map((row) => row.traffic?.retransmits).filter(Number.isFinite)),
+			active_viewer: stats(actives.map((row) => row.traffic?.retransmits).filter(Number.isFinite))
+		},
+		ping_loss_pct: {
+			no_viewer: stats(baselines.map((row) => row.traffic?.ping_loss_pct).filter(Number.isFinite)),
+			active_viewer: stats(actives.map((row) => row.traffic?.ping_loss_pct).filter(Number.isFinite))
+		},
+		metadata,
 		pairs,
 		samples: records,
 		started_at: startedAt,
@@ -120,9 +155,10 @@ export function writeReport(reportFile, report) {
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-	const [recordsFile, reportFile, adaptive, expectedPairs, duration, pingCount, bitrate, enforce, startedAt] = process.argv.slice(2);
+	const [recordsFile, reportFile, adaptive, expectedPairs, duration, pingCount, bitrate, streams, enforce, startedAt, metadataFile] = process.argv.slice(2);
 	const records = fs.readFileSync(recordsFile, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
-	const report = buildReport({ records, adaptive, expectedPairs, duration, pingCount, bitrate, startedAt });
+	const metadata = metadataFile ? JSON.parse(fs.readFileSync(metadataFile, 'utf8')) : {};
+	const report = buildReport({ records, adaptive, expectedPairs, duration, pingCount, bitrate, streams, metadata, startedAt });
 	writeReport(reportFile, report);
 	console.log(JSON.stringify(report, null, 2));
 	if (enforce === '1' && !report.pass) process.exit(1);

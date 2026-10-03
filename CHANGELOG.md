@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Check formal rollback decision completion and conditional idealized restore effectiveness, retaining an unfair counterexample and rejecting ambiguous temporal-property attribution (PR #1123).
 - Reuse validated firewall KV patterns during classification, removing per-message RegExp construction from the poll path (#1131).
+- Extend forwarding-SLO lab reports with aggregate-rate stream control, retained raw traffic, per-sample host/guest telemetry, and response-side viewer poll evidence (#1134).
 
 ## [v0.1.50] — 2026-10-02
 
