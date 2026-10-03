@@ -100,6 +100,47 @@ run_expected_property_violation() {
 	ok "$module / $cfg reports expected $property property counterexample"
 }
 
+run_trace_replay_cases() {
+	local cases="$1" mode property config output status number=0
+	[[ -f "$cases" ]] || fail "trace replay case list is missing: $cases"
+	[[ -f "$ROOT/formal/wan-log-lock/WanLogRollbackReplay.tla" ]] \
+		|| fail "rollback trace replay module is missing"
+	while IFS='|' read -r mode property config || [[ -n "${mode:-}${property:-}${config:-}" ]]; do
+		[[ -n "${mode:-}" ]] || continue
+		[[ -f "$config" ]] || fail "trace replay config is missing: $config"
+		number=$((number + 1))
+		set +e
+		output="$(cd "$ROOT/formal/wan-log-lock" && java -jar "$JAR" -workers 1 \
+			-metadir "$WORK/rollback-replay-${number}-states" -config "$config" \
+			WanLogRollbackReplay.tla 2>&1)"
+		status=$?
+		set -e
+		case "$mode" in
+			pass)
+				if [[ "$status" -ne 0 ]] || ! grep -Fq "Model checking completed. No error has been found." <<<"$output"; then
+					printf '%s\n' "$output" >&2
+					fail "observed rollback trace unexpectedly rejected: $config"
+				fi
+				ok "observed rollback trace passes: $config"
+				;;
+			reject)
+				if [[ "$status" -eq 0 ]] || ! grep -Fq "Invariant $property is violated" <<<"$output"; then
+					printf '%s\n' "$output" >&2
+					fail "mutated rollback trace did not violate $property: $config"
+				fi
+				ok "mutated rollback trace rejected by $property: $config"
+				;;
+			*) fail "unknown trace replay case mode: $mode" ;;
+		esac
+	done < "$cases"
+	[[ "$number" -gt 0 ]] || fail "trace replay case list is empty"
+}
+
+if [[ -n "${FWLIVE_TLC_REPLAY_CASES:-}" ]]; then
+	run_trace_replay_cases "$FWLIVE_TLC_REPLAY_CASES"
+	exit 0
+fi
+
 run_pass wan-log-lock WanLogLock WanLogLock.cfg
 run_pass wan-log-lock WanLogLockTimed WanLogLockTimedSafety.cfg
 run_pass wan-log-lock WanLogRollbackRevision WanLogRollbackRevision.cfg
