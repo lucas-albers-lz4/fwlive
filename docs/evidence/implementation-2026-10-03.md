@@ -118,5 +118,21 @@ The original dirty workspace was preserved.
 The repository's `docs/developer/pr-cycle.md` requires Bugbot and human branch
 review before PR filing, then a completed CodeRabbit round and passing checks
 at each actual PR head before merge. No callable Bugbot reviewer was available
-in this session. Those gates are pending; no PR was filed and no issue was
-closed or self-attested as owner-reviewed.
+in this session. At completion of the acceptance run, those gates were pending; no PR had
+been filed and no issue was closed or self-attested as owner-reviewed.
+
+
+## Owner authorization to file PRs
+
+The owner subsequently instructed: “ok push all pr’s and I will do those
+reviews”. This authorizes PR filing before the pending human/Bugbot reviews.
+It does not attest that those reviews have passed or authorize merging.
+
+The implementation is prepared as four stacked PR branches: `pr/oct03-u1`
+against master, `pr/oct03-u2` against U1, `pr/oct03-u3` against U2, and
+`pr/oct03-d1` against U3. U1 includes the stale-tooltip assertion correction;
+D1 carries this integrated evidence packet. Before this documentation update,
+the top stack's entire tree was identical to `c67ec6859a`. The package subtree
+remains `023ec8ed6211a40054868c15f71f769f53fa1b9a`, preserving the tested and
+installed payload. Per-PR CI, bot/human findings and merge status remain tracked
+in #1158. Retarget and recheck each dependent PR before merging it to master.
