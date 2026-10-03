@@ -87,8 +87,15 @@ function renderSignature(state, callbacks) {
 		if (value && log.parseFilterValue(value).value) visible = true;
 	}
 
+	const labels = [
+		String(_('Exclude instead')),
+		String(_('Include instead')),
+		String(_('Remove filter')),
+		String(_('Clear all'))
+	];
+
 	return {
-		value: JSON.stringify(fields),
+		value: JSON.stringify([fields, labels]),
 		visible: visible,
 		onInvert: callbacks && callbacks.onInvert,
 		onClear: callbacks && callbacks.onClear,

@@ -2146,7 +2146,11 @@ return view.extend({
 		let target = field ? document.getElementById('fwlive-' + field) : null;
 		if (!target || typeof target.focus !== 'function')
 			target = document.getElementById('fwlive-q');
-		if (target && typeof target.focus === 'function') target.focus();
+		if (target && typeof target.focus === 'function') {
+			const details = typeof target.closest === 'function' ? target.closest('details') : null;
+			if (details && !details.open) details.open = true;
+			target.focus();
+		}
 	},
 
 	renderFilterChips() {
