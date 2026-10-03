@@ -1,5 +1,15 @@
 # Security review state
 
+**2026-10-04 #1165 WAN-log uninstall baseline.** When Enable is called while
+filter logging is already active and the saved baseline is absent, reconstruct
+the pre-feature value by clearing only the owned filter-log bit from the
+current numeric mask. This preserves unrelated mask bits across package
+removal (for example, current `log=3` snapshots baseline `2`); `log=1` still
+snapshots the unset baseline. Existing baselines remain unchanged. Host proof:
+`tests/fwlive-logging.test.sh` exercises already-on single-bit and multi-bit
+enable followed by uninstall restoration. This is a scoped WAN logging
+lifecycle fix, not a full-source security re-audit.
+
 **2026-10-03 #1148/#1150 renderer delta.** The chip removal link has a static,
 translated `aria-label`, and the Action select names its filter purpose with
 existing translated catalog strings. Filter values remain array-form text

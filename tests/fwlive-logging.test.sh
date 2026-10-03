@@ -1429,6 +1429,22 @@ restore_wan_log_baseline || die "#935 restore of reconstructed empty baseline fa
 [ -z "$WAN_ZONE_LOG" ] || die "#935 uninstall restore must clear the already-on bit, got '$WAN_ZONE_LOG'"
 ok "already-on empty snapshot lets uninstall turn logging off"
 
+# Already-on logging may include unrelated mask bits; preserve them on uninstall.
+rm -f "$WAN_LOG_BASELINE_FILE"
+WAN_ZONE_LOG='3'
+enable_wan_logging >"$BASELINE_WORK/already-on-multibit.out"
+out=$(cat "$BASELINE_WORK/already-on-multibit.out")
+case "$out" in
+	*'"ok":true'*'"changed":false'*) ;;
+	*) die "#1165 already-on multibit enable: expected ok:true/changed:false, got: $out" ;;
+esac
+baseline=$(cat "$WAN_LOG_BASELINE_FILE")
+[ "$baseline" = "2" ] || die "#1165 baseline must preserve non-owned bit 1, got '$baseline'"
+WAN_ZONE_LOG='3'
+restore_wan_log_baseline || die "#1165 restore of reconstructed multibit baseline failed"
+[ "$WAN_ZONE_LOG" = "2" ] || die "#1165 uninstall must preserve unrelated log bit 1, got '$WAN_ZONE_LOG'"
+ok "already-on multi-bit snapshot preserves unrelated logging on uninstall"
+
 printf '1' >"$WAN_LOG_BASELINE_FILE"
 WAN_ZONE_LOG='3'
 enable_wan_logging >"$BASELINE_WORK/already-on-skip.out"
