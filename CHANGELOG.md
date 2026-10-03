@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve representable C0 control bytes and DEL in generated poll summaries using JSON escapes, matching the shell escaper (#1124).
 - Preserve adaptive hot/shed state when either poll duration clock sample is unavailable, and accept case-insensitive adaptive-off overrides (#1125, #1127).
 - Add a translated, keyboard-operable full-message button to Simple-view rows, preserve expansion focus across keyed repaints, and clarify the Help instructions (#1130).
+- Keep Simple-view Action labels and the message button within their cells at larger fonts and in German/Russian, and mention button activation in the Time tooltip and hint (#1147, #1154).
 - Give filter-chip invert buttons translated Include/Exclude accessible names while retaining the existing tooltip and filter controls (#1129).
 - Keep upstream-cut translation paths and references aligned with the exported LuCI tree, remove dangling source-only references, and use checked temporary storage for the CLI selftest (#1120; PR #1122).
 

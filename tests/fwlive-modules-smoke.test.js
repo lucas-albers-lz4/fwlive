@@ -545,7 +545,10 @@ const timeTd = simpleTr.children.find(function (c) {
 	return c.tag === 'td' && c.attrs && c.attrs.class === 'fwlive-time';
 });
 assert.ok(timeTd, 'simple view should render a time cell');
-assert.strictEqual(String(timeTd.attrs.title), 'Click a row for the full message');
+assert.strictEqual(
+	String(timeTd.attrs.title),
+	'Activate the message button or click a row to show or hide the full message'
+);
 
 const outboundOnlyBody = {
 	innerHTML: 'rows',
