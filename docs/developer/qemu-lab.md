@@ -869,6 +869,23 @@ rate leaves TCP uncapped. The ping interval is derived from
 `duration / ping_count` unless
 `FWLIVE_SLO_PING_INTERVAL_S` is set explicitly.
 
+#### Larger-guest controlled results (#1134)
+
+The [durable high-rate record](../../lab/forwarding-slo/2026-10-02-highrate/README.md)
+extends the tested virtual envelope to 10 Gb/s using 2-/8-vCPU, 1 GiB
+virtio/kernel-vhost guests with verified active queues, console threshold 4
+and explicit logging policy. Seven five-pair cohorts pass their recorded
+validity and relative forwarding gates. Direct real-log pressure/recovery
+runs retain guest duration, caps/returned rows, resolution suppression and
+explicit backlog-drain recovery on 24.10.8 and 25.12.5.
+One-pair 80 Gb/s-cap screens achieve only about 23–40 Gb/s and retain failing
+single-stream forwarding comparisons and retransmission tails. They do not
+qualify that cap or attribute the boundary to one component of the shared
+host. See the record for exact packages/revisions, raw gzip artifacts, replay,
+visibility limits and the conditional physical-target follow-up. Production
+adaptive defaults are unchanged; a 2 GiB guest or new controller lacks a
+measured trigger here.
+
 #### Recorded x86 result
 
 The durable qualification record uses the canonical OpenWrt 24.10.8 x86_64

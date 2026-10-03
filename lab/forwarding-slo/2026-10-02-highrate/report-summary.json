@@ -1,0 +1,468 @@
+[
+  {
+    "file": "paired-24-2-off-10G.json",
+    "acceptance": {
+      "all_pairs_complete": true,
+      "traffic_samples_valid": true,
+      "raw_iperf_and_ping_retained": true,
+      "telemetry_captured": true,
+      "active_viewer_poll_observed": true,
+      "viewer_poll_response_details_captured": true,
+      "viewer_requests_drained": true,
+      "viewer_requests_succeeded": true,
+      "median_throughput_degradation_lt_10_pct": true,
+      "median_ping_stddev_ratio_lt_2": true
+    },
+    "throughput_degradation_pct": {
+      "count": 5,
+      "median": 0.00011998422206893622,
+      "min": -0.0008143801652593652,
+      "max": 0.0006299190553837875,
+      "spread": 0.0014442992206431526
+    },
+    "ping_stddev_ratio": {
+      "count": 5,
+      "median": 1.0789473684210527,
+      "min": 0.3010752688172043,
+      "max": 1.4210526315789473,
+      "spread": 1.119977362761743
+    },
+    "throughput_bps": {
+      "no_viewer": {
+        "count": 5,
+        "median": 9999700354.24384,
+        "min": 9999628335.823673,
+        "max": 9999781341.92002,
+        "spread": 153006.0963459015
+      },
+      "active_viewer": {
+        "count": 5,
+        "median": 9999711491.84592,
+        "min": 9999688356.18116,
+        "max": 9999754184.84054,
+        "spread": 65828.6593799591
+      }
+    },
+    "polls": 50,
+    "received_rows_range": [
+      393,
+      400
+    ],
+    "requested_lines": [
+      400
+    ],
+    "effective_caps": [],
+    "poll_latency_median_ms": 468.0,
+    "host": {
+      "busiest_core_pct": 73.469,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    },
+    "guest": {
+      "busiest_core_pct": 40.062,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    }
+  },
+  {
+    "file": "paired-24-2-on-10G.json",
+    "acceptance": {
+      "all_pairs_complete": true,
+      "traffic_samples_valid": true,
+      "raw_iperf_and_ping_retained": true,
+      "telemetry_captured": true,
+      "active_viewer_poll_observed": true,
+      "viewer_poll_response_details_captured": true,
+      "viewer_requests_drained": true,
+      "viewer_requests_succeeded": true,
+      "median_throughput_degradation_lt_10_pct": true,
+      "median_ping_stddev_ratio_lt_2": true
+    },
+    "throughput_degradation_pct": {
+      "count": 5,
+      "median": 0.0003969443911233661,
+      "min": -0.0003657803600232157,
+      "max": 0.0005483116872651017,
+      "spread": 0.0009140920472883174
+    },
+    "ping_stddev_ratio": {
+      "count": 5,
+      "median": 0.8245614035087719,
+      "min": 0.4897959183673469,
+      "max": 1.7894736842105265,
+      "spread": 1.2996777658431795
+    },
+    "throughput_bps": {
+      "no_viewer": {
+        "count": 5,
+        "median": 9999745185.627825,
+        "min": 9999712049.28582,
+        "max": 9999762044.261427,
+        "spread": 49994.975606918335
+      },
+      "active_viewer": {
+        "count": 5,
+        "median": 9999722350.766867,
+        "min": 9999687356.343906,
+        "max": 9999748626.268555,
+        "spread": 61269.92464828491
+      }
+    },
+    "polls": 25,
+    "received_rows_range": [
+      193,
+      400
+    ],
+    "requested_lines": [
+      400
+    ],
+    "effective_caps": [
+      200,
+      400
+    ],
+    "poll_latency_median_ms": 878,
+    "host": {
+      "busiest_core_pct": 63.183,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    },
+    "guest": {
+      "busiest_core_pct": 50,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    }
+  },
+  {
+    "file": "paired-24-8-off-10G-pressure.json",
+    "acceptance": {
+      "all_pairs_complete": true,
+      "traffic_samples_valid": true,
+      "raw_iperf_and_ping_retained": true,
+      "telemetry_captured": true,
+      "active_viewer_poll_observed": true,
+      "viewer_poll_response_details_captured": true,
+      "viewer_requests_drained": true,
+      "viewer_response_parses_drained": true,
+      "viewer_requests_succeeded": true,
+      "median_throughput_degradation_lt_10_pct": true,
+      "median_ping_stddev_ratio_lt_2": true
+    },
+    "throughput_degradation_pct": {
+      "count": 5,
+      "median": 7.277373010872168e-05,
+      "min": -0.0003241636595374686,
+      "max": 0.0006597265136409902,
+      "spread": 0.0009838901731784588
+    },
+    "ping_stddev_ratio": {
+      "count": 5,
+      "median": 0.9218749999999999,
+      "min": 0.3354037267080745,
+      "max": 1.4390243902439024,
+      "spread": 1.1036206635358279
+    },
+    "throughput_bps": {
+      "no_viewer": {
+        "count": 5,
+        "median": 9999709910.15385,
+        "min": 9999675775.243967,
+        "max": 9999786322.320633,
+        "spread": 110547.0766658783
+      },
+      "active_viewer": {
+        "count": 5,
+        "median": 9999688356.18116,
+        "min": 9999681330.737753,
+        "max": 9999742325.57944,
+        "spread": 60994.84168624878
+      }
+    },
+    "polls": 50,
+    "received_rows_range": [
+      393,
+      400
+    ],
+    "requested_lines": [
+      400
+    ],
+    "effective_caps": [],
+    "poll_latency_median_ms": 417.5,
+    "host": {
+      "busiest_core_pct": 74.513,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    },
+    "guest": {
+      "busiest_core_pct": 17.109,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    }
+  },
+  {
+    "file": "paired-24-8-off-10G.json",
+    "acceptance": {
+      "all_pairs_complete": true,
+      "traffic_samples_valid": true,
+      "raw_iperf_and_ping_retained": true,
+      "telemetry_captured": true,
+      "active_viewer_poll_observed": true,
+      "viewer_poll_response_details_captured": true,
+      "viewer_requests_drained": true,
+      "viewer_requests_succeeded": true,
+      "median_throughput_degradation_lt_10_pct": true,
+      "median_ping_stddev_ratio_lt_2": true
+    },
+    "throughput_degradation_pct": {
+      "count": 5,
+      "median": 0.0004013594236740303,
+      "min": -0.0002669384134179609,
+      "max": 0.0010696207638938304,
+      "spread": 0.0013365591773117913
+    },
+    "ping_stddev_ratio": {
+      "count": 5,
+      "median": 0.9245283018867925,
+      "min": 0.6470588235294118,
+      "max": 1.2692307692307694,
+      "spread": 0.6221719457013576
+    },
+    "throughput_bps": {
+      "no_viewer": {
+        "count": 5,
+        "median": 9999728326.697525,
+        "min": 9999692355.53219,
+        "max": 9999843474.11348,
+        "spread": 151118.58128929138
+      },
+      "active_viewer": {
+        "count": 5,
+        "median": 9999719048.55231,
+        "min": 9999621367.52701,
+        "max": 9999803338.799343,
+        "spread": 181971.27233314514
+      }
+    },
+    "polls": 50,
+    "received_rows_range": [
+      393,
+      400
+    ],
+    "requested_lines": [
+      400
+    ],
+    "effective_caps": [],
+    "poll_latency_median_ms": 414.0,
+    "host": {
+      "busiest_core_pct": 76.863,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    },
+    "guest": {
+      "busiest_core_pct": 16.744,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    }
+  },
+  {
+    "file": "paired-24-8-on-10G-pressure.json",
+    "acceptance": {
+      "all_pairs_complete": true,
+      "traffic_samples_valid": true,
+      "raw_iperf_and_ping_retained": true,
+      "telemetry_captured": true,
+      "active_viewer_poll_observed": true,
+      "viewer_poll_response_details_captured": true,
+      "viewer_requests_drained": true,
+      "viewer_response_parses_drained": true,
+      "viewer_requests_succeeded": true,
+      "median_throughput_degradation_lt_10_pct": true,
+      "median_ping_stddev_ratio_lt_2": true
+    },
+    "throughput_degradation_pct": {
+      "count": 5,
+      "median": -0.00026441418077283174,
+      "min": -0.00037275884183785024,
+      "max": 0.0001471931816765526,
+      "spread": 0.0005199520235144028
+    },
+    "ping_stddev_ratio": {
+      "count": 5,
+      "median": 0.8163265306122449,
+      "min": 0.607843137254902,
+      "max": 0.8666666666666667,
+      "spread": 0.2588235294117647
+    },
+    "throughput_bps": {
+      "no_viewer": {
+        "count": 5,
+        "median": 9999718769.67934,
+        "min": 9999653916.98572,
+        "max": 9999754184.84054,
+        "spread": 100267.85482025146
+      },
+      "active_viewer": {
+        "count": 5,
+        "median": 9999711328.10789,
+        "min": 9999680357.488705,
+        "max": 9999788621.243567,
+        "spread": 108263.75486183167
+      }
+    },
+    "polls": 25,
+    "received_rows_range": [
+      400,
+      400
+    ],
+    "requested_lines": [
+      400
+    ],
+    "effective_caps": [
+      400
+    ],
+    "poll_latency_median_ms": 818,
+    "host": {
+      "busiest_core_pct": 78.774,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    },
+    "guest": {
+      "busiest_core_pct": 24.819,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    }
+  },
+  {
+    "file": "paired-24-8-on-10G.json",
+    "acceptance": {
+      "all_pairs_complete": true,
+      "traffic_samples_valid": true,
+      "raw_iperf_and_ping_retained": true,
+      "telemetry_captured": true,
+      "active_viewer_poll_observed": true,
+      "viewer_poll_response_details_captured": true,
+      "viewer_requests_drained": true,
+      "viewer_requests_succeeded": true,
+      "median_throughput_degradation_lt_10_pct": true,
+      "median_ping_stddev_ratio_lt_2": true
+    },
+    "throughput_degradation_pct": {
+      "count": 5,
+      "median": 0.0002529995671074481,
+      "min": 4.277796378238108e-05,
+      "max": 0.0012073249031629985,
+      "spread": 0.0011645469393806174
+    },
+    "ping_stddev_ratio": {
+      "count": 5,
+      "median": 0.8620689655172414,
+      "min": 0.6213592233009709,
+      "max": 1.088235294117647,
+      "spread": 0.46687607081667604
+    },
+    "throughput_bps": {
+      "no_viewer": {
+        "count": 5,
+        "median": 9999750765.77817,
+        "min": 9999690773.26083,
+        "max": 9999802338.93909,
+        "spread": 111565.67826080322
+      },
+      "active_viewer": {
+        "count": 5,
+        "median": 9999725466.45202,
+        "min": 9999681608.835186,
+        "max": 9999751765.65956,
+        "spread": 70156.82437324524
+      }
+    },
+    "polls": 25,
+    "received_rows_range": [
+      393,
+      400
+    ],
+    "requested_lines": [
+      400
+    ],
+    "effective_caps": [
+      400
+    ],
+    "poll_latency_median_ms": 820,
+    "host": {
+      "busiest_core_pct": 73.182,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    },
+    "guest": {
+      "busiest_core_pct": 23.832,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    }
+  },
+  {
+    "file": "paired-25-8-on-10G.json",
+    "acceptance": {
+      "all_pairs_complete": true,
+      "traffic_samples_valid": true,
+      "raw_iperf_and_ping_retained": true,
+      "telemetry_captured": true,
+      "active_viewer_poll_observed": true,
+      "viewer_poll_response_details_captured": true,
+      "viewer_requests_drained": true,
+      "viewer_requests_succeeded": true,
+      "median_throughput_degradation_lt_10_pct": true,
+      "median_ping_stddev_ratio_lt_2": true
+    },
+    "throughput_degradation_pct": {
+      "count": 5,
+      "median": 0.0004883221518592329,
+      "min": -0.0006755395680624332,
+      "max": 0.0023311885729127013,
+      "spread": 0.0030067281409751345
+    },
+    "ping_stddev_ratio": {
+      "count": 5,
+      "median": 0.9285714285714285,
+      "min": 0.31632653061224486,
+      "max": 7.369565217391305,
+      "spread": 7.05323868677906
+    },
+    "throughput_bps": {
+      "no_viewer": {
+        "count": 5,
+        "median": 9999733465.88762,
+        "min": 9999706771.19507,
+        "max": 9999796321.63399,
+        "spread": 89550.43891906738
+      },
+      "active_viewer": {
+        "count": 5,
+        "median": 9999689495.14004,
+        "min": 9999489214.80449,
+        "max": 9999787901.68303,
+        "spread": 298686.87854003906
+      }
+    },
+    "polls": 25,
+    "received_rows_range": [
+      393,
+      400
+    ],
+    "requested_lines": [
+      400
+    ],
+    "effective_caps": [
+      400
+    ],
+    "poll_latency_median_ms": 791,
+    "host": {
+      "busiest_core_pct": 77.49,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    },
+    "guest": {
+      "busiest_core_pct": 21.417,
+      "softnet_drops": 0,
+      "softnet_time_squeeze": 0
+    }
+  }
+]

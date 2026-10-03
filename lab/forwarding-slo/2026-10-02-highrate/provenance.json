@@ -1,0 +1,24 @@
+{
+  "product_revision": "8cafd441696449293b75cff1d71d22598fa83983",
+  "initial_instrumentation_revision": "e2b1e37eee1f8e9293b557fc347724e75e05f84c",
+  "published_release_artifact": false,
+  "artifact_version": "0.1.50-r1",
+  "target_bits_per_second": 80000000000,
+  "target_bytes_per_second": 10000000000,
+  "prepared_images": {
+    "24.10.8": "6af7e2287ec6666c1e6854be6454db8fdcbe1991a19588423a22f3336d03ea27",
+    "25.12.5": "cd6efe8677d68a2801e4dda8b3998921a01c65b34dae3a89b50a2974c867d978"
+  },
+  "packages": {
+    "24.10.8": "c1db476f1b4a9541cc87946def45993647a841257be89f4ce2c7a4a4933dae22",
+    "25.12.5": "f1935860a60f2c1787860f7d776a1890c2b8bd29064d00a111070b6f7c9d716a"
+  },
+  "limits": [
+    "QEMU virtual path, not physical Ethernet",
+    "One shared traffic/VM/browser host; no separate process CPU attribution",
+    "TCP receiver rates with offloads enabled; not wire-size packet-rate or UDP qualification",
+    "Single operator/browser",
+    "Unpinned CPU placement; no NUMA or physical NIC experiment",
+    "Observed viewer counts are returned firewall rows, not complete admission accounting"
+  ]
+}

@@ -4,6 +4,17 @@ This directory preserves the raw JSON reports produced by the reusable
 forwarding-SLO harness. The reports use `fwlive-forwarding-slo/v1` and retain
 every pair and sample; the harness report is the durable measurement record.
 
+## Larger-guest controlled qualification (#1134)
+
+The [corrected-prefix high-rate evidence](2026-10-02-highrate/README.md)
+records seven passing five-pair 10 Gb/s virtual forwarding cohorts: adaptive
+ON/OFF at 2 and 8 vCPUs on 24.10.8, an 8-vCPU adaptive-ON repeat on 25.12.5,
+and an 8-vCPU ON/OFF higher-logging browser point. It retains exact tuples,
+raw reports, controller pressure/recovery, a latency outlier, and four
+single-pair 80 Gb/s-cap boundary screens. Those screens achieved approximately
+23–40 Gb/s and do not qualify 80 Gb/s or physical 64-core hardware.
+The e1000 records below remain separate historical evidence.
+
 ## Supported x86 qualification point
 
 The canonical x86_64 OpenWrt 24.10.8 QEMU/e1000 routed topology used two

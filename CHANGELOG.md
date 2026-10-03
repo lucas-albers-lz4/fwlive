@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep upstream-cut translation paths and references aligned with the exported LuCI tree, remove dangling source-only references, and use checked temporary storage for the CLI selftest (#1120; PR #1122).
 
 ### Changed
+- Record seven controlled 10 Gb/s larger-guest qualification cohorts, real-log adaptive pressure/recovery, and unqualified 80 Gb/s-cap boundary evidence with durable raw artifacts (#1134).
 - Check formal rollback decision completion and conditional idealized restore effectiveness, retaining an unfair counterexample and rejecting ambiguous temporal-property attribution (PR #1123).
 - Reuse validated firewall KV patterns during classification, removing per-message RegExp construction from the poll path (#1131).
 - Extend forwarding-SLO lab reports with aggregate-rate stream control, retained raw traffic, per-sample host/guest telemetry, and response-side viewer poll evidence; preserve private partial evidence on failed runs and report unknown source identity explicitly (#1134).
