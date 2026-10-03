@@ -48,6 +48,38 @@ async function testInitialRender(page) {
 	console.log('OK: initial render');
 }
 
+async function testLocalizedFilterControlAccessibleNames(page) {
+	const localizedPage = await page.context().browser().newPage();
+	try {
+		const translations = {
+			Action: readPoMessage('de', 'Action'),
+			'Filter by %s': readPoMessage('de', 'Filter by %s'),
+			'Remove filter': readPoMessage('de', 'Remove filter')
+		};
+		await localizedPage.addInitScript((catalog) => {
+			window.fwliveTestTranslations = catalog;
+		}, translations);
+		await waitForHarness(localizedPage);
+		const action = localizedPage.getByRole('combobox', {
+			name: 'Filtern nach Aktion',
+			exact: true
+		});
+		if ((await action.count()) !== 1)
+			throw new Error('German Action accessible name must format the translated label');
+		await action.selectOption('pass');
+		await localizedPage.waitForSelector('a.fwlive-chip-remove', { timeout: 5000 });
+		const remove = localizedPage.getByRole('link', {
+			name: 'Filter entfernen',
+			exact: true
+		});
+		if ((await remove.count()) !== 1)
+			throw new Error('German chip remove accessible name must use its translation');
+		console.log('OK: Chromium computed German Action and remove names');
+	} finally {
+		await localizedPage.close().catch(() => {});
+	}
+}
+
 async function testFilterControlAccessibleNames(page) {
 	await clearFilters(page);
 	const action = await requireControl(page, '#fwlive-action');
@@ -1140,6 +1172,7 @@ async function runSmoke(browser) {
 		await waitForHarness(page);
 		await testInitialRender(page);
 		await testFilterControlAccessibleNames(page);
+		await testLocalizedFilterControlAccessibleNames(page);
 		await testPauseResume(page);
 		await testDisplayDrawer(page);
 		await testProtoCustomWins(page);
