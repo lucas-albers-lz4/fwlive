@@ -165,6 +165,197 @@ async function ensureSimpleView(page) {
 	}
 }
 
+async function testSimpleActionLayout(page) {
+	await clearFilters(page);
+	await ensureSimpleView(page);
+
+	const locales = [
+		{
+			name: 'en',
+			translations: {},
+			labels: ['pass', 'block', 'drop', 'reject']
+		},
+		{
+			name: 'de',
+			translations: {
+				pass: 'erlaubt',
+				block: 'blockiert',
+				drop: 'verworfen',
+				reject: 'abgelehnt'
+			},
+			labels: ['erlaubt', 'blockiert', 'verworfen', 'abgelehnt']
+		},
+		{
+			name: 'ru',
+			translations: {
+				pass: 'разрешён',
+				block: 'заблокирован',
+				drop: 'отброшен',
+				reject: 'отклонён'
+			},
+			labels: ['разрешён', 'заблокирован', 'отброшен', 'отклонён']
+		}
+	];
+	const sizes = [
+		{ name: 'narrow', width: 390 },
+		{ name: 'desktop', width: 1280 }
+	];
+	const actions = ['pass', 'block', 'drop', 'reject'];
+	const originalActions = await page.evaluate(() =>
+		window.fwliveView.entries.map((entry) => entry.action)
+	);
+
+	try {
+		for (const locale of locales) {
+			const expectedLabels = await page.evaluate(({ locale, actions }) => {
+				const view = window.fwliveView;
+				window.fwliveTestTranslations = locale.translations;
+				/* Change the render key before repaint so each locale rebuilds its labels. */
+				view.entries.forEach((entry) => (entry.action = 'unknown'));
+				view.invalidateFilteredRows();
+				view.renderRows(true);
+				const expected = {};
+				view.entries.forEach((entry, index) => {
+					const action = actions[index % actions.length];
+					entry.action = action;
+					expected[String(entry.id)] = locale.labels[index % actions.length];
+				});
+				view.invalidateFilteredRows();
+				view.renderRows(true);
+				return expected;
+			}, { locale, actions });
+
+			for (const fontSize of [13, 16]) {
+				for (const size of sizes) {
+					await page.setViewportSize({ width: size.width, height: 1000 });
+					const geometry = await page.evaluate(
+						({ fontSize }) => {
+							const view = window.fwliveView;
+						const map = document.querySelector('.fwlive-map');
+						map.style.fontSize = fontSize + 'px';
+
+						const box = (element) => {
+							const rect = element.getBoundingClientRect();
+							return {
+								left: rect.left,
+								right: rect.right,
+								top: rect.top,
+								bottom: rect.bottom,
+								width: rect.width,
+								height: rect.height
+							};
+						};
+						const table = document.getElementById('fwlive-table');
+						const scroll = document.getElementById('fwlive-scroll');
+						const rows = Array.from(table.querySelectorAll('tbody tr'))
+							.filter((row) => row.querySelector('td.fwlive-action'))
+						const cells = rows.map((row) => {
+							const action = row.querySelector('td.fwlive-action');
+							const link = action.querySelector('a.fwlive-filter-link');
+							const button = action.querySelector('button.fwlive-row-expand');
+							const time = row.querySelector('td.fwlive-time');
+							const range = document.createRange();
+							range.selectNodeContents(time);
+							const timeText = range.getBoundingClientRect();
+							return {
+								rowId: button && button._fwliveRowId,
+								label: link && link.textContent.trim(),
+								action: box(action),
+								link: box(link),
+								button: box(button),
+								time: box(time),
+								timeText: {
+									left: timeText.left,
+									right: timeText.right,
+									top: timeText.top,
+									bottom: timeText.bottom
+								},
+								actionScrollWidth: action.scrollWidth,
+								actionClientWidth: action.clientWidth,
+								timeScrollWidth: time.scrollWidth,
+								timeClientWidth: time.clientWidth
+							};
+						});
+						const timeTitle = rows[0].querySelector('td.fwlive-time').getAttribute('title');
+						return {
+							cells,
+							viewportWidth: window.innerWidth,
+							scrollWidth: scroll.scrollWidth,
+							scrollClientWidth: scroll.clientWidth,
+							actionColumnWidth: parseFloat(
+								getComputedStyle(table.querySelector('col.fwlive-col-action')).width
+							),
+							mapFontSize: parseFloat(getComputedStyle(map).fontSize),
+							hint: document.querySelector('.fwlive-hint-line').textContent,
+							timeTitle,
+							help: document.querySelector('#fwlive-help').textContent
+						};
+						},
+						{ fontSize }
+					);
+
+					if (geometry.cells.length !== originalActions.length)
+						throw new Error(`expected every fixture action row for ${locale.name}`);
+					if (geometry.actionColumnWidth < geometry.mapFontSize * 11.5 - 1)
+						throw new Error(
+							`shipped CSS action column too narrow at ${locale.name}/${fontSize}px/${size.name}: ${geometry.actionColumnWidth}px`
+						);
+					for (const cell of geometry.cells) {
+						if (cell.label !== expectedLabels[cell.rowId])
+							throw new Error(
+								`wrong ${locale.name} action label for ${cell.rowId}: expected ${expectedLabels[cell.rowId]}, got ${cell.label}`
+							);
+						if (
+							cell.actionScrollWidth > cell.actionClientWidth ||
+							cell.timeScrollWidth > cell.timeClientWidth ||
+							cell.link.left < cell.action.left ||
+							cell.link.right > cell.action.right ||
+							cell.button.right > cell.action.right ||
+							cell.button.left < cell.link.right ||
+							cell.button.right > cell.timeText.left ||
+							cell.timeText.left < cell.time.left ||
+							cell.timeText.right > cell.time.right ||
+							cell.button.width < 24 ||
+							cell.button.height < 24
+						)
+							throw new Error(
+								`localized Action/Time geometry failed at ${locale.name}/${fontSize}px/${size.name}: ${JSON.stringify(cell)}`
+							);
+					}
+					if (
+						!geometry.timeTitle.includes('message button') ||
+						!geometry.timeTitle.includes('click a row') ||
+						!geometry.hint.includes('message button') ||
+						!geometry.hint.includes('click a row') ||
+						!geometry.help.includes('message button') ||
+						!geometry.help.includes('click a row')
+					)
+						throw new Error('Simple-view message instructions disagree or omit a control');
+					if (size.name === 'narrow' && geometry.scrollWidth <= geometry.scrollClientWidth)
+						throw new Error(
+							`narrow Simple view must keep the table horizontally scrollable: ${JSON.stringify(geometry)}`
+						);
+				}
+			}
+		}
+	} finally {
+		await page.evaluate((actions) => {
+			window.fwliveTestTranslations = {};
+			window.fwliveView.entries.forEach((entry) => (entry.action = 'unknown'));
+			window.fwliveView.invalidateFilteredRows();
+			window.fwliveView.renderRows(true);
+			window.fwliveView.entries.forEach((entry, index) => {
+				entry.action = actions[index];
+			});
+			window.fwliveView.invalidateFilteredRows();
+			document.querySelector('.fwlive-map').style.removeProperty('font-size');
+			window.fwliveView.renderRows(true);
+		}, originalActions);
+		await page.setViewportSize({ width: 1280, height: 720 });
+	}
+	console.log('OK: Simple Action/Time geometry for en/de/ru at 13px/16px narrow/desktop widths');
+}
+
 async function expansionButtonByRowId(page, rowId, name) {
 	const buttons = page.locator('button.fwlive-row-expand');
 	const index = await buttons.evaluateAll(
@@ -857,6 +1048,7 @@ async function runSmoke(browser) {
 		await testStorageFailure(page);
 		await testResolverError(page);
 		await testRulesTruncatedDegraded(page);
+		await testSimpleActionLayout(page);
 		await testSimpleExpansionKeyboard(page);
 
 		if (pageErrors.length)
