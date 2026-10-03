@@ -1,5 +1,18 @@
 # Security review state
 
+**2026-10-03 #1148/#1150 renderer delta.** The chip removal link has a static,
+translated `aria-label`, and the Action select names its filter purpose with
+existing translated catalog strings. Filter values remain array-form text
+children and never enter either name; the existing remove callback, select
+values, and hash filtering remain unchanged. Host proof:
+`tests/fwlive-chips-hash.test.js` checks translated attributes, callback count,
+and Action hash behavior. `npm run test:view` uses Chromium's computed
+accessible snapshots and role/name lookup for the link and combobox, then
+checks keyboard filtering and Enter removal exactly once with default
+prevention and hash updates. The browser harness mocks LuCI services; this is
+a scoped renderer delta, not installed-router, assistive-technology, or
+full-source re-audit evidence.
+
 **2026-10-03 #1134 qualification evidence.** The lab-control and measurement
 PRs #1143/#1144 were reviewed, their posted findings triaged/fixed, and merged
 as `c2f9d2468881267bd421ee3c4eac11141daaafba` and

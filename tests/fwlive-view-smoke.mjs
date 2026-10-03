@@ -47,6 +47,79 @@ async function testInitialRender(page) {
 	console.log('OK: initial render');
 }
 
+async function testFilterControlAccessibleNames(page) {
+	await clearFilters(page);
+	const action = await requireControl(page, '#fwlive-action');
+	const actionAX = await action.ariaSnapshot();
+	const namedAction = page.getByRole('combobox', { name: 'Filter by Action', exact: true });
+	await action.selectOption('pass');
+	await page.waitForSelector('a.fwlive-chip-remove', { timeout: 5000 });
+	const removeAX = await page.locator('a.fwlive-chip-remove').ariaSnapshot();
+	const namedRemove = page.getByRole('link', { name: 'Remove filter', exact: true });
+	const initialNames = {
+		action: actionAX,
+		remove: removeAX,
+		namedActionCount: await namedAction.count(),
+		namedRemoveCount: await namedRemove.count()
+	};
+	if (initialNames.namedActionCount !== 1 || initialNames.namedRemoveCount !== 1)
+		throw new Error(`Chromium computed accessible names are incorrect: ${JSON.stringify(initialNames)}`);
+
+	/* Use the native select keyboard path so filtering and the hash are covered
+	 * together with the Action select's persistent name. */
+	await clearFilters(page);
+	await action.focus();
+	await action.press('ArrowDown');
+	await page.waitForFunction(() => window.fwliveView.readFilters().action === 'pass', {
+		timeout: 5000
+	});
+	if (await page.getByRole('combobox', { name: 'Filter by Action', exact: true }).count() !== 1)
+		throw new Error('Action combobox name must persist after keyboard filtering');
+	if (!/action=pass/.test(await page.evaluate(() => location.hash)))
+		throw new Error('keyboard filtering must continue updating the URL hash');
+
+	let remove = page.getByRole('link', { name: 'Remove filter', exact: true });
+	if (await remove.count() !== 1)
+		throw new Error('Chromium computed chip remove name must persist after keyboard filtering');
+	const invert = page.getByRole('button', { name: 'Exclude instead', exact: true });
+	if (await invert.count() !== 1)
+		throw new Error('include chip invert button must retain its translated name');
+	await invert.press('Enter');
+	await page.waitForFunction(() => window.fwliveView.readFilters().action === '!pass', {
+		timeout: 5000
+	});
+	if (await page.getByRole('combobox', { name: 'Filter by Action', exact: true }).count() !== 1)
+		throw new Error('Action combobox name must persist when chip polarity changes');
+	remove = page.getByRole('link', { name: 'Remove filter', exact: true });
+	if (await remove.count() !== 1)
+		throw new Error('chip remove name must remain stable after polarity changes');
+
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		const original = view.clearFilter;
+		window.__fwliveClearFilterCalls = 0;
+		window.__fwliveClearDefaultPrevented = false;
+		view.clearFilter = function(field, ev) {
+			window.__fwliveClearFilterCalls++;
+			const result = original.apply(this, arguments);
+			window.__fwliveClearDefaultPrevented = !!(ev && ev.defaultPrevented);
+			return result;
+		};
+	});
+	await remove.press('Enter');
+	await page.waitForFunction(() => window.fwliveView.readFilters().action === '', {
+		timeout: 5000
+	});
+	const removeResult = await page.evaluate(() => ({
+		calls: window.__fwliveClearFilterCalls,
+		prevented: window.__fwliveClearDefaultPrevented,
+		hash: location.hash
+	}));
+	if (removeResult.calls !== 1 || !removeResult.prevented || /action=/.test(removeResult.hash))
+		throw new Error(`Enter must remove one Action filter and keep its event/hash behavior: ${JSON.stringify(removeResult)}`);
+	console.log('OK: Chromium computed names and keyboard Action filter/chip removal');
+}
+
 async function testPauseResume(page) {
 	const pauseBtn = await requireControl(page, '#fwlive-pause');
 	await pauseBtn.click();
@@ -1036,6 +1109,7 @@ async function runSmoke(browser) {
 	try {
 		await waitForHarness(page);
 		await testInitialRender(page);
+		await testFilterControlAccessibleNames(page);
 		await testPauseResume(page);
 		await testDisplayDrawer(page);
 		await testProtoCustomWins(page);
