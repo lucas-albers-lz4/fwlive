@@ -378,15 +378,20 @@ reload_firewall() {
 		wan_log_generation_bump >/dev/null || return 2
 		printf '1' > "$COMMIT_FILE"
 		wan_log_generation_bump >/dev/null || return 2
+	elif [ "$reload_mode" = reacquire_fail ]; then
+		# Keep the reload path itself independent of the lock, then make the
+		# subsequent production reacquisition fail immediately at safe setup.
+		printf 'file' > "$dir/not-a-directory"
+		WAN_LOG_LOCK_FILE="$dir/not-a-directory/lock"
 	fi
 	return 1
 }   # reload ALWAYS fails in this part
-logger() { return 0; }
+logger() { printf '%s\n' "$*" >> "$dir/logger"; }
 # zone = wan (first zone section)
 find_wan_zone_section() { printf 'wan'; }
 wan_zone_log_value() { cat "$COMMIT_FILE" 2>/dev/null || true; }
 zone_json='{"zone":"wan"}'
-reload_and_report_wan_log wan "$previous" "$committed" fail-msg success-msg "$zone_json" "$generation" >/dev/null 2>&1
+reload_and_report_wan_log wan "$previous" "$committed" fail-msg success-msg "$zone_json" "$generation" > "$dir/json" 2>&1
 cat "$COMMIT_FILE" 2>/dev/null || true
 EOF
 chmod +x "$WORK/rollback-child.sh"
@@ -417,6 +422,142 @@ out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb3" "" "1" "1" aba)
 [ "$(cat "$FWLIVE_WAN_LOG_GENERATION_FILE")" = 3 ] \
 	|| die "C3: ABA generation must advance twice"
 ok "reload failure + off/on ABA -> later enable preserved by generation check"
+
+# C4: if the rollback cannot reacquire its lock, it reports reload failure
+# without changing or restoring UCI. The invalid path makes the real lock helper
+# fail at setup, without spending the retry budget.
+mkdir -p "$WORK/rb4"
+printf '1' > "$WORK/rb4/log"
+printf '1\n' > "$FWLIVE_WAN_LOG_GENERATION_FILE"
+out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb4" "" "1" "1" reacquire_fail)
+[ "$out" = "1" ] || die "C4: failed rollback reacquisition changed committed value, got '$out'"
+grep -Fq '"error":"firewall_reload_failed"' "$WORK/rb4/json" \
+	|| die "C4: failed rollback reacquisition must retain reload-failure JSON"
+grep -Fq 'rollback lock unavailable — skipped' "$WORK/rb4/logger" \
+	|| die "C4: failed rollback reacquisition must be logged"
+[ "$(cat "$FWLIVE_WAN_LOG_GENERATION_FILE")" = 1 ] \
+	|| die "C4: unavailable reacquisition must not advance generation"
+ok "reload failure + rollback lock setup failure -> rollback skipped with state preserved"
+
+# C5: a later cooperating write can fail after advancing the shared revision.
+# Run A's real enable flow; while A is in reload, run B's actual
+# commit_wan_log_change under the real flock helper and make only B's UCI commit
+# fail. Its intent generation must invalidate A's rollback even though UCI
+# still contains A's value.
+RACE_DIR="$WORK/later-failed-write"
+mkdir -m 0700 "$RACE_DIR"
+cat > "$RACE_DIR/uci-stubs.sh" <<'EOF'
+uci() {
+	case "$*" in
+		'-q show firewall')
+			printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\nfirewall.@zone[0].network='wan'\n"
+			;;
+		'-q changes firewall')
+			if [ -f "$RACE_STAGE" ]; then
+				_staged=$(cat "$RACE_STAGE")
+				if [ "$_staged" = __unset__ ]; then _staged=''; fi
+				printf "firewall.@zone[0].log='%s'\n" "$_staged"
+			fi
+			;;
+		'-q get firewall.@zone[0]') printf 'zone\n' ;;
+		'-q get firewall.@zone[0].name') printf 'wan\n' ;;
+		'-q get firewall.@zone[0].network') printf 'wan\n' ;;
+		'-q get firewall.@zone[0].log')
+			[ -f "$RACE_CURRENT" ] || return 1
+			cat "$RACE_CURRENT"
+			;;
+		'set firewall.@zone[0].log='*)
+			printf '%s' "${2#*=}" > "$RACE_STAGE"
+			;;
+		'-q set firewall.@zone[0].log='*)
+			printf '%s' "${3#*=}" > "$RACE_STAGE"
+			;;
+		'delete firewall.@zone[0].log'|'-q delete firewall.@zone[0].log')
+			printf '%s' __unset__ > "$RACE_STAGE"
+			;;
+		'commit firewall')
+			_count=$(cat "$RACE_COMMIT_COUNT")
+			_count=$((_count + 1))
+			printf '%s\n' "$_count" > "$RACE_COMMIT_COUNT"
+			# A's first commit succeeds. B's later commit fails after its
+			# generation bump, leaving committed UCI unchanged.
+			[ "$_count" -ne 2 ] || return 1
+			[ -f "$RACE_STAGE" ] || return 0
+			_staged=$(cat "$RACE_STAGE")
+			if [ "$_staged" = __unset__ ]; then
+				rm -f "$RACE_CURRENT"
+			else
+				printf '%s' "$_staged" > "$RACE_CURRENT"
+			fi
+			rm -f "$RACE_STAGE"
+			;;
+		'-q revert firewall') rm -f "$RACE_STAGE" ;;
+		*) return 0 ;;
+	esac
+	return 0
+}
+EOF
+cat > "$RACE_DIR/runner.sh" <<'EOF'
+#!/bin/sh
+set -eu
+role="$1"
+logging_sh="$2"
+dir="$3"
+RACE_CURRENT="$dir/current"
+RACE_STAGE="$dir/staged"
+RACE_COMMIT_COUNT="$dir/commit-count"
+FWLIVE_WAN_LOG_LOCK_FILE="$dir/lock"
+FWLIVE_WAN_LOG_GENERATION_FILE="$dir/runtime/wan-log-generation"
+FWLIVE_WAN_LOG_BASELINE_FILE="$dir/baseline"
+export RACE_CURRENT RACE_STAGE RACE_COMMIT_COUNT
+export FWLIVE_WAN_LOG_LOCK_FILE FWLIVE_WAN_LOG_GENERATION_FILE FWLIVE_WAN_LOG_BASELINE_FILE
+. "$logging_sh"
+. "$dir/uci-stubs.sh"
+check_nf_log_ipv4() { return 0; }
+check_nf_log_ipv6() { return 0; }
+logger() { printf '%s\n' "$*" >> "$dir/logger"; }
+
+if [ "$role" = later ]; then
+	acquire_wan_log_lock || exit 10
+	_before=$(wan_log_generation_read) || exit 11
+	if commit_wan_log_change '@zone[0]' '{"zone":"wan"}' ''; then
+		_rc=0
+	else
+		_rc=$?
+	fi
+	_after=$(wan_log_generation_read) || exit 12
+	release_wan_log_lock
+	printf '%s:%s:%s\n' "$_rc" "$_before" "$_after" > "$dir/later-meta"
+	exit 0
+fi
+
+reload_firewall() {
+	sh "$dir/runner.sh" later "$logging_sh" "$dir" > "$dir/later-json"
+	return 1
+}
+enable_wan_logging > "$dir/primary-json"
+EOF
+chmod +x "$RACE_DIR/runner.sh"
+printf '0\n' > "$RACE_DIR/commit-count"
+sh "$RACE_DIR/runner.sh" primary "$LOGGING_SH" "$RACE_DIR" \
+	|| die "C5: cooperating failed-write fixture did not complete"
+grep -Fq '"error":"firewall_reload_failed"' "$RACE_DIR/primary-json" \
+	|| die "C5: primary caller must report its reload failure"
+grep -Fq '"error":"uci_commit_failed"' "$RACE_DIR/later-json" \
+	|| die "C5: later cooperating write must report its failed commit"
+[ "$(cat "$RACE_DIR/later-meta")" = '1:1:2' ] \
+	|| die "C5: later failed write must fail at generation 1 and advance to 2"
+[ "$(cat "$RACE_DIR/runtime/wan-log-generation")" = 2 ] \
+	|| die "C5: generation must retain the later failed-write bump"
+[ "$(cat "$RACE_DIR/current")" = 1 ] \
+	|| die "C5: later failed write must leave A's committed value unchanged"
+[ "$(cat "$RACE_DIR/commit-count")" = 2 ] \
+	|| die "C5: stale rollback must not issue a third commit"
+[ ! -e "$RACE_DIR/staged" ] \
+	|| die "C5: failed later write must clean only its own staging"
+grep -Fq 'WAN log changed concurrently or revision unavailable' "$RACE_DIR/logger" \
+	|| die "C5: primary rollback must log its generation-mismatch skip"
+ok "later cooperating failed commit advances generation and prevents the earlier rollback"
 
 # --- Part D: lock file mode 0600 (issue #167) ---------------------------------
 stat_mode() {

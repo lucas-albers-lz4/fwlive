@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Run the small TLA+ models and assert that the six known counterexamples
+# Run the small TLA+ models and assert that the eight known counterexamples
 # remain counterexamples. TLC runs in single-worker mode for stable liveness
 # checking. This script is CI/developer tooling only; it is not packaged.
 set -euo pipefail
@@ -114,5 +114,9 @@ run_expected_violation wan-log-lock WanLogRollbackOutcomes \
 	WanLogRollbackOutcomesValueOnly.cfg NoRestoreAfterNewerIntent
 run_expected_violation wan-log-lock WanLogRollbackOutcomes \
 	WanLogRollbackOutcomesWrongRestore.cfg RestoreValueIsPrevious
+run_expected_violation wan-log-lock WanLogRollbackOutcomes \
+	WanLogRollbackOutcomesValueOnlyDisable.cfg NoRestoreAfterNewerIntent
+run_expected_violation wan-log-lock WanLogRollbackOutcomes \
+	WanLogRollbackOutcomesWrongRestoreDisable.cfg RestoreValueIsPrevious
 run_pass hostname-dispose HostnameDispose HostnameDispose.cfg
 run_expected_violation hostname-dispose HostnameDispose HostnameDisposeUngated.cfg NoLateWrite

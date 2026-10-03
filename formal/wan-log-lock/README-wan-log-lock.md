@@ -112,6 +112,8 @@ The enable/disable configs with refusals disabled check
 invariants. The two failure-enabled configs check decision completion and
 invariants while TLC explores all optional refusal/failure branches. A terminal
 decision (including a skip or failure) is not proof restoration succeeded.
+The value-only and incorrect-restore mutations each have enable and disable
+counterexamples, so both primary directions exercise those negative checks.
 `restoreBaseGeneration` records the live generation immediately before the
 restore bump; `RestoreGenerationAdvancedExactly` checks the bump amount and
 requires it on successful restore and failures after staging begins, while
@@ -137,9 +139,11 @@ plus restore-stage refusal/failure and restore commit failure after their own
 bump; its failed-write checks exercise primary writes, not later cooperating
 failed writes during another caller's reload.
 `tests/fwlive-logging-lock.test.sh` checks successful restore, newer-value skip,
-and ABA preservation. Failed rollback reacquisition and later cooperating
-failed writes during reload have model evidence only; no dedicated shell
-fixtures check those paths. These are shell implementation fixtures, not
+and ABA preservation, plus a rollback reacquisition that fails at lock-path
+setup and a later cooperating failed write during another caller's reload.
+The latter invokes `commit_wan_log_change` under the real flock helper and
+observes the failed response, retained committed value, generation bump, and
+earlier rollback skip. These are shell implementation fixtures, not
 model/code conformance. This extends the decision/effectiveness split in #1123;
 any test-only trace/conformance pilot belongs in #1121 and should use this
 abstraction. Refs #953, #1121, #1123.
@@ -165,15 +169,16 @@ security smoke instead checks the production behavior: a held lock returns
 
 `scripts/formal-tlc.sh` downloads the official TLA+ v1.7.4 tools jar and checks
 its pinned SHA-256 before running TLC with one worker. It runs the production
-models as passing checks and asserts that six counterfactual configs still
+models as passing checks and asserts that eight counterfactual configs still
 report their violations: ungated hostname disposal (`NoLateWrite`),
 whole-critical-section kill (`NoOrphanStaging`), value-only rollback ABA
 (`NoOverwriteForeignIntent`), rollback effectiveness with the fairness
 conjunct removed (`RestoreLandsWithoutForeignCommit`, which TLC reports as an
 unnamed temporal-property violation), value-only rollback despite later intent
-(`NoRestoreAfterNewerIntent`), and an incorrect restore value
-(`RestoreValueIsPrevious`). No TLA+ tooling is included in the OpenWrt
-package. The unnamed temporal-failure check intentionally requires a simple
+(`NoRestoreAfterNewerIntent`) and incorrect restore values
+(`RestoreValueIsPrevious`) for both enable and disable primary directions. No
+TLA+ tooling is included in the OpenWrt package. The unnamed temporal-failure
+check intentionally requires a simple
 counterexample configuration: one identifier per SPECIFICATION, INVARIANT or
 PROPERTY line and exactly the expected PROPERTY. It rejects additional operands,
 continuation lines and richer configuration syntax before invoking TLC, so a
