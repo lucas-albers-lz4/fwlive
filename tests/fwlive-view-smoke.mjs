@@ -120,6 +120,201 @@ async function testFilterControlAccessibleNames(page) {
 	console.log('OK: Chromium computed names and keyboard Action filter/chip removal');
 }
 
+async function testChipStripFocusAcrossPaints(page) {
+	await clearFilters(page);
+	await page.locator('#fwlive-action').selectOption('pass');
+	let invert = page.locator('button.fwlive-chip-invert').first();
+	await invert.focus();
+	const unchangedPaints = await page.evaluate(() => {
+		const view = window.fwliveView;
+		window.__fwliveChipFocusedBeforePaint = document.activeElement;
+		for (let i = 0; i < 3; i++) view.renderRows(true);
+		return {
+			sameNode: document.activeElement === window.__fwliveChipFocusedBeforePaint,
+			connected: window.__fwliveChipFocusedBeforePaint.isConnected,
+			rows: document.querySelectorAll('#fwlive-table tbody tr').length
+		};
+	});
+	if (!unchangedPaints.sameNode || !unchangedPaints.connected)
+		throw new Error(`repeated live table paints must retain chip focus: ${JSON.stringify(unchangedPaints)}`);
+
+	const rowChanges = await page.evaluate(() => {
+		const view = window.fwliveView;
+		const beforeId = document.querySelector('button.fwlive-row-expand')._fwliveRowId;
+		const first = view.entries[0];
+		const newRow = Object.assign({}, first, {
+			id: 'chip-new-live-row',
+			message: first.message + ' chip-new-live-row'
+		});
+		view.entries = view.entries.concat([newRow]);
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+		const added = {
+			count: document.querySelectorAll('#fwlive-table tbody tr').length,
+			hasNewRow: Array.from(document.querySelectorAll('button.fwlive-row-expand'))
+				.some((button) => button._fwliveRowId === 'chip-new-live-row'),
+			focusKept: document.activeElement === window.__fwliveChipFocusedBeforePaint
+		};
+		view.entries.reverse();
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+		return {
+			beforeId: beforeId,
+			afterId: document.querySelector('button.fwlive-row-expand')._fwliveRowId,
+			count: added.count,
+			hasNewRow: added.hasNewRow,
+			focusAfterInsert: added.focusKept,
+			focusAfterReorder: document.activeElement === window.__fwliveChipFocusedBeforePaint
+		};
+	});
+	if (
+		rowChanges.count !== unchangedPaints.rows + 1 ||
+		!rowChanges.hasNewRow ||
+		!rowChanges.focusAfterInsert ||
+		rowChanges.beforeId === rowChanges.afterId ||
+		!rowChanges.focusAfterReorder
+	)
+		throw new Error(`new/reordered table rows must keep chip focus and repaint: ${JSON.stringify(rowChanges)}`);
+
+	await invert.press('Enter');
+	await page.waitForFunction(() => window.fwliveView.readFilters().action === '!pass', {
+		timeout: 5000
+	});
+	const polarityFocus = await page.evaluate(() => ({
+		field: document.activeElement && document.activeElement.getAttribute('data-fwlive-chip-field'),
+		action: document.activeElement && document.activeElement.getAttribute('data-fwlive-chip-action'),
+		name: document.activeElement && document.activeElement.getAttribute('aria-label')
+	}));
+	if (
+		polarityFocus.field !== 'action' ||
+		polarityFocus.action !== 'invert' ||
+		polarityFocus.name !== 'Include instead'
+	)
+		throw new Error(`polarity change must keep focus on the surviving invert control: ${JSON.stringify(polarityFocus)}`);
+
+	let remove = page.locator('a.fwlive-chip-remove[data-fwlive-chip-field="action"]');
+	await remove.focus();
+	const valueFocus = await page.evaluate(() => {
+		const view = window.fwliveView;
+		const old = document.activeElement;
+		document.getElementById('fwlive-action').value = 'block';
+		view.onFilterInput();
+		return {
+			oldConnected: old.isConnected,
+			field: document.activeElement && document.activeElement.getAttribute('data-fwlive-chip-field'),
+			action: document.activeElement && document.activeElement.getAttribute('data-fwlive-chip-action')
+		};
+	});
+	if (valueFocus.oldConnected || valueFocus.field !== 'action' || valueFocus.action !== 'remove')
+		throw new Error(`edited surviving chip must restore its same remove control: ${JSON.stringify(valueFocus)}`);
+
+	const outsideFocus = await page.evaluate(() => {
+		const view = window.fwliveView;
+		const input = document.getElementById('fwlive-q');
+		input.focus();
+		document.getElementById('fwlive-action').value = 'drop';
+		view.onFilterInput();
+		return document.activeElement === input;
+	});
+	if (!outsideFocus)
+		throw new Error('a changed chip strip must not take focus from another filter input');
+
+	const multiFilterState = await page.evaluate(() => {
+		const view = window.fwliveView;
+		document.getElementById('fwlive-q').value = 'filter';
+		view.onFilterInput();
+		return view.readFilters();
+	});
+	if (multiFilterState.action !== 'drop' || multiFilterState.q !== 'filter')
+		throw new Error(`fixture must create two chips before removal: ${JSON.stringify(multiFilterState)}`);
+	remove = page.locator('a.fwlive-chip-remove[data-fwlive-chip-field="action"]');
+	await remove.focus();
+	await remove.press('Enter');
+	await page.waitForFunction(() => window.fwliveView.readFilters().action === '', { timeout: 5000 });
+	const remainingChipFocus = await page.evaluate(() => ({
+		q: window.fwliveView.readFilters().q,
+		className: document.activeElement && document.activeElement.className,
+		chipCount: document.querySelectorAll('.fwlive-chip').length
+	}));
+	if (
+		remainingChipFocus.q !== 'filter' ||
+		remainingChipFocus.className !== 'fwlive-chip-clear' ||
+		remainingChipFocus.chipCount !== 1
+	)
+		throw new Error(`removing one chip must move focus to Clear all while a chip survives: ${JSON.stringify(remainingChipFocus)}`);
+
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		document.getElementById('fwlive-action').value = 'pass';
+		view.onFilterInput();
+	});
+	if (!(await isFocused(page.locator('a.fwlive-chip-clear'))))
+		throw new Error('Clear all focus must survive another chip being added');
+	await page.getByRole('link', { name: 'Clear all', exact: true }).press('Enter');
+	await page.waitForFunction(() => window.fwliveView.readFilters().action === '', { timeout: 5000 });
+	const clearAllFocus = await page.evaluate(() => ({
+		filters: window.fwliveView.readFilters(),
+		focusId: document.activeElement && document.activeElement.id,
+		stripDisplay: document.getElementById('fwlive-chips').style.display,
+		hash: location.hash
+	}));
+	if (
+		clearAllFocus.filters.q ||
+		clearAllFocus.filters.action ||
+		clearAllFocus.focusId !== 'fwlive-q' ||
+		clearAllFocus.stripDisplay !== 'none' ||
+		/#|action=|q=/.test(clearAllFocus.hash)
+	)
+		throw new Error(`Clear all must empty the hash/strip and return focus to Quick search: ${JSON.stringify(clearAllFocus)}`);
+
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		document.getElementById('fwlive-action').value = 'pass';
+		view.onFilterInput();
+	});
+	remove = page.locator('a.fwlive-chip-remove[data-fwlive-chip-field="action"]');
+	await remove.focus();
+	await remove.press('Enter');
+	await page.waitForFunction(() => window.fwliveView.readFilters().action === '', { timeout: 5000 });
+	const lastRemovalFocus = await page.evaluate(() => ({
+		focusId: document.activeElement && document.activeElement.id,
+		chips: document.querySelectorAll('.fwlive-chip').length,
+		hash: location.hash
+	}));
+	if (lastRemovalFocus.focusId !== 'fwlive-action' || lastRemovalFocus.chips !== 0 || /#|action=/.test(lastRemovalFocus.hash))
+		throw new Error(`last chip removal must return focus to its Action filter and clear the hash: ${JSON.stringify(lastRemovalFocus)}`);
+	console.log('OK: repeated/reordered paints, changed chips, deliberate focus fallback, and outside-input focus');
+}
+
+async function testChipCallbacksAfterDisposal(page) {
+	await clearFilters(page);
+	await page.locator('#fwlive-action').selectOption('pass');
+	const result = await page.evaluate(() => {
+		const view = window.fwliveView;
+		const host = document.getElementById('fwlive-chips');
+		const remove = host.querySelector('a.fwlive-chip-remove');
+		const hashBefore = location.hash;
+		view.disposeView();
+		view.renderFilterChips();
+		remove.click();
+		return {
+			sameNode: host.querySelector('a.fwlive-chip-remove') === remove,
+			filter: view.readFilters().action,
+			disposed: view.viewDisposed,
+			hashBefore: hashBefore,
+			hashAfter: location.hash
+		};
+	});
+	if (
+		!result.disposed ||
+		!result.sameNode ||
+		result.filter !== 'pass' ||
+		result.hashAfter !== result.hashBefore
+	)
+		throw new Error(`late chip paints/actions must be inert after view disposal: ${JSON.stringify(result)}`);
+	console.log('OK: late chip paints and callbacks stay inert after disposal');
+}
+
 async function testPauseResume(page) {
 	const pauseBtn = await requireControl(page, '#fwlive-pause');
 	await pauseBtn.click();
@@ -1110,6 +1305,7 @@ async function runSmoke(browser) {
 		await waitForHarness(page);
 		await testInitialRender(page);
 		await testFilterControlAccessibleNames(page);
+		await testChipStripFocusAcrossPaints(page);
 		await testPauseResume(page);
 		await testDisplayDrawer(page);
 		await testProtoCustomWins(page);
@@ -1124,6 +1320,7 @@ async function runSmoke(browser) {
 		await testRulesTruncatedDegraded(page);
 		await testSimpleActionLayout(page);
 		await testSimpleExpansionKeyboard(page);
+		await testChipCallbacksAfterDisposal(page);
 
 		if (pageErrors.length)
 			throw new Error('pageerror(s) during smoke: ' + pageErrors.join('; '));
