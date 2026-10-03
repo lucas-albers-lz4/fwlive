@@ -437,10 +437,10 @@ msgstr ""
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2579
 msgid ""
 "In Simple view, activate the message button or click a row to show or hide "
-"the full log line."
+"the full message."
 msgstr ""
 "In der einfachen Ansicht können Sie die Nachrichtenschaltfläche aktivieren "
-"oder auf eine Zeile klicken, um die vollständige Protokollzeile ein- oder "
+"oder auf eine Zeile klicken, um die vollständige Meldung ein- oder "
 "auszublenden."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:62

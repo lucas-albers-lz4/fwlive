@@ -2576,7 +2576,7 @@ return view.extend({
 					E('li', { 'id': 'fwlive-manual-test' }, []),
 					E('li', {}, [
 						_(
-							'In Simple view, activate the message button or click a row to show or hide the full log line.'
+							'In Simple view, activate the message button or click a row to show or hide the full message.'
 						)
 					]),
 					E('li', {}, [

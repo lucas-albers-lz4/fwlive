@@ -383,7 +383,7 @@ msgstr ""
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2579
 msgid ""
 "In Simple view, activate the message button or click a row to show or hide "
-"the full log line."
+"the full message."
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:62

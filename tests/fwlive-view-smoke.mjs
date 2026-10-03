@@ -6,6 +6,7 @@
  *   npm run test:view
  */
 import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -165,49 +166,86 @@ async function ensureSimpleView(page) {
 	}
 }
 
-async function testSimpleActionLayout(page) {
-	await clearFilters(page);
-	await ensureSimpleView(page);
+const SIMPLE_INSTRUCTION_MESSAGES = {
+	timeTitle: 'Activate the message button or click a row to show or hide the full message',
+	hint: 'Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for firewall settings · in Simple view, activate the message button or click a row to show or hide the full message',
+	help: 'In Simple view, activate the message button or click a row to show or hide the full message.'
+};
 
-	const locales = [
-		{
-			name: 'en',
-			translations: {},
-			labels: ['pass', 'block', 'drop', 'reject']
-		},
-		{
-			name: 'de',
-			translations: {
-				pass: 'erlaubt',
-				block: 'blockiert',
-				drop: 'verworfen',
-				reject: 'abgelehnt'
-			},
-			labels: ['erlaubt', 'blockiert', 'verworfen', 'abgelehnt']
-		},
-		{
-			name: 'ru',
-			translations: {
-				pass: 'разрешён',
-				block: 'заблокирован',
-				drop: 'отброшен',
-				reject: 'отклонён'
-			},
-			labels: ['разрешён', 'заблокирован', 'отброшен', 'отклонён']
+function readPoMessage(locale, msgid) {
+	const file = path.join(
+		ROOT,
+		'openwrt-feed/luci-app-fwlive/po',
+		locale,
+		'luci-app-fwlive.po'
+	);
+	const prefix = msgid.slice(0, 32);
+	for (const block of readFileSync(file, 'utf8').split(/\n\s*\n/)) {
+		if (!block.includes(prefix)) continue;
+		let id = '';
+		let translation = '';
+		let field = '';
+		for (const line of block.split('\n')) {
+			if (line.startsWith('msgid ')) {
+				id = JSON.parse(line.slice(line.indexOf('"')));
+				field = 'id';
+			} else if (line.startsWith('msgstr ')) {
+				translation = JSON.parse(line.slice(line.indexOf('"')));
+				field = 'translation';
+			} else if (line.startsWith('"') && field) {
+				const part = JSON.parse(line);
+				if (field === 'id') id += part;
+				else translation += part;
+			}
 		}
-	];
+		if (id === msgid) {
+			if (!translation) throw new Error(`empty ${locale} translation for ${msgid}`);
+			return translation;
+		}
+	}
+	throw new Error(`missing ${locale} PO entry for ${msgid}`);
+}
+
+async function testSimpleActionLayout(page) {
+	const actions = ['pass', 'block', 'drop', 'reject'];
+	const locales = ['en', 'de', 'ru'].map((name) => {
+		const translations = {};
+		if (name !== 'en') {
+			for (const msgid of [...actions, ...Object.values(SIMPLE_INSTRUCTION_MESSAGES)])
+				translations[msgid] = readPoMessage(name, msgid);
+		}
+		const text = (msgid) => translations[msgid] || msgid;
+		return {
+			name,
+			translations,
+			labels: actions.map(text),
+			instructions: {
+				timeTitle: text(SIMPLE_INSTRUCTION_MESSAGES.timeTitle),
+				hint: text(SIMPLE_INSTRUCTION_MESSAGES.hint),
+				help: text(SIMPLE_INSTRUCTION_MESSAGES.help)
+			}
+		};
+	});
 	const sizes = [
 		{ name: 'narrow', width: 390 },
 		{ name: 'desktop', width: 1280 }
 	];
-	const actions = ['pass', 'block', 'drop', 'reject'];
-	const originalActions = await page.evaluate(() =>
-		window.fwliveView.entries.map((entry) => entry.action)
-	);
-
-	try {
-		for (const locale of locales) {
-			const expectedLabels = await page.evaluate(({ locale, actions }) => {
+	const browser = page.context().browser();
+	for (const locale of locales) {
+		const localePage = await browser.newPage();
+		let originalActions = null;
+		try {
+			await localePage.addInitScript(
+				(translations) => { window.fwliveTestTranslations = translations; },
+				locale.translations
+			);
+			await waitForHarness(localePage);
+			await clearFilters(localePage);
+			await ensureSimpleView(localePage);
+			originalActions = await localePage.evaluate(() =>
+				window.fwliveView.entries.map((entry) => entry.action)
+			);
+			const expectedLabels = await localePage.evaluate(({ locale, actions }) => {
 				const view = window.fwliveView;
 				window.fwliveTestTranslations = locale.translations;
 				/* Change the render key before repaint so each locale rebuilds its labels. */
@@ -227,8 +265,8 @@ async function testSimpleActionLayout(page) {
 
 			for (const fontSize of [13, 16]) {
 				for (const size of sizes) {
-					await page.setViewportSize({ width: size.width, height: 1000 });
-					const geometry = await page.evaluate(
+					await localePage.setViewportSize({ width: size.width, height: 1000 });
+					const geometry = await localePage.evaluate(
 						({ fontSize }) => {
 							const view = window.fwliveView;
 						const map = document.querySelector('.fwlive-map');
@@ -276,7 +314,10 @@ async function testSimpleActionLayout(page) {
 								timeClientWidth: time.clientWidth
 							};
 						});
-						const timeTitle = rows[0].querySelector('td.fwlive-time').getAttribute('title');
+						const rawTimeTitle = rows[0].querySelector('td.fwlive-time').getAttribute('title');
+						const timeTitle = rawTimeTitle && rawTimeTitle.startsWith('"')
+							? JSON.parse(rawTimeTitle)
+							: rawTimeTitle;
 						return {
 							cells,
 							viewportWidth: window.innerWidth,
@@ -322,37 +363,26 @@ async function testSimpleActionLayout(page) {
 								`localized Action/Time geometry failed at ${locale.name}/${fontSize}px/${size.name}: ${JSON.stringify(cell)}`
 							);
 					}
-					if (
-						!geometry.timeTitle.includes('message button') ||
-						!geometry.timeTitle.includes('click a row') ||
-						!geometry.hint.includes('message button') ||
-						!geometry.hint.includes('click a row') ||
-						!geometry.help.includes('message button') ||
-						!geometry.help.includes('click a row')
-					)
-						throw new Error('Simple-view message instructions disagree or omit a control');
+					for (const [label, actual, expected, exact] of [
+						['Time tooltip', geometry.timeTitle, locale.instructions.timeTitle, true],
+						['filter hint', geometry.hint, locale.instructions.hint, true],
+						['Help text', geometry.help, locale.instructions.help, false]
+					]) {
+						if (exact ? actual !== expected : !actual.includes(expected))
+							throw new Error(
+								`${label} is not translated consistently for ${locale.name}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`
+							);
+					}
 					if (size.name === 'narrow' && geometry.scrollWidth <= geometry.scrollClientWidth)
 						throw new Error(
 							`narrow Simple view must keep the table horizontally scrollable: ${JSON.stringify(geometry)}`
 						);
 				}
 			}
+		} finally {
+			await localePage.close().catch(() => {});
+			}
 		}
-	} finally {
-		await page.evaluate((actions) => {
-			window.fwliveTestTranslations = {};
-			window.fwliveView.entries.forEach((entry) => (entry.action = 'unknown'));
-			window.fwliveView.invalidateFilteredRows();
-			window.fwliveView.renderRows(true);
-			window.fwliveView.entries.forEach((entry, index) => {
-				entry.action = actions[index];
-			});
-			window.fwliveView.invalidateFilteredRows();
-			document.querySelector('.fwlive-map').style.removeProperty('font-size');
-			window.fwliveView.renderRows(true);
-		}, originalActions);
-		await page.setViewportSize({ width: 1280, height: 720 });
-	}
 	console.log('OK: Simple Action/Time geometry for en/de/ru at 13px/16px narrow/desktop widths');
 }
 

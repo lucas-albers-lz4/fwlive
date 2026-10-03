@@ -406,8 +406,8 @@ msgstr ""
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2579
 msgid ""
 "In Simple view, activate the message button or click a row to show or hide "
-"the full log line."
-msgstr "在简洁视图中，激活消息按钮或单击行即可显示或隐藏完整的日志行。"
+"the full message."
+msgstr "在简洁视图中，激活消息按钮或单击行即可显示或隐藏完整消息。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:62
 msgid "Inbound"
