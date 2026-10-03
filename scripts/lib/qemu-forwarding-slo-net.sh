@@ -237,7 +237,7 @@ fwlive_slo_net_qemu_args() {
 	for mac in "$FWLIVE_SLO_LAN_MAC" "$FWLIVE_SLO_WAN_MAC"; do
 		[[ "$mac" =~ ^([[:xdigit:]]{2}:){5}[[:xdigit:]]{2}$ ]] || { echo "forwarding-slo-net: invalid MAC address" >&2; return 1; }
 	done
-	[[ "$FWLIVE_SLO_LAN_MAC" != "$FWLIVE_SLO_WAN_MAC" ]] || { echo "forwarding-slo-net: LAN/WAN MAC addresses must differ" >&2; return 1; }
+	[[ "${FWLIVE_SLO_LAN_MAC,,}" != "${FWLIVE_SLO_WAN_MAC,,}" ]] || { echo "forwarding-slo-net: LAN/WAN MAC addresses must differ" >&2; return 1; }
 	for id in lan wan; do
 		if [[ "$id" == lan ]]; then tap="$FWLIVE_SLO_LAN_TAP"; mac="$FWLIVE_SLO_LAN_MAC"; else tap="$FWLIVE_SLO_WAN_TAP"; mac="$FWLIVE_SLO_WAN_MAC"; fi
 		netdev="tap,id=fwlive-slo-$id,ifname=$tap,script=no,downscript=no,vhost=$vhost"

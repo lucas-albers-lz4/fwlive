@@ -58,7 +58,11 @@ custom_args="$(FWLIVE_SLO_LAN_MAC=02:00:00:00:00:01 FWLIVE_SLO_WAN_MAC=02:00:00:
 	"${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh")"
 grep -Fq 'mac=02:00:00:00:00:01' <<<"$custom_args" || die "LAN MAC override missing from QEMU args"
 grep -Fq 'mac=02:00:00:00:00:02' <<<"$custom_args" || die "WAN MAC override missing from QEMU args"
-ok "QEMU args honor guest MAC overrides"
+if FWLIVE_SLO_LAN_MAC=52:54:00:AA:BB:01 FWLIVE_SLO_WAN_MAC=52:54:00:aa:bb:01 bash -c \
+	'source "$1"; fwlive_slo_net_qemu_args' bash "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" >/dev/null 2>&1; then
+	die "case-equivalent LAN/WAN MAC addresses must be rejected"
+fi
+ok "QEMU args honor guest MAC overrides and reject case-equivalent addresses"
 
 FWLIVE_SLO_QEMU_NET_MODEL=unsupported bash -c \
 	'source "$1"' bash "${ROOT}/scripts/lib/qemu-forwarding-slo-net.sh" 2>/dev/null ||

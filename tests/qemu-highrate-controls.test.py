@@ -148,6 +148,11 @@ else: sys.exit(2)
         args = json.loads((self.p / 'argv').read_text())
         self.assertEqual(args[args.index('-smp') + 1], '8')
         self.assertLess(args.index('-nic'), args.index('-device'))
+        self.assertEqual(args.count('-netdev'), 2)
+        self.assertEqual(args.count('-device'), 2)
+        for index, value in enumerate(args):
+            if value in ['-netdev', '-device']:
+                self.assertNotIn(' ', args[index + 1])
         self.assertIn('model=virtio-net-pci', args[args.index('-nic') + 1])
         self.assertTrue(any('vhost=on,queues=4' in arg for arg in args))
         self.assertTrue(any('mq=on,vectors=10' in arg for arg in args))
