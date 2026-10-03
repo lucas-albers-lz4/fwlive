@@ -152,7 +152,8 @@ the shared row fixture after reordering, and invalidates chip DOM when translate
 accessible labels change.
 
 The current U3 code head is `ab0ee50305f61f220bb88d37791fab7b4652b0c7`; its
-package subtree is `4a85d213d1dabb76ef693012ecacaf5460e68ba7`. On that code head,
+package subtree is `aa87892f294d80fceea527c5ec8491d5fa1fdd43`. D1 adds only its
+separately reviewed documentation/comment changes on top of that package tree. On that code head,
 `./scripts/fwlive-test.sh` passed, including the updated Chromium, i18n and
 POT-reference checks. A fresh LuCI source scan and `scripts/normalize-pot-paths.sh`
 were used to regenerate the POT and msgmerge the three catalogs. No IPK rebuild,
