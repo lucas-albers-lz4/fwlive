@@ -187,6 +187,16 @@ Run it locally with `./scripts/formal-tlc.sh`, or use the manual-only
 **formal TLC** Actions workflow. The workflow does not run on ordinary pushes
 or pull requests.
 
+The normal host suite's `tests/formal-tlc-tooling.test.sh` also derives module
+and configuration paths from each `run_*` call in `scripts/formal-tlc.sh` and
+fails if a referenced `.tla` or `.cfg` is missing. Its disposable missing-file
+probes need no JRE and do not download TLC. This is configuration integrity
+only: it does not parse fidelity-map claims or establish source-level or
+semantic conformance. The maps intentionally name shell functions and
+expressions rather than line numbers; source-to-model conformance remains a
+review obligation, with the shell fixtures and QEMU smoke as separate
+implementation evidence.
+
 These checks validate the stated models and their counterexamples. They do not
 prove the models match future code; the shell tests and QEMU smoke cover the
 implementation boundary separately.
