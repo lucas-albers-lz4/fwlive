@@ -16,6 +16,18 @@ for scenario in success aba noop failed refusal; do
 		> "$WORK/$scenario.projected"
 done
 
+cat > "$WORK/nonzero-return-helper.sh" <<'EOF'
+enable_wan_logging() {
+	printf '{"changed":false}\n'
+	return 37
+}
+EOF
+"$CAPTURE" "$WORK/nonzero-return-helper.sh" success "$WORK/return-fail" \
+	> "$WORK/return-fail.out"
+grep -q 'SNAP|success|primary|[0-9][0-9]*|return:37|enable|unset|0' \
+	"$WORK/return-fail/observations.tsv" \
+	|| fail "a nonzero helper return must be captured without aborting the runner"
+
 grep -q 'UCI|success|primary|[0-9][0-9]*|enable|commit firewall|0|unset|1|1|1' \
 	"$WORK/success/observations.tsv" || fail "successful trace must capture real primary commit outcome/state"
 grep -q 'FLOCK|success|primary|[0-9][0-9]*|enable|-n 9|0|1|1' \

@@ -164,12 +164,12 @@ reload_firewall() {
 }
 
 observe begin
+call_rc=0
 case "$intent" in
-	enable) enable_wan_logging > "$PILOT_ROOT/$PILOT_ROLE-$intent.json" ;;
-	disable) disable_wan_logging > "$PILOT_ROOT/$PILOT_ROLE-$intent.json" ;;
+	enable) enable_wan_logging > "$PILOT_ROOT/$PILOT_ROLE-$intent.json" || call_rc=$? ;;
+	disable) disable_wan_logging > "$PILOT_ROOT/$PILOT_ROLE-$intent.json" || call_rc=$? ;;
 	*) exit 2 ;;
 esac
-call_rc=$?
 observe "return:$call_rc"
 printf 'JSON|%s|%s|%s|%s|%s\n' "$PILOT_SCENARIO" "$PILOT_ROLE" "$PILOT_CALLER_PID" "$intent" \
 	"$(cat "$PILOT_ROOT/$PILOT_ROLE-$intent.json")" >> "$PILOT_TRACE"
