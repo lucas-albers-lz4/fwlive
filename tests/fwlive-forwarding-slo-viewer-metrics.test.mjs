@@ -12,7 +12,7 @@ const response = [{
 	result: [0, {
 		log: [{ line: 'fwlive-slo IN=eth1' }, { line: 'fwlive-slo OUT=eth0' }],
 		effective_limit: 800,
-		truncated: true,
+		truncated: 1,
 		shed: { limit: 800, overflow: 3 },
 		adaptive: 1,
 		summary: { truncated: true }
@@ -38,4 +38,8 @@ assert.deepEqual(summarizeFwlivePoll({
 });
 
 assert.throws(() => summarizeFwlivePoll({ requestPayload: request, responsePayload: [] }), /missing or unsuccessful/);
+assert.throws(() => summarizeFwlivePoll({
+	requestPayload: request,
+	responsePayload: [{ id: 17, result: [0, { log: [], error: 'filter_failed' }] }]
+}), /poll application error: filter_failed/);
 console.log('fwlive forwarding SLO viewer metrics tests passed');

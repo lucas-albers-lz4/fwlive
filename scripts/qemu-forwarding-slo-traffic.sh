@@ -113,6 +113,10 @@ if [[ -z "$IPERF3" ]]; then
 	done
 fi
 [[ -x "$IPERF3" ]] || die "iperf3 not found; set FWLIVE_SLO_IPERF3 to its absolute path"
+TIMEOUT_BIN="$(command -v timeout || true)"
+[[ -n "$TIMEOUT_BIN" ]] || die "missing required coreutils tool: timeout"
+timeout_version="$("$TIMEOUT_BIN" --version 2>/dev/null | head -1 || true)"
+[[ "$timeout_version" = *coreutils* ]] || die "GNU coreutils timeout is required to bound iperf3 processes"
 
 TMP_ROOT="${TMPDIR:-/tmp}"
 [[ -d "$TMP_ROOT" ]] || die "temporary directory is missing: $TMP_ROOT"
@@ -121,8 +125,9 @@ WORK="$(mktemp -d "$TMP_ROOT/fwlive-slo-traffic.XXXXXX")"
 chmod 700 "$WORK"
 cleanup() {
 	if [[ -n "${SERVER_PID:-}" ]]; then
-		kill "$SERVER_PID" 2>/dev/null || true
+		kill -TERM "$SERVER_PID" 2>/dev/null || true
 		wait "$SERVER_PID" 2>/dev/null || true
+		SERVER_PID=""
 	fi
 	if [[ -n "${PING_PID:-}" ]]; then
 		kill "$PING_PID" 2>/dev/null || true
@@ -132,7 +137,12 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-LC_ALL=C ip netns exec "$WAN_NS" "$IPERF3" -s -1 -J -B "$WAN_IP" \
+# `-s -1` waits forever if a client never connects. Bound both host-side
+# iperf processes, and terminate the owned server immediately on client error.
+SERVER_TIMEOUT=$((DURATION + 20))
+CLIENT_TIMEOUT=$((DURATION + 15))
+LC_ALL=C "$TIMEOUT_BIN" --signal=TERM --kill-after=2s "${SERVER_TIMEOUT}s" \
+	ip netns exec "$WAN_NS" "$IPERF3" -s -1 -J -B "$WAN_IP" \
 	>"$WORK/server.out" 2>"$WORK/server.err" &
 SERVER_PID=$!
 sleep 1
@@ -156,11 +166,17 @@ if [[ -n "$BITRATE" ]]; then
 fi
 client_args=(-P "$STREAMS" "${client_args[@]}")
 TIMEFORMAT='SLO_TIME user_s=%3U sys_s=%3S real_s=%3R'
-if ! { time LC_ALL=C ip netns exec "$LAN_NS" "$IPERF3" -c "$WAN_IP" -B "$LAN_IP" \
+if ! { time LC_ALL=C "$TIMEOUT_BIN" --signal=TERM --kill-after=2s "${CLIENT_TIMEOUT}s" \
+	ip netns exec "$LAN_NS" "$IPERF3" -c "$WAN_IP" -B "$LAN_IP" \
 	"${client_args[@]}" >"$WORK/client.json" 2>"$WORK/client.err"; } 2>"$WORK/client.time"; then
 	CLIENT_FAILED=1
 	if [[ -n "$STOP_MARKER" ]]; then
 		touch "$STOP_MARKER"
+	fi
+	if [[ -n "$SERVER_PID" ]]; then
+		kill -TERM "$SERVER_PID" 2>/dev/null || true
+		wait "$SERVER_PID" 2>/dev/null || true
+		SERVER_PID=""
 	fi
 	cat "$WORK/client.err" "$WORK/server.err" "$WORK/ping.err" >&2 || true
 else
@@ -185,23 +201,36 @@ const sent = client?.end?.sum_sent || {};
 const serverSent = server?.end?.sum_sent || {};
 const retransmits = Number.isFinite(sent.retransmits) ? sent.retransmits
 	: Number.isFinite(serverSent.retransmits) ? serverSent.retransmits : null;
+const connectedStreams = Array.isArray(client?.start?.connected) ? client.start.connected.length : null;
+const completedStreams = Array.isArray(client?.end?.streams) ? client.end.streams.length : null;
+const actualStreamCounts = [connectedStreams, completedStreams].filter(Number.isInteger);
+const streamEvidenceMismatch = new Set(actualStreamCounts).size > 1;
+const observedStreams = actualStreamCounts.length && !streamEvidenceMismatch ? actualStreamCounts[0] : null;
 process.stdout.write(JSON.stringify({
 	throughput_bps: Number.isFinite(bps) && bps > 0 ? bps : null,
 	retransmits,
 	requested_streams: Number.isInteger(client?.start?.test_start?.num_streams)
 		? client.start.test_start.num_streams : null,
+	observed_streams: observedStreams,
+	connected_streams: connectedStreams,
+	completed_streams: completedStreams,
+	stream_evidence_mismatch: streamEvidenceMismatch,
 	client_json_valid: !!client,
 	server_json_valid: !!server
 }));
 ' "$WORK/client.json" "$WORK/server.out")"
 throughput_bps="$(node -e 'const n=JSON.parse(process.argv[1]).throughput_bps; process.stdout.write(n === null ? "unknown" : String(n))' "$iperf_metrics")"
 retransmits="$(node -e 'const n=JSON.parse(process.argv[1]).retransmits; process.stdout.write(n === null ? "unknown" : String(n))' "$iperf_metrics")"
-observed_streams="$(node -e 'const n=JSON.parse(process.argv[1]).requested_streams; process.stdout.write(n === null ? "unknown" : String(n))' "$iperf_metrics")"
+requested_streams="$(node -e 'const n=JSON.parse(process.argv[1]).requested_streams; process.stdout.write(n === null ? "unknown" : String(n))' "$iperf_metrics")"
+observed_streams="$(node -e 'const n=JSON.parse(process.argv[1]).observed_streams; process.stdout.write(n === null ? "unknown" : String(n))' "$iperf_metrics")"
+connected_streams="$(node -e 'const n=JSON.parse(process.argv[1]).connected_streams; process.stdout.write(n === null ? "unknown" : String(n))' "$iperf_metrics")"
+completed_streams="$(node -e 'const n=JSON.parse(process.argv[1]).completed_streams; process.stdout.write(n === null ? "unknown" : String(n))' "$iperf_metrics")"
+stream_evidence_mismatch="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).stream_evidence_mismatch ? "1" : "0")' "$iperf_metrics")"
 
 ping_stddev_ms="$(awk -F= '/^(rtt|round-trip)/ {
 	split($2, values, "/");
 	sub(/[[:space:]].*$/, "", values[4]);
-    if (values[4] ~ /^[0-9]+([.][0-9]+)?$/) print values[4];
+	if (values[4] ~ /^[0-9]+([.][0-9]+)?$/) print values[4];
 }' "$WORK/ping.out" | tail -1)"
 ping_loss_pct="$(sed -n 's/.*,[[:space:]]*\([0-9][0-9.]*\)% packet loss.*/\1/p' "$WORK/ping.out" | tail -1)"
 generator_cpu="$(awk '
@@ -231,7 +260,13 @@ mark_invalid() {
 }
 (( CLIENT_FAILED == 0 )) || mark_invalid iperf_client_failed
 [[ "$throughput_bps" =~ ^[0-9]+([.][0-9]+)?$ ]] || mark_invalid iperf_receive_rate_missing
-[[ "$observed_streams" = "$STREAMS" ]] || mark_invalid iperf_stream_count_mismatch
+[[ "$requested_streams" = "$STREAMS" ]] || mark_invalid iperf_requested_stream_count_mismatch
+if [[ "$observed_streams" = unknown ]]; then
+	mark_invalid iperf_observed_stream_count_unknown
+elif [[ "$observed_streams" != "$STREAMS" ]]; then
+	mark_invalid iperf_stream_count_mismatch
+fi
+[[ "$stream_evidence_mismatch" = 0 ]] || mark_invalid iperf_stream_evidence_mismatch
 [[ "$ping_stddev_ms" =~ ^[0-9]+([.][0-9]+)?$ ]] || mark_invalid ping_rtt_stddev_missing
 [[ "$ping_loss_pct" =~ ^[0-9]+([.][0-9]+)?$ ]] || mark_invalid ping_loss_missing
 [[ "$ping_loss_pct" = 0 || "$ping_loss_pct" = 0.0 || "$ping_loss_pct" = 0.00 ]] || mark_invalid ping_packet_loss
@@ -246,10 +281,11 @@ emit_artifact() {
 effective_aggregate_bps=""
 [[ -z "$PER_STREAM_BPS" ]] || effective_aggregate_bps=$((PER_STREAM_BPS * STREAMS))
 
-printf 'SLO_SAMPLE status=%s reason=%s label=%s duration_s=%s ping_count=%s bitrate=%s aggregate_bitrate_bps=%s per_stream_bitrate_bps=%s streams=%s observed_streams=%s effective_aggregate_bitrate_bps=%s throughput_bps=%s retransmits=%s ping_loss_pct=%s ping_rtt_stddev_ms=%s generator_cpu_pct=%s generator_cpu_affinity=%s\n' \
+printf 'SLO_SAMPLE status=%s reason=%s label=%s duration_s=%s ping_count=%s bitrate=%s aggregate_bitrate_bps=%s per_stream_bitrate_bps=%s streams=%s requested_streams=%s observed_streams=%s connected_streams=%s completed_streams=%s stream_evidence_mismatch=%s effective_aggregate_bitrate_bps=%s throughput_bps=%s retransmits=%s ping_loss_pct=%s ping_rtt_stddev_ms=%s generator_cpu_pct=%s generator_cpu_affinity=%s\n' \
 	"$sample_status" "$sample_reason" \
 	"$LABEL" "$DURATION" "$PING_COUNT" "${BITRATE:-unlimited}" \
-	"${AGGREGATE_BPS:-unlimited}" "${PER_STREAM_BPS:-unlimited}" "$STREAMS" "$observed_streams" \
+	"${AGGREGATE_BPS:-unlimited}" "${PER_STREAM_BPS:-unlimited}" "$STREAMS" "$requested_streams" \
+	"$observed_streams" "$connected_streams" "$completed_streams" "$stream_evidence_mismatch" \
 	"${effective_aggregate_bps:-unlimited}" "$throughput_bps" "$retransmits" \
 	"$ping_loss_pct" "$ping_stddev_ms" "$generator_cpu" "$generator_affinity"
 
@@ -260,3 +296,8 @@ emit_artifact iperf-client.stderr "$WORK/client.err"
 emit_artifact iperf-server.stderr "$WORK/server.err"
 emit_artifact ping.stderr "$WORK/ping.err"
 emit_artifact iperf-time.txt "$WORK/client.time"
+
+# Keep the standalone helper fail-closed for callers that rely on its exit
+# status. The paired runner recognizes a structured invalid sample plus raw
+# artifacts and records it before failing the report gates.
+[[ "$sample_status" = valid ]]

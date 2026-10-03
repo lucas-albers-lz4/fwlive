@@ -33,8 +33,8 @@ LAN_ENDPOINT_IP="${FWLIVE_SLO_LAN_ENDPOINT_IP:-192.0.2.2}"
 WAN_ENDPOINT_IP="${FWLIVE_SLO_WAN_ENDPOINT_IP:-198.51.100.2}"
 LAN_MAC="${FWLIVE_SLO_LAN_MAC:-52:54:00:30:77:01}"
 WAN_MAC="${FWLIVE_SLO_WAN_MAC:-52:54:00:30:77:02}"
-LAN_TAP="${FWLIVE_SLO_LAN_TAP:-fwlive-slo-lan-tap}"
-WAN_TAP="${FWLIVE_SLO_WAN_TAP:-fwlive-slo-wan-tap}"
+LAN_TAP="${FWLIVE_SLO_LAN_TAP:-fwlive-slo-ltap}"
+WAN_TAP="${FWLIVE_SLO_WAN_TAP:-fwlive-slo-wtap}"
 CONSOLE_LOG="${OWRT_CONSOLE_LOG:-}"
 ADAPTIVE=""
 ENFORCE=0
@@ -164,7 +164,11 @@ const names = [
 	'FWLIVE_SLO_LOG_RATE', 'FWLIVE_SLO_CONSOLE_LEVEL'
 ];
 const metadata = {
-	source: { revision: git(['rev-parse', 'HEAD']), dirty: !!git(['status', '--porcelain']) },
+	source: {
+		revision: git(['rev-parse', 'HEAD']),
+		dirty: !!git(['status', '--porcelain', '--untracked-files=no']),
+		dirty_scope: 'git status --porcelain --untracked-files=no; tracked files only; untracked files excluded'
+	},
 	launcher_selection: Object.fromEntries(names.map((name) => [name, process.env[name] ?? null])),
 	traffic_configuration: {
 		bitrate_input: bitrate || 'unlimited',
@@ -233,7 +237,11 @@ const traffic = {
 	aggregate_bitrate_bps: numberOrNull(fields.aggregate_bitrate_bps),
 	per_stream_bitrate_bps: numberOrNull(fields.per_stream_bitrate_bps),
 	streams: Number(fields.streams),
+	requested_streams: numberOrNull(fields.requested_streams),
 	observed_streams: numberOrNull(fields.observed_streams),
+	connected_streams: numberOrNull(fields.connected_streams),
+	completed_streams: numberOrNull(fields.completed_streams),
+	stream_evidence_mismatch: fields.stream_evidence_mismatch === '1',
 	effective_aggregate_bitrate_bps: numberOrNull(fields.effective_aggregate_bitrate_bps),
 	throughput_bps: numberOrNull(fields.throughput_bps),
 	retransmits: numberOrNull(fields.retransmits),
@@ -262,10 +270,11 @@ NODE
 
 run_traffic() {
 	local label=$1 output=$2 telemetry_dir=$3 start_marker=${4:-} stop_marker=${5:-}
+	local traffic_exit=0
 	mkdir -p "$telemetry_dir"
 	chmod 700 "$telemetry_dir"
 	collect_snapshots "$telemetry_dir/host-before.txt" "$telemetry_dir/guest-before.txt"
-	sudo env \
+	if sudo env \
 		FWLIVE_SLO_IPERF3="$IPERF3" \
 		FWLIVE_SLO_IPERF_BITRATE="$BITRATE" \
 		FWLIVE_SLO_IPERF_STREAMS="$STREAMS" \
@@ -279,7 +288,20 @@ run_traffic() {
 		FWLIVE_SLO_TRAFFIC_START_FILE="$start_marker" \
 		FWLIVE_SLO_TRAFFIC_STOP_FILE="$stop_marker" \
 		"$ROOT/scripts/qemu-forwarding-slo-traffic.sh" --label "$label" |
-		tee "$output" >/dev/null
+		tee "$output" >/dev/null; then
+		traffic_exit=0
+	else
+		traffic_exit=$?
+	fi
+	if (( traffic_exit != 0 )); then
+		if ! grep -Eq '^SLO_SAMPLE status=invalid([[:space:]]|$)' "$output" || \
+			! grep -q '^SLO_ARTIFACT name=iperf-client.json data_b64=' "$output" || \
+			! grep -q '^SLO_ARTIFACT name=iperf-server.json data_b64=' "$output" || \
+			! grep -q '^SLO_ARTIFACT name=ping.txt data_b64=' "$output"; then
+			cat "$output" >&2 || true
+			return "$traffic_exit"
+		fi
+	fi
 	collect_snapshots "$telemetry_dir/host-after.txt" "$telemetry_dir/guest-after.txt"
 	node "$ROOT/tests/lib/fwlive-forwarding-slo-telemetry.mjs" \
 		"$telemetry_dir/host-before.txt" "$telemetry_dir/guest-before.txt" \

@@ -814,12 +814,14 @@ sudo FWLIVE_SLO_IPERF_DURATION=10 FWLIVE_SLO_PING_COUNT=20 \
 ```
 
 The sample output reports receive throughput, retransmits, ping loss/RTT
-spread, generator CPU time, and base64-encoded raw artifacts. A failed traffic
-sample still emits its raw output with `status=invalid`; the paired report
-records it and fails the sample-validity gate. Run the paired orchestrator
-separately for adaptive on and off; it keeps the guest boot and forwarding
-rules fixed, drains between samples, and records viewer poll responses and
-cadence with the matching traffic metrics:
+spread, generator CPU time, requested streams, and observed iperf3 connected
+and completed stream counts. Unknown or inconsistent stream evidence
+invalidates the sample. The standalone helper returns nonzero for invalid
+traffic after emitting its raw artifacts; the paired runner retains a
+structured invalid sample and fails the report's sample-validity gate. Run the
+paired orchestrator separately for adaptive on and off; it keeps the guest
+boot and forwarding rules fixed, drains between samples, and records viewer
+poll responses and cadence with the matching traffic metrics:
 
 ```sh
 FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-on.json \
@@ -831,7 +833,10 @@ FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-off.json \
 The default is five 10-second pairs with 20 pings per sample and one TCP
 stream. The report embeds client/server iperf3 JSON, ping output, stderr and
 timing for every traffic sample, as well as host/guest CPU, IRQ, softirq,
-softnet, affinity, console-policy, and interface queue/offload observations.
+softnet, affinity, console-policy, interface queue/offload observations, and
+ethtool's active channel counts when the guest supports that query. The report
+also records the selected TAP names and marks source dirtiness using tracked
+files only; ignored and untracked experiment artifacts are excluded.
 `generator_cpu_pct` is client-process CPU time divided by wall time, expressed
 relative to one logical CPU; a multithreaded generator can exceed 100%.
 Per-sample counter deltas bracket the traffic helper invocation, so they also

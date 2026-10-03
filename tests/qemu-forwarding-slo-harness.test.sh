@@ -76,5 +76,45 @@ grep -Fq "fwlive-forwarding-slo/v1" "$ROOT/tests/lib/fwlive-forwarding-slo-repor
 	die "report module must identify its report schema"
 grep -Fq 'poll_responses' "$ROOT/tests/fwlive-forwarding-slo-viewer.mjs" ||
 	die "viewer must retain response-side poll evidence"
+grep -Fq 'ethtool -l "$dev"' "$ROOT/scripts/qemu-forwarding-slo-snapshot.sh" ||
+	die "snapshot must capture active ethtool channels when available"
+grep -Fq 'ethtool_channels=unknown' "$ROOT/scripts/qemu-forwarding-slo-snapshot.sh" ||
+	die "snapshot must mark unavailable channel data as unknown"
+grep -Fq 'status=invalid' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
+	die "runner must retain structured invalid traffic samples"
+grep -Fq 'dirty_scope:' "$ROOT/scripts/qemu-forwarding-slo-run.sh" ||
+	die "run metadata must name its dirty-state scope"
+
+node - "$ROOT/scripts/qemu-forwarding-slo-run.sh" \
+	"$ROOT/scripts/qemu-forwarding-slo-snapshot.sh" \
+	"$ROOT/scripts/lib/qemu-forwarding-slo-net.sh" <<'NODE'
+const fs = require('node:fs');
+const [runFile, snapshotFile, netFile] = process.argv.slice(2);
+const run = fs.readFileSync(runFile, 'utf8');
+const snapshot = fs.readFileSync(snapshotFile, 'utf8');
+const net = fs.readFileSync(netFile, 'utf8');
+for (const [side, tap, snapshotVar, expected] of [
+	['LAN', 'LAN_TAP', 'lan_dev', 'fwlive-slo-ltap'],
+	['WAN', 'WAN_TAP', 'wan_dev', 'fwlive-slo-wtap']
+]) {
+	const envName = `FWLIVE_SLO_${tap}`;
+	const parameter = (name, operator) => '${' + name + operator + expected + '}';
+	const runHasDefault = run.includes(`${tap}="${parameter(envName, ':-')}"`);
+	const libraryHasDefault = net.includes(`: "${parameter(envName, ':=')}"`);
+	const position = side === 'LAN' ? '1' : '2';
+	const snapshotHasDefault = snapshot.includes(`${snapshotVar}=${parameter(position, ':-')}`);
+	if (!runHasDefault || !libraryHasDefault || !snapshotHasDefault) {
+		throw new Error(`${side} TAP default is inconsistent between runner, network setup, and snapshot helper`);
+	}
+	if (expected.length > 15) throw new Error(`${side} TAP default exceeds Linux IFNAMSIZ: ${expected}`);
+}
+if (!run.includes('"$LAN_TAP" "$WAN_TAP" "$CONSOLE_LOG"')) {
+	throw new Error('runner does not pass its selected TAP names to the host snapshot');
+}
+if (!run.includes("'--untracked-files=no'")) {
+	throw new Error('runner source identity must explicitly exclude untracked files from dirty state');
+}
+console.log('qemu-forwarding-slo default TAP/snapshot wiring checks passed');
+NODE
 
 echo "qemu-forwarding-slo source-contract checks passed"

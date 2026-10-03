@@ -68,8 +68,17 @@ snapshot_device() {
 	fi
 	if command -v ethtool >/dev/null 2>&1; then
 		ethtool -k "$dev" 2>&1 || true
+		printf 'ethtool_channels:\n'
+		channels=$(ethtool -l "$dev" 2>&1) && channel_status=0 || channel_status=$?
+		if [ "$channel_status" -eq 0 ]; then
+			printf '%s\n' "$channels"
+		else
+			printf 'unknown\n'
+			[ -z "$channels" ] || printf 'ethtool_channels_error=%s\n' "$channels"
+		fi
 	else
 		printf 'ethtool=unavailable\n'
+		printf 'ethtool_channels=unknown\n'
 	fi
 }
 
@@ -79,8 +88,8 @@ case "$scope" in
 	exit 0
 	;;
 host)
-	lan_dev=${1:-fwlive-slo-lan-tap}
-	wan_dev=${2:-fwlive-slo-wan-tap}
+	lan_dev=${1:-fwlive-slo-ltap}
+	wan_dev=${2:-fwlive-slo-wtap}
 	console_log=${3:-}
 	if ! valid_device "$lan_dev" || ! valid_device "$wan_dev"; then
 		echo 'snapshot: invalid host device name' >&2

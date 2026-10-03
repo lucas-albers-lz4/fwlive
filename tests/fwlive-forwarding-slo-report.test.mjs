@@ -17,8 +17,15 @@ const viewer = (requestFailures = 0) => ({
 	request_failures: requestFailures
 });
 const sampleEvidence = {
-	traffic: { status: 'valid', streams: 1, observed_streams: 1, generator_cpu_pct: 25, retransmits: 0, ping_loss_pct: 0 },
-	telemetry: { host: { cpu_per_core: { cpu0: {} } }, guest: { cpu_per_core: { cpu0: {} } } },
+	traffic: {
+		status: 'valid', streams: 1, requested_streams: 1, observed_streams: 1,
+		connected_streams: 1, completed_streams: 1, stream_evidence_mismatch: false,
+		generator_cpu_pct: 25, retransmits: 0, ping_loss_pct: 0
+	},
+	telemetry: {
+		host: { cpu_per_core: { cpu0: { total_ticks: 10, busy_ticks: 5 } } },
+		guest: { cpu_per_core: { cpu0: { total_ticks: 10, busy_ticks: 5 } } }
+	},
 	raw: { 'iperf-client.json': '{}', 'iperf-server.json': '{}', 'ping.txt': '0% packet loss' }
 };
 const records = [
@@ -73,6 +80,21 @@ const missingEvidence = buildReport({
 assert.equal(missingEvidence.acceptance.raw_iperf_and_ping_retained, false);
 assert.equal(missingEvidence.pass, false);
 
+const missingCpuCounters = buildReport({
+	records: records.map((row) => ({
+		...row,
+		telemetry: { host: { cpu_per_core: {} }, guest: { cpu_per_core: {} } }
+	})),
+	adaptive: 'on',
+	expectedPairs: 2,
+	duration: 10,
+	pingCount: 20,
+	bitrate: '100M',
+	startedAt: 'now'
+});
+assert.equal(missingCpuCounters.acceptance.telemetry_captured, false);
+assert.equal(missingCpuCounters.pass, false);
+
 const invalidTraffic = buildReport({
 	records: records.map((row) => row.pair === 1 && row.mode === 'no-viewer'
 		? { ...row, traffic: { ...row.traffic, status: 'invalid', reason: 'ping_packet_loss', ping_loss_pct: 5 } }
@@ -88,6 +110,20 @@ assert.equal(invalidTraffic.acceptance.all_pairs_complete, true);
 assert.equal(invalidTraffic.acceptance.traffic_samples_valid, false);
 assert.equal(invalidTraffic.pairs[0].throughput_degradation_pct, null);
 assert.equal(invalidTraffic.pass, false);
+
+const invalidStreamEvidence = buildReport({
+	records: records.map((row) => row.mode === 'active-viewer'
+		? { ...row, traffic: { ...row.traffic, stream_evidence_mismatch: true } }
+		: row),
+	adaptive: 'on',
+	expectedPairs: 2,
+	duration: 10,
+	pingCount: 20,
+	bitrate: '100M',
+	startedAt: 'now'
+});
+assert.equal(invalidStreamEvidence.acceptance.traffic_samples_valid, false);
+assert.equal(invalidStreamEvidence.pass, false);
 
 const incomplete = buildReport({
 	records: records.slice(0, 1),

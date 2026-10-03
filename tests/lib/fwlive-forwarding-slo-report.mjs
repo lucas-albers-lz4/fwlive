@@ -28,6 +28,13 @@ function stats(values) {
 	} : { count: 0, median: null, min: null, max: null, spread: null };
 }
 
+function hasCpuCoreCounters(scope) {
+	const cores = scope?.cpu_per_core;
+	return !!cores && typeof cores === 'object' && !Array.isArray(cores) &&
+		Object.entries(cores).some(([cpu, counters]) =>
+			/^cpu\d+$/.test(cpu) && Number.isFinite(counters?.total_ticks) && Number.isFinite(counters?.busy_ticks));
+}
+
 export function buildReport({
 	records,
 	adaptive,
@@ -55,7 +62,9 @@ export function buildReport({
 			Number.isFinite(row.ping_rtt_stddev_ms) &&
 			row.traffic.ping_loss_pct === 0 &&
 			row.traffic.streams === Number(streams) &&
-			row.traffic.observed_streams === Number(streams));
+			row.traffic.requested_streams === Number(streams) &&
+			row.traffic.observed_streams === Number(streams) &&
+			row.traffic.stream_evidence_mismatch === false);
 		pairs.push({
 			pair,
 			complete: true,
@@ -93,7 +102,7 @@ export function buildReport({
 				['iperf-client.json', 'iperf-server.json', 'ping.txt'].every((name) => typeof row.raw?.[name] === 'string')),
 			telemetry_captured: records.length === Number(expectedPairs) * 2 && records.every((row) =>
 				row.telemetry?.host && row.telemetry?.guest &&
-				row.telemetry.host.cpu_per_core && row.telemetry.guest.cpu_per_core),
+				hasCpuCoreCounters(row.telemetry.host) && hasCpuCoreCounters(row.telemetry.guest)),
 			active_viewer_poll_observed: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.polls_in_window > 0),
 		viewer_poll_response_details_captured: actives.length === Number(expectedPairs) && actives.every((row) =>
 			Array.isArray(row.viewer.poll_responses) && row.viewer.poll_responses.length > 0 &&

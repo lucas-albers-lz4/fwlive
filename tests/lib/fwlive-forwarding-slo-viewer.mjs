@@ -14,6 +14,8 @@ export function summarizeFwlivePoll({ requestPayload, responsePayload, requestOf
 	const data = pollReply.result[1];
 	if (!data || typeof data !== 'object' || Array.isArray(data))
 		throw new Error('poll RPC result payload was missing or invalid');
+	if (data.error !== undefined && data.error !== null && data.error !== false && data.error !== '')
+		throw new Error(`poll application error: ${String(data.error)}`);
 	const requestedLines = fwlivePollRequestedLines(requestPayload)[0];
 	return {
 		request_offset_ms: Number.isFinite(requestOffsetMs) ? requestOffsetMs : null,
@@ -24,7 +26,7 @@ export function summarizeFwlivePoll({ requestPayload, responsePayload, requestOf
 			: Number(requestedLines),
 		received_rows: Array.isArray(data.log) ? data.log.length : null,
 		effective_limit: Number.isInteger(data.effective_limit) ? data.effective_limit : null,
-		truncated: data.truncated === true,
+		truncated: data.truncated === true || data.truncated === 1,
 		shed: data.shed && typeof data.shed === 'object' && !Array.isArray(data.shed)
 			? data.shed
 			: null,
