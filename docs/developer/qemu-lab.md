@@ -830,6 +830,15 @@ FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-off.json \
   ./scripts/qemu-forwarding-slo-run.sh --adaptive off
 ```
 
+Failed paired runs preserve their mode-700 temporary work directory and print
+its path on stderr, retaining completed samples and partial snapshots for
+diagnosis; copy the needed evidence, then remove that owned directory yourself.
+Successful runs remove their temporary work after writing the report. Each
+sample embeds four raw snapshot bodies (eight per pair), so reports can be
+several MiB and grow with host CPU/IRQ counts; compress durable copies without
+dropping their raw inputs. Unavailable git identity is recorded as unknown
+(`revision: null`, `dirty: null`), rather than as a clean checkout.
+
 The default is five 10-second pairs with 20 pings per sample and one TCP
 stream. The report embeds client/server iperf3 JSON, ping output, stderr and
 timing for every traffic sample, as well as host/guest CPU, IRQ, softirq,

@@ -104,9 +104,9 @@ export function buildReport({
 				row.telemetry?.host && row.telemetry?.guest &&
 				hasCpuCoreCounters(row.telemetry.host) && hasCpuCoreCounters(row.telemetry.guest)),
 			active_viewer_poll_observed: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.polls_in_window > 0),
-		viewer_poll_response_details_captured: actives.length === Number(expectedPairs) && actives.every((row) =>
-			Array.isArray(row.viewer.poll_responses) && row.viewer.poll_responses.length > 0 &&
-			row.viewer.poll_responses.every((poll) => Number.isFinite(poll.received_rows) && Number.isFinite(poll.requested_lines))),
+			viewer_poll_response_details_captured: actives.length === Number(expectedPairs) && actives.every((row) =>
+				Array.isArray(row.viewer.poll_responses) && row.viewer.poll_responses.length > 0 &&
+				row.viewer.poll_responses.every((poll) => Number.isFinite(poll.received_rows) && Number.isFinite(poll.requested_lines))),
 			viewer_requests_drained: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.in_flight_after_drain === 0),
 			viewer_response_parses_drained: actives.length === Number(expectedPairs) && actives.every((row) =>
 				row.viewer.pending_response_parses_at_drain === 0 &&

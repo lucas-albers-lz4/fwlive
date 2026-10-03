@@ -12,6 +12,9 @@ SCRATCH="$TEST_ROOT/scratch"
 mkdir -m 700 "$BIN" "$SCRATCH"
 REAL_NODE="$(command -v node)"
 SNAPSHOT_COUNT="$TEST_ROOT/snapshot-count"
+# Exercise unknown source identity inside the isolated command PATH.
+printf '#!/bin/sh\nexit 1\n' >"$BIN/git"
+chmod +x "$BIN/git"
 
 cat >"$TEST_ROOT/snapshot.txt" <<'SNAPSHOT'
 ###identity
@@ -172,6 +175,7 @@ const fs = require('node:fs');
 const [file] = process.argv.slice(2);
 const rows = fs.readFileSync(file, 'utf8').trim().split('\n').map(JSON.parse);
 if (rows.length !== 1 || rows[0].mode !== 'no-viewer') throw new Error('failed run lost its baseline record');
+if (rows[0].metadata.source.revision !== null || rows[0].metadata.source.dirty !== null) throw new Error('unavailable git identity was incorrectly marked clean');
 for (const name of ['iperf-client.json', 'iperf-server.json', 'ping.txt']) {
 	if (typeof rows[0].raw?.[name] !== 'string') throw new Error(`failed run lost raw artifact ${name}`);
 }

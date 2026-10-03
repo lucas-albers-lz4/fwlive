@@ -170,10 +170,12 @@ const names = [
 	'FWLIVE_SLO_QEMU_NET_MODEL', 'FWLIVE_SLO_QEMU_VHOST', 'FWLIVE_SLO_QEMU_QUEUES',
 	'FWLIVE_SLO_LOG_RATE', 'FWLIVE_SLO_CONSOLE_LEVEL'
 ];
+const revision = git(['rev-parse', 'HEAD']);
+const dirtyStatus = git(['status', '--porcelain', '--untracked-files=no']);
 const metadata = {
 	source: {
-		revision: git(['rev-parse', 'HEAD']),
-		dirty: !!git(['status', '--porcelain', '--untracked-files=no']),
+		revision,
+		dirty: revision === null || dirtyStatus === null ? null : !!dirtyStatus,
 		dirty_scope: 'git status --porcelain --untracked-files=no; tracked files only; untracked files excluded'
 	},
 	launcher_selection: Object.fromEntries(names.map((name) => [name, process.env[name] ?? null])),
