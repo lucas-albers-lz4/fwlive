@@ -86,11 +86,11 @@ Goal: **one review slot per stable head**, not a fixed one-hour sleep.
    elevated-risk work, CodeRabbit is the preferred second review when
    configured and available. Stay in draft while pushing.
 2. **Pre-flight quota** — comment `@coderabbitai rate limit` on the draft.
-   If allowance is `0`, do not trigger a review. For an elevated PR where
-   CodeRabbit is required, record it as unavailable for this head and use the
-   fallback reviewer in `pr-cycle.md`; do not hold the merge for a future
-   quota window. For a voluntary review, wait until quota is available if the
-   review is still useful. Do **not** mark Ready just to “use up” an empty slot.
+   If allowance is `0`, do not trigger a review. If CodeRabbit is required and
+   the PR is otherwise ready to merge, complete and record the fallback in
+   [pr-cycle.md](pr-cycle.md); do not hold the merge for a future quota window.
+   Otherwise, wait until quota is available if the review is still useful.
+   Do **not** mark Ready just to “use up” an empty slot.
 3. **One trigger only** — when quota is available, either:
    - `gh pr ready` (preferred; starts auto-review), **or**
    - `@coderabbitai review` while still draft  
@@ -100,11 +100,11 @@ Goal: **one review slot per stable head**, not a fixed one-hour sleep.
    - a new `COMMENTED` review from `coderabbitai[bot]` with matching
      `commit_id` (round done), or
    - a rate-limit issue comment / `Review rate limited` check (terminal —
-     head was **not** reviewed; use the fallback if CodeRabbit is required).
+     head was **not** reviewed; follow step 5).
 5. **If rate-limited after Ready** — leave the PR Ready (do not bounce
-   draft↔ready). If CodeRabbit is required for this PR, record it as
-   unavailable for this head and use the fallback reviewer. For a voluntary
-   review, you may retry once quota refreshes; use the bot's rate-limit text /
+   draft↔ready). If CodeRabbit is required and the PR is otherwise ready to
+   merge, complete and record the fallback in [pr-cycle.md](pr-cycle.md).
+   Otherwise, you may retry once quota refreshes; use the bot's rate-limit text /
    next `@coderabbitai rate limit`, not a fixed “wait an hour then hope.”
 6. **Fixes** — collect the full round, batch into **one** push, then wait for
    the incremental round (or `@coderabbitai review` if auto-review is paused /
@@ -129,8 +129,11 @@ Goal: **one review slot per stable head**, not a fixed one-hour sleep.
    a human review or an older/stale submission as the completion signal.
    **Rate limit is a terminal state, not a wait state:** if the bot posts a
    rate-limit comment and the `Review rate limited` check passes, the trigger
-   head was NOT reviewed — mark it unreviewed and retry `@coderabbitai review`
-   when quota is available instead of polling for a `COMMENTED` submission.
+   head was NOT reviewed — mark it unreviewed. If CodeRabbit is required and
+   the PR is otherwise ready to merge, complete and record the fallback in
+   [pr-cycle.md](pr-cycle.md) when CodeRabbit is unavailable or rate-limited.
+   Otherwise, retry `@coderabbitai review` when quota is available instead of
+   polling for a `COMMENTED` submission.
 
 3. **Batch all fixes into ONE push, then wait again.** Each eligible push can
    spawn a new incremental round (skipped while auto-review is paused or the
@@ -153,9 +156,8 @@ When an agent drives a CodeRabbit-required or voluntarily requested review:
 
 - **Quota before trigger** — `@coderabbitai rate limit` first; only then
   `gh pr ready` (or a single manual review). Never Ready + manual review on
-  the same SHA. If CodeRabbit is required for an elevated-tier review and
-  unavailable, follow the independent-review fallback in `pr-cycle.md` and
-  record the substitution.
+  the same SHA. If CodeRabbit is required, unavailable, and the PR is otherwise
+  ready to merge, complete and record the fallback in [pr-cycle.md](pr-cycle.md).
 - Trigger the review, then **poll** — do not time-box with a guess (“wait an
   hour”). Check `pulls/<n>/reviews` for a new submission, and issue comments /
   checks for rate-limit, before starting any fix.
@@ -167,6 +169,8 @@ When an agent drives a CodeRabbit-required or voluntarily requested review:
 - Rate limits are plan-specific rolling allowances (e.g. Free 1/hr, Pro 5/hr,
   Pro+ 10/hr — check the plan's limits). They apply to automatic and manual
   triggers alike; prefer batching over `@coderabbitai review` spam.
-- On rate-limit: stay Ready, sleep until the reported refresh (or re-check
+- On rate-limit: stay Ready. If CodeRabbit is required and the PR is otherwise
+  ready to merge, complete and record the fallback in [pr-cycle.md](pr-cycle.md).
+  Otherwise, sleep until the reported refresh (or re-check
   `@coderabbitai rate limit`), then one `@coderabbitai review` — do not flip
   draft state to “retry” auto-review.
