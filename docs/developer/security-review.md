@@ -1,5 +1,22 @@
 # Security review state
 
+**2026-10-03 #1134 qualification evidence.** The lab-control and measurement
+PRs #1143/#1144 were reviewed, their posted findings triaged/fixed, and merged
+as `c2f9d2468881267bd421ee3c4eac11141daaafba` and
+`246c3199ba163d32c88050950e3eeb755f91f1fe`. This supersedes their earlier
+pending-review status notes. The results/runbook change adds documentation
+and lossless raw evidence only; no shipped authority or runtime change.
+Seven five-pair real-LuCI/forwarding cohorts and two direct backend
+pressure/recovery probes retain their exact source and installed-package
+identities. Restoration records show console/ring/override recovery and owned
+topology removal. Raw evidence includes counters and intended laboratory
+addresses; private keys/passwords and browser-session captures are excluded.
+Host proof verifies artifact hashes/JSON, matching poll-response counts,
+complete CPU maps and sample validity; lab proof and its unqualified
+80-Gb/s/64-core boundary are in
+[the evidence record](../../lab/forwarding-slo/2026-10-02-highrate/README.md).
+This is a scoped evidence delta, not a new full-source security audit.
+
 **2026-10-02 #1134 lab-control delta.** Lab-only guest rules now use quoted
 `nft -f` statements; MAC-selected interface names are restricted before entering
 the statement. Numeric console/rate/SMP/queue inputs and NIC/disk/backend enums
