@@ -813,11 +813,15 @@ sudo FWLIVE_SLO_IPERF_DURATION=10 FWLIVE_SLO_PING_COUNT=20 \
   ./scripts/qemu-forwarding-slo-traffic.sh --label no-viewer
 ```
 
-The sample command reports raw receive throughput and ping RTT standard
-deviation only. It does not decide whether the SLO passes. Run the paired
-orchestrator separately for adaptive on and off; it keeps the guest boot and
-forwarding rules fixed, drains between samples, and records every viewer
-request/cadence plus the matching traffic metrics:
+The sample output reports receive throughput, retransmits, ping loss/RTT
+spread, generator CPU time, requested streams, and observed iperf3 connected
+and completed stream counts. Unknown or inconsistent stream evidence
+invalidates the sample. The standalone helper returns nonzero for invalid
+traffic after emitting its raw artifacts; the paired runner retains a
+structured invalid sample and fails the report's sample-validity gate. Run the
+paired orchestrator separately for adaptive on and off; it keeps the guest
+boot and forwarding rules fixed, drains between samples, and records viewer
+poll responses and cadence with the matching traffic metrics:
 
 ```sh
 FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-on.json \
@@ -826,17 +830,43 @@ FWLIVE_SLO_REPORT_FILE=/tmp/fwlive-slo-adaptive-off.json \
   ./scripts/qemu-forwarding-slo-run.sh --adaptive off
 ```
 
-The default is five 10-second pairs with 20 pings per sample. The report
-contains all samples, pair deltas, median/spread, request drain results, and
-successful viewer-request results, and an optional `--enforce` decision for
+Failed paired runs preserve their mode-700 temporary work directory and print
+its path on stderr, retaining completed samples and partial snapshots for
+diagnosis; copy the needed evidence, then remove that owned directory yourself.
+Successful runs remove their temporary work after writing the report. Each
+sample embeds four raw snapshot bodies (eight per pair), so reports can be
+several MiB and grow with host CPU/IRQ counts; compress durable copies without
+dropping their raw inputs. Unavailable git identity is recorded as unknown
+(`revision: null`, `dirty: null`), rather than as a clean checkout.
+
+The default is five 10-second pairs with 20 pings per sample and one TCP
+stream. The report embeds client/server iperf3 JSON, ping output, stderr and
+timing for every traffic sample, as well as host/guest CPU, IRQ, softirq,
+softnet, affinity, console-policy, interface queue/offload observations, and
+ethtool's active channel counts when the guest supports that query. The report
+also records the selected TAP names and marks source dirtiness using tracked
+files only; ignored and untracked experiment artifacts are excluded.
+`generator_cpu_pct` is client-process CPU time divided by wall time, expressed
+relative to one logical CPU; a multithreaded generator can exceed 100%.
+Per-sample counter deltas bracket the traffic helper invocation, so they also
+include its short startup and teardown work. The optional QEMU console log
+counter is exact when `OWRT_CONSOLE_LOG` names a readable append-only capture;
+dmesg ring occupancy is recorded separately and is not treated as emitted
+console volume. The report keeps the `fwlive-forwarding-slo/v1` identity and
+adds these fields without changing its schema label. The optional `--enforce`
+gate includes sample validity and retained viewer response details alongside
 the `<10%` throughput and `<2x` ping standard-deviation criteria. The active
 viewer window is delimited by markers emitted immediately around the iperf3
 measurement, rather than by process startup/shutdown. A run is evidence only
-when all pairs complete;
+when all pairs complete and all traffic validity gates pass;
 the short one-pair/short-duration settings are for harness smoke testing.
-For a load sweep, pass `--bitrate 1G` (or another iperf3 rate) to both the
-single-sample probe and paired runner; an omitted rate leaves TCP uncapped. The
-ping interval is derived from `duration / ping_count` unless
+`--bitrate` is the requested aggregate across all streams. Because iperf3's
+`-b` is per stream, the harness divides the aggregate rate by `--streams N`
+before invoking iperf3 and reports both the requested and effective aggregate
+rate. For example, `--bitrate 80G --streams 8` requests 80 Gb/s total and
+offers 10 Gb/s per stream. The stream count is limited to 1–64. An omitted
+rate leaves TCP uncapped. The ping interval is derived from
+`duration / ping_count` unless
 `FWLIVE_SLO_PING_INTERVAL_S` is set explicitly.
 
 #### Recorded x86 result
@@ -872,13 +902,14 @@ workload:
    temporary, comment-addressable forwarding/logging state.
 3. `qemu-forwarding-slo-traffic.sh` measures only routed network outcomes.
 4. `tests/fwlive-forwarding-slo-viewer.mjs` and `qemu-forwarding-slo-run.sh` provide
-   marker-file synchronization, active-workload observation, drain checking,
-   pairing, and statistics.
+   marker-file synchronization, existing poll response observation, drain
+   checking, pairing, and statistics. They do not start a second poller.
 
 Future tests should preserve the `fwlive-forwarding-slo/v1` JSON report
-identity, include every raw sample, and retain the validity gates: the active
-workload must be observed during the measurement window and have zero
-in-flight requests after drain. Use environment overrides for names,
+identity, include every raw sample, and retain the validity gates: traffic
+samples must be complete, the active workload must be observed during the
+measurement window, the poll response payload details must be present, and
+requests must drain after the window. Use environment overrides for names,
 addresses, MACs, SSH settings, duration, pair count, and traffic rate rather
 than editing the helpers. A new metric or acceptance rule should be added to
 the report and static harness test together. Keep the resulting report with
@@ -904,3 +935,14 @@ OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
 - [`../openwrt-rootfs-x86-docker.md`](../openwrt-rootfs-x86-docker.md) — optional Docker experiment
 - [`../../lab/README.md`](../../lab/README.md)
 - [#319](https://github.com/lucas-albers-lz4/fwlive/issues/319) — memory footprint requirements
+
+The high-rate report retains the raw host/guest snapshots as well as derived
+CPU/IRQ/softnet deltas and `/proc/meminfo` for sizing. Softnet derives only
+processed, dropped, and time-squeeze counters; queue occupancy can decrease and
+is retained as raw data. CPU IDs use the explicit kernel column when present.
+Counter resets/wraps are unknown deltas, not zero. This matches the field layout
+in the tested [6.6](https://github.com/torvalds/linux/blob/v6.6/net/core/net-procfs.c),
+[6.12](https://github.com/torvalds/linux/blob/v6.12/net/core/net-procfs.c), and
+[6.17](https://github.com/torvalds/linux/blob/v6.17/net/core/net-procfs.c) kernel
+sources. CPU snapshots bracket each sample, including setup/teardown margin;
+network throughput and browser poll timing retain their own measured windows.

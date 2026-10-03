@@ -6,11 +6,13 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fwliveMethodRequestIds } from './lib/fwlive-perf-rpc.mjs';
 import {
-	fwliveMethodRequestIds,
-	fwliveRpcReplyForRequest,
-	isSuccessfulFwliveRpcReply
-} from './lib/fwlive-perf-rpc.mjs';
+	drainPendingResponseParses,
+	summarizeFwlivePoll,
+	trackPendingResponseParse,
+	waitForMeasurementStartOrStop
+} from './lib/fwlive-forwarding-slo-viewer.mjs';
 
 const args = process.argv.slice(2);
 let readyFile = process.env.FWLIVE_SLO_VIEWER_READY_FILE || '';
@@ -118,25 +120,23 @@ function requestMethods(postData) {
 	return methods.filter((method) => fwliveMethodRequestIds(postData, method).length > 0);
 }
 
-function hasSummary(value) {
-	if (Array.isArray(value)) return value.some(hasSummary);
-	if (!value || typeof value !== 'object') return false;
-	if (Object.prototype.hasOwnProperty.call(value, 'summary')) return true;
-	return Object.values(value).some(hasSummary);
-}
-
 async function main() {
 	const { launchLabBrowser, loginFwlive } = await import('./lib/playwright-lab.mjs');
 	const { browser, page } = await launchLabBrowser();
 	const requestTimes = [];
+	const requestStartedAt = new WeakMap();
+	const pollResponses = [];
 	const methodCounts = {};
 	const measuredRequests = new Set();
 	const measuredInFlight = new Set();
+	const pendingResponseParses = new Set();
+	const pendingResponseRequests = new Set();
 	const ignoredFailures = new Set();
 	const pollRequests = new Set();
 	let measureStarted = false;
 	let measureFinished = false;
 	let summarySeen = false;
+	let measuredStartedAt = null;
 	let requestFailures = 0;
 	let firstPollSettled = false;
 	let firstPollResponseResolve;
@@ -155,6 +155,7 @@ async function main() {
 		if (measureStarted && !measureFinished) {
 			measuredRequests.add(request);
 			measuredInFlight.add(request);
+			requestStartedAt.set(request, Date.now());
 			for (const method of methods)
 				methodCounts[`window_${method}`] = (methodCounts[`window_${method}`] || 0) + 1;
 			if (methods.includes('poll')) requestTimes.push(Date.now());
@@ -174,7 +175,7 @@ async function main() {
 			firstPollResponseReject(new Error('first fwlive poll request failed'));
 		}
 	});
-	page.on('response', async (response) => {
+	const handleResponse = async (response) => {
 		const postData = response.request().postData() || '';
 		const methods = requestMethods(postData);
 		if (!methods.length) return;
@@ -182,17 +183,25 @@ async function main() {
 			try {
 				if (!response.ok()) throw new Error(`HTTP ${response.status()}`);
 				const body = await response.json();
-				const pollIds = fwliveMethodRequestIds(postData, 'poll');
-				const pollReply = fwliveRpcReplyForRequest(body, pollIds);
-				if (!isSuccessfulFwliveRpcReply(pollReply))
-					throw new Error('poll RPC reply was missing or unsuccessful');
-				if (!pollReply.result[1] || typeof pollReply.result[1] !== 'object')
-					throw new Error('poll RPC result payload was missing or invalid');
+				const requestAt = requestStartedAt.get(response.request());
+				const responseAt = Date.now();
+				const observation = summarizeFwlivePoll({
+					requestPayload: postData,
+					responsePayload: body,
+					requestOffsetMs: Number.isFinite(requestAt) && Number.isFinite(measuredStartedAt)
+						? requestAt - measuredStartedAt
+						: null,
+					responseLatencyMs: Number.isFinite(requestAt) ? responseAt - requestAt : null,
+					receivedAt: new Date().toISOString()
+				});
+				if (measuredRequests.has(response.request()) && !ignoredFailures.has(response.request())) {
+					pollResponses.push(observation);
+				}
 				if (!firstPollSettled) {
 					firstPollSettled = true;
 					firstPollResponseResolve();
 				}
-				if (measureStarted && !measureFinished && hasSummary(body)) summarySeen = true;
+				if (measureStarted && !measureFinished && observation.summary_payload_present) summarySeen = true;
 			} catch (error) {
 				if (measuredRequests.has(response.request()) && !ignoredFailures.has(response.request())) requestFailures++;
 				if (!firstPollSettled) {
@@ -201,6 +210,15 @@ async function main() {
 				}
 			}
 		}
+	};
+	page.on('response', (response) => {
+		const request = response.request();
+		pendingResponseRequests.add(request);
+		trackPendingResponseParse(
+			pendingResponseParses,
+			handleResponse(response),
+			() => pendingResponseRequests.delete(request)
+		);
 	});
 
 	try {
@@ -215,9 +233,11 @@ async function main() {
 			)
 		]);
 		writeMarker(readyFile, { pid: process.pid, ready_at: new Date().toISOString() });
-		await waitForFile(startFile, 60000);
+		const measurementMarker = await waitForMeasurementStartOrStop(startFile, stopFile, 60000);
+		if (measurementMarker === 'stopped') return;
 		measureStarted = true;
 		const startedAt = Date.now();
+		measuredStartedAt = startedAt;
 		await waitForFile(stopFile, timeoutMs);
 		measureFinished = true;
 		const finishedAt = Date.now();
@@ -226,14 +246,15 @@ async function main() {
 		// still in flight at the bounded drain deadline, navigation may cancel it;
 		// exclude that teardown cancellation from the request-failure metric.
 		const drainDeadline = Date.now() + drainMs;
-		while (measuredInFlight.size && Date.now() < drainDeadline)
+		while ((measuredInFlight.size || pendingResponseParses.size) && Date.now() < drainDeadline)
 			await new Promise((resolve) => setTimeout(resolve, 25));
 		const inFlightAfterDrain = measuredInFlight.size;
 		for (const request of measuredInFlight) ignoredFailures.add(request);
+		for (const request of pendingResponseRequests) ignoredFailures.add(request);
+		const pendingResponseParsesAtDrain = pendingResponseParses.size;
 		const navigationTimeout = Math.max(1, drainDeadline - Date.now());
 		await page.goto('about:blank', { waitUntil: 'load', timeout: navigationTimeout }).catch(() => {});
-		while (measuredInFlight.size && Date.now() < drainDeadline)
-			await new Promise((resolve) => setTimeout(resolve, 25));
+		const pendingResponseParsesAfterNavigation = await drainPendingResponseParses(pendingResponseParses, drainDeadline);
 		const report = {
 			viewer: 'active',
 			duration_ms: finishedAt - startedAt,
@@ -243,10 +264,13 @@ async function main() {
 					.map(([method, count]) => [method.slice('window_'.length), count])
 			),
 			polls_in_window: requestTimes.length,
+			poll_responses: pollResponses,
 			poll_cadence_ms: intervalsSummary(requestTimes),
 			request_failures: requestFailures,
 			in_flight_at_window_end: requestsBeforeDrain,
 			in_flight_after_drain: inFlightAfterDrain,
+			pending_response_parses_at_drain: pendingResponseParsesAtDrain,
+			pending_response_parses_after_navigation: pendingResponseParsesAfterNavigation,
 			summary_mode_seen: summarySeen,
 			started_at: new Date(startedAt).toISOString(),
 			finished_at: new Date(finishedAt).toISOString()
