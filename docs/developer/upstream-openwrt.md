@@ -3,7 +3,7 @@
 Owner for cutting `luci-app-fwlive` into the official LuCI tree and filing the
 upstream PR. Publish checklist pointer:
 [`../github-publish-checklist.md`](../github-publish-checklist.md).
-Agent review order before filing: [pr-cycle.md](pr-cycle.md).
+Issue and PR review requirements: [pr-cycle.md](pr-cycle.md).
 
 This monorepo is the development home.
 The luci PR is a **copy**, not a move.
@@ -162,14 +162,16 @@ Feature branch (not `master`). Subject example:
 
 ## Filing sequence (prep → luci)
 
-1. **fwlive prep branch** — full [pr-cycle.md](pr-cycle.md) gate (luna → Bugbot →
-   human → file vs master → CodeRabbit → triage → merge).
+1. **fwlive prep branch** — meet the risk-tiered [pr-cycle.md](pr-cycle.md)
+   gate, including review of the final diff and disposition of findings.
 2. **Re-cut** with `./scripts/upstream-cut.sh` from merged master (or from the
    final prep tip if filing luci before the prep merge).
 3. **Copy + i18n-scan parity check** into the luci feature branch (commands above).
 4. **FormalityCheck commit** on that luci branch.
-5. **Same pr-cycle gate on the luci branch** (luna → Bugbot → human). Skip
-   CodeRabbit unless `openwrt/luci` (or your fork) is configured for it.
+5. **Apply the same risk-tiered review standard to the luci branch**, along with
+   any additional `openwrt/luci` reviewer and CI requirements. Request
+   CodeRabbit there when configured and required by the elevated tier; if
+   unavailable, use the documented independent-review fallback.
 6. File against `openwrt/luci` `master` with product/FormalityCheck prose only —
    no bot quotes.
 
@@ -186,8 +188,8 @@ the luci tree**. Each round uses the same split:
 
 1. **Triage** luci threads — blockers vs nits. Do not paste CodeRabbit or other
    bot quotes when replying upstream.
-2. **Fix in fwlive** — feature branch with the full [pr-cycle.md](pr-cycle.md)
-   gate (luna → Bugbot → human → file vs master → CodeRabbit → triage → merge).
+2. **Fix in fwlive** — feature branch with the [pr-cycle.md](pr-cycle.md)
+   risk-tiered review gate and current-head checks.
 3. **After the fwlive wave merge** — verify upstream is still open **before**
    the next cut (catches accidental auto-close; see
    [Upstream merge safety](#upstream-merge-safety)):

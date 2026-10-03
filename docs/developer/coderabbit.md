@@ -4,9 +4,10 @@ This repo runs CodeRabbit as an automated PR reviewer. The protocol below keeps
 review cycles efficient — one coherent review round over a stable diff, no
 fragmented re-reviews, no findings landing after the gate was declared green.
 
-**Ordering:** CodeRabbit runs **after** luna/Bugbot and human review, and
-**after** the GitHub PR is filed — see [pr-cycle.md](pr-cycle.md). Do not
-`@coderabbitai review` on a branch that has not passed that gate.
+**Role:** CodeRabbit is a preferred second reviewer for elevated-risk PRs when
+it is configured and available. It is optional for routine and standard PRs.
+The independent review tiers and fallback when CodeRabbit is unavailable are
+defined in [pr-cycle.md](pr-cycle.md). CodeRabbit can only review a filed PR.
 
 **Upstream scope:** **fwlive** CodeRabbit comments never go into an
 `openwrt/luci` PR; apply code only
@@ -80,12 +81,16 @@ there must come from repo-authored rules via `rule_dirs`.
 
 Goal: **one review slot per stable head**, not a fixed one-hour sleep.
 
-1. **Finish the branch first** (luna + Bugbot + human + CI green on the
-   rebased head). Stay in draft while pushing.
+1. **Finish a stable branch diff first.** Obtain the first independent review
+   required by [pr-cycle.md](pr-cycle.md), and run the applicable checks. For
+   elevated-risk work, CodeRabbit is the preferred second review when
+   configured and available. Stay in draft while pushing.
 2. **Pre-flight quota** — comment `@coderabbitai rate limit` on the draft.
-   If allowance is `0`, wait until the bot’s refresh window (or the plan’s
-   rolling hour) before the next step. Do **not** mark Ready just to “use
-   up” an empty slot.
+   If allowance is `0`, do not trigger a review. For an elevated PR where
+   CodeRabbit is required, record it as unavailable for this head and use the
+   fallback reviewer in `pr-cycle.md`; do not hold the merge for a future
+   quota window. For a voluntary review, wait until quota is available if the
+   review is still useful. Do **not** mark Ready just to “use up” an empty slot.
 3. **One trigger only** — when quota is available, either:
    - `gh pr ready` (preferred; starts auto-review), **or**
    - `@coderabbitai review` while still draft  
@@ -95,11 +100,12 @@ Goal: **one review slot per stable head**, not a fixed one-hour sleep.
    - a new `COMMENTED` review from `coderabbitai[bot]` with matching
      `commit_id` (round done), or
    - a rate-limit issue comment / `Review rate limited` check (terminal —
-     head was **not** reviewed).
+     head was **not** reviewed; use the fallback if CodeRabbit is required).
 5. **If rate-limited after Ready** — leave the PR Ready (do not bounce
-   draft↔ready). When quota refreshes, post **one**
-   `@coderabbitai review` for that same head. No fixed “wait an hour then
-   hope”; use the bot’s rate-limit text / next `@coderabbitai rate limit`.
+   draft↔ready). If CodeRabbit is required for this PR, record it as
+   unavailable for this head and use the fallback reviewer. For a voluntary
+   review, you may retry once quota refreshes; use the bot's rate-limit text /
+   next `@coderabbitai rate limit`, not a fixed “wait an hour then hope.”
 6. **Fixes** — collect the full round, batch into **one** push, then wait for
    the incremental round (or `@coderabbitai review` if auto-review is paused /
    limited). Repeat until the latest round has no actionable `CONFIRMED`
@@ -143,11 +149,13 @@ Goal: **one review slot per stable head**, not a fixed one-hour sleep.
 
 ## Working from agent tooling (Hermes / Cursor)
 
-When an agent drives the fix loop:
+When an agent drives a CodeRabbit-required or voluntarily requested review:
 
-- **Quota before Ready** — `@coderabbitai rate limit` first; only then
+- **Quota before trigger** — `@coderabbitai rate limit` first; only then
   `gh pr ready` (or a single manual review). Never Ready + manual review on
-  the same SHA.
+  the same SHA. If CodeRabbit is required for an elevated-tier review and
+  unavailable, follow the independent-review fallback in `pr-cycle.md` and
+  record the substitution.
 - Trigger the review, then **poll** — do not time-box with a guess (“wait an
   hour”). Check `pulls/<n>/reviews` for a new submission, and issue comments /
   checks for rate-limit, before starting any fix.

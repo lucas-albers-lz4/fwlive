@@ -1,46 +1,46 @@
 ---
-description: Before merging a PR in an agent-driven Cursor cycle, default to luna-or-grok + Bugbot, human review before filing, CodeRabbit last
+description: Before merging an agent-driven PR, require independent risk-tiered review and passing checks; use available reviewers, with CodeRabbit for elevated risk
 alwaysApply: true
 ---
 
-# PR cycle: luna/Bugbot → human → file → CodeRabbit → merge
+# PR cycle: issue triage → independent risk-tiered PR review → checks → merge
 
 **Owner:** [docs/developer/pr-cycle.md](../../docs/developer/pr-cycle.md).
 Upstream luci filing: [docs/developer/upstream-openwrt.md](../../docs/developer/upstream-openwrt.md).
 CodeRabbit mechanics: [docs/developer/coderabbit.md](../../docs/developer/coderabbit.md).
 
 In agent-driven PR cycles from **Cursor**, do **not** merge on CI-green alone
-and do **not** treat plan-mode execution as a substitute for the gates below.
+and do **not** treat plan-mode execution as a substitute for independent review.
+This rule summarizes [the review policy](../../docs/developer/pr-cycle.md),
+which owns reviewer tiers, elevated-risk triggers, and fallbacks.
 
-## Non-trivial (full gate)
+## Review tier
 
-Any new/changed logic, scripts, tests, CI, schemas, feed/package files, or
-configuration; multi-file changes (including multi-file docs); new owner docs.
-If unsure, treat as non-trivial. Multi-file **overrides** the trivial list.
-
-**Trivial** (CI + light self-review) — **single-file** only: docs typos,
-badges/links/metadata, single-line comments, pure formatting, license badge,
-topics, changelog date bumps. Full list: [pr-cycle.md](../../docs/developer/pr-cycle.md).
+Apply the routine, standard, or elevated tier from
+[pr-cycle.md](../../docs/developer/pr-cycle.md). Assign risk by behavior and
+impact, not file count. A documentation-only edit can be routine; a small ACL
+or release change can be elevated. When uncertain, use the higher tier.
 
 ## Sequence (non-trivial)
 
-1. Implement on a feature branch — **no** `gh pr create` yet.
-2. **Luna** (preferred) or **grok** on branch changes (merge-base vs default base).
-3. **Bugbot** on branch changes (`review-bugbot` / `bugbot` subagent).
-4. Fix `CONFIRMED` findings; re-run once after substantive fixes.
-5. **Stop for human review** of the branch.
-6. **File** the PR vs `master` (`gh pr create`). Keep it draft until final
-   (see coderabbit.md).
-7. **Then** CodeRabbit (Ready or `@coderabbitai review`). Wait for the round;
-   batch fixes; do not declare green mid-round.
-8. Triage thread (`CONFIRMED` / `DISMISS` / `FOLD`); ground-truth bot suggestions.
-9. Wait until required checks are present and passing.
-10. Merge (`gh pr merge`).
+1. Triage the issue's scope, acceptance criteria, ownership, and risk. For
+   elevated-risk work, independently review the approach before implementation.
+2. Implement on a feature branch and open a draft PR when useful; reviews may
+   happen before or after filing.
+3. Obtain the independent review or reviews required by the risk tier in
+   `pr-cycle.md`. Luna, Grok, and Bugbot are preferred when available, not
+   individually mandatory.
+4. On elevated-risk PRs, request CodeRabbit when configured and available. If
+   unavailable, record that and obtain the second independent review instead.
+5. Fix or explicitly disposition findings; review substantive changes against
+   the updated head.
+6. Merge only when required reviews cover the final head, findings are
+   resolved or explicitly accepted, and required checks pass.
 
 ## Do not
 
-- File against master before luna + Bugbot + human review
-- Ping CodeRabbit before step 6
+- Treat an unavailable named reviewer as a completed review
+- Merge without the independent reviews required by the risk tier
 - Merge when required checks are missing or failing
 - Merge with unresolved human `REQUEST_CHANGES` / substantive human comments,
   unresolved `CONFIRMED` bot findings, or an un-triaged thread
