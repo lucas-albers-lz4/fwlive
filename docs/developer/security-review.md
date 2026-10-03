@@ -54,6 +54,23 @@ horizontally; the new disclosure remains inside the Action cell and this unit
 does not adjust column sizing. This is a scoped renderer delta, not
 installed-router, assistive-technology, or full-source re-audit evidence.
 
+**2026-10-03 #1147/#1154 Simple-view layout and instruction delta.** The
+Simple Action column now scales with the row font so translated action labels
+and the existing native disclosure button stay within their cells; Time remains
+the next readable column. The Time tooltip and hint name button activation and
+retain row-click guidance. The checked-in POT came from the LuCI scanner, and
+`msgmerge` refreshed the German, Russian and Simplified Chinese feed catalogs;
+their new instructions use the matching Help translations. Host proof:
+`npm run test:view` loads the generated `css.js` payload in Chromium and checks
+de/ru action labels, label/button separation, Time readability and 24px hit
+targets at 13px/16px fonts and 390px/1280px viewports. At 390px the table uses
+its existing horizontal scroll container; Action and Time remain visible before
+later columns. Existing smoke assertions still cover native table structure,
+filter-link propagation, mouse row toggles, button naming and exactly-once
+Enter/Space activation. No data sink, ACL, rpcd or shell behavior changed.
+This is scoped host UI evidence, not installed-router, assistive-technology or
+full-source audit evidence.
+
 **2026-10-02 #1129 renderer delta.** The chip inversion button now exposes the
 same static translated Include/Exclude action text as its existing CSS tooltip.
 The filter value remains an array child and is not used in the accessible-name

@@ -9,7 +9,12 @@
 	const baseclass = { extend: function(desc) { return desc; } };
 
 	function gettext(s) {
-		const out = Object(String(s));
+		const msgid = String(s);
+		const translations = window.fwliveTestTranslations || {};
+		const text = Object.prototype.hasOwnProperty.call(translations, msgid)
+			? translations[msgid]
+			: msgid;
+		const out = Object(String(text));
 		out.format = function() {
 			let i = 0;
 			const args = arguments;
