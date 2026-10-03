@@ -197,6 +197,7 @@ function testInvertButtonAccessibleNameTracksFilterMode() {
 	};
 	let invertCalls = 0;
 	let clearCalls = 0;
+	let clearEvent = null;
 	function render() {
 		chips.renderFilterChips(host, state, {
 			onInvert: function (field) {
@@ -206,19 +207,29 @@ function testInvertButtonAccessibleNameTracksFilterMode() {
 					: '!' + state.filters[field];
 				render();
 			},
-			onClear: function () { clearCalls++; },
+			onClear: function (field, ev) {
+				clearCalls++;
+				clearEvent = { field: field, event: ev };
+			},
 			onClearAll: function () {}
 		});
 	}
 	function assertInvertName(expected) {
 		const button = findElementByClass(host, 'fwlive-chip-invert');
 		const wrapper = findElementByClass(host, 'fwlive-chip-invert-wrap');
+		const remove = findElementByClass(host, 'fwlive-chip-remove');
 		assert.ok(button, 'chip invert button remains present');
 		assert.ok(wrapper, 'chip tooltip wrapper remains present');
+		assert.ok(remove, 'remove-filter control remains present');
 		assert.strictEqual(button.getAttribute('aria-label'), expected);
 		assert.strictEqual(wrapper.getAttribute('data-tip'), expected);
 		assert.strictEqual(collectText(button), '≠', 'the existing icon stays in the button');
-		assert.ok(findElementByClass(host, 'fwlive-chip-remove'), 'remove-filter control remains present');
+		assert.strictEqual(remove.getAttribute('aria-label'), 'FILTER-ENTFERNEN');
+		assert.ok(
+			remove.getAttribute('title').indexOf('FILTER-ENTFERNEN') >= 0,
+			'the existing remove-filter tooltip remains present'
+		);
+		assert.strictEqual(collectText(remove), '×', 'the existing remove glyph stays visible');
 		return button;
 	}
 
@@ -232,6 +243,37 @@ function testInvertButtonAccessibleNameTracksFilterMode() {
 	assert.strictEqual(state.filters.action, 'drop');
 	assert.strictEqual(invertCalls, 2, 'the inverse action also toggles exactly once');
 	assert.strictEqual(clearCalls, 0, 'inversion does not invoke filter removal');
+	const remove = findElementByClass(host, 'fwlive-chip-remove');
+	const event = { type: 'click', preventDefault: function () {} };
+	remove._listeners.click[0](event);
+	assert.strictEqual(clearCalls, 1, 'one remove activation invokes the existing callback once');
+	assert.strictEqual(clearEvent.field, 'action', 'remove keeps its field argument');
+	assert.strictEqual(clearEvent.event, event, 'remove keeps passing the activation event');
+}
+
+function testActionPickerAccessibleNameAndHash() {
+	const h = loadFwliveView({ location: { hash: '' } });
+	const action = h.document.getElementById('fwlive-action');
+	assert.ok(action, 'Action filter select must render');
+	assert.strictEqual(
+		action.getAttribute('aria-label'),
+		'Filter by Action',
+		'Action picker must have a persistent translated filter-purpose name'
+	);
+
+	action.value = 'block';
+	h.view.onFilterInput();
+	assert.strictEqual(h.view.readFilters().action, 'block', 'Action selection still filters');
+	assert.deepStrictEqual(
+		h.view.hashEntries().filter(function (entry) { return entry.key === 'action'; }),
+		[{ key: 'action', val: 'block' }],
+		'Action selection continues to update the shareable hash'
+	);
+	assert.strictEqual(
+		action.getAttribute('aria-label'),
+		'Filter by Action',
+		'Action picker name persists after the value changes'
+	);
 }
 
 function testUnknownChipFieldLabel() {
@@ -524,6 +566,7 @@ testHostileTextChipSink();
 testIdentityChipFieldLabels();
 testTranslatedChipCatalog();
 testInvertButtonAccessibleNameTracksFilterMode();
+testActionPickerAccessibleNameAndHash();
 testUnknownChipFieldLabel();
 testApplyHashValidAndMalformed();
 testApplyHashIgnoresUnlistedAndPersistedKeys();

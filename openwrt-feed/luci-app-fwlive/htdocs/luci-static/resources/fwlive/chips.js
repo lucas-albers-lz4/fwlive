@@ -115,6 +115,7 @@ function renderFilterChips(host, state, callbacks) {
 				{
 					'href': '#',
 					'class': 'fwlive-chip-remove',
+					'aria-label': String(_('Remove filter')),
 					'title': _('Remove filter'),
 					'click': function (ev) {
 						callbacks.onClear(spec.key, ev);
