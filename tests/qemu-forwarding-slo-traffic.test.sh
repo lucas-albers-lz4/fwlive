@@ -9,6 +9,8 @@ chmod 700 "$WORK"
 trap 'rm -rf "$WORK"' EXIT HUP INT TERM
 BIN="$WORK/bin"
 mkdir "$BIN"
+# CI setup-node may install outside /usr/bin; retain the real parser in the isolated stub PATH.
+ln -s "$(command -v node)" "$BIN/node"
 
 cat >"$BIN/id" <<'STUB'
 #!/bin/sh
