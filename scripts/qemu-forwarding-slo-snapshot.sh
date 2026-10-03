@@ -99,6 +99,7 @@ host)
 	section cmdline cat /proc/cmdline
 	section printk cat /proc/sys/kernel/printk
 	section proc_stat cat /proc/stat
+	section meminfo cat /proc/meminfo
 	section interrupts cat /proc/interrupts
 	section softirqs cat /proc/softirqs
 	section softnet_stat cat /proc/net/softnet_stat
@@ -166,6 +167,7 @@ guest)
 	section cmdline cat /proc/cmdline
 	section printk cat /proc/sys/kernel/printk
 	section proc_stat cat /proc/stat
+	section meminfo cat /proc/meminfo
 	section interrupts cat /proc/interrupts
 	section softirqs cat /proc/softirqs
 	section softnet_stat cat /proc/net/softnet_stat

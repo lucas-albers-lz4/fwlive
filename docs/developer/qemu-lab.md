@@ -926,3 +926,14 @@ OPENWRT_SSH_PORT=2222 ./scripts/memory-census.sh
 - [`../openwrt-rootfs-x86-docker.md`](../openwrt-rootfs-x86-docker.md) — optional Docker experiment
 - [`../../lab/README.md`](../../lab/README.md)
 - [#319](https://github.com/lucas-albers-lz4/fwlive/issues/319) — memory footprint requirements
+
+The high-rate report retains the raw host/guest snapshots as well as derived
+CPU/IRQ/softnet deltas and `/proc/meminfo` for sizing. Softnet derives only
+processed, dropped, and time-squeeze counters; queue occupancy can decrease and
+is retained as raw data. CPU IDs use the explicit kernel column when present.
+Counter resets/wraps are unknown deltas, not zero. This matches the field layout
+in the tested [6.6](https://github.com/torvalds/linux/blob/v6.6/net/core/net-procfs.c),
+[6.12](https://github.com/torvalds/linux/blob/v6.12/net/core/net-procfs.c), and
+[6.17](https://github.com/torvalds/linux/blob/v6.17/net/core/net-procfs.c) kernel
+sources. CPU snapshots bracket each sample, including setup/teardown margin;
+network throughput and browser poll timing retain their own measured windows.

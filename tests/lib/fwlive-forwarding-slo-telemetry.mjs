@@ -110,20 +110,28 @@ function softirqSummary(beforeText, afterText) {
 }
 
 function softnetSummary(beforeText, afterText) {
-	const before = softnetCounters(beforeText);
-	const after = softnetCounters(afterText);
+	// Linux net/core/net-procfs.c (v6.6, v6.12, v6.17): only the
+	// first three fields here are monotonic counters. Later fields include
+	// backlog gauges and an explicit CPU ID; a falling gauge is not a reset.
+	const keyed = (text) => new Map(softnetCounters(text).filter((row) => row.length >= 3)
+		.map((row, index) => [row.length >= 13 && Number.isInteger(row[12]) ? row[12] : index, row]));
+	const before = keyed(beforeText);
+	const after = keyed(afterText);
 	const perCpu = [];
-	for (let i = 0; i < Math.min(before.length, after.length); i++) {
-		if (before[i].length !== after[i].length) continue;
-		const changes = before[i].map((value, index) => delta(value, after[i][index]));
-		if (changes.some((value) => value === null)) continue;
+	for (const [cpu, previous] of before) {
+		const current = after.get(cpu);
+		if (!current) continue;
+		const changes = previous.slice(0, 3).map((value, index) => delta(value, current[index]));
 		perCpu.push({
-			cpu: `cpu${i}`,
-			processed: changes[0] || 0,
-			dropped: changes[1] || 0,
-			time_squeeze: changes[2] || 0,
-			cpu_collision: changes[3] || 0,
-			counter_deltas: changes
+			cpu: `cpu${cpu}`,
+			cpu_mapping: previous.length >= 13 ? 'explicit CPU ID (column 13)' : 'legacy row order',
+			processed: changes[0],
+			dropped: changes[1],
+			time_squeeze: changes[2],
+			counter_deltas: changes,
+			counter_reset_or_wrap: changes.some((value) => value === null),
+			raw_before: previous,
+			raw_after: current
 		});
 	}
 	return { per_cpu: perCpu };
@@ -172,6 +180,8 @@ function scopeSummary(before, after) {
 			dmesg_ring_after: afterDmesg,
 			dmesg_ring_is_occupancy_not_emitted_volume: true
 		},
+		memory_before: beforeProc.meminfo || null,
+		memory_after: afterProc.meminfo || null,
 		devices: beforeProc.devices || null,
 		devices_after: afterProc.devices || null,
 		cpu_per_core: cpuSummary(beforeProc.proc_stat || '', afterProc.proc_stat || ''),
@@ -184,7 +194,8 @@ function scopeSummary(before, after) {
 export function summarizeTelemetry({ hostBefore, hostAfter, guestBefore, guestAfter }) {
 	return {
 		host: scopeSummary(hostBefore, hostAfter),
-		guest: scopeSummary(guestBefore, guestAfter)
+		guest: scopeSummary(guestBefore, guestAfter),
+		raw_snapshots: { host_before: hostBefore, host_after: hostAfter, guest_before: guestBefore, guest_after: guestAfter }
 	};
 }
 

@@ -80,4 +80,23 @@ assert.equal(report.guest.console_policy.qemu_console_log_available, false);
 assert.match(report.guest.busybox_banner, /BusyBox v1\.36\.1/);
 assert.match(report.guest.package_manager, /apk-tools 3\.0\.5/);
 assert.match(report.guest.installed_source_hashes, /abc123/);
+// Real 15-column kernel layout: CPU 7 is the only online row; the backlog
+// drains from six to zero while processed/drop/time_squeeze counters increase.
+const modernBefore = '###softnet_stat\n64 0a 02 0 0 0 0 0 0 0 0 6 7 5 1\n###meminfo\nMemAvailable: 900000 kB\n';
+const modernAfter = '###softnet_stat\n6e 0c 05 0 0 0 0 0 0 0 0 0 7 0 0\n###meminfo\nMemAvailable: 910000 kB\n';
+const modern = summarizeTelemetry({ hostBefore: modernBefore, hostAfter: modernAfter, guestBefore: '', guestAfter: '' });
+assert.equal(modern.host.softnet.per_cpu.length, 1);
+assert.equal(modern.host.softnet.per_cpu[0].cpu, 'cpu7');
+assert.equal(modern.host.softnet.per_cpu[0].processed, 10);
+assert.equal(modern.host.softnet.per_cpu[0].dropped, 2);
+assert.equal(modern.host.softnet.per_cpu[0].time_squeeze, 3);
+assert.equal(modern.host.softnet.per_cpu[0].counter_reset_or_wrap, false);
+assert.equal(modern.host.softnet.per_cpu[0].raw_before[11], 6);
+assert.equal(modern.host.softnet.per_cpu[0].raw_after[11], 0);
+assert.equal('cpu_collision' in modern.host.softnet.per_cpu[0], false);
+assert.equal(modern.raw_snapshots.host_before, modernBefore);
+assert.match(modern.host.memory_after, /910000/);
+const reset = summarizeTelemetry({ hostBefore: modernAfter, hostAfter: modernBefore, guestBefore: '', guestAfter: '' });
+assert.equal(reset.host.softnet.per_cpu[0].processed, null);
+assert.equal(reset.host.softnet.per_cpu[0].counter_reset_or_wrap, true);
 console.log('fwlive forwarding SLO telemetry tests passed');
