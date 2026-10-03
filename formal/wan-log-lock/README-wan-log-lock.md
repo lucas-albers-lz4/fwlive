@@ -197,6 +197,51 @@ expressions rather than line numbers; source-to-model conformance remains a
 review obligation, with the shell fixtures and QEMU smoke as separate
 implementation evidence.
 
+### Capped observation replay pilot (#1121)
+
+Run the test-only trace pilot manually with:
+
+```sh
+./scripts/formal-rollback-trace-replay.sh
+```
+
+It sources the unchanged `fwlive-logging.sh` and uses file-backed UCI, reload,
+and `flock` test seams. The raw observations include caller PID/role, toggle
+intent, UCI command/result, committed-value and generation snapshots, reload
+and lock results, and the helper JSON/log outcome. Five bounded executions are
+captured: successful restore, cooperating off/on ABA skip, a cooperating no-op
+skip, a later failed commit skip, and refusal while a foreign staged firewall
+change is pending. The no-op-generation mutation uses a disposable helper copy;
+the value-only-guard mutation changes only the replay config.
+
+`formal-rollback-trace-project.py` projects those observed facts (not a
+prewritten action list) to committed-value/generation/intent checkpoints and
+model action names. `WanLogRollbackReplay.tla` imports
+`WanLogRollbackOutcomes` and dispatches its existing actions directly; it does
+not define a second transition relation. The checkpoints force every observed
+value and generation to match the state reached by that model action. UCI
+staging and commit subcommands inside one cooperating toggle are folded into
+that toggle's abstract action; the rollback generation bump is observed before
+restore staging and projected as `BeginRestore`. Lock reacquisition, reload
+outcome, and terminal rollback logs are separate observed boundaries. The
+adapter allows only terminal TLA stuttering, not unobserved semantic model
+steps between captured boundaries.
+
+The pinned manual TLC runner requires the five captured traces to complete,
+and the value-only ABA and broken no-op-generation traces to violate
+`NoInvalidObservation`. The command prints the checkout HEAD and Git blob IDs
+for the shipped helper, source model, replay adapter, capture fixture, and
+projector so the evidence can be tied to exact inputs. `tests/formal-rollback-trace-pilot.test.sh`
+runs capture/projection integrity checks as part of the host suite, but does
+not run TLC; ordinary CI remains Java/TLC-free.
+
+This is finite evidence for these fixture executions only: the UCI/provider
+commands are stubs, values are limited to unset and `log=1`, and each trace is
+one primary enable with at most two later attempts. It does not prove shell/model
+equivalence, arbitrary UCI values, external privileged writers, crash recovery,
+or runtime deadlines. Keep the fidelity-map and human conformance review as
+the broader maintenance obligation.
+
 These checks validate the stated models and their counterexamples. They do not
 prove the models match future code; the shell tests and QEMU smoke cover the
 implementation boundary separately.
