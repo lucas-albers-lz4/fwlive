@@ -132,7 +132,30 @@ The implementation is prepared as four stacked PR branches: `pr/oct03-u1`
 against master, `pr/oct03-u2` against U1, `pr/oct03-u3` against U2, and
 `pr/oct03-d1` against U3. U1 includes the stale-tooltip assertion correction;
 D1 carries this integrated evidence packet. Before this documentation update,
-the top stack's entire tree was identical to `c67ec6859a`. The package subtree
-remains `023ec8ed6211a40054868c15f71f769f53fa1b9a`, preserving the tested and
-installed payload. Per-PR CI, bot/human findings and merge status remain tracked
-in #1158. Retarget and recheck each dependent PR before merging it to master.
+the top stack's entire tree was identical to `c67ec6859a`. At the original
+acceptance capture, its package subtree was
+`023ec8ed6211a40054868c15f71f769f53fa1b9a`, matching the tested and installed
+payload. Subsequent review-follow-up commits changed package inputs; that
+archived hash is not the current package identity (see below). Per-PR CI,
+bot/human findings and merge status remain tracked in #1158. Retarget and
+recheck each dependent PR before merging it to master.
+
+## Post-capture review follow-up
+
+After the original IPK/device evidence above was captured, the PR stack gained
+review fixes: U1 aligned Simple-view Help wording and exercised Time/hint/Help
+translations from the actual German, Russian and Simplified Chinese PO files;
+U2 added a Chromium check for German computed Action/remove accessible names;
+U3 opens a closed More filters panel before focusing a removed Source/Destination
+chip's fallback, covers Source/Destination/Protocol last-chip removal, restores
+the shared row fixture after reordering, and invalidates chip DOM when translated
+accessible labels change.
+
+The current U3 code head is `ab0ee50305f61f220bb88d37791fab7b4652b0c7`; its
+package subtree is `4a85d213d1dabb76ef693012ecacaf5460e68ba7`. On that code head,
+`./scripts/fwlive-test.sh` passed, including the updated Chromium, i18n and
+POT-reference checks. A fresh LuCI source scan and `scripts/normalize-pot-paths.sh`
+were used to regenerate the POT and msgmerge the three catalogs. No IPK rebuild,
+installed-device probe, or QEMU run was performed for this follow-up package
+hash; the earlier artifact evidence must not be read as proof of the updated
+package payload. Per-PR CI is still required at the exact current head.
