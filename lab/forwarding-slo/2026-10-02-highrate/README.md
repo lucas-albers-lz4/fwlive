@@ -85,7 +85,7 @@ and bounded requested/returned work, not complete event capture.
 The 25.12.5 primary repeat includes a tail: pair 3 active-viewer ping stddev
 0.339 ms versus 0.046 ms baseline (7.37x), with 1,044 retransmits, zero ping loss,
 and preserved receive rate. Median gates pass, but every individual pair did
-not stay below 2x. The pressure-ON baseline also contains a 61-retransmit tail.
+not stay below 2x. One pressure-ON pair has 61 baseline retransmits versus zero in its viewer half.
 These samples are retained, not removed or rerun away.
 
 Every captured guest core and all 16 host logical cores are present. No guest
@@ -108,6 +108,9 @@ and correct `fwlive-slo IN=` logs, with no malformed prefix.
 |---|---|---|---|
 | [24.10.8](pressure-24-8.json.gz) | 3520 ms; 1992 | 420/240/250 ms; 250/125/125 / 248/123/123 | 250→500→1000→2000, then cold/full cap |
 | [25.12.5](pressure-25-8.json.gz) | 3620 ms; 1992 | 430/210/260 ms; 250/125/125 / 248/123/123 | 250→500→1000→2000, then cold/full cap |
+
+The concurrent 60-second traffic probes retain 339 TCP retransmits on 24.10.8
+and zero on 25.12.5; both have zero routed ping loss.
 
 The helper records guest processing separately from host SSH wall time. Faster
 follow-ups process fewer lines; they are not an equal-work speedup over OFF,
