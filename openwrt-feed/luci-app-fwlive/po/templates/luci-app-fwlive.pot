@@ -48,6 +48,11 @@ msgstr ""
 msgid "Action"
 msgstr ""
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:184
+msgid ""
+"Activate the message button or click a row to show or hide the full message"
+msgstr ""
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:977
 msgid "Administrator access is required to disable logging."
 msgstr ""
@@ -114,11 +119,8 @@ msgstr ""
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2864
 msgid ""
 "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for "
-"firewall settings · in Simple view, click a row for the full message"
-msgstr ""
-
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:183
-msgid "Click a row for the full message"
+"firewall settings · in Simple view, activate the message button or click a "
+"row to show or hide the full message"
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2584
@@ -460,7 +462,7 @@ msgid "Maximum raw lines"
 msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:52
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:368
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:370
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2719
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2726
 msgid "Message"
