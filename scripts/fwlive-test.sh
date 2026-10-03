@@ -263,8 +263,9 @@ echo "== fwlive proto filter (menu + custom) ==" >&2
 echo "== fwlive chip sink and applyHash (#393) ==" >&2
 "$NODE" tests/fwlive-chips-hash.test.js
 
-echo "== formal TLC host orchestration (#1087) ==" >&2
+echo "== formal TLC host orchestration (#1087, #1121) ==" >&2
 bash tests/formal-tlc-tooling.test.sh
+bash tests/formal-rollback-trace-pilot.test.sh
 
 echo "== fwlive feed artifact selection (#495) ==" >&2
 bash tests/feed-publish-find-artifact.test.sh
