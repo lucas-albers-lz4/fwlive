@@ -2788,19 +2788,27 @@ return view.extend({
 								'class': 'cbi-input-text',
 								'placeholder': _('Quick search')
 							}),
-							E('select', { 'id': 'fwlive-action', 'class': 'cbi-input-select' }, [
-								E('option', { 'value': '' }, [_('Any action')]),
-								E('option', { 'value': 'pass' }, [_('pass')]),
-								E('option', { 'value': 'block' }, [_('block')]),
-								E('option', { 'value': 'drop' }, [_('drop')]),
-								E('option', { 'value': 'reject' }, [_('reject')]),
-								E('option', { 'value': 'unknown' }, [_('unknown')]),
-								E('option', { 'value': '!pass' }, [_('not pass')]),
-								E('option', { 'value': '!drop' }, [_('not drop')]),
-								E('option', { 'value': '!block' }, [_('not block')]),
-								E('option', { 'value': '!reject' }, [_('not reject')]),
-								E('option', { 'value': '!unknown' }, [_('not unknown')])
-							]),
+							E(
+								'select',
+								{
+									'id': 'fwlive-action',
+									'class': 'cbi-input-select',
+									'aria-label': String(_('Filter by %s').format(_('Action')))
+								},
+								[
+									E('option', { 'value': '' }, [_('Any action')]),
+									E('option', { 'value': 'pass' }, [_('pass')]),
+									E('option', { 'value': 'block' }, [_('block')]),
+									E('option', { 'value': 'drop' }, [_('drop')]),
+									E('option', { 'value': 'reject' }, [_('reject')]),
+									E('option', { 'value': 'unknown' }, [_('unknown')]),
+									E('option', { 'value': '!pass' }, [_('not pass')]),
+									E('option', { 'value': '!drop' }, [_('not drop')]),
+									E('option', { 'value': '!block' }, [_('not block')]),
+									E('option', { 'value': '!reject' }, [_('not reject')]),
+									E('option', { 'value': '!unknown' }, [_('not unknown')])
+								]
+							),
 							E('div', { 'class': 'fwlive-proto-pair' }, [
 								E(
 									'select',
