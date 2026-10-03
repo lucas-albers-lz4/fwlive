@@ -14,6 +14,8 @@ const viewer = (requestFailures = 0) => ({
 	polls_in_window: 2,
 	poll_responses: [{ requested_lines: 2000, received_rows: 1900, truncated: false, shed: null }],
 	in_flight_after_drain: 0,
+	pending_response_parses_at_drain: 0,
+	pending_response_parses_after_navigation: 0,
 	request_failures: requestFailures
 });
 const sampleEvidence = {
@@ -47,11 +49,12 @@ const report = buildReport({
 assert.equal(report.schema, REPORT_SCHEMA);
 assert.equal(report.throughput_degradation_pct.median, 6.5);
 assert.equal(report.ping_stddev_ratio.median, 1.35);
-	assert.equal(report.acceptance.viewer_requests_succeeded, true);
-	assert.equal(report.acceptance.raw_iperf_and_ping_retained, true);
-	assert.equal(report.acceptance.telemetry_captured, true);
-	assert.equal(report.acceptance.viewer_poll_response_details_captured, true);
-	assert.equal(report.pass, true);
+assert.equal(report.acceptance.viewer_requests_succeeded, true);
+assert.equal(report.acceptance.viewer_response_parses_drained, true);
+assert.equal(report.acceptance.raw_iperf_and_ping_retained, true);
+assert.equal(report.acceptance.telemetry_captured, true);
+assert.equal(report.acceptance.viewer_poll_response_details_captured, true);
+assert.equal(report.pass, true);
 assert.equal(report.started_at, '2026-09-16T00:00:00.000Z');
 
 const failed = buildReport({
@@ -67,6 +70,16 @@ const failed = buildReport({
 });
 assert.equal(failed.acceptance.viewer_requests_succeeded, false);
 assert.equal(failed.pass, false);
+
+const pendingResponseParses = buildReport({
+	records: records.map((row) => row.mode === 'active-viewer'
+		? { ...row, viewer: { ...viewer(), pending_response_parses_at_drain: 1 } }
+		: row),
+	adaptive: 'on', expectedPairs: 2, duration: 10, pingCount: 20,
+	bitrate: '', startedAt: 'now'
+});
+assert.equal(pendingResponseParses.acceptance.viewer_response_parses_drained, false);
+assert.equal(pendingResponseParses.pass, false);
 
 const missingEvidence = buildReport({
 	records: records.map((row) => ({ ...row, raw: {} })),

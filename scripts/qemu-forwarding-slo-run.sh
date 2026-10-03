@@ -140,13 +140,20 @@ cleanup() {
 			(( status == 0 )) && status=1
 		fi
 	fi
-	if ! rm -rf "$WORK"; then
-		echo "forwarding-slo-run: failed to remove temporary work directory: $WORK" >&2
-		(( status == 0 )) && status=1
+	if (( status == 0 )); then
+		if ! rm -rf "$WORK"; then
+			echo "forwarding-slo-run: failed to remove temporary work directory: $WORK" >&2
+			status=1
+		fi
+	else
+		echo "forwarding-slo-run: preserving failed run evidence in $WORK" >&2
 	fi
 	exit "$status"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 node - "$RUN_METADATA" "$ROOT" "$BITRATE" "$STREAMS" "$LAN_NS" "$WAN_NS" \
 	"$LAN_ENDPOINT_IP" "$WAN_ENDPOINT_IP" "$LAN_MAC" "$WAN_MAC" "$LAN_TAP" "$WAN_TAP" \
@@ -273,7 +280,9 @@ run_traffic() {
 	local traffic_exit=0
 	mkdir -p "$telemetry_dir"
 	chmod 700 "$telemetry_dir"
-	collect_snapshots "$telemetry_dir/host-before.txt" "$telemetry_dir/guest-before.txt"
+	if ! collect_snapshots "$telemetry_dir/host-before.txt" "$telemetry_dir/guest-before.txt"; then
+		return 1
+	fi
 	if sudo env \
 		FWLIVE_SLO_IPERF3="$IPERF3" \
 		FWLIVE_SLO_IPERF_BITRATE="$BITRATE" \
@@ -302,10 +311,12 @@ run_traffic() {
 			return "$traffic_exit"
 		fi
 	fi
-	collect_snapshots "$telemetry_dir/host-after.txt" "$telemetry_dir/guest-after.txt"
+	if ! collect_snapshots "$telemetry_dir/host-after.txt" "$telemetry_dir/guest-after.txt"; then
+		return 1
+	fi
 	node "$ROOT/tests/lib/fwlive-forwarding-slo-telemetry.mjs" \
 		"$telemetry_dir/host-before.txt" "$telemetry_dir/guest-before.txt" \
-		"$telemetry_dir/host-after.txt" "$telemetry_dir/guest-after.txt" >"$telemetry_dir/telemetry.json"
+		"$telemetry_dir/host-after.txt" "$telemetry_dir/guest-after.txt" >"$telemetry_dir/telemetry.json" || return $?
 }
 
 collect_snapshots() {
@@ -314,9 +325,9 @@ collect_snapshots() {
 	# read access to /proc and the optionally selected console capture.
 	# shellcheck disable=SC2024
 	sudo "$ROOT/scripts/qemu-forwarding-slo-snapshot.sh" host \
-		"$LAN_TAP" "$WAN_TAP" "$CONSOLE_LOG" >"$host_file"
+		"$LAN_TAP" "$WAN_TAP" "$CONSOLE_LOG" >"$host_file" || return $?
 	ssh "${SSH_OPTS[@]}" "${USER}@${HOST}" sh -s -- guest "$LAN_MAC" "$WAN_MAC" \
-		<"$ROOT/scripts/qemu-forwarding-slo-snapshot.sh" >"$guest_file"
+		<"$ROOT/scripts/qemu-forwarding-slo-snapshot.sh" >"$guest_file" || return $?
 }
 
 ORIGINAL_ADAPTIVE_OFF_STATE="$(get_adaptive_state)"

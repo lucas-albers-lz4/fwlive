@@ -1,10 +1,40 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
+import fs from 'node:fs';
 import {
 	fwliveMethodRequestIds,
 	fwlivePollRequestedLines,
 	fwliveRpcReplyForRequest,
 	isSuccessfulFwliveRpcReply
 } from './fwlive-perf-rpc.mjs';
+
+export function trackPendingResponseParse(pending, promise, onSettled = () => {}) {
+	const tracked = Promise.resolve(promise);
+	pending.add(tracked);
+	tracked.then(
+		() => { pending.delete(tracked); onSettled(); },
+		() => { pending.delete(tracked); onSettled(); }
+	);
+	return tracked;
+}
+
+export async function drainPendingResponseParses(pending, deadline, intervalMs = 25) {
+	while (pending.size && Date.now() < deadline)
+		await new Promise((resolve) => setTimeout(resolve, intervalMs));
+	return pending.size;
+}
+
+export function waitForMeasurementStartOrStop(startFile, stopFile, timeoutMs, intervalMs = 50) {
+	const deadline = Date.now() + timeoutMs;
+	return new Promise((resolve, reject) => {
+		const check = () => {
+			if (fs.existsSync(stopFile)) return resolve('stopped');
+			if (fs.existsSync(startFile)) return resolve('started');
+			if (Date.now() >= deadline) return reject(new Error(`timed out waiting for ${startFile} or ${stopFile}`));
+			setTimeout(check, intervalMs);
+		};
+		check();
+	});
+}
 
 export function summarizeFwlivePoll({ requestPayload, responsePayload, requestOffsetMs, responseLatencyMs, receivedAt }) {
 	const pollIds = fwliveMethodRequestIds(requestPayload, 'poll');

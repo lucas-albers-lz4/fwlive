@@ -17,7 +17,8 @@ for script in \
 	"$ROOT/scripts/qemu-forwarding-slo-traffic.sh" \
 	"$ROOT/scripts/qemu-forwarding-slo-run.sh" \
 	"$ROOT/scripts/qemu-forwarding-slo-snapshot.sh" \
-	"$ROOT/tests/qemu-forwarding-slo-traffic.test.sh"; do
+	"$ROOT/tests/qemu-forwarding-slo-traffic.test.sh" \
+	"$ROOT/tests/qemu-forwarding-slo-runner-failure.test.sh"; do
 	[[ -x "$script" ]] || die "helper is not executable: $script"
 	bash -n "$script" || die "shell syntax failed: $script"
 done
@@ -33,6 +34,7 @@ shellcheck "$ROOT/scripts/qemu-forwarding-slo-guest.sh" \
 	"$ROOT/scripts/qemu-forwarding-slo-run.sh" \
 	"$ROOT/scripts/qemu-forwarding-slo-snapshot.sh" \
 	"$ROOT/tests/qemu-forwarding-slo-traffic.test.sh" \
+	"$ROOT/tests/qemu-forwarding-slo-runner-failure.test.sh" \
 	"$ROOT/scripts/lib/qemu-forwarding-slo-net.sh"
 
 "$ROOT/scripts/qemu-forwarding-slo-guest.sh" --help >/dev/null
@@ -44,6 +46,7 @@ node "$ROOT/tests/fwlive-forwarding-slo-report.test.mjs"
 node "$ROOT/tests/fwlive-forwarding-slo-telemetry.test.mjs"
 node "$ROOT/tests/fwlive-forwarding-slo-viewer-metrics.test.mjs"
 "$ROOT/tests/qemu-forwarding-slo-traffic.test.sh"
+"$ROOT/tests/qemu-forwarding-slo-runner-failure.test.sh"
 
 management_nic="$(OWRT_LAB_NET_MODE=dhcp OWRT_QEMU_NIC_MODEL=virtio-net-pci bash -c \
 	'source "$1"; qemu_lab_nic_user 8080 2222' bash \

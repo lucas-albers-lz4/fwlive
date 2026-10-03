@@ -108,6 +108,9 @@ export function buildReport({
 			Array.isArray(row.viewer.poll_responses) && row.viewer.poll_responses.length > 0 &&
 			row.viewer.poll_responses.every((poll) => Number.isFinite(poll.received_rows) && Number.isFinite(poll.requested_lines))),
 			viewer_requests_drained: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.in_flight_after_drain === 0),
+			viewer_response_parses_drained: actives.length === Number(expectedPairs) && actives.every((row) =>
+				row.viewer.pending_response_parses_at_drain === 0 &&
+				row.viewer.pending_response_parses_after_navigation === 0),
 			viewer_requests_succeeded: actives.length === Number(expectedPairs) && actives.every((row) => row.viewer.request_failures === 0),
 			median_throughput_degradation_lt_10_pct: median(degradation) !== null && median(degradation) < 10,
 			median_ping_stddev_ratio_lt_2: ratios.length === Number(expectedPairs) && median(ratios) !== null && median(ratios) < 2

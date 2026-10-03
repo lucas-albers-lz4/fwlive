@@ -110,9 +110,10 @@ function softirqSummary(beforeText, afterText) {
 }
 
 function softnetSummary(beforeText, afterText) {
-	// Linux net/core/net-procfs.c (v6.6, v6.12, v6.17): only the
-	// first three fields here are monotonic counters. Later fields include
-	// backlog gauges and an explicit CPU ID; a falling gauge is not a reset.
+	// Linux net/core/net-procfs.c (v6.6, v6.12, v6.17): interpret only the
+	// first three columns (processed, dropped, time_squeeze) as deltas here.
+	// Later fields include other counters plus backlog gauges and CPU ID; keep
+	// them raw because their semantics differ.
 	const keyed = (text) => new Map(softnetCounters(text).filter((row) => row.length >= 3)
 		.map((row, index) => [row.length >= 13 && Number.isInteger(row[12]) ? row[12] : index, row]));
 	const before = keyed(beforeText);
