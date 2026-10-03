@@ -1,0 +1,21 @@
+{
+  "source_commit": "8cafd441696449293b75cff1d71d22598fa83983",
+  "source_package_version": "0.1.50-r1",
+  "package_kind": "actual rebuilt development IPK, not the published v0.1.50 artifact",
+  "package_sha256": "c1db476f1b4a9541cc87946def45993647a841257be89f4ce2c7a4a4933dae22",
+  "guest": "OpenWrt 24.10.8 r29233-443ec4032a",
+  "qemu": "8.2.2 KVM q35 host",
+  "vcpus": 8,
+  "ram_mib": 1024,
+  "routed_nic": "virtio-net-pci",
+  "vhost": true,
+  "queues_tested": [
+    1,
+    4
+  ],
+  "four_queue_active_evidence": "queues-4.txt",
+  "logging_limit_per_direction": 25,
+  "console_loglevel_configured": 4,
+  "console_printk_restored": "7 4 1 7",
+  "installed_adaptive_cap_sha256": "5a893dfa0b879fb28e418dadc4f4505de4a3afefc3d189f8e6b6244b33ec255f"
+}

@@ -1,5 +1,25 @@
 # Security review state
 
+**2026-10-02 #1134 lab-control delta.** Lab-only guest rules now use quoted
+`nft -f` statements; MAC-selected interface names are restricted before entering
+the statement. Numeric console/rate/SMP/queue inputs and NIC/disk/backend enums
+are bounded. The console override saves/restores only the first printk field,
+leaving logd retention unchanged. Mode-0600 state persists if restoration fails;
+cleanup targets the existing four owned comments and two MAC-selected links.
+QEMU adds only validated TAP arguments without eval or command strings, and
+management remains first. Host proof: `tests/qemu-highrate-controls.test.py`
+executes stubbed launch argv, invalid-option rejection, guest configure/cleanup,
+failed nft-batch rollback, address/rule deletion failure with retained retry
+state, and real-log shape rejection; net tests cover
+backend incompatibility and delimiter injection. Lab proof: an 8-vCPU KVM
+24.10.8 guest forwarded a 1-Gb/s probe, passed rule and actual log checks, and
+restored `7 4 1 7` after temporarily selecting `4 4 1 7`. No shipped runtime,
+ACL, renderer, or release trust boundary changes. This is a scoped delta;
+post-filing Luna review found swallowed address deletion errors; the fix
+verifies absence and retains state on failures. Bugbot/human review remains
+pending. Full-source audit deferred because no
+full-pass gate was triggered. SIGKILL/power loss cannot run cleanup.
+
 **2026-10-02 #1130 renderer delta.** Simple-view expansion uses a native
 button inside the existing Action cell, keeping `<table>/<tr>/<td>` semantics
 and the existing mouse-row handler. Its translated accessible name and
@@ -506,6 +526,11 @@ currently rests on.
 should carry a note saying what would raise it.
 
 ## Surface coverage map
+
+> **#1134 lab controls (host/lab):** bounded selector validation, quoted nft
+> input, owned cleanup, and reversible console threshold are covered by the
+> dated delta above, `tests/qemu-highrate-controls.test.py`, and
+> `lab/forwarding-slo/2026-10-02-highrate-controls/`. Post-filing review is pending.
 
 > **#1066 logging lock delta:** existing non-regular lock paths are rejected before
 > the first append; absent locks are still created and type/symlink checks precede

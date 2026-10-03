@@ -8,6 +8,7 @@
 # Usage:
 #   ./scripts/qemu-forwarding-slo-guest.sh configure
 #   ./scripts/qemu-forwarding-slo-guest.sh check
+#   ./scripts/qemu-forwarding-slo-guest.sh check-logs  # after routed traffic
 #   ./scripts/qemu-forwarding-slo-guest.sh cleanup
 set -euo pipefail
 
@@ -20,6 +21,8 @@ LAN_MAC="${FWLIVE_SLO_LAN_MAC:-52:54:00:30:77:01}"
 WAN_MAC="${FWLIVE_SLO_WAN_MAC:-52:54:00:30:77:02}"
 LAN_IP="${FWLIVE_SLO_LAN_GUEST_IP:-192.0.2.1}"
 WAN_IP="${FWLIVE_SLO_WAN_GUEST_IP:-198.51.100.1}"
+CONSOLE_LEVEL="${FWLIVE_SLO_CONSOLE_LEVEL:-unchanged}"
+LOG_RATE="${FWLIVE_SLO_LOG_RATE:-25}"
 
 die() { echo "forwarding-slo-guest: $*" >&2; exit 1; }
 
@@ -44,6 +47,8 @@ esac
 valid_ipv4 "$LAN_IP" || die "FWLIVE_SLO_LAN_GUEST_IP must be a valid IPv4 address"
 valid_ipv4 "$WAN_IP" || die "FWLIVE_SLO_WAN_GUEST_IP must be a valid IPv4 address"
 
+case "$CONSOLE_LEVEL" in unchanged|[0-7]) ;; *) die "FWLIVE_SLO_CONSOLE_LEVEL must be unchanged or 0..7" ;; esac
+[[ "$LOG_RATE" =~ ^[1-9][0-9]{0,4}$ && "$LOG_RATE" -le 10000 ]] || die "FWLIVE_SLO_LOG_RATE must be 1..10000"
 mkdir -p "$(dirname "$KNOWN_HOSTS")"
 touch "$KNOWN_HOSTS"
 SSH_OPTS=(-o StrictHostKeyChecking="${FWLIVE_STRICT_HOST_KEY_CHECKING:-accept-new}" \
@@ -51,19 +56,21 @@ SSH_OPTS=(-o StrictHostKeyChecking="${FWLIVE_STRICT_HOST_KEY_CHECKING:-accept-ne
 
 ACTION="${1:-}"
 case "$ACTION" in
-	configure|check|cleanup) ;;
-	-h|--help|"") sed -n '5,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	configure|check|check-logs|cleanup) ;;
+	-h|--help|"") sed -n '5,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 	*) die "unknown action: $ACTION" ;;
 esac
 
 ssh "${SSH_OPTS[@]}" "${USER}@${HOST}" sh -s -- \
-	"$ACTION" "$LAN_MAC" "$WAN_MAC" "$LAN_IP" "$WAN_IP" <<'REMOTE'
+	"$ACTION" "$LAN_MAC" "$WAN_MAC" "$LAN_IP" "$WAN_IP" "$CONSOLE_LEVEL" "$LOG_RATE" <<'REMOTE'
 set -eu
 action=$1
 lan_mac=$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')
 wan_mac=$(printf '%s' "$3" | tr '[:upper:]' '[:lower:]')
 lan_ip=$4
 wan_ip=$5
+console_level=$6
+log_rate=$7
 state_file=/var/run/fwlive-slo-guest.state
 rollback_enabled=0
 
@@ -103,6 +110,10 @@ find_dev() {
 
 lan_dev=$(find_dev "$lan_mac") || { echo "LAN TAP MAC not found: $lan_mac" >&2; exit 1; }
 wan_dev=$(find_dev "$wan_mac") || { echo "WAN TAP MAC not found: $wan_mac" >&2; exit 1; }
+# Interface names become nft string literals; reject quotes and escapes.
+for dev in "$lan_dev" "$wan_dev"; do
+	case "$dev" in ''|*[!a-zA-Z0-9_.:-]*) echo "unsafe interface name: $dev" >&2; exit 1 ;; esac
+done
 [ "$lan_dev" != "$wan_dev" ] || { echo "LAN/WAN resolved to the same interface" >&2; exit 1; }
 
 remove_rules() {
@@ -123,20 +134,38 @@ remove_rules() {
 	[ "$failed" -eq 0 ]
 }
 
+restore_saved_addr() {
+	addr=$1
+	dev=$2
+	addresses=$(ip -4 addr show dev "$dev") || return 1
+	if printf '%s\n' "$addresses" | grep -Fq "inet $addr/24"; then
+		ip addr del "$addr/24" dev "$dev" || return 1
+		addresses=$(ip -4 addr show dev "$dev") || return 1
+		! printf '%s\n' "$addresses" | grep -Fq "inet $addr/24"
+	fi
+}
+
 restore_saved_state() {
+	restore_failed=0
+	# A single value changes only console_loglevel, keeping logd warning
+	# retention and the other three printk settings intact.
+	if [ "$(state_get console_changed)" = 1 ]; then
+		printf '%s\n' "$(state_get console_loglevel)" > /proc/sys/kernel/printk || restore_failed=1
+	fi
 	saved_lan_dev=$(state_get lan_dev)
 	saved_wan_dev=$(state_get wan_dev)
 	[ "$saved_lan_dev" = "$lan_dev" ] || { echo "LAN interface changed since configure" >&2; return 1; }
 	[ "$saved_wan_dev" = "$wan_dev" ] || { echo "WAN interface changed since configure" >&2; return 1; }
 	if [ "$(state_get lan_added)" = 1 ]; then
-		ip addr del "$(state_get lan_ip)/24" dev "$lan_dev" 2>/dev/null || true
+		restore_saved_addr "$(state_get lan_ip)" "$lan_dev" || restore_failed=1
 	fi
 	if [ "$(state_get wan_added)" = 1 ]; then
-		ip addr del "$(state_get wan_ip)/24" dev "$wan_dev" 2>/dev/null || true
+		restore_saved_addr "$(state_get wan_ip)" "$wan_dev" || restore_failed=1
 	fi
-	sysctl -w "net.ipv4.ip_forward=$(state_get ip_forward)" >/dev/null
-	if [ "$(state_get lan_up)" = 1 ]; then ip link set "$lan_dev" up; else ip link set "$lan_dev" down; fi
-	if [ "$(state_get wan_up)" = 1 ]; then ip link set "$wan_dev" up; else ip link set "$wan_dev" down; fi
+	sysctl -w "net.ipv4.ip_forward=$(state_get ip_forward)" >/dev/null || restore_failed=1
+	if [ "$(state_get lan_up)" = 1 ]; then ip link set "$lan_dev" up; else ip link set "$lan_dev" down; fi || restore_failed=1
+	if [ "$(state_get wan_up)" = 1 ]; then ip link set "$wan_dev" up; else ip link set "$wan_dev" down; fi || restore_failed=1
+	[ "$restore_failed" = 0 ]
 }
 
 rollback() {
@@ -150,6 +179,9 @@ rollback() {
 	fi
 }
 trap rollback EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 case "$action" in
 	configure)
@@ -157,6 +189,9 @@ case "$action" in
 		[ ! -e "$state_file" ] || { echo "existing forwarding-SLO state; run cleanup first" >&2; exit 1; }
 		lan_up=$(link_is_up "$lan_dev") || { echo "cannot read LAN link state" >&2; exit 1; }
 		wan_up=$(link_is_up "$wan_dev") || { echo "cannot read WAN link state" >&2; exit 1; }
+		console_loglevel=$(awk '{print $1}' /proc/sys/kernel/printk)
+		console_changed=0
+		[ "$console_level" = unchanged ] || console_changed=1
 		ip_forward=$(cat /proc/sys/net/ipv4/ip_forward)
 		case "$ip_forward" in 0|1) ;; *) echo "invalid IPv4 forwarding state" >&2; exit 1 ;; esac
 		lan_added=0
@@ -174,19 +209,27 @@ case "$action" in
 			printf 'lan_up=%s\n' "$lan_up"
 			printf 'wan_up=%s\n' "$wan_up"
 			printf 'ip_forward=%s\n' "$ip_forward"
+			printf 'console_loglevel=%s\n' "$console_loglevel"
+			printf 'console_changed=%s\n' "$console_changed"
+			printf 'log_rate=%s\n' "$log_rate"
 		} > "$state_file"
 		chmod 600 "$state_file"
 		rollback_enabled=1
+		[ "$console_changed" = 0 ] || printf '%s\n' "$console_level" > /proc/sys/kernel/printk
 		ip link set "$lan_dev" up
 		ip link set "$wan_dev" up
 		[ "$lan_added" = 0 ] || ip addr add "$lan_ip/24" dev "$lan_dev"
 		[ "$wan_added" = 0 ] || ip addr add "$wan_ip/24" dev "$wan_dev"
 		sysctl -w net.ipv4.ip_forward=1 >/dev/null
 		remove_rules
-		nft insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" counter accept comment "fwlive-slo-lan-to-wan"
-		nft insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" counter accept comment "fwlive-slo-wan-to-lan"
-		nft insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" limit rate 25/second log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-lan-to-wan"
-		nft insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" limit rate 25/second log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-wan-to-lan"
+		# nft concatenates argv into its own language, so shell quotes alone
+		# lose the prefix's trailing space. Feed quoted string literals via -f.
+		nft -f - <<EOF
+insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" counter accept comment "fwlive-slo-lan-to-wan"
+insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" counter accept comment "fwlive-slo-wan-to-lan"
+insert rule inet fw4 forward iifname "$lan_dev" oifname "$wan_dev" limit rate $log_rate/second log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-lan-to-wan"
+insert rule inet fw4 forward iifname "$wan_dev" oifname "$lan_dev" limit rate $log_rate/second log prefix "fwlive-slo " counter accept comment "fwlive-slo-log-wan-to-lan"
+EOF
 		rollback_enabled=0
 		echo "guest_configured lan=$lan_dev:$lan_ip wan=$wan_dev:$wan_ip forwarding=1"
 		;;
@@ -207,6 +250,9 @@ case "$action" in
 			echo "IPv4 forwarding is disabled" >&2
 			exit 1
 		}
+		log_rate=$(state_get log_rate)
+		# State predating configurable logging used 25/second.
+		log_rate=${log_rate:-25}
 		chain_rules=$(nft -a list chain inet fw4 forward)
 		for rule in \
 			"fwlive-slo-lan-to-wan|$lan_dev|$wan_dev|0" \
@@ -216,22 +262,37 @@ case "$action" in
 			IFS='|' read -r comment iif oif logging <<EOF
 $rule
 EOF
-			printf '%s\n' "$chain_rules" | awk -v comment="$comment" -v iif="$iif" -v oif="$oif" -v logging="$logging" '
+			printf '%s\n' "$chain_rules" | awk -v comment="$comment" -v iif="$iif" -v oif="$oif" -v logging="$logging" -v rate="$log_rate" '
 				index($0, "comment \"" comment "\"") &&
 				index($0, "iifname \"" iif "\"") &&
 				index($0, "oifname \"" oif "\"") &&
 				index($0, "counter") && index($0, "accept") &&
-				(!logging || (index($0, "limit rate 25/second") && index($0, "log prefix \"fwlive-slo \""))) { found=1 }
+				(!logging || (index($0, "limit rate " rate "/second") && index($0, "log prefix \"fwlive-slo \""))) { found=1 }
 				END { exit !found }' || { echo "required rule is missing or incorrect: $comment" >&2; exit 1; }
 		done
 		;;
+	check-logs)
+		[ -s "$state_file" ] || { echo "forwarding-SLO state is missing" >&2; exit 1; }
+		# Inspect real logd input after a caller sends routed traffic. Seeing
+		# only rule text does not prove the classifier receives separated IN=.
+		logs=$(logread)
+		if printf '%s\n' "$logs" | grep -Fq 'fwlive-sloIN='; then
+			echo "malformed fwlive-sloIN= prefix present; start a clean log window" >&2
+			exit 1
+		fi
+		printf '%s\n' "$logs" | grep -F 'fwlive-slo IN=' | grep -F "IN=$lan_dev OUT=$wan_dev " >/dev/null || {
+			echo "no correctly separated LAN-to-WAN kernel log; generate routed traffic first" >&2; exit 1
+		}
+		echo "guest_logs_verified prefix='fwlive-slo IN=' direction=$lan_dev:$wan_dev"
+		;;
 	cleanup)
-		command -v nft >/dev/null 2>&1 || { echo "nft is required on the guest" >&2; exit 1; }
 		[ -s "$state_file" ] || { echo "forwarding-SLO state is missing; refusing cleanup" >&2; exit 1; }
-		rollback_enabled=0
+		rollback_enabled=1
+		command -v nft >/dev/null 2>&1 || { echo "nft is required on the guest" >&2; exit 1; }
 		remove_rules
 		restore_saved_state
 		rm -f "$state_file"
+		rollback_enabled=0
 		echo "guest_cleaned lan=$lan_dev wan=$wan_dev forwarding=$(cat /proc/sys/net/ipv4/ip_forward)"
 		;;
 esac

@@ -219,6 +219,7 @@ echo "== fwlive view fetch budget (#347) ==" >&2
 "$NODE" tests/fwlive-view-fetch-budget.test.js
 "$NODE" tests/fwlive-layer2-performance-rpc.test.mjs
 bash tests/qemu-forwarding-slo-net.test.sh
+python3 tests/qemu-highrate-controls.test.py
 echo "== qemu-forwarding-slo source-contract / static wiring checks (#517) ==" >&2
 bash tests/qemu-forwarding-slo-harness.test.sh
 echo "== qemu ACL session source-contract / static wiring checks (#517) ==" >&2

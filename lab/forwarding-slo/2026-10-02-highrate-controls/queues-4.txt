@@ -1,0 +1,23 @@
+Channel parameters for eth1:
+Pre-set maximums:
+RX:		0
+TX:		0
+Other:		0
+Combined:	4
+Current hardware settings:
+RX:		0
+TX:		0
+Other:		0
+Combined:	4
+
+Channel parameters for eth2:
+Pre-set maximums:
+RX:		0
+TX:		0
+Other:		0
+Combined:	4
+Current hardware settings:
+RX:		0
+TX:		0
+Other:		0
+Combined:	4
