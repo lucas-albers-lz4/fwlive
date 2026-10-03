@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.51] — 2026-10-03
+
 ### Fixed
 - Preserve the forwarding lab log-prefix separator and add reversible console controls, configurable x86 guest sizing, and explicit vhost/multiqueue experiments (#1134).
 - Unlink rules-map dump/TSV files before blocking helpers, preventing pathname residue after plugin-only SIGKILL during that work; surviving helpers can still retain anonymous tmpfs storage (#1133).
@@ -25,8 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Record seven controlled 10 Gb/s larger-guest qualification cohorts, real-log adaptive pressure/recovery, and unqualified 80 Gb/s-cap boundary evidence with durable raw artifacts (#1134).
 - Check formal rollback decision completion and conditional idealized restore effectiveness, retaining an unfair counterexample and rejecting ambiguous temporal-property attribution (PR #1123).
+- Extend formal WAN rollback checks to failure-aware outcomes and add a bounded, test-only observation replay pilot with explicit model/code conformance limits (#1121; PRs #1146, #1163).
+- Clarify raw/prepared rules-map fields and the visibility-resume coordinator hook without changing runtime behavior (#1155, #1156; PR #1162).
 - Reuse validated firewall KV patterns during classification, removing per-message RegExp construction from the poll path (#1131).
 - Extend forwarding-SLO lab reports with aggregate-rate stream control, retained raw traffic, per-sample host/guest telemetry, and response-side viewer poll evidence; preserve private partial evidence on failed runs and report unknown source identity explicitly (#1134).
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.50] — 2026-10-02
 
@@ -802,3 +814,4 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.48]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.47...v0.1.48
 [v0.1.47]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.46...v0.1.47
 [v0.1.50]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.49...v0.1.50
+[v0.1.51]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.50...v0.1.51
