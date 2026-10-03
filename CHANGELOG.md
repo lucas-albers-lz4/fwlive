@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a translated, keyboard-operable full-message button to Simple-view rows, preserve expansion focus across keyed repaints, and clarify the Help instructions (#1130).
 - Keep Simple-view Action labels and the message button within their cells at larger fonts and in German/Russian, and mention button activation in the Time tooltip and hint (#1147, #1154).
 - Give filter-chip invert buttons translated Include/Exclude accessible names while retaining the existing tooltip and filter controls (#1129).
+- Give chip removal links and the Action filter select translated, persistent accessible names while preserving keyboard filtering and removal behavior (#1148, #1150).
 - Keep upstream-cut translation paths and references aligned with the exported LuCI tree, remove dangling source-only references, and use checked temporary storage for the CLI selftest (#1120; PR #1122).
 
 ### Changed
