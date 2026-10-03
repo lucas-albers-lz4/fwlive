@@ -27,7 +27,7 @@ device_for_mac() {
 	want=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
 	for address in /sys/class/net/*/address; do
 		[ -r "$address" ] || continue
-		got=$(cat "$address" 2>/dev/null | tr '[:upper:]' '[:lower:]') || continue
+		got=$(tr '[:upper:]' '[:lower:]' <"$address" 2>/dev/null) || continue
 		if [ "$got" = "$want" ]; then
 			printf '%s\n' "${address%/address}" | sed 's,.*/,,'
 			return 0
