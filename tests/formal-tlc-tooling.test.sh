@@ -32,6 +32,14 @@ case "$*" in
 	*WanLogRollbackAba.cfg*) echo 'Invariant NoOverwriteForeignIntent is violated'; exit 12 ;;
 	*HostnameDisposeUngated.cfg*) echo 'Invariant NoLateWrite is violated'; exit 12 ;;
 	*WanLogRollbackRevisionUnfair.cfg*) echo 'Error: Temporal properties were violated.'; exit 13 ;;
+	*WanLogRollbackOutcomesValueOnly.cfg*)
+		echo 'Invariant NoRestoreAfterNewerIntent is violated'; exit 12 ;;
+	*WanLogRollbackOutcomesWrongRestore.cfg*)
+		echo 'Invariant RestoreValueIsPrevious is violated'; exit 12 ;;
+	*WanLogRollbackOutcomesValueOnlyDisable.cfg*)
+		echo 'Invariant NoRestoreAfterNewerIntent is violated'; exit 12 ;;
+	*WanLogRollbackOutcomesWrongRestoreDisable.cfg*)
+		echo 'Invariant RestoreValueIsPrevious is violated'; exit 12 ;;
 esac
 EOF
 cat > "$WORK/bin/sha256sum" <<'EOF'
@@ -45,11 +53,11 @@ fi
 ! grep -q '^java ' "$TLC_TOOL_LOG" || fail "failed download must not run Java"
 : > "$TLC_TOOL_LOG"
 PATH="$WORK/bin" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/download" 2>&1
-[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 8 ]] || fail "expected eight model invocations"
+[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 16 ]] || fail "expected sixteen model invocations"
 : > "$TLC_TOOL_LOG"
 printf fixture > "$WORK/cached.jar"
 PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/cached" 2>&1
-[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 8 ]] || fail "cached jar expected eight invocations"
+[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 16 ]] || fail "cached jar expected sixteen invocations"
 ! grep -q 'connect-timeout' "$TLC_TOOL_LOG" || fail "cached jar must not download"
 
 # The generic temporal-failure message is attributed only to the one property
@@ -79,9 +87,9 @@ if ! PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" \
 	fail "single expected PROPERTY declaration must pass"
 fi
 valid_invocations="$(grep -c '^java ' "$TLC_TOOL_LOG")"
-if [[ "$valid_invocations" != 8 ]]; then
+if [[ "$valid_invocations" != 16 ]]; then
 	cat "$TLC_TOOL_LOG" >&2
-	fail "valid property config must run all eight models (ran $valid_invocations)"
+	fail "valid property config must run all sixteen models (ran $valid_invocations)"
 fi
 printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\n' \
 	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"

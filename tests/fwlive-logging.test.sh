@@ -456,9 +456,12 @@ uci() {
 		*) return 0 ;;
 	esac
 }
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 if restore_wan_zone_log '@zone[0]' ''; then
 	die "restore_wan_zone_log expected non-zero when commit fails"
 fi
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 1))" ] \
+	|| die "#1126 failed restore commit must retain its generation advance"
 joined="${UCI_LOG[*]}"
 rm -f "$STAGED_FLAG"
 case "$joined" in
@@ -1196,6 +1199,7 @@ ok "#191 happy-path disable still deletes + commits (verify passes)"
 # restore, and must cause the rollback to undo only its own staging without a
 # second commit.
 FWLIVE_CURRENT_LOG=''
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle enable rollback_post_stage_foreign
 case "$OUT" in
 	*'"error":"firewall_reload_failed"'*) ;;
@@ -1207,13 +1211,16 @@ case "$LOGGER_MSGS" in
 	*'rollback skipped after stage'*) ;;
 	*) die "#457 rollback/post-stage-foreign: missing guard log: $LOGGER_MSGS" ;;
 esac
-ok "#457 rollback aborts on foreign delta staged after restore"
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 2))" ] \
+	|| die "#1126 restore staging refusal must follow its generation advance"
+ok "#457/#1126 rollback aborts on foreign delta after advancing restore generation"
 
 # --- issue #618: rollback staging failure is not a successful restore ---
 # Failed uci set/delete in restore_wan_zone_log must return non-zero so the
 # caller logs rollback skip, not "reverted UCI WAN log". JSON stays
 # firewall_reload_failed.
 FWLIVE_CURRENT_LOG=''
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle enable rollback_uci_delete_fail
 case "$OUT" in
 	*'"error":"firewall_reload_failed"'*) ;;
@@ -1227,9 +1234,12 @@ case "$LOGGER_MSGS" in
 	*'rollback skipped (pending changes or restore failed)'*) ;;
 	*) die "#618 enable/rollback-delete-fail: missing restore-failure skip log: $LOGGER_MSGS" ;;
 esac
-ok "#618 reload-failure restore returns skip (not success) when delete staging fails"
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 2))" ] \
+	|| die "#1126 failed restore delete must follow its generation advance"
+ok "#618/#1126 failed restore delete is not success and retains restore generation"
 
 FWLIVE_CURRENT_LOG='1'
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle disable rollback_uci_set_fail
 case "$OUT" in
 	*'"error":"firewall_reload_failed"'*) ;;
@@ -1243,12 +1253,15 @@ case "$LOGGER_MSGS" in
 	*'rollback skipped (pending changes or restore failed)'*) ;;
 	*) die "#618 disable/rollback-set-fail: missing restore-failure skip log: $LOGGER_MSGS" ;;
 esac
-ok "#618 reload-failure restore returns skip (not success) when set staging fails"
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 2))" ] \
+	|| die "#1126 failed restore set must follow its generation advance"
+ok "#618/#1126 failed restore set is not success and retains restore generation"
 
 # --- commit-failure paths (#191, CodeRabbit/luna fold) ---
 # Commit fails with a FOREIGN delta now visible: must NOT revert (config-wide
 # revert would clobber the other writer's staging); warn instead.
 FWLIVE_CURRENT_LOG=''
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle enable commit_fail_foreign
 case "$OUT" in
 	*'"error":"uci_commit_failed"'*) ;;
@@ -1259,11 +1272,14 @@ case "$LOGGER_MSGS" in
 	*'not reverting'*) ;;
 	*) die "#191 enable/commit-fail-foreign: missing not-reverting warning: $LOGGER_MSGS" ;;
 esac
-ok "#191 commit failure with foreign staging: no revert, warning logged"
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 1))" ] \
+	|| die "#1126 failed commit must retain its generation advance"
+ok "#191/#1126 commit failure keeps foreign staging and advances intent generation"
 
 # Commit fails with ONLY our own delta staged: revert it so a later toggle is
 # not stuck on firewall_changes_pending from our orphaned write.
 FWLIVE_CURRENT_LOG=''
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle enable commit_fail_ours
 case "$OUT" in
 	*'"error":"uci_commit_failed"'*) ;;
@@ -1273,9 +1289,12 @@ esac
 case "$LOGGER_MSGS" in
 	*'not reverting'*) die "#191 enable/commit-fail-ours: spurious not-reverting warning: $LOGGER_MSGS" ;;
 esac
-ok "#191 commit failure with only our delta: revert cleans our orphaned staging"
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 1))" ] \
+	|| die "#1126 failed commit must retain its generation advance"
+ok "#191/#1126 commit failure reverts owned staging but retains intent generation"
 
 FWLIVE_CURRENT_LOG=''
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle enable uci_set_fail
 case "$OUT" in
 	*'"error":"uci_set_failed"'*) ;;
@@ -1283,9 +1302,12 @@ case "$OUT" in
 esac
 [ "$UCI_COMMITS" -eq 0 ] || die "#191 enable/uci-set-fail: must not commit"
 [ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/uci-set-fail: failed set left staging: $STAGED_LOG"
-ok "#191 uci set failure leaves no partial staging"
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 1))" ] \
+	|| die "#1126 failed set must retain its generation advance"
+ok "#191/#1126 uci set failure leaves no partial staging but records intent generation"
 
 FWLIVE_CURRENT_LOG='1'
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle disable uci_delete_fail
 case "$OUT" in
 	*'"error":"uci_delete_failed"'*) ;;
@@ -1293,7 +1315,9 @@ case "$OUT" in
 esac
 [ "$UCI_COMMITS" -eq 0 ] || die "#191 disable/uci-delete-fail: must not commit"
 [ "$STAGED_LOG" = '__unset__' ] || die "#191 disable/uci-delete-fail: failed delete left staging: $STAGED_LOG"
-ok "#191 uci delete failure leaves no partial staging"
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 1))" ] \
+	|| die "#1126 failed delete must retain its generation advance"
+ok "#191/#1126 uci delete failure leaves no staging but records intent generation"
 
 # WAN log baseline snapshot + restore (uninstall prerm)
 BASELINE_WORK=$(mktemp -d)
