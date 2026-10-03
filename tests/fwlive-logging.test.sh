@@ -456,9 +456,12 @@ uci() {
 		*) return 0 ;;
 	esac
 }
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 if restore_wan_zone_log '@zone[0]' ''; then
 	die "restore_wan_zone_log expected non-zero when commit fails"
 fi
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 1))" ] \
+	|| die "#1126 failed restore commit must retain its generation advance"
 joined="${UCI_LOG[*]}"
 rm -f "$STAGED_FLAG"
 case "$joined" in

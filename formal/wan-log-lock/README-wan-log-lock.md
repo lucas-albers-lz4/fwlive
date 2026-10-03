@@ -113,12 +113,19 @@ invariants. The two failure-enabled configs check decision completion and
 invariants while TLC explores all optional refusal/failure branches. A terminal
 decision (including a skip or failure) is not proof restoration succeeded.
 `restoreBaseGeneration` records the live generation immediately before the
-restore bump; `RestoreGenerationAdvancedExactly` checks the modeled bump.
+restore bump; `RestoreGenerationAdvancedExactly` checks the bump amount and
+requires it on successful restore and failures after staging begins, while
+excluding it on refusals before the bump. `RestoreFailureKeepsTarget` checks
+that restore refusals/failures keep the primary target value. It excludes skip
+and unavailable-reacquisition outcomes: later attempts can already have made
+`current = previous` without a restore.
 
 `WF_vars(DecisionProgress)` is weak fairness of the whole local post-reload
-decision disjunction. It allows at most two later attempts, then requires some
-reacquire/skip/restore-outcome step eventually to occur in fair behaviors. It
-is not fairness per action or per caller, does not force restoration over a
+decision disjunction. After `ReloadFails` reaches `Waiting`, at most two later
+attempts are allowed in total, and fair behaviors eventually take the local
+reacquire/skip/restore-outcome steps to reach `Done`. Fairness does not require
+leaving `Reloading`; infinite stuttering there is permitted. It is not fairness
+per action or per caller, does not force restoration over a
 permitted refusal, and does not prove command success or a wall-clock bound.
 The two-later-attempt cap and generation ceiling of 4 bound the TLC state
 space; they are not production limits. The model is deliberately finite and is
@@ -126,11 +133,15 @@ not a shell/model conformance proof: it does not execute UCI, force any
 particular failure, model arbitrary UCI values or direct non-cooperating
 writers, or establish how provider commands behave. Separately,
 `tests/fwlive-logging.test.sh` checks no-op and failed-write generation advances,
-plus restore-stage refusal/failure after its own bump;
+plus restore-stage refusal/failure and restore commit failure after their own
+bump; its failed-write checks exercise primary writes, not later cooperating
+failed writes during another caller's reload.
 `tests/fwlive-logging-lock.test.sh` checks successful restore, newer-value skip,
-and ABA preservation. These are shell implementation fixtures, not model/code
-conformance. This extends the decision/effectiveness split in #1123; any
-test-only trace/conformance pilot belongs in #1121 and should use this
+and ABA preservation. Failed rollback reacquisition and later cooperating
+failed writes during reload have model evidence only; no dedicated shell
+fixtures check those paths. These are shell implementation fixtures, not
+model/code conformance. This extends the decision/effectiveness split in #1123;
+any test-only trace/conformance pilot belongs in #1121 and should use this
 abstraction. Refs #953, #1121, #1123.
 
 ## Why F2 stays a counterexample, not a QEMU experiment

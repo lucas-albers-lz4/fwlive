@@ -295,7 +295,22 @@ AttemptRecordsIntent ==
   /\ (laterAttempts > 0 => lastIntent \in ToggleIntents)
 RestoreValueIsPrevious == outcome = "restored" => current = previous
 NoRestoreAfterNewerIntent == outcome = "restored" => laterAttempts = 0
+(* Restore refusals/failures that pass the outer guard must not publish a
+   restored value. Skip/unavailable outcomes can already equal previous after
+   later cooperating attempts, so they are deliberately excluded. *)
+RestoreFailureKeepsTarget ==
+  outcome \in {"restore-pending-refusal", "restore-generation-refusal",
+               "restore-stage-failure", "restore-post-stage-refusal",
+               "restore-commit-failure"} => current = TargetValue
+
+(* Check both the bump amount and which paths are allowed to take the bump. *)
 RestoreGenerationAdvancedExactly ==
-  restoreGenerationAdvanced => generation = restoreBaseGeneration + 1
+  /\ (restoreGenerationAdvanced => generation = restoreBaseGeneration + 1)
+  /\ generation = rollbackToken + laterAttempts +
+       (IF restoreGenerationAdvanced THEN 1 ELSE 0)
+  /\ (restoreGenerationAdvanced <=>
+       (phase = "Restoring" \/
+        outcome \in {"restored", "restore-stage-failure",
+                     "restore-post-stage-refusal", "restore-commit-failure"}))
 
 ====
