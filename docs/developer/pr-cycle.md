@@ -1,110 +1,99 @@
-# Agent PR cycle (Cursor)
+# Agent review and merge gate
 
-Owner for how agents open and merge non-trivial PRs in this repo.
-Cursor always-on rule: [`.cursor/rules/pr-bugbot-before-merge.mdc`](../../.cursor/rules/pr-bugbot-before-merge.mdc)
-(imperative summary; this file is the procedure). CodeRabbit mechanics:
-[coderabbit.md](coderabbit.md). Upstream luci filing:
+This document owns the review policy for issues and pull requests. It applies
+across development hosts and agent harnesses; companion summaries must link
+here rather than require a particular model or bot. CodeRabbit operation details
+are in [coderabbit.md](coderabbit.md). OpenWrt LuCI publication is covered by
 [upstream-openwrt.md](upstream-openwrt.md).
 
 ## Goal
 
-One coherent review pass over a stable diff. Do not burn CodeRabbit quota on
-a half-ready branch. Do not merge on CI-green alone.
+Every issue receives scope triage, and every PR receives an independent review
+of the final diff before merge. Review depth follows risk. A reviewer or bot
+being unavailable never counts as a completed review; use the fallback for that
+risk tier and record the substitution. Do not merge on CI-green alone.
 
-## Non-trivial vs trivial
+## Issue review
 
-**Trivial** (CI green + light self-review is enough) — **single-file** only:
+Before implementation, have the issue owner or a delegate triage each issue
+for current state, scope, acceptance criteria, ownership, and risk. Record the
+disposition on the issue. The issue author cannot be the sole approver of their
+own scope. For an issue proposing elevated-risk work, have an independent
+reviewer examine the proposed approach and acceptance criteria before
+implementation begins. A review can happen in the issue, a linked plan, or a
+design PR, as long as its scope and outcome are recorded.
 
-- Docs-only typos, badge/link/metadata, single-line comment, pure formatting
-  with no logic change
-- Housekeeping (license badge, topics, changelog date bumps)
+## Pull request review tiers
 
-**Non-trivial** (full sequence below) — multi-file **overrides** trivial:
+Every PR needs an independent review of its final head SHA before merge. The
+reviewer must not be the author. Review can be done by a capable human or an
+independent code-review agent available on the current host. Luna, Grok, and
+Bugbot are preferred options when available; they are not individually
+required. A PR review from the platform's required reviewer also counts when it
+examines the diff and findings are triaged.
 
-- Any new/changed logic, scripts, tests, CI workflows, schemas, OpenWrt
-  feed/package files, or configuration
-- Multi-file changes (including multi-file documentation)
-- New owner docs / process docs
+| Tier | When to use it | Required review |
+| --- | --- | --- |
+| Routine | Narrow, low-risk change with no runtime, security, release, or process effect; examples include typo, link, metadata, or formatting fixes | One lightweight independent review of the final diff |
+| Standard | All other changes | One independent technical review of the final diff |
+| Elevated | Security boundaries or ACLs; rpcd or shell privilege paths; untrusted-data rendering; state, concurrency, or lifecycle behavior; build, release, deployment, or supply-chain controls; broad cross-cutting behavior | Two reviews by distinct independent reviewers. Request CodeRabbit as one of the two when configured and available; otherwise use a second independent reviewer and record why CodeRabbit was unavailable |
 
-If unsure, treat as non-trivial.
+Use the highest applicable tier. File count alone does not determine the tier:
+a multi-file documentation correction can be routine, while a one-line ACL or
+release change can be elevated. If risk is unclear, use the higher tier.
 
-## Required sequence (non-trivial)
+CodeRabbit is available for a PR only when it can complete a review of that
+PR's current head. A disabled integration, failed trigger, rate limit, or
+review stuck on an older head makes it unavailable for this gate. A queued or
+incomplete round is not a completed review. If the PR is otherwise ready to
+merge and CodeRabbit has not completed a current-head review, treat it as
+unavailable, finish the fallback review, and record the reason; do not wait
+indefinitely or repeatedly trigger the bot. If a completed review arrives,
+triage its findings before merge.
 
-```text
-implement on feature branch
-  → luna (preferred) or grok on branch changes
-  → Bugbot on branch changes
-  → fix CONFIRMED findings (re-run once if the diff changed substantively)
-  → STOP for human review of the branch
-  → only then: gh pr create vs master (draft until work is final)
-  → CodeRabbit (Ready, or @coderabbitai review on a draft)
-  → triage bot/human comments; fold fixes; wait for the round
-  → merge
-```
+Reviews may be performed on the feature branch or a draft PR. A draft can be
+filed before reviews finish; it cannot merge until its required reviews and
+checks pass. CodeRabbit runs only after a PR exists; see
+[coderabbit.md](coderabbit.md) for triggering and tracking a review round.
 
-1. **Implement on a feature branch.** Do not open a GitHub PR yet.
-2. **Luna** (preferred) or **grok** on **branch changes** (merge-base vs the
-   default base).
-3. **Bugbot** on the same diff (`review-bugbot` skill / `bugbot` subagent).
-4. Fix `CONFIRMED` findings (or document `DISMISS` with evidence). One more
-   luna/Bugbot pass if the diff changed substantively.
-5. **Stop for human review.** Do not file the PR until the human says so.
-6. **File** the PR against `master` (`gh pr create`). Keep the PR as a draft
-   until the work is final ([coderabbit.md](coderabbit.md)). Then mark Ready,
-   or run `@coderabbitai review` on that draft.
-7. **Then** CodeRabbit. Wait for the round to complete; batch fixes into one
-   push; do not declare the gate green mid-round.
-8. Triage the PR thread before merge (below).
-9. Wait until required checks are present and passing.
-10. Merge with the repo’s usual strategy (`gh pr merge`, typically squash).
+## Required review record
 
-Plan-mode execution does **not** substitute for luna, Bugbot, or the human
-pass.
-
-## Triage labels
-
-Pull comments with `gh api` (`pulls/<n>/comments`, `pulls/<n>/reviews`, issue
-comments) and classify each:
+For each required review, record the reviewer, reviewed head SHA, scope, and
+outcome in the PR. Triage findings as follows:
 
 | Label | Meaning |
-|-------|---------|
-| `CONFIRMED` | Real issue — fix it (or explicitly accept with rationale) |
-| `DISMISS` | False positive — reply on the thread with evidence |
-| `FOLD` | Already addressed / duplicate |
+| --- | --- |
+| `CONFIRMED` | Real issue — fix it or record an explicit owner-approved acceptance with rationale |
+| `DISMISS` | False positive — record the evidence |
+| `FOLD` | Already addressed or duplicate — identify where it was addressed |
 
-Rules:
+Before merge:
 
-- Do **not** auto-apply a CodeRabbit-suggested fix without ground-truthing it
-  against the code / real API — a suggested fix can be wrong.
-- Human `REQUEST_CHANGES` / substantive inline comments **outrank** bot
-  comments.
-- Unresolved human `REQUEST_CHANGES` or substantive human review comments
-  **block merge**, same as unresolved `CONFIRMED` bot findings.
-- A bare bot comment does not block merge by itself; unresolved `CONFIRMED`
-  bot findings block merge.
+- All required reviews must cover the current PR head. A substantive change
+  after review requires review of the changed diff; a new head cannot inherit a
+  stale approval without reviewer confirmation.
+- Resolve or explicitly accept every actionable `CONFIRMED` finding. Unresolved
+  human change requests or substantive comments block merge.
+- Required CI and repository checks must be present and passing.
+- If a required reviewer or service is unavailable, obtain the tier's fallback
+  review and record the unavailability and substitute. Do not waive the tier.
 
-## CodeRabbit vs upstream (openwrt/luci)
+Do not apply a bot suggestion without checking it against the code, tests, or
+real API behavior. Plan-mode execution and author self-review do not replace an
+independent review.
 
-CodeRabbit comments live only on the **fwlive** GitHub PR. They never ship in
-the luci tree or the FormalityCheck commit.
+## CodeRabbit and upstream OpenWrt
 
-- Apply `CONFIRMED` fixes in this repo (and re-run `./scripts/upstream-cut.sh`
-  if shipped package files changed).
-- Refresh the luci fork branch from the cut.
-- Before filing against `openwrt/luci`, run **this same sequence** on the luci
-  feature branch (luna + Bugbot + human). Skip CodeRabbit there unless that
-  repo is configured for it.
-- File the luci PR with product/FormalityCheck prose only — no fwlive bot
-  quotes, no “per CodeRabbit” trailers.
+For elevated-risk PRs, CodeRabbit is one of the two required reviewers when
+configured and available. For routine and standard PRs, use it when useful; it
+is not a universal merge gate. When unavailable on an elevated PR, use another
+independent reviewer and record the substitution. CodeRabbit's quota, trigger,
+and round completion procedure is in [coderabbit.md](coderabbit.md).
 
-See [upstream-openwrt.md](upstream-openwrt.md).
-
-## Do not
-
-- File a master-targeted PR before luna + Bugbot + human review
-- Ping CodeRabbit during steps 1–5
-- Merge when required checks are missing or failing
-- Merge non-trivial work on CI-green alone
-- Treat plan mode as a substitute for the gates above
-- Merge with unresolved human `REQUEST_CHANGES` / substantive human comments,
-  unresolved `CONFIRMED` findings, or an un-triaged review thread
+CodeRabbit comments on the **fwlive** PR never go into an `openwrt/luci` PR.
+Apply confirmed code findings in fwlive, re-run `./scripts/upstream-cut.sh` if
+shipped package files changed, and refresh the luci branch from the cut. The
+upstream PR must meet its host's required review and CI rules. Where CodeRabbit
+is not configured upstream, use the elevated-tier fallback reviewers; do not
+copy fwlive bot comments into the upstream discussion. See
+[upstream-openwrt.md](upstream-openwrt.md).

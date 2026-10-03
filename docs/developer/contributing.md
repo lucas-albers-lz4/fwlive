@@ -109,7 +109,7 @@ to be built against (#137).
 | [contributing.md](contributing.md) | Contributor workflow, parser sync / codegen, package and version rules, tabs in shell and shipped JS, documentation conventions (not the agent PR gate — see pr-cycle.md) |
 | [build-and-test.md](build-and-test.md) | Commands, what each gate covers, test caveats |
 | [architecture.md](architecture.md) | Module split, data path, design rationale |
-| [pr-cycle.md](pr-cycle.md) | Agent PR sequence: luna/Bugbot → human → file → CodeRabbit → triage → merge |
+| [pr-cycle.md](pr-cycle.md) | Issue triage, independent risk-tiered PR reviews, finding disposition, and merge gate |
 | [upstream-openwrt.md](upstream-openwrt.md) | Cut into `openwrt/luci`, FormalityCheck, `.pot`/Weblate, dual-track feed |
 | [coderabbit.md](coderabbit.md) | CodeRabbit draft/Ready behavior, rate limits, round completion protocol |
 | [issue-authoring.md](issue-authoring.md) | Review findings filed as issues — body skeleton, policy, example; implementation issues stay free-form |
