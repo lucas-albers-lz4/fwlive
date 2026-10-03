@@ -1899,3 +1899,23 @@ model/fairness limits. This extends the named seams of the October 1 full
 source baseline; it is a scoped implementation delta. The owner’s additional
 reviews are complete; finding dispositions, CI and merges are tracked in #1135. No fresh APK, 23.05, physical-device or full audit
 result is claimed.
+
+### 2026-10-03 — #1155/#1156 documentation-only contract corrections
+
+**Scope.** Comments now describe the existing raw `nft_dump_fields` record as
+`prefix<TAB>comment` with TSV escaping, and the existing production `prepared`
+record as `kind<TAB>key<TAB>alias<TAB>value`, with JSON-string-escaped key,
+alias, and value fields, an unquoted classification token, and an empty alias
+field when absent. The coordinator docstring now names the optional
+`options.onVisible` callback for hidden-to-visible transitions. Definition and
+caller inspection, plus review of the existing `fwlive-rules-map` and
+`fwlive-poll-coordinator` suites, confirm that `prepared` is the production
+rpcd path, the consumer splits the four tab-separated fields, the caller
+processes labeled records before unlabeled records, and the shipped view
+supplies the resume callback. No implementation, ACL, or behavior changed.
+This documentation-only disposition claims no new security mitigation.
+
+**Proof and limits.** `manual`: inspected the existing producer, consumer,
+coordinator callback, and view adapter. No tests were added or run for these
+comment corrections. Existing runtime behavior and previously recorded proof
+remain unchanged; this is not a new security audit or runtime verification.
