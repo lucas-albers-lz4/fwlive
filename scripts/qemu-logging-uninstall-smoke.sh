@@ -37,6 +37,23 @@ uci_zone_log() {
 	ssh_guest "uci -q get firewall.${zone}.log || true"
 }
 
+disabled_log_value() {
+	local value="$1"
+	case "$value" in
+		''|*[!0-9]*) printf '' ; return ;;
+	esac
+	# Match the package's decimal bitmask behavior while avoiding Bash's
+	# octal interpretation of values such as 08 and 0002.
+	while [[ "$value" == 0* && "$value" != 0 ]]; do
+		value="${value#0}"
+	done
+	value="${value:-0}"
+	local remaining=$((10#$value & ~1))
+	if (( remaining > 0 )); then
+		printf '%s' "$remaining"
+	fi
+}
+
 install_artifact() {
 	OWRT_FWLIVE_VERSION="$OWRT_FWLIVE_VERSION" \
 		"${ROOT}/scripts/qemu-install-fwlive.sh" --artifact-only >/dev/null 2>&1 \
@@ -119,11 +136,12 @@ printf '%s' "$DIS" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' \
 ssh_guest 'test ! -f /etc/fwlive/wan-log-baseline' \
 	|| die "baseline marker remains after successful disable"
 AFTER_DIS="$(uci_zone_log "$ZONE")"
-[[ "$AFTER_DIS" == "$PRESERVE_BASE_LOG" ]] \
-	|| die "disable did not restore the pre-enable WAN log value (want '${PRESERVE_BASE_LOG}', got '${AFTER_DIS}')"
-ok "disable restored firewall.${ZONE}.log=${PRESERVE_BASE_LOG} and retired its marker"
+EXPECTED_AFTER_DIS="$(disabled_log_value "$PRESERVE_BASE_LOG")"
+[[ "$AFTER_DIS" == "$EXPECTED_AFTER_DIS" ]] \
+	|| die "disable did not clear only the filter-log bit (want '${EXPECTED_AFTER_DIS:-<unset>}' from baseline '${PRESERVE_BASE_LOG:-<unset>}', got '${AFTER_DIS:-<unset>}')"
+ok "disable cleared the filter-log bit from baseline '${PRESERVE_BASE_LOG:-<unset>}' and retired its marker"
 
-if [[ "$PRESERVE_BASE_LOG" == 2 ]]; then
+if [[ "$EXPECTED_AFTER_DIS" == 2 ]]; then
 	OPERATOR_LOG=4
 else
 	OPERATOR_LOG=2
