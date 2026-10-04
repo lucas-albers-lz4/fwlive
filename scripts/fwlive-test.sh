@@ -299,6 +299,7 @@ bash tests/packaging-ci-paths.test.sh
 
 echo "== fwlive CI workflow pins (#817 #842) ==" >&2
 bash tests/ci-workflow-pins.test.sh
+python3 tests/release-tag-validation.test.py
 
 echo "== fwlive SDK package format mapping ==" >&2
 bash tests/sdk-matrix-package-format.test.sh

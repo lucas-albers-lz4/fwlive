@@ -706,8 +706,8 @@ change. This scoped smoke review is not a full security audit.
 | Shell helpers — **disable baseline retirement** | 2026-10-04 | Scoped source + host coverage + installed 24.10.8 IPK smoke | Successful disable/reload, including already-disabled retries and raced commits, retires the marker only when the fwlive generation is unchanged and UCI reads successfully. Host cases cover cleanup success/failure, pending changes, generation mismatch, raced commit, operator mask edits during reload, and the explicit drop sentinel. `scripts/qemu-logging-uninstall-smoke.sh` passed on a fresh OpenWrt 24.10.8 x86_64 QEMU guest with IPK `0.1.51-r1`: the existing enable → uninstall baseline restore passed with pre-existing `log=2`; the added cycle seeded explicit `log=0`, verified enable → disable cleared it and retired the marker, then operator `log=2` commit/reload → uninstall preserved that mask. APK runtime verification was not repeated for this delta; the 2026-10-01 installed IPK/APK evidence above remains historical and unchanged. No ACL or command-surface change. |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-10-01 | Full source + scoped fresh proof | Full source/host fixtures, current UCI grammar and named/anonymous identity rechecked. Installed artifact refuses foreign staging without committing or dropping it. Privileged package-wide commit race remains accepted. |
 | Release pipeline — secrets and key handling | 2026-10-01 | Full source + scoped fresh proof | Full source and both storage-format mode tests; full SDK usign/RSA validation plus three-line local signed feed staging with dummy keys. Native opkg/APK signatures and manifest hashes checked. No real keys or live publication. |
-| Release pipeline — version pins, fetch pinning and artifact selection | 2026-10-01 | Full source + scoped fresh proof | Current pin/fetch/cache/selection paths and tests rechecked. The #1059 host follow-up injects a partial-output grep failure in Packages filtering and asserts the production host helper aborts before gzip/usign; the SDK-contained path remains source-only. Fresh three-cell build, payload inspection and repeated clean bit-identical builds passed. #1090 physical-path normalization and read-only host guard fixtures now close the home-path spelling exception; #1096 ordering hardening remains open. |
-| Workflow inputs into `run:` bodies | 2026-10-01 | Full source + scoped fresh proof | All workflow inputs/actions/permissions reviewed; actionlint and pedantic zizmor output adjudicated. #1096 validation-before-install ordering confirmed as hardening; no additional repository-writer privilege demonstrated. No live workflow. |
+| Release pipeline — version pins, fetch pinning and artifact selection | 2026-10-03 | Delta + targeted host tests | #1096 validates dispatch/push tag syntax inline before checkout, checks out `refs/tags/<validated tag>`, and verifies tag commit == HEAD (and push SHA) before `npm ci` or lab dependency installation in both publish and smoke jobs. `tests/release-tag-validation.test.py` executes both jobs' shell guards against disposable Git repos; `actionlint`/`zizmor` pass. No live workflow, signing/publish, or QEMU was run. Current pin/fetch/cache/selection paths and prior #1059/#1090 evidence remain as recorded above. |
+| Workflow inputs into `run:` bodies | 2026-10-03 | Delta + host tests | Dispatch values enter shell only through step `env`; tag grammar/control characters are checked before writing step output or `GITHUB_ENV`. Checkout uses the validated step output in `refs/tags/...`; commit/HEAD and push SHA are verified before repository install/scripts. `tests/release-tag-validation.test.py`, actionlint and zizmor pass; no workflow run. The earlier permission/secret/pinning review remains as recorded above. |
 | LuCI view (templates / shipped JS) | 2026-10-02 | Scoped UI delta (full source pass 2026-10-01) | #1129 accessible-name behavior passed in the mocked Chromium fixture; prior installed 24.10 evidence remains dated 2026-10-01 and does not cover this change. |
 | Package/install surface (Makefiles, prerm, feed layout) | 2026-10-01 | Full source + scoped fresh proof | All current package metadata/hooks/ACL/menu and generated payload modes checked; real artifacts on all three lines inspected. Actual 24.10/25.12 lifecycle checked. #1097 installer preclear defect is resolved in PR #1114, with host negative controls and two actual same-version 24.10.8 IPK reinstall checks; this does not add an APK transition result. |
 | #370 package payload | 2026-10-01 | Full source + scoped fresh proof | Fresh 23.05/24.10 IPK and 25.12 APK SDK artifacts inspected, including 14 JS modules, ACL/menu/libexec, modes and lifecycle metadata. Actual APK lifecycle separately checked on 25.12. |
@@ -763,7 +763,7 @@ change. This scoped smoke review is not a full security audit.
 | Publish job is bound to Environment `feed-publish` | `manual` | Workflow binding and current API inspected 2026-10-01: no protection rules configured. This does not establish required approval or scope repository signing secrets. |
 | Checkout never writes GITHUB_TOKEN into `.git/config` | `host` | `persist-credentials: false` on every checkout in `publish-packages.yml` (workspace is bind-mounted into SDK) and `fwlive-test.yml`; `tests/ci-workflow-pins.test.sh` |
 | Publish `build-publish` lint gate runs under Node 22 | `host` | digest-pinned `actions/setup-node` before `validate-baseline.sh`; `tests/ci-workflow-pins.test.sh` |
-| workflow_dispatch tag validated before `GITHUB_ENV` write | `manual` | same workflow — newline/control-char rejection + `^v[0-9]` shape |
+| Dispatch/push release tag shape validated inline before checkout; checkout is explicitly `refs/tags/<validated tag>` and tag commit must equal HEAD (and push SHA); checks precede `npm ci` and lab dependency installation | `host` | Both release jobs in `.github/workflows/publish-packages.yml`; `tests/release-tag-validation.test.py` executes dispatch/push, malformed/control input, lightweight/annotated tags, branch collision, missing/non-commit tag, wrong HEAD and wrong push SHA fixtures. No GitHub Actions execution observed |
 | SDK feed cache key is exact (no `restore-keys` prefix fallback) | `manual` | same workflow — stale feed pins cannot be restored on cache miss |
 | SDK cache dirs owned by buildbot (1000:1000), owner-write + group/other read-traverse; enforced fail-closed pre-build (skipped only when CI pre-chowned both trees, roots AND nested entries; scan errors fail closed) | `host` | `tests/sdk-matrix-cache-owner.test.sh` — #208 (v0.1.36 chown regression) |
 | WAN toggle changes only the zone `log` bit | `host` | `tests/fwlive-logging.test.sh` — pending-delta refuse; named + anonymous zone lookup |
@@ -815,7 +815,7 @@ change. This scoped smoke review is not a full security audit.
 | ID | Severity | Issue | Summary |
 |----|----------|-------|---------|
 | Private-2026-10-01 | Low | Maintainer private draft reporting | Independently validated finding; details and advisory identifier retained privately pending review. |
-| #1096 | Low | [Hardening issue](https://github.com/lucas-albers-lz4/fwlive/issues/1096) | Release tag validation follows npm installation; no additional privilege demonstrated. |
+| [#1096](https://github.com/lucas-albers-lz4/fwlive/issues/1096) | Low | Release-input ordering hardening | Mitigation is in this change; close only after merge. No additional privilege demonstrated. |
 | #1068 | Low | [Existing issue](https://github.com/lucas-albers-lz4/fwlive/issues/1068) | Adaptive lock setup can silently skip state update. |
 
 ## Verified findings (closed in this ledger)
@@ -921,6 +921,32 @@ otherwise have overstated. Our docs are a summary of a past reading; upstream is
 the fact.
 
 ## Audit history
+
+### 2026-10-03 — #1096 release-tag validation ordering
+
+Both `build-publish` and `smoke-from-feed` now validate the dispatch input (or
+push tag ref) in an inline step before checkout, using the strict
+`vMAJOR.MINOR.PATCH` grammar and control-character rejection. Checkout receives
+only `refs/tags/<validated tag>` via a validated step output. A pre-install
+check requires that ref to peel to a commit equal to `HEAD`; tag pushes also
+require equality with `GITHUB_SHA`. The smoke job follows the same ordering
+and checks identity before installing lab dependencies.
+
+`tests/release-tag-validation.test.py` runs the workflow shell guards in
+throwaway Git repositories and covers dispatch/push, malformed and control
+inputs, lightweight/annotated tags, branch-name collisions, absent/non-commit
+tags, wrong HEAD, and push-SHA mismatch; it also asserts step ordering in both
+jobs. Focused tests, `actionlint`, `zizmor` (offline mode), workflow pin tests,
+`ruff`, ShellCheck, and the complete `./scripts/fwlive-test.sh` suite passed.
+No live workflow, QEMU, signing, or publication was run.
+
+GitHub settings queried for this review: `feed-publish` has no protection rules
+or deployment branch policy and permits administrator bypass; repository
+rulesets returned empty and the legacy tag-protection endpoint returned 404.
+These observations do not establish a protected-tag authority boundary. This
+remains low-severity release-input-ordering hardening, not a claim of new
+privileges to repository writers, signing-key exposure, or a live workflow
+finding. No broader release-surface re-audit was performed.
 
 ### 2026-09-29 — #1008 root-level feed staging allowlist
 
