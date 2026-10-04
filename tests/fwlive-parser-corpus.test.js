@@ -24,6 +24,8 @@ const FILTER_SH = path.join(ROOT,
 const FIXTURE_DIR = path.join(__dirname, 'fixtures');
 /* Override with SH='busybox sh' for ash parity (#103). */
 const SH = process.env.SH || 'sh';
+if (SH !== 'sh' && SH !== 'busybox sh')
+	throw new Error("SH must be exactly 'sh' or 'busybox sh'");
 
 const FIXTURES = [ 'logread-mixed.json', 'logread-iptables.json', 'logread-tcp-flags.json' ];
 
@@ -289,6 +291,13 @@ function assertShellMsgs(name, payload, env) {
 }
 
 function run() {
+	const unsafeShell = spawnSync(process.execPath, [__filename], {
+		encoding: 'utf8',
+		env: { ...process.env, SH: 'sh -c id' }
+	});
+	assert.notEqual(unsafeShell.status, 0, 'unsafe SH override must be rejected');
+	assert.match(unsafeShell.stderr, /SH must be exactly 'sh' or 'busybox sh'/);
+
 	assert.ok(fs.existsSync(FILTER_SH), 'missing fwlive-log-filter.sh');
 
 	for (const name of FIXTURES) {
