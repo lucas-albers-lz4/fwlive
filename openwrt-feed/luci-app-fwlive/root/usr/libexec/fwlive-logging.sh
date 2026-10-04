@@ -1030,7 +1030,9 @@ report_wan_log_after_commit() {
 	_rc="$1"
 	zone_json="$2"
 	_drop_baseline=0
-	if [ "$#" -ge 8 ]; then
+	# The optional eighth argument opts in only when its value is exactly 1.
+	# Argument count alone must never authorize deleting recovery state.
+	if [ "${8:-0}" = 1 ]; then
 		_drop_baseline=1
 	fi
 	if [ "$_rc" -eq 1 ]; then
@@ -1048,14 +1050,10 @@ report_wan_log_after_commit() {
 		wan_log_error_json "$zone_json" firewall_commit_raced
 		return 0
 	fi
-	shift 2
-	if [ "$_drop_baseline" -eq 1 ]; then
-		reload_and_report_wan_log "$1" "$2" "$3" "$4" "$5" \
-			"$zone_json" "$WAN_LOG_COMMIT_GENERATION" \
-			1
-	else
-		reload_and_report_wan_log "$@" "$zone_json" "$WAN_LOG_COMMIT_GENERATION"
-	fi
+	# Forward only the five documented operation fields plus an explicit flag;
+	# unrelated trailing caller arguments must not shift into the flag position.
+	reload_and_report_wan_log "$3" "$4" "$5" "$6" "$7" \
+		"$zone_json" "$WAN_LOG_COMMIT_GENERATION" "$_drop_baseline"
 }
 
 # Firewall reload + best-effort UCI rollback on reload failure. The reload
@@ -1079,7 +1077,7 @@ reload_and_report_wan_log() {
 	zone_json="$6"
 	committed_generation="$7"
 	_drop_baseline=0
-	if [ "$#" -ge 8 ]; then
+	if [ "${8:-0}" = 1 ]; then
 		_drop_baseline=1
 	fi
 
