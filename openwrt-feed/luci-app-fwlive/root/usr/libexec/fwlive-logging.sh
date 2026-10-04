@@ -1029,6 +1029,11 @@ commit_wan_log_change() {
 report_wan_log_after_commit() {
 	_rc="$1"
 	zone_json="$2"
+	_drop_baseline=0
+	if [ "$#" -ge 8 ]; then
+		_drop_baseline=1
+		_drop_baseline_expected="$8"
+	fi
 	if [ "$_rc" -eq 1 ]; then
 		return 0
 	fi
@@ -1042,7 +1047,13 @@ report_wan_log_after_commit() {
 		return 0
 	fi
 	shift 2
-	reload_and_report_wan_log "$@" "$zone_json" "$WAN_LOG_COMMIT_GENERATION"
+	if [ "$_drop_baseline" -eq 1 ]; then
+		reload_and_report_wan_log "$1" "$2" "$3" "$4" "$5" \
+			"$zone_json" "$WAN_LOG_COMMIT_GENERATION" \
+			"$_drop_baseline_expected"
+	else
+		reload_and_report_wan_log "$@" "$zone_json" "$WAN_LOG_COMMIT_GENERATION"
+	fi
 }
 
 # Firewall reload + best-effort UCI rollback on reload failure. The reload
@@ -1065,6 +1076,11 @@ reload_and_report_wan_log() {
 	success_msg="$5"
 	zone_json="$6"
 	committed_generation="$7"
+	_drop_baseline=0
+	if [ "$#" -ge 8 ]; then
+		_drop_baseline=1
+		_drop_baseline_expected="$8"
+	fi
 
 	if ! reload_firewall; then
 		# Re-acquire the logging lock so the rollback decision is atomic
@@ -1097,9 +1113,35 @@ reload_and_report_wan_log() {
 		wan_log_error_json "$zone_json" firewall_reload_failed
 		return 0
 	fi
+	if [ "$_drop_baseline" -eq 1 ]; then
+		drop_wan_log_baseline_if_matches "$zone" "$_drop_baseline_expected"
+	fi
 	logger -t fwlive "$success_msg" 2>/dev/null || true
 	printf '{"ok":true,"changed":true,"wan_zone":%s}' "$zone_json"
 	return 0
+}
+
+# After a successful disable/reload, discard a stale uninstall marker only
+# when both it and the committed value still match the disabled value. Keep
+# the marker on any mismatch or lock/read failure so uninstall can retry.
+drop_wan_log_baseline_if_matches() {
+	drop_zone="$1"
+	drop_expected="$2"
+	_drop_path="$(wan_log_baseline_path)"
+	[ -f "$_drop_path" ] && [ ! -L "$_drop_path" ] || return 0
+	if ! acquire_wan_log_lock; then
+		return 0
+	fi
+	_drop_saved=$(cat "$_drop_path" 2>/dev/null) || {
+		release_wan_log_lock
+		return 0
+	}
+	_drop_current=$(wan_zone_log_value "$drop_zone")
+	if [ "$_drop_saved" = "${drop_expected:-}" ] \
+		&& [ "${_drop_current:-}" = "${drop_expected:-}" ]; then
+		rm -f "$_drop_path" 2>/dev/null || true
+	fi
+	release_wan_log_lock
 }
 
 # $1=enable checks nf_log before the lock. Success leaves the lock held
@@ -1203,7 +1245,7 @@ disable_wan_logging() {
 	report_wan_log_after_commit "$_commit_rc" "$zone_json" \
 		"$zone" "$current" "$target" \
 		'Firewall reload failed after disable; reverted UCI WAN log' \
-		'WAN zone logging disabled'
+		'WAN zone logging disabled' "$target"
 	return 0
 }
 
