@@ -1123,8 +1123,9 @@ reload_and_report_wan_log() {
 }
 
 # After a successful disable/reload, discard the uninstall marker unless a
-# later fwlive toggle has taken ownership again. This lets operator changes
-# survive uninstall while preserving the baseline if an enable raced us.
+# later fwlive toggle has taken ownership again. Pending external UCI edits
+# are preserved by retiring the stale marker too; a valid `uci show` confirms
+# the config is readable before unlinking it.
 drop_wan_log_baseline_after_disable() {
 	drop_zone="$1"
 	drop_generation="$2"
@@ -1133,15 +1134,7 @@ drop_wan_log_baseline_after_disable() {
 	if ! acquire_wan_log_lock; then
 		return 0
 	fi
-	if firewall_changes_pending; then
-		release_wan_log_lock
-		return 0
-	fi
 	if ! uci -q show "firewall.${drop_zone}" >/dev/null 2>&1; then
-		release_wan_log_lock
-		return 0
-	fi
-	if firewall_changes_pending; then
 		release_wan_log_lock
 		return 0
 	fi
