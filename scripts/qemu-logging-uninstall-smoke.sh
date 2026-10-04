@@ -126,7 +126,11 @@ install_artifact "before disable/operator preservation smoke"
 "${ROOT}/scripts/qemu-reset-wan-logging.sh" >/dev/null
 ZONE="$(ssh_guest 'ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '\''$.wan_zone'\'' 2>/dev/null || true')"
 [[ -n "$ZONE" ]] || die "no WAN zone in firewall config for disable/operator smoke"
+ssh_guest "uci -q set 'firewall.${ZONE}.log=0' && uci commit firewall && /etc/init.d/firewall reload" \
+	>/dev/null || die "could not seed an explicit-zero pre-enable WAN log baseline"
 PRESERVE_BASE_LOG="$(uci_zone_log "$ZONE")"
+[[ "$PRESERVE_BASE_LOG" == 0 ]] \
+	|| die "expected explicit-zero pre-enable baseline, got '${PRESERVE_BASE_LOG}'"
 
 EN="$(ssh_guest 'ubus call fwlive enable_wan_logging')"
 printf '%s' "$EN" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' \

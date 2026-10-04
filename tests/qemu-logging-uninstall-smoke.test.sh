@@ -37,6 +37,8 @@ grep -Fq 'baseline marker remains after successful disable' "$SCRIPT" \
 	|| { echo "smoke must assert disable retired the baseline marker" >&2; exit 1; }
 grep -Fq 'disabled_log_value "$PRESERVE_BASE_LOG"' "$SCRIPT" \
 	|| { echo "smoke must compare the normalized post-disable log mask" >&2; exit 1; }
+grep -Fq 'log=0' "$SCRIPT" \
+	|| { echo "smoke must exercise an explicit-zero pre-enable baseline" >&2; exit 1; }
 grep -Fq "OPERATOR_LOG=2" "$SCRIPT" \
 	|| { echo "smoke must apply a later operator log-mask change" >&2; exit 1; }
 grep -Fq 'uninstall overwrote later operator log mask' "$SCRIPT" \
