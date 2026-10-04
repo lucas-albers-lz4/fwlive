@@ -37,6 +37,27 @@ uci_zone_log() {
 	ssh_guest "uci -q get firewall.${zone}.log || true"
 }
 
+disabled_log_value() {
+	local value="$1"
+	case "$value" in
+		''|*[!0-9]*) printf '' ; return ;;
+	esac
+	if [[ "${#value}" -gt 10 ]]; then
+		printf ''
+		return
+	fi
+	# Match the package's decimal bitmask behavior while avoiding Bash's
+	# octal interpretation of values such as 08 and 0002.
+	while [[ "$value" == 0* && "$value" != 0 ]]; do
+		value="${value#0}"
+	done
+	value="${value:-0}"
+	local remaining=$((10#$value & ~1))
+	if (( remaining > 0 )); then
+		printf '%s' "$remaining"
+	fi
+}
+
 install_artifact() {
 	OWRT_FWLIVE_VERSION="$OWRT_FWLIVE_VERSION" \
 		"${ROOT}/scripts/qemu-install-fwlive.sh" --artifact-only >/dev/null 2>&1 \
@@ -97,6 +118,60 @@ AFTER_RM="$(uci_zone_log "$ZONE")"
 ssh_guest 'test ! -f /etc/fwlive/wan-log-baseline' \
 	|| die "baseline file still present after uninstall"
 ok "uninstall restored firewall.${ZONE}.log to pre-enable state"
+
+# Exercise the new disable-retirement path against the installed package. A
+# later operator mask change must survive uninstall because Disable retired the
+# package's stale pre-enable restore marker after the successful reload.
+install_artifact "before disable/operator preservation smoke"
+"${ROOT}/scripts/qemu-reset-wan-logging.sh" >/dev/null
+ZONE="$(ssh_guest 'ubus call fwlive logging_status 2>/dev/null | jsonfilter -e '\''$.wan_zone'\'' 2>/dev/null || true')"
+[[ -n "$ZONE" ]] || die "no WAN zone in firewall config for disable/operator smoke"
+ssh_guest "uci -q set 'firewall.${ZONE}.log=0' && uci commit firewall && /etc/init.d/firewall reload" \
+	>/dev/null || die "could not seed an explicit-zero pre-enable WAN log baseline"
+PRESERVE_BASE_LOG="$(uci_zone_log "$ZONE")"
+[[ "$PRESERVE_BASE_LOG" == 0 ]] \
+	|| die "expected explicit-zero pre-enable baseline, got '${PRESERVE_BASE_LOG}'"
+
+EN="$(ssh_guest 'ubus call fwlive enable_wan_logging')"
+printf '%s' "$EN" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' \
+	|| die "second enable failed: $EN"
+ssh_guest 'test -f /etc/fwlive/wan-log-baseline' \
+	|| die "baseline marker missing after second enable"
+
+DIS="$(ssh_guest 'ubus call fwlive disable_wan_logging')"
+printf '%s' "$DIS" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' \
+	|| die "disable failed before operator-preservation check: $DIS"
+ssh_guest 'test ! -f /etc/fwlive/wan-log-baseline' \
+	|| die "baseline marker remains after successful disable"
+AFTER_DIS="$(uci_zone_log "$ZONE")"
+EXPECTED_AFTER_DIS="$(disabled_log_value "$PRESERVE_BASE_LOG")"
+[[ "$AFTER_DIS" == "$EXPECTED_AFTER_DIS" ]] \
+	|| die "disable did not clear only the filter-log bit (want '${EXPECTED_AFTER_DIS:-<unset>}' from baseline '${PRESERVE_BASE_LOG:-<unset>}', got '${AFTER_DIS:-<unset>}')"
+ok "disable cleared the filter-log bit from baseline '${PRESERVE_BASE_LOG:-<unset>}' and retired its marker"
+
+if [[ "$EXPECTED_AFTER_DIS" == 2 ]]; then
+	OPERATOR_LOG=4
+else
+	OPERATOR_LOG=2
+fi
+ssh_guest "uci -q set 'firewall.${ZONE}.log=${OPERATOR_LOG}' && uci commit firewall && /etc/init.d/firewall reload" \
+	>/dev/null || die "could not commit and reload the later operator log mask"
+AFTER_OPERATOR="$(uci_zone_log "$ZONE")"
+[[ "$AFTER_OPERATOR" == "$OPERATOR_LOG" ]] \
+	|| die "operator log mask was not applied (want '${OPERATOR_LOG}', got '${AFTER_OPERATOR}')"
+ok "later operator change set firewall.${ZONE}.log=${OPERATOR_LOG}"
+
+if [[ "$PKG_MGR" == apk ]]; then
+	ssh_guest 'apk del luci-app-fwlive' >/dev/null
+else
+	ssh_guest 'opkg remove --force-depends luci-app-fwlive' >/dev/null
+fi
+AFTER_OPERATOR_RM="$(uci_zone_log "$ZONE")"
+[[ "$AFTER_OPERATOR_RM" == "$OPERATOR_LOG" ]] \
+	|| die "uninstall overwrote later operator log mask (want '${OPERATOR_LOG}', got '${AFTER_OPERATOR_RM}')"
+ssh_guest 'test ! -f /etc/fwlive/wan-log-baseline' \
+	|| die "stale baseline marker returned after disable/uninstall"
+ok "uninstall preserved later operator log mask ${OPERATOR_LOG}"
 
 install_artifact "after uninstall smoke"
 ok "reinstalled luci-app-fwlive for lab (--artifact-only)"

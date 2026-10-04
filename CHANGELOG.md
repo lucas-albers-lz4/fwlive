@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Retire the saved WAN log baseline after successful disable/reload so uninstall preserves later operator changes. If logging is already off but the marker remains, Disable retries `fw4 reload`; pending changes abort the retry, and reload failure returns `firewall_reload_failed` while keeping the marker (#1168).
+
 ## [v0.1.51] — 2026-10-03
 
 ### Fixed

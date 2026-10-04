@@ -31,5 +31,17 @@ grep -Fq 'two-version' "$SCRIPT" \
 	|| { echo "smoke must point at the two-version APK upgrade evidence" >&2; exit 1; }
 grep -Fq 'issue-848-2026-09-27.md' "$SCRIPT" \
 	|| { echo "smoke must cite the #848 version-changing upgrade evidence" >&2; exit 1; }
+grep -Fq "ubus call fwlive disable_wan_logging" "$SCRIPT" \
+	|| { echo "smoke must disable logging before the operator-preservation check" >&2; exit 1; }
+grep -Fq 'baseline marker remains after successful disable' "$SCRIPT" \
+	|| { echo "smoke must assert disable retired the baseline marker" >&2; exit 1; }
+grep -Fq 'disabled_log_value "$PRESERVE_BASE_LOG"' "$SCRIPT" \
+	|| { echo "smoke must compare the normalized post-disable log mask" >&2; exit 1; }
+grep -Fq 'log=0' "$SCRIPT" \
+	|| { echo "smoke must exercise an explicit-zero pre-enable baseline" >&2; exit 1; }
+grep -Fq "OPERATOR_LOG=2" "$SCRIPT" \
+	|| { echo "smoke must apply a later operator log-mask change" >&2; exit 1; }
+grep -Fq 'uninstall overwrote later operator log mask' "$SCRIPT" \
+	|| { echo "smoke must assert uninstall preserved the operator log mask" >&2; exit 1; }
 
 echo "qemu logging-uninstall source-contract checks passed"

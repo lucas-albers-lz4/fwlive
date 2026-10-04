@@ -883,6 +883,7 @@ drive_toggle() {
 	STAGED_PENDING=0
 	LOGGER_MSGS=''
 	CHANGES_CALLS=0
+	LOCK_CALLS=0
 	REVERTED=0
 	RELOADS=0
 	printf '0\n' > "$CHANGES_FILE"
@@ -931,6 +932,10 @@ drive_toggle() {
 				fi
 				;;
 			'-q show firewall')
+				printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
+				;;
+			'-q show firewall.@zone[0]')
+				[ "$mode" != drop_show_fail ] || return 1
 				printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\n"
 				;;
 			'-q get firewall.@zone[0]')
@@ -1005,21 +1010,37 @@ drive_toggle() {
 	}
 	check_nf_log_ipv4() { return 0; }
 	check_nf_log_ipv6() { return 0; }
-	acquire_wan_log_lock() { return 0; }
+	acquire_wan_log_lock() {
+		LOCK_CALLS=$((LOCK_CALLS + 1))
+		[ "$mode" != drop_lock_fail ] || [ "$LOCK_CALLS" -lt 2 ]
+	}
 	release_wan_log_lock() { return 0; }
 	reload_firewall() {
 		RELOADS=$((RELOADS + 1))
 		case "$mode" in
-			rollback_post_stage_foreign|rollback_uci_delete_fail|rollback_uci_set_fail)
+			reload_fail|rollback_post_stage_foreign|rollback_uci_delete_fail|rollback_uci_set_fail)
 				return 1 ;;
+			generation_mismatch)
+				_generation=$(cat "$WAN_LOG_GENERATION_FILE")
+				printf '%s\n' "$((_generation + 1))" > "$WAN_LOG_GENERATION_FILE"
+				;;
+			operator_stage_during_reload)
+				STAGED_LOG='6'
+				STAGED_PENDING=1
+				;;
 		esac
 		return 0
 	}
 	logger() { LOGGER_MSGS="$LOGGER_MSGS|$*"; }
 	if [ "$op" = enable ]; then
 		enable_wan_logging > "$OUT_FILE"
-	else
+	elif [ "$op" = disable ]; then
 		disable_wan_logging > "$OUT_FILE"
+	else
+		# shellcheck disable=SC2034 # Read by report_wan_log_after_commit.
+		WAN_LOG_COMMIT_GENERATION=$(wan_log_generation_read)
+		report_wan_log_after_commit 0 '"wan"' '@zone[0]' '' '1' \
+			'test reload failure' 'test reload success' "$mode" > "$OUT_FILE"
 	fi
 	OUT=$(cat "$OUT_FILE")
 	unset -f uci check_nf_log_ipv4 check_nf_log_ipv6 \
@@ -1078,6 +1099,128 @@ esac
 	|| die "already-off disable must advance generation"
 [ "$UCI_COMMITS" -eq 0 ] || die "already-off disable must not commit"
 ok "already-off disable advances intent generation without changing UCI"
+
+# #1165/#1168: an already-off request with a leftover marker retries the
+# firewall reload; cleanup is conditional on a successful reload and on the
+# generation, lock, and UCI checks still identifying this disable request.
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle disable happy
+case "$OUT" in
+	*'"ok":true'*'"changed":false'*) ;;
+	*) die "already-off disable with baseline should succeed after retry reload, got: $OUT" ;;
+esac
+[ "$RELOADS" -eq 1 ] || die "already-off baseline retry must reload once, got $RELOADS"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "successful already-off retry must retire baseline"
+ok "already-off disable reloads before retiring the baseline"
+
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle disable reload_fail
+case "$OUT" in
+	*'"error":"firewall_reload_failed"'*) ;;
+	*) die "already-off reload failure should be surfaced, got: $OUT" ;;
+esac
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "failed already-off reload must keep baseline"
+ok "already-off disable keeps baseline and reports reload failure"
+
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle disable late_foreign
+case "$OUT" in
+	*'"error":"firewall_changes_pending"'*) ;;
+	*) die "already-off retry with late pending changes should abort, got: $OUT" ;;
+esac
+[ "$RELOADS" -eq 0 ] || die "pending already-off retry must not reload"
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "pending already-off retry must keep baseline"
+ok "already-off retry aborts on pending firewall changes"
+
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle disable generation_mismatch
+case "$OUT" in
+	*'"ok":true'*'"changed":false'*) ;;
+	*) die "generation-raced already-off retry should remain successful, got: $OUT" ;;
+esac
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "generation mismatch during retry must keep baseline"
+ok "already-off retry keeps baseline after a concurrent fwlive generation"
+
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle disable drop_show_fail
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "unreadable zone UCI must keep baseline"
+ok "baseline cleanup keeps marker when zone UCI is unreadable"
+
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle disable drop_lock_fail
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "cleanup lock failure must keep baseline"
+ok "baseline cleanup keeps marker when the cleanup lock is unavailable"
+
+# A normal disable reload failure rolls UCI back and keeps uninstall recovery.
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG='3'
+drive_toggle disable reload_fail
+case "$OUT" in
+	*'"error":"firewall_reload_failed"'*) ;;
+	*) die "disable reload failure should be surfaced, got: $OUT" ;;
+esac
+[ "$CURRENT_LOG" = '3' ] || die "failed disable reload should roll UCI back to 3, got '$CURRENT_LOG'"
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "failed disable reload must keep baseline"
+ok "disable reload failure rolls UCI back and preserves baseline"
+
+# A raced commit still reloads and retires the marker only when generation is
+# unchanged, then reports the race so the operator can inspect committed UCI.
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG='1'
+drive_toggle disable verify_mismatch
+case "$OUT" in
+	*'"error":"firewall_commit_raced"'*) ;;
+	*) die "raced disable commit should be reported, got: $OUT" ;;
+esac
+[ "$RELOADS" -eq 1 ] || die "raced disable commit must reload once"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "successful raced disable reload should retire baseline"
+ok "raced disable commit retires baseline after successful reload"
+
+# A non-fwlive operator edit staged during reload does not bump the generation.
+# Retiring the stale marker must not commit or discard that foreign staging.
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG='3'
+drive_toggle disable operator_stage_during_reload
+case "$OUT" in
+	*'"ok":true'*'"changed":true'*) ;;
+	*) die "disable with staged operator edit during reload should succeed, got: $OUT" ;;
+esac
+[ "$CURRENT_LOG" = '2' ] || die "disable committed over staged operator edit: '$CURRENT_LOG'"
+[ "$STAGED_PENDING" = 1 ] && [ "$STAGED_LOG" = '6' ] \
+	|| die "operator staging was discarded: pending=$STAGED_PENDING log='$STAGED_LOG'"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "stale baseline should be retired after staged operator edit"
+ok "disable cleanup retires stale baseline and preserves staged operator mask"
+
+# Full host sequence: enable creates the marker, then successful disable drops it.
+rm -f "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable happy
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "enable must create the baseline marker"
+FWLIVE_CURRENT_LOG='1'
+drive_toggle disable happy
+case "$OUT" in
+	*'"ok":true'*'"changed":true'*) ;;
+	*) die "enable-then-disable should succeed, got: $OUT" ;;
+esac
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "enable-then-disable must retire the baseline"
+ok "enable followed by disable retires the uninstall baseline"
+
+# A trailing argument whose value is 0 must not authorize baseline deletion.
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+FWLIVE_CURRENT_LOG=''
+drive_toggle report 0
+case "$OUT" in
+	*'"ok":true'*'"changed":true'*) ;;
+	*) die "report with zero cleanup sentinel should reload successfully, got: $OUT" ;;
+esac
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "zero cleanup sentinel must not retire baseline"
+ok "baseline retirement requires the explicit sentinel value 1"
 
 FWLIVE_CURRENT_LOG=''
 drive_toggle enable late_foreign
