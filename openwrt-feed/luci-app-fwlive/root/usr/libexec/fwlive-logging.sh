@@ -1121,9 +1121,10 @@ reload_and_report_wan_log() {
 	return 0
 }
 
-# After a successful disable/reload, discard a stale uninstall marker only
-# when both it and the committed value still match the disabled value. Keep
-# the marker on any mismatch or lock/read failure so uninstall can retry.
+# After a successful disable/reload, discard the uninstall marker when the
+# current UCI value still matches the disabled value. The original baseline
+# must not overwrite a later operator change to other log-mask bits. Keep the
+# marker on any mismatch or lock/read failure so uninstall can retry.
 drop_wan_log_baseline_if_matches() {
 	drop_zone="$1"
 	drop_expected="$2"
@@ -1132,13 +1133,26 @@ drop_wan_log_baseline_if_matches() {
 	if ! acquire_wan_log_lock; then
 		return 0
 	fi
-	_drop_saved=$(cat "$_drop_path" 2>/dev/null) || {
+	if firewall_changes_pending; then
+		release_wan_log_lock
+		return 0
+	fi
+	_drop_show=$(uci -q show "firewall.${drop_zone}" 2>/dev/null) || {
 		release_wan_log_lock
 		return 0
 	}
-	_drop_current=$(wan_zone_log_value "$drop_zone")
-	if [ "$_drop_saved" = "${drop_expected:-}" ] \
-		&& [ "${_drop_current:-}" = "${drop_expected:-}" ]; then
+	if firewall_changes_pending; then
+		release_wan_log_lock
+		return 0
+	fi
+	_drop_log_prefix="firewall.${drop_zone}.log="
+	if [ -z "$drop_expected" ]; then
+		if printf '%s\n' "$_drop_show" | grep -Fqx "${_drop_log_prefix}''" \
+			|| ! printf '%s\n' "$_drop_show" | grep -Fq "$_drop_log_prefix"; then
+			rm -f "$_drop_path" 2>/dev/null || true
+		fi
+	elif printf '%s\n' "$_drop_show" \
+		| grep -Fqx "${_drop_log_prefix}'${drop_expected}'"; then
 		rm -f "$_drop_path" 2>/dev/null || true
 	fi
 	release_wan_log_lock
