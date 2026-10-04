@@ -42,6 +42,10 @@ disabled_log_value() {
 	case "$value" in
 		''|*[!0-9]*) printf '' ; return ;;
 	esac
+	if [[ "${#value}" -gt 10 ]]; then
+		printf ''
+		return
+	fi
 	# Match the package's decimal bitmask behavior while avoiding Bash's
 	# octal interpretation of values such as 08 and 0002.
 	while [[ "$value" == 0* && "$value" != 0 ]]; do
