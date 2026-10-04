@@ -1032,7 +1032,6 @@ report_wan_log_after_commit() {
 	_drop_baseline=0
 	if [ "$#" -ge 8 ]; then
 		_drop_baseline=1
-		_drop_baseline_expected="$8"
 	fi
 	if [ "$_rc" -eq 1 ]; then
 		return 0
@@ -1043,6 +1042,9 @@ report_wan_log_after_commit() {
 			wan_log_error_json "$zone_json" firewall_reload_failed
 			return 0
 		fi
+		if [ "$_drop_baseline" -eq 1 ]; then
+			drop_wan_log_baseline_after_disable "$zone" "$WAN_LOG_COMMIT_GENERATION"
+		fi
 		wan_log_error_json "$zone_json" firewall_commit_raced
 		return 0
 	fi
@@ -1050,7 +1052,7 @@ report_wan_log_after_commit() {
 	if [ "$_drop_baseline" -eq 1 ]; then
 		reload_and_report_wan_log "$1" "$2" "$3" "$4" "$5" \
 			"$zone_json" "$WAN_LOG_COMMIT_GENERATION" \
-			"$_drop_baseline_expected"
+			1
 	else
 		reload_and_report_wan_log "$@" "$zone_json" "$WAN_LOG_COMMIT_GENERATION"
 	fi
@@ -1079,7 +1081,6 @@ reload_and_report_wan_log() {
 	_drop_baseline=0
 	if [ "$#" -ge 8 ]; then
 		_drop_baseline=1
-		_drop_baseline_expected="$8"
 	fi
 
 	if ! reload_firewall; then
@@ -1114,20 +1115,19 @@ reload_and_report_wan_log() {
 		return 0
 	fi
 	if [ "$_drop_baseline" -eq 1 ]; then
-		drop_wan_log_baseline_if_matches "$zone" "$_drop_baseline_expected"
+		drop_wan_log_baseline_after_disable "$zone" "$committed_generation"
 	fi
 	logger -t fwlive "$success_msg" 2>/dev/null || true
 	printf '{"ok":true,"changed":true,"wan_zone":%s}' "$zone_json"
 	return 0
 }
 
-# After a successful disable/reload, discard the uninstall marker when the
-# current UCI value still matches the disabled value. The original baseline
-# must not overwrite a later operator change to other log-mask bits. Keep the
-# marker on any mismatch or lock/read failure so uninstall can retry.
-drop_wan_log_baseline_if_matches() {
+# After a successful disable/reload, discard the uninstall marker unless a
+# later fwlive toggle has taken ownership again. This lets operator changes
+# survive uninstall while preserving the baseline if an enable raced us.
+drop_wan_log_baseline_after_disable() {
 	drop_zone="$1"
-	drop_expected="$2"
+	drop_generation="$2"
 	_drop_path="$(wan_log_baseline_path)"
 	[ -f "$_drop_path" ] && [ ! -L "$_drop_path" ] || return 0
 	if ! acquire_wan_log_lock; then
@@ -1137,24 +1137,24 @@ drop_wan_log_baseline_if_matches() {
 		release_wan_log_lock
 		return 0
 	fi
-	_drop_show=$(uci -q show "firewall.${drop_zone}" 2>/dev/null) || {
+	if ! uci -q show "firewall.${drop_zone}" >/dev/null 2>&1; then
 		release_wan_log_lock
 		return 0
-	}
+	fi
 	if firewall_changes_pending; then
 		release_wan_log_lock
 		return 0
 	fi
-	_drop_log_prefix="firewall.${drop_zone}.log="
-	if [ -z "$drop_expected" ]; then
-		if printf '%s\n' "$_drop_show" | grep -Fqx "${_drop_log_prefix}''" \
-			|| ! printf '%s\n' "$_drop_show" | grep -Fq "$_drop_log_prefix"; then
-			rm -f "$_drop_path" 2>/dev/null || true
-		fi
-	elif printf '%s\n' "$_drop_show" \
-		| grep -Fqx "${_drop_log_prefix}'${drop_expected}'"; then
-		rm -f "$_drop_path" 2>/dev/null || true
+	_drop_current_generation=$(wan_log_generation_read 2>/dev/null) || {
+		release_wan_log_lock
+		return 0
+	}
+	if [ -z "$drop_generation" ] || [ "$drop_generation" = unavailable ] \
+		|| [ "$_drop_current_generation" != "$drop_generation" ]; then
+		release_wan_log_lock
+		return 0
 	fi
+	rm -f "$_drop_path" 2>/dev/null || true
 	release_wan_log_lock
 }
 
@@ -1238,12 +1238,27 @@ disable_wan_logging() {
 
 	current=$(wan_zone_log_value "$zone")
 	if [ -z "$current" ] || ! wan_filter_log_enabled "$current"; then
-		if ! wan_log_generation_bump >/dev/null; then
+		_disable_generation=$(wan_log_generation_bump) || {
 			release_wan_log_lock
 			wan_log_tracking_failed_json "$zone_json"
 			return 0
+		}
+		_baseline_path="$(wan_log_baseline_path)"
+		if [ -f "$_baseline_path" ] && [ ! -L "$_baseline_path" ] \
+			&& firewall_changes_pending; then
+			release_wan_log_lock
+			wan_log_error_json "$zone_json" firewall_changes_pending
+			return 0
 		fi
 		release_wan_log_lock
+		if [ -f "$_baseline_path" ] && [ ! -L "$_baseline_path" ]; then
+			if ! reload_firewall; then
+				logger -t fwlive "Firewall reload failed after already-disabled request" 2>/dev/null || true
+				wan_log_error_json "$zone_json" firewall_reload_failed
+				return 0
+			fi
+			drop_wan_log_baseline_after_disable "$zone" "$_disable_generation"
+		fi
 		printf '{"ok":true,"changed":false,"wan_zone":%s}' "$zone_json"
 		return 0
 	fi
@@ -1259,7 +1274,7 @@ disable_wan_logging() {
 	report_wan_log_after_commit "$_commit_rc" "$zone_json" \
 		"$zone" "$current" "$target" \
 		'Firewall reload failed after disable; reverted UCI WAN log' \
-		'WAN zone logging disabled' "$target"
+		'WAN zone logging disabled' 1
 	return 0
 }
 
