@@ -1182,6 +1182,35 @@ esac
 [ ! -f "$WAN_LOG_BASELINE_FILE" ] || die "successful raced disable reload should retire baseline"
 ok "raced disable commit retires baseline after successful reload"
 
+# #1177: the raced-commit reporting function must drop the baseline for its
+# positional zone even when a stale global `zone` names something else.
+printf '42\n' > "$WAN_LOG_GENERATION_FILE"
+WAN_LOG_COMMIT_GENERATION=42
+printf '2' > "$WAN_LOG_BASELINE_FILE"
+zone='stale-global-zone'
+DROP_ZONE_SEEN=''
+uci() {
+	DROP_ZONE_SEEN="$3"
+	[ "$*" = '-q show firewall.positional-zone' ]
+}
+reload_firewall() { return 0; }
+acquire_wan_log_lock() { return 0; }
+release_wan_log_lock() { return 0; }
+logger() { :; }
+report_wan_log_after_commit 2 '"positional-zone"' 'positional-zone' \
+	'previous' 'committed' 'failure' 'success' 1 > "$OUT_FILE"
+OUT=$(cat "$OUT_FILE")
+case "$OUT" in
+	*'"error":"firewall_commit_raced"'*) ;;
+	*) die "#1177 positional-zone raced commit should be reported, got: $OUT" ;;
+esac
+[ "$DROP_ZONE_SEEN" = 'firewall.positional-zone' ] \
+	|| die "#1177 baseline cleanup used '$DROP_ZONE_SEEN', expected positional zone"
+[ ! -f "$WAN_LOG_BASELINE_FILE" ] \
+	|| die "#1177 positional-zone raced cleanup must retire the baseline"
+unset -f uci reload_firewall acquire_wan_log_lock release_wan_log_lock logger
+ok "#1177 raced commit drops baseline using positional zone, not global zone"
+
 # A non-fwlive operator edit staged during reload does not bump the generation.
 # Retiring the stale marker must not commit or discard that foreign staging.
 printf '2' > "$WAN_LOG_BASELINE_FILE"
@@ -1278,6 +1307,7 @@ esac
 [ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/post-stage-log_limit: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
 ok "#191 enable aborts on foreign log_limit staged after our set (exact log= match)"
 
+printf '2' > "$WAN_LOG_BASELINE_FILE"
 FWLIVE_CURRENT_LOG=''
 drive_toggle enable verify_mismatch
 case "$OUT" in
@@ -1287,11 +1317,13 @@ esac
 [ "$UCI_COMMITS" -eq 1 ] || die "#191 enable/verify-mismatch: expected exactly one commit, got $UCI_COMMITS"
 [ "$RELOADS" -eq 1 ] || die "#191 enable/verify-mismatch: raced commit must still reload, got $RELOADS"
 [ "$STAGED_LOG" = '1' ] || die "#191 enable/verify-mismatch: expected log=1 staged, got '$STAGED_LOG'"
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "#191 enable/verify-mismatch: raced commit must preserve baseline"
+[ "$(cat "$WAN_LOG_BASELINE_FILE")" = '2' ] || die "#191 enable/verify-mismatch: raced commit changed baseline"
 case "$LOGGER_MSGS" in
 	*'verify FAILED'*) ;;
 	*) die "#191 enable/verify-mismatch: missing loud post-commit warning: $LOGGER_MSGS" ;;
 esac
-ok "#191 post-commit verify mismatch reports firewall_commit_raced, keeps the commit, still reloads"
+ok "#191 post-commit verify mismatch reports firewall_commit_raced, keeps the commit and baseline, still reloads"
 
 FWLIVE_CURRENT_LOG='3'
 drive_toggle disable verify_mismatch

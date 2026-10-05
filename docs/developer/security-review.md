@@ -1,5 +1,18 @@
 # Security review state
 
+**2026-10-05 #1177/#1178/#1180 scoped delta.** Raced-disable baseline
+retirement now uses the reporting function's positional zone rather than the
+caller-global zone; generation, lock, UCI, and reload gates are unchanged. The
+shipped README distinguishes disable races from enable races. Host proof:
+`tests/fwlive-logging.test.sh` checks a divergent global/positional zone and
+retention after an enable race. Upstream-cut verification now rejects empty or
+unsupported README path tables, relative paths resolving outside the artifact,
+and scoped monorepo/tracker references throughout the rewritten tree. Negative
+fixtures and legitimate URL/path/color fixtures are in
+`tests/fwlive-upstream-cut.test.sh`. No ACL, renderer, signing, or package-version
+change; this is a scoped host-side delta, not installed-router or full-source
+audit evidence.
+
 **2026-10-04 #1165 WAN-log uninstall baseline.** When Enable is called while
 filter logging is already active and the saved baseline is absent, reconstruct
 the pre-feature value by clearing only the owned filter-log bit from the

@@ -315,19 +315,239 @@ PY
 }
 
 # README table rows must not name a path the cut does not ship; a dropped file
-# or monorepo-only generator otherwise leaves a dangling row behind.
+# or monorepo-only generator otherwise leaves a dangling row behind. An empty
+# or structurally changed table is also a failure: silently parsing zero rows
+# would turn this check into a pass when the README layout drifts.
 upstream_cut_verify_readme_rows() {
-	local out="$1" path missing=0
-	while IFS= read -r path; do
-		case "$path" in
-			'' | *'*'* | /*) continue ;;
-		esac
-		if [[ ! -e "$out/$path" ]]; then
-			echo "  FAIL: README row names a path the cut does not ship: $path"
-			missing=1
-		fi
-	done < <(grep -oE '^\| `[^`]+`' "$out/README.md" 2>/dev/null | cut -d'`' -f2)
-	return "$missing"
+	local out="$1"
+	python3 - "$out" <<'PY'
+import glob, re, sys
+from pathlib import Path
+
+out = Path(sys.argv[1])
+readme = out / 'README.md'
+if not readme.is_file():
+    print('  FAIL: README path table has no parsed path rows (README.md missing)')
+    sys.exit(1)
+
+def table_cells(line):
+    # Markdown tables allow up to three leading spaces and either outer pipe
+    # to be omitted. Tabs/greater indentation are unsupported, not normalized.
+    match = re.fullmatch(r' {0,3}(.*)', line)
+    if not match or '|' not in match.group(1):
+        return None
+    body = match.group(1)
+    if body.startswith('|'):
+        body = body[1:]
+    cells = [cell.strip() for cell in body.split('|')]
+    if cells and cells[-1] == '':
+        cells.pop()
+    return cells
+
+missing = []
+outside = []
+unsupported = []
+parsed = 0
+in_path_table = False
+resolved_out = out.resolve()
+for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
+    cells = table_cells(line)
+    if not in_path_table:
+        if cells and len(cells) >= 2 and cells[0].lower() == 'path' and cells[1].lower() == 'role':
+            in_path_table = True
+        continue
+    if not line.strip():
+        in_path_table = False
+        continue
+    if cells is None:
+        # Pipe-containing rows with unsupported indentation/format must not
+        # silently disappear after a recognized Path/Role header.
+        if '|' in line:
+            unsupported.append(line.strip())
+        in_path_table = False
+        continue
+    if len(cells) < 2:
+        unsupported.append(line.strip())
+        continue
+    if all(re.fullmatch(r':?-{3,}:?', cell) for cell in cells):
+        continue
+    match = re.fullmatch(r'`([^`]+)`', cells[0])
+    if not match:
+        unsupported.append(cells[0] or line.strip())
+        continue
+    path = match.group(1)
+    parsed += 1
+    # Absolute paths document router runtime state rather than package files.
+    if path.startswith('/'):
+        continue
+    # Expand glob rows, then validate every resolved match (including symlinks).
+    # This catches ../ traversal and wildcard families escaping via symlinks.
+    candidates = [Path(p) for p in glob.glob(str(out / path), recursive=True)] if glob.has_magic(path) else [out / path]
+    if not candidates:
+        missing.append(path)
+        continue
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        try:
+            resolved.relative_to(resolved_out)
+        except ValueError:
+            outside.append('%s (matched %s)' % (path, candidate))
+            continue
+        if not resolved.exists():
+            missing.append(path)
+
+if parsed == 0:
+    print('  FAIL: README path table has no parsed path rows')
+    sys.exit(1)
+for path in unsupported:
+    print('  FAIL: README path table has an unsupported row: %s' % path)
+for path in outside:
+    print('  FAIL: README row resolves outside the cut artifact: %s' % path)
+for path in missing:
+    print('  FAIL: README row names a path the cut does not ship: %s' % path)
+sys.exit(1 if unsupported or outside or missing else 0)
+PY
+}
+
+# Scan the complete rewritten artifact tree. Keep the signatures narrow: these
+# are monorepo-only paths/repo references or tracker forms, not generic URLs,
+# relative paths, hash characters, or every occurrence of "core/".
+upstream_cut_verify_artifacts() {
+	local out="$1"
+	python3 - "$out" <<'PY'
+import re, sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+relative_prefix = r'(?<![A-Za-z0-9_./-])(?:\./|\.\./)*'
+token_end = r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9])'
+leaks = [
+    ('monorepo feed path', re.compile(relative_prefix + r'openwrt-feed/(?:luci-app-fwlive|README\.md|feeds\.conf\.example)' + token_end, re.I)),
+    ('monorepo source path', re.compile(relative_prefix + r'core/fwlive-log(?:\.js)?' + token_end, re.I)),
+    ('monorepo generator path', re.compile(relative_prefix + r'scripts/(?:gen-all\.sh|embed-fwlive-css\.js)\b', re.I)),
+    ('monorepo CSS generator identifier', re.compile(relative_prefix + r'embed-fwlive-css(?:\.js)?' + token_end, re.I)),
+    ('monorepo design-doc path', re.compile(relative_prefix + r'docs/fwlive-ui-design-target(?:\.md)?' + token_end, re.I)),
+    ('monorepo GitHub repo', re.compile(r'(?i)(?:github\.com/)?lucas-albers-lz4/fwlive\b')),
+    ('monorepo-only README/config reference', re.compile(r'(?i)\b(?:feeds\.conf\.example|in the fwlive repo|snapshot from the fwlive monorepo|regenerated? upstream of this tree|multi-model audit)\b')),
+    ('internal tracker key', re.compile(r'(?i)\bissue\s+[A-Z]{1,3}-[0-9]+\b')),
+    ('explicit numeric tracker reference', re.compile(r'(?i)\b(?:issue|Grok)\s+#\d+\b')),
+    ('do-not-edit instruction', re.compile(r'\b[Dd]o not edit\b')),
+    ('generated-source instruction', re.compile(r'(?i)GENERATED FILE\s*[—-]\s*do not edit')),
+]
+tracker = re.compile(r'(?<![A-Za-z0-9_])#([0-9]{2,})(?![A-Za-z0-9_])')
+url = re.compile(r'https?://[^\s<>]+', re.I)
+
+
+def c_style_comments(line, suffix, state):
+    fragments = []
+    i = 0
+    quote = state.get('quote')
+    continued = False
+    while i < len(line):
+        if state['block']:
+            end = line.find('*/', i)
+            if end < 0:
+                fragments.append(line[i:])
+                return fragments
+            fragments.append(line[i:end + 2])
+            i = end + 2
+            state['block'] = False
+            continue
+        if quote:
+            if line[i] == '\\':
+                if i == len(line) - 1:
+                    continued = True
+                i += 2
+                continue
+            if line[i] == quote:
+                quote = None
+            i += 1
+            continue
+        if line[i] in ("'", '"', '`') and (line[i] != '`' or suffix == '.js'):
+            quote = line[i]
+            i += 1
+            continue
+        if line.startswith('/*', i):
+            state['block'] = True
+            i += 2
+            continue
+        if suffix == '.js' and line.startswith('//', i):
+            fragments.append(line[i:])
+            break
+        i += 1
+    if quote and (quote == '`' or continued):
+        state['quote'] = quote
+    else:
+        state.pop('quote', None)
+    return fragments
+
+
+def comment_fragments(path, line, state):
+    suffix = path.suffix.lower()
+    stripped = line.lstrip()
+    if suffix in {'.md', '.markdown'}:
+        return [line]
+    if suffix in {'.js', '.css'}:
+        return c_style_comments(line, suffix, state)
+    if suffix in {'.html', '.xml', '.svg'}:
+        return [match.group(0) for match in re.finditer(r'<!--.*?(?:-->|$)', line)]
+    if stripped.startswith('#') and not stripped.startswith('#!'):
+        if stripped.startswith('# shellcheck'):
+            return []
+        return [line]
+    # Shell permits a trailing comment after code. This is intentionally a
+    # lightweight comment locator: only a # after whitespace starts a comment.
+    match = re.search(r'\s#.*$', line)
+    return [match.group(0)] if match else []
+
+
+def tracker_ids(line, suffix):
+    # URL fragments are legitimate. Restrict bare #N checks to comments/docs,
+    # and ignore conventional numeric hex colors rather than treating them as
+    # tracker references. Explicit "issue #N" was already caught as context.
+    url_spans = [m.span() for m in url.finditer(line)]
+    for match in tracker.finditer(line):
+        if any(start <= match.start() < end for start, end in url_spans):
+            continue
+        digits = match.group(1)
+        if (suffix.lower() == '.css' and len(digits) in (3, 4, 6, 8)
+                and re.fullmatch(r'#[0-9a-fA-F]+', match.group(0))):
+            continue
+        yield match
+
+
+hits = []
+if not root.is_dir():
+    print('  FAIL: artifact scan root is missing: %s' % root)
+    sys.exit(1)
+for path in sorted(root.rglob('*')):
+    if not path.is_file():
+        continue
+    text = path.read_text(encoding='utf-8', errors='replace')
+    fenced_markdown = False
+    comment_state = {'block': False}
+    for number, line in enumerate(text.splitlines(), 1):
+        is_markdown = path.suffix.lower() in {'.md', '.markdown'}
+        if is_markdown and re.match(r'^\s*(```|~~~)', line):
+            fenced_markdown = not fenced_markdown
+            continue
+        for label, pattern in leaks:
+            if pattern.search(line):
+                hits.append('%s:%d: %s: %s' %
+                            (path.relative_to(root), number, label, line.strip()[:160]))
+        if not fenced_markdown:
+            fragments = comment_fragments(path, line, comment_state)
+            for fragment in fragments:
+                scan_line = re.sub(r'`+[^`]*`+', '', fragment) if is_markdown else fragment
+                for match in tracker_ids(scan_line, path.suffix):
+                    hits.append('%s:%d: numeric tracker reference #%s: %s' %
+                                (path.relative_to(root), number, match.group(1), line.strip()[:160]))
+if hits:
+    for hit in hits[:20]:
+        print('  FAIL: post-rewrite artifact leakage: %s' % hit)
+    sys.exit(1)
+sys.exit(0)
+PY
 }
 
 echo "== 4/5 verify =="
@@ -405,19 +625,7 @@ if grep -rn 'TOPDIR)/feeds/luci' "$OUT/Makefile" >/dev/null 2>&1; then
 	fail=1
 fi
 
-if grep -qE 'openwrt-feed/|\./scripts/gen-all|core/fwlive-log|embed-fwlive-css' \
-	"$OUT/htdocs/luci-static/resources/fwlive/constants.js" \
-	"$OUT/htdocs/luci-static/resources/fwlive/css.js" \
-	"$OUT/htdocs/luci-static/resources/fwlive/log.js" \
-	"$OUT/root/usr/libexec/fwlive-is-firewall-event.sh" \
-	"$OUT/root/usr/libexec/fwlive-is-firewall-event.awk" 2>/dev/null; then
-	echo "  FAIL: monorepo-only paths remain in cut comments" >&2
-	fail=1
-fi
-
-if grep -rqE '[Dd]o not edit|regenerate(d)? upstream of this tree|Snapshot from the fwlive monorepo|in the fwlive repo|docs/fwlive-ui-design-target|embed-fwlive-css|multi-model audit|issue [A-Z]{1,3}-[0-9]+' \
-	"$OUT" 2>/dev/null; then
-	echo "  FAIL: luci cut still names the monorepo, or ships out-of-tree/internal references" >&2
+if ! upstream_cut_verify_artifacts "$OUT"; then
 	fail=1
 fi
 

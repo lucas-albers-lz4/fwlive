@@ -10,7 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- Retire the saved WAN log baseline after successful disable/reload so uninstall preserves later operator changes. If logging is already off but the marker remains, Disable retries `fw4 reload`; pending changes abort the retry, and reload failure returns `firewall_reload_failed` while keeping the marker (#1168).
+- Retire the saved WAN log baseline after successful disable/reload so uninstall preserves later operator changes. If logging is already off but the marker remains, Disable retries `/etc/init.d/firewall reload`; pending changes abort the retry, and reload failure returns `firewall_reload_failed` while keeping the marker (#1168).
+
+### Changed
+- Clarify baseline retirement after a raced disable commit and make upstream-cut README/artifact checks fail closed for malformed tables and internal references (#1178, #1180).
 
 ## [v0.1.51] — 2026-10-03
 
