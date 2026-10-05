@@ -47,7 +47,9 @@ class ReleaseTagValidation(unittest.TestCase):
         self.outputfile.touch()
         self.env = dict(os.environ, GITHUB_ENV=str(self.envfile),
                         GITHUB_OUTPUT=str(self.outputfile), TAG="v1.2.3",
-                        EVENT_NAME="workflow_dispatch", GITHUB_REF="refs/heads/master",
+                        EVENT_NAME="workflow_dispatch",
+                        GITHUB_EVENT_NAME="workflow_dispatch", GITHUB_SHA="",
+                        GITHUB_REF="refs/heads/master",
                         FWLIVE_RELEASE_TAG="v1.2.3", GIT_CONFIG_NOSYSTEM="1",
                         GIT_CONFIG_GLOBAL=os.devnull)
 
