@@ -143,17 +143,29 @@ ok "--replace force-updates canonical before deleting the temp branch"
 # for. Extract them the way the promote helper above is exercised.
 pot_fn="$(awk '/^upstream_cut_verify_pot_refs\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 row_fn="$(awk '/^upstream_cut_verify_readme_rows\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
-[[ -n "$pot_fn" && -n "$row_fn" ]] || die "cut verifier functions not found in upstream-cut.sh"
+artifact_fn="$(awk '/^upstream_cut_verify_artifacts\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+symlink_fn="$(awk '/^upstream_cut_verify_no_symlinks\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+[[ -n "$pot_fn" && -n "$row_fn" && -n "$artifact_fn" ]] \
+	|| die "cut verifier functions not found in upstream-cut.sh"
+[[ -n "$symlink_fn" ]] || die "cut symlink verifier not found in upstream-cut.sh"
 # shellcheck disable=SC1090
 eval "$pot_fn"
 # shellcheck disable=SC1090
 eval "$row_fn"
+# shellcheck disable=SC1090
+eval "$artifact_fn"
+# shellcheck disable=SC1090
+eval "$symlink_fn"
 
 FX="$CUT_WORK/verifier-fx"
 REL=htdocs/luci-static/resources/fwlive
 mkdir -p "$FX/out/po/templates" "$FX/out/$REL" "$FX/pkg/$REL"
 printf 'one\ntwo\nthree\n' >"$FX/out/$REL/log.js"
 cp "$FX/out/$REL/log.js" "$FX/pkg/$REL/log.js"
+touch "$FX/out/Makefile"
+mkdir -p "$FX/out/root/usr/share/luci/menu.d" "$FX/out/root/usr/share/rpcd/acl.d"
+printf '{}\n' >"$FX/out/root/usr/share/luci/menu.d/fwlive.json"
+printf '{}\n' >"$FX/out/root/usr/share/rpcd/acl.d/fwlive.json"
 fixture_pot() {
 	{
 		printf '#: %s\n' "$1"
@@ -179,18 +191,290 @@ upstream_cut_verify_pot_refs "$FX/out" "$FX/pkg" >/dev/null 2>&1 \
 	&& die "pot ref verifier accepted a referenced-file line-count change"
 ok "pot ref verifier fails closed"
 
-printf '| `%s/log.js` | shipped |\n' "$REL" >"$FX/out/README.md"
+printf '| Path | Role |\n| --- | --- |\n| %s%s/log.js%s | shipped |\n| `root/usr/share/luci/menu.d/*.json` | menu glob |\n| `root/usr/share/rpcd/acl.d/*.json` | ACL glob |\n' '`' "$REL" '`' >"$FX/out/README.md"
+printf '| `/etc/fwlive/wan-log-baseline` | runtime state |\n' >>"$FX/out/README.md"
 upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
-	|| die "README row verifier rejected a shipped path"
-printf '| `%s/fwlive.css` | dropped |\n' "$REL" >>"$FX/out/README.md"
+	|| die "README row verifier rejected shipped paths or known globs"
+printf '| %s%s/fwlive.css%s | dropped |\n' '`' "$REL" '`' >>"$FX/out/README.md"
 upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
 	&& die "README row verifier accepted a dangling row"
-ok "README row verifier fails closed"
+printf '| Path | Role |\n| --- | --- |\n| `/tmp/unshipped-runtime-state` | invalid absolute path |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/absolute-readme.err" 2>&1 \
+	&& die "README row verifier accepted an undocumented absolute path"
+grep -q 'names a path the cut does not ship' "$FX/absolute-readme.err" \
+	|| die "absolute README path failure did not report the rejected path"
+printf '   Path | Role |\n   --- | --- |\n   `missing-indented-file` | dangling |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/indented-readme.err" 2>&1 \
+	&& die "README row verifier ignored an indented dangling row"
+grep -q 'names a path the cut does not ship' "$FX/indented-readme.err" \
+	|| die "indented dangling README failure did not report the missing path"
+: >"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/empty-readme.err" 2>&1 \
+	&& die "README row verifier accepted an empty README"
+grep -q 'no parsed path rows' "$FX/empty-readme.err" \
+	|| die "empty README failure did not explain the missing parsed rows"
+printf '| Path | Role |\n| --- | --- |\n| Makefile | shipped |\n' >"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/unparseable-readme.err" 2>&1 \
+	&& die "README row verifier accepted an unparseable path table"
+grep -q 'no parsed path rows' "$FX/unparseable-readme.err" \
+	|| die "unparseable README failure did not explain the missing parsed rows"
+printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n| `Makefile` (generated) | note |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/mixed-readme.err" 2>&1 \
+	&& die "README row verifier ignored an unsupported row beside a valid path"
+grep -q 'unsupported row' "$FX/mixed-readme.err" \
+	|| die "mixed README failure did not identify the unsupported row"
+printf 'outside target\n' >"$FX/outside-existing"
+printf '   Path | Role |\n   --- | --- |\n   `Makefile` | shipped |\n   `../outside-existing` | outside |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/outside-readme.err" 2>&1 \
+	&& die "README row verifier accepted an existing target outside the artifact"
+grep -q 'resolves outside the cut artifact' "$FX/outside-readme.err" \
+	|| die "outside README failure did not report the resolved escape"
+printf '| Path | Role |\n| --- | --- |\n| `./%s/log.js` | shipped |\n' "$REL" \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
+	|| die "README row verifier rejected an in-artifact ./ path"
+printf '| Path | Role |\n| --- | --- |\n| `root/usr/share/luci/menu.d/*.json` | menu glob |\n' \
+	>"$FX/out/README.md"
+ln -s "$FX/outside-existing" "$FX/out/root/usr/share/luci/menu.d/escape.json"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/glob-outside.err" 2>&1 \
+	&& die "README row verifier accepted a glob matching an outside symlink"
+grep -q 'resolves outside the cut artifact' "$FX/glob-outside.err" \
+	|| die "outside glob failure did not report the resolved escape"
+rm "$FX/out/root/usr/share/luci/menu.d/escape.json"
+ok "README row verifier rejects dangling, unsupported, and outside paths"
+
+# The artifact scan deliberately accepts unrelated URLs/paths and real hex
+# colors, while rejecting actual monorepo/tracker leakage anywhere in the tree.
+cat >"$FX/out/README.md" <<'EOF'
+| Path | Role |
+| --- | --- |
+| `root/usr/libexec/fwlive-helper.sh` | shipped helper |
+
+See https://openwrt.org/docs/guide-user/base-system/system_configuration,
+https://example.org/scripts/gen-all.sh, and https://example.org/manual/#1.
+A generic `core/dns` path is not a monorepo source reference. The inline token
+`#1` is literal documentation code. This generic URL path is also valid:
+https://example.org/openwrt-feed/luci-app-fwlive/Makefile.
+https://example.org/lab/runbook and https://example.org/CHANGELOG.md are URLs.
+```text
+#1
+```
+EOF
+mkdir -p "$FX/out/po/templates" "$FX/out/root/usr/share/fwlive" \
+	"$FX/out/root/usr/libexec"
+printf '/* palette: #abc #1234 #abcdef #123456 #12345678 */\n' >"$FX/out/root/usr/share/fwlive/colors.css"
+printf '# Ordinary helper comment; /etc/fwlive and root/usr paths are valid.\n' \
+	>"$FX/out/root/usr/libexec/fwlive-helper.sh"
+upstream_cut_verify_artifacts "$FX/out" >"$FX/artifact-safe.out" 2>&1 \
+	|| die "artifact scanner rejected legitimate URLs, paths, or hex colors: $(cat "$FX/artifact-safe.out")"
+printf '# Internal follow-up: issue #1180.\n' \
+	>"$FX/out/root/usr/libexec/unscanned-helper.sh"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tracker-leak.err" 2>&1; then
+	die "artifact scanner missed tracker leakage outside the former five scanned files"
+fi
+grep -q 'numeric tracker reference #1180' "$FX/tracker-leak.err" \
+	|| die "tree-wide tracker rejection was not reported"
+rm "$FX/out/root/usr/libexec/unscanned-helper.sh"
+printf '// Do not edit this helper note.\n' \
+	>"$FX/out/root/usr/libexec/unscanned-note.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/do-not-edit-comment.err" 2>&1; then
+	die "artifact scanner missed a generic do-not-edit comment outside the former five files"
+fi
+grep -q 'do-not-edit instruction' "$FX/do-not-edit-comment.err" \
+	|| die "generic do-not-edit rejection was not reported"
+rm "$FX/out/root/usr/libexec/unscanned-note.txt"
+printf '/* GENERATED — do not edit. Edit fwlive.css and run: node scripts/embed-fwlive-css.js */\n' \
+	>"$FX/out/root/usr/share/fwlive/generated.css"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/generated-css.err" 2>&1; then
+	die "artifact scanner missed a Generated — do not edit CSS header"
+fi
+grep -q 'do-not-edit instruction' "$FX/generated-css.err" \
+	|| die "generated CSS do-not-edit rejection was not reported"
+rm "$FX/out/root/usr/share/fwlive/generated.css"
+printf 'Generated from openwrt-feed/luci-app-fwlive/core/fwlive-log.js\n' \
+	>"$FX/out/po/templates/unscanned-note.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/monorepo-leak.err" 2>&1; then
+	die "artifact scanner missed monorepo path leakage outside the former five scanned files"
+fi
+grep -q 'monorepo path' "$FX/monorepo-leak.err" \
+	|| die "tree-wide monorepo path rejection was not reported"
+rm "$FX/out/po/templates/unscanned-note.txt"
+# Regression matrix pins the original leakage signatures, including relative
+# prefixes and punctuation immediately after a path/token.
+for leak in \
+	'GENERATED FILE — do not edit.' \
+	'Generated — do not edit. Edit fwlive.css instead.' \
+	'Do not edit this generic generated note.' \
+	'core/fwlive-log.js,' \
+	'./core/fwlive-log.js)' \
+	'../core/fwlive-log.js.' \
+	'openwrt-feed/luci-app-fwlive/Makefile,' \
+	'./openwrt-feed/luci-app-fwlive/README.md).' \
+	'../openwrt-feed/luci-app-fwlive/Makefile;' \
+	'./scripts/gen-all.sh,' \
+	'scripts/local-helper.sh' \
+	'lab/runbook.md' \
+	'docs/internal.md' \
+	'CHANGELOG.md' \
+	'../docs/fwlive-ui-design-target.md.'; do
+	printf 'Reference: %s\n' "$leak" >"$FX/out/rejection-matrix.txt"
+	upstream_cut_verify_artifacts "$FX/out" >"$FX/rejection-matrix.err" 2>&1 \
+		&& die "artifact scanner accepted known leakage signature: $leak"
+done
+rm "$FX/out/rejection-matrix.txt"
+printf 'const docs = "//example.org/manual/#1180";\nconst v4 = "//192.0.2.1/core/fwlive-log.js";\nconst v6 = "//[2001:db8::1]/core/fwlive-log.js";\nconst more = `\n//example.org/manual/#1180\n`;\n' \
+	>"$FX/out/root/usr/libexec/protocol-relative.js"
+upstream_cut_verify_artifacts "$FX/out" >"$FX/protocol-relative.out" 2>&1 \
+	|| die "artifact scanner treated a protocol-relative JS string as a comment: $(cat "$FX/protocol-relative.out")"
+rm "$FX/out/root/usr/libexec/protocol-relative.js"
+printf 'http://localhost/docs/guide\nhttp://router/docs/setup\n' \
+	>"$FX/out/root/usr/libexec/absolute-single-label-url.txt"
+upstream_cut_verify_artifacts "$FX/out" >"$FX/absolute-single-label-url.out" 2>&1 \
+	|| die "artifact scanner rejected a valid absolute URL with a single-label host: $(cat "$FX/absolute-single-label-url.out")"
+rm "$FX/out/root/usr/libexec/absolute-single-label-url.txt"
+printf 'const path = "//scripts/gen-all.sh";\n' \
+	>"$FX/out/root/usr/libexec/hostless-protocol-relative.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/hostless-protocol-relative.err" 2>&1; then
+	die "artifact scanner treated a hostless protocol-relative path as a URL"
+fi
+grep -q 'monorepo path' "$FX/hostless-protocol-relative.err" \
+	|| die "hostless protocol-relative path was not reported as a monorepo path"
+rm "$FX/out/root/usr/libexec/hostless-protocol-relative.js"
+for malformed in \
+	'prefix//example.org/openwrt-feed/luci-app-fwlive/README.md' \
+	'//999.999.999.999/openwrt-feed/luci-app-fwlive/README.md' \
+	'//[::::]/openwrt-feed/luci-app-fwlive/README.md' \
+	'https://@/openwrt-feed/luci-app-fwlive/README.md'; do
+	printf 'const path = "%s";\n' "$malformed" \
+		>"$FX/out/root/usr/libexec/malformed-url.js"
+	if upstream_cut_verify_artifacts "$FX/out" >"$FX/malformed-url.err" 2>&1; then
+		die "artifact scanner treated malformed URL reference as a URL: $malformed"
+	fi
+	grep -q 'monorepo path' "$FX/malformed-url.err" \
+		|| die "malformed URL monorepo path was not reported: $malformed"
+done
+rm "$FX/out/root/usr/libexec/malformed-url.js"
+printf '//#7655\n' >"$FX/out/root/usr/libexec/protocol-relative-tracker.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/protocol-relative-tracker.err" 2>&1; then
+	die "artifact scanner treated a bare //# tracker as a URL fragment"
+fi
+grep -q 'numeric tracker reference #7655' "$FX/protocol-relative-tracker.err" \
+	|| die "protocol-relative tracker rejection was not reported"
+rm "$FX/out/root/usr/libexec/protocol-relative-tracker.js"
+printf '/*\n#7654\ncontinuation without an asterisk\n*/\n' \
+	>"$FX/out/root/usr/libexec/multiline-comment.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/multiline-comment.err" 2>&1; then
+	die "artifact scanner missed a tracker in a multiline JS block comment"
+fi
+grep -q 'numeric tracker reference #7654' "$FX/multiline-comment.err" \
+	|| die "multiline JS block-comment rejection was not reported"
+rm "$FX/out/root/usr/libexec/multiline-comment.js"
+# Inline comments are comments too; numeric-looking CSS colors are exempt only
+# in CSS, never in Markdown or shell comment contexts.
+printf 'const marker = true; // #4321\n' >"$FX/out/root/usr/libexec/inline-comment.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/inline-js.err" 2>&1; then
+	die "artifact scanner missed inline JS tracker comment"
+fi
+grep -q 'numeric tracker reference #4321' "$FX/inline-js.err" \
+	|| die "inline JS tracker rejection was not reported"
+printf 'run_helper # #5432\n' >"$FX/out/root/usr/libexec/inline-comment.sh"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/inline-shell.err" 2>&1; then
+	die "artifact scanner missed inline shell tracker comment"
+fi
+grep -q 'numeric tracker reference #5432' "$FX/inline-shell.err" \
+	|| die "inline shell tracker rejection was not reported"
+printf '<!-- #123456 -->\n' >"$FX/out/numeric-tracker.md"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/numeric-md.err" 2>&1; then
+	die "artifact scanner treated a Markdown numeric tracker as a CSS color"
+fi
+grep -q 'numeric tracker reference #123456' "$FX/numeric-md.err" \
+	|| die "six-digit Markdown tracker rejection was not reported"
+rm "$FX/out/numeric-tracker.md"
+printf '# #12345678\n' >"$FX/out/root/usr/libexec/numeric-tracker.sh"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/numeric-shell.err" 2>&1; then
+	die "artifact scanner treated a shell numeric tracker as a CSS color"
+fi
+grep -q 'numeric tracker reference #12345678' "$FX/numeric-shell.err" \
+	|| die "eight-digit shell tracker rejection was not reported"
+rm "$FX/out/root/usr/libexec/inline-comment.js" \
+	"$FX/out/root/usr/libexec/inline-comment.sh" \
+	"$FX/out/root/usr/libexec/numeric-tracker.sh"
+printf 'const issue = "#7655";\n' >"$FX/out/root/usr/libexec/executable-tracker.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/executable-tracker.err" 2>&1; then
+	die "artifact scanner missed a bare tracker reference in executable source"
+fi
+grep -q 'numeric tracker reference #7655' "$FX/executable-tracker.err" \
+	|| die "executable-source tracker rejection was not reported"
+rm "$FX/out/root/usr/libexec/executable-tracker.js"
+printf '%s\n' '/home/build/fwlive/openwrt-feed/luci-app-fwlive/README.md' \
+	>"$FX/out/absolute-monorepo-path.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/absolute-monorepo-path.err" 2>&1; then
+	die "artifact scanner missed an absolute monorepo path"
+fi
+grep -q 'monorepo path' "$FX/absolute-monorepo-path.err" \
+	|| die "absolute monorepo path rejection was not reported"
+rm "$FX/out/absolute-monorepo-path.txt"
+printf '%s\n' 'file:///home/build/fwlive/openwrt-feed/luci-app-fwlive/README.md' \
+	>"$FX/out/file-uri-monorepo-path.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/file-uri-monorepo-path.err" 2>&1; then
+	die "artifact scanner treated a file URI as an allowed web URL"
+fi
+grep -q 'monorepo path' "$FX/file-uri-monorepo-path.err" \
+	|| die "file URI monorepo path rejection was not reported"
+rm "$FX/out/file-uri-monorepo-path.txt"
+printf '%s\n' 'https:///home/build/fwlive/openwrt-feed/luci-app-fwlive/README.md' \
+	>"$FX/out/malformed-url-monorepo-path.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/malformed-url-monorepo-path.err" 2>&1; then
+	die "artifact scanner treated a malformed URL as an allowed web URL"
+fi
+grep -q 'monorepo path' "$FX/malformed-url-monorepo-path.err" \
+	|| die "malformed URL monorepo path rejection was not reported"
+rm "$FX/out/malformed-url-monorepo-path.txt"
+printf '%s\n' 'cache/docs/developer/architecture.md' >"$FX/out/nested-monorepo-path.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/nested-monorepo-path.err" 2>&1; then
+	die "artifact scanner missed a nested monorepo path"
+fi
+grep -q 'monorepo path' "$FX/nested-monorepo-path.err" \
+	|| die "nested monorepo path rejection was not reported"
+rm "$FX/out/nested-monorepo-path.txt"
+# A malicious archive symlink must be rejected before rewrite/scanning reads
+# its external target, and diagnostics must name only the artifact path.
+printf 'DO NOT LEAK THIS EXTERNAL TARGET CONTENT\n' >"$FX/outside-secret"
+ln -s "$FX/outside-secret" "$FX/out/root/usr/libexec/external-link"
+if upstream_cut_verify_no_symlinks "$FX/out" >"$FX/symlink-guard.err" 2>&1; then
+	die "pre-rewrite guard accepted a package-controlled symlink"
+fi
+grep -q 'external-link' "$FX/symlink-guard.err" \
+	|| die "symlink guard did not identify the artifact path"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/symlink-scan.err" 2>&1; then
+	die "artifact scanner accepted a symlink"
+fi
+grep -q 'symlink is not supported' "$FX/symlink-scan.err" \
+	|| die "artifact scanner did not report the rejected symlink"
+if grep -q 'DO NOT LEAK THIS EXTERNAL TARGET CONTENT' "$FX/symlink-guard.err" "$FX/symlink-scan.err"; then
+	die "symlink diagnostics exposed external target content"
+fi
+rm "$FX/out/root/usr/libexec/external-link" "$FX/outside-secret"
+printf '%s\n' \
+	'https://example.org/openwrt-feed/releases/README.md' \
+	'https://example.org/../core/fwlive-log.js is an example URL.' \
+	>"$FX/out/legitimate-url.txt"
+upstream_cut_verify_artifacts "$FX/out" >"$FX/artifact-safe.out" 2>&1 \
+	|| die "artifact scanner rejected a legitimate URL after the rejection matrix: $(cat "$FX/artifact-safe.out")"
+rm "$FX/out/legitimate-url.txt"
+ok "artifact scanner rejects path/comment leakage and keeps URL/CSS exceptions scoped"
 
 # Gap 4: the cut must stay luci-shaped. Time it for the wave record.
 # Keep stderr so named invariant failures from the cut script reach CI.
 _start=$(date +%s)
-"$ROOT/scripts/upstream-cut.sh" "$CUT_WORK/cut" >/dev/null || die "upstream-cut.sh failed"
+# The guard was exercised above. Allow dirty solely for the smoke cut so this
+# suite also runs when another local edit is in progress; archive still cuts HEAD.
+"$ROOT/scripts/upstream-cut.sh" --allow-dirty "$CUT_WORK/cut" >/dev/null \
+	|| die "upstream-cut.sh failed"
 _end=$(date +%s)
 echo "fwlive-upstream-cut test INFO: cut wall time $((_end - _start))s"
 
@@ -267,8 +551,9 @@ for path in root.rglob('*'):
             hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
             continue
         for m in pat.finditer(line):
-            raw = line[m.start():]
-            if re.match(r'#[0-9a-fA-F]*[a-fA-F]', raw) or re.match(r'#[0-9a-fA-F]{6}\b', raw):
+            raw = m.group(0)
+            if (path.suffix.lower() == '.css'
+                    and re.fullmatch(r'#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}', raw)):
                 continue
             hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
 if hits:
@@ -276,6 +561,17 @@ if hits:
     sys.exit(1)
 PY
 }
+
+POLICY_FIXTURE="$CUT_WORK/comment-policy"
+mkdir -p "$POLICY_FIXTURE"
+printf '/* palette: #333333, */\n' >"$POLICY_FIXTURE/color.css"
+check_comment_policy "$POLICY_FIXTURE" 0 \
+	|| die "comment policy rejected a CSS color followed by punctuation"
+printf '/* issue #123456 */\n' >"$POLICY_FIXTURE/tracker.css"
+if check_comment_policy "$POLICY_FIXTURE" 0 >/dev/null; then
+	die "comment policy accepted an explicit tracker reference that looks like a CSS color"
+fi
+ok "comment policy handles CSS punctuation without exempting tracker context"
 
 # Keep the feed source and luci-shaped cut in the same comment shape. Tests,
 # changelog, and repo docs keep tracker ids because they are outside the feed.
