@@ -445,12 +445,13 @@ dns_host = re.compile(
     r'(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+'
     r'(?:[a-z]{2,}|xn--[a-z0-9-]{2,})\.?', re.I
 )
+single_label_host = re.compile(r'[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.?', re.I)
 absolute_url = re.compile(
     r'(?i)(?<![A-Za-z0-9_.+-])https?://[^\s<>`]+'
 )
 protocol_relative_url = re.compile(r'(?<![A-Za-z0-9_.:/-])//[^\s<>`]+')
 
-def valid_url_host(host):
+def valid_url_host(host, allow_single_label=False):
     try:
         ipaddress.ip_address(host)
         return True
@@ -459,7 +460,9 @@ def valid_url_host(host):
             ascii_host = host.encode('idna').decode('ascii')
         except UnicodeError:
             return False
-        return dns_host.fullmatch(ascii_host) is not None
+        if dns_host.fullmatch(ascii_host):
+            return True
+        return allow_single_label and single_label_host.fullmatch(ascii_host) is not None
 
 def url_spans(line):
     for pattern, relative in ((absolute_url, False), (protocol_relative_url, True)):
@@ -475,7 +478,7 @@ def url_spans(line):
                 continue
             if parsed.scheme.lower() not in ('http', 'https') or not host:
                 continue
-            if valid_url_host(host):
+            if valid_url_host(host, allow_single_label=not relative):
                 yield match.span()
 leaks = [
     ('monorepo path', re.compile(relative_prefix + r'(?:openwrt-feed|scripts|lab|docs)/', re.I)),

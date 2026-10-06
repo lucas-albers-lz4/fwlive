@@ -331,6 +331,11 @@ printf 'const docs = "//example.org/manual/#1180";\nconst v4 = "//192.0.2.1/core
 upstream_cut_verify_artifacts "$FX/out" >"$FX/protocol-relative.out" 2>&1 \
 	|| die "artifact scanner treated a protocol-relative JS string as a comment: $(cat "$FX/protocol-relative.out")"
 rm "$FX/out/root/usr/libexec/protocol-relative.js"
+printf 'http://localhost/docs/guide\nhttp://router/docs/setup\n' \
+	>"$FX/out/root/usr/libexec/absolute-single-label-url.txt"
+upstream_cut_verify_artifacts "$FX/out" >"$FX/absolute-single-label-url.out" 2>&1 \
+	|| die "artifact scanner rejected a valid absolute URL with a single-label host: $(cat "$FX/absolute-single-label-url.out")"
+rm "$FX/out/root/usr/libexec/absolute-single-label-url.txt"
 printf 'const path = "//scripts/gen-all.sh";\n' \
 	>"$FX/out/root/usr/libexec/hostless-protocol-relative.js"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/hostless-protocol-relative.err" 2>&1; then
