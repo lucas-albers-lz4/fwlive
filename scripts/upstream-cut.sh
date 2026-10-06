@@ -61,6 +61,19 @@ cleanup_split_branch() {
 	fi
 	git branch -D "$SPLIT_BRANCH" >/dev/null 2>&1 || true
 }
+
+# Rewrites and scanners must never follow package-controlled symlinks into the
+# operator's workspace. Reject them immediately after extraction, before any
+# tool can read or modify a target outside the cut tree.
+upstream_cut_verify_no_symlinks() {
+	local root="$1" path found=0
+	while IFS= read -r -d '' path; do
+		printf '  FAIL: symlink is not supported in cut artifact: %s\n' "${path#"$root"/}"
+		found=1
+	done < <(find "$root" -type l -print0)
+	return "$found"
+}
+
 trap cleanup_split_branch EXIT
 # Locale dirs kept in the feed for the binary release; first luci PR ships .pot only.
 DROP_PO_LANGS=(de ru zh_Hans)
@@ -90,6 +103,10 @@ echo "== 2/5 export tree to $OUT =="
 rm -rf "$OUT"
 mkdir -p "$OUT"
 git archive "$SPLIT_BRANCH" | tar -x -C "$OUT"
+if ! upstream_cut_verify_no_symlinks "$OUT"; then
+	echo "Upstream cut FAILED — remove symlinks from the package tree before rewriting." >&2
+	exit 1
+fi
 
 echo "== 3/5 rewrite monorepo-relative references =="
 # LuCI applications live at luci/applications/<app>/; their Makefiles include
@@ -421,10 +438,11 @@ from pathlib import Path
 root = Path(sys.argv[1])
 relative_prefix = r'(?<![A-Za-z0-9_./-])(?:\./|\.\./)*'
 token_end = r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9])'
+url = re.compile(r'(?i)(?:(?:https?:)?//)[^\s<>`]+')
 leaks = [
-    ('monorepo feed path', re.compile(relative_prefix + r'openwrt-feed/(?:luci-app-fwlive|README\.md|feeds\.conf\.example)' + token_end, re.I)),
+    ('monorepo path', re.compile(relative_prefix + r'(?:openwrt-feed|scripts|lab|docs)/', re.I)),
+    ('monorepo changelog path', re.compile(relative_prefix + r'CHANGELOG(?:\.md)?' + token_end, re.I)),
     ('monorepo source path', re.compile(relative_prefix + r'core/fwlive-log(?:\.js)?' + token_end, re.I)),
-    ('monorepo generator path', re.compile(relative_prefix + r'scripts/(?:gen-all\.sh|embed-fwlive-css\.js)\b', re.I)),
     ('monorepo CSS generator identifier', re.compile(relative_prefix + r'embed-fwlive-css(?:\.js)?' + token_end, re.I)),
     ('monorepo design-doc path', re.compile(relative_prefix + r'docs/fwlive-ui-design-target(?:\.md)?' + token_end, re.I)),
     ('monorepo GitHub repo', re.compile(r'(?i)(?:github\.com/)?lucas-albers-lz4/fwlive\b')),
@@ -435,76 +453,9 @@ leaks = [
     ('generated-source instruction', re.compile(r'(?i)GENERATED FILE\s*[—-]\s*do not edit')),
 ]
 tracker = re.compile(r'(?<![A-Za-z0-9_])#([0-9]{2,})(?![A-Za-z0-9_])')
-url = re.compile(r'https?://[^\s<>]+', re.I)
-
-
-def c_style_comments(line, suffix, state):
-    fragments = []
-    i = 0
-    quote = state.get('quote')
-    continued = False
-    while i < len(line):
-        if state['block']:
-            end = line.find('*/', i)
-            if end < 0:
-                fragments.append(line[i:])
-                return fragments
-            fragments.append(line[i:end + 2])
-            i = end + 2
-            state['block'] = False
-            continue
-        if quote:
-            if line[i] == '\\':
-                if i == len(line) - 1:
-                    continued = True
-                i += 2
-                continue
-            if line[i] == quote:
-                quote = None
-            i += 1
-            continue
-        if line[i] in ("'", '"', '`') and (line[i] != '`' or suffix == '.js'):
-            quote = line[i]
-            i += 1
-            continue
-        if line.startswith('/*', i):
-            state['block'] = True
-            i += 2
-            continue
-        if suffix == '.js' and line.startswith('//', i):
-            fragments.append(line[i:])
-            break
-        i += 1
-    if quote and (quote == '`' or continued):
-        state['quote'] = quote
-    else:
-        state.pop('quote', None)
-    return fragments
-
-
-def comment_fragments(path, line, state):
-    suffix = path.suffix.lower()
-    stripped = line.lstrip()
-    if suffix in {'.md', '.markdown'}:
-        return [line]
-    if suffix in {'.js', '.css'}:
-        return c_style_comments(line, suffix, state)
-    if suffix in {'.html', '.xml', '.svg'}:
-        return [match.group(0) for match in re.finditer(r'<!--.*?(?:-->|$)', line)]
-    if stripped.startswith('#') and not stripped.startswith('#!'):
-        if stripped.startswith('# shellcheck'):
-            return []
-        return [line]
-    # Shell permits a trailing comment after code. This is intentionally a
-    # lightweight comment locator: only a # after whitespace starts a comment.
-    match = re.search(r'\s#.*$', line)
-    return [match.group(0)] if match else []
-
-
 def tracker_ids(line, suffix):
-    # URL fragments are legitimate. Restrict bare #N checks to comments/docs,
-    # and ignore conventional numeric hex colors rather than treating them as
-    # tracker references. Explicit "issue #N" was already caught as context.
+    # URL fragments are legitimate. Scan every emitted line for bare tracker
+    # forms, not only comments; CSS numeric colors are the narrow exception.
     url_spans = [m.span() for m in url.finditer(line)]
     for match in tracker.finditer(line):
         if any(start <= match.start() < end for start, end in url_spans):
@@ -521,27 +472,24 @@ if not root.is_dir():
     print('  FAIL: artifact scan root is missing: %s' % root)
     sys.exit(1)
 for path in sorted(root.rglob('*')):
+    if path.is_symlink():
+        hits.append('%s: symlink is not supported in cut artifact' % path.relative_to(root))
+        continue
     if not path.is_file():
         continue
     text = path.read_text(encoding='utf-8', errors='replace')
-    fenced_markdown = False
-    comment_state = {'block': False}
     for number, line in enumerate(text.splitlines(), 1):
-        is_markdown = path.suffix.lower() in {'.md', '.markdown'}
-        if is_markdown and re.match(r'^\s*(```|~~~)', line):
-            fenced_markdown = not fenced_markdown
-            continue
+        url_spans = [m.span() for m in url.finditer(line)]
         for label, pattern in leaks:
-            if pattern.search(line):
+            for match in pattern.finditer(line):
+                in_url = any(start <= match.start() < end for start, end in url_spans)
+                if label != 'monorepo GitHub repo' and in_url:
+                    continue
                 hits.append('%s:%d: %s: %s' %
                             (path.relative_to(root), number, label, line.strip()[:160]))
-        if not fenced_markdown:
-            fragments = comment_fragments(path, line, comment_state)
-            for fragment in fragments:
-                scan_line = re.sub(r'`+[^`]*`+', '', fragment) if is_markdown else fragment
-                for match in tracker_ids(scan_line, path.suffix):
-                    hits.append('%s:%d: numeric tracker reference #%s: %s' %
-                                (path.relative_to(root), number, match.group(1), line.strip()[:160]))
+        for match in tracker_ids(line, path.suffix):
+            hits.append('%s:%d: numeric tracker reference #%s: %s' %
+                        (path.relative_to(root), number, match.group(1), line.strip()[:160]))
 if hits:
     for hit in hits[:20]:
         print('  FAIL: post-rewrite artifact leakage: %s' % hit)

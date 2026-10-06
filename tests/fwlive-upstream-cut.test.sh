@@ -144,14 +144,18 @@ ok "--replace force-updates canonical before deleting the temp branch"
 pot_fn="$(awk '/^upstream_cut_verify_pot_refs\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 row_fn="$(awk '/^upstream_cut_verify_readme_rows\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 artifact_fn="$(awk '/^upstream_cut_verify_artifacts\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+symlink_fn="$(awk '/^upstream_cut_verify_no_symlinks\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 [[ -n "$pot_fn" && -n "$row_fn" && -n "$artifact_fn" ]] \
 	|| die "cut verifier functions not found in upstream-cut.sh"
+[[ -n "$symlink_fn" ]] || die "cut symlink verifier not found in upstream-cut.sh"
 # shellcheck disable=SC1090
 eval "$pot_fn"
 # shellcheck disable=SC1090
 eval "$row_fn"
 # shellcheck disable=SC1090
 eval "$artifact_fn"
+# shellcheck disable=SC1090
+eval "$symlink_fn"
 
 FX="$CUT_WORK/verifier-fx"
 REL=htdocs/luci-static/resources/fwlive
@@ -244,12 +248,13 @@ cat >"$FX/out/README.md" <<'EOF'
 | `root/usr/libexec/fwlive-helper.sh` | shipped helper |
 
 See https://openwrt.org/docs/guide-user/base-system/system_configuration,
-https://example.org/scripts/gen-all.sh, and https://example.org/manual/#1180.
+https://example.org/scripts/gen-all.sh, and https://example.org/manual/#1.
 A generic `core/dns` path is not a monorepo source reference. The inline token
-`#1180` is literal documentation code. This generic URL path is also valid:
+`#1` is literal documentation code. This generic URL path is also valid:
 https://example.org/openwrt-feed/luci-app-fwlive/Makefile.
+https://example.org/lab/runbook and https://example.org/CHANGELOG.md are URLs.
 ```text
-#1180
+#1
 ```
 EOF
 mkdir -p "$FX/out/po/templates" "$FX/out/root/usr/share/fwlive" \
@@ -288,7 +293,7 @@ printf 'Generated from openwrt-feed/luci-app-fwlive/core/fwlive-log.js\n' \
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/monorepo-leak.err" 2>&1; then
 	die "artifact scanner missed monorepo path leakage outside the former five scanned files"
 fi
-grep -q 'monorepo feed path' "$FX/monorepo-leak.err" \
+grep -q 'monorepo path' "$FX/monorepo-leak.err" \
 	|| die "tree-wide monorepo path rejection was not reported"
 rm "$FX/out/po/templates/unscanned-note.txt"
 # Regression matrix pins the original leakage signatures, including relative
@@ -304,6 +309,10 @@ for leak in \
 	'./openwrt-feed/luci-app-fwlive/README.md).' \
 	'../openwrt-feed/luci-app-fwlive/Makefile;' \
 	'./scripts/gen-all.sh,' \
+	'scripts/local-helper.sh' \
+	'lab/runbook.md' \
+	'docs/internal.md' \
+	'CHANGELOG.md' \
 	'../docs/fwlive-ui-design-target.md.'; do
 	printf 'Reference: %s\n' "$leak" >"$FX/out/rejection-matrix.txt"
 	upstream_cut_verify_artifacts "$FX/out" >"$FX/rejection-matrix.err" 2>&1 \
@@ -353,6 +362,31 @@ grep -q 'numeric tracker reference #12345678' "$FX/numeric-shell.err" \
 rm "$FX/out/root/usr/libexec/inline-comment.js" \
 	"$FX/out/root/usr/libexec/inline-comment.sh" \
 	"$FX/out/root/usr/libexec/numeric-tracker.sh"
+printf 'const issue = "#7655";\n' >"$FX/out/root/usr/libexec/executable-tracker.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/executable-tracker.err" 2>&1; then
+	die "artifact scanner missed a bare tracker reference in executable source"
+fi
+grep -q 'numeric tracker reference #7655' "$FX/executable-tracker.err" \
+	|| die "executable-source tracker rejection was not reported"
+rm "$FX/out/root/usr/libexec/executable-tracker.js"
+# A malicious archive symlink must be rejected before rewrite/scanning reads
+# its external target, and diagnostics must name only the artifact path.
+printf 'DO NOT LEAK THIS EXTERNAL TARGET CONTENT\n' >"$FX/outside-secret"
+ln -s "$FX/outside-secret" "$FX/out/root/usr/libexec/external-link"
+if upstream_cut_verify_no_symlinks "$FX/out" >"$FX/symlink-guard.err" 2>&1; then
+	die "pre-rewrite guard accepted a package-controlled symlink"
+fi
+grep -q 'external-link' "$FX/symlink-guard.err" \
+	|| die "symlink guard did not identify the artifact path"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/symlink-scan.err" 2>&1; then
+	die "artifact scanner accepted a symlink"
+fi
+grep -q 'symlink is not supported' "$FX/symlink-scan.err" \
+	|| die "artifact scanner did not report the rejected symlink"
+if grep -q 'DO NOT LEAK THIS EXTERNAL TARGET CONTENT' "$FX/symlink-guard.err" "$FX/symlink-scan.err"; then
+	die "symlink diagnostics exposed external target content"
+fi
+rm "$FX/out/root/usr/libexec/external-link" "$FX/outside-secret"
 printf 'https://example.org/../core/fwlive-log.js is an example URL.\n' \
 	>"$FX/out/legitimate-url.txt"
 upstream_cut_verify_artifacts "$FX/out" >"$FX/artifact-safe.out" 2>&1 \
@@ -443,7 +477,7 @@ for path in root.rglob('*'):
             hits.append('%s:%d: %s' % (path.relative_to(root), i, line.strip()[:120]))
             continue
         for m in pat.finditer(line):
-            raw = line[m.start():].split()[0]
+            raw = m.group(0)
             if (path.suffix.lower() == '.css'
                     and re.fullmatch(r'#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}', raw)):
                 continue
@@ -453,6 +487,17 @@ if hits:
     sys.exit(1)
 PY
 }
+
+POLICY_FIXTURE="$CUT_WORK/comment-policy"
+mkdir -p "$POLICY_FIXTURE"
+printf '/* palette: #333333, */\n' >"$POLICY_FIXTURE/color.css"
+check_comment_policy "$POLICY_FIXTURE" 0 \
+	|| die "comment policy rejected a CSS color followed by punctuation"
+printf '/* issue #123456 */\n' >"$POLICY_FIXTURE/tracker.css"
+if check_comment_policy "$POLICY_FIXTURE" 0 >/dev/null; then
+	die "comment policy accepted an explicit tracker reference that looks like a CSS color"
+fi
+ok "comment policy handles CSS punctuation without exempting tracker context"
 
 # Keep the feed source and luci-shaped cut in the same comment shape. Tests,
 # changelog, and repo docs keep tracker ids because they are outside the feed.
