@@ -324,6 +324,13 @@ printf 'const docs = "//example.org/manual/#1180";\nconst more = `\n//example.or
 upstream_cut_verify_artifacts "$FX/out" >"$FX/protocol-relative.out" 2>&1 \
 	|| die "artifact scanner treated a protocol-relative JS string as a comment: $(cat "$FX/protocol-relative.out")"
 rm "$FX/out/root/usr/libexec/protocol-relative.js"
+printf '//#7655\n' >"$FX/out/root/usr/libexec/protocol-relative-tracker.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/protocol-relative-tracker.err" 2>&1; then
+	die "artifact scanner treated a bare //# tracker as a URL fragment"
+fi
+grep -q 'numeric tracker reference #7655' "$FX/protocol-relative-tracker.err" \
+	|| die "protocol-relative tracker rejection was not reported"
+rm "$FX/out/root/usr/libexec/protocol-relative-tracker.js"
 printf '/*\n#7654\ncontinuation without an asterisk\n*/\n' \
 	>"$FX/out/root/usr/libexec/multiline-comment.js"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/multiline-comment.err" 2>&1; then

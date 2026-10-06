@@ -18,8 +18,10 @@ package paths, URLs and CSS colors in `tests/fwlive-upstream-cut.test.sh`.
 reporting call path and the export/read/rewrite/scan path; no new command-string,
 ACL, renderer, signing, workflow or package-version change was found. Fresh
 `.pot` parity skipped because `i18n-scan.pl` is unavailable. No high/medium
-cross-surface finding triggered a full surface re-pass; this is scoped host
-evidence, not installed-router or full-source audit evidence.
+cross-surface finding triggered a full surface re-pass. The 2026-10-04
+installed 24.10.8 IPK/QEMU smoke remains recorded in the coverage map; this
+delta adds no installed proof and is not a full installed-router or full-source
+audit.
 
 **2026-10-04 #1165 WAN-log uninstall baseline.** When Enable is called while
 filter logging is already active and the saved baseline is absent, reconstruct
