@@ -392,6 +392,14 @@ fi
 grep -q 'monorepo path' "$FX/file-uri-monorepo-path.err" \
 	|| die "file URI monorepo path rejection was not reported"
 rm "$FX/out/file-uri-monorepo-path.txt"
+printf '%s\n' 'https:///home/build/fwlive/openwrt-feed/luci-app-fwlive/README.md' \
+	>"$FX/out/malformed-url-monorepo-path.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/malformed-url-monorepo-path.err" 2>&1; then
+	die "artifact scanner treated a malformed URL as an allowed web URL"
+fi
+grep -q 'monorepo path' "$FX/malformed-url-monorepo-path.err" \
+	|| die "malformed URL monorepo path rejection was not reported"
+rm "$FX/out/malformed-url-monorepo-path.txt"
 printf '%s\n' 'cache/docs/developer/architecture.md' >"$FX/out/nested-monorepo-path.txt"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/nested-monorepo-path.err" 2>&1; then
 	die "artifact scanner missed a nested monorepo path"
