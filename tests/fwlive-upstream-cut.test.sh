@@ -384,6 +384,14 @@ fi
 grep -q 'monorepo path' "$FX/absolute-monorepo-path.err" \
 	|| die "absolute monorepo path rejection was not reported"
 rm "$FX/out/absolute-monorepo-path.txt"
+printf '%s\n' 'file:///home/build/fwlive/openwrt-feed/luci-app-fwlive/README.md' \
+	>"$FX/out/file-uri-monorepo-path.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/file-uri-monorepo-path.err" 2>&1; then
+	die "artifact scanner treated a file URI as an allowed web URL"
+fi
+grep -q 'monorepo path' "$FX/file-uri-monorepo-path.err" \
+	|| die "file URI monorepo path rejection was not reported"
+rm "$FX/out/file-uri-monorepo-path.txt"
 printf '%s\n' 'cache/docs/developer/architecture.md' >"$FX/out/nested-monorepo-path.txt"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/nested-monorepo-path.err" 2>&1; then
 	die "artifact scanner missed a nested monorepo path"
