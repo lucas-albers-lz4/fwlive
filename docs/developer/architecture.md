@@ -65,10 +65,12 @@ the owned log bit. Enable snapshots the prior mask and advances a generation bef
 commit and read-back. It reaches Active only after verification and a successful
 firewall reload. Failed commits retain the marker. A raced commit still triggers a
 reload but reports an error; the reloaded log bit may differ from the requested
-value. After a raced disable, the marker is retired only if the zone is readable and
-the generation is unchanged. Disable removes only fwlive's WAN log bit and normally
-retires the marker after a successful reload under those same checks. A
-generation-guarded rollback restores the prior config on reload failure. Package
+value. After a raced disable, the marker is retired only if the logging lock can be
+reacquired, the zone is readable, and the generation is unchanged. Disable removes
+only fwlive's WAN log bit and normally retires the marker after a successful reload
+under those same checks. On reload failure, a generation-guarded rollback attempts
+to restore prior UCI config; the firewall is not reloaded or verified afterward, so
+runtime state remains unconfirmed and the operation reports an error. Package
 removal attempts a verified restore and keeps the marker if pending changes, a lock,
 commit, reload, or verification blocks it.
 
@@ -86,10 +88,10 @@ stateDiagram-v2
   Recovery --> Disabling: retry disable
   Disabling --> Off: reload ok
   Disabling --> Raced: commit mismatch + reload ok
-  Disabling --> Active: rollback verified
-  Disabling --> Recovery: rollback skipped (generation changed / unreadable)
-  Raced --> Recovery: cleanup skipped (generation changed / unreadable)
-  Raced --> [*]: marker retired if readable + same generation
+  Disabling --> Recovery: reload failed, runtime unconfirmed
+  Disabling --> Recovery: rollback skipped (lock / pending / generation / read)
+  Raced --> Recovery: cleanup skipped (lock / generation / read)
+  Raced --> [*]: retire marker after lock + read + same generation
   Active --> Restore: package removal
   Recovery --> Restore: package removal
   Restore --> Off: restore verified
