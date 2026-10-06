@@ -436,7 +436,7 @@ import re, sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-relative_prefix = r'(?<![A-Za-z0-9_./-])(?:\./|\.\./)*'
+relative_prefix = r'(?<![A-Za-z0-9_.-])(?:\./|\.\./)*'
 token_end = r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9])'
 url = re.compile(r'(?i)(?:(?:https?:)?//)(?!#)[^\s<>`]+')
 leaks = [

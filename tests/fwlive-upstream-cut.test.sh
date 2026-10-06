@@ -376,6 +376,21 @@ fi
 grep -q 'numeric tracker reference #7655' "$FX/executable-tracker.err" \
 	|| die "executable-source tracker rejection was not reported"
 rm "$FX/out/root/usr/libexec/executable-tracker.js"
+printf '%s\n' '/home/build/fwlive/openwrt-feed/luci-app-fwlive/README.md' \
+	>"$FX/out/absolute-monorepo-path.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/absolute-monorepo-path.err" 2>&1; then
+	die "artifact scanner missed an absolute monorepo path"
+fi
+grep -q 'monorepo path' "$FX/absolute-monorepo-path.err" \
+	|| die "absolute monorepo path rejection was not reported"
+rm "$FX/out/absolute-monorepo-path.txt"
+printf '%s\n' 'cache/docs/developer/architecture.md' >"$FX/out/nested-monorepo-path.txt"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/nested-monorepo-path.err" 2>&1; then
+	die "artifact scanner missed a nested monorepo path"
+fi
+grep -q 'monorepo path' "$FX/nested-monorepo-path.err" \
+	|| die "nested monorepo path rejection was not reported"
+rm "$FX/out/nested-monorepo-path.txt"
 # A malicious archive symlink must be rejected before rewrite/scanning reads
 # its external target, and diagnostics must name only the artifact path.
 printf 'DO NOT LEAK THIS EXTERNAL TARGET CONTENT\n' >"$FX/outside-secret"
@@ -394,7 +409,9 @@ if grep -q 'DO NOT LEAK THIS EXTERNAL TARGET CONTENT' "$FX/symlink-guard.err" "$
 	die "symlink diagnostics exposed external target content"
 fi
 rm "$FX/out/root/usr/libexec/external-link" "$FX/outside-secret"
-printf 'https://example.org/../core/fwlive-log.js is an example URL.\n' \
+printf '%s\n' \
+	'https://example.org/openwrt-feed/releases/README.md' \
+	'https://example.org/../core/fwlive-log.js is an example URL.' \
 	>"$FX/out/legitimate-url.txt"
 upstream_cut_verify_artifacts "$FX/out" >"$FX/artifact-safe.out" 2>&1 \
 	|| die "artifact scanner rejected a legitimate URL after the rejection matrix: $(cat "$FX/artifact-safe.out")"
