@@ -600,6 +600,45 @@ def color_value_context(before):
             quote = char
     return quote is None
 
+def mask_css_comments(text):
+    # Keep offsets and line breaks stable while removing comments from the
+    # color-context view. Tracker scanning still uses the original source.
+    chars = list(text)
+    comment = False
+    quote = None
+    escaped = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if comment:
+            if text.startswith('*/', index):
+                chars[index] = chars[index + 1] = ' '
+                comment = False
+                index += 2
+                continue
+            if char not in ('\r', '\n'):
+                chars[index] = ' '
+            index += 1
+            continue
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == quote:
+                quote = None
+            index += 1
+            continue
+        if text.startswith('/*', index):
+            chars[index] = chars[index + 1] = ' '
+            comment = True
+            index += 2
+            continue
+        if char in ('"', "'"):
+            quote = char
+        index += 1
+    return ''.join(chars)
+
 def color_spans(line, suffix, relative):
     # Real CSS assets carry color syntax directly; fwlive embeds its stylesheet
     # and tint palette in two JavaScript modules, so inspect only their literal
@@ -643,11 +682,12 @@ def color_spans(line, suffix, relative):
 
     return []
 
-def tracker_ids(line, suffix, relative):
+def tracker_ids(line, suffix, relative, color_line=None):
     # URL fragments are legitimate. Scan every emitted line for bare tracker
     # forms, not only comments; exempt only actual CSS/palette color literals.
     line_url_spans = list(url_spans(line))
-    line_color_spans = color_spans(line, suffix, relative)
+    line_color_spans = color_spans(
+        line if color_line is None else color_line, suffix, relative)
     for match in tracker.finditer(line):
         if any(start <= match.start() < end for start, end in line_url_spans):
             continue
@@ -667,7 +707,10 @@ for path in sorted(root.rglob('*')):
     if not path.is_file():
         continue
     text = path.read_text(encoding='utf-8', errors='replace')
-    for number, line in enumerate(text.splitlines(), 1):
+    relative = path.relative_to(root).as_posix()
+    color_scan_text = mask_css_comments(text) if path.suffix.lower() == '.css' else text
+    for number, (line, color_line) in enumerate(
+            zip(text.splitlines(), color_scan_text.splitlines()), 1):
         line_url_spans = list(url_spans(line))
         for label, pattern in leaks:
             for match in pattern.finditer(line):
@@ -676,8 +719,7 @@ for path in sorted(root.rglob('*')):
                     continue
                 hits.append('%s:%d: %s: %s' %
                             (path.relative_to(root), number, label, line.strip()[:160]))
-        relative = path.relative_to(root).as_posix()
-        for match in tracker_ids(line, path.suffix, relative):
+        for match in tracker_ids(line, path.suffix, relative, color_line):
             hits.append('%s:%d: numeric tracker reference #%s: %s' %
                         (path.relative_to(root), number, match.group(1), line.strip()[:160]))
 if hits:

@@ -332,6 +332,18 @@ fi
 grep -q 'numeric tracker reference #333333' "$FX/css-comment-tracker.err" \
 	|| die "CSS comment tracker was not reported"
 rm "$FX/out/root/usr/share/fwlive/color-comment.css"
+printf '/* block comment starts\ncolor: #333333;\n*/\n' \
+	>"$FX/out/root/usr/share/fwlive/multiline-color-comment.css"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiline-comment-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker inside a multiline CSS block comment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-multiline-comment-tracker.err" \
+	|| die "multiline CSS comment tracker was not reported"
+printf '/* block comment starts\nno color token here\n*/\ncolor: #abc;\n' \
+	>"$FX/out/root/usr/share/fwlive/multiline-color-comment.css"
+upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiline-color.out" 2>&1 \
+	|| die "artifact scanner rejected a real CSS color after a multiline comment: $(cat "$FX/css-multiline-color.out")"
+rm "$FX/out/root/usr/share/fwlive/multiline-color-comment.css"
 mkdir -p "$FX/out/$REL"
 cat >"$FX/out/$REL/css.js" <<'EOF'
 return baseclass.extend({
