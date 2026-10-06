@@ -5,29 +5,93 @@
 ## Data path
 
 ```mermaid
-flowchart TB
-  subgraph router
-    NFT[nftables / fw4 rules with log]
-    KERN[kernel printk]
-    LOGD[logd]
-    LOGREAD[ubus log.read]
-    FILTER[fwlive-log-filter.sh]
-    FWLIVE[ubus fwlive.poll / resolve / rules]
-    RPCD[rpcd plugin fwlive]
+flowchart LR
+  subgraph Browser["Browser · LuCI session"]
+    UI["View + JS helpers<br/>poll · parse/filter · render<br/>Auto: RTT → 1 / 2 / 5 s"]
   end
-  subgraph browser
-    VIEW[fwlive.js view.extend]
-    PARSER[fwlive/log.js]
-    DOM[Table + filters]
+  subgraph ACL["rpcd ACL"]
+    METHODS["Read: poll · rules · resolve · logging_status<br/>Write: WAN logging enable / disable"]
   end
-  NFT --> KERN --> LOGD --> LOGREAD --> FILTER
-  RPCD --> FWLIVE
-  FILTER --> FWLIVE
-  FWLIVE --> VIEW
-  VIEW --> PARSER --> DOM
+  subgraph Router["Router"]
+    RPC["Root rpcd/fwlive + helpers<br/>Auto: processing time → line cap"]
+    LOGS["fw4/nft → kernel → logd<br/>UCI · nf_log · nslookup"]
+    FILTER["fwlive-log-filter.sh<br/>shell classifier"]
+  end
+  UI -->|separate read / write calls| METHODS --> RPC
+  RPC -->|root-only ubus log.read| LOGS
+  LOGS -->|raw log entries| RPC
+  RPC -->|stdin| FILTER
+  FILTER -->|filtered JSON| RPC
+  RPC -->|WAN config / reload| LOGS
 ```
 
 **Fixed constraint:** we read what logd already captured. We do not tap netfilter directly.
+
+**Build-time classifier:** `core/fwlive-log.js` owns `CLASSIFY_SPEC`; `./scripts/gen-all.sh`
+generates the shipped shell/awk classifier, while `gen-luci-wrapper.js` gates the LuCI
+mirror. At runtime, rpcd calls the shipped filter/classifier; it does not run the generator.
+
+## Poll request and adaptive Auto
+
+The two Auto loops use separate measurements: browser round-trip time chooses the next
+poll interval, while router processing time chooses the next poll's line cap.
+
+```mermaid
+sequenceDiagram
+  participant UI as LuCI view + poll coordinator
+  participant RPC as root rpcd/fwlive
+  participant CAP as fwlive-adaptive-cap.sh
+  participant LOGD as ubus log.read / logd
+  participant FILTER as log filter + classifier
+  UI->>RPC: fwlive.poll(requested lines)
+  RPC->>CAP: plan using prior processing duration
+  CAP-->>RPC: selected line cap
+  RPC->>LOGD: ubus -t 5 log.read(lines)
+  LOGD-->>RPC: raw log entries
+  RPC->>FILTER: raw JSON via stdin
+  FILTER-->>RPC: firewall-only JSON
+  RPC->>CAP: record read + filter duration and served lines
+  RPC-->>UI: filtered reply + adaptive metadata
+  Note over UI: Measure RTT then reclassify and normalize.<br/>Apply user filters buffer and render.
+  Note over UI: 3 consecutive samples in one band set cadence:<br/>under 300 ms → 1 s, 300–1500 ms → 2 s,<br/>over 1500 ms or error → 5 s.
+  Note over CAP: Server processing time selects the next line cap.<br/>It is independent of browser RTT.
+```
+
+## WAN logging and baseline lifecycle
+
+The browser uses separate ACL write methods for WAN logging. rpcd's helper checks the
+zone, `nf_log` readiness on enable, the lock, and pending UCI changes before changing
+the owned log bit. Enable snapshots the prior mask and advances a generation before
+commit and read-back. It reaches Active only after verification and a successful
+firewall reload. A failed or raced commit or failed reload keeps the marker for
+recovery. Disable removes only fwlive's WAN log bit and retires the marker after a
+successful reload with a readable zone and unchanged generation. A generation-guarded
+rollback restores the prior config on reload failure. Package removal attempts a
+verified restore and keeps the marker if pending changes, a lock, commit, reload, or
+verification blocks it.
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> Off
+  Off --> Enabling: enable
+  Enabling --> Off: refused before snapshot
+  Enabling --> Active: verified and reloaded
+  Enabling --> Recovery: commit or reload fails
+  Active --> Active: guard blocks change
+  Recovery --> Recovery: retry blocked
+  Active --> Disabling: disable
+  Recovery --> Disabling: retry
+  Disabling --> Off: reload verified
+  Disabling --> Off: raced commit and reload ok
+  Disabling --> Active: rollback with same generation
+  Disabling --> Recovery: rollback skipped or state unreadable
+  Disabling --> Recovery: generation changed
+  Active --> Restore: package removal
+  Recovery --> Restore: package removal
+  Restore --> Off: restore verified
+  Restore --> Recovery: restore incomplete
+```
 
 ## Module split
 
