@@ -63,30 +63,33 @@ The browser uses separate ACL write methods for WAN logging. rpcd's helper check
 zone, `nf_log` readiness on enable, the lock, and pending UCI changes before changing
 the owned log bit. Enable snapshots the prior mask and advances a generation before
 commit and read-back. It reaches Active only after verification and a successful
-firewall reload. A failed or raced commit or failed reload keeps the marker for
-recovery. Disable removes only fwlive's WAN log bit and retires the marker after a
-successful reload with a readable zone and unchanged generation. A generation-guarded
-rollback restores the prior config on reload failure. Package removal attempts a
-verified restore and keeps the marker if pending changes, a lock, commit, reload, or
-verification blocks it.
+firewall reload. Failed commits retain the marker. A raced commit still triggers a
+reload but reports an error; the reloaded log bit may differ from the requested
+value. After a raced disable, the marker is retired only if the zone is readable and
+the generation is unchanged. Disable removes only fwlive's WAN log bit and normally
+retires the marker after a successful reload under those same checks. A
+generation-guarded rollback restores the prior config on reload failure. Package
+removal attempts a verified restore and keeps the marker if pending changes, a lock,
+commit, reload, or verification blocks it.
 
 ```mermaid
 stateDiagram-v2
-  direction LR
+  direction TB
   [*] --> Off
   Off --> Enabling: enable
   Enabling --> Off: refused before snapshot
-  Enabling --> Active: verified and reloaded
-  Enabling --> Recovery: commit or reload fails
-  Active --> Active: guard blocks change
-  Recovery --> Recovery: retry blocked
+  Enabling --> Active: verified + reload ok
+  Enabling --> Recovery: commit failure / race / reload failure
+  Active --> Active: lock / pending changes block
+  Recovery --> Recovery: lock / pending changes block retry
   Active --> Disabling: disable
-  Recovery --> Disabling: retry
-  Disabling --> Off: reload verified
-  Disabling --> Off: raced commit and reload ok
-  Disabling --> Active: rollback with same generation
-  Disabling --> Recovery: rollback skipped or state unreadable
-  Disabling --> Recovery: generation changed
+  Recovery --> Disabling: retry disable
+  Disabling --> Off: reload ok
+  Disabling --> Raced: commit mismatch + reload ok
+  Disabling --> Active: rollback verified
+  Disabling --> Recovery: rollback skipped (generation changed / unreadable)
+  Raced --> Recovery: cleanup skipped (generation changed / unreadable)
+  Raced --> [*]: marker retired if readable + same generation
   Active --> Restore: package removal
   Recovery --> Restore: package removal
   Restore --> Off: restore verified
