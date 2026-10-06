@@ -3,25 +3,31 @@
 **2026-10-05 #1177/#1178/#1180 scoped delta.** Raced-disable baseline
 retirement now uses the reporting function's positional zone rather than the
 caller-global zone; generation, lock, UCI, and reload gates are unchanged. The
-shipped README distinguishes disable races from enable races. Host proof:
-`tests/fwlive-logging.test.sh` checks the divergent global/positional zone,
-including the #1177 raced-commit path, and retention after an enable race.
-Upstream-cut verification rejects empty or unsupported README path tables,
-relative paths resolving outside the artifact, monorepo path families, and
-numeric tracker references throughout emitted files. URL fragments and CSS
-hex colors remain narrow exceptions. The cut rejects archive symlinks
-immediately after extraction, before rewrite or scan code can follow a target;
-diagnostics name the artifact path without reading the target. Negative
-fixtures cover source-code tracker ids, symlink rejection/no disclosure,
-package paths, URLs and CSS colors in `tests/fwlive-upstream-cut.test.sh`.
-`./scripts/fwlive-shellcheck.sh` passed. Delta source review covered the WAN
-reporting call path and the export/read/rewrite/scan path; no new command-string,
-ACL, renderer, signing, workflow or package-version change was found. Fresh
-`.pot` parity skipped because `i18n-scan.pl` is unavailable. No high/medium
-cross-surface finding triggered a full surface re-pass. The 2026-10-04
-installed 24.10.8 IPK/QEMU smoke remains recorded in the coverage map; this
-delta adds no installed proof and is not a full installed-router or full-source
-audit.
+shipped README describes the asymmetry: a raced Enable commit retains its
+marker for uninstall recovery, while a raced Disable can retire it after a
+successful reload. Host proof: `tests/fwlive-logging.test.sh` checks the
+divergent global/positional zone, including the #1177 raced-commit path, and
+retention after an enable race. The upstream-cut gate and evidence are updated
+below for #1185–#1188 and follow-up #1191.
+
+**2026-10-06 #1185–#1188/#1191 scoped delta.** Upstream-cut README validation
+now rejects path rows detached by blank/prose/renamed-header boundaries,
+unsupported indentation, malformed delimiters and columns, while accepting
+repeated Path/Role tables and unrelated code-span tables. Tracker-shaped hex
+values are exempt only inside CSS declarations in the exact embedded `css.js`
+carrier or `_HEX` assignments in `tint.js`; mixed-case generated banners are
+rewritten. The production cut calls the symlink guard before its first rewrite,
+and the host test verifies it rejects a symlinked Makefile without altering
+the link or its target. Host proof: `tests/fwlive-upstream-cut.test.sh` passed;
+fresh sibling-checkout scanner output reported msgid parity 229/229 and 252
+rewritten `.pot` reference entries. This corrects the earlier scoped note that
+parity was skipped because the scanner was unavailable. No new runtime,
+command-string, ACL, renderer, signing, workflow or package-version behavior
+was found. Review of #1189 also found no separate bug in upstream
+`PKG_MAINTAINER` attribution, the intentionally narrow tracker signatures, or
+the documented root-plugin `log.read` call; the latter remains deferred with
+the excluded upstream issue #209. This is scoped release-pipeline evidence, not
+a full source, installed-router, or full-release audit.
 
 **2026-10-04 #1165 WAN-log uninstall baseline.** When Enable is called while
 filter logging is already active and the saved baseline is absent, reconstruct
@@ -729,7 +735,7 @@ change. This scoped smoke review is not a full security audit.
 | Shell helpers — **disable baseline retirement** | 2026-10-05 | Scoped source + host coverage + installed 24.10.8 IPK smoke | Successful disable/reload, including already-disabled retries and raced commits, retires the marker only when the fwlive generation is unchanged and UCI reads successfully. Host cases cover cleanup success/failure, pending changes, generation mismatch, raced commit, operator mask edits during reload, the explicit drop sentinel, and the #1177 case where positional zone differs from caller-global `zone`. `scripts/qemu-logging-uninstall-smoke.sh` passed on a fresh OpenWrt 24.10.8 x86_64 QEMU guest with IPK `0.1.51-r1`: the existing enable → uninstall baseline restore passed with pre-existing `log=2`; the added cycle seeded explicit `log=0`, verified enable → disable cleared it and retired the marker, then operator `log=2` commit/reload → uninstall preserved that mask. APK runtime verification was not repeated for this delta; the 2026-10-01 installed IPK/APK evidence above remains historical and unchanged. No ACL or command-surface change. |
 | Shell helpers — **UCI commit scope and zone grammar** | 2026-10-01 | Full source + scoped fresh proof | Full source/host fixtures, current UCI grammar and named/anonymous identity rechecked. Installed artifact refuses foreign staging without committing or dropping it. Privileged package-wide commit race remains accepted. |
 | Release pipeline — secrets and key handling | 2026-10-01 | Full source + scoped fresh proof | Full source and both storage-format mode tests; full SDK usign/RSA validation plus three-line local signed feed staging with dummy keys. Native opkg/APK signatures and manifest hashes checked. No real keys or live publication. |
-| Release pipeline — upstream cut export | 2026-10-05 | Scoped source + host coverage | README rows are resolved inside the cut; the export rejects symlinks before rewrite or scanning, and scans emitted file lines for monorepo paths and tracker ids while retaining URL-fragment/CSS-color exceptions. `tests/fwlive-upstream-cut.test.sh` passes, including no external-target disclosure on symlink rejection. Existing workflow pins, feed-signing code, and secret paths were not changed. Fresh LuCI message/ref parity was skipped because `i18n-scan.pl` is unavailable; this does not claim a full release-pipeline audit. |
+| Release pipeline — upstream cut export | 2026-10-06 | Scoped source + host coverage | #1185–#1187/#1191: README path rows are checked across malformed and separated table boundaries; exact embedded color contexts are exempted while tracker forms elsewhere remain rejected; mixed-case generated headers are rewritten. The production wrapper rejects symlinks before mutation. `tests/fwlive-upstream-cut.test.sh` passed with fresh sibling-checkout scanner results: msgid parity 229/229 and 252 `.pot` refs. The earlier scanner-unavailable claim is superseded; workflow pins, signing code and secret paths were not changed. This is not a full release-pipeline audit. |
 | Release pipeline — version pins, fetch pinning and artifact selection | 2026-10-03 | Delta + targeted host tests | #1096 validates dispatch/push tag syntax inline before checkout, checks out `refs/tags/<validated tag>`, and verifies tag commit == HEAD (and push SHA) before `npm ci` or lab dependency installation in both publish and smoke jobs. `tests/release-tag-validation.test.py` executes both jobs' shell guards against disposable Git repos; `actionlint`/`zizmor` pass. No live workflow, signing/publish, or QEMU was run. Current pin/fetch/cache/selection paths and prior #1059/#1090 evidence remain as recorded above. |
 | Workflow inputs into `run:` bodies | 2026-10-03 | Delta + host tests | Dispatch values enter shell only through step `env`; tag grammar/control characters are checked before writing step output or `GITHUB_ENV`. Checkout uses the validated step output in `refs/tags/...`; commit/HEAD and push SHA are verified before repository install/scripts. `tests/release-tag-validation.test.py`, actionlint and zizmor pass; no workflow run. The earlier permission/secret/pinning review remains as recorded above. |
 | LuCI view (templates / shipped JS) | 2026-10-02 | Scoped UI delta (full source pass 2026-10-01) | #1129 accessible-name behavior passed in the mocked Chromium fixture; prior installed 24.10 evidence remains dated 2026-10-01 and does not cover this change. |
