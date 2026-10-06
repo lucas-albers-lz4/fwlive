@@ -92,6 +92,7 @@ stateDiagram-v2
   Disabling --> Recovery: rollback skipped (lock / pending / generation / read)
   Raced --> Recovery: cleanup skipped (lock / generation / read)
   Raced --> [*]: retire marker after lock + read + same generation
+  Off --> Restore: package removal (marker present)
   Active --> Restore: package removal
   Recovery --> Restore: package removal
   Restore --> Off: restore verified
