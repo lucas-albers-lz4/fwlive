@@ -436,32 +436,47 @@ upstream_cut_verify_artifacts() {
 	python3 - "$out" <<'PY'
 import ipaddress, re, sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 root = Path(sys.argv[1])
 relative_prefix = r'(?<![A-Za-z0-9_.-])(?:\./|\.\./)*'
 token_end = r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9])'
-ipv4_octet = r'(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)'
-protocol_host = (
+dns_host = re.compile(
     r'(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+'
-    r'(?:[a-z]{2,}|xn--[a-z0-9-]{2,})'
-    + r'|(?:' + ipv4_octet + r'\.){3}' + ipv4_octet
-    + r'|(?P<ipv6>\[[0-9a-f:.]+\])'
+    r'(?:[a-z]{2,}|xn--[a-z0-9-]{2,})\.?', re.I
 )
-url = re.compile(
-    r'(?i)(?:https?://(?![#/])|(?<![A-Za-z0-9_.:/-])//(?P<protocol_host>'
-    + protocol_host + r')(?::\d+)?(?=[/?#]|$))[^\s<>`]*'
+absolute_url = re.compile(
+    r'(?i)(?<![A-Za-z0-9_.+-])https?://[^\s<>`]+'
 )
+protocol_relative_url = re.compile(r'(?<![A-Za-z0-9_.:/-])//[^\s<>`]+')
+
+def valid_url_host(host):
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        try:
+            ascii_host = host.encode('idna').decode('ascii')
+        except UnicodeError:
+            return False
+        return dns_host.fullmatch(ascii_host) is not None
 
 def url_spans(line):
-    for match in url.finditer(line):
-        host = match.group('protocol_host')
-        ipv6 = match.group('ipv6')
-        if host and ipv6:
+    for pattern, relative in ((absolute_url, False), (protocol_relative_url, True)):
+        for match in pattern.finditer(line):
+            candidate = match.group(0).rstrip('.,;:!?')
+            if relative:
+                candidate = 'https:' + candidate
             try:
-                ipaddress.IPv6Address(ipv6[1:-1])
+                parsed = urlsplit(candidate)
+                host = parsed.hostname
+                parsed.port  # Validate that any port is numeric and in range.
             except ValueError:
                 continue
-        yield match.span()
+            if parsed.scheme.lower() not in ('http', 'https') or not host:
+                continue
+            if valid_url_host(host):
+                yield match.span()
 leaks = [
     ('monorepo path', re.compile(relative_prefix + r'(?:openwrt-feed|scripts|lab|docs)/', re.I)),
     ('monorepo changelog path', re.compile(relative_prefix + r'CHANGELOG(?:\.md)?' + token_end, re.I)),
