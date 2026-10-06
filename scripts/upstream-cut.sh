@@ -434,23 +434,34 @@ PY
 upstream_cut_verify_artifacts() {
 	local out="$1"
 	python3 - "$out" <<'PY'
-import re, sys
+import ipaddress, re, sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
 relative_prefix = r'(?<![A-Za-z0-9_.-])(?:\./|\.\./)*'
 token_end = r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9])'
+ipv4_octet = r'(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)'
 protocol_host = (
     r'(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+'
     r'(?:[a-z]{2,}|xn--[a-z0-9-]{2,})'
-    r'|(?:\d{1,3}\.){3}\d{1,3}'
-    r'|\[[0-9a-f:.]+\]'
+    + r'|(?:' + ipv4_octet + r'\.){3}' + ipv4_octet
+    + r'|(?P<ipv6>\[[0-9a-f:.]+\])'
 )
 url = re.compile(
-    r'(?i)(?:https?://(?![#/])|(?<![:/])//(?='
-    + r'(?:' + protocol_host + r')(?::\d+)?(?:[/?#]|$))'
-    + r')[^\s<>`]+'
+    r'(?i)(?:https?://(?![#/])|(?<![A-Za-z0-9_.:/-])//(?P<protocol_host>'
+    + protocol_host + r')(?::\d+)?(?=[/?#]|$))[^\s<>`]*'
 )
+
+def url_spans(line):
+    for match in url.finditer(line):
+        host = match.group('protocol_host')
+        ipv6 = match.group('ipv6')
+        if host and ipv6:
+            try:
+                ipaddress.IPv6Address(ipv6[1:-1])
+            except ValueError:
+                continue
+        yield match.span()
 leaks = [
     ('monorepo path', re.compile(relative_prefix + r'(?:openwrt-feed|scripts|lab|docs)/', re.I)),
     ('monorepo changelog path', re.compile(relative_prefix + r'CHANGELOG(?:\.md)?' + token_end, re.I)),
@@ -468,9 +479,9 @@ tracker = re.compile(r'(?<![A-Za-z0-9_])#([0-9]{2,})(?![A-Za-z0-9_])')
 def tracker_ids(line, suffix):
     # URL fragments are legitimate. Scan every emitted line for bare tracker
     # forms, not only comments; CSS numeric colors are the narrow exception.
-    url_spans = [m.span() for m in url.finditer(line)]
+    line_url_spans = list(url_spans(line))
     for match in tracker.finditer(line):
-        if any(start <= match.start() < end for start, end in url_spans):
+        if any(start <= match.start() < end for start, end in line_url_spans):
             continue
         digits = match.group(1)
         if (suffix.lower() == '.css' and len(digits) in (3, 4, 6, 8)
@@ -491,10 +502,10 @@ for path in sorted(root.rglob('*')):
         continue
     text = path.read_text(encoding='utf-8', errors='replace')
     for number, line in enumerate(text.splitlines(), 1):
-        url_spans = [m.span() for m in url.finditer(line)]
+        line_url_spans = list(url_spans(line))
         for label, pattern in leaks:
             for match in pattern.finditer(line):
-                in_url = any(start <= match.start() < end for start, end in url_spans)
+                in_url = any(start <= match.start() < end for start, end in line_url_spans)
                 if label != 'monorepo GitHub repo' and in_url:
                     continue
                 hits.append('%s:%d: %s: %s' %

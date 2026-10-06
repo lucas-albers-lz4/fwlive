@@ -339,6 +339,19 @@ fi
 grep -q 'monorepo path' "$FX/hostless-protocol-relative.err" \
 	|| die "hostless protocol-relative path was not reported as a monorepo path"
 rm "$FX/out/root/usr/libexec/hostless-protocol-relative.js"
+for malformed in \
+	'prefix//example.org/openwrt-feed/luci-app-fwlive/README.md' \
+	'//999.999.999.999/openwrt-feed/luci-app-fwlive/README.md' \
+	'//[::::]/openwrt-feed/luci-app-fwlive/README.md'; do
+	printf 'const path = "%s";\n' "$malformed" \
+		>"$FX/out/root/usr/libexec/malformed-protocol-relative.js"
+	if upstream_cut_verify_artifacts "$FX/out" >"$FX/malformed-protocol-relative.err" 2>&1; then
+		die "artifact scanner treated malformed protocol-relative reference as a URL: $malformed"
+	fi
+	grep -q 'monorepo path' "$FX/malformed-protocol-relative.err" \
+		|| die "malformed protocol-relative monorepo path was not reported: $malformed"
+done
+rm "$FX/out/root/usr/libexec/malformed-protocol-relative.js"
 printf '//#7655\n' >"$FX/out/root/usr/libexec/protocol-relative-tracker.js"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/protocol-relative-tracker.err" 2>&1; then
 	die "artifact scanner treated a bare //# tracker as a URL fragment"
