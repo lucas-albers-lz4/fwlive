@@ -394,8 +394,10 @@ for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
         continue
     path = match.group(1)
     parsed += 1
-    # Absolute paths document router runtime state rather than package files.
+    # The documented runtime marker is the only absolute path allowed here.
     if path.startswith('/'):
+        if path != '/etc/fwlive/wan-log-baseline':
+            missing.append(path)
         continue
     # Expand glob rows, then validate every resolved match (including symlinks).
     # This catches ../ traversal and wildcard families escaping via symlinks.
@@ -438,7 +440,17 @@ from pathlib import Path
 root = Path(sys.argv[1])
 relative_prefix = r'(?<![A-Za-z0-9_.-])(?:\./|\.\./)*'
 token_end = r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9])'
-url = re.compile(r'(?i)(?:https?://|(?<![:/])//)(?![#/])[^\s<>`]+')
+protocol_host = (
+    r'(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+'
+    r'(?:[a-z]{2,}|xn--[a-z0-9-]{2,})'
+    r'|(?:\d{1,3}\.){3}\d{1,3}'
+    r'|\[[0-9a-f:.]+\]'
+)
+url = re.compile(
+    r'(?i)(?:https?://(?![#/])|(?<![:/])//(?='
+    + r'(?:' + protocol_host + r')(?::\d+)?(?:[/?#]|$))'
+    + r')[^\s<>`]+'
+)
 leaks = [
     ('monorepo path', re.compile(relative_prefix + r'(?:openwrt-feed|scripts|lab|docs)/', re.I)),
     ('monorepo changelog path', re.compile(relative_prefix + r'CHANGELOG(?:\.md)?' + token_end, re.I)),

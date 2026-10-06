@@ -192,11 +192,18 @@ upstream_cut_verify_pot_refs "$FX/out" "$FX/pkg" >/dev/null 2>&1 \
 ok "pot ref verifier fails closed"
 
 printf '| Path | Role |\n| --- | --- |\n| %s%s/log.js%s | shipped |\n| `root/usr/share/luci/menu.d/*.json` | menu glob |\n| `root/usr/share/rpcd/acl.d/*.json` | ACL glob |\n' '`' "$REL" '`' >"$FX/out/README.md"
+printf '| `/etc/fwlive/wan-log-baseline` | runtime state |\n' >>"$FX/out/README.md"
 upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
 	|| die "README row verifier rejected shipped paths or known globs"
 printf '| %s%s/fwlive.css%s | dropped |\n' '`' "$REL" '`' >>"$FX/out/README.md"
 upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
 	&& die "README row verifier accepted a dangling row"
+printf '| Path | Role |\n| --- | --- |\n| `/tmp/unshipped-runtime-state` | invalid absolute path |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/absolute-readme.err" 2>&1 \
+	&& die "README row verifier accepted an undocumented absolute path"
+grep -q 'names a path the cut does not ship' "$FX/absolute-readme.err" \
+	|| die "absolute README path failure did not report the rejected path"
 printf '   Path | Role |\n   --- | --- |\n   `missing-indented-file` | dangling |\n' \
 	>"$FX/out/README.md"
 upstream_cut_verify_readme_rows "$FX/out" >"$FX/indented-readme.err" 2>&1 \
@@ -319,11 +326,19 @@ for leak in \
 		&& die "artifact scanner accepted known leakage signature: $leak"
 done
 rm "$FX/out/rejection-matrix.txt"
-printf 'const docs = "//example.org/manual/#1180";\nconst more = `\n//example.org/manual/#1180\n`;\n' \
+printf 'const docs = "//example.org/manual/#1180";\nconst v4 = "//192.0.2.1/core/fwlive-log.js";\nconst v6 = "//[2001:db8::1]/core/fwlive-log.js";\nconst more = `\n//example.org/manual/#1180\n`;\n' \
 	>"$FX/out/root/usr/libexec/protocol-relative.js"
 upstream_cut_verify_artifacts "$FX/out" >"$FX/protocol-relative.out" 2>&1 \
 	|| die "artifact scanner treated a protocol-relative JS string as a comment: $(cat "$FX/protocol-relative.out")"
 rm "$FX/out/root/usr/libexec/protocol-relative.js"
+printf 'const path = "//scripts/gen-all.sh";\n' \
+	>"$FX/out/root/usr/libexec/hostless-protocol-relative.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/hostless-protocol-relative.err" 2>&1; then
+	die "artifact scanner treated a hostless protocol-relative path as a URL"
+fi
+grep -q 'monorepo path' "$FX/hostless-protocol-relative.err" \
+	|| die "hostless protocol-relative path was not reported as a monorepo path"
+rm "$FX/out/root/usr/libexec/hostless-protocol-relative.js"
 printf '//#7655\n' >"$FX/out/root/usr/libexec/protocol-relative-tracker.js"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/protocol-relative-tracker.err" 2>&1; then
 	die "artifact scanner treated a bare //# tracker as a URL fragment"
