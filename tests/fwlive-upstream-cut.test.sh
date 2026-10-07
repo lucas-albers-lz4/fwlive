@@ -652,6 +652,38 @@ grep -q 'symlink is not supported' "$FX/guarded-rewrite.err" \
 grep -qF 'include $(TOPDIR)/feeds/luci/luci.mk' "$FX/outside-makefile" \
 	|| die "production rewrite mutated an external symlink target"
 ok "production cut rejects symlinks before rewrite mutation"
+
+# Run the complete production wrapper in a scratch repo. The fixture commits
+# the symlink so the cut reaches archive extraction, then pins that the actual
+# archive-to-rewrite path rejects it before the first Makefile sed.
+ORDER_REPO="$CUT_WORK/production-order-repo"
+ORDER_OUT="$CUT_WORK/production-order-out"
+ORDER_TARGET="$CUT_WORK/production-order-target"
+mkdir -p "$ORDER_REPO/scripts" "$ORDER_REPO/openwrt-feed/luci-app-fwlive"
+cp "$ROOT/scripts/upstream-cut.sh" "$ORDER_REPO/scripts/upstream-cut.sh"
+printf 'include $(TOPDIR)/feeds/luci/luci.mk\n' >"$ORDER_TARGET"
+ln -s "$ORDER_TARGET" "$ORDER_REPO/openwrt-feed/luci-app-fwlive/Makefile"
+git -C "$ORDER_REPO" init -q -b main
+git -C "$ORDER_REPO" config user.email 'fwlive-test@example.com'
+git -C "$ORDER_REPO" config user.name 'fwlive-test'
+git -C "$ORDER_REPO" add scripts/upstream-cut.sh openwrt-feed/luci-app-fwlive/Makefile
+git -C "$ORDER_REPO" commit -q -m 'symlink guard fixture'
+if "$ORDER_REPO/scripts/upstream-cut.sh" "$ORDER_OUT" \
+	>"$CUT_WORK/production-order.out" 2>"$CUT_WORK/production-order.err"; then
+	die "production upstream-cut accepted an archived symlink"
+fi
+grep -q 'symlink is not supported in cut artifact: Makefile' \
+	"$CUT_WORK/production-order.out" \
+	|| die "production upstream-cut did not report the archived symlink: $(cat "$CUT_WORK/production-order.err")"
+[ -L "$ORDER_OUT/Makefile" ] \
+	|| die "production upstream-cut rewrote the archived Makefile symlink before rejecting it"
+grep -qF 'include $(TOPDIR)/feeds/luci/luci.mk' "$ORDER_TARGET" \
+	|| die "production upstream-cut mutated the external Makefile target"
+if grep -qF "$ORDER_TARGET" "$CUT_WORK/production-order.err"; then
+	die "production upstream-cut exposed the external symlink target in diagnostics"
+fi
+ok "top-level upstream-cut rejects archive symlinks before its first rewrite"
+
 printf '%s\n' \
 	'https://example.org/openwrt-feed/releases/README.md' \
 	'https://example.org/../core/fwlive-log.js is an example URL.' \
