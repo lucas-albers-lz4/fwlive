@@ -22,9 +22,12 @@ remain the other palette exception. Mixed-case generated banners are rewritten.
 The production cut calls the symlink guard before its first rewrite,
 and the host test verifies it rejects a symlinked Makefile without altering
 the link or its target. Host proof: `tests/fwlive-upstream-cut.test.sh` passed;
-fresh sibling-checkout scanner output reported msgid parity 229/229 and 252
-rewritten `.pot` reference entries. This corrects the earlier scoped note that
-parity was skipped because the scanner was unavailable. No new runtime,
+its fresh sibling-checkout scan reported msgid parity 229/229 and 252 rewritten
+`.pot` reference entries. The scan output is temporary and is not retained in
+this checkout. The earlier report cited by #1188 was not independently rerun
+when it was first recorded; this review reran the scanner through the host test.
+This corrects the earlier scoped note that parity was skipped because the
+scanner was unavailable. No new runtime,
 command-string, ACL, renderer, signing, workflow or package-version behavior
 was found. Review of #1189 also found no separate bug in upstream
 `PKG_MAINTAINER` attribution, the intentionally narrow tracker signatures, or
