@@ -696,14 +696,69 @@ def mask_css_comments(text):
         index += 1
     return ''.join(chars)
 
-def color_spans(line, suffix, relative):
+def mask_js_noncode(text):
+    # Preserve offsets while excluding comments and string/template contents
+    # from declaration matching. Tracker checks still use the original source.
+    chars = list(text)
+    comment = None
+    quote = None
+    escaped = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if comment == 'line':
+            if char in ('\r', '\n'):
+                comment = None
+            else:
+                chars[index] = ' '
+            index += 1
+            continue
+        if comment == 'block':
+            if text.startswith('*/', index):
+                chars[index] = chars[index + 1] = ' '
+                comment = None
+                index += 2
+                continue
+            if char not in ('\r', '\n'):
+                chars[index] = ' '
+            index += 1
+            continue
+        if quote:
+            if char not in ('\r', '\n'):
+                chars[index] = ' '
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == quote:
+                quote = None
+            index += 1
+            continue
+        if text.startswith('//', index):
+            chars[index] = chars[index + 1] = ' '
+            comment = 'line'
+            index += 2
+            continue
+        if text.startswith('/*', index):
+            chars[index] = chars[index + 1] = ' '
+            comment = 'block'
+            index += 2
+            continue
+        if char in ('"', "'", '`'):
+            chars[index] = ' '
+            quote = char
+        index += 1
+    return ''.join(chars)
+
+def color_spans(line, suffix, relative, color_line=None):
     # Real CSS assets carry color syntax directly; fwlive embeds its stylesheet
     # and tint palette in two JavaScript modules, so inspect only their literal
     # color contexts and retain tracker checks elsewhere in those files.
     if suffix.lower() == '.css':
+        context = line if color_line is None else color_line
         spans = []
-        for match in hex_color.finditer(line):
-            if color_value_context(line, match):
+        for match in hex_color.finditer(context):
+            if color_value_context(context, match):
                 spans.append(match.span())
         return spans
 
@@ -730,6 +785,9 @@ def color_spans(line, suffix, relative):
         )
         spans = []
         for declared in assignment.finditer(line):
+            code_line = line if color_line is None else color_line
+            if declared.start() >= len(code_line) or code_line[declared.start()].isspace():
+                continue
             value = declared.group('value')
             if len(value) - 1 in (3, 4, 6, 8):
                 start = declared.start('value')
@@ -742,8 +800,7 @@ def tracker_ids(line, suffix, relative, color_line=None):
     # URL fragments are legitimate. Scan every emitted line for bare tracker
     # forms, not only comments; exempt only actual CSS/palette color literals.
     line_url_spans = list(url_spans(line))
-    line_color_spans = color_spans(
-        line if color_line is None else color_line, suffix, relative)
+    line_color_spans = color_spans(line, suffix, relative, color_line)
     for match in tracker.finditer(line):
         if any(start <= match.start() < end for start, end in line_url_spans):
             continue
@@ -764,7 +821,12 @@ for path in sorted(root.rglob('*')):
         continue
     text = path.read_text(encoding='utf-8', errors='replace')
     relative = path.relative_to(root).as_posix()
-    color_scan_text = mask_css_comments(text) if path.suffix.lower() == '.css' else text
+    if path.suffix.lower() == '.css':
+        color_scan_text = mask_css_comments(text)
+    elif relative == tint_carrier:
+        color_scan_text = mask_js_noncode(text)
+    else:
+        color_scan_text = text
     for number, (line, color_line) in enumerate(
             zip(text.splitlines(), color_scan_text.splitlines()), 1):
         line_url_spans = list(url_spans(line))

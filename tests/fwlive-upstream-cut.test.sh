@@ -408,6 +408,27 @@ var PASS_HEX = '#333333';
 EOF
 upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-carrier-color.out" 2>&1 \
 	|| die "artifact scanner rejected an assigned tint color in the exact tint.js carrier: $(cat "$FX/tint-carrier-color.out")"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+// const ISSUE_HEX = '#333333';
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-line-comment-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a comment-shaped tint assignment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-line-comment-tracker.err" \
+	|| die "tint assignment inside a line comment was not reported as a tracker"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+/*
+const ISSUE_HEX = '#333333';
+*/
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-block-comment-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a multiline tint comment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-block-comment-tracker.err" \
+	|| die "tint assignment inside a block comment was not reported as a tracker"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+var PASS_HEX = '#333333';
+EOF
 printf '// issue #333333\n' >>"$FX/out/$REL/tint.js"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-carrier-tracker.err" 2>&1; then
 	die "artifact scanner exempted a tracker outside tint.js color assignments"
