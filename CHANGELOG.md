@@ -9,13 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.52] — 2026-10-06
+
 ### Fixed
-- Retire the saved WAN log baseline after successful disable/reload so uninstall preserves later operator changes. If logging is already off but the marker remains, Disable retries `/etc/init.d/firewall reload`; pending changes abort the retry, and reload failure returns `firewall_reload_failed` while keeping the marker (#1168).
+- Preserve unrelated WAN log-mask bits when reconstructing a missing baseline for already-enabled logging, and retire the saved baseline after successful disable/reload so uninstall preserves later operator changes. If logging is already off but the marker remains, Disable retries `/etc/init.d/firewall reload`; pending changes abort the retry, and reload failure returns `firewall_reload_failed` while keeping the marker. A raced disable retires the marker only for its reported WAN zone (#1166, #1168; #1177).
 
 ### Changed
 - Clarify baseline retirement after a raced disable commit and make upstream-cut README/artifact checks fail closed for malformed tables and internal references (#1178, #1180).
-- Reject orphan and malformed README path rows, scope embedded CSS color exceptions to their real carriers, rewrite generated headers case-insensitively, and exercise the symlink guard in production rewrite order (#1185–#1187, #1191).
+- Document independent review fallbacks when preferred reviewers are unavailable (#1164).
+- Validate release-tag syntax and the checked-out tag commit before installing or running repository code in package-publish and feed-smoke jobs (#1167).
+- Reject orphan and malformed README path rows, scope embedded CSS color exceptions to their real carriers, rewrite generated headers case-insensitively, and exercise the symlink guard in production rewrite order (#1182, #1185–#1187, #1191; PR #1192).
 - Correct the shipped baseline note for raced Enable commits and align the security-review evidence with the README and existing host test (#1188).
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.51] — 2026-10-03
 
@@ -823,3 +835,4 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.47]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.46...v0.1.47
 [v0.1.50]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.49...v0.1.50
 [v0.1.51]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.50...v0.1.51
+[v0.1.52]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.51...v0.1.52
