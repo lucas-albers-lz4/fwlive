@@ -37,6 +37,20 @@ the documented root-plugin `log.read` call; the latter remains deferred with
 the excluded upstream issue #209. This is scoped release-pipeline evidence, not
 a full source, installed-router, or full-release audit.
 
+**2026-10-06 CodeQL alert 24 (test tooling) scoped triage.** The
+`js/indirect-command-line-injection` alert reaches the generic child-process
+timeout wrapper from `process.env.SH` in the parser-corpus test. The existing
+selector accepts only `sh` or `busybox sh`, and
+`withChildProcessTimeout()` forces `shell: false`; the value is test-runner
+configuration, not shipped application input. The parser-corpus and shell-filter
+tests now map those choices to fixed executable/argument pairs before spawning.
+Host proof: both test files pass with the default and BusyBox shell lanes, and
+the parser-corpus invalid-override check rejects other values before a shell is
+spawned. The alert is still open on master pending its post-merge CodeQL scan.
+No shipped process boundary, ACL, release workflow or runtime behavior changed.
+This is a scoped CodeQL clarity fix, not a product vulnerability or full-source
+security re-audit.
+
 **2026-10-04 #1165 WAN-log uninstall baseline.** When Enable is called while
 filter logging is already active and the saved baseline is absent, reconstruct
 the pre-feature value by clearing only the owned filter-log bit from the
