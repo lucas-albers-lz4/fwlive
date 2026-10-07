@@ -18,8 +18,9 @@ values are exempt only as a standalone hex color or nested `var()` fallback in
 CSS declarations, with block-comment state tracked across lines. The embedded
 `css.js` allowance is pinned to the generator's one-line JSON-stringified
 `styleText` form; unmatched forms fail closed. `_HEX` assignments in `tint.js`
-receive the other palette exception only in code; tracker-shaped values in
-JavaScript comments remain scanned. Mixed-case generated banners are rewritten.
+receive the other palette exception only as standalone code declarations;
+tracker-shaped values in comments, strings, and regex literals remain scanned.
+Mixed-case generated banners are rewritten.
 The production cut calls the symlink guard before its first rewrite,
 and the host test verifies it rejects a symlinked Makefile without altering
 the link or its target. Host proof: `tests/fwlive-upstream-cut.test.sh` passed;

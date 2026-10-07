@@ -779,19 +779,26 @@ def color_spans(line, suffix, relative, color_line=None):
         return spans
 
     if relative == tint_carrier:
-        assignment = re.compile(
-            r'\b(?:var|let|const)\s+[A-Za-z_$][A-Za-z0-9_$]*_HEX\s*=\s*'
-            r'(?P<quote>["\'])(?P<value>#[0-9a-fA-F]+)(?P=quote)'
+        # The emitted tint module uses one palette declaration per source line.
+        # Match that code shape against the comment/string-masked line so text
+        # inside comments, strings, or regex literals cannot create an exemption.
+        declaration = re.match(
+            r'\s*(?:var|let|const)\s+[A-Za-z_$][A-Za-z0-9_$]*_HEX\s*=',
+            line if color_line is None else color_line
         )
+        if declaration is None:
+            return []
+        value_match = re.match(
+            r'\s*(?P<quote>["\'])(?P<value>#[0-9a-fA-F]+)(?P=quote)',
+            line[declaration.end():]
+        )
+        if value_match is None:
+            return []
         spans = []
-        for declared in assignment.finditer(line):
-            code_line = line if color_line is None else color_line
-            if declared.start() >= len(code_line) or code_line[declared.start()].isspace():
-                continue
-            value = declared.group('value')
-            if len(value) - 1 in (3, 4, 6, 8):
-                start = declared.start('value')
-                spans.append((start, start + len(value)))
+        value = value_match.group('value')
+        if len(value) - 1 in (3, 4, 6, 8):
+            start = declaration.end() + value_match.start('value')
+            spans.append((start, start + len(value)))
         return spans
 
     return []

@@ -427,6 +427,22 @@ fi
 grep -q 'numeric tracker reference #333333' "$FX/tint-block-comment-tracker.err" \
 	|| die "tint assignment inside a block comment was not reported as a tracker"
 cat >"$FX/out/$REL/tint.js" <<'EOF'
+const re = /const ISSUE_HEX = '#333333'/;
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-regex-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a regex-shaped tint assignment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-regex-tracker.err" \
+	|| die "tint assignment inside a regex literal was not reported as a tracker"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+const note = "const ISSUE_HEX = '#333333';";
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-string-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a string-shaped tint assignment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-string-tracker.err" \
+	|| die "tint assignment inside a string was not reported as a tracker"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
 var PASS_HEX = '#333333';
 EOF
 printf '// issue #333333\n' >>"$FX/out/$REL/tint.js"
