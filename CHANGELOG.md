@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Clarify baseline retirement after a raced disable commit and make upstream-cut README/artifact checks fail closed for malformed tables and internal references (#1178, #1180).
+- Reject orphan and malformed README path rows, scope embedded CSS color exceptions to their real carriers, rewrite generated headers case-insensitively, and exercise the symlink guard in production rewrite order (#1185–#1187, #1191).
+- Correct the shipped baseline note for raced Enable commits and align the security-review evidence with the README and existing host test (#1188).
 
 ## [v0.1.51] — 2026-10-03
 

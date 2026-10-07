@@ -74,6 +74,32 @@ upstream_cut_verify_no_symlinks() {
 	return "$found"
 }
 
+upstream_cut_rewrite_generated_headers() {
+	local out="$1" shell_gen awk_gen css_js
+	shell_gen="$out/root/usr/libexec/fwlive-is-firewall-event.sh"
+	if [ -f "$shell_gen" ]; then
+		sed -i \
+			-e 's|^# GENERATED FILE — [Dd][Oo] [Nn][Oo][Tt] [Ee][Dd][Ii][Tt]\. Run: \./scripts/gen-all\.sh$|# Generated classifier snapshot.|' \
+			-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js.|' \
+			"$shell_gen"
+	fi
+
+	awk_gen="$out/root/usr/libexec/fwlive-is-firewall-event.awk"
+	if [ -f "$awk_gen" ]; then
+		sed -i \
+			-e 's|^# GENERATED FILE — [Dd][Oo] [Nn][Oo][Tt] [Ee][Dd][Ii][Tt]\. Run: \./scripts/gen-all\.sh$|# Generated classifier snapshot.|' \
+			-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js.|' \
+			"$awk_gen"
+	fi
+
+	css_js="$out/htdocs/luci-static/resources/fwlive/css.js"
+	if [ -f "$css_js" ]; then
+		sed -i \
+			's|^ \* GENERATED — [Dd][Oo] [Nn][Oo][Tt] [Ee][Dd][Ii][Tt]\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Generated stylesheet snapshot.|' \
+			"$css_js"
+	fi
+}
+
 trap cleanup_split_branch EXIT
 # Locale dirs kept in the feed for the binary release; first luci PR ships .pot only.
 DROP_PO_LANGS=(de ru zh_Hans)
@@ -103,10 +129,13 @@ echo "== 2/5 export tree to $OUT =="
 rm -rf "$OUT"
 mkdir -p "$OUT"
 git archive "$SPLIT_BRANCH" | tar -x -C "$OUT"
-if ! upstream_cut_verify_no_symlinks "$OUT"; then
-	echo "Upstream cut FAILED — remove symlinks from the package tree before rewriting." >&2
-	exit 1
-fi
+
+upstream_cut_guarded_rewrite() {
+	local OUT="$1"
+	if ! upstream_cut_verify_no_symlinks "$OUT"; then
+		echo "Upstream cut FAILED — remove symlinks from the package tree before rewriting." >&2
+		return 1
+	fi
 
 echo "== 3/5 rewrite monorepo-relative references =="
 # LuCI applications live at luci/applications/<app>/; their Makefiles include
@@ -161,28 +190,7 @@ sed -i '/^## Maintenance$/,$d' "$OUT/README.md"
 
 # GENERATED / sync comments: drop monorepo paths, repo names, and do-not-edit
 # instructions. Provenance stays in the luci PR body (openwrt/luci#8992).
-shell_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.sh"
-if [ -f "$shell_gen" ]; then
-	sed -i \
-		-e 's|^# GENERATED FILE — do not edit. Run: \./scripts/gen-all\.sh$|# Generated classifier snapshot.|' \
-		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js.|' \
-		"$shell_gen"
-fi
-
-awk_gen="$OUT/root/usr/libexec/fwlive-is-firewall-event.awk"
-if [ -f "$awk_gen" ]; then
-	sed -i \
-		-e 's|^# GENERATED FILE — do not edit\. Run: \.\/scripts\/gen-all\.sh$|# Generated classifier snapshot.|' \
-		-e 's|^# source: core/fwlive-log\.js CLASSIFY_SPEC$|# CLASSIFY_SPEC parity with htdocs/.../fwlive/log.js.|' \
-		"$awk_gen"
-fi
-
-css_js="$OUT/htdocs/luci-static/resources/fwlive/css.js"
-if [ -f "$css_js" ]; then
-	sed -i \
-		's|^ \* GENERATED — do not edit\. Edit fwlive\.css and run: node scripts/embed-fwlive-css\.js$| * Generated stylesheet snapshot.|' \
-		"$css_js"
-fi
+upstream_cut_rewrite_generated_headers "$OUT"
 
 # Rewrites of a file that the .pot references must not change its line count:
 # the #: refs are copied from the monorepo template, whose line numbers were
@@ -282,6 +290,9 @@ if [ -f "$pot_out" ]; then
 		"$pot_out"
 fi
 
+}
+upstream_cut_guarded_rewrite "$OUT"
+
 # .pot #: refs must be luci-shaped, resolvable, and line-accurate — and the
 # line numbers only stay accurate while the rewrites above keep the referenced
 # files' line counts (checked here, not assumed).
@@ -349,11 +360,13 @@ if not readme.is_file():
 
 def table_cells(line):
     # Markdown tables allow up to three leading spaces and either outer pipe
-    # to be omitted. Tabs/greater indentation are unsupported, not normalized.
-    match = re.fullmatch(r' {0,3}(.*)', line)
-    if not match or '|' not in match.group(1):
+    # to be omitted. Tabs and greater indentation are unsupported.
+    indent = re.match(r'^[ \t]*', line).group(0)
+    if '\t' in indent or len(indent) > 3:
         return None
-    body = match.group(1)
+    body = line[len(indent):]
+    if '|' not in body:
+        return None
     if body.startswith('|'):
         body = body[1:]
     cells = [cell.strip() for cell in body.split('|')]
@@ -361,32 +374,88 @@ def table_cells(line):
         cells.pop()
     return cells
 
+def path_row_cells(line, cells):
+    if cells is not None:
+        candidate = cells[0] if cells else ''
+    elif '|' in line:
+        body = line.strip().strip('|')
+        candidate = body.split('|', 1)[0].strip()
+    else:
+        return False
+    match = re.fullmatch(r'`([^`]+)`', candidate)
+    if not match:
+        return False
+    value = match.group(1)
+    # Only flag path-shaped code spans after the inventory boundary; unrelated
+    # tables or prose that happen to use inline code and pipes are not rows.
+    return ('/' in value or re.search(r'\.[A-Za-z0-9]{1,12}$', value) is not None
+            or value in {'Makefile', 'README', 'LICENSE', 'Kconfig', 'Dockerfile', 'Config.in'})
+
+def is_separator(cells):
+    return (cells is not None and len(cells) == 2
+            and all(re.fullmatch(r':?-{3,}:?', cell) for cell in cells))
+
 missing = []
 outside = []
+unlisted_absolute = []
 unsupported = []
 parsed = 0
 in_path_table = False
+need_delimiter = False
+saw_path_header = False
+fence = None
 resolved_out = out.resolve()
 for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
+    fence_match = re.match(r'^ {0,3}(`{3,}|~{3,})', line)
+    if fence is not None:
+        if (fence_match and fence_match.group(1)[0] == fence[0]
+                and len(fence_match.group(1)) >= fence[1]):
+            fence = None
+        continue
+    if fence_match:
+        fence = (fence_match.group(1)[0], len(fence_match.group(1)))
+        continue
+
     cells = table_cells(line)
     if not in_path_table:
-        if cells and len(cells) >= 2 and cells[0].lower() == 'path' and cells[1].lower() == 'role':
+        if cells and cells[0].lower() == 'path':
+            saw_path_header = True
+            if len(cells) != 2 or cells[1].lower() != 'role':
+                unsupported.append('invalid Path table header: %s' % line.strip())
+                continue
             in_path_table = True
+            need_delimiter = True
+            continue
+        if saw_path_header and path_row_cells(line, cells):
+            unsupported.append('path row appears outside a Path/Role table: %s'
+                               % line.strip())
         continue
     if not line.strip():
+        if need_delimiter:
+            unsupported.append('Path/Role table is missing its delimiter row')
         in_path_table = False
+        need_delimiter = False
         continue
     if cells is None:
-        # Pipe-containing rows with unsupported indentation/format must not
-        # silently disappear after a recognized Path/Role header.
         if '|' in line:
             unsupported.append(line.strip())
+        elif need_delimiter:
+            unsupported.append('Path/Role table is missing its delimiter row')
         in_path_table = False
+        need_delimiter = False
         continue
-    if len(cells) < 2:
+    if need_delimiter:
+        if is_separator(cells):
+            need_delimiter = False
+            continue
+        unsupported.append('Path/Role table has an invalid delimiter row: %s'
+                           % line.strip())
+        need_delimiter = False
+    if len(cells) != 2:
         unsupported.append(line.strip())
         continue
-    if all(re.fullmatch(r':?-{3,}:?', cell) for cell in cells):
+    if is_separator(cells):
+        unsupported.append('unexpected delimiter row: %s' % line.strip())
         continue
     match = re.fullmatch(r'`([^`]+)`', cells[0])
     if not match:
@@ -397,7 +466,7 @@ for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
     # The documented runtime marker is the only absolute path allowed here.
     if path.startswith('/'):
         if path != '/etc/fwlive/wan-log-baseline':
-            missing.append(path)
+            unlisted_absolute.append(path)
         continue
     # Expand glob rows, then validate every resolved match (including symlinks).
     # This catches ../ traversal and wildcard families escaping via symlinks.
@@ -415,16 +484,19 @@ for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
         if not resolved.exists():
             missing.append(path)
 
+if need_delimiter:
+    unsupported.append('Path/Role table is missing its delimiter row')
 if parsed == 0:
     print('  FAIL: README path table has no parsed path rows')
-    sys.exit(1)
 for path in unsupported:
     print('  FAIL: README path table has an unsupported row: %s' % path)
 for path in outside:
     print('  FAIL: README row resolves outside the cut artifact: %s' % path)
 for path in missing:
-    print('  FAIL: README row names a path the cut does not ship: %s' % path)
-sys.exit(1 if unsupported or outside or missing else 0)
+    print('  FAIL: README row names a path the cut does not ship; correct the row or add the required package path: %s' % path)
+for path in unlisted_absolute:
+    print('  FAIL: README row uses an absolute path outside the documented runtime allowlist; correct it or allowlist a justified runtime path: %s' % path)
+sys.exit(1 if parsed == 0 or unsupported or outside or missing or unlisted_absolute else 0)
 PY
 }
 
@@ -490,20 +562,256 @@ leaks = [
     ('monorepo-only README/config reference', re.compile(r'(?i)\b(?:feeds\.conf\.example|in the fwlive repo|snapshot from the fwlive monorepo|regenerated? upstream of this tree|multi-model audit)\b')),
     ('internal tracker key', re.compile(r'(?i)\bissue\s+[A-Z]{1,3}-[0-9]+\b')),
     ('explicit numeric tracker reference', re.compile(r'(?i)\b(?:issue|Grok)\s+#\d+\b')),
-    ('do-not-edit instruction', re.compile(r'\b[Dd]o not edit\b')),
+    ('do-not-edit instruction', re.compile(r'(?i)\bdo not edit\b')),
     ('generated-source instruction', re.compile(r'(?i)GENERATED FILE\s*[—-]\s*do not edit')),
 ]
 tracker = re.compile(r'(?<![A-Za-z0-9_])#([0-9]{2,})(?![A-Za-z0-9_])')
-def tracker_ids(line, suffix):
+hex_color = re.compile(r'#[0-9a-fA-F]+')
+color_property = re.compile(
+    r'(?:--fwlive-(?:pass|deny|paused)-color|--fwlive-bg-medium|'
+    r'color|background(?:-color|-image)?|'
+    r'border(?:-(?:top|right|bottom|left))?(?:-color)?|outline(?:-color)?|'
+    r'box-shadow|text-shadow|text-decoration-color|column-rule-color|'
+    r'caret-color|accent-color|fill|stroke|stop-color|flood-color|lighting-color)', re.I
+)
+css_carrier = 'htdocs/luci-static/resources/fwlive/css.js'
+tint_carrier = 'htdocs/luci-static/resources/fwlive/tint.js'
+
+def css_declaration_bounds(line, start, end):
+    # css.js carries escaped newlines (\\n) in one generated source line.
+    separators = (r'\n', ';', '{', '}')
+    left = 0
+    right = len(line)
+    for separator in separators:
+        before = line.rfind(separator, 0, start)
+        if before >= 0:
+            left = max(left, before + len(separator))
+        after = line.find(separator, end)
+        if after >= 0:
+            right = min(right, after)
+    return left, right
+
+def split_function_args(value):
+    args = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(value):
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth < 0:
+                return []
+        elif char == ',' and depth == 0:
+            args.append(value[start:index].strip())
+            start = index + 1
+    if depth != 0:
+        return []
+    args.append(value[start:].strip())
+    return args
+
+def css_color_value(value):
+    # Exempt only a whole hex color (optionally reached through a var() fallback).
+    # Composite or malformed values fail closed instead of granting every hash
+    # in a color-bearing declaration the same exemption.
+    value = re.sub(r'\\[tr]', ' ', value).strip()
+    value = re.sub(r'\s*!important\s*$', '', value, flags=re.I).strip()
+    if re.fullmatch(r'#[0-9a-fA-F]+', value):
+        return len(value) - 1 in (3, 4, 6, 8)
+    if not value.lower().startswith('var(') or not value.endswith(')'):
+        return False
+    args = split_function_args(value[4:-1])
+    return (len(args) == 2
+            and re.fullmatch(r'--[A-Za-z0-9_-]+', args[0]) is not None
+            and css_color_value(args[1]))
+
+def color_value_context(line, match):
+    before = line[:match.start()]
+    if before.rfind('/*') > before.rfind('*/'):
+        return False
+    start, end = css_declaration_bounds(line, match.start(), match.end())
+    declaration = line[start:end]
+    property_part, separator, value_part = declaration.partition(':')
+    property_part = re.sub(r'\\[tr]', ' ', property_part).strip()
+    if not separator or not color_property.fullmatch(property_part):
+        return False
+    color_matches = list(hex_color.finditer(value_part))
+    if len(color_matches) != 1 or len(color_matches[0].group(0)) - 1 not in (3, 4, 6, 8):
+        return False
+    value_start = start + declaration.index(':') + 1
+    value_before = line[value_start:match.start()]
+    if value_before.lower().rfind('url(') > value_before.rfind(')'):
+        return False
+    quote = None
+    escaped = False
+    for char in value_before:
+        if escaped:
+            escaped = False
+        elif char == '\\':
+            escaped = True
+        elif quote and char == quote:
+            quote = None
+        elif not quote and char in ('"', "'"):
+            quote = char
+    if quote is not None or not css_color_value(value_part):
+        return False
+    return True
+
+def mask_css_comments(text):
+    # Keep offsets and line breaks stable while removing comments from the
+    # color-context view. Tracker scanning still uses the original source.
+    chars = list(text)
+    comment = False
+    quote = None
+    escaped = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if comment:
+            if text.startswith('*/', index):
+                chars[index] = chars[index + 1] = ' '
+                comment = False
+                index += 2
+                continue
+            if char not in ('\r', '\n'):
+                chars[index] = ' '
+            index += 1
+            continue
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == quote:
+                quote = None
+            index += 1
+            continue
+        if text.startswith('/*', index):
+            chars[index] = chars[index + 1] = ' '
+            comment = True
+            index += 2
+            continue
+        if char in ('"', "'"):
+            quote = char
+        index += 1
+    return ''.join(chars)
+
+def mask_js_noncode(text):
+    # Preserve offsets while excluding comments and string/template contents
+    # from declaration matching. Tracker checks still use the original source.
+    chars = list(text)
+    comment = None
+    quote = None
+    escaped = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if comment == 'line':
+            if char in ('\r', '\n'):
+                comment = None
+            else:
+                chars[index] = ' '
+            index += 1
+            continue
+        if comment == 'block':
+            if text.startswith('*/', index):
+                chars[index] = chars[index + 1] = ' '
+                comment = None
+                index += 2
+                continue
+            if char not in ('\r', '\n'):
+                chars[index] = ' '
+            index += 1
+            continue
+        if quote:
+            if char not in ('\r', '\n'):
+                chars[index] = ' '
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == quote:
+                quote = None
+            index += 1
+            continue
+        if text.startswith('//', index):
+            chars[index] = chars[index + 1] = ' '
+            comment = 'line'
+            index += 2
+            continue
+        if text.startswith('/*', index):
+            chars[index] = chars[index + 1] = ' '
+            comment = 'block'
+            index += 2
+            continue
+        if char in ('"', "'", '`'):
+            chars[index] = ' '
+            quote = char
+        index += 1
+    return ''.join(chars)
+
+def color_spans(line, suffix, relative, color_line=None):
+    # Real CSS assets carry color syntax directly; fwlive embeds its stylesheet
+    # and tint palette in two JavaScript modules, so inspect only their literal
+    # color contexts and retain tracker checks elsewhere in those files.
+    if suffix.lower() == '.css':
+        context = line if color_line is None else color_line
+        spans = []
+        for match in hex_color.finditer(context):
+            if color_value_context(context, match):
+                spans.append(match.span())
+        return spans
+
+    if relative == css_carrier:
+        # embed-fwlive-css.js emits one JSON.stringify double-quoted literal on
+        # one source line. Other shapes are deliberately left unexempted, so a
+        # numeric CSS color there fails closed instead of hiding tracker text.
+        style = re.search(r'\bstyleText\s*:\s*("(?:\\.|[^"\\])*")', line)
+        if not style:
+            return []
+        content = style.group(1)[1:-1]
+        offset = style.start(1) + 1
+        spans = []
+        for match in hex_color.finditer(content):
+            if not color_value_context(content, match):
+                continue
+            spans.append((offset + match.start(), offset + match.end()))
+        return spans
+
+    if relative == tint_carrier:
+        # The emitted tint module uses one palette declaration per source line.
+        # Match that code shape against the comment/string-masked line so text
+        # inside comments, strings, or regex literals cannot create an exemption.
+        declaration = re.match(
+            r'\s*(?:var|let|const)\s+[A-Za-z_$][A-Za-z0-9_$]*_HEX\s*=',
+            line if color_line is None else color_line
+        )
+        if declaration is None:
+            return []
+        value_match = re.match(
+            r'\s*(?P<quote>["\'])(?P<value>#[0-9a-fA-F]+)(?P=quote)',
+            line[declaration.end():]
+        )
+        if value_match is None:
+            return []
+        spans = []
+        value = value_match.group('value')
+        if len(value) - 1 in (3, 4, 6, 8):
+            start = declaration.end() + value_match.start('value')
+            spans.append((start, start + len(value)))
+        return spans
+
+    return []
+
+def tracker_ids(line, suffix, relative, color_line=None):
     # URL fragments are legitimate. Scan every emitted line for bare tracker
-    # forms, not only comments; CSS numeric colors are the narrow exception.
+    # forms, not only comments; exempt only actual CSS/palette color literals.
     line_url_spans = list(url_spans(line))
+    line_color_spans = color_spans(line, suffix, relative, color_line)
     for match in tracker.finditer(line):
         if any(start <= match.start() < end for start, end in line_url_spans):
             continue
-        digits = match.group(1)
-        if (suffix.lower() == '.css' and len(digits) in (3, 4, 6, 8)
-                and re.fullmatch(r'#[0-9a-fA-F]+', match.group(0))):
+        if any(start <= match.start() < end for start, end in line_color_spans):
             continue
         yield match
 
@@ -519,7 +827,15 @@ for path in sorted(root.rglob('*')):
     if not path.is_file():
         continue
     text = path.read_text(encoding='utf-8', errors='replace')
-    for number, line in enumerate(text.splitlines(), 1):
+    relative = path.relative_to(root).as_posix()
+    if path.suffix.lower() == '.css':
+        color_scan_text = mask_css_comments(text)
+    elif relative == tint_carrier:
+        color_scan_text = mask_js_noncode(text)
+    else:
+        color_scan_text = text
+    for number, (line, color_line) in enumerate(
+            zip(text.splitlines(), color_scan_text.splitlines()), 1):
         line_url_spans = list(url_spans(line))
         for label, pattern in leaks:
             for match in pattern.finditer(line):
@@ -528,7 +844,7 @@ for path in sorted(root.rglob('*')):
                     continue
                 hits.append('%s:%d: %s: %s' %
                             (path.relative_to(root), number, label, line.strip()[:160]))
-        for match in tracker_ids(line, path.suffix):
+        for match in tracker_ids(line, path.suffix, relative, color_line):
             hits.append('%s:%d: numeric tracker reference #%s: %s' %
                         (path.relative_to(root), number, match.group(1), line.strip()[:160]))
 if hits:

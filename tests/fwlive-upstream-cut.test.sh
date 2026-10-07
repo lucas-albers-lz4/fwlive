@@ -145,9 +145,12 @@ pot_fn="$(awk '/^upstream_cut_verify_pot_refs\(\)/,/^}/' "$ROOT/scripts/upstream
 row_fn="$(awk '/^upstream_cut_verify_readme_rows\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 artifact_fn="$(awk '/^upstream_cut_verify_artifacts\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 symlink_fn="$(awk '/^upstream_cut_verify_no_symlinks\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
-[[ -n "$pot_fn" && -n "$row_fn" && -n "$artifact_fn" ]] \
+rewrite_fn="$(awk '/^upstream_cut_rewrite_generated_headers\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+guarded_rewrite_fn="$(awk '/^upstream_cut_guarded_rewrite\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+[[ -n "$pot_fn" && -n "$row_fn" && -n "$artifact_fn" && -n "$rewrite_fn" ]] \
 	|| die "cut verifier functions not found in upstream-cut.sh"
-[[ -n "$symlink_fn" ]] || die "cut symlink verifier not found in upstream-cut.sh"
+[[ -n "$symlink_fn" && -n "$guarded_rewrite_fn" ]] \
+	|| die "cut symlink/rewrite functions not found in upstream-cut.sh"
 # shellcheck disable=SC1090
 eval "$pot_fn"
 # shellcheck disable=SC1090
@@ -156,6 +159,10 @@ eval "$row_fn"
 eval "$artifact_fn"
 # shellcheck disable=SC1090
 eval "$symlink_fn"
+# shellcheck disable=SC1090
+eval "$rewrite_fn"
+# shellcheck disable=SC1090
+eval "$guarded_rewrite_fn"
 
 FX="$CUT_WORK/verifier-fx"
 REL=htdocs/luci-static/resources/fwlive
@@ -202,7 +209,7 @@ printf '| Path | Role |\n| --- | --- |\n| `/tmp/unshipped-runtime-state` | inval
 	>"$FX/out/README.md"
 upstream_cut_verify_readme_rows "$FX/out" >"$FX/absolute-readme.err" 2>&1 \
 	&& die "README row verifier accepted an undocumented absolute path"
-grep -q 'names a path the cut does not ship' "$FX/absolute-readme.err" \
+grep -q 'absolute path outside the documented runtime allowlist' "$FX/absolute-readme.err" \
 	|| die "absolute README path failure did not report the rejected path"
 printf '   Path | Role |\n   --- | --- |\n   `missing-indented-file` | dangling |\n' \
 	>"$FX/out/README.md"
@@ -226,6 +233,52 @@ upstream_cut_verify_readme_rows "$FX/out" >"$FX/mixed-readme.err" 2>&1 \
 	&& die "README row verifier ignored an unsupported row beside a valid path"
 grep -q 'unsupported row' "$FX/mixed-readme.err" \
 	|| die "mixed README failure did not identify the unsupported row"
+for orphan_case in blank prose renamed-header; do
+	case "$orphan_case" in
+		blank)
+			printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n| `missing-after-blank.js` | orphan |\n' \
+				>"$FX/out/README.md"
+			;;
+		prose)
+			printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\nThese rows are prose.\n| `missing-after-prose.js` | orphan |\n' \
+				>"$FX/out/README.md"
+			;;
+		renamed-header)
+			printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n| Path | Purpose |\n| --- | --- |\n| `missing-after-renamed-header.js` | orphan |\n' \
+				>"$FX/out/README.md"
+			;;
+	esac
+	if upstream_cut_verify_readme_rows "$FX/out" >"$FX/orphan-$orphan_case.err" 2>&1; then
+		die "README path verifier accepted an orphan after $orphan_case"
+	fi
+	grep -q 'unsupported row' "$FX/orphan-$orphan_case.err" \
+		|| die "README orphan after $orphan_case was not identified"
+done
+printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n    | `missing-four-space-row.js` | orphan |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/four-space-row.err" 2>&1 \
+	&& die "README path verifier parsed a four-space-indented row as table content"
+grep -q 'unsupported row' "$FX/four-space-row.err" \
+	|| die "four-space README row was not identified as unsupported"
+printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\t| `missing-tab-row.js` | orphan |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/tab-row.err" 2>&1 \
+	&& die "README path verifier parsed a tab-indented row as table content"
+grep -q 'unsupported row' "$FX/tab-row.err" \
+	|| die "tab-indented README row was not identified as unsupported"
+printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n| Path | Role |\n| --- | --- |\n| `po/templates/luci-app-fwlive.pot` | shipped |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
+	|| die "README path verifier rejected repeated valid tables at EOF"
+printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n| Token | Meaning |\n| --- | --- |\n| `x` | ordinary code span |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
+	|| die "README path verifier rejected an unrelated code-span table after the inventory"
+printf '| Path | Role |\n| Makefile | shipped |\n' >"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/bad-delimiter.err" 2>&1 \
+	&& die "README path verifier accepted a missing delimiter at EOF"
+grep -q 'invalid delimiter row' "$FX/bad-delimiter.err" \
+	|| die "missing README delimiter was not identified"
 printf 'outside target\n' >"$FX/outside-existing"
 printf '   Path | Role |\n   --- | --- |\n   `Makefile` | shipped |\n   `../outside-existing` | outside |\n' \
 	>"$FX/out/README.md"
@@ -245,7 +298,7 @@ upstream_cut_verify_readme_rows "$FX/out" >"$FX/glob-outside.err" 2>&1 \
 grep -q 'resolves outside the cut artifact' "$FX/glob-outside.err" \
 	|| die "outside glob failure did not report the resolved escape"
 rm "$FX/out/root/usr/share/luci/menu.d/escape.json"
-ok "README row verifier rejects dangling, unsupported, and outside paths"
+ok "README row verifier rejects dangling, unsupported, malformed, and outside paths"
 
 # The artifact scan deliberately accepts unrelated URLs/paths and real hex
 # colors, while rejecting actual monorepo/tracker leakage anywhere in the tree.
@@ -266,11 +319,147 @@ https://example.org/lab/runbook and https://example.org/CHANGELOG.md are URLs.
 EOF
 mkdir -p "$FX/out/po/templates" "$FX/out/root/usr/share/fwlive" \
 	"$FX/out/root/usr/libexec"
-printf '/* palette: #abc #1234 #abcdef #123456 #12345678 */\n' >"$FX/out/root/usr/share/fwlive/colors.css"
+printf ':root { --fwlive-pass-color: var(--fallback, #333333); color: #1234; background: #abcdef; border-color: #123456; }\n' \
+	>"$FX/out/root/usr/share/fwlive/colors.css"
 printf '# Ordinary helper comment; /etc/fwlive and root/usr paths are valid.\n' \
 	>"$FX/out/root/usr/libexec/fwlive-helper.sh"
 upstream_cut_verify_artifacts "$FX/out" >"$FX/artifact-safe.out" 2>&1 \
 	|| die "artifact scanner rejected legitimate URLs, paths, or hex colors: $(cat "$FX/artifact-safe.out")"
+printf '/* issue #333333 */\n' >"$FX/out/root/usr/share/fwlive/color-comment.css"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-comment-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a CSS comment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-comment-tracker.err" \
+	|| die "CSS comment tracker was not reported"
+rm "$FX/out/root/usr/share/fwlive/color-comment.css"
+printf '.fwlive-map { color: #46a546 #333333; }\n' \
+	>"$FX/out/root/usr/share/fwlive/multiple-color-tokens.css"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiple-color-tokens.err" 2>&1; then
+	die "artifact scanner exempted a tracker after another hex token in one declaration"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-multiple-color-tokens.err" \
+	|| die "multiple-token CSS declaration did not report its tracker-shaped color"
+rm "$FX/out/root/usr/share/fwlive/multiple-color-tokens.css"
+printf '.fwlive-map { color: red #333333; }\n' \
+	>"$FX/out/root/usr/share/fwlive/trailing-color-token.css"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-trailing-color-token.err" 2>&1; then
+	die "artifact scanner exempted a tracker after an unrelated color-property token"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-trailing-color-token.err" \
+	|| die "trailing CSS tracker-shaped color was not reported"
+rm "$FX/out/root/usr/share/fwlive/trailing-color-token.css"
+printf '/* block comment starts\ncolor: #333333;\n*/\n' \
+	>"$FX/out/root/usr/share/fwlive/multiline-color-comment.css"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiline-comment-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker inside a multiline CSS block comment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-multiline-comment-tracker.err" \
+	|| die "multiline CSS comment tracker was not reported"
+printf '/* block comment starts\nno color token here\n*/\ncolor: #abc;\n' \
+	>"$FX/out/root/usr/share/fwlive/multiline-color-comment.css"
+upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiline-color.out" 2>&1 \
+	|| die "artifact scanner rejected a real CSS color after a multiline comment: $(cat "$FX/css-multiline-color.out")"
+rm "$FX/out/root/usr/share/fwlive/multiline-color-comment.css"
+mkdir -p "$FX/out/$REL"
+cat >"$FX/out/$REL/css.js" <<'EOF'
+return baseclass.extend({
+	styleText: "\n.fwlive-map {\n\tcolor: #333333;\n}\n"
+});
+EOF
+upstream_cut_verify_artifacts "$FX/out" >"$FX/css-carrier-color.out" 2>&1 \
+	|| die "artifact scanner rejected a CSS color in the exact css.js carrier: $(cat "$FX/css-carrier-color.out")"
+printf '// issue #333333\n' >>"$FX/out/$REL/css.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-carrier-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker outside css.js styleText"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-carrier-tracker.err" \
+	|| die "css.js tracker outside styleText was not reported"
+rm "$FX/out/$REL/css.js"
+printf 'return baseclass.extend({ styleText: "\\n/* issue #333333 */\\n" });\n' \
+	>"$FX/out/$REL/css.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-string-comment.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a css.js styleText comment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-string-comment.err" \
+	|| die "css.js styleText comment tracker was not reported"
+rm "$FX/out/$REL/css.js"
+cat >"$FX/out/$REL/css.js" <<'EOF'
+return baseclass.extend({
+	styleText: "\n/* block comment starts\ncolor: #333333;\n*/\n"
+});
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiline-string-comment.err" 2>&1; then
+	die "artifact scanner exempted a tracker inside a multiline css.js styleText comment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-multiline-string-comment.err" \
+	|| die "multiline css.js styleText comment tracker was not reported"
+cat >"$FX/out/$REL/css.js" <<'EOF'
+return baseclass.extend({ styleText: '\n.fwlive-map {\n\tcolor: #333333;\n}\n' });
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-unsupported-styletext.err" 2>&1; then
+	die "artifact scanner exempted a numeric color in an unsupported styleText form"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-unsupported-styletext.err" \
+	|| die "unsupported css.js styleText shape did not fail closed"
+rm "$FX/out/$REL/css.js"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+'use strict';
+var PASS_HEX = '#333333';
+EOF
+upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-carrier-color.out" 2>&1 \
+	|| die "artifact scanner rejected an assigned tint color in the exact tint.js carrier: $(cat "$FX/tint-carrier-color.out")"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+// const ISSUE_HEX = '#333333';
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-line-comment-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a comment-shaped tint assignment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-line-comment-tracker.err" \
+	|| die "tint assignment inside a line comment was not reported as a tracker"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+/*
+const ISSUE_HEX = '#333333';
+*/
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-block-comment-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a multiline tint comment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-block-comment-tracker.err" \
+	|| die "tint assignment inside a block comment was not reported as a tracker"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+const re = /const ISSUE_HEX = '#333333'/;
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-regex-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a regex-shaped tint assignment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-regex-tracker.err" \
+	|| die "tint assignment inside a regex literal was not reported as a tracker"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+const note = "const ISSUE_HEX = '#333333';";
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-string-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker in a string-shaped tint assignment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-string-tracker.err" \
+	|| die "tint assignment inside a string was not reported as a tracker"
+cat >"$FX/out/$REL/tint.js" <<'EOF'
+var PASS_HEX = '#333333';
+EOF
+printf '// issue #333333\n' >>"$FX/out/$REL/tint.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/tint-carrier-tracker.err" 2>&1; then
+	die "artifact scanner exempted a tracker outside tint.js color assignments"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/tint-carrier-tracker.err" \
+	|| die "tint.js tracker outside its color assignment was not reported"
+rm "$FX/out/$REL/tint.js"
+mkdir -p "$FX/out/root/usr/share/fwlive"
+printf 'const issue = "#333333";\n' >"$FX/out/root/usr/share/fwlive/css.js"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/similar-color-carrier.err" 2>&1; then
+	die "artifact scanner granted a color exemption to a similarly named non-carrier"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/similar-color-carrier.err" \
+	|| die "similarly named file tracker was not reported"
+rm "$FX/out/root/usr/share/fwlive/css.js"
 printf '# Internal follow-up: issue #1180.\n' \
 	>"$FX/out/root/usr/libexec/unscanned-helper.sh"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/tracker-leak.err" 2>&1; then
@@ -459,6 +648,79 @@ if grep -q 'DO NOT LEAK THIS EXTERNAL TARGET CONTENT' "$FX/symlink-guard.err" "$
 	die "symlink diagnostics exposed external target content"
 fi
 rm "$FX/out/root/usr/libexec/external-link" "$FX/outside-secret"
+# Run the real banner rewrite helper against all three generated carrier types.
+# Matching must ignore case, while the rest of a source line stays untouched.
+REWRITE_FIXTURE="$FX/rewrite-headers"
+mkdir -p "$REWRITE_FIXTURE/root/usr/libexec" \
+	"$REWRITE_FIXTURE/htdocs/luci-static/resources/fwlive"
+printf '# GENERATED FILE — DO NOT EDIT. Run: ./scripts/gen-all.sh\n# source: core/fwlive-log.js CLASSIFY_SPEC\n# Do Not Edit: retain this unrelated note.\n' \
+	>"$REWRITE_FIXTURE/root/usr/libexec/fwlive-is-firewall-event.sh"
+printf '# GENERATED FILE — Do Not Edit. Run: ./scripts/gen-all.sh\n# source: core/fwlive-log.js CLASSIFY_SPEC\n' \
+	>"$REWRITE_FIXTURE/root/usr/libexec/fwlive-is-firewall-event.awk"
+printf ' * GENERATED — Do Not Edit. Edit fwlive.css and run: node scripts/embed-fwlive-css.js\n' \
+	>"$REWRITE_FIXTURE/htdocs/luci-static/resources/fwlive/css.js"
+upstream_cut_rewrite_generated_headers "$REWRITE_FIXTURE"
+grep -q '^# Generated classifier snapshot\.$' \
+	"$REWRITE_FIXTURE/root/usr/libexec/fwlive-is-firewall-event.sh" \
+	|| die "mixed-case shell generated banner was not rewritten"
+grep -q '^# Generated classifier snapshot\.$' \
+	"$REWRITE_FIXTURE/root/usr/libexec/fwlive-is-firewall-event.awk" \
+	|| die "mixed-case awk generated banner was not rewritten"
+grep -q '^ \* Generated stylesheet snapshot\.$' \
+	"$REWRITE_FIXTURE/htdocs/luci-static/resources/fwlive/css.js" \
+	|| die "mixed-case CSS generated banner was not rewritten"
+grep -q '^# Do Not Edit: retain this unrelated note\.$' \
+	"$REWRITE_FIXTURE/root/usr/libexec/fwlive-is-firewall-event.sh" \
+	|| die "header rewrite changed unrelated mixed-case prose"
+ok "generated header rewrites handle mixed case and retain unrelated prose"
+# Exercise the production order, not just the isolated guard. If the guard is
+# moved below Makefile rewriting, sed -i replaces this symlink and the check
+# below will detect that mutation order regression.
+mkdir -p "$FX/guarded-rewrite-out"
+printf 'include $(TOPDIR)/feeds/luci/luci.mk\n' >"$FX/outside-makefile"
+ln -s "$FX/outside-makefile" "$FX/guarded-rewrite-out/Makefile"
+if upstream_cut_guarded_rewrite "$FX/guarded-rewrite-out" >"$FX/guarded-rewrite.err" 2>&1; then
+	die "production rewrite sequence accepted a symlinked Makefile"
+fi
+grep -q 'symlink is not supported' "$FX/guarded-rewrite.err" \
+	|| die "production rewrite sequence did not fail at its symlink guard"
+[ -L "$FX/guarded-rewrite-out/Makefile" ] \
+	|| die "production rewrite mutated the symlink before rejecting it"
+grep -qF 'include $(TOPDIR)/feeds/luci/luci.mk' "$FX/outside-makefile" \
+	|| die "production rewrite mutated an external symlink target"
+ok "production cut rejects symlinks before rewrite mutation"
+
+# Run the complete production wrapper in a scratch repo. The fixture commits
+# the symlink so the cut reaches archive extraction, then pins that the actual
+# archive-to-rewrite path rejects it before the first Makefile sed.
+ORDER_REPO="$CUT_WORK/production-order-repo"
+ORDER_OUT="$CUT_WORK/production-order-out"
+ORDER_TARGET="$CUT_WORK/production-order-target"
+mkdir -p "$ORDER_REPO/scripts" "$ORDER_REPO/openwrt-feed/luci-app-fwlive"
+cp "$ROOT/scripts/upstream-cut.sh" "$ORDER_REPO/scripts/upstream-cut.sh"
+printf 'include $(TOPDIR)/feeds/luci/luci.mk\n' >"$ORDER_TARGET"
+ln -s "$ORDER_TARGET" "$ORDER_REPO/openwrt-feed/luci-app-fwlive/Makefile"
+git -C "$ORDER_REPO" init -q -b main
+git -C "$ORDER_REPO" config user.email 'fwlive-test@example.com'
+git -C "$ORDER_REPO" config user.name 'fwlive-test'
+git -C "$ORDER_REPO" add scripts/upstream-cut.sh openwrt-feed/luci-app-fwlive/Makefile
+git -C "$ORDER_REPO" commit -q -m 'symlink guard fixture'
+if "$ORDER_REPO/scripts/upstream-cut.sh" "$ORDER_OUT" \
+	>"$CUT_WORK/production-order.out" 2>"$CUT_WORK/production-order.err"; then
+	die "production upstream-cut accepted an archived symlink"
+fi
+grep -q 'symlink is not supported in cut artifact: Makefile' \
+	"$CUT_WORK/production-order.out" \
+	|| die "production upstream-cut did not report the archived symlink: $(cat "$CUT_WORK/production-order.err")"
+[ -L "$ORDER_OUT/Makefile" ] \
+	|| die "production upstream-cut rewrote the archived Makefile symlink before rejecting it"
+grep -qF 'include $(TOPDIR)/feeds/luci/luci.mk' "$ORDER_TARGET" \
+	|| die "production upstream-cut mutated the external Makefile target"
+if grep -qF "$ORDER_TARGET" "$CUT_WORK/production-order.err"; then
+	die "production upstream-cut exposed the external symlink target in diagnostics"
+fi
+ok "top-level upstream-cut rejects archive symlinks before its first rewrite"
+
 printf '%s\n' \
 	'https://example.org/openwrt-feed/releases/README.md' \
 	'https://example.org/../core/fwlive-log.js is an example URL.' \
