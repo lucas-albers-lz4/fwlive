@@ -577,19 +577,74 @@ color_property = re.compile(
 css_carrier = 'htdocs/luci-static/resources/fwlive/css.js'
 tint_carrier = 'htdocs/luci-static/resources/fwlive/tint.js'
 
-def color_value_context(before):
+def css_declaration_bounds(line, start, end):
+    # css.js carries escaped newlines (\\n) in one generated source line.
+    separators = (r'\n', ';', '{', '}')
+    left = 0
+    right = len(line)
+    for separator in separators:
+        before = line.rfind(separator, 0, start)
+        if before >= 0:
+            left = max(left, before + len(separator))
+        after = line.find(separator, end)
+        if after >= 0:
+            right = min(right, after)
+    return left, right
+
+def split_function_args(value):
+    args = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(value):
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth < 0:
+                return []
+        elif char == ',' and depth == 0:
+            args.append(value[start:index].strip())
+            start = index + 1
+    if depth != 0:
+        return []
+    args.append(value[start:].strip())
+    return args
+
+def css_color_value(value):
+    # Exempt only a whole hex color (optionally reached through a var() fallback).
+    # Composite or malformed values fail closed instead of granting every hash
+    # in a color-bearing declaration the same exemption.
+    value = re.sub(r'\\[tr]', ' ', value).strip()
+    value = re.sub(r'\s*!important\s*$', '', value, flags=re.I).strip()
+    if re.fullmatch(r'#[0-9a-fA-F]+', value):
+        return len(value) - 1 in (3, 4, 6, 8)
+    if not value.lower().startswith('var(') or not value.endswith(')'):
+        return False
+    args = split_function_args(value[4:-1])
+    return (len(args) == 2
+            and re.fullmatch(r'--[A-Za-z0-9_-]+', args[0]) is not None
+            and css_color_value(args[1]))
+
+def color_value_context(line, match):
+    before = line[:match.start()]
     if before.rfind('/*') > before.rfind('*/'):
         return False
-    declaration = before.rsplit(r'\n', 1)[-1].rsplit(';', 1)[-1].rsplit('{', 1)[-1]
-    declaration = re.sub(r'\\[tr]', ' ', declaration)
-    property_part, separator, value_part = declaration.rpartition(':')
-    if not separator or not color_property.fullmatch(property_part.strip()):
+    start, end = css_declaration_bounds(line, match.start(), match.end())
+    declaration = line[start:end]
+    property_part, separator, value_part = declaration.partition(':')
+    property_part = re.sub(r'\\[tr]', ' ', property_part).strip()
+    if not separator or not color_property.fullmatch(property_part):
         return False
-    if before.lower().rfind('url(') > before.rfind(')'):
+    color_matches = list(hex_color.finditer(value_part))
+    if len(color_matches) != 1 or len(color_matches[0].group(0)) - 1 not in (3, 4, 6, 8):
+        return False
+    value_start = start + declaration.index(':') + 1
+    value_before = line[value_start:match.start()]
+    if value_before.lower().rfind('url(') > value_before.rfind(')'):
         return False
     quote = None
     escaped = False
-    for char in value_part:
+    for char in value_before:
         if escaped:
             escaped = False
         elif char == '\\':
@@ -598,7 +653,9 @@ def color_value_context(before):
             quote = None
         elif not quote and char in ('"', "'"):
             quote = char
-    return quote is None
+    if quote is not None or not css_color_value(value_part):
+        return False
+    return True
 
 def mask_css_comments(text):
     # Keep offsets and line breaks stable while removing comments from the
@@ -646,12 +703,14 @@ def color_spans(line, suffix, relative):
     if suffix.lower() == '.css':
         spans = []
         for match in hex_color.finditer(line):
-            if (len(match.group(0)) - 1 in (3, 4, 6, 8)
-                    and color_value_context(line[:match.start()])):
+            if color_value_context(line, match):
                 spans.append(match.span())
         return spans
 
     if relative == css_carrier:
+        # embed-fwlive-css.js emits one JSON.stringify double-quoted literal on
+        # one source line. Other shapes are deliberately left unexempted, so a
+        # numeric CSS color there fails closed instead of hiding tracker text.
         style = re.search(r'\bstyleText\s*:\s*("(?:\\.|[^"\\])*")', line)
         if not style:
             return []
@@ -659,10 +718,7 @@ def color_spans(line, suffix, relative):
         offset = style.start(1) + 1
         spans = []
         for match in hex_color.finditer(content):
-            if len(match.group(0)) - 1 not in (3, 4, 6, 8):
-                continue
-            before = content[:match.start()]
-            if not color_value_context(before):
+            if not color_value_context(content, match):
                 continue
             spans.append((offset + match.start(), offset + match.end()))
         return spans

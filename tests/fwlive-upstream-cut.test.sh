@@ -319,7 +319,7 @@ https://example.org/lab/runbook and https://example.org/CHANGELOG.md are URLs.
 EOF
 mkdir -p "$FX/out/po/templates" "$FX/out/root/usr/share/fwlive" \
 	"$FX/out/root/usr/libexec"
-printf ':root { --fwlive-pass-color: #abc; color: #1234; background: #abcdef; border-color: #123456; }\n' \
+printf ':root { --fwlive-pass-color: var(--fallback, #333333); color: #1234; background: #abcdef; border-color: #123456; }\n' \
 	>"$FX/out/root/usr/share/fwlive/colors.css"
 printf '# Ordinary helper comment; /etc/fwlive and root/usr paths are valid.\n' \
 	>"$FX/out/root/usr/libexec/fwlive-helper.sh"
@@ -332,6 +332,22 @@ fi
 grep -q 'numeric tracker reference #333333' "$FX/css-comment-tracker.err" \
 	|| die "CSS comment tracker was not reported"
 rm "$FX/out/root/usr/share/fwlive/color-comment.css"
+printf '.fwlive-map { color: #46a546 #333333; }\n' \
+	>"$FX/out/root/usr/share/fwlive/multiple-color-tokens.css"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiple-color-tokens.err" 2>&1; then
+	die "artifact scanner exempted a tracker after another hex token in one declaration"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-multiple-color-tokens.err" \
+	|| die "multiple-token CSS declaration did not report its tracker-shaped color"
+rm "$FX/out/root/usr/share/fwlive/multiple-color-tokens.css"
+printf '.fwlive-map { color: red #333333; }\n' \
+	>"$FX/out/root/usr/share/fwlive/trailing-color-token.css"
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-trailing-color-token.err" 2>&1; then
+	die "artifact scanner exempted a tracker after an unrelated color-property token"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-trailing-color-token.err" \
+	|| die "trailing CSS tracker-shaped color was not reported"
+rm "$FX/out/root/usr/share/fwlive/trailing-color-token.css"
 printf '/* block comment starts\ncolor: #333333;\n*/\n' \
 	>"$FX/out/root/usr/share/fwlive/multiline-color-comment.css"
 if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiline-comment-tracker.err" 2>&1; then
@@ -366,6 +382,25 @@ if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-string-comment.err" 2>&1; t
 fi
 grep -q 'numeric tracker reference #333333' "$FX/css-string-comment.err" \
 	|| die "css.js styleText comment tracker was not reported"
+rm "$FX/out/$REL/css.js"
+cat >"$FX/out/$REL/css.js" <<'EOF'
+return baseclass.extend({
+	styleText: "\n/* block comment starts\ncolor: #333333;\n*/\n"
+});
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-multiline-string-comment.err" 2>&1; then
+	die "artifact scanner exempted a tracker inside a multiline css.js styleText comment"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-multiline-string-comment.err" \
+	|| die "multiline css.js styleText comment tracker was not reported"
+cat >"$FX/out/$REL/css.js" <<'EOF'
+return baseclass.extend({ styleText: '\n.fwlive-map {\n\tcolor: #333333;\n}\n' });
+EOF
+if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-unsupported-styletext.err" 2>&1; then
+	die "artifact scanner exempted a numeric color in an unsupported styleText form"
+fi
+grep -q 'numeric tracker reference #333333' "$FX/css-unsupported-styletext.err" \
+	|| die "unsupported css.js styleText shape did not fail closed"
 rm "$FX/out/$REL/css.js"
 cat >"$FX/out/$REL/tint.js" <<'EOF'
 'use strict';
