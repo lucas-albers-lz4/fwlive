@@ -20,35 +20,33 @@ const FILTER_SH = path.join(ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh');
 const FIXTURE = path.join(__dirname, 'fixtures', 'logread-mixed.json');
 /* Override with SH='busybox sh' for ash parity (#103). */
-const SH = (() => {
+const SHELL = (() => {
 	const requested = process.env.SH || 'sh';
-	if (requested === 'sh' || requested === 'busybox sh')
-		return requested;
+	if (requested === 'sh')
+		return { command: 'sh', args: [] };
+	if (requested === 'busybox sh')
+		return { command: 'busybox', args: ['sh'] };
 	throw new Error("SH must be exactly 'sh' or 'busybox sh'");
 })();
+const SH_LABEL = SHELL.args.length ? SHELL.command + ' ' + SHELL.args.join(' ') : SHELL.command;
+const USING_BUSYBOX_SH = SHELL.command === 'busybox';
 
 function shSpawn(scriptOrFile, opts) {
-	const parts = SH.split(/\s+/).filter(Boolean);
-	const cmd = parts[0];
-	const prefix = parts.slice(1);
 	if (opts && opts.argvFile) {
-		return spawnSync(cmd, prefix.concat([opts.argvFile]), {
+		return spawnSync(SHELL.command, SHELL.args.concat([opts.argvFile]), {
 			input: opts.input,
 			encoding: opts.encoding || 'utf8',
 			env: opts.env || process.env
 		});
 	}
-	return execFileSync(cmd, prefix.concat(['-c', scriptOrFile]), {
+	return execFileSync(SHELL.command, SHELL.args.concat(['-c', scriptOrFile]), {
 		encoding: 'utf8',
 		env: opts && opts.env ? opts.env : process.env
 	});
 }
 
 function filterSpawn(args, opts) {
-	const parts = SH.split(/\s+/).filter(Boolean);
-	const cmd = parts[0];
-	const prefix = parts.slice(1);
-	return spawnSync(cmd, prefix.concat([FILTER_SH]).concat(args || []), {
+	return spawnSync(SHELL.command, SHELL.args.concat([FILTER_SH]).concat(args || []), {
 		input: opts && opts.input,
 		encoding: opts && opts.encoding ? opts.encoding : 'utf8',
 		env: opts && opts.env ? opts.env : process.env
@@ -238,8 +236,7 @@ function runSignalCleanup() {
 		''
 	].join('\n'), { mode: 0o755 });
 	try {
-		const shellParts = SH.split(/\s+/).filter(Boolean);
-		assert.ok(shellParts.length >= 1, 'signal test requires a shell command');
+		assert.ok(SHELL.command, 'signal test requires a shell command');
 		const controller = [
 			'_filter_pid=',
 			'_child_pid=',
@@ -289,8 +286,8 @@ function runSignalCleanup() {
 				...process.env,
 				PATH: stubDir + path.delimiter + (process.env.PATH || ''),
 				FWLIVE_FILTER: FILTER_SH,
-				FWLIVE_SHELL_CMD: shellParts[0],
-				FWLIVE_SHELL_ARG: shellParts[1] || '',
+			FWLIVE_SHELL_CMD: SHELL.command,
+			FWLIVE_SHELL_ARG: SHELL.args[0] || '',
 				FWLIVE_TMP: tmpDir,
 				FWLIVE_JSONFILTER_PID: childPid,
 				FWLIVE_OUT: output,
@@ -326,7 +323,7 @@ function runMktempFailure() {
 			encoding: 'utf8',
 			env
 		});
-		if (filtered.status === 0 && SH.includes('busybox')) {
+		if (filtered.status === 0 && USING_BUSYBOX_SH) {
 			// BusyBox ash resolves mktemp as a builtin, so PATH shadowing does
 			// not reach the production guard. Sticky + owner r-x (01500) still
 			// passes -d/-k and makes builtin mktemp fail for a non-root owner.
@@ -829,7 +826,7 @@ function run() {
 	runMissingJsonfilter();
 	runMissingClassifier();
 	runOversizedStdin();
-	console.log('fwlive shell filter parity tests passed (SH=' + SH + ')');
+	console.log('fwlive shell filter parity tests passed (SH=' + SH_LABEL + ')');
 }
 
 function testChildProcessTimeouts() {

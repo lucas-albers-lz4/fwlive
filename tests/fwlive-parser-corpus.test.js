@@ -23,9 +23,14 @@ const FILTER_SH = path.join(ROOT,
 	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh');
 const FIXTURE_DIR = path.join(__dirname, 'fixtures');
 /* Override with SH='busybox sh' for ash parity (#103). */
-const SH = process.env.SH || 'sh';
-if (SH !== 'sh' && SH !== 'busybox sh')
+const SHELL = (() => {
+	const requested = process.env.SH || 'sh';
+	if (requested === 'sh')
+		return { command: 'sh', args: [] };
+	if (requested === 'busybox sh')
+		return { command: 'busybox', args: ['sh'] };
 	throw new Error("SH must be exactly 'sh' or 'busybox sh'");
+})();
 
 const FIXTURES = [ 'logread-mixed.json', 'logread-iptables.json', 'logread-tcp-flags.json' ];
 
@@ -260,8 +265,7 @@ function jsonfilterPathEnv() {
 }
 
 function shellFilter(payload, env) {
-	const parts = SH.split(/\s+/).filter(Boolean);
-	const r = spawnSync(parts[0], parts.slice(1).concat([FILTER_SH]), {
+	const r = spawnSync(SHELL.command, SHELL.args.concat([FILTER_SH]), {
 		input: payload,
 		encoding: 'utf8',
 		env: env
@@ -327,7 +331,8 @@ function run() {
 		jf.cleanup();
 	}
 
-	console.log('fwlive parser corpus pin (#240 C1) passed (SH=' + SH + ')');
+	console.log('fwlive parser corpus pin (#240 C1) passed (SH=' +
+		(SHELL.args.length ? SHELL.command + ' ' + SHELL.args.join(' ') : SHELL.command) + ')');
 }
 
 run();
