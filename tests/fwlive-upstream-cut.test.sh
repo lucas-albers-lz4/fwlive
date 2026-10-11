@@ -421,6 +421,20 @@ if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-string-comment.err" 2>&1; t
 fi
 grep -q 'numeric tracker reference #333333' "$FX/css-string-comment.err" \
 	|| die "css.js styleText comment tracker was not reported"
+for fake_style in block line midline regex label; do
+	case "$fake_style" in
+		block) printf '/* styleText: "color: #333333" */\n' >"$FX/out/$REL/css.js" ;;
+		line) printf '// styleText: "color: #333333"\n' >"$FX/out/$REL/css.js" ;;
+		midline) printf 'var note = 1; /* styleText: "color: #333333" */\n' >"$FX/out/$REL/css.js" ;;
+		regex) printf 'const re = /{styleText: "color: #333333"}/;\n' >"$FX/out/$REL/css.js" ;;
+		label) printf 'styleText: "color: #333333";\n' >"$FX/out/$REL/css.js" ;;
+	esac
+	if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-comment-style-$fake_style.err" 2>&1; then
+		die "artifact scanner exempted a tracker in a non-code $fake_style styleText token"
+	fi
+	grep -q 'numeric tracker reference #333333' "$FX/css-comment-style-$fake_style.err" \
+		|| die "css.js $fake_style tracker was not reported"
+done
 rm "$FX/out/$REL/css.js"
 cat >"$FX/out/$REL/css.js" <<'EOF'
 return baseclass.extend({

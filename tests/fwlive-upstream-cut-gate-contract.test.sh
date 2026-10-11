@@ -164,17 +164,31 @@ d=$(m r-abs);            printf '\n| `/etc/passwd` | X |\n' >> "$d/README.md";  
 d=$(m r-traverse);       printf '\n| `../secret` | X |\n' >> "$d/README.md";                      check R-traverse      1 G_readme "$d"
 
 echo "-- artifact scan gate --"
+css_carrier() {
+	printf 'return baseclass.extend({\n\tstyleText: "color: %s"\n});\n' "$1" > "$2/$JS/css.js"
+}
 check A-ok              0 G_art "$WORK/out"
 d=$(m a-tracker);          printf '// see #1234\n' >> "$d/$JS/tint.js";                          check A-tracker           1 G_art "$d"
 d=$(m a-tracker-6);        printf '// see #333333\n' >> "$d/$JS/tint.js";                        check A-tracker-6         1 G_art "$d"
 d=$(m a-tracker-css);      sed_assert 's/$/\n\/\/ palette #123456/' "$d/$JS/css.js" '#123456' A-tracker-css \
                            && check A-tracker-css  1 G_art "$d"
 d=$(m a-tracker-noncarrier); printf 'var x = "#123456"; // ref\n' > "$d/$JS/log.js";             check A-tracker-noncarrier 1 G_art "$d"
-d=$(m a-hex-palette);      printf 'var _probe = { styleText: "color: #333333" };\n' >> "$d/$JS/css.js"; check A-hex-palette 0 G_art "$d"
-d=$(m a-hex-tint);         printf "var T_PROBE_HEX = '#333333';\n" >> "$d/$JS/tint.js";         check A-hex-tint          0 G_art "$d"
-d=$(m a-hex-3);            printf 'var _probe = { styleText: "color: #abc" };\n' >> "$d/$JS/css.js"; check A-hex-3        0 G_art "$d"
-d=$(m a-hex-4);            printf 'var _probe = { styleText: "color: #abcd" };\n' >> "$d/$JS/css.js"; check A-hex-4       0 G_art "$d"
-d=$(m a-hex-8);            printf 'var _probe = { styleText: "color: #12345678" };\n' >> "$d/$JS/css.js"; check A-hex-8   0 G_art "$d"
+d=$(m a-hex-palette)
+css_carrier '#333333' "$d"
+check A-hex-palette 0 G_art "$d"
+d=$(m a-hex-tint); printf "var T_PROBE_HEX = '#333333';\n" >> "$d/$JS/tint.js"; check A-hex-tint 0 G_art "$d"
+d=$(m a-hex-3)
+css_carrier '#abc' "$d"
+check A-hex-3 0 G_art "$d"
+d=$(m a-hex-4)
+css_carrier '#abcd' "$d"
+check A-hex-4 0 G_art "$d"
+d=$(m a-hex-8)
+css_carrier '#12345678' "$d"
+check A-hex-8 0 G_art "$d"
+d=$(m a-hex-fake-carrier)
+printf 'var _probe = { styleText: "color: #333333" };\n' > "$d/$JS/css.js"
+check A-hex-fake-carrier 1 G_art "$d"
 # Same value with no colour context: the exemption must stay narrow.
 d=$(m a-probe-neg);        printf 'var _probe = { color: "#333333" };\n' >> "$d/$JS/css.js";     check A-probe-neg         1 G_art "$d"
 d=$(m a-monorepo);         printf '// see openwrt-feed/README.md\n'      >> "$d/$JS/tint.js";    check A-monorepo          1 G_art "$d"

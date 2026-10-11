@@ -6,6 +6,13 @@ them to hide later path rows. Host regression cases are in
 `tests/fwlive-upstream-cut.test.sh`; no live release or installed-router check
 was run. This is scoped gate evidence, not a full release-pipeline audit.
 
+**2026-10-10 #1207 scoped delta.** The `css.js` color exemption now applies
+only to the generated `styleText` declaration in its supported object shape,
+after JS comments, strings, and regex literals are masked. Host regression
+cases include fake carrier text and valid generated color literals; no live
+release or installed-router check was run. This is not a full release-pipeline
+audit.
+
 **2026-10-05 #1177/#1178/#1180 scoped delta.** Raced-disable baseline
 retirement now uses the reporting function's positional zone rather than the
 caller-global zone; generation, lock, UCI, and reload gates are unchanged. The
@@ -752,6 +759,7 @@ change. This scoped smoke review is not a full security audit.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
+| Release pipeline — upstream-cut CSS exemption boundary | 2026-10-10 | Scoped source + host tests | #1207 masks JS comments, strings, and regex literals; only the generated `styleText` declaration receives the hex-color exemption. `tests/fwlive-upstream-cut.test.sh` and `tests/fwlive-upstream-cut-gate-contract.test.sh` cover accepted and rejected shapes; no installed-router or release run. |
 | Release pipeline — upstream-cut README fence boundary | 2026-10-10 | Scoped source + host tests | #1206 rejects invalid, unterminated, and mismatched README code fences so later Path/Role rows remain checked. `tests/fwlive-upstream-cut.test.sh` covers the boundary; no installed-router or release run. |
 | Frontend rendering sinks (`E()` string children) | 2026-10-02 | Scoped delta (full source pass 2026-10-01) | #1129: action label is static translated text; filter values remain array children. Recording harness and mocked Chromium role/name keyboard smoke passed; no installed guest or assistive-technology proof. |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-10-01 | Full source + scoped fresh proof | Full source-to-sink trace across parser, view, chips, links, labels, caches and summaries. Host hostile-input checks passed; no new injection mechanism confirmed. Backend reply-size dependence remains an explicit limit. |
