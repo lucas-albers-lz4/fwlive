@@ -62,15 +62,22 @@ function run() {
 
 	const edgeRows = core.filterLogEntries([
 		{ msg: 'fw4: IN=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP SPT=123 DPT=443' },
-		{ time: 'not-a-time', msg: 'fw4: DROP IN=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP SPT=123 DPT=443' }
+		{ time: 'not-a-time', msg: 'fw4: DROP IN=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP SPT=123 DPT=443' },
+		{ time: '8640000000000000000', msg: 'fw4: IN=eth0 SRC=192.0.2.1 DST=198.51.100.2 PROTO=TCP SPT=123 DPT=443' }
 	]);
-	assert.equal(edgeRows.length, 2);
+	assert.equal(edgeRows.length, 3);
 	assert.equal(edgeRows[0].timestamp, null);
 	assert.equal(edgeRows[0].timestamp_display, '');
+	assert.equal(edgeRows[0].action, 'pass');
 	assert.equal(edgeRows[0].action_raw, 'PASS');
 	assert.equal(edgeRows[1].timestamp, null);
 	assert.equal(edgeRows[1].timestamp_display, '');
+	assert.equal(edgeRows[1].action, 'drop');
 	assert.equal(edgeRows[1].action_raw, 'DROP');
+	assert.equal(edgeRows[2].timestamp, null);
+	assert.equal(edgeRows[2].timestamp_display, '');
+	assert.equal(edgeRows[2].action, 'pass');
+	assert.equal(edgeRows[2].action_raw, 'PASS');
 
 	console.log('fwlive schema tests passed');
 }
