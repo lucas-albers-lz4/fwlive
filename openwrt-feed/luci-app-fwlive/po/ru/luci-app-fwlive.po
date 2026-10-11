@@ -78,7 +78,7 @@ msgstr "Для отключения журналирования требуют�
 msgid "Administrator access is required to enable logging."
 msgstr "Для включения журналирования требуются права администратора."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:236
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:240
 msgid "Allow/deny rules, LAN logging, or anything else."
 msgstr "Правила allow/deny, журналирование LAN и любые другие настройки."
 
@@ -113,7 +113,7 @@ msgstr "Любой протокол"
 msgid "Auto"
 msgstr "Авто"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:226
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:230
 msgid "Before you enable logging"
 msgstr "Перед включением журналирования"
 
@@ -122,7 +122,7 @@ msgid "Cannot enable logging until kernel log modules are installed."
 msgstr ""
 "Невозможно включить журналирование, пока не установлены модули журнала ядра."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:229
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:233
 msgid "Changes:"
 msgstr "Изменения:"
 
@@ -271,7 +271,7 @@ msgstr "Подробности"
 msgid "Dir"
 msgstr "Напр."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:172
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:176
 msgid "Disabling…"
 msgstr "Отключение…"
 
@@ -295,11 +295,11 @@ msgstr ""
 "Параметры отображения задают лимит, бюджет выборки, максимум сырых строк, "
 "цвет строк, палитру и имена узлов."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:234
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:238
 msgid "Does not change:"
 msgstr "Не изменяет:"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:251
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:260
 msgid "Don’t show this again"
 msgstr "Больше не показывать"
 
@@ -430,7 +430,7 @@ msgstr ""
 "содержать CSS-переменные success/error или info/warn; fwlive использует "
 "локальные цвета (работает автономно, данные не покидают устройство)."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:353
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:362
 msgid ""
 "If the WAN is quiet, wait for probes or use the optional ping check in "
 "Help / the enabling-logs guide."
@@ -455,7 +455,7 @@ msgstr "Входящий"
 msgid "Include instead"
 msgstr "Включить вместо этого"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:318
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:327
 msgid ""
 "Install kmod-nf-log and kmod-nf-log6 with the command for your OpenWrt "
 "release, then reload the firewall."
@@ -476,12 +476,12 @@ msgstr "Интерфейс"
 msgid "Interface (prefix ! to exclude)"
 msgstr "Интерфейс (! в начале для исключения)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:272
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:392
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:281
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:401
 msgid "I’ll configure this under Network → Firewall"
 msgstr "Я настрою это в разделе Сеть → Межсетевой экран"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:314
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:323
 msgid "Kernel log modules missing"
 msgstr "Отсутствуют модули журналирования ядра"
 
@@ -499,7 +499,7 @@ msgstr ""
 "Живой просмотр может быть неполным — зарегистрирована устаревшая таблица "
 "iptables"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:361
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:370
 msgid "Logging is off on this router"
 msgstr "Журналирование на этом роутере отключено"
 
@@ -520,7 +520,7 @@ msgstr ""
 "«Вручную» по-прежнему использует защиту сервера и частоту опроса; меняется "
 "бюджет выборки, а не интервал опроса."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:411
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:420
 msgid "Manual test (System → Terminal):"
 msgstr "Ручной тест (Система → Терминал):"
 
@@ -543,14 +543,14 @@ msgstr "Больше фильтров"
 msgid "Network → Firewall"
 msgstr "Сеть → Межсетевой экран"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:305
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:314
 msgid ""
 "No WAN firewall zone found in /etc/config/firewall. Configure zones under:"
 msgstr ""
 "WAN-зона межсетевого экрана не найдена в /etc/config/firewall. Настройте "
 "зоны в разделе:"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:300
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:309
 msgid "No WAN zone found"
 msgstr "WAN-зона не найдена"
 
@@ -558,11 +558,11 @@ msgstr "WAN-зона не найдена"
 msgid "No WAN zone found; cannot toggle logging without one."
 msgstr "WAN-зона не найдена; без неё нельзя переключить журналирование."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:269
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:278
 msgid "Not now"
 msgstr "Не сейчас"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:385
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:394
 msgid "Nothing changes until you click Enable logging."
 msgstr "Ничего не изменится, пока вы не нажмёте «Включить журналирование»."
 
@@ -574,19 +574,19 @@ msgstr "ВЫХОД"
 msgid "One line"
 msgstr "Одна строка"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:357
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:366
 msgid "Open firewall zone settings"
 msgstr "Открыть настройки зон файрвола"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:322
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:331
 msgid "OpenWrt 24.10 and older (opkg):"
 msgstr "OpenWrt 24.10 и старше (opkg):"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:326
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:335
 msgid "OpenWrt 25.12 and newer (apk):"
 msgstr "OpenWrt 25.12 и новее (apk):"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:365
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:374
 msgid ""
 "OpenWrt does not write firewall events to the log until you turn logging on. "
 "Live View only shows what the firewall already logs — it does not add allow/"
@@ -632,6 +632,10 @@ msgstr "Протокол — частые значения"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2819
 msgid "Quick search"
 msgstr "Быстрый поиск"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:243
+msgid "Rate limit:"
+msgstr "Ограничение частоты:"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:93
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:229
@@ -819,12 +823,12 @@ msgstr ""
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2603
 msgid ""
-"The rate shown for WAN logging is the firewall zone log_limit. OpenWrt "
-"defaults to 10/minute when no explicit limit is configured; fwlive does not "
-"impose this cap."
+"The rate shown for WAN logging is the WAN zone log_limit. If it is not "
+"configured, fw4 does not apply a rate limit; fwlive does not impose one."
 msgstr ""
-"Показанная частота WAN-журнала — log_limit зоны. По умолчанию OpenWrt: 10/"
-"мин без явного лимита; fwlive сам лимит не задаёт."
+"Отображаемая частота WAN-журналирования задаётся log_limit зоны WAN. Если он "
+"не настроен, fw4 не ограничивает частоту; fwlive не добавляет такое "
+"ограничение."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1741
 msgid "The router could not read the firewall log — retrying…"
@@ -853,11 +857,11 @@ msgstr ""
 msgid "Theme tint fallback"
 msgstr "Запасной цвет темы"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:419
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:428
 msgid "Then ping the router."
 msgstr "Затем отправьте ping на роутер."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:335
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:344
 msgid ""
 "This router reported a logging blocker that Live View does not recognize yet."
 msgstr ""
@@ -880,28 +884,28 @@ msgstr "Частые правила"
 msgid "Top talkers"
 msgstr "Частые источники"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:241
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:250
 msgid "Turn it back off with the WAN logging control on the watch strip."
 msgstr ""
 "Отключите её снова элементом управления журналом WAN на панели наблюдения."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:379
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:388
 msgid ""
 "Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → "
-"Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal "
-"LAN browsing is not logged."
+"Log). Without a configured WAN zone log_limit, fw4 does not limit the "
+"logging rate. Normal LAN browsing is not logged."
 msgstr ""
 "Включает журналирование drop/reject для WAN-зоны (как в Сеть → Межсетевой "
-"экран → wan → Журнал). Ограничено log_limit зоны (по умолчанию в OpenWrt 10/"
-"мин). Обычный LAN-трафик не журналируется."
+"экран → wan → Журнал). Если для WAN-зоны не настроен log_limit, fw4 не "
+"ограничивает частоту журналирования. Обычный LAN-трафик не журналируется."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:231
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:235
 msgid "Turns on logging for the WAN firewall zone and reloads the firewall."
 msgstr ""
 "Включает журналирование для WAN-зоны межсетевого экрана и перезагружает "
 "firewall."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:239
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:248
 msgid "Undo:"
 msgstr "Отмена:"
 
@@ -919,7 +923,7 @@ msgstr "Вид"
 msgid "WAN drop/reject logging is off."
 msgstr "Журналирование drop/reject для WAN отключено."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:346
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:355
 msgid ""
 "WAN drop/reject logging is on. Blocked inbound WAN traffic will show up "
 "here. Normal LAN browsing will not."
@@ -940,16 +944,16 @@ msgstr ""
 msgid "WAN logging is already enabled."
 msgstr "WAN-журналирование уже включено."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:175
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:179
 msgid "WAN logging on"
 msgstr "WAN-журнал: ВКЛ"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:184
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:188
 msgid "WAN logging on (%s). Click to disable."
 msgstr "WAN-журнал: ВКЛ (%s). Нажмите, чтобы отключить."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:162
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:332
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:341
 msgid "WAN logging unavailable"
 msgstr "WAN-журналирование недоступно"
 
@@ -961,7 +965,7 @@ msgstr "WAN-журналирование недоступно: отсутств�
 msgid "WAN logging unavailable: no WAN zone"
 msgstr "WAN-журналирование недоступно: нет зоны WAN"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:342
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:351
 msgid "Waiting for firewall events"
 msgstr "Ожидание событий межсетевого экрана"
 
@@ -969,6 +973,13 @@ msgstr "Ожидание событий межсетевого экрана"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2666
 msgid "Watching"
 msgstr "Наблюдение"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:245
+msgid ""
+"Without a configured WAN zone log_limit, fw4 does not limit the logging rate."
+msgstr ""
+"Если для WAN-зоны не настроен log_limit, fw4 не ограничивает частоту "
+"журналирования."
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2768
 msgid "Wrap"
@@ -990,10 +1001,6 @@ msgstr "буфер заполнен"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:38
 msgid "contains"
 msgstr "содержит"
-
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:169
-msgid "default 10/minute"
-msgstr "по умолчанию 10/мин"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1296
 msgid "display limited to %d rows"
@@ -1125,13 +1132,20 @@ msgstr "обновление таблицы ограничено"
 msgid "unknown"
 msgstr "неизвестно"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:173
+msgid "unlimited (not configured)"
+msgstr "без ограничения (не настроено)"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:782
 msgid "using fw4"
 msgstr "используется fw4"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:176
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:180
 msgid "· %s"
 msgstr "· %s"
+
+#~ msgid "default 10/minute"
+#~ msgstr "по умолчанию 10/мин"
 
 #~ msgid ""
 #~ "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for "

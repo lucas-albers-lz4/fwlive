@@ -166,7 +166,11 @@ function appendBlockerStatus(host, blocker, st) {
 
 function appendWanLogDisableControl(host, state, callbacks) {
 	const st = state.loggingStatus;
-	const limit = st.wan_log_limit || _('default 10/minute');
+	const configuredLimit = st.wan_log_limit;
+	const limit =
+		configuredLimit != null && configuredLimit !== ''
+			? configuredLimit
+			: _('unlimited (not configured)');
 	const busy = !!state.loggingBusy;
 	const children = busy
 		? [_('Disabling…')]
@@ -234,6 +238,11 @@ function buildConsentPanel(state, callbacks) {
 				E('strong', {}, [_('Does not change:')]),
 				' ',
 				_('Allow/deny rules, LAN logging, or anything else.')
+			]),
+			E('li', {}, [
+				E('strong', {}, [_('Rate limit:')]),
+				' ',
+				_('Without a configured WAN zone log_limit, fw4 does not limit the logging rate.')
 			]),
 			E('li', {}, [
 				E('strong', {}, [_('Undo:')]),
@@ -376,7 +385,7 @@ function buildEmptyStateNodes(state, callbacks) {
 	nodes.push(
 		E('p', {}, [
 			_(
-				'Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal LAN browsing is not logged.'
+				'Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → Log). Without a configured WAN zone log_limit, fw4 does not limit the logging rate. Normal LAN browsing is not logged.'
 			)
 		])
 	);

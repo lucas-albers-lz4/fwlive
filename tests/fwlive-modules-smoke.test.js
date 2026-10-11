@@ -322,8 +322,21 @@ assert.strictEqual(bar.childNodes[0].tagName, 'button');
 assert.ok(String(bar.childNodes[0]._attrs['class']).indexOf('fwlive-log-merged') >= 0);
 const onText = collectText(bar.childNodes[0]);
 assert.ok(onText.indexOf('WAN logging on') >= 0);
-assert.ok(onText.indexOf('default 10/minute') >= 0);
+assert.ok(onText.indexOf('unlimited (not configured)') >= 0);
 assert.strictEqual(bar.childNodes[0]._innerHTMLWrites.length, 0, 'merged control uses text nodes');
+
+const consentHost = luciE.E('div', {}, []);
+logging.renderEmptyState(
+	consentHost,
+	{
+		loggingStatus: { wan_log: false, wan_log_limit: null, blockers: [] },
+		showConsent: true,
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+assert.ok(collectText(consentHost).indexOf('Without a configured WAN zone log_limit, fw4 does not limit the logging rate.') >= 0);
 
 logging.renderToolbar(
 	bar,
