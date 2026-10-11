@@ -192,19 +192,23 @@ validate_matrix_wait_ssh() {
 
 VALIDATE_MATRIX_BUILT_ARTIFACT=
 
-validate_matrix_sdk_build() {
-	local sdk_target="$1" version_key="$2" root package_arch version_label dest
+validate_matrix_select_cell_artifact() {
+	local sdk_target="$1" version_key="$2" dest
 	local -a artifacts=()
+	sdk_matrix_resolve "$sdk_target" "$version_key"
+	dest="$SDK_MATRIX_OUT_DIR"
+	sdk_matrix_out_package_candidates "$dest" artifacts
+	[[ ${#artifacts[@]} -eq 1 && -f "${artifacts[0]}" ]] \
+		|| validate_matrix_die "expected exactly one package for ${sdk_target}/${version_key} under ${dest}; found ${#artifacts[@]}"
+	printf '%s' "${artifacts[0]}"
+}
+
+validate_matrix_sdk_build() {
+	local sdk_target="$1" version_key="$2" root
 	VALIDATE_MATRIX_BUILT_ARTIFACT=
 	root="$(validate_matrix_root)"
 	"${root}/scripts/docker-sdk.sh" build --target "$sdk_target" --version "$version_key"
-	package_arch="$(sdk_matrix_package_arch "$sdk_target")"
-	version_label="$(sdk_matrix_version_label "$version_key")"
-	dest="${root}/out/${package_arch}/${version_label}"
-	sdk_matrix_out_package_candidates "$dest" artifacts
-	[[ ${#artifacts[@]} -eq 1 && -f "${artifacts[0]}" ]] \
-		|| validate_matrix_die "expected exactly one package built for ${sdk_target}/${version_key} under ${dest}; found ${#artifacts[@]}"
-	VALIDATE_MATRIX_BUILT_ARTIFACT="${artifacts[0]}"
+	VALIDATE_MATRIX_BUILT_ARTIFACT="$(validate_matrix_select_cell_artifact "$sdk_target" "$version_key")"
 }
 
 validate_matrix_install_ipk() {
@@ -256,7 +260,8 @@ validate_matrix_run_cell() {
 		validate_matrix_sdk_build "$sdk_target" "$version_key"
 		artifact="$VALIDATE_MATRIX_BUILT_ARTIFACT"
 	else
-		artifact=
+		echo "→ select existing artifact for ${sdk_target}/${version_key}..." >&2
+		artifact="$(validate_matrix_select_cell_artifact "$sdk_target" "$version_key")"
 	fi
 
 	if [[ ! -f "$img" ]]; then

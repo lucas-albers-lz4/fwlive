@@ -1,9 +1,11 @@
 # Security review state
 
-**2026-10-10 #1197 scoped delta.** Matrix validation now passes the exact
-package path produced for the requested SDK target/version to the guest
-installer, rather than re-discovering a potentially stale artifact. The host
-contract test checks target/version selection and install-argument propagation;
+**2026-10-10 #1197 scoped delta.** Matrix validation selects exactly one
+package from the requested SDK target/version cell for both build and
+`--skip-build`, then passes that path to the guest installer. SDK builds clear
+stale package outputs before compiling so persistent volumes cannot contribute
+older versioned artifacts. Host contract tests cover exact-cell selection,
+missing/multiple candidates, APK selection, and install-argument propagation;
 no SDK build or QEMU install was run. This is scoped release-pipeline evidence,
 not a full release or signing audit.
 
