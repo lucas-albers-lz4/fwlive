@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Preserve startup poll errors when LuCI initializes the footer after `load()` (#1196).
+- Split the payload README backend bullet into a 23.05+ support floor and separate `nft` detection (no release-version probe) (#1212).
 
 ## [v0.1.52] — 2026-10-06
 

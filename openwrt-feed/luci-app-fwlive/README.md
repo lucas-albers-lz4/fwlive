@@ -43,7 +43,8 @@ No `luasrc/` — modern JS-only app.
 - Optional reverse DNS uses BusyBox `nslookup` (stock image; not a package depend)
 - No hard `firewall4` dependency
 - Menu depends on ACL only (no `fs` AND of `nft`+`iptables` — that hid the entry on stock fw3 and fw4)
-- Runtime backend detection selects **fw4/nft** on supported **23.05+** images; log lines tagged **iptables** still classify. OpenWrt **21.02** / **22.03** are unsupported
+- Support floor: OpenWrt **23.05+**. **21.02** / **22.03** are unsupported.
+- Backend detection uses `nft` (present, and `nft list ruleset` succeeds), not the image release version. Log lines tagged **iptables** still classify.
 
 The rpcd plugin invokes its read helpers directly and does not require GNU
 `timeout`. The `log.read` ubus invocation uses ubus's native five-second reply
