@@ -9,12 +9,15 @@ and verifies the result afterward, because supported UCI versions can return
 success despite an internal revert failure. The CLI offers no atomic
 compare-and-revert; a same-option write in the final read-to-revert gap remains
 tracked by #1224. Host tests cover set/delete rollback races, ambiguous scalar
-and list deltas, and zero-exit/no-op revert behavior. A QEMU UCI smoke script
-isolates the config and override directories and refuses an ambient
-`/tmp/.uci/firewall` delta; it was not run because SSH to `127.0.0.1:2222` was
-refused. Actual option-scoped revert behavior on OpenWrt 24.10/25.12 remains
-unverified. This is scoped host/source evidence, not a full source or
-installed-router audit.
+and list deltas, and zero-exit/no-op revert behavior. The real-UCI smoke passed
+on isolated x86 QEMU guests running OpenWrt 24.10.8 and 25.12.5. For each,
+the PR helper was copied to `/usr/libexec/fwlive-logging.sh` and
+`scripts/qemu-uci-stage-revert-smoke.sh` exercised real UCI set cleanup with a
+foreign delta, delete cleanup, list `+=`/`-=` preservation, and ambiguous
+same-option preservation. The smoke isolates config/override/delta directories
+and refuses an ambient `/tmp/.uci/firewall` delta. This is supported-image UCI
+behavior evidence, not a full source or installed-router audit; package
+build/install evidence is recorded separately on #1214.
 
 **2026-10-05 #1177/#1178/#1180 scoped delta.** Raced-disable baseline
 retirement now uses the reporting function's positional zone rather than the
