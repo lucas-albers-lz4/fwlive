@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Preserve startup poll errors when LuCI initializes the footer after `load()` (#1196).
+
 ## [v0.1.52] — 2026-10-06
 
 ### Fixed

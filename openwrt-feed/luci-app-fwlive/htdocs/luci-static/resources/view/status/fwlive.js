@@ -2932,8 +2932,6 @@ return view.extend({
 		this.hostnameCache = new Map();
 		this.hostnameFailed = new Map();
 		this.resolveGeneration = 0;
-		this.lastPollError = false;
-		this.lastPollErrorCode = null;
 		this.applyHash();
 		this.attachHandlers();
 		this.applyRowTintMode();

@@ -233,11 +233,11 @@
 			pollCoordinator, renderPolicy, renderScheduler, E, gettext, document, window, localStorage
 		);
 
+		await viewDesc.load();
 		const mount = document.getElementById('fwlive-app');
 		const root = viewDesc.render();
 		mount.appendChild(root);
 		viewDesc.addFooter();
-		await viewDesc.load();
 		viewDesc.renderRows(true);
 
 		window.fwliveView = viewDesc;
