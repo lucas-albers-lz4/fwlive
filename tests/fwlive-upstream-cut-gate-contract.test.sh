@@ -143,8 +143,9 @@ for fn in upstream_cut_verify_readme_rows upstream_cut_verify_artifacts upstream
     : >"$marker"
   ) >"$WORK/$fn.failure.log" 2>&1
   rc=$?
-  [ "$rc" -ne 0 ] && [ ! -e "$marker" ] \
-    || { echo "FATAL: $fn failure did not reach the cut's nonzero guard" >&2; exit 2; }
+  [ "$rc" -eq 1 ] && [ ! -e "$marker" ] \
+    && grep -Fq -- 'Upstream cut FAILED — fix the checks above.' "$WORK/$fn.failure.log" \
+    || { echo "FATAL: $fn failure did not reach the cut's final exit guard" >&2; exit 2; }
 done
 
 # The symlink guard lives inside the rewrite function and relies on errexit at
@@ -170,7 +171,8 @@ rm -f "$marker"
   : >"$marker"
 ) >"$WORK/no-symlink-failure.log" 2>&1
 rc=$?
-[ "$rc" -ne 0 ] && [ ! -e "$marker" ] \
+[ "$rc" -eq 1 ] && [ ! -e "$marker" ] \
+  && grep -Fq -- 'Upstream cut FAILED — remove symlinks from the package tree before rewriting.' "$WORK/no-symlink-failure.log" \
   || { echo "FATAL: no_symlinks failure did not abort the rewrite" >&2; exit 2; }
 echo "gate wiring and failure propagation checks passed"
 
