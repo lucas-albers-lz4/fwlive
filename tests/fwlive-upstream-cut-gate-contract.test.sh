@@ -35,7 +35,7 @@ JS=htdocs/luci-static/resources/fwlive
 CAPTURE=0
 [ "${1:-}" = "--capture" ] && CAPTURE=1
 
-WORK=$(mktemp -d)
+WORK=$(mktemp -d) || exit 2
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/bin"
 

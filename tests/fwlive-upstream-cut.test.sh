@@ -298,7 +298,23 @@ for fence_case in unterminated mismatched suffix; do
 	fi
 	grep -q 'unterminated code fence' "$FX/$fence_case-fence-readme.err" \
 		|| die "$fence_case fence failure did not identify the unclosed fence"
+	if grep -q 'names a path the cut does not ship' "$FX/$fence_case-fence-readme.err"; then
+		die "$fence_case fence content was parsed as Path/Role inventory"
+	fi
 done
+cat > "$FX/out/README.md" <<'EOF'
+| Path | Role |
+| --- | --- |
+| `Makefile` | shipped |
+
+~~~text`info
+| Path | Role |
+| --- | --- |
+| `missing-inside-tilde-fence.js` | example |
+~~~
+EOF
+upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
+	|| die "README path verifier rejected a tilde opener with a backtick in its info string"
 printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n```text`x\n| Path | Role |\n| --- | --- |\n| `missing-after-invalid-fence.js` | orphan |\n```\n' \
 	>"$FX/out/README.md"
 if upstream_cut_verify_readme_rows "$FX/out" >"$FX/invalid-backtick-fence.err" 2>&1; then
