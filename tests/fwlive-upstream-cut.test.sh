@@ -270,6 +270,61 @@ printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n| Path | Rol
 	>"$FX/out/README.md"
 upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
 	|| die "README path verifier rejected repeated valid tables at EOF"
+printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n```text\n| Path | Role |\n| --- | --- |\n| `Makefile` | example |\n```\n\n| Path | Role |\n| --- | --- |\n| `missing-after-fence.js` | orphan |\n' \
+	>"$FX/out/README.md"
+upstream_cut_verify_readme_rows "$FX/out" >"$FX/closed-fence-readme.err" 2>&1 \
+	&& die "README path verifier ignored a second Path/Role table after a closed fence"
+grep -q 'names a path the cut does not ship' "$FX/closed-fence-readme.err" \
+	|| die "closed-fence README failure did not report the later missing path"
+for fence_case in unterminated mismatched suffix; do
+	case "$fence_case" in
+		unterminated)
+			fence_open='```text'
+			fence_close=''
+			;;
+		mismatched)
+			fence_open='````text'
+			fence_close='```'
+			;;
+		suffix)
+			fence_open='```text'
+			fence_close='```not-a-closer'
+			;;
+	esac
+	printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n%s\n| Path | Role |\n| --- | --- |\n| `missing-after-fence.js` | orphan |\n%s\n' \
+		"$fence_open" "$fence_close" >"$FX/out/README.md"
+	if upstream_cut_verify_readme_rows "$FX/out" >"$FX/$fence_case-fence-readme.err" 2>&1; then
+		die "README path verifier accepted a $fence_case code fence"
+	fi
+	grep -q 'unterminated code fence' "$FX/$fence_case-fence-readme.err" \
+		|| die "$fence_case fence failure did not identify the unclosed fence"
+	if grep -q 'names a path the cut does not ship' "$FX/$fence_case-fence-readme.err"; then
+		die "$fence_case fence content was parsed as Path/Role inventory"
+	fi
+done
+cat > "$FX/out/README.md" <<'EOF'
+| Path | Role |
+| --- | --- |
+| `Makefile` | shipped |
+
+~~~text`info
+| Path | Role |
+| --- | --- |
+| `missing-inside-tilde-fence.js` | example |
+~~~
+EOF
+upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
+	|| die "README path verifier rejected a tilde opener with a backtick in its info string"
+printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n```text`x\n| Path | Role |\n| --- | --- |\n| `missing-after-invalid-fence.js` | orphan |\n```\n' \
+	>"$FX/out/README.md"
+if upstream_cut_verify_readme_rows "$FX/out" >"$FX/invalid-backtick-fence.err" 2>&1; then
+	die "README path verifier accepted an invalid backtick fence hiding a path table"
+fi
+grep -q 'invalid backtick code fence opener' "$FX/invalid-backtick-fence.err" \
+	|| die "invalid backtick fence opener was not identified"
+grep -q 'names a path the cut does not ship' "$FX/invalid-backtick-fence.err" \
+	|| die "README path verifier skipped inventory rows after an invalid fence opener"
+ok "README path verifier rejects invalid, unclosed, and mismatched fences"
 printf '| Path | Role |\n| --- | --- |\n| `Makefile` | shipped |\n\n| Token | Meaning |\n| --- | --- |\n| `x` | ordinary code span |\n' \
 	>"$FX/out/README.md"
 upstream_cut_verify_readme_rows "$FX/out" >/dev/null 2>&1 \
@@ -382,6 +437,20 @@ if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-string-comment.err" 2>&1; t
 fi
 grep -q 'numeric tracker reference #333333' "$FX/css-string-comment.err" \
 	|| die "css.js styleText comment tracker was not reported"
+for fake_style in block line midline regex label; do
+	case "$fake_style" in
+		block) printf '/* styleText: "color: #333333" */\n' >"$FX/out/$REL/css.js" ;;
+		line) printf '// styleText: "color: #333333"\n' >"$FX/out/$REL/css.js" ;;
+		midline) printf 'var note = 1; /* styleText: "color: #333333" */\n' >"$FX/out/$REL/css.js" ;;
+		regex) printf 'const re = /{styleText: "color: #333333"}/;\n' >"$FX/out/$REL/css.js" ;;
+		label) printf 'styleText: "color: #333333";\n' >"$FX/out/$REL/css.js" ;;
+	esac
+	if upstream_cut_verify_artifacts "$FX/out" >"$FX/css-comment-style-$fake_style.err" 2>&1; then
+		die "artifact scanner exempted a tracker in a non-code $fake_style styleText token"
+	fi
+	grep -q 'numeric tracker reference #333333' "$FX/css-comment-style-$fake_style.err" \
+		|| die "css.js $fake_style tracker was not reported"
+done
 rm "$FX/out/$REL/css.js"
 cat >"$FX/out/$REL/css.js" <<'EOF'
 return baseclass.extend({

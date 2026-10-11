@@ -33,6 +33,27 @@ and refuses an ambient `/tmp/.uci/firewall` delta. This is supported-image UCI
 behavior evidence, not a full source or installed-router audit; package
 build/install evidence is recorded separately on #1214.
 
+**2026-10-10 #1206 scoped delta.** Invalid backtick openers do not enter fence
+mode, so subsequent README inventory rows remain subject to validation. A
+properly closed fence skips its contents and validation resumes afterward. An
+unterminated or mismatched fence fails the cut at EOF; rows inside that open
+fence are not parsed. Tilde fences may contain backticks in their info strings,
+as CommonMark specifies. Host regression cases are in
+`tests/fwlive-upstream-cut.test.sh`; the contract harness exits if its
+`mktemp -d` workspace cannot be created. No live release or installed-router
+check was run. This is scoped gate evidence, not a full release-pipeline audit.
+
+**2026-10-10 #1207 scoped delta.** The `css.js` color exemption now applies
+only to the generated `styleText` declaration in its supported object shape,
+after JS comments and string/template bodies are masked. Regex source remains
+scanned; it cannot itself form the required multiline carrier shape. Host
+regression cases include the supported shape inside a block comment/template,
+fake carriers, and valid generated color literals. No live release or
+installed-router check was run; this is not a full release-pipeline audit.
+**Non-findings:** No workflow inputs, signing keys or publish secrets, ACLs,
+rpcd methods, package hooks, or shipped router runtime code changed; this pass
+covers source-tree cut validation only.
+
 **2026-10-05 #1177/#1178/#1180 scoped delta.** Raced-disable baseline
 retirement now uses the reporting function's positional zone rather than the
 caller-global zone; generation, lock, UCI, and reload gates are unchanged. The
@@ -779,6 +800,8 @@ change. This scoped smoke review is not a full security audit.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
+| Release pipeline — upstream-cut README fence boundary | 2026-10-11 | Scoped source + host tests | #1206 flags invalid backtick openers and checks following Path/Role rows. Properly closed fences skip their contents and later rows remain checked; unterminated or mismatched fences fail at EOF without parsing rows inside the open fence. Tilde info strings may contain backticks. `tests/fwlive-upstream-cut.test.sh` covers these boundaries; no installed-router or release run. |
+| Release pipeline — upstream-cut CSS exemption boundary | 2026-10-11 | Scoped source + host tests | #1207 masks JS comments and string/template bodies before shape matching; regex source remains scanned and cannot supply the multiline carrier shape. Only the generated `styleText` declaration receives the hex-color exemption. `tests/fwlive-upstream-cut-gate-contract.test.sh` covers wrapped fake carriers, fake values, and accepted literals; no installed-router or release run. |
 | Release pipeline — matrix artifact identity | 2026-10-11 | Scoped source + host test + 24.10.8 SDK/QEMU validation | Validation requires exactly one package in the requested target/version output and passes its exact path to install. `tests/validate-matrix-artifact.test.sh` covers exact-cell selection, propagation, and stale cleanup before compile. `validate-openwrt.sh --version 24.10 --qemu-target x86 --sdk-target armsr-armv8 --skip-baseline` built/selected the 24.10.8 SDK artifact, installed it into an OpenWrt 24.10.8 x86 guest, and passed smoke. Other SDK cells and QEMU architectures were not run. |
 | Frontend rendering sinks (`E()` string children) | 2026-10-02 | Scoped delta (full source pass 2026-10-01) | #1129: action label is static translated text; filter values remain array children. Recording harness and mocked Chromium role/name keyboard smoke passed; no installed guest or assistive-technology proof. |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-10-01 | Full source + scoped fresh proof | Full source-to-sink trace across parser, view, chips, links, labels, caches and summaries. Host hostile-input checks passed; no new injection mechanism confirmed. Backend reply-size dependence remains an explicit limit. |

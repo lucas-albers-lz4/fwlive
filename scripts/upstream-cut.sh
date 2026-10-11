@@ -406,15 +406,21 @@ saw_path_header = False
 fence = None
 resolved_out = out.resolve()
 for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
-    fence_match = re.match(r'^ {0,3}(`{3,}|~{3,})', line)
+    fence_match = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
     if fence is not None:
-        if (fence_match and fence_match.group(1)[0] == fence[0]
-                and len(fence_match.group(1)) >= fence[1]):
+        fence_close = re.match(r'^ {0,3}(`{3,}|~{3,})[ \t]*$', line)
+        if (fence_close and fence_close.group(1)[0] == fence[0]
+                and len(fence_close.group(1)) >= fence[1]):
             fence = None
         continue
     if fence_match:
-        fence = (fence_match.group(1)[0], len(fence_match.group(1)))
-        continue
+        marker = fence_match.group(1)
+        if marker[0] == '`' and '`' in fence_match.group(2):
+            unsupported.append('README has an invalid backtick code fence opener: %s'
+                               % line.strip())
+        else:
+            fence = (marker[0], len(marker))
+            continue
 
     cells = table_cells(line)
     if not in_path_table:
@@ -486,6 +492,8 @@ for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
 
 if need_delimiter:
     unsupported.append('Path/Role table is missing its delimiter row')
+if fence is not None:
+    unsupported.append('README contains an unterminated code fence')
 if parsed == 0:
     print('  FAIL: README path table has no parsed path rows')
 for path in unsupported:
@@ -750,6 +758,30 @@ def mask_js_noncode(text):
         index += 1
     return ''.join(chars)
 
+def mask_css_carrier_declaration(text):
+    # The generated carrier has one property in a three-line object shape.
+    # Keep only that property line visible to color-context matching; labels,
+    # regex literals, and unrelated declarations are never color exemptions.
+    lines = mask_js_noncode(text).splitlines(keepends=True)
+    allowed = set()
+    for index in range(1, len(lines) - 1):
+        previous = lines[index - 1].rstrip('\r\n')
+        current = lines[index].rstrip('\r\n')
+        following = lines[index + 1].rstrip('\r\n')
+        if (re.fullmatch(r'[ \t]*return\s+baseclass\.extend\(\{[ \t]*', previous)
+                and re.fullmatch(r'[ \t]*styleText[ \t]*:[ \t]*', current)
+                and re.fullmatch(r'[ \t]*\}\);[ \t]*', following)):
+            allowed.add(index)
+
+    result = []
+    for index, line in enumerate(lines):
+        if index in allowed:
+            result.append(line)
+            continue
+        content = line.rstrip('\r\n')
+        result.append(' ' * len(content) + line[len(content):])
+    return ''.join(result)
+
 def color_spans(line, suffix, relative, color_line=None):
     # Real CSS assets carry color syntax directly; fwlive embeds its stylesheet
     # and tint palette in two JavaScript modules, so inspect only their literal
@@ -764,13 +796,17 @@ def color_spans(line, suffix, relative, color_line=None):
 
     if relative == css_carrier:
         # embed-fwlive-css.js emits one JSON.stringify double-quoted literal on
-        # one source line. Other shapes are deliberately left unexempted, so a
-        # numeric CSS color there fails closed instead of hiding tracker text.
-        style = re.search(r'\bstyleText\s*:\s*("(?:\\.|[^"\\])*")', line)
+        # one source line. Find the declaration in JS code, not in a comment;
+        # then use its source offsets to inspect the corresponding raw literal.
+        code_line = line if color_line is None else color_line
+        prop = re.search(r'^\s*styleText\s*:', code_line)
+        if not prop:
+            return []
+        style = re.match(r'\s*("(?:\\.|[^"\\])*")', line[prop.end():])
         if not style:
             return []
         content = style.group(1)[1:-1]
-        offset = style.start(1) + 1
+        offset = prop.end() + style.start(1) + 1
         spans = []
         for match in hex_color.finditer(content):
             if not color_value_context(content, match):
@@ -830,6 +866,8 @@ for path in sorted(root.rglob('*')):
     relative = path.relative_to(root).as_posix()
     if path.suffix.lower() == '.css':
         color_scan_text = mask_css_comments(text)
+    elif relative == css_carrier:
+        color_scan_text = mask_css_carrier_declaration(text)
     elif relative == tint_carrier:
         color_scan_text = mask_js_noncode(text)
     else:

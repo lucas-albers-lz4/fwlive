@@ -16,14 +16,8 @@
 # files it was written for. Mutations are appended, never applied to a palette
 # literal, so a legitimate recolour cannot turn this test red.
 #
-# Known escapes the gate still has, tracked as issues and NOT asserted here
-# (asserting them now would make this test red on master):
-#   * an unterminated or closed code fence hides a later Path/Role table   (#1206)
-#   * css.js is scanned unmasked, so a `styleText:` token inside a JS      (#1207)
-#     comment earns the colour exemption (tint.js is masked)
-#   * any --custom-property fallback is exempted, not only --fwlive-*      (#1208)
-# Their fixtures live on those issues and the cases land with the fixes, so this
-# test cannot pass while those escapes exist.
+# Known remaining exception tracked for follow-up and NOT asserted here:
+#   * any --custom-property fallback is exempted, not only --fwlive-* (#1208)
 #
 # Scope: the gate functions, driven against a minimal clean artifact tree. The
 # end-to-end run (real subtree split, real rewrites, real git refs) stays in
@@ -41,7 +35,7 @@ JS=htdocs/luci-static/resources/fwlive
 CAPTURE=0
 [ "${1:-}" = "--capture" ] && CAPTURE=1
 
-WORK=$(mktemp -d)
+WORK=$(mktemp -d) || exit 2
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/bin"
 
@@ -275,18 +269,48 @@ d=$(m r-abs);            printf '| `/etc/passwd` | X |\n' >> "$d/README.md";    
 d=$(m r-traverse);       printf '| `../secret` | X |\n' >> "$d/README.md";                      check_diag R-traverse 1 'resolves outside the cut artifact' G_readme "$d"
 
 echo "-- artifact scan gate --"
+css_carrier() {
+	printf 'return baseclass.extend({\n\tstyleText: "color: %s"\n});\n' "$1" > "$2/$JS/css.js"
+}
 check A-ok              0 G_art "$WORK/out"
 d=$(m a-tracker);          printf '// see #1234\n' >> "$d/$JS/tint.js";                          check A-tracker           1 G_art "$d"
 d=$(m a-tracker-6);        printf '// see #333333\n' >> "$d/$JS/tint.js";                        check A-tracker-6         1 G_art "$d"
 d=$(m a-tracker-css);      sed_assert 's/$/\n\/\/ palette #123456/' "$d/$JS/css.js" '#123456' A-tracker-css \
                            && check A-tracker-css  1 G_art "$d"
 d=$(m a-tracker-noncarrier); printf 'var x = "#123456"; // ref\n' > "$d/$JS/log.js";             check A-tracker-noncarrier 1 G_art "$d"
-d=$(m a-hex-palette);      printf 'var _probe = { styleText: "color: #333333" };\n' >> "$d/$JS/css.js"; check A-hex-palette 0 G_art "$d"
-d=$(m a-hex-tint);         printf "var T_PROBE_HEX = '#333333';\n" >> "$d/$JS/tint.js";         check A-hex-tint          0 G_art "$d"
-d=$(m a-hex-3);            printf 'var _probe = { styleText: "color: #123" };\n' >> "$d/$JS/css.js"; check A-hex-3        0 G_art "$d"
-d=$(m a-hex-4);            printf 'var _probe = { styleText: "color: #1234" };\n' >> "$d/$JS/css.js"; check A-hex-4       0 G_art "$d"
+d=$(m a-hex-palette)
+css_carrier '#333333' "$d"
+check A-hex-palette 0 G_art "$d"
+d=$(m a-hex-tint); printf "var T_PROBE_HEX = '#333333';\n" >> "$d/$JS/tint.js"; check A-hex-tint 0 G_art "$d"
+d=$(m a-hex-3)
+css_carrier '#123' "$d"
+check A-hex-3 0 G_art "$d"
+d=$(m a-hex-4)
+css_carrier '#1234' "$d"
+check A-hex-4 0 G_art "$d"
+d=$(m a-hex-8)
+css_carrier '#12345678' "$d"
+check A-hex-8 0 G_art "$d"
+d=$(m a-hex-fake-carrier)
+printf 'var _probe = { styleText: "color: #333333" };\n' > "$d/$JS/css.js"
+check A-hex-fake-carrier 1 G_art "$d"
+d=$(m a-hex-comment-carrier)
+cat > "$d/$JS/css.js" <<'EOF'
+/*
+return baseclass.extend({
+	styleText: "color: #1234"
+});
+*/
+EOF
+check A-hex-comment-carrier 1 G_art "$d"
+d=$(m a-hex-template-carrier)
+cat > "$d/$JS/css.js" <<'EOF'
+const fake = `return baseclass.extend({
+	styleText: "color: #1234"
+});`;
+EOF
+check A-hex-template-carrier 1 G_art "$d"
 d=$(m a-short-hex-negative); printf '// see #123 outside colour context\n' >> "$d/$JS/css.js"; check A-short-hex-negative 1 G_art "$d"
-d=$(m a-hex-8);            printf 'var _probe = { styleText: "color: #12345678" };\n' >> "$d/$JS/css.js"; check A-hex-8   0 G_art "$d"
 # Same value with no colour context: the exemption must stay narrow.
 d=$(m a-probe-neg);        printf 'var _probe = { color: "#333333" };\n' >> "$d/$JS/css.js";     check A-probe-neg         1 G_art "$d"
 d=$(m a-monorepo);         printf '// see openwrt-feed/README.md\n'      >> "$d/$JS/tint.js";    check A-monorepo          1 G_art "$d"
