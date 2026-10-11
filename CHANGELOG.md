@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Preserve startup poll errors when LuCI initializes the footer after `load()` (#1196).
 - Split the payload README backend bullet into a 23.05+ support floor and separate `nft` detection (no release-version probe) (#1212).
+- Clarify uninstall restores the WAN log mask without fwlive's owned bit, preserving unrelated bits (#1204).
 
 ## [v0.1.52] — 2026-10-06
 
