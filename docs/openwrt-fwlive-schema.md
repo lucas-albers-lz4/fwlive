@@ -18,10 +18,10 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 ## Normalized event (stage 2)
 
 - `id`: deterministic key for dedupe and stable row identity.
-- `timestamp`: **Unix epoch seconds** (integer) from log entry time.
-- `timestamp_display`: ISO-8601 in normalized JSON; LuCI renders local `YYYY-MM-DD HH:MM:SS` via `formatTimestampLocal()`.
+- `timestamp`: Unix epoch seconds when the entry time is valid; `null` when it is missing, invalid, or out of range.
+- `timestamp_display`: ISO-8601 in normalized JSON, or an empty string when `timestamp` is `null`; LuCI renders valid values as local `YYYY-MM-DD HH:MM:SS` via `formatTimestampLocal()`.
 - `action`: normalized enum: `pass`, `block`, `drop`, `reject`, or `unknown`.
-- `action_raw`: original token from the log line (`ACCEPT`, `DROP`, …).
+- `action_raw`: the action token from the log line (`ACCEPT`, `DROP`, …) when present. For tuple-only non-deny entries it can be inferred as `PASS`; when no action can be inferred safely it is `UNKNOWN`.
 - `rule_hint`: tag parsed from log prefix / nft `log prefix` (e.g. `fwlive-ping`, `fw4`, `fwlive-test`); empty when unknown.
 - `rule_label`: display label derived from `rule_hint` (UCI name resolve via `ubus fwlive rules`).
 - `interface`: `IN` or `OUT` (legacy convenience).
