@@ -1,5 +1,11 @@
 # Security review state
 
+**2026-10-10 #1206 scoped delta.** README Path/Role validation now rejects
+invalid backtick openers and unterminated/mismatched fences instead of allowing
+them to hide later path rows. Host regression cases are in
+`tests/fwlive-upstream-cut.test.sh`; no live release or installed-router check
+was run. This is scoped gate evidence, not a full release-pipeline audit.
+
 **2026-10-05 #1177/#1178/#1180 scoped delta.** Raced-disable baseline
 retirement now uses the reporting function's positional zone rather than the
 caller-global zone; generation, lock, UCI, and reload gates are unchanged. The
@@ -746,6 +752,7 @@ change. This scoped smoke review is not a full security audit.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
+| Release pipeline — upstream-cut README fence boundary | 2026-10-10 | Scoped source + host tests | #1206 rejects invalid, unterminated, and mismatched README code fences so later Path/Role rows remain checked. `tests/fwlive-upstream-cut.test.sh` covers the boundary; no installed-router or release run. |
 | Frontend rendering sinks (`E()` string children) | 2026-10-02 | Scoped delta (full source pass 2026-10-01) | #1129: action label is static translated text; filter values remain array children. Recording harness and mocked Chromium role/name keyboard smoke passed; no installed guest or assistive-technology proof. |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-10-01 | Full source + scoped fresh proof | Full source-to-sink trace across parser, view, chips, links, labels, caches and summaries. Host hostile-input checks passed; no new injection mechanism confirmed. Backend reply-size dependence remains an explicit limit. |
 | rpcd plugin + ACL scope | 2026-10-01 | Full source + scoped fresh proof | Full input/output/method/tempfile/control review; matched real jshn on all three supported pins. The #1059 host follow-up calls the shipped resolver through BusyBox ash with distinct IPv4 and IPv6 PTR fixtures, asserting exact lookup arguments and returned name maps. Fresh 24.10 grant/all-six-deny/read-only sessions and 25.12 read-only/all-six-deny checks; no session log.read. #1054 host coverage asserts native `ubus -t 5` argv and structured error handling only; it does not emulate a stalled service, and the native wait starts after object lookup without cancelling remote work. #1053 removed the GNU timeout wrappers and peer-drain. Direct-helper residual retained. |
