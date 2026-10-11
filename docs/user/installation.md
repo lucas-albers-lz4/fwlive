@@ -155,11 +155,13 @@ apk del luci-app-fwlive        # 25.12.x
 
 **Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package tries to restore the zone `log` value from before the first time you enabled logging via Live View. If you never used **Enable logging**, there is no baseline file and uninstall does not change firewall UCI.
 
-If logging was already on before fwlive saved its baseline, fwlive records an
-unset baseline. On uninstall, it removes the zone's `log` option; turn logging
-back on under **Network → Firewall** if you want it to remain enabled. Baseline
-saving is best effort. If fwlive cannot save the baseline, uninstall does not
-change the zone's `log` option, so logging remains enabled.
+When fwlive saves a baseline, it clears only its own filter-log bit from the
+saved mask. On uninstall, that mask is restored: unrelated `log` bits remain
+enabled, and the zone's `log` option is removed only when no bits remain. For
+example, an existing `log=3` is saved as `2` and restored as `2`; the multi-bit
+regression is covered in `tests/fwlive-logging.test.sh`. Baseline saving is
+best effort. If fwlive cannot save the baseline, uninstall does not change the
+zone's `log` option.
 
 The baseline file stays and a `fwlive` syslog notice is logged if restore cannot
 complete or be confirmed. This can happen when there is no WAN zone, the initial
