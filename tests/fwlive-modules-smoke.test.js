@@ -322,7 +322,7 @@ assert.strictEqual(bar.childNodes[0].tagName, 'button');
 assert.ok(String(bar.childNodes[0]._attrs['class']).indexOf('fwlive-log-merged') >= 0);
 const onText = collectText(bar.childNodes[0]);
 assert.ok(onText.indexOf('WAN logging on') >= 0);
-assert.ok(onText.indexOf('unlimited (not configured)') >= 0);
+assert.ok(onText.indexOf('no WAN rate limit configured') >= 0);
 assert.strictEqual(bar.childNodes[0]._innerHTMLWrites.length, 0, 'merged control uses text nodes');
 
 const consentHost = luciE.E('div', {}, []);
@@ -336,7 +336,35 @@ logging.renderEmptyState(
 	},
 	{ onEnable: function () {}, onDisable: function () {} }
 );
-assert.ok(collectText(consentHost).indexOf('Without a configured WAN zone log_limit, fw4 does not limit the logging rate.') >= 0);
+assert.ok(collectText(consentHost).indexOf('No WAN zone log_limit is configured.') >= 0);
+assert.ok(collectText(consentHost).indexOf('Kernel/logd may still constrain total log volume.') >= 0);
+
+const configuredConsentHost = luciE.E('div', {}, []);
+logging.renderEmptyState(
+	configuredConsentHost,
+	{
+		loggingStatus: { wan_log: false, wan_log_limit: '10/minute', blockers: [] },
+		showConsent: true,
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+assert.ok(collectText(configuredConsentHost).indexOf('Configured WAN zone log_limit: 10/minute.') >= 0);
+
+const configuredEmptyHost = luciE.E('div', {}, []);
+logging.renderEmptyState(
+	configuredEmptyHost,
+	{
+		loggingStatus: { wan_log: false, wan_log_limit: '10/minute', blockers: [] },
+		showConsent: false,
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+assert.ok(collectText(configuredEmptyHost).indexOf('Configured WAN zone log_limit: 10/minute.') >= 0);
+assert.strictEqual(collectText(configuredEmptyHost).indexOf('No WAN zone log_limit is configured.'), -1);
 
 logging.renderToolbar(
 	bar,

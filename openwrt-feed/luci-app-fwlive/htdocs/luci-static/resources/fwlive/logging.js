@@ -170,7 +170,7 @@ function appendWanLogDisableControl(host, state, callbacks) {
 	const limit =
 		configuredLimit != null && configuredLimit !== ''
 			? configuredLimit
-			: _('unlimited (not configured)');
+			: _('no WAN rate limit configured');
 	const busy = !!state.loggingBusy;
 	const children = busy
 		? [_('Disabling…')]
@@ -224,6 +224,17 @@ function renderToolbar(host, state, callbacks) {
 	appendLoggingNotice(host, state);
 }
 
+function wanLogLimitDescription(limit) {
+	if (limit != null && limit !== '')
+		return _(
+			'Configured WAN zone log_limit: %s. It limits only on fw4 builds that support it; kernel/logd may still constrain total log volume.'
+		).format(limit);
+
+	return _(
+		'No WAN zone log_limit is configured. Kernel/logd may still constrain total log volume.'
+	);
+}
+
 function buildConsentPanel(state, callbacks) {
 	const dontShowId = 'fwlive-consent-dont-show';
 	const panel = E('div', { 'class': 'fwlive-consent', 'id': 'fwlive-consent' }, [
@@ -242,7 +253,7 @@ function buildConsentPanel(state, callbacks) {
 			E('li', {}, [
 				E('strong', {}, [_('Rate limit:')]),
 				' ',
-				_('Without a configured WAN zone log_limit, fw4 does not limit the logging rate.')
+				wanLogLimitDescription(state.loggingStatus && state.loggingStatus.wan_log_limit)
 			]),
 			E('li', {}, [
 				E('strong', {}, [_('Undo:')]),
@@ -384,9 +395,11 @@ function buildEmptyStateNodes(state, callbacks) {
 
 	nodes.push(
 		E('p', {}, [
-			_(
-				'Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → Log). Without a configured WAN zone log_limit, fw4 does not limit the logging rate. Normal LAN browsing is not logged.'
-			)
+			_('Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → Log).'),
+			' ',
+			wanLogLimitDescription(st.wan_log_limit),
+			' ',
+			_('Normal LAN browsing is not logged.')
 		])
 	);
 	nodes.push(

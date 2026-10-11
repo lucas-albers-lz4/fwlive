@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Preserve startup poll errors when LuCI initializes the footer after `load()` (#1196).
-- Show WAN logging as unlimited when no zone `log_limit` is configured, matching fw4 behavior (#1203).
+- Show whether a WAN zone rate limit is configured without implying an overall volume cap; kernel/logd may still constrain total log volume (#1203).
 
 ## [v0.1.52] — 2026-10-06
 
