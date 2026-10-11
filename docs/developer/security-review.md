@@ -1,5 +1,6 @@
 # Security review state
 
+<<<<<<< HEAD
 **2026-10-10 #1199 scoped delta.** WAN-log toggle and reload-rollback staging
 require exactly one target-valued `firewall.<zone>.log` delta for the canonical
 zone before package-wide commit. Duplicate or ambiguous same-option edits fail
@@ -19,11 +20,11 @@ and refuses an ambient `/tmp/.uci/firewall` delta. This is supported-image UCI
 behavior evidence, not a full source or installed-router audit; package
 build/install evidence is recorded separately on #1214.
 
-**2026-10-10 #1206 scoped delta.** README Path/Role validation flags invalid
-backtick openers and continues checking later inventory rows. Unterminated or
-mismatched fences fail at EOF, but rows inside the still-open code block are
-not parsed. Tilde fences may contain backticks in their info strings, as
-CommonMark specifies. Host regression cases are in
+**2026-10-10 #1206 scoped delta.** Invalid backtick openers do not enter fence
+mode, so subsequent README inventory rows remain subject to validation. A valid
+but unterminated/mismatched fence fails the cut at EOF; its contents are not
+parsed as inventory rows. Tilde fences may contain backticks in their info
+strings, as CommonMark specifies. Host regression cases are in
 `tests/fwlive-upstream-cut.test.sh`; no live release or installed-router check
 was run. This is scoped gate evidence, not a full release-pipeline audit.
 
