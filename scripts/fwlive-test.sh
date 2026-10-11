@@ -91,6 +91,7 @@ bash "$ROOT/tests/fwlive-spdx-pot-gates.test.sh"
 echo "== fwlive upstream-cut invariants + .pot parity (#273) ==" >&2
 bash "$ROOT/tests/fwlive-upstream-cut.test.sh"
 bash "$ROOT/tests/fwlive-upstream-cut-mode.test.sh"
+bash "$ROOT/tests/fwlive-upstream-cut-gate-contract.test.sh"
 
 echo "== fwlive source-to-POT drift (#334 / #454) ==" >&2
 "$NODE" tests/fwlive-i18n-source.test.js
