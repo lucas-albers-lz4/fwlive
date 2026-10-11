@@ -172,8 +172,9 @@ d=$(m a-tracker-css);      sed_assert 's/$/\n\/\/ palette #123456/' "$d/$JS/css.
 d=$(m a-tracker-noncarrier); printf 'var x = "#123456"; // ref\n' > "$d/$JS/log.js";             check A-tracker-noncarrier 1 G_art "$d"
 d=$(m a-hex-palette);      printf 'var _probe = { styleText: "color: #333333" };\n' >> "$d/$JS/css.js"; check A-hex-palette 0 G_art "$d"
 d=$(m a-hex-tint);         printf "var T_PROBE_HEX = '#333333';\n" >> "$d/$JS/tint.js";         check A-hex-tint          0 G_art "$d"
-d=$(m a-hex-3);            printf 'var _probe = { styleText: "color: #abc" };\n' >> "$d/$JS/css.js"; check A-hex-3        0 G_art "$d"
-d=$(m a-hex-4);            printf 'var _probe = { styleText: "color: #abcd" };\n' >> "$d/$JS/css.js"; check A-hex-4       0 G_art "$d"
+d=$(m a-hex-3);            printf 'var _probe = { styleText: "color: #123" };\n' >> "$d/$JS/css.js"; check A-hex-3        0 G_art "$d"
+d=$(m a-hex-4);            printf 'var _probe = { styleText: "color: #1234" };\n' >> "$d/$JS/css.js"; check A-hex-4       0 G_art "$d"
+d=$(m a-short-hex-negative); printf '// see #123 outside colour context\n' >> "$d/$JS/css.js"; check A-short-hex-negative 1 G_art "$d"
 d=$(m a-hex-8);            printf 'var _probe = { styleText: "color: #12345678" };\n' >> "$d/$JS/css.js"; check A-hex-8   0 G_art "$d"
 # Same value with no colour context: the exemption must stay narrow.
 d=$(m a-probe-neg);        printf 'var _probe = { color: "#333333" };\n' >> "$d/$JS/css.js";     check A-probe-neg         1 G_art "$d"
