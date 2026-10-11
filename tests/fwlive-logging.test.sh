@@ -903,18 +903,17 @@ drive_toggle() {
 						# foreign delta visible from the second changes call on
 						[ "$_n" -ge 2 ] && printf "firewall.@rule[9].name='foreign'\n" ;;
 					post_stage_foreign)
-						# clean through pre-stage gates; foreign appears only
-						# once OUR log delta is staged (post-stage check)
-						if [ "$STAGED_PENDING" = 1 ]; then
-							printf "firewall.@rule[9].name='foreign'\n"
-						fi
+						# Foreign delta appears after our option is staged and
+						# remains visible after option-scoped revert.
+						[ "$_n" -ge 3 ] && printf "firewall.@rule[9].name='foreign'\n"
 						;;
 					post_stage_log_limit_foreign)
 						# Same window, but foreign touches log_limit — must not
 						# be mistaken for our log= delta (substring trap).
-						if [ "$STAGED_PENDING" = 1 ]; then
-							printf "firewall.@zone[0].log_limit='10/minute'\n"
-						fi
+						[ "$_n" -ge 3 ] && printf "firewall.@zone[0].log_limit='10/minute'\n"
+						;;
+					post_stage_same_option_foreign)
+						[ "$_n" -ge 3 ] && printf "firewall.@rule[9].name='foreign'\n"
 						;;
 					commit_fail_foreign)
 						# clean through pre-stage + post-stage gates (calls 1-3
@@ -929,6 +928,9 @@ drive_toggle() {
 				# Real `uci -q changes` also lists OUR staged delta once staged.
 				if [ "$STAGED_PENDING" = 1 ]; then
 					printf "firewall.@zone[0].log='%s'\n" "$STAGED_LOG"
+					[ "$mode" != post_stage_same_option_foreign ] \
+						|| [ "$_n" -lt 3 ] \
+						|| printf "firewall.@zone[0].log='9'\n"
 				fi
 				;;
 			'-q show firewall')
@@ -965,11 +967,6 @@ drive_toggle() {
 				STAGED_LOG="${2#*=}"
 				[ "${2:-}" = set ] && STAGED_LOG="${3#*=}"
 				STAGED_PENDING=1
-				# Matching committed value clears staging (real uci behaviour).
-				if [ "$STAGED_LOG" = "$CURRENT_LOG" ]; then
-					STAGED_LOG='__unset__'
-					STAGED_PENDING=0
-				fi
 				;;
 			'delete firewall.@zone[0].log'|'-q delete firewall.@zone[0].log')
 				[ "$mode" = uci_delete_fail ] && return 1
@@ -998,11 +995,10 @@ drive_toggle() {
 				CURRENT_LOG="$STAGED_LOG"
 				STAGED_PENDING=0
 				;;
-			*'revert firewall'*)
-				case "$mode" in
-					commit_fail_ours) REVERTED=1 ;;
-					*) die "#191: unexpected revert — abort/mismatch paths must not touch staging or committed data ($*)" ;;
-				esac
+			'-q revert firewall.@zone[0].log')
+				REVERTED=1
+				STAGED_LOG='__unset__'
+				STAGED_PENDING=0
 				;;
 			*) return 0 ;;
 		esac
@@ -1307,6 +1303,21 @@ esac
 [ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/post-stage-log_limit: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
 ok "#191 enable aborts on foreign log_limit staged after our set (exact log= match)"
 
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable post_stage_same_option_foreign
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#1199 same-option race: expected firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#1199 same-option race must not commit"
+[ "$STAGED_PENDING" = 1 ] || die "#1199 ambiguous same-option staging must be preserved"
+[ "${REVERTED:-0}" = 0 ] || die "#1199 ambiguous same-option staging was reverted"
+case "$LOGGER_MSGS" in
+	*'ambiguous staged log option'*) ;;
+	*) die "#1199 same-option race must log why staging was preserved: $LOGGER_MSGS" ;;
+esac
+ok "#1199 ambiguous same-option edits are preserved instead of reverted"
+
 printf '2' > "$WAN_LOG_BASELINE_FILE"
 FWLIVE_CURRENT_LOG=''
 drive_toggle enable verify_mismatch
@@ -1433,8 +1444,8 @@ esac
 ok "#618/#1126 failed restore set is not success and retains restore generation"
 
 # --- commit-failure paths (#191, CodeRabbit/luna fold) ---
-# Commit fails with a FOREIGN delta now visible: must NOT revert (config-wide
-# revert would clobber the other writer's staging); warn instead.
+# Commit fails with an unrelated foreign delta: revert only our uniquely
+# identifiable log option and preserve the other writer's staged change.
 FWLIVE_CURRENT_LOG=''
 generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle enable commit_fail_foreign
@@ -1442,14 +1453,20 @@ case "$OUT" in
 	*'"error":"uci_commit_failed"'*) ;;
 	*) die "#191 enable/commit-fail-foreign: expected error uci_commit_failed, got: $OUT" ;;
 esac
-[ "${REVERTED:-0}" = "0" ] || die "#191 enable/commit-fail-foreign: foreign staging was reverted"
+[ "${REVERTED:-0}" = "1" ] || die "#191 enable/commit-fail-foreign: owned log option was not reverted"
+case "$UCI_CALLS" in
+	*'revert firewall.@zone[0].log'*) ;;
+	*) die "#191 enable/commit-fail-foreign: missing option-scoped revert: $UCI_CALLS" ;;
+esac
+case "$UCI_CALLS" in
+	*'revert firewall|'*) die "#191 enable/commit-fail-foreign: config-wide revert used: $UCI_CALLS" ;;
+esac
 case "$LOGGER_MSGS" in
-	*'not reverting'*) ;;
-	*) die "#191 enable/commit-fail-foreign: missing not-reverting warning: $LOGGER_MSGS" ;;
+	*'ambiguous staged log option'*) die "#191 enable/commit-fail-foreign: unrelated foreign option made log delta ambiguous: $LOGGER_MSGS" ;;
 esac
 [ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 1))" ] \
 	|| die "#1126 failed commit must retain its generation advance"
-ok "#191/#1126 commit failure keeps foreign staging and advances intent generation"
+ok "#191/#1126 commit failure reverts only the owned log option and preserves unrelated staging"
 
 # Commit fails with ONLY our own delta staged: revert it so a later toggle is
 # not stuck on firewall_changes_pending from our orphaned write.
@@ -1885,8 +1902,17 @@ case "$_foreign" in
 esac
 _ours=$(wan_log_count_our_staged_lines '@zone[1]' "$_staged")
 [ "$_ours" = "1" ] || die "count_our_staged_lines expected 1, got '$_ours'"
+_target_delta="firewall.cfg03dc81.log='3'"
+wan_log_staged_option_matches_target '@zone[1]' 3 "$_target_delta" \
+	|| die "single expected UCI log delta was not recognized"
+wan_log_staged_option_matches_target '@zone[1]' '' '-firewall.cfg03dc81.log' \
+	|| die "single expected UCI log deletion was not recognized"
+_competing_delta="$_target_delta
+firewall.cfg03dc81.log='9'"
+wan_log_staged_option_matches_target '@zone[1]' 3 "$_competing_delta" \
+	&& die "competing same-option deltas must be treated as ambiguous"
 unset -f uci
-ok "wan_log staged-line helpers classify cfg id vs foreign lines"
+ok "wan_log staged-line helpers classify foreign and exact-owned log deltas"
 
 # B-1: duplicate name=wan zones must NOT be treated as the same section.
 # Stub name/type probes too so a class-match revert would fail this test (Grok).

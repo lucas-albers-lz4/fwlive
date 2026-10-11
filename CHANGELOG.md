@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Revert only a uniquely matching staged WAN firewall `log` option after abort or commit failure, preserving unrelated UCI changes; supported-image UCI behavior still needs live verification (#1199).
+
 ## [v0.1.52] — 2026-10-06
 
 ### Fixed

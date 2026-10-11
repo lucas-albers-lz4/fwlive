@@ -491,7 +491,7 @@ uci() {
 			fi
 			rm -f "$RACE_STAGE"
 			;;
-		'-q revert firewall') rm -f "$RACE_STAGE" ;;
+		'-q revert firewall.@zone[0].log') rm -f "$RACE_STAGE" ;;
 		*) return 0 ;;
 	esac
 	return 0
