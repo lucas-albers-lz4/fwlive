@@ -1,13 +1,20 @@
 # Security review state
 
-**2026-10-10 #1199 scoped delta.** Post-stage WAN logging cleanup now uses the
-canonical firewall zone id and only reverts a uniquely matching staged
-`firewall.<zone>.log` delta. Ambiguous same-option changes fail closed; unrelated
-staged options are preserved. Host tests cover abort/commit-failure cleanup and
-competing deltas, and a supported-image UCI smoke script was added. The guest
-was unavailable on retry (SSH to `127.0.0.1:2222` was refused), so actual UCI
-option-scoped revert behavior on 24.10/25.12 remains unverified. This is scoped
-host/source evidence, not a full source or installed-router audit.
+**2026-10-10 #1199 scoped delta.** WAN-log toggle and reload-rollback staging
+require exactly one target-valued `firewall.<zone>.log` delta for the canonical
+zone before package-wide commit. Duplicate or ambiguous same-option edits fail
+closed, including competing `log+=` / `log-=` list edits that UCI displays as
+same-option deltas. Cleanup re-reads `uci changes` immediately before revert
+and verifies the result afterward, because supported UCI versions can return
+success despite an internal revert failure. The CLI offers no atomic
+compare-and-revert; a same-option write in the final read-to-revert gap remains
+tracked by #1224. Host tests cover set/delete rollback races, ambiguous scalar
+and list deltas, and zero-exit/no-op revert behavior. A QEMU UCI smoke script
+isolates the config and override directories and refuses an ambient
+`/tmp/.uci/firewall` delta; it was not run because SSH to `127.0.0.1:2222` was
+refused. Actual option-scoped revert behavior on OpenWrt 24.10/25.12 remains
+unverified. This is scoped host/source evidence, not a full source or
+installed-router audit.
 
 **2026-10-05 #1177/#1178/#1180 scoped delta.** Raced-disable baseline
 retirement now uses the reporting function's positional zone rather than the
@@ -830,7 +837,7 @@ change. This scoped smoke review is not a full security audit.
 | WAN toggle changes only the zone `log` bit | `host` | `tests/fwlive-logging.test.sh` — pending-delta refuse; named + anonymous zone lookup |
 | WAN-zone lookup accepts exact `name=wan` or effective `network=wan`/`wan6`, preserves config order, and reports discovered zone names when no supported zone matches | `host` | `tests/fwlive-logging.test.sh` #373 scalar/list/renamed/duplicate/wan6/omitted-name/no-match fixtures; `logging_status.wan_zone_candidates`; LuCI empty-state and toolbar candidate text-node harness; qemu helpers consume `logging_status.wan_zone` |
 | WAN zone identity for staged `uci changes` uses canonical cfg ids (`uci -X`), not class-match on `name=wan` | `host` | `uci_canonical_firewall_section` + `wan_firewall_zone_same`; B-1 duplicate-wan foreign `.log` stays foreign (`tests/fwlive-logging.test.sh`) |
-| Post-stage WAN `log` cleanup is option-scoped and ambiguity fails closed | `host; lab pending` | `wan_log_revert_staged_option_if_ours` only reverts a uniquely matching canonical `firewall.<zone>.log` delta; host abort/commit-failure, unrelated-option and ambiguous same-option fixtures in `tests/fwlive-logging.test.sh`. `scripts/qemu-uci-stage-revert-smoke.sh` could not reach a guest at `127.0.0.1:2222`; supported-image UCI behavior remains unverified. |
+| Post-stage WAN `log` cleanup is option-scoped and ambiguity fails closed | `host; lab pending` | The commit gate requires exactly one expected canonical `firewall.<zone>.log` delta; cleanup reverts only that uniquely attributable option and reports UCI revert failure. Host tests cover duplicate same-option edits and foreign-delta preservation. `scripts/qemu-uci-stage-revert-smoke.sh` now covers set and delete cleanup but could not reach a guest at `127.0.0.1:2222`; supported-image UCI behavior remains unverified. |
 | Uninstall restores WAN `log` from pre-first-enable baseline | `host + lab` | Host lifecycle/restore tests and fresh installed 24.10 IPK/25.12 APK uninstall restore, 2026-10-01. APK same-version force-reinstall preserves state. Installer-order defect #1097 is repaired with same-version IPK reinstall proof in PR #1114; no new APK transition proof is claimed. |
 | The WAN logging lock cannot be held by an unprivileged user | `host + lab` | `tests/fwlive-logging-lock.test.sh` Part D — create+tighten to 0600; installed artifact denied native unprivileged open (rc 66), 2026-10-01; original helper status expectation remains #1098. |
 | Lock path rejects symlinks before truncate/chmod/chown | `host` | `tests/fwlive-logging-lock.test.sh` Part E — #204 |

@@ -9,8 +9,8 @@
 #   B) The REAL enable_wan_logging / disable_wan_logging functions, run
 #      concurrently against a stubbed shared UCI store, always leave the
 #      committed firewall.<zone>.log bit equal to SOME serial-execution
-#      outcome (never a torn or stale value), and every invocation reports
-#      well-formed ok/changed JSON (applied, no-op, or failed closed).
+#      outcome (never a torn or stale value), and every invocation succeeds
+#      with well-formed ok/changed JSON (applied or no-op, never a false pass).
 #
 # BusyBox flock has no -w timeout, so production polls `flock -n` for a
 # bounded interval. The critical section stays short (read->compute->set->
@@ -208,6 +208,8 @@ seed="$4"
 
 COMMIT_FILE="$dir/log"
 STAGED=''
+STAGED_PENDING=0
+STAGED_DELETE=0
 
 json_escape() { cat; }
 check_nf_log_ipv4() { return 0; }
@@ -219,6 +221,15 @@ uci() {
 	case "$1" in
 		-q)
 			case "$2" in
+				changes)
+					if [ "$STAGED_PENDING" = 1 ]; then
+						if [ "$STAGED_DELETE" = 1 ]; then
+							printf '%s\n' '-firewall.@zone[0].log'
+						else
+							printf "firewall.@zone[0].log='%s'\n" "$STAGED"
+						fi
+					fi
+					;;
 				show)
 					printf "firewall.@zone[0]=zone\nfirewall.@zone[0].name='wan'\nfirewall.@zone[0].network='wan'\n"
 					;;
@@ -235,10 +246,14 @@ uci() {
 			;;
 		set)
 			STAGED="${2#*=}"
+			STAGED_DELETE=0
+			STAGED_PENDING=1
 			sleep "0.0$((seed % 3 + 1))"
 			;;
 		delete)
 			STAGED=''
+			STAGED_DELETE=1
+			STAGED_PENDING=1
 			sleep "0.0$((seed % 3 + 1))"
 			;;
 		commit)
@@ -248,6 +263,8 @@ uci() {
 			else
 				rm -f "$COMMIT_FILE"
 			fi
+			STAGED_PENDING=0
+			STAGED_DELETE=0
 			;;
 	esac
 	return 0
@@ -283,7 +300,7 @@ final_allowed() {
 check_json() {
 	case "$1" in
 		*'"error":"no_wan_zone"'*) return 1 ;;
-		'{"ok":true,'*|'{"ok":false,'*) return 0 ;;
+		'{"ok":true,'*) return 0 ;;
 		*) return 1 ;;
 	esac
 }
@@ -308,9 +325,11 @@ for init in '' 1 2 3; do
 		else
 			op1=disable; op2=enable
 		fi
-		sh "$WORK/child.sh" "$LOGGING_SH" "$dir" "$op1" "$((trial_id * 7))" > "$dir/out1" 2>&1 &
+		FWLIVE_WAN_LOG_BASELINE_FILE="$dir/baseline" \
+			sh "$WORK/child.sh" "$LOGGING_SH" "$dir" "$op1" "$((trial_id * 7))" > "$dir/out1" 2>&1 &
 		p1=$!
-		sh "$WORK/child.sh" "$LOGGING_SH" "$dir" "$op2" "$((trial_id * 13 + 3))" > "$dir/out2" 2>&1 &
+		FWLIVE_WAN_LOG_BASELINE_FILE="$dir/baseline" \
+			sh "$WORK/child.sh" "$LOGGING_SH" "$dir" "$op2" "$((trial_id * 13 + 3))" > "$dir/out2" 2>&1 &
 		p2=$!
 		wait "$p1" || { sweep_fail=1; echo "child1 rc=$? init=$init trial=$trial" >> "$failures"; }
 		wait "$p2" || { sweep_fail=1; echo "child2 rc=$? init=$init trial=$trial" >> "$failures"; }
@@ -350,24 +369,56 @@ generation="$5"
 reload_mode="${6:-steady}"
 COMMIT_FILE="$dir/log"
 WAN_LOG_GENERATION_FILE="$FWLIVE_WAN_LOG_GENERATION_FILE"
+STAGED=''
+STAGED_PENDING=0
+STAGED_DELETE=0
 # uci stub (mirrors the child.sh one — keep it minimal for reload_and_report).
 uci() {
 	case "$1" in
 		-q)
 			case "$2" in
+				changes)
+					if [ "$STAGED_PENDING" = 1 ]; then
+						if [ "$STAGED_DELETE" = 1 ]; then
+							printf '%s\n' '-firewall.wan.log'
+						else
+							printf "firewall.wan.log='%s'\n" "$STAGED"
+						fi
+					fi
+					;;
+				set)
+					STAGED="${3#*=}"
+					STAGED_DELETE=0
+					STAGED_PENDING=1
+					;;
+				delete)
+					STAGED=''
+					STAGED_DELETE=1
+					STAGED_PENDING=1
+					;;
 				show) printf "firewall.@zone[0].name='wan'\n" ;;
 				get) cat "$COMMIT_FILE" 2>/dev/null ;;
 			esac
 			return 0
 			;;
-		set) STAGED="${2#*=}" ;;
-		delete) STAGED='' ;;
+		set)
+			STAGED="${2#*=}"
+			STAGED_DELETE=0
+			STAGED_PENDING=1
+			;;
+		delete)
+			STAGED=''
+			STAGED_DELETE=1
+			STAGED_PENDING=1
+			;;
 		commit)
 			if [ -n "$STAGED" ]; then
 				printf '%s' "$STAGED" > "$COMMIT_FILE"
 			else
 				rm -f "$COMMIT_FILE"
 			fi
+			STAGED_PENDING=0
+			STAGED_DELETE=0
 			;;
 	esac
 	return 0
@@ -401,7 +452,7 @@ mkdir -p "$WORK/rb1"
 printf '1' > "$WORK/rb1/log"        # current value: 1 (what we committed)
 printf '1\n' > "$FWLIVE_WAN_LOG_GENERATION_FILE"
 out=$(sh "$WORK/rollback-child.sh" "$LOGGING_SH" "$WORK/rb1" "" "1" "1")
-[ -z "$out" ] || die "C1: expected rollback to restore previous (empty), got '$out'"
+[ -z "$out" ] || die "C1: expected rollback to restore previous (empty), got '$out'; $(cat "$WORK/rb1/json"); log=$(cat "$WORK/rb1/logger")"
 ok "reload failure + unchanged value -> rollback restores previous"
 
 # C2: current != committed (concurrent toggle changed it) -> rollback SKIPPED.

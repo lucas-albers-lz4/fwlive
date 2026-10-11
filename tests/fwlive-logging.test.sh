@@ -407,8 +407,15 @@ ok "weak-device procfs detection"
 
 # restore_wan_zone_log: empty previous => delete; non-empty => set + commit
 UCI_LOG=()
+RESTORE_STAGED=''
 uci() {
 	UCI_LOG+=("$*")
+	case "$*" in
+		'-q changes firewall') printf '%s' "$RESTORE_STAGED" ;;
+		'-q delete firewall.@zone[0].log') RESTORE_STAGED='-firewall.@zone[0].log' ;;
+		'-q set firewall.@zone[1].log=3') RESTORE_STAGED="firewall.@zone[1].log='3'" ;;
+		'commit firewall') RESTORE_STAGED='' ;;
+	esac
 	return 0
 }
 UCI_LOG=()
@@ -427,6 +434,76 @@ case "$joined" in
 esac
 unset -f uci
 ok "restore_wan_zone_log stubs"
+
+# Reload rollback must preserve ambiguous same-option staging in both forms.
+for restore_target in 2 ''; do
+	UCI_LOG=()
+	ROLLBACK_RACE_STAGED=''
+	uci() {
+		UCI_LOG+=("$*")
+		case "$*" in
+			'-q changes firewall') printf '%s\n' "$ROLLBACK_RACE_STAGED" ;;
+			'-q get firewall.@zone[0].log') printf '1\n' ;;
+			'-q set firewall.@zone[0].log=2')
+				ROLLBACK_RACE_STAGED="firewall.@zone[0].log='2'
+firewall.@zone[0].log='9'"
+				;;
+			'-q delete firewall.@zone[0].log')
+				ROLLBACK_RACE_STAGED="-firewall.@zone[0].log
+firewall.@zone[0].log='9'"
+				;;
+			'commit firewall') die "ambiguous same-option rollback must not commit" ;;
+			'-q revert firewall.@zone[0].log') die "ambiguous same-option rollback must not revert" ;;
+		esac
+		return 0
+	}
+	if restore_wan_zone_log '@zone[0]' "$restore_target"; then
+		die "ambiguous same-option rollback target '$restore_target' must fail closed"
+	fi
+	case "$ROLLBACK_RACE_STAGED" in
+		*"log='9'"*) ;;
+		*) die "same-option rollback race did not preserve competing delta: $ROLLBACK_RACE_STAGED" ;;
+	esac
+	unset -f uci
+done
+ok "restore_wan_zone_log preserves ambiguous same-option set/delete races"
+
+for list_race in add del; do
+	UCI_LOG=()
+	ROLLBACK_RACE_STAGED=''
+	if [ "$list_race" = add ]; then
+		restore_target=2
+	else
+		restore_target=''
+	fi
+	uci() {
+		UCI_LOG+=("$*")
+		case "$*" in
+			'-q changes firewall') printf '%s\n' "$ROLLBACK_RACE_STAGED" ;;
+			'-q get firewall.@zone[0].log') printf '1\n' ;;
+			'-q set firewall.@zone[0].log=2')
+				ROLLBACK_RACE_STAGED="firewall.@zone[0].log='2'
+firewall.@zone[0].log+='9'"
+				;;
+			'-q delete firewall.@zone[0].log')
+				ROLLBACK_RACE_STAGED="-firewall.@zone[0].log
+firewall.@zone[0].log-='1'"
+				;;
+			'commit firewall') die "same-option list rollback must not commit" ;;
+			'-q revert firewall.@zone[0].log') die "same-option list rollback must not revert" ;;
+		esac
+		return 0
+	}
+	if restore_wan_zone_log '@zone[0]' "$restore_target"; then
+		die "same-option list rollback ($list_race) must fail closed"
+	fi
+	case "$ROLLBACK_RACE_STAGED" in
+		*'log+='*|*'log-='*) ;;
+		*) die "same-option list rollback did not preserve list delta: $ROLLBACK_RACE_STAGED" ;;
+	esac
+	unset -f uci
+done
+ok "restore_wan_zone_log preserves same-option add_list/del_list races"
 
 # restore_wan_zone_log: commit failure must return non-zero and revert our
 # own orphaned rollback staging (issue #503).
@@ -449,7 +526,7 @@ uci() {
 			return 0
 			;;
 		'commit firewall') return 1 ;;
-		'-q revert firewall')
+		'-q revert firewall.@zone[0].log')
 			printf '0\n' >"$STAGED_FLAG"
 			return 0
 			;;
@@ -469,11 +546,56 @@ case "$joined" in
 	*) die "restore commit-failure case expected commit attempt, got: $joined" ;;
 esac
 case "$joined" in
-	*'-q revert firewall'*) ;;
-	*) die "restore commit-failure must revert our orphaned staging, got: $joined" ;;
+	*'-q revert firewall.@zone[0].log'*) ;;
+	*) die "restore commit-failure must revert only the WAN log option, got: $joined" ;;
 esac
 unset -f uci
 ok "restore_wan_zone_log returns failure when commit fails"
+
+# UCI's CLI can return zero while its internal option-scoped revert fails.
+# Confirm cleanup from a fresh changes read rather than trusting the status.
+REVERT_STAGED_FILE=$(mktemp)
+printf "firewall.@zone[0].log='2'\n" >"$REVERT_STAGED_FILE"
+uci() {
+	case "$*" in
+		'-q changes firewall') cat "$REVERT_STAGED_FILE" ;;
+		'-q revert firewall.@zone[0].log') return 0 ;;
+		*) return 0 ;;
+	esac
+}
+if wan_log_revert_staged_option_if_ours '@zone[0]' 2 "$(cat "$REVERT_STAGED_FILE")"; then
+	rm -f "$REVERT_STAGED_FILE"
+	die "zero-exit no-op UCI revert must not be reported as successful cleanup"
+fi
+[ "$(cat "$REVERT_STAGED_FILE")" = "firewall.@zone[0].log='2'" ] \
+	|| die "failed no-op revert must preserve the staged delta"
+rm -f "$REVERT_STAGED_FILE"
+unset -f uci
+ok "option-scoped revert verifies UCI cleanup after zero exit"
+
+# A same-option list writer racing after the caller's snapshot must be caught
+# by the helper's fresh pre-revert read, before `uci revert` can erase it.
+REVERT_STAGED_FILE=$(mktemp)
+printf "firewall.@zone[0].log='3'\nfirewall.@zone[0].log+='9'\n" >"$REVERT_STAGED_FILE"
+REVERT_CALLED=0
+uci() {
+	case "$*" in
+		'-q changes firewall') cat "$REVERT_STAGED_FILE" ;;
+		'-q revert firewall.@zone[0].log') REVERT_CALLED=1 ;;
+		*) return 0 ;;
+	esac
+}
+if wan_log_revert_staged_option_if_ours '@zone[0]' 3 "firewall.@zone[0].log='3'"; then
+	rm -f "$REVERT_STAGED_FILE"
+	die "a competitor added before cleanup must block option-scoped revert"
+fi
+[ "$REVERT_CALLED" = 0 ] \
+	|| die "fresh pre-revert check did not block destructive UCI revert"
+grep -Fq "firewall.@zone[0].log+='9'" "$REVERT_STAGED_FILE" \
+	|| die "pre-revert race check discarded a same-option list delta"
+rm -f "$REVERT_STAGED_FILE"
+unset -f uci
+ok "option-scoped revert detects a same-option change before cleanup"
 
 # restore_wan_zone_log: staging set/delete failure must return non-zero
 # without committing a no-op (issue #618).
@@ -915,6 +1037,15 @@ drive_toggle() {
 					post_stage_same_option_foreign)
 						[ "$_n" -ge 3 ] && printf "firewall.@rule[9].name='foreign'\n"
 						;;
+					post_stage_duplicate_log)
+						[ "$_n" -ge 3 ] && printf "firewall.@zone[0].log='9'\n"
+						;;
+					post_stage_same_option_list_add)
+						[ "$_n" -ge 3 ] && printf "firewall.@zone[0].log+='9'\n"
+						;;
+					post_stage_same_option_list_del)
+						[ "$_n" -ge 3 ] && printf "firewall.@zone[0].log-='9'\n"
+						;;
 					commit_fail_foreign)
 						# clean through pre-stage + post-stage gates (calls 1-3
 						# on enable: early + pre-stage + post-stage); foreign
@@ -928,9 +1059,11 @@ drive_toggle() {
 				# Real `uci -q changes` also lists OUR staged delta once staged.
 				if [ "$STAGED_PENDING" = 1 ]; then
 					printf "firewall.@zone[0].log='%s'\n" "$STAGED_LOG"
-					[ "$mode" != post_stage_same_option_foreign ] \
-						|| [ "$_n" -lt 3 ] \
-						|| printf "firewall.@zone[0].log='9'\n"
+					case "$mode" in
+						post_stage_same_option_foreign|post_stage_duplicate_log)
+							[ "$_n" -lt 3 ] || printf "firewall.@zone[0].log='9'\n"
+							;;
+					esac
 				fi
 				;;
 			'-q show firewall')
@@ -987,7 +1120,7 @@ drive_toggle() {
 						[ "$UCI_COMMITS" -ge 1 ] && die "#457: rollback commit issued while a foreign delta was staged" ;;
 					rollback_uci_delete_fail|rollback_uci_set_fail)
 						[ "$UCI_COMMITS" -ge 1 ] && die "#618: restore must not commit when staging failed" ;;
-					commit_fail_foreign|commit_fail_ours)
+					commit_fail_foreign|commit_fail_ours|commit_fail_revert)
 						# commit fails; the caller decides whether to revert
 						return 1 ;;
 				esac
@@ -996,6 +1129,7 @@ drive_toggle() {
 				STAGED_PENDING=0
 				;;
 			'-q revert firewall.@zone[0].log')
+				[ "$mode" != commit_fail_revert ] || return 1
 				REVERTED=1
 				STAGED_LOG='__unset__'
 				STAGED_PENDING=0
@@ -1037,6 +1171,9 @@ drive_toggle() {
 		WAN_LOG_COMMIT_GENERATION=$(wan_log_generation_read)
 		report_wan_log_after_commit 0 '"wan"' '@zone[0]' '' '1' \
 			'test reload failure' 'test reload success' "$mode" > "$OUT_FILE"
+	fi
+	if [ "$mode" = post_stage_foreign ]; then
+		REMAINS_STAGED=$(uci -q changes firewall)
 	fi
 	OUT=$(cat "$OUT_FILE")
 	unset -f uci check_nf_log_ipv4 check_nf_log_ipv6 \
@@ -1281,6 +1418,13 @@ case "$LOGGER_MSGS" in
 	*) die "#191 enable/post-stage-foreign: missing after-stage abort log: $LOGGER_MSGS" ;;
 esac
 [ "$STAGED_LOG" = '__unset__' ] || die "#191 enable/post-stage-foreign: our delta should be undone (STAGED_LOG=$STAGED_LOG)"
+case "$REMAINS_STAGED" in
+	*"firewall.@rule[9].name='foreign'"*) ;;
+	*) die "#1199 option-scoped revert discarded the staged foreign rule: $REMAINS_STAGED" ;;
+esac
+case "$REMAINS_STAGED" in
+	*'firewall.@zone[0].log='*) die "#1199 option-scoped revert left our log delta staged: $REMAINS_STAGED" ;;
+esac
 ok "#191 enable aborts on foreign delta staged after our set (undo ours, no commit)"
 
 FWLIVE_CURRENT_LOG='1'
@@ -1313,10 +1457,43 @@ esac
 [ "$STAGED_PENDING" = 1 ] || die "#1199 ambiguous same-option staging must be preserved"
 [ "${REVERTED:-0}" = 0 ] || die "#1199 ambiguous same-option staging was reverted"
 case "$LOGGER_MSGS" in
-	*'ambiguous staged log option'*) ;;
+	*'left staged log option'*) ;;
 	*) die "#1199 same-option race must log why staging was preserved: $LOGGER_MSGS" ;;
 esac
 ok "#1199 ambiguous same-option edits are preserved instead of reverted"
+
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable post_stage_duplicate_log
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#1199 duplicate same-option race: expected firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#1199 duplicate same-option race must not commit"
+[ "$STAGED_PENDING" = 1 ] || die "#1199 duplicate same-option deltas must be preserved"
+[ "${REVERTED:-0}" = 0 ] || die "#1199 duplicate same-option deltas were reverted"
+ok "#1199 rejects multiple staged WAN log deltas without another foreign option"
+
+FWLIVE_CURRENT_LOG=''
+drive_toggle enable post_stage_same_option_list_add
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#1221 same-option add_list: expected firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#1221 same-option add_list delta must not be committed"
+[ "$STAGED_PENDING" = 1 ] && [ "${REVERTED:-0}" = 0 ] \
+	|| die "#1221 add_list competitor must remain staged, calls: $UCI_CALLS"
+ok "#1221 same-option add_list delta is preserved"
+
+FWLIVE_CURRENT_LOG='1'
+drive_toggle disable post_stage_same_option_list_del
+case "$OUT" in
+	*'firewall_changes_pending'*) ;;
+	*) die "#1221 same-option del_list: expected firewall_changes_pending, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#1221 same-option del_list delta must not be committed"
+[ "$STAGED_PENDING" = 1 ] && [ "${REVERTED:-0}" = 0 ] \
+	|| die "#1221 del_list competitor must remain staged, calls: $UCI_CALLS"
+ok "#1221 same-option del_list delta is preserved"
 
 printf '2' > "$WAN_LOG_BASELINE_FILE"
 FWLIVE_CURRENT_LOG=''
@@ -1485,6 +1662,23 @@ esac
 	|| die "#1126 failed commit must retain its generation advance"
 ok "#191/#1126 commit failure reverts owned staging but retains intent generation"
 
+generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
+drive_toggle enable commit_fail_revert
+case "$OUT" in
+	*'"error":"uci_commit_failed"'*) ;;
+	*) die "#1199 revert failure: expected uci_commit_failed, got: $OUT" ;;
+esac
+[ "$UCI_COMMITS" -eq 0 ] || die "#1199 failed commit must not be counted as committed"
+[ "${REVERTED:-0}" = 0 ] || die "#1199 failed option revert was reported as successful"
+[ "$STAGED_PENDING" = 1 ] || die "#1199 failed option revert should leave staging visible"
+case "$LOGGER_MSGS" in
+	*'option-scoped revert failed'*) ;;
+	*) die "#1199 failed UCI revert must be logged: $LOGGER_MSGS" ;;
+esac
+[ "$(cat "$WAN_LOG_GENERATION_FILE")" = "$((generation_before + 1))" ] \
+	|| die "#1199 failed cleanup must not roll back the intent generation"
+ok "#1199 logs and preserves state when option-scoped revert fails"
+
 FWLIVE_CURRENT_LOG=''
 generation_before=$(cat "$WAN_LOG_GENERATION_FILE")
 drive_toggle enable uci_set_fail
@@ -1516,6 +1710,7 @@ BASELINE_WORK=$(mktemp -d)
 WAN_LOG_BASELINE_FILE="$BASELINE_WORK/wan-log-baseline"
 export WAN_LOG_BASELINE_FILE
 WAN_ZONE_LOG=''
+WAN_ZONE_LOG_STAGED=0
 uci() {
 	case "$1" in
 		set)
@@ -1523,14 +1718,19 @@ uci() {
 			if [ "${2#"$_wan_log_key"}" != "$2" ]; then
 				WAN_ZONE_LOG="${2#"$_wan_log_key"}"
 			fi
+			WAN_ZONE_LOG_STAGED=1
 			unset _wan_log_key
 			return 0
 			;;
 		delete)
 			[ "$2" = 'firewall.@zone[0].log' ] && WAN_ZONE_LOG=''
+			WAN_ZONE_LOG_STAGED=1
 			return 0
 			;;
-		commit) return 0 ;;
+		commit)
+			WAN_ZONE_LOG_STAGED=0
+			return 0
+			;;
 	esac
 	case "$1 $2" in
 		'-q show')
@@ -1543,18 +1743,27 @@ uci() {
 				printf '%s' "$WAN_ZONE_LOG"
 			fi
 			;;
-		'-q changes') return 1 ;;
+		'-q changes')
+			if [ "$WAN_ZONE_LOG_STAGED" = 1 ]; then
+				printf "firewall.@zone[0].log='%s'\n" "$WAN_ZONE_LOG"
+			fi
+			;;
 		'-q delete')
 			[ "$3" = 'firewall.@zone[0].log' ] && WAN_ZONE_LOG=''
+			WAN_ZONE_LOG_STAGED=1
 			;;
 		'-q set')
 			_wan_log_key='firewall.@zone[0].log='
 			if [ "${3#"$_wan_log_key"}" != "$3" ]; then
 				WAN_ZONE_LOG="${3#"$_wan_log_key"}"
 			fi
+			WAN_ZONE_LOG_STAGED=1
 			unset _wan_log_key
 			;;
-		'commit firewall') return 0 ;;
+		'commit firewall')
+			WAN_ZONE_LOG_STAGED=0
+			return 0
+			;;
 		*) return 0 ;;
 	esac
 }
@@ -1847,7 +2056,11 @@ got=$(wan_log_staged_line_section '-firewall.@zone[1].log')
 [ "$got" = "@zone[1]" ] || die "staged_line_section delete form: expected @zone[1] got '$got'"
 got=$(wan_log_staged_line_section '- firewall.cfg03dc81.log')
 [ "$got" = "cfg03dc81" ] || die "staged_line_section spaced delete form: expected cfg03dc81 got '$got'"
-# Near-miss: .log_limit / .log_* must not match the .log= / .log forms (#257).
+got=$(wan_log_staged_line_section "firewall.cfg03dc81.log+='9'")
+[ "$got" = "cfg03dc81" ] || die "staged_line_section list-add form: expected cfg03dc81 got '$got'"
+got=$(wan_log_staged_line_section "firewall.cfg03dc81.log-='9'")
+[ "$got" = "cfg03dc81" ] || die "staged_line_section list-delete form: expected cfg03dc81 got '$got'"
+# Near-miss: .log_limit / .log_* must not match log set/list/delete forms (#257).
 got=$(wan_log_staged_line_section "firewall.@zone[1].log_limit='10'")
 [ -z "$got" ] || die "staged_line_section log_limit near-miss: expected empty got '$got'"
 got=$(wan_log_staged_line_section "firewall.@zone[1].log_extra='1'")
@@ -1911,6 +2124,19 @@ _competing_delta="$_target_delta
 firewall.cfg03dc81.log='9'"
 wan_log_staged_option_matches_target '@zone[1]' 3 "$_competing_delta" \
 	&& die "competing same-option deltas must be treated as ambiguous"
+for _list_delta in "firewall.cfg03dc81.log+='9'" "firewall.cfg03dc81.log-='9'"; do
+	_list_changes="$_target_delta
+$_list_delta"
+	[ "$(wan_log_count_our_staged_lines '@zone[1]' "$_list_changes")" = 2 ] \
+		|| die "list edit must count as a competing same-option delta: $_list_delta"
+	wan_log_staged_option_matches_target '@zone[1]' 3 "$_list_changes" \
+		&& die "same-option list edits must be treated as ambiguous: $_list_delta"
+	_foreign=$(wan_log_foreign_staged_lines '@zone[1]' "$_list_changes")
+	case "$_foreign" in
+		*"$_list_delta"*) ;;
+		*) die "same-option list edit must be retained as foreign: $_foreign" ;;
+	esac
+done
 unset -f uci
 ok "wan_log staged-line helpers classify foreign and exact-owned log deltas"
 
