@@ -406,15 +406,21 @@ saw_path_header = False
 fence = None
 resolved_out = out.resolve()
 for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
-    fence_match = re.match(r'^ {0,3}(`{3,}|~{3,})', line)
+    fence_match = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
     if fence is not None:
-        if (fence_match and fence_match.group(1)[0] == fence[0]
-                and len(fence_match.group(1)) >= fence[1]):
+        fence_close = re.match(r'^ {0,3}(`{3,}|~{3,})[ \t]*$', line)
+        if (fence_close and fence_close.group(1)[0] == fence[0]
+                and len(fence_close.group(1)) >= fence[1]):
             fence = None
         continue
     if fence_match:
-        fence = (fence_match.group(1)[0], len(fence_match.group(1)))
-        continue
+        marker = fence_match.group(1)
+        if marker[0] == '`' and '`' in fence_match.group(2):
+            unsupported.append('README has an invalid backtick code fence opener: %s'
+                               % line.strip())
+        else:
+            fence = (marker[0], len(marker))
+            continue
 
     cells = table_cells(line)
     if not in_path_table:
@@ -486,6 +492,8 @@ for line in readme.read_text(encoding='utf-8', errors='replace').splitlines():
 
 if need_delimiter:
     unsupported.append('Path/Role table is missing its delimiter row')
+if fence is not None:
+    unsupported.append('README contains an unterminated code fence')
 if parsed == 0:
     print('  FAIL: README path table has no parsed path rows')
 for path in unsupported:
