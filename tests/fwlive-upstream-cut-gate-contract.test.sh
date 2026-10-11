@@ -123,6 +123,18 @@ check() { # name expected_rc cmd...
     sed 's/^/         | /' "$WORK/last.out" | head -3
   fi
 }
+check_diag() { # name expected_rc expected_diagnostic cmd...
+  local name="$1" want="$2" diagnostic="$3"; shift 3
+  "$@" >"$WORK/last.out" 2>&1; local got=$?
+  if [ "$CAPTURE" -eq 1 ]; then printf '  %-24s rc=%s\n' "$name" "$got"; return 0; fi
+  if [ "$got" -eq "$want" ] && grep -Fq -- "$diagnostic" "$WORK/last.out"; then
+    PASS=$((PASS+1)); printf '  ok   %-24s rc=%s diagnostic=%s\n' "$name" "$got" "$diagnostic"
+  else
+    FAIL=$((FAIL+1)); FAILED_NAMES+=("$name")
+    printf '  FAIL %-24s rc=%s want=%s diagnostic=%s\n' "$name" "$got" "$want" "$diagnostic"
+    sed 's/^/         | /' "$WORK/last.out" | head -3
+  fi
+}
 G_readme()  { python3 "$WORK/bin/upstream_cut_verify_readme_rows.py" "$1"; }
 G_art()     { python3 "$WORK/bin/upstream_cut_verify_artifacts.py" "$1"; }
 G_pot()     { python3 "$WORK/bin/upstream_cut_verify_pot_refs.py" "$1" "$PKG"; }
@@ -157,11 +169,11 @@ d=$(m r-tab-row);        printf '\t| `root/ghost.sh` | Ghost |\n' >> "$d/README.
 d=$(m r-indent4);        printf '    | `root/ghost.sh` | Ghost |\n' >> "$d/README.md";          check R-indent4       1 G_readme "$d"
 d=$(m r-renamed-header); sed -i 's/| Path | Role |/| Path | Purpose |/' "$d/README.md"; \
                          printf '\n| `root/ghost.sh` | Ghost |\n' >> "$d/README.md";            check R-renamed-header 1 G_readme "$d"
-d=$(m r-no-delim);       printf '| `root/ghost.sh` | Ghost |\n| `root/x.sh` | Helper |\n' > "$d/README.md"; check R-no-delim 1 G_readme "$d"
+d=$(m r-no-delim);       printf '| Path | Role |\n| `root/x.sh` | Helper |\n' > "$d/README.md"; check_diag R-no-delim 1 'invalid delimiter row' G_readme "$d"
 d=$(m r-2nd-table);      printf '\n| Path | Role |\n| --- | --- |\n| `root/ghost.sh` | Ghost |\n' >> "$d/README.md"; check R-2nd-table 1 G_readme "$d"
 d=$(m r-2nd-ok);         printf '\n| Path | Role |\n| --- | --- |\n| `root/x.sh` | Helper |\n' >> "$d/README.md"; check R-2nd-ok 0 G_readme "$d"
-d=$(m r-abs);            printf '\n| `/etc/passwd` | X |\n' >> "$d/README.md";                    check R-abs           1 G_readme "$d"
-d=$(m r-traverse);       printf '\n| `../secret` | X |\n' >> "$d/README.md";                      check R-traverse      1 G_readme "$d"
+d=$(m r-abs);            printf '| `/etc/passwd` | X |\n' >> "$d/README.md";                    check_diag R-abs 1 'absolute path outside the documented runtime allowlist' G_readme "$d"
+d=$(m r-traverse);       printf '| `../secret` | X |\n' >> "$d/README.md";                      check_diag R-traverse 1 'resolves outside the cut artifact' G_readme "$d"
 
 echo "-- artifact scan gate --"
 check A-ok              0 G_art "$WORK/out"
