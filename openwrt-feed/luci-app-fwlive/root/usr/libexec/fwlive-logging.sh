@@ -546,7 +546,7 @@ wan_log_revert_staged_option_if_ours() {
 		return 1
 	fi
 	# UCI's CLI has no atomic compare-and-revert: a non-cooperating writer
-	# can still stage the same option after this read and before revert (#1224).
+	# can still stage the same option after this read and before revert (tracked separately).
 	uci -q revert "firewall.${_zone}.log" 2>/dev/null || {
 		logger -t fwlive "WAN log option-scoped revert failed for firewall.${_zone}.log" 2>/dev/null || true
 		return 1
