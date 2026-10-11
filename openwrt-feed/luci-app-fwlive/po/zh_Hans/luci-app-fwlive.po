@@ -74,7 +74,7 @@ msgstr "需要管理员权限才能禁用日志记录。"
 msgid "Administrator access is required to enable logging."
 msgstr "需要管理员权限才能启用日志记录。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:236
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:251
 msgid "Allow/deny rules, LAN logging, or anything else."
 msgstr "允许/拒绝规则、LAN 日志记录或任何其他设置。"
 
@@ -105,7 +105,7 @@ msgstr "任意协议"
 msgid "Auto"
 msgstr "自动"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:226
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:241
 msgid "Before you enable logging"
 msgstr "启用日志记录之前"
 
@@ -113,7 +113,7 @@ msgstr "启用日志记录之前"
 msgid "Cannot enable logging until kernel log modules are installed."
 msgstr "无法启用日志记录，直到内核日志模块已安装。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:229
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:244
 msgid "Changes:"
 msgstr "变更："
 
@@ -149,6 +149,14 @@ msgstr ""
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1932
 msgid "Common"
 msgstr "常用"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:230
+msgid ""
+"Configured WAN zone log_limit: %s. It limits only on fw4 builds that support "
+"it; kernel/logd may still constrain total log volume."
+msgstr ""
+"已配置的 WAN 区域 log_limit：%s。只有支持该选项的 fw4 构建才会实施此限制；"
+"内核/logd 仍可能限制日志总量。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1742
 msgid "Connection lost — retrying…"
@@ -255,7 +263,7 @@ msgstr "详情"
 msgid "Dir"
 msgstr "方向"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:172
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:176
 msgid "Disabling…"
 msgstr "正在禁用…"
 
@@ -275,11 +283,11 @@ msgid ""
 "palette, and hostnames."
 msgstr "显示选项可设置行数限制、抓取配额、最大原始行数、行着色、配色和主机名。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:234
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:249
 msgid "Does not change:"
 msgstr "不更改："
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:251
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:271
 msgid "Don’t show this again"
 msgstr "不再显示"
 
@@ -401,7 +409,7 @@ msgstr ""
 "如果行着色看起来缺失，当前 LuCI 主题可能未提供成功/错误或信息/警告 CSS 变量；"
 "fwlive 会回退到本地颜色（隔离运行，数据不会离开本设备）。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:353
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:373
 msgid ""
 "If the WAN is quiet, wait for probes or use the optional ping check in "
 "Help / the enabling-logs guide."
@@ -424,7 +432,7 @@ msgstr "入站"
 msgid "Include instead"
 msgstr "改为包含"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:318
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:338
 msgid ""
 "Install kmod-nf-log and kmod-nf-log6 with the command for your OpenWrt "
 "release, then reload the firewall."
@@ -445,12 +453,12 @@ msgstr "接口"
 msgid "Interface (prefix ! to exclude)"
 msgstr "接口（前缀 ! 表示排除）"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:272
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:392
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:292
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:414
 msgid "I’ll configure this under Network → Firewall"
 msgstr "稍后我会在 网络 → 防火墙 中配置"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:314
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:334
 msgid "Kernel log modules missing"
 msgstr "缺少内核日志模块"
 
@@ -466,7 +474,7 @@ msgstr "行数限制"
 msgid "Live view may be incomplete — a legacy iptables table is registered"
 msgstr "实时视图可能不完整 — 已注册旧版 iptables 表"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:361
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:381
 msgid "Logging is off on this router"
 msgstr "此路由器的日志记录已关闭"
 
@@ -486,7 +494,7 @@ msgid ""
 msgstr ""
 "手动模式仍受服务器保护和轮询节奏约束；它改变的是抓取配额，而不是轮询间隔。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:411
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:433
 msgid "Manual test (System → Terminal):"
 msgstr "手动测试（系统 → 终端）："
 
@@ -509,13 +517,13 @@ msgstr "更多筛选"
 msgid "Network → Firewall"
 msgstr "网络 → 防火墙"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:305
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:325
 msgid ""
 "No WAN firewall zone found in /etc/config/firewall. Configure zones under:"
 msgstr ""
 "在 /etc/config/firewall 中未找到 WAN 防火墙区域。请在以下位置配置区域："
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:300
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:320
 msgid "No WAN zone found"
 msgstr "未找到 WAN 区域"
 
@@ -523,11 +531,22 @@ msgstr "未找到 WAN 区域"
 msgid "No WAN zone found; cannot toggle logging without one."
 msgstr "未找到 WAN 区域；没有它无法切换日志记录。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:269
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:234
+msgid ""
+"No WAN zone log_limit is configured. Kernel/logd may still constrain total "
+"log volume."
+msgstr ""
+"WAN 区域未配置 log_limit。内核/logd 仍可能限制日志总量。"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:402
+msgid "Normal LAN browsing is not logged."
+msgstr "普通 LAN 浏览流量不会被记录。"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:289
 msgid "Not now"
 msgstr "暂不"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:385
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:407
 msgid "Nothing changes until you click Enable logging."
 msgstr "点击「启用日志」之前不会有任何更改。"
 
@@ -539,19 +558,19 @@ msgstr "出接口"
 msgid "One line"
 msgstr "单行"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:357
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:377
 msgid "Open firewall zone settings"
 msgstr "打开防火墙区域设置"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:322
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:342
 msgid "OpenWrt 24.10 and older (opkg):"
 msgstr "OpenWrt 24.10 及更早版本（opkg）："
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:326
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:346
 msgid "OpenWrt 25.12 and newer (apk):"
 msgstr "OpenWrt 25.12 及更高版本（apk）："
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:365
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:385
 msgid ""
 "OpenWrt does not write firewall events to the log until you turn logging on. "
 "Live View only shows what the firewall already logs — it does not add allow/"
@@ -594,6 +613,10 @@ msgstr "协议 — 常用值"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2819
 msgid "Quick search"
 msgstr "快速搜索"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:254
+msgid "Rate limit:"
+msgstr "速率限制："
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:93
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:229
@@ -769,12 +792,14 @@ msgstr "防火墙未能重新加载；已保存的日志设置与当前生效状
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2603
 msgid ""
-"The rate shown for WAN logging is the firewall zone log_limit. OpenWrt "
-"defaults to 10/minute when no explicit limit is configured; fwlive does not "
-"impose this cap."
+"The rate shown for WAN logging is the configured WAN zone log_limit, not "
+"proof the running fw4 supports it. The fw4 bundled with OpenWrt 23.05.5 "
+"ignores this option. Kernel/logd may still constrain total log volume; "
+"fwlive does not impose a limit."
 msgstr ""
-"WAN 日志显示的速率是防火墙区域的 log_limit。未显式配置时 OpenWrt 默认为 10 "
-"条/分钟；此上限并非 fwlive 施加。"
+"WAN 日志显示的速率是 WAN 区域已配置的 log_limit，并不表示当前运行的 fw4 "
+"支持该选项。OpenWrt 23.05.5 附带的 fw4 会忽略此选项。内核/logd 仍可能限制"
+"日志总量；fwlive 不会施加限制。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1741
 msgid "The router could not read the firewall log — retrying…"
@@ -798,11 +823,11 @@ msgstr "防火墙记录流量时表格会自动更新。如果滚动太快，请
 msgid "Theme tint fallback"
 msgstr "主题着色回退"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:419
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:441
 msgid "Then ping the router."
 msgstr "然后 ping 路由器。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:335
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:355
 msgid ""
 "This router reported a logging blocker that Live View does not recognize yet."
 msgstr "此路由器报告了 Live View 尚无法识别的日志阻止项。"
@@ -823,24 +848,22 @@ msgstr "主要规则"
 msgid "Top talkers"
 msgstr "主要通信方"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:241
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:261
 msgid "Turn it back off with the WAN logging control on the watch strip."
 msgstr "通过监视栏上的 WAN 日志控件将其重新关闭。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:379
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:398
 msgid ""
 "Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → "
-"Log). Rate-limited by the zone log_limit (OpenWrt default 10/minute). Normal "
-"LAN browsing is not logged."
+"Log)."
 msgstr ""
-"开启 WAN 区域的丢弃/拒绝日志记录（同 网络 → 防火墙 → wan → 日志）。受区域 "
-"log_limit 限速（OpenWrt 默认 10 条/分钟）。正常的 LAN 浏览不会被记录。"
+"开启 WAN 区域的丢弃/拒绝日志记录（与 网络 → 防火墙 → wan → 日志 相同）。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:231
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:246
 msgid "Turns on logging for the WAN firewall zone and reloads the firewall."
 msgstr "开启 WAN 防火墙区域的日志记录并重新加载防火墙。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:239
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:259
 msgid "Undo:"
 msgstr "撤销："
 
@@ -857,7 +880,7 @@ msgstr "视图"
 msgid "WAN drop/reject logging is off."
 msgstr "WAN 丢弃/拒绝日志记录已关闭。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:346
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:366
 msgid ""
 "WAN drop/reject logging is on. Blocked inbound WAN traffic will show up "
 "here. Normal LAN browsing will not."
@@ -877,16 +900,16 @@ msgstr ""
 msgid "WAN logging is already enabled."
 msgstr "WAN 日志记录已处于启用状态。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:175
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:179
 msgid "WAN logging on"
 msgstr "WAN 日志：开"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:184
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:188
 msgid "WAN logging on (%s). Click to disable."
 msgstr "WAN 日志：开（%s）。点击可禁用。"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:162
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:332
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:352
 msgid "WAN logging unavailable"
 msgstr "WAN 日志不可用"
 
@@ -898,7 +921,7 @@ msgstr "WAN 日志不可用：缺少内核日志模块"
 msgid "WAN logging unavailable: no WAN zone"
 msgstr "WAN 日志不可用：无 WAN 区域"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:342
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:362
 msgid "Waiting for firewall events"
 msgstr "正在等待防火墙事件"
 
@@ -924,13 +947,13 @@ msgstr "缓冲区填充中"
 msgid "buffer full"
 msgstr "缓冲区已满"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:172
+msgid "configured log_limit: %s"
+msgstr "已配置的 log_limit：%s"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:38
 msgid "contains"
 msgstr "包含"
-
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:169
-msgid "default 10/minute"
-msgstr "默认 10 条/分钟"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1296
 msgid "display limited to %d rows"
@@ -960,6 +983,10 @@ msgstr "正在加载缓冲区"
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1727
 msgid "loading…"
 msgstr "加载中…"
+
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:173
+msgid "no WAN rate limit configured"
+msgstr "未配置 WAN 速率限制"
 
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1525
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:1534
@@ -1065,9 +1092,36 @@ msgstr "未知"
 msgid "using fw4"
 msgstr "使用 fw4"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:176
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:180
 msgid "· %s"
 msgstr "· %s"
+
+#~ msgid ""
+#~ "The rate shown for WAN logging is the WAN zone log_limit. If it is not "
+#~ "configured, fw4 does not apply a rate limit; fwlive does not impose one."
+#~ msgstr ""
+#~ "显示的 WAN 日志速率由 WAN 区域的 log_limit 设置。未配置时，fw4 不限制速"
+#~ "率；fwlive 也不会设置限制。"
+
+#~ msgid ""
+#~ "Turns on WAN zone drop/reject logging (same as Network → Firewall → wan → "
+#~ "Log). Without a configured WAN zone log_limit, fw4 does not limit the "
+#~ "logging rate. Normal LAN browsing is not logged."
+#~ msgstr ""
+#~ "开启 WAN 区域的丢弃/拒绝日志记录（同 网络 → 防火墙 → wan → 日志）。如果 "
+#~ "WAN 区域未配置 log_limit，fw4 不会限制日志速率。正常的 LAN 浏览不会被记"
+#~ "录。"
+
+#~ msgid ""
+#~ "Without a configured WAN zone log_limit, fw4 does not limit the logging "
+#~ "rate."
+#~ msgstr "WAN 区域未配置 log_limit 时，fw4 不会限制日志速率。"
+
+#~ msgid "unlimited (not configured)"
+#~ msgstr "无限制（未配置）"
+
+#~ msgid "default 10/minute"
+#~ msgstr "默认 10 条/分钟"
 
 #~ msgid ""
 #~ "Click a cell to filter · ≠ on a chip to exclude · Ctrl+click a rule for "

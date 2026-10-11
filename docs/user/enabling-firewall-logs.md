@@ -17,7 +17,7 @@ Pick one path. Both produce visible traffic within seconds.
    Then click **Enable logging** (in the empty state or on the watch strip).
 3. Wait for blocked inbound WAN traffic (background scans, rejected probes).
 
-This sets WAN zone drop/reject logging only (same as **Network → Firewall**). It does not add allow/deny rules. Click **WAN logging on** on the watch strip to turn it off again. Rate limiting uses the OpenWrt default (`10/minute`) unless you set `log_limit` on the WAN zone.
+This sets WAN zone drop/reject logging only (same as **Network → Firewall**). It does not add allow/deny rules. Click **WAN logging on** on the watch strip to turn it off again. On fw4 builds that support per-zone `log_limit`, the WAN zone setting configures that limiter. The fw4 bundled with OpenWrt 23.05.5 does not support it, so a UCI value there is ignored; on other builds, a configured value alone does not prove the active fw4 applies it. Kernel/logd may still constrain total log volume.
 
 Screenshot walkthrough: [Using the UI → First visit](using-the-ui.md#first-visit).
 
@@ -40,7 +40,7 @@ uci commit firewall
 echo "Enabled zone logging on firewall.${WAN}"
 ```
 
-OpenWrt applies the default **`log_limit`** (`10/minute`) when the option is not set in UCI.
+On fw4 builds that support per-zone `log_limit`, fw4 applies that rate limit only when the option is configured on the WAN zone. The fw4 bundled with OpenWrt 23.05.5 does not support it; on that release, a UCI value is ignored. A configured value on another build does not by itself prove that the running fw4 applies it. Kernel/logd may still constrain total log volume.
 
 To turn off:
 

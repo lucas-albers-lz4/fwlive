@@ -23,7 +23,7 @@ Nothing changes until you click **Enable logging**.
 
 ![After Enable — WAN logging on](assets/fwlive-after-enable.png)
 
-1. Watch strip shows a single **WAN logging on · rate** control (click to disable).
+1. Watch strip shows a single **WAN logging on · configured limit** control (click to disable).
 2. A green notice shows that WAN drop/reject logging is on — not normal LAN browsing.
 3. If the table is still empty, you are **waiting for firewall events** (quiet WAN). Blocked inbound traffic appears as it happens.
 
@@ -35,7 +35,7 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 
 1. **Title row** — **Firewall Live View** on the left; **Watching** status (dot + counts) on the right.
 2. **Watch strip** — Pause/Resume, logging control, and segmented **Simple / Detail** and **Wrap / One line** groups.
-3. **Display options bar** — **Limit**, **Row tint**, **Palette**, and **Show hostnames** on one line (no drawer).
+3. **Display options bar** — **Limit**, **Fetch budget**, **Maximum raw lines**, **Row tint**, **Palette**, and **Show hostnames** (no drawer; controls wrap as needed).
 4. **Filter row** — quick search, Action, and Protocol (grouped menu + optional custom type-in); open **More filters** for the rest.
 5. **Table** — click a filter link (action, IP, protocol, interface, flow endpoint) to filter; click a row body such as the **Time** cell to expand Message.
 
@@ -86,8 +86,8 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | Control | Behavior |
 |---------|----------|
 | **Pause / Resume** | Live updates run until you Pause. Resume continues the table. Polling never stops. |
-| **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall). No allow/deny rules are added. Concurrent toggles from multiple admins serialize under an exclusive file lock (`flock`). A caller retries across five one-second intervals for the short read→commit section, then reports a lock error if contention remains (plus scheduling overhead). Firewall reload runs after the lock is released. Each toggle re-reads WAN state under the lock before committing. Rate is the firewall `log_limit` (default `10/minute`), not a fwlive cap. |
-| **WAN logging on · rate** | When logging is on, one merged control shows status and rate. Click it to disable. |
+| **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall). No allow/deny rules are added. Concurrent toggles from multiple admins serialize under an exclusive file lock (`flock`). A caller retries across five one-second intervals for the short read→commit section, then reports a lock error if contention remains (plus scheduling overhead). Firewall reload runs after the lock is released. Each toggle re-reads WAN state under the lock before committing. On fw4 builds that support per-zone `log_limit`, the WAN zone setting configures that limiter; the fw4 bundled with OpenWrt 23.05.5 ignores it, and a configured value on another build does not prove it is active. Kernel/logd may still constrain total log volume. |
+| **WAN logging on · configured limit** | When logging is on, one merged control shows status and the configured WAN zone `log_limit`. The configured value does not confirm that the active fw4 applies it. Click it to disable. |
 | **Simple / Detail** | Segmented pair on the watch strip. The active segment is highlighted. Preferences saved in `localStorage`. |
 | **Wrap / One line** | Segmented pair next to Simple / Detail. Visible in Detailed view only. |
 | **Display options** | Inline bar below the watch strip: **Limit**, **Fetch budget**, **Maximum raw lines**, **Row tint** (checkbox + palette), and **Show hostnames**. |

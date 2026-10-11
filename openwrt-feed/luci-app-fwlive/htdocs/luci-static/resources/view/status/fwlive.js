@@ -2600,7 +2600,7 @@ return view.extend({
 					]),
 					E('li', {}, [
 						_(
-							'The rate shown for WAN logging is the firewall zone log_limit. OpenWrt defaults to 10/minute when no explicit limit is configured; fwlive does not impose this cap.'
+							'The rate shown for WAN logging is the configured WAN zone log_limit, not proof the running fw4 supports it. The fw4 bundled with OpenWrt 23.05.5 ignores this option. Kernel/logd may still constrain total log volume; fwlive does not impose a limit.'
 						)
 					]),
 					E('li', { 'id': 'fwlive-manual-test' }, []),
