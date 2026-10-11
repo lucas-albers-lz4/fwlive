@@ -263,7 +263,6 @@ async function testStartupErrorSurvivesAddFooter() {
 	view.addFooter();
 	assert.equal(view.lastPollError, true, 'addFooter must preserve the startup poll result');
 	assert.equal(view.lastPollErrorCode, 'filter_failed');
-	view.updateStatus();
 	assert.match(h.document.getElementById('fwlive-status').textContent,
 		/could not read the firewall log/i,
 		'the startup failure must remain visible after footer initialization');
