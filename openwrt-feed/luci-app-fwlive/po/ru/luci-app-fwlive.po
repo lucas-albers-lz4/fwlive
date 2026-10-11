@@ -1013,6 +1013,10 @@ msgstr "буфер заполняется"
 msgid "buffer full"
 msgstr "буфер заполнен"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:172
+msgid "configured log_limit: %s"
+msgstr "настроенный log_limit: %s"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:38
 msgid "contains"
 msgstr "содержит"

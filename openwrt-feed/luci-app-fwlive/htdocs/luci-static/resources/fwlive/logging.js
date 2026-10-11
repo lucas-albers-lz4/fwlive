@@ -169,7 +169,7 @@ function appendWanLogDisableControl(host, state, callbacks) {
 	const configuredLimit = st.wan_log_limit;
 	const limit =
 		configuredLimit != null && configuredLimit !== ''
-			? configuredLimit
+			? _('configured log_limit: %s').format(configuredLimit)
 			: _('no WAN rate limit configured');
 	const busy = !!state.loggingBusy;
 	const children = busy

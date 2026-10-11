@@ -325,6 +325,23 @@ assert.ok(onText.indexOf('WAN logging on') >= 0);
 assert.ok(onText.indexOf('no WAN rate limit configured') >= 0);
 assert.strictEqual(bar.childNodes[0]._innerHTMLWrites.length, 0, 'merged control uses text nodes');
 
+const configuredBar = luciE.E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, []);
+configuredBar.style = {};
+logging.renderToolbar(
+	configuredBar,
+	{
+		loggingStatus: { wan_log: true, wan_log_limit: '10/minute', blockers: [] },
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+const configuredOnControl = configuredBar.childNodes[0];
+const configuredOnText = collectText(configuredOnControl);
+assert.ok(configuredOnText.indexOf('configured log_limit: 10/minute') >= 0);
+assert.ok(configuredOnControl._attrs.title.indexOf('configured log_limit: 10/minute') >= 0);
+assert.strictEqual(configuredOnControl._innerHTMLWrites.length, 0, 'configured value uses text nodes');
+
 const consentHost = luciE.E('div', {}, []);
 logging.renderEmptyState(
 	consentHost,

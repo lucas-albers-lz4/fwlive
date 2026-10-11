@@ -1025,6 +1025,10 @@ msgstr "Puffer füllt sich"
 msgid "buffer full"
 msgstr "Puffer voll"
 
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js:172
+msgid "configured log_limit: %s"
+msgstr "konfiguriertes log_limit: %s"
+
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js:38
 msgid "contains"
 msgstr "enthält"
