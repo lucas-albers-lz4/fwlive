@@ -35,7 +35,7 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 
 1. **Title row** — **Firewall Live View** on the left; **Watching** status (dot + counts) on the right.
 2. **Watch strip** — Pause/Resume, logging control, and segmented **Simple / Detail** and **Wrap / One line** groups.
-3. **Display options bar** — **Limit**, **Row tint**, **Palette**, and **Show hostnames** on one line (no drawer).
+3. **Display options bar** — **Limit**, **Fetch budget**, **Maximum raw lines**, **Row tint**, **Palette**, and **Show hostnames** (no drawer; controls wrap as needed).
 4. **Filter row** — quick search, Action, and Protocol (grouped menu + optional custom type-in); open **More filters** for the rest.
 5. **Table** — click a filter link (action, IP, protocol, interface, flow endpoint) to filter; click a row body such as the **Time** cell to expand Message.
 
