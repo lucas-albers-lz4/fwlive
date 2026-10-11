@@ -77,6 +77,103 @@ for fn in upstream_cut_verify_readme_rows upstream_cut_verify_artifacts upstream
 done
 grep -qE 'upstream_cut_verify_no_symlinks "\$OUT"' "$SRC" || { echo "FATAL: no_symlinks is not wired into the cut" >&2; exit 2; }
 
+# Execute the live fail branches and final guard with gates forced to fail.
+# This protects both invocation wiring and the production accumulator/exit path,
+# not merely the gate functions' direct return codes above.
+extract_failure_block() {
+  local fn="$1"
+  awk -v fn="$fn" '
+    {
+      line=$0
+      sub(/^[[:space:]]*/, "", line)
+      if (!inside && index(line, "if ! " fn " ") == 1) {
+        inside=1
+        found=1
+      }
+      if (inside) {
+        print
+        if (line == "fi") {
+          closed=1
+          exit
+        }
+      }
+    }
+    END { if (!found || !closed) exit 1 }
+  ' "$SRC" >"$WORK/bin/$fn.failure.sh" \
+    || { echo "FATAL: cannot extract active failure block for $fn" >&2; exit 2; }
+}
+awk '
+  {
+    line=$0
+    sub(/^[[:space:]]*/, "", line)
+    if (!inside && line ~ /^if \[ "\$fail" -ne 0 \]; then$/) {
+      inside=1
+      found=1
+    }
+    if (inside) {
+      print
+      if (line == "fi") {
+        closed=1
+        exit
+      }
+    }
+  }
+  END { if (!found || !closed) exit 1 }
+' "$SRC" >"$WORK/bin/final-failure-guard.sh" \
+  || { echo "FATAL: cannot extract final failure guard" >&2; exit 2; }
+
+for fn in upstream_cut_verify_readme_rows upstream_cut_verify_artifacts upstream_cut_verify_pot_refs; do
+  extract_failure_block "$fn"
+  marker="$WORK/$fn.failure-survived"
+  rm -f "$marker"
+  (
+    set -euo pipefail
+    # These values are consumed by source fragments extracted from the live script.
+    # shellcheck disable=SC2034
+    fail=0
+    # shellcheck disable=SC2034
+    OUT="$WORK/out"
+    # shellcheck disable=SC2034
+    PKG="$PKG"
+    eval "$fn() { return 1; }"
+    # shellcheck disable=SC1090
+    source "$WORK/bin/$fn.failure.sh"
+    # shellcheck disable=SC1090
+    source "$WORK/bin/final-failure-guard.sh"
+    : >"$marker"
+  ) >"$WORK/$fn.failure.log" 2>&1
+  rc=$?
+  [ "$rc" -ne 0 ] && [ ! -e "$marker" ] \
+    || { echo "FATAL: $fn failure did not reach the cut's nonzero guard" >&2; exit 2; }
+done
+
+# The symlink guard lives inside the rewrite function and relies on errexit at
+# the active top-level call. Check that wiring and make a forced failure abort.
+awk '/^upstream_cut_guarded_rewrite\(\)/,/^}/' "$SRC" \
+  >"$WORK/bin/guarded-rewrite.sh"
+[ -s "$WORK/bin/guarded-rewrite.sh" ] \
+  || { echo "FATAL: cannot extract guarded rewrite" >&2; exit 2; }
+grep -qE '^set -euo pipefail$' "$SRC" \
+  || { echo "FATAL: upstream-cut no longer enables errexit" >&2; exit 2; }
+grep -qE '^[[:space:]]*if ! upstream_cut_verify_no_symlinks "\$OUT"; then$' "$SRC" \
+  || { echo "FATAL: symlink guard is not an active rewrite failure check" >&2; exit 2; }
+grep -qE '^upstream_cut_guarded_rewrite "\$OUT"$' "$SRC" \
+  || { echo "FATAL: guarded rewrite is not an active top-level call" >&2; exit 2; }
+marker="$WORK/symlink-failure-survived"
+rm -f "$marker"
+(
+  set -euo pipefail
+  upstream_cut_verify_no_symlinks() { return 1; }
+  # shellcheck disable=SC1090
+  source "$WORK/bin/guarded-rewrite.sh"
+  upstream_cut_guarded_rewrite "$WORK/out"
+  : >"$marker"
+) >"$WORK/no-symlink-failure.log" 2>&1
+rc=$?
+[ "$rc" -ne 0 ] && [ ! -e "$marker" ] \
+  || { echo "FATAL: no_symlinks failure did not abort the rewrite" >&2; exit 2; }
+echo "gate wiring and failure propagation checks passed"
+
 # ---- base fixture: minimal clean artifact + the real style carriers ----
 build_base() {
   local d="$WORK/out"
