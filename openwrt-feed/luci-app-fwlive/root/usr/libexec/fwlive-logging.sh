@@ -394,6 +394,10 @@ wan_firewall_zone_same() {
 wan_log_staged_line_section() {
 	_line="$1"
 	case "$_line" in
+		firewall.*.log+=*|firewall.*.log-=*)
+			_rest=${_line#firewall.}
+			printf '%s' "${_rest%%.log*}"
+			;;
 		firewall.*.log=*)
 			_rest=${_line#firewall.}
 			printf '%s' "${_rest%%.log=*}"
@@ -467,6 +471,8 @@ wan_log_count_our_staged_lines() {
 				if (id[i] == "") continue
 				np++
 				p[np] = "firewall." id[i] ".log="
+				la[np] = "firewall." id[i] ".log+="
+				ld[np] = "firewall." id[i] ".log-="
 				d[np] = "-firewall." id[i] ".log"
 				ds[np] = "- firewall." id[i] ".log"
 			}
@@ -474,12 +480,89 @@ wan_log_count_our_staged_lines() {
 		NF == 0 { next }
 		{
 			for (i = 1; i <= np; i++) {
-				if (index($0, p[i]) == 1) { c++; break }
+				if (index($0, p[i]) == 1 || index($0, la[i]) == 1 || index($0, ld[i]) == 1) { c++; break }
 				if ($0 == d[i] || $0 == ds[i]) { c++; break }
 			}
 		}
 		END { print c+0 }
 	'
+}
+
+# Revert only a single staged log delta that still has the value this call
+# requested. Repeated or changed same-option entries may belong to a competing
+# UCI writer; preserve them rather than reverting an indistinguishable edit.
+wan_log_staged_option_matches_target() {
+	_zone="$1"
+	_target="$2"
+	_staged="$3"
+	_ids=$(wan_log_staged_zone_ids "$_zone" "$_staged")
+	printf '%s\n' "$_staged" | awk -v ids="$_ids" -v target="$_target" '
+		BEGIN {
+			n = split(ids, id, "\n")
+			for (i = 1; i <= n; i++) {
+				if (id[i] == "") continue
+				p[i] = "firewall." id[i] ".log="
+				la[i] = "firewall." id[i] ".log+="
+				ld[i] = "firewall." id[i] ".log-="
+				d[i] = "-firewall." id[i] ".log"
+				ds[i] = "- firewall." id[i] ".log"
+			}
+		}
+		NF == 0 { next }
+		{
+			for (i = 1; i <= n; i++) {
+				if (p[i] != "" && index($0, p[i]) == 1) {
+					count++
+					value = substr($0, length(p[i]) + 1)
+					if (value == target || value == sprintf("%c%s%c", 39, target, 39)) matched = 1
+					break
+				}
+				if (index($0, la[i]) == 1 || index($0, ld[i]) == 1) {
+					count++
+					break
+				}
+				if ($0 == d[i] || $0 == ds[i]) {
+					count++
+					if (target == "") matched = 1
+					break
+				}
+			}
+		}
+		END { exit !(count == 1 && matched) }
+	'
+}
+
+wan_log_revert_staged_option_if_ours() {
+	_zone="$1"
+	_target="$2"
+	_staged="$3"
+	if ! _before_revert=$(uci -q changes firewall 2>/dev/null); then
+		logger -t fwlive "WAN log option-scoped revert could not re-read staged changes" 2>/dev/null || true
+		return 1
+	fi
+	if [ "$_before_revert" != "$_staged" ] \
+		|| ! wan_log_staged_option_matches_target "$_zone" "$_target" "$_before_revert"; then
+		logger -t fwlive "WAN log option-scoped revert skipped: staged changes changed before cleanup" 2>/dev/null || true
+		return 1
+	fi
+	# UCI's CLI has no atomic compare-and-revert: a non-cooperating writer
+	# can still stage the same option after this read and before revert (tracked separately).
+	uci -q revert "firewall.${_zone}.log" 2>/dev/null || {
+		logger -t fwlive "WAN log option-scoped revert failed for firewall.${_zone}.log" 2>/dev/null || true
+		return 1
+	}
+	# OpenWrt 24.10/25.12 UCI can return success even when its internal
+	# revert operation fails. Confirm through a fresh delta read that no log
+	# option changes remain before reporting cleanup success.
+	if ! _after_revert=$(uci -q changes firewall 2>/dev/null); then
+		logger -t fwlive "WAN log option-scoped revert could not be verified" 2>/dev/null || true
+		return 1
+	fi
+	if [ "$(wan_log_count_our_staged_lines "$_zone" "$_after_revert")" -ne 0 ]; then
+		logger -t fwlive "WAN log option-scoped revert left a staged delta" 2>/dev/null || true
+		return 1
+	fi
+	return 0
 }
 
 wan_log_baseline_path() {
@@ -852,8 +935,8 @@ restore_wan_zone_log() {
 	}
 	# Capture the committed value before staging our rollback. If another
 	# writer stages a firewall delta after this point, the post-stage guard
-	# below must be able to undo only our rollback staging without reverting
-	# the other writer's change.
+	# may revert our option only when its staged log delta is still uniquely
+	# identifiable; otherwise it preserves the ambiguous same-option change.
 	committed=$(wan_zone_log_value "$zone")
 	# Fail closed if set/delete never staged. Swallowed rc plus an empty
 	# changes list would make `uci commit` succeed as a no-op.
@@ -868,25 +951,21 @@ restore_wan_zone_log() {
 	fi
 	_staged=$(uci -q changes firewall 2>/dev/null || true)
 	_foreign=$(wan_log_foreign_staged_lines "$zone" "$_staged")
-	if [ -n "$_foreign" ]; then
-		if [ -z "$committed" ]; then
-			uci delete "firewall.${zone}.log" 2>/dev/null || true
-		else
-			uci set "firewall.${zone}.log=${committed}" 2>/dev/null || true
+	_our_count=$(wan_log_count_our_staged_lines "$zone" "$_staged")
+	if [ -n "$_foreign" ] || [ "$_our_count" -ne 1 ] \
+		|| ! wan_log_staged_option_matches_target "$zone" "$previous" "$_staged"; then
+		if ! wan_log_revert_staged_option_if_ours "$zone" "$previous" "$_staged"; then
+			logger -t fwlive "WAN log rollback left staged log option after foreign or ambiguous change" 2>/dev/null || true
 		fi
 		logger -t fwlive "WAN log rollback skipped after stage: firewall changes staged by another writer" 2>/dev/null || true
 		return 1
 	fi
 	if ! uci commit firewall 2>/dev/null; then
-		# Drop our staged rollback delta so a later toggle is not stuck
-		# on firewall_changes_pending from this package's own orphaned
-		# write. Mirror commit_wan_log_change: revert only when the
-		# remaining staging is entirely our log option.
+		# Remove only a uniquely identifiable staged rollback option. A
+		# config-wide revert could discard unrelated or competing UCI writes.
 		_staged=$(uci -q changes firewall 2>/dev/null || true)
-		_total=$(printf '%s\n' "$_staged" | grep -c . 2>/dev/null || true)
-		_ours=$(wan_log_count_our_staged_lines "$zone" "$_staged")
-		if [ "${_total:-0}" -gt 0 ] && [ "${_total:-0}" -eq "${_ours:-0}" ]; then
-			uci -q revert firewall 2>/dev/null || true
+		if ! wan_log_revert_staged_option_if_ours "$zone" "$previous" "$_staged"; then
+			logger -t fwlive "WAN log rollback cleanup failed; staged option may remain" 2>/dev/null || true
 		fi
 		return 1
 	fi
@@ -902,8 +981,8 @@ restore_wan_zone_log() {
 # Staging and committing therefore live INSIDE this function, gated by:
 #   1. a pending re-check BEFORE our own delta exists in staging (foreign-only);
 #   2. a post-stage re-check AFTER our set/delete: if anything besides our
-#      log option is staged, undo our staging (restore the pre-stage committed
-#      value) and abort without commit — foreign staging stays intact.
+#      log option is staged, revert only a single exact log delta and abort;
+#      preserve ambiguous same-option changes and all foreign staging.
 # The reload-failure rollback has its own pre/post-stage guard for the same
 # reason; it must not bypass this invariant merely because it is compensating
 # for a failed reload.
@@ -953,8 +1032,9 @@ commit_wan_log_change() {
 	}
 	WAN_LOG_COMMIT_GENERATION="$_generation"
 
-	# Staging is empty here — capture the committed value so a post-stage
-	# foreign race can undo our delta without `uci revert firewall`.
+	# Staging is empty here — capture the committed value for verification and
+	# recovery. A post-stage abort uses option-scoped revert, not a compensating
+	# set to the old value (which leaves another staged delta in real UCI).
 	previous=$(wan_zone_log_value "$zone")
 
 	if [ -n "$target" ]; then
@@ -969,16 +1049,16 @@ commit_wan_log_change() {
 		fi
 	fi
 
-	# Post-stage guard: anything besides our log option is foreign.
-	# Undo our staging only (set previous / delete to match committed); leave
-	# foreign deltas untouched and abort without commit.
+	# Post-stage guard: anything besides our log option is foreign. Revert the
+	# single expected log delta without touching other options; if the staged
+	# log state is ambiguous, preserve it rather than discard a same-option edit.
 	_staged=$(uci -q changes firewall 2>/dev/null || true)
 	_foreign=$(wan_log_foreign_staged_lines "$zone" "$_staged")
-	if [ -n "$_foreign" ]; then
-		if [ -z "$previous" ]; then
-			uci delete "firewall.${zone}.log" 2>/dev/null || true
-		else
-			uci set "firewall.${zone}.log=${previous}" 2>/dev/null || true
+	_our_count=$(wan_log_count_our_staged_lines "$zone" "$_staged")
+	if [ -n "$_foreign" ] || [ "$_our_count" -ne 1 ] \
+		|| ! wan_log_staged_option_matches_target "$zone" "$target" "$_staged"; then
+		if ! wan_log_revert_staged_option_if_ours "$zone" "$target" "$_staged"; then
+			logger -t fwlive "WAN log toggle left staged log option after foreign or ambiguous change" 2>/dev/null || true
 		fi
 		logger -t fwlive "WAN log toggle aborted after stage: firewall changes staged by another writer" 2>/dev/null || true
 		wan_log_error_json "$zone_json" firewall_changes_pending
@@ -986,19 +1066,12 @@ commit_wan_log_change() {
 	fi
 
 	if ! uci commit firewall; then
-		# Drop our staged log delta so a later toggle is not stuck on
-		# firewall_changes_pending from this package's own orphaned write —
-		# but ONLY when nothing foreign is staged: `uci revert firewall` is
-		# config-wide (uci has no option-level revert), and reverting would
-		# clobber a concurrent writer's uncommitted delta. With foreign
-		# staging present, leave it and warn.
+		# UCI option-scoped revert clears our exact delta without discarding
+		# unrelated staging. If a competing same-option write makes ownership
+		# ambiguous, preserve it and leave a diagnostic instead.
 		_staged=$(uci -q changes firewall 2>/dev/null || true)
-		_total=$(printf '%s\n' "$_staged" | grep -c . 2>/dev/null || true)
-		_ours=$(wan_log_count_our_staged_lines "$zone" "$_staged")
-		if [ "${_total:-0}" -gt 0 ] && [ "${_total:-0}" -eq "${_ours:-0}" ]; then
-			uci -q revert firewall 2>/dev/null || true
-		else
-			logger -t fwlive "WAN log commit failed with foreign changes staged — not reverting (uci_commit_failed)" 2>/dev/null || true
+		if ! wan_log_revert_staged_option_if_ours "$zone" "$target" "$_staged"; then
+			logger -t fwlive "WAN log commit failed with ambiguous or foreign changes staged — not reverting (uci_commit_failed)" 2>/dev/null || true
 		fi
 		wan_log_error_json "$zone_json" uci_commit_failed
 		return 1

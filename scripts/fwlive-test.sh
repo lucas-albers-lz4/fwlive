@@ -91,6 +91,7 @@ bash "$ROOT/tests/fwlive-spdx-pot-gates.test.sh"
 echo "== fwlive upstream-cut invariants + .pot parity (#273) ==" >&2
 bash "$ROOT/tests/fwlive-upstream-cut.test.sh"
 bash "$ROOT/tests/fwlive-upstream-cut-mode.test.sh"
+bash "$ROOT/tests/fwlive-upstream-cut-gate-contract.test.sh"
 
 echo "== fwlive source-to-POT drift (#334 / #454) ==" >&2
 "$NODE" tests/fwlive-i18n-source.test.js
@@ -242,6 +243,8 @@ bash tests/qemu-install-artifact-mode.test.sh
 bash tests/qemu-smoke-log-pipeline.test.sh
 bash tests/qemu-reset-wan-logging.test.sh
 bash tests/qemu-security-gaps-smoke.test.sh
+echo "== UCI option-scoped rollback source contract (#1199) ==" >&2
+bash tests/qemu-uci-stage-revert-smoke.test.sh
 
 echo "== fwlive LuCI-accurate E() harness (#149) ==" >&2
 "$NODE" tests/fwlive-e-harness.test.js

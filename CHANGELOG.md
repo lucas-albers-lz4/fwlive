@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Revert only a uniquely matching staged WAN firewall `log` delta after abort or commit failure; preserve ambiguous scalar/list edits and verify cleanup. Real-UCI smoke passed on OpenWrt 24.10.8 and 25.12.5 (#1199).
+
 ### Changed
 - Preserve startup poll errors when LuCI initializes the footer after `load()` (#1196).
 
