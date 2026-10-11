@@ -618,12 +618,27 @@ sdk_matrix_default_jobs() {
 	printf '%s' "$n"
 }
 
+sdk_matrix_clear_builder_package_artifacts() {
+	local arch="$SDK_MATRIX_PACKAGE_ARCH"
+	sdk_matrix_compose_run sh -ec '
+		arch=$1
+		for dir in "/builder/bin/packages/$arch" "/builder/bin/packages/$arch/fwlive"; do
+			[ -d "$dir" ] || continue
+			rm -f "$dir"/luci-app-fwlive_*.ipk \
+				"$dir"/luci-app-fwlive_*.apk \
+				"$dir"/luci-app-fwlive-*.apk
+		done
+	' sh "$arch"
+}
+
 sdk_matrix_make() {
 	local -a args=() quoted
 	local jobs has_j=0
 
 	sdk_matrix_feeds_ready \
 		|| { echo "Run: ./scripts/docker-sdk.sh setup --target $SDK_MATRIX_TARGET --version $SDK_MATRIX_VERSION" >&2; return 1; }
+	sdk_matrix_clean_package || return 1
+	sdk_matrix_clear_builder_package_artifacts || return 1
 
 	jobs="$(sdk_matrix_default_jobs)"
 	for arg in "$@"; do
