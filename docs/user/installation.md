@@ -153,13 +153,9 @@ opkg remove luci-app-fwlive    # 23.05 / 24.10
 apk del luci-app-fwlive        # 25.12.x
 ```
 
-**Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package tries to restore the zone `log` value from before the first time you enabled logging via Live View. If you never used **Enable logging**, there is no baseline file and uninstall does not change firewall UCI.
+**Enable logging** changes the WAN firewall zone in `/etc/config/firewall` (same as **Network → Firewall**). On uninstall, the package tries to restore the saved baseline. On the first enable, when the filter-log bit was off, that baseline is the current `log` value. If you use **Enable logging** while logging is already enabled and no baseline exists, fwlive reconstructs a baseline by clearing only its filter-log bit from the then-current mask; this is not a historical pre-fwlive snapshot. If you never used **Enable logging**, there is no baseline file and uninstall does not change firewall UCI.
 
-If logging was already on before fwlive saved its baseline, fwlive records an
-unset baseline. On uninstall, it removes the zone's `log` option; turn logging
-back on under **Network → Firewall** if you want it to remain enabled. Baseline
-saving is best effort. If fwlive cannot save the baseline, uninstall does not
-change the zone's `log` option, so logging remains enabled.
+For the already-enabled/missing-baseline case, unrelated `log` bits are preserved: an existing `log=3` produces a baseline of `2` and uninstall restores `2`. If the only bit was the filter-log bit (`log=1`), the baseline is empty and uninstall removes the zone's `log` option; you may need to re-enable it under Network → Firewall. The behavior is covered in `tests/fwlive-logging.test.sh`. Baseline saving is best effort; if fwlive cannot save it, uninstall does not change the zone's `log` option.
 
 The baseline file stays and a `fwlive` syslog notice is logged if restore cannot
 complete or be confirmed. This can happen when there is no WAN zone, the initial
