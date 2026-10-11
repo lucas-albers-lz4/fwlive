@@ -190,20 +190,41 @@ validate_matrix_wait_ssh() {
 	MAX_WAIT="$max_wait" "${root}/scripts/qemu-wait-guest.sh"
 }
 
+VALIDATE_MATRIX_BUILT_ARTIFACT=
+
+validate_matrix_select_cell_artifact() {
+	local sdk_target="$1" version_key="$2" dest
+	local -a artifacts=()
+	sdk_matrix_resolve "$sdk_target" "$version_key"
+	dest="$SDK_MATRIX_OUT_DIR"
+	sdk_matrix_out_package_candidates "$dest" artifacts
+	[[ ${#artifacts[@]} -eq 1 && -f "${artifacts[0]}" ]] \
+		|| validate_matrix_die "expected exactly one package for ${sdk_target}/${version_key} under ${dest}; found ${#artifacts[@]}"
+	printf '%s' "${artifacts[0]}"
+}
+
 validate_matrix_sdk_build() {
 	local sdk_target="$1" version_key="$2" root
+	VALIDATE_MATRIX_BUILT_ARTIFACT=
 	root="$(validate_matrix_root)"
 	"${root}/scripts/docker-sdk.sh" build --target "$sdk_target" --version "$version_key"
+	VALIDATE_MATRIX_BUILT_ARTIFACT="$(validate_matrix_select_cell_artifact "$sdk_target" "$version_key")"
 }
 
 validate_matrix_install_ipk() {
-	local version_label="$1" qemu_target="$2" root
+	local version_label="$1" qemu_target="$2" artifact="${3:-}" root
 	root="$(validate_matrix_root)"
 	case "$qemu_target" in
 		x86) export OWRT_FWLIVE_ARCH=x86_64 ;;
 		armsr) export OWRT_FWLIVE_ARCH=aarch64_generic ;;
 	esac
-	OWRT_FWLIVE_VERSION="$version_label" "${root}/scripts/qemu-install-fwlive.sh" --artifact-only
+	if [[ -n "$artifact" ]]; then
+		OWRT_FWLIVE_VERSION="$version_label" \
+			"${root}/scripts/qemu-install-fwlive.sh" --artifact-only "$artifact"
+	else
+		OWRT_FWLIVE_VERSION="$version_label" \
+			"${root}/scripts/qemu-install-fwlive.sh" --artifact-only
+	fi
 }
 
 validate_matrix_smoke() {
@@ -214,7 +235,7 @@ validate_matrix_smoke() {
 # Args: version_key qemu_target sdk_target skip_build
 validate_matrix_run_cell() {
 	local version_key="$1" qemu_target="$2" sdk_target="$3" skip_build="${4:-0}"
-	local version_label lab_slug img root
+	local version_label lab_slug img root artifact
 	qemu_lab_require_ss || return 1
 	root="$(validate_matrix_root)"
 	lab_slug="$(validate_matrix_lab_slug "$version_key")"
@@ -233,9 +254,14 @@ validate_matrix_run_cell() {
 
 	echo "== validate ${version_key} (lab ${lab_slug}) qemu=${qemu_target} sdk=${sdk_target} ==" >&2
 
+	VALIDATE_MATRIX_BUILT_ARTIFACT=
 	if [[ "$skip_build" -eq 0 ]]; then
 		echo "→ SDK build..." >&2
 		validate_matrix_sdk_build "$sdk_target" "$version_key"
+		artifact="$VALIDATE_MATRIX_BUILT_ARTIFACT"
+	else
+		echo "→ select existing artifact for ${sdk_target}/${version_key}..." >&2
+		artifact="$(validate_matrix_select_cell_artifact "$sdk_target" "$version_key")"
 	fi
 
 	if [[ ! -f "$img" ]]; then
@@ -255,7 +281,7 @@ validate_matrix_run_cell() {
 	validate_matrix_wait_ssh "$qemu_target"
 
 	echo "→ install fwlive..." >&2
-	validate_matrix_install_ipk "$version_label" "$qemu_target"
+	validate_matrix_install_ipk "$version_label" "$qemu_target" "$artifact"
 
 	echo "→ smoke..." >&2
 	validate_matrix_smoke

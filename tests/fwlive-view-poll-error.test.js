@@ -247,6 +247,29 @@ async function testPollErrorClasses() {
 	console.log('fwlive-view poll-error: error classes OK');
 }
 
+async function testStartupErrorSurvivesAddFooter() {
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function() {
+				return { log: [], error: 'filter_failed' };
+			}
+		}
+	});
+	const view = h.view;
+
+	await view.load();
+	assert.equal(view.lastPollError, true, 'failed startup poll must set the error before addFooter');
+	assert.equal(view.lastPollErrorCode, 'filter_failed');
+	view.addFooter();
+	assert.equal(view.lastPollError, true, 'addFooter must preserve the startup poll result');
+	assert.equal(view.lastPollErrorCode, 'filter_failed');
+	assert.match(h.document.getElementById('fwlive-status').textContent,
+		/could not read the firewall log/i,
+		'the startup failure must remain visible after footer initialization');
+	view.disposeView();
+	console.log('fwlive-view poll-error: startup failure survives addFooter');
+}
+
 async function testSummaryPollErrorRefreshesStatus() {
 	const h = loadFwliveView({
 		rpcMocks: {
@@ -278,6 +301,7 @@ async function testSummaryPollErrorRefreshesStatus() {
 		await testPollNonStringMsgSurvives();
 		await testConstructorHintDoesNotPaintObjectSource();
 		await testPollErrorClasses();
+		await testStartupErrorSurvivesAddFooter();
 		await testSummaryPollErrorRefreshesStatus();
 		console.log('fwlive-view poll-error tests passed');
 	} catch (e) {

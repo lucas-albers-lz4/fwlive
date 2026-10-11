@@ -240,6 +240,7 @@ bash tests/qemu-lifecycle.test.sh
 echo "== qemu logging-uninstall source-contract / static wiring checks (#517) ==" >&2
 bash tests/qemu-logging-uninstall-smoke.test.sh
 bash tests/qemu-install-artifact-mode.test.sh
+bash tests/validate-matrix-artifact.test.sh
 bash tests/qemu-smoke-log-pipeline.test.sh
 bash tests/qemu-reset-wan-logging.test.sh
 bash tests/qemu-security-gaps-smoke.test.sh

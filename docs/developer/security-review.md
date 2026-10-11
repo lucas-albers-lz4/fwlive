@@ -1,5 +1,19 @@
 # Security review state
 
+**2026-10-11 #1197 scoped delta.** Matrix validation selects exactly one
+package from the requested SDK target/version cell for both build and
+`--skip-build`, then passes that path to the guest installer. SDK builds clear
+stale package outputs before compiling so persistent volumes cannot contribute
+older versioned artifacts. Host contract tests cover exact-cell selection,
+missing/multiple candidates, APK selection, install-argument propagation, and
+same-cell stale-output cleanup. On 2026-10-11,
+`./scripts/validate-openwrt.sh --version 24.10 --qemu-target x86
+--sdk-target armsr-armv8 --skip-baseline` built the actual 24.10.8 SDK
+artifact, selected that cell's package, installed it into an OpenWrt 24.10.8
+x86 QEMU guest, and passed the firewall-log smoke (`3 parsed row(s)`). This is
+one supported build/install cell, not validation of every SDK matrix cell or a
+full release/signing audit.
+
 **2026-10-10 #1199 scoped delta.** WAN-log toggle and reload-rollback staging
 require exactly one target-valued `firewall.<zone>.log` delta for the canonical
 zone before package-wide commit. Duplicate or ambiguous same-option edits fail
@@ -788,6 +802,7 @@ change. This scoped smoke review is not a full security audit.
 |---------|---------------|-------|-------|
 | Release pipeline — upstream-cut README fence boundary | 2026-10-11 | Scoped source + host tests | #1206 flags invalid backtick openers and checks following Path/Role rows. Properly closed fences skip their contents and later rows remain checked; unterminated or mismatched fences fail at EOF without parsing rows inside the open fence. Tilde info strings may contain backticks. `tests/fwlive-upstream-cut.test.sh` covers these boundaries; no installed-router or release run. |
 | Release pipeline — upstream-cut CSS exemption boundary | 2026-10-11 | Scoped source + host tests | #1207 masks JS comments and string/template bodies before shape matching; regex source remains scanned and cannot supply the multiline carrier shape. Only the generated `styleText` declaration receives the hex-color exemption. `tests/fwlive-upstream-cut-gate-contract.test.sh` covers wrapped fake carriers, fake values, and accepted literals; no installed-router or release run. |
+| Release pipeline — matrix artifact identity | 2026-10-11 | Scoped source + host test + 24.10.8 SDK/QEMU validation | Validation requires exactly one package in the requested target/version output and passes its exact path to install. `tests/validate-matrix-artifact.test.sh` covers exact-cell selection, propagation, and stale cleanup before compile. `validate-openwrt.sh --version 24.10 --qemu-target x86 --sdk-target armsr-armv8 --skip-baseline` built/selected the 24.10.8 SDK artifact, installed it into an OpenWrt 24.10.8 x86 guest, and passed smoke. Other SDK cells and QEMU architectures were not run. |
 | Frontend rendering sinks (`E()` string children) | 2026-10-02 | Scoped delta (full source pass 2026-10-01) | #1129: action label is static translated text; filter values remain array children. Recording harness and mocked Chromium role/name keyboard smoke passed; no installed guest or assistive-technology proof. |
 | Untrusted-input trace (log fields, PTR, URL hash, UCI) | 2026-10-01 | Full source + scoped fresh proof | Full source-to-sink trace across parser, view, chips, links, labels, caches and summaries. Host hostile-input checks passed; no new injection mechanism confirmed. Backend reply-size dependence remains an explicit limit. |
 | rpcd plugin + ACL scope | 2026-10-01 | Full source + scoped fresh proof | Full input/output/method/tempfile/control review; matched real jshn on all three supported pins. The #1059 host follow-up calls the shipped resolver through BusyBox ash with distinct IPv4 and IPv6 PTR fixtures, asserting exact lookup arguments and returned name maps. Fresh 24.10 grant/all-six-deny/read-only sessions and 25.12 read-only/all-six-deny checks; no session log.read. #1054 host coverage asserts native `ubus -t 5` argv and structured error handling only; it does not emulate a stalled service, and the native wait starts after object lookup without cancelling remote work. #1053 removed the GNU timeout wrappers and peer-drain. Direct-helper residual retained. |
