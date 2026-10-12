@@ -9,15 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.53] — 2026-10-12
+
 ### Fixed
 - Revert only a uniquely matching staged WAN firewall `log` delta after abort or commit failure; preserve ambiguous scalar/list edits and verify cleanup. Real-UCI smoke passed on OpenWrt 24.10.8 and 25.12.5 (#1199).
+- Preserve startup poll errors when LuCI initializes the footer after `load()` (#1196).
 
 ### Changed
-- Preserve startup poll errors when LuCI initializes the footer after `load()` (#1196).
 - Document nullable timestamps and inferred `action_raw` values in the normalized event schema (#1202).
 - Show whether a WAN zone rate limit is configured without implying an overall volume cap; kernel/logd may still constrain total log volume (#1203).
 - Clarify uninstall restores the WAN log mask without fwlive's owned bit, preserving unrelated bits (#1204).
 - Split the payload README backend bullet into a 23.05+ support floor and separate `nft` detection (no release-version probe) (#1212).
+- Validate the package artifact built for each OpenWrt matrix cell before guest install, so stale SDK outputs cannot satisfy the check (#1197).
+- Reject malformed README fences in the upstream cut and narrow the css.js color exemption to real palette carriers (#1206, #1207).
+- Record the remaining same-option UCI revert race as an accepted residual: libuci's lock protects the rewrite, not fwlive's preceding comparison (#1224).
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.52] — 2026-10-06
 
@@ -846,3 +859,4 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.50]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.49...v0.1.50
 [v0.1.51]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.50...v0.1.51
 [v0.1.52]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.51...v0.1.52
+[v0.1.53]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.52...v0.1.53
