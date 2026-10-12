@@ -28,6 +28,7 @@ skip_parity() {
 
 CUT_WORK=$(mktemp -d)
 PROMOTE_REPO=""
+PRODUCTION_REPO=""
 PKG=openwrt-feed/luci-app-fwlive
 DIRTY_PROBE="$ROOT/$PKG/.upstream-cut-dirty-probe-$$"
 # Preserve a pre-existing regenerable split ref; only delete if we created it.
@@ -37,7 +38,7 @@ if git -C "$ROOT" rev-parse --verify refs/heads/upstream/luci-app-fwlive >/dev/n
 fi
 _restore_upstream_cut_ref() {
 	rm -f "$DIRTY_PROBE"
-	rm -rf "$CUT_WORK" ${PROMOTE_REPO:+"$PROMOTE_REPO"}
+	rm -rf "$CUT_WORK" ${PROMOTE_REPO:+"$PROMOTE_REPO"} ${PRODUCTION_REPO:+"$PRODUCTION_REPO"}
 	if [ -n "${SAVED_UPSTREAM_CUT_SHA:-}" ]; then
 		git -C "$ROOT" update-ref refs/heads/upstream/luci-app-fwlive "$SAVED_UPSTREAM_CUT_SHA" >/dev/null 2>&1 || true
 	else
@@ -61,6 +62,42 @@ fi
 grep -q 'extra positional' "$CUT_WORK/extra.err" \
 	|| die "extra positional message ($(cat "$CUT_WORK/extra.err"))"
 ok "second outdir is rejected"
+
+# Drive an invalid package through the complete production wrapper. This is a
+# mutation-sensitive wiring check: if the README verifier call is removed or
+# hidden in an unreachable path, the cut succeeds and this fixture fails.
+PRODUCTION_REPO="$(mktemp -d)"
+mkdir -p "$PRODUCTION_REPO/scripts" "$PRODUCTION_REPO/openwrt-feed"
+cp -a "$ROOT/$PKG" "$PRODUCTION_REPO/openwrt-feed/"
+cp "$ROOT/scripts/upstream-cut.sh" "$PRODUCTION_REPO/scripts/upstream-cut.sh"
+python3 - "$PRODUCTION_REPO/$PKG/README.md" <<'PY'
+from pathlib import Path
+import sys
+
+readme = Path(sys.argv[1])
+lines = readme.read_text(encoding='utf-8').splitlines(keepends=True)
+for index, line in enumerate(lines):
+    if line.startswith('| `Makefile` |'):
+        lines.insert(index + 1, '| `missing-production-path.js` | fixture-only gate trigger |\n')
+        break
+else:
+    raise SystemExit('could not find the package README Path/Role row')
+readme.write_text(''.join(lines), encoding='utf-8')
+PY
+git -C "$PRODUCTION_REPO" init -q -b main
+git -C "$PRODUCTION_REPO" config user.email 'fwlive-test@example.com'
+git -C "$PRODUCTION_REPO" config user.name 'fwlive-test'
+git -C "$PRODUCTION_REPO" add .
+git -C "$PRODUCTION_REPO" commit -q -m 'invalid README path fixture'
+if (cd "$PRODUCTION_REPO" && ./scripts/upstream-cut.sh "$CUT_WORK/production-invalid") \
+	>"$CUT_WORK/production.out" 2>"$CUT_WORK/production.err"; then
+	die "production cut accepted the invalid README path fixture"
+fi
+grep -Fq 'README row names a path the cut does not ship' "$CUT_WORK/production.out" \
+	|| die "production cut failed without the README gate diagnostic"
+grep -Fq 'missing-production-path.js' "$CUT_WORK/production.out" \
+	|| die "production cut diagnostic omitted the invalid fixture path"
+ok "production cut runs README gate against the exported artifact"
 
 PROMOTE_REPO="$(mktemp -d)"
 git -C "$PROMOTE_REPO" init -q -b main
