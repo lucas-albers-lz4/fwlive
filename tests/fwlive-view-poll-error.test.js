@@ -6,7 +6,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView, loadFwliveView: loadFwliveViewAfterStartup } = require('./lib/load-fwlive-view');
 
 const SAMPLE_ROW = {
 	id: 1,
@@ -248,7 +248,7 @@ async function testPollErrorClasses() {
 }
 
 async function testStartupErrorSurvivesAddFooter() {
-	const h = loadFwliveView({
+	const h = await loadFwliveViewAfterStartup({
 		rpcMocks: {
 			'fwlive.poll': async function() {
 				return { log: [], error: 'filter_failed' };
@@ -257,8 +257,7 @@ async function testStartupErrorSurvivesAddFooter() {
 	});
 	const view = h.view;
 
-	await view.load();
-	assert.equal(view.lastPollError, true, 'failed startup poll must set the error before addFooter');
+	assert.equal(view.lastPollError, true, 'failed startup poll must set the error before render');
 	assert.equal(view.lastPollErrorCode, 'filter_failed');
 	view.addFooter();
 	assert.equal(view.lastPollError, true, 'addFooter must preserve the startup poll result');

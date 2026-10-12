@@ -6,8 +6,9 @@ const path = require('path');
 const { createHarnessDocument, loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
 
 async function testPollAddKeepsEveryCallback() {
-	const harness = loadFwliveView();
-	await harness.view.load();
+	const harness = await loadFwliveView();
+	assert.ok(harness.document.getElementById('fwlive-status'),
+		'the view must render after startup load completes');
 	const seen = [];
 	const before = harness.poll._entries.length;
 	assert.ok(before >= 1, 'the loaded view must register a poll callback');

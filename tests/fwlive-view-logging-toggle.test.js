@@ -7,7 +7,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView } = require('./lib/load-fwlive-view');
 
 const STORAGE_KEY = 'fwlive-logging-consent-v1';
 const WRONG_TYPE_REPLIES = [null, [], 'bad', 7];

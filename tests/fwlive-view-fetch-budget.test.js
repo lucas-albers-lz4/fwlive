@@ -4,7 +4,7 @@
 /* Frozen #338 Auto/Manual fetch-budget and preference-order contracts. */
 
 const assert = require('node:assert/strict');
-const { loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
 
 function sleep(ms) {
 	return new Promise(function (resolve) {
