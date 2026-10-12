@@ -3,7 +3,7 @@
 
 // Host state/text contracts; native disclosure interaction is tested in Playwright.
 const assert = require('node:assert/strict');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView } = require('./lib/load-fwlive-view');
 
 function ui(h) {
 	return {

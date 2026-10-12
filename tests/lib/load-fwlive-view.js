@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * Load view/status/fwlive.js under Node with stubbed rpc/poll/view and real fwlive modules.
+ * Create or boot view/status/fwlive.js under Node with stubbed rpc/poll/view and real fwlive modules.
+ * createFwliveView is for isolated view tests; loadFwliveView follows LuCI's load-then-render lifecycle.
  */
 
 const fs = require('fs');
@@ -196,7 +197,7 @@ function rpcWireArguments(cfg, args) {
 	return params;
 }
 
-function loadFwliveView(options) {
+function createFwliveView(options, deferRender) {
 	options = options || {};
 	const rpcMocks = Object.assign(Object.create(null), options.rpcMocks || {});
 	const rawRpcKeys = options.rawRpcKeys || Object.create(null);
@@ -353,15 +354,22 @@ function loadFwliveView(options) {
 		requestAnimationFrame, location, history
 	);
 
-	if (viewDesc.render) {
-		const root = viewDesc.render();
-		indexElementIds(root, harness.idMap);
-		if (document.body && document.body.appendChild)
-			document.body.appendChild(root);
+	let renderedRoot = null;
+	function renderView() {
+		if (!renderedRoot && viewDesc.render) {
+			renderedRoot = viewDesc.render();
+			indexElementIds(renderedRoot, harness.idMap);
+			if (document.body && document.body.appendChild)
+				document.body.appendChild(renderedRoot);
+		}
+		return renderedRoot;
 	}
+	if (!deferRender)
+		renderView();
 
 	return {
 		view: viewDesc,
+		render: renderView,
 		constants: constants,
 		log: log,
 		document: document,
@@ -384,6 +392,13 @@ function loadFwliveView(options) {
 		},
 		flushFrames: flushFrames
 	};
+}
+
+async function loadFwliveView(options) {
+	const harness = createFwliveView(options, true);
+	await harness.view.load();
+	harness.render();
+	return harness;
 }
 
 function waitFor(check, timeoutMs) {
@@ -412,6 +427,7 @@ function waitFor(check, timeoutMs) {
 module.exports = {
 	VIEW_PATH: VIEW_PATH,
 	createHarnessDocument: createHarnessDocument,
+	createFwliveView: createFwliveView,
 	loadFwliveView: loadFwliveView,
 	waitFor: waitFor
 };

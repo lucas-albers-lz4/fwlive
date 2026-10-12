@@ -3,7 +3,7 @@
 
 const assert = require('node:assert/strict');
 const core = require('../core/fwlive-log.js');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView } = require('./lib/load-fwlive-view');
 
 const NativeRegExp = RegExp;
 let constructed = 0;

@@ -6,7 +6,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
 
 function fail(msg) {
 	console.error(msg);

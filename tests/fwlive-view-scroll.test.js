@@ -6,7 +6,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView } = require('./lib/load-fwlive-view');
 
 async function testScrollFixedTopDoesNotRecompute() {
 	const h = loadFwliveView();

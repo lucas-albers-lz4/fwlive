@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView } = require('./lib/load-fwlive-view');
 
 const SAMPLE_ROW = {
 	id: 77,

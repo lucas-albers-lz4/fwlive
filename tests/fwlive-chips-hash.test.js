@@ -12,7 +12,7 @@
 
 const assert = require('node:assert/strict');
 const { loadFwliveModule, luciE } = require('./lib/load-fwlive-module');
-const { loadFwliveView } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView } = require('./lib/load-fwlive-view');
 const { collectInnerHTMLWrites } = luciE;
 
 const HOSTILE = '<img src=x onerror=alert(1)>';
