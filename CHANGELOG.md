@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Document the Simple-view **Show full message** button in the user guide (#1229).
+
 ## [v0.1.53] — 2026-10-12
 
 ### Fixed

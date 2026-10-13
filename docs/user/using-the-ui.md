@@ -37,7 +37,7 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 2. **Watch strip** — Pause/Resume, logging control, and segmented **Simple / Detail** and **Wrap / One line** groups.
 3. **Display options bar** — **Limit**, **Fetch budget**, **Maximum raw lines**, **Row tint**, **Palette**, and **Show hostnames** (no drawer; controls wrap as needed).
 4. **Filter row** — quick search, Action, and Protocol (grouped menu + optional custom type-in); open **More filters** for the rest.
-5. **Table** — click a filter link (action, IP, protocol, interface, flow endpoint) to filter; click a row body such as the **Time** cell to expand Message.
+5. **Table** — click a filter link (action, IP, protocol, interface, flow endpoint) to filter. In **Simple** view, activate **Show full message** or click a row body such as the **Time** cell to expand Message.
 
 | Column | Meaning |
 |--------|---------|
@@ -48,12 +48,12 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 | **Proto** | TCP, UDP, ICMP, … |
 | **Rule** | Resolved fw4/UCI name when possible |
 
-**Expand raw message:** click any data row (not a filter link) to show or hide the full netfilter log line below that row.
+**Expand raw message:** activate **Show full message** (▸ in the Action cell) or click any data row that is not a filter link. The full netfilter log line appears below that row. **Hide full message** or a second row click collapses it.
 
 ![Expanded message row](assets/fwlive-expanded-message.png)
 
-1. Click the row body (for example the **Time** cell) to expand.
-2. The full log line appears under that row — click again to collapse.
+1. Activate **Show full message**, or click the row body (for example the **Time** cell), to expand.
+2. The full log line appears under that row — **Hide full message** or click the row again to collapse.
 
 ### Simple filters
 
@@ -149,7 +149,7 @@ signal to reduce the workload.
 
 ## Filtering
 
-- **Click a filter link** (action, IP, protocol, interface, flow endpoint) to filter. In **Simple** view, the **Time** cell is not a filter link; clicking it expands the row. In **Detail** view, that click does not expand the row.
+- **Click a filter link** (action, IP, protocol, interface, flow endpoint) to filter. In **Simple** view, the **Time** cell is not a filter link; clicking it expands the row, as does **Show full message**. In **Detail** view, that click does not expand the row and there is no message button.
 - Active filters appear as **chips** — click **≠** on a chip to flip include ↔ exclude; **×** removes one; **Clear all** resets.
 - You can also prefix text filters with **`!`** for negation (same as **≠** on a chip).
 - **URL hash** stores filters, limit, `view=detailed`, and in Manual mode `poll=manual` plus `maxraw=` (raw-line fetch budget) for shareable links.
