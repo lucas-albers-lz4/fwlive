@@ -33,12 +33,13 @@ Use a **Linux x86_64** host for build and test commands — see [Environment](en
 1. Edit code (`core/` and/or LuCI package)
 2. Run `./scripts/fwlive-test.sh`
 3. Run `./scripts/validate-baseline.sh`
-4. If LuCI or rpcd changed:
+4. If shipped LuCI JavaScript changed, run `npm run test:view` (see [build-and-test.md](build-and-test.md))
+5. If LuCI or rpcd changed:
    ```sh
    ./scripts/qemu-install-fwlive.sh    # sync to running guest
    # manual check: http://localhost:8080/cgi-bin/luci/admin/status/fwlive
    ```
-5. For release-level confidence:
+6. For release-level confidence:
    ```sh
    ./scripts/validate-openwrt.sh --version 24.10 --skip-build
    ```
