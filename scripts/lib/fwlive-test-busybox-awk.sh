@@ -1,3 +1,20 @@
+# Assert awk resolved inside the lane's pinned `busybox sh` is BusyBox >= 1.37.
+fwlive_test_assert_busybox_awk_lane() {
+	local bin="$1" banner major minor
+	banner="$(PATH="${bin}:${PATH}" busybox sh -c 'awk 2>&1 | head -1' 2>/dev/null || true)"
+	if [[ ! "$banner" =~ BusyBox\ v([0-9]+)\.([0-9]+) ]]; then
+		echo "FAIL: BusyBox awk lane: awk inside 'busybox sh' did not report a BusyBox version (got: ${banner})" >&2
+		return 1
+	fi
+	major="${BASH_REMATCH[1]}"
+	minor="${BASH_REMATCH[2]}"
+	if (( major > 1 || (major == 1 && minor >= 37) )); then
+		return 0
+	fi
+	echo "FAIL: BusyBox awk lane: awk inside 'busybox sh' reports ${major}.${minor}, need >= 1.37 (use the prepared busybox on PATH, not the host applet)" >&2
+	return 1
+}
+
 # Prepare the pinned BusyBox awk lane. The caller runs the tests after success.
 # Return 0 when ready, 2 for an explicitly counted local skip, and 1 on failure.
 fwlive_test_prepare_busybox_awk() {

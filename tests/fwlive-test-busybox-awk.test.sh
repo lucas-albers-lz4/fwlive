@@ -86,10 +86,12 @@ test_ensure_busybox_awk_cache_and_download_timeout() {
 	mkdir -p "${fixture_root}/usr/bin" "${cache}/bin" "$curl_dir"
 	cat >"${fixture_root}/usr/bin/busybox" <<'EOF'
 #!/bin/sh
-if [ "$#" -eq 0 ]; then
+if [ "$#" -eq 0 ] || [ "$1" = awk ]; then
 	printf '%s\n' 'BusyBox v1.37.0 fixture'
-elif [ "$1" = awk ]; then
-	printf '%s\n' 'verified-artifact'
+	exit 0
+elif [ "$1" = sh ]; then
+	shift
+	exec /bin/sh "$@"
 else
 	exit 2
 fi
@@ -128,8 +130,12 @@ EOF
 	output="$(FWLIVE_BUSYBOX_AWK_DIR="$cache" FWLIVE_BUSYBOX_AWK_SHA256="$fixture_sha" FWLIVE_TEST_CURL_ARGS="${TMP}/cached-curl.args" FWLIVE_TEST_FIXTURE_DEB="$fixture_deb" PATH="${curl_dir}:${PATH}" "${ROOT}/scripts/ensure-busybox-awk.sh")"
 	[[ "$output" == "${cache}/bin" ]] || fail "cached helper returned wrong bin path ($output)"
 	[[ ! -e "${TMP}/cached-curl.args" ]] || fail "valid package cache must avoid network fetch"
-	[[ "$("${cache}/bin/awk")" == verified-artifact ]] || fail "cache hit did not restore the executable from the verified package"
+	[[ "$("${cache}/bin/awk")" == 'BusyBox v1.37.0 fixture' ]] || fail "cache hit did not restore the executable from the verified package"
 	[[ ! -e "${TMP}/poisoned-wrapper-was-run" ]] || fail "cache hit trusted a poisoned awk wrapper"
+	[[ -x "${cache}/bin/busybox" ]] || fail "cache hit did not install the pinned busybox binary on PATH"
+	banner="$("${cache}/bin/busybox" 2>&1 | head -1 || true)"
+	[[ "$banner" == 'BusyBox v1.37.0 fixture' ]] || fail "cache hit did not restore pinned busybox (got: $banner)"
+	fwlive_test_assert_busybox_awk_lane "${cache}/bin" || fail "lane assertion must pass with pinned busybox on PATH"
 
 	# A corrupt package cache is replaced from the URL, with bounded curl.
 	printf '%s\n' corrupted >"${cache}/${deb_name}"
@@ -143,7 +149,7 @@ EOF
 	grep -Fxq -- '90' "${TMP}/curl.args" || fail "download retry window is not bounded"
 	grep -Fxq -- 'https://snapshot.debian.org/file/3827ed7fbd1b3928d5cb45bbe390c27862193e70' "${TMP}/curl.args" \
 		|| fail "default URL must use the content-addressed Debian snapshot file"
-	[[ "$("${cache}/bin/awk")" == verified-artifact ]] || fail "download did not install the verified executable"
+	[[ "$("${cache}/bin/awk")" == 'BusyBox v1.37.0 fixture' ]] || fail "download did not install the verified executable"
 
 	# A local checksum override is enforced on package cache hits too.
 	set +e
@@ -158,5 +164,27 @@ EOF
 		|| fail "artifact checksum manifest is malformed"
 }
 
+test_lane_rejects_older_awk() {
+	local old="${TMP}/old-bin"
+	mkdir -p "$old"
+	cat >"${old}/busybox" <<'EOF'
+#!/bin/sh
+if [ "$1" = sh ]; then
+	shift
+	exec /bin/sh "$@"
+fi
+printf '%s\n' 'BusyBox v1.36.1 fixture'
+EOF
+	cat >"${old}/awk" <<'EOF'
+#!/bin/sh
+printf '%s\n' 'BusyBox v1.36.1 fixture'
+EOF
+	chmod 0755 "${old}/busybox" "${old}/awk"
+	if fwlive_test_assert_busybox_awk_lane "$old"; then
+		fail "BusyBox 1.36 awk must fail the lane assertion"
+	fi
+}
+
 test_ensure_busybox_awk_cache_and_download_timeout
+test_lane_rejects_older_awk
 echo "fwlive BusyBox awk lane tests passed"
