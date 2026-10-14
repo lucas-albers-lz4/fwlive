@@ -19,6 +19,16 @@ still held at those calls; Part B's serial-outcome oracle is not a lost-update
 proof. The TLA `Commit` model gap remains #1265. No ACL or command-surface
 change.
 
+**2026-10-14 #1244 / #1253 scoped delta.** `parse_nslookup_name` skips
+`canonical name =` CNAME lines and takes the first PTR `name =` answer; a
+CNAME-only response yields no hostname. UCI rules-map names already match
+`[A-Za-z0-9_-]`, so `map_uci_rule_names` calls `map_add_escaped` directly
+and emits name/slug pairs from the single `uci_rule_names` awk pass instead of
+per-name `json_escape` and `slug_key` forks. Host coverage: rpcd `__selftest`,
+`tests/fwlive-rules-map.test.js` (`testResolveNslookup`,
+`testRulesPrefixUtilitiesAreBounded`), and `tests/fwlive-jshn-compat.test.py`.
+No ACL, DOM sink, or read/write-scope change.
+
 **2026-10-11 #1197 scoped delta.** Matrix validation selects exactly one
 package from the requested SDK target/version cell for both build and
 `--skip-build`, then passes that path to the guest installer. SDK builds clear
@@ -925,7 +935,7 @@ change. This scoped smoke review is not a full security audit.
 | Adaptive poll cap always on; no UCI; disable only via `FWLIVE_ADAPTIVE=0` or sentinel next to state under `/var/run` (not world-writable `/tmp`) | `host` | `tests/fwlive-adaptive-cap.test.sh`; reply carries `adaptive` |
 | Adaptive poll replies add `effective_limit` only for successful adaptive responses; all six filter/read error paths omit it and preserve accurate `messages_received` without duplicate keys | `host` | `fwlive_adaptive_merge_reply` success flag; `tests/fwlive-adaptive-cap.test.sh`; `tests/fwlive-rpcd-security.test.js` |
 | Non-zero filter stdout is kept only as a complete shipped error object; truncated bodies become `error:filter_failed` valid JSON | `host` | `fetch_firewall_logs` allow-list; `tests/fwlive-rpcd-security.test.js` `testPollTruncatedFilterBodyIsFilterFailed`; `tests/fwlive-adaptive-cap.test.sh` truncated merge_reply vectors |
-| Untrusted rules-map prefix/name strings use `printf '%s\\n'`; `-n`/`-E` unlabeled prefixes stay hints | `host` | `slug_key` / `map_prefix_with_label`; `tests/fwlive-rules-map.test.js` `testDashFlagUnlabeledPrefix`; rpcd selftest |
+| Untrusted rules-map prefix/name strings use `printf '%s\\n'`; `-n`/`-E` unlabeled prefixes stay hints | `host` | nft prepared slug in `nft_dump_fields`; `tests/fwlive-rules-map.test.js` `testDashFlagUnlabeledPrefix`; rpcd selftest |
 | `resolve` wall-clock budget uses `/proc/uptime` centiseconds; a backward `date` step cannot stretch the loop | `host` | `fwlive_adaptive_clock_cs`; `tests/fwlive-rpcd-security.test.js` `testResolveBudgetIgnoresDateJump` |
 | Adaptive state at `/var/run/fwlive-state.json` — owner/dir check once per record before the lock, atomic rename, non-blocking `flock -n` on sibling `.lock` (fail-open only when `flock` is missing or the lock is busy; fail-closed when the directory check fails or the lock cannot be created, opened, or is not a regular writable file; release by closing fd; busy ⇒ last-writer-wins; lock created 0600), never `source`/`eval` | `host` | `tests/fwlive-adaptive-cap.test.sh`; lock only around short update, never across ubus/filter |
 | Hot shed surfaces `shed` + `truncated`; `resolve` returns `disabled:load` when previous poll was hot; failed `log.read` or filter/classifier output does not clear prior bucket; expired hot/warm cooldown probes upward and retains only healthy recovery | `host` | `tests/fwlive-rpcd-security.test.js` `testAdaptiveHotSurvivesFailedPoll` / `testAdaptiveHotSurvivesFilterFailures`; `tests/fwlive-adaptive-cap.test.sh` deterministic cooldown vectors |

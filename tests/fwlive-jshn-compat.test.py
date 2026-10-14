@@ -47,6 +47,7 @@ def main():
                 'nslookup': '''#!/bin/sh
 printf "%s\\n" "$*" >> "$LOOKUP_LOG"
 case "$1" in
+    192.0.2.3) printf "Server:\\t\\t127.0.0.1\\nAddress:\\t127.0.0.1:53\\n\\nNon-authoritative answer:\\n37.191.152.204.in-addr.arpa\\tcanonical name = 37.32-27.191.152.204.in-addr.arpa\\n37.32-27.191.152.204.in-addr.arpa\\tname = zeus-pub2.kernel.org\\n" ;;
     192.0.2.1) printf "1.2.0.192.in-addr.arpa name = v4.example.\\nAddress: 192.0.2.1\\n" ;;
     2001:db8::1) printf "Server: 2001:db8::53\\nAddress: 2001:db8::53#53\\n\\n1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa name = v6-bind.example.\\n" ;;
     2001:db8::2) printf "Server:\\t\\t2001:db8::53\\nAddress:\\t2001:db8::53#53\\n\\nAddress 1: 2001:db8::2 v6-busybox.example.\\n" ;;
@@ -95,6 +96,8 @@ esac
             }}, (release, correlated)
             assert lookup_log.read_text().splitlines() == address_pair, (
                 release, lookup_log.read_text())
+            rfc2317 = run('resolve', json.dumps({'addresses': ['192.0.2.3']}))
+            assert rfc2317 == {'names': {'192.0.2.3': 'zeus-pub2.kernel.org'}}, (release, rfc2317)
             # G4 / RESOLVE_MAX=32: 33 successful addresses must return 32 names.
             assert 'RESOLVE_MAX=32' in source, (release, 'rpcd resolve cap drifted')
             many_addresses = [f'192.0.2.{index}' for index in range(1, 34)]

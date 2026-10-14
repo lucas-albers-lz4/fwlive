@@ -38,10 +38,6 @@ POLL_LINES_MAX=2000
 # shellcheck disable=SC1090,SC1091
 . "$ADAPTIVE_SH"
 
-slug_key() {
-	printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]' | tr ' _' '--'
-}
-
 # Cap rules JSON size so a huge ruleset cannot unbound an rpcd reply.
 RULES_MAP_MAX_KEYS=512
 RULES_MAP_MAX_BYTES=65536
@@ -105,6 +101,14 @@ uci_rule_names() {
 	_firewall_show=$(uci -q show firewall 2>/dev/null || true)
 	printf '%s\n' "$_firewall_show" |
 		awk -v max="$RULES_MAP_MAX_LINES" '
+			function slug_uci(s,    out, i, c) {
+				out = ""
+				for (i = 1; i <= length(s); i++) {
+					c = substr(s, i, 1)
+					out = out ((c == "_") ? "-" : tolower(c))
+				}
+				return out
+			}
 			function emit(value, quote) {
 				quote = sprintf("%c", 39)
 				if (substr(value, 1, 1) == quote && substr(value, length(value), 1) == quote)
@@ -113,7 +117,7 @@ uci_rule_names() {
 					truncated = 1
 					exit 42
 				}
-				print value
+				print value "\t" slug_uci(value)
 				count++
 			}
 			{
@@ -179,15 +183,18 @@ map_uci_rule_names() {
 			_uci_names_truncated=''
 		fi
 	fi
-	while IFS= read -r name || [ -n "$name" ]; do
+	_tab=$(printf '\t')
+	while IFS= read -r line || [ -n "$line" ]; do
 		[ -n "$_map_overflow" ] && break
+		[ -n "$line" ] || continue
+		name="${line%%${_tab}*}"
+		slug="${line#*"$_tab"}"
 		[ -n "$name" ] || continue
 		is_uci_style_name "$name" || continue
-		map_add "$name" "$name"
+		map_add_escaped "$name" "$name"
 		[ -n "$_map_overflow" ] && break
-		slug=$(slug_key "$name")
-		if [ "$slug" != "$name" ]; then
-			map_add "$slug" "$name"
+		if [ -n "$slug" ] && [ "$slug" != "$name" ]; then
+			map_add_escaped "$slug" "$name"
 		fi
 	done <<EOF
 $_uci_names
@@ -733,7 +740,8 @@ parse_nslookup_name() {
 			} else if (match(low, /[^a-z0-9_]name[ \t]*=[ \t]*/)) {
 				pre = substr(low, 1, RSTART - 1)
 				sub(/[ \t]+$/, "", pre)
-				if (pre != "domain" && pre !~ /[^a-z0-9_]domain$/)
+				if (pre != "domain" && pre !~ /[^a-z0-9_]domain$/ && \
+				    pre != "canonical" && pre !~ /[^a-z0-9_]canonical$/)
 					host = substr($0, RSTART + RLENGTH)
 			}
 			if (host != "") {
@@ -1016,14 +1024,6 @@ run_selftest() {
 		echo 'is_uci_style_name: expected reject empty' >&2
 		return 1
 	fi
-	# echo would swallow -n/-E and dash echo would expand backslashes.
-	_slug=$(slug_key '-n')
-	check_eq 'slug_key -n' "$_slug" '-n' "expected -n got $_slug" || return 1
-	_slug=$(slug_key '-E')
-	check_eq 'slug_key -E' "$_slug" '-e' "expected -e got $_slug" || return 1
-	_slug=$(slug_key "$(printf 'a\\tb')")
-	check_eq 'slug_key backslash' "$_slug" "$(printf 'a\\tb')" "expected literal backslash got $_slug" || return 1
-
 	if is_resolvable_address 'not an ip'; then
 		echo 'is_resolvable_address: expected reject for spaces' >&2
 		return 1
@@ -1250,6 +1250,19 @@ Address: 127.0.0.1:53")
 	check_eq parse_nslookup_name "$got" '' "domain tab name = must not parse as name got '$got'" || return 1
 	got=$(parse_nslookup_name "name = dns.google. hostname = evil.example.")
 	check_eq parse_nslookup_name "$got" "dns.google" "standalone name = must beat hostname = got '$got'" || return 1
+	got=$(parse_nslookup_name "Server:		127.0.0.1
+Address:	127.0.0.1:53
+
+Non-authoritative answer:
+37.191.152.204.in-addr.arpa	canonical name = 37.32-27.191.152.204.in-addr.arpa
+37.32-27.191.152.204.in-addr.arpa	name = zeus-pub2.kernel.org")
+	check_eq parse_nslookup_name "$got" "zeus-pub2.kernel.org" "RFC 2317 PTR must beat canonical name got '$got'" || return 1
+	got=$(parse_nslookup_name "Server:		127.0.0.1
+Address:	127.0.0.1:53
+
+Non-authoritative answer:
+37.191.152.204.in-addr.arpa	canonical name = 37.32-27.191.152.204.in-addr.arpa")
+	check_eq parse_nslookup_name "$got" '' "CNAME-only must not return canonical target got '$got'" || return 1
 
 	run_logging_selftest || return 1
 
