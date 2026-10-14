@@ -50,6 +50,8 @@ Stage 4 ✓ ──► Stage 5 ✓ ──► Stage 3 ✓ ──► Stage 4b ✓ �
 
 **Next:** publish upstream · Stage 6–7 rest (rule overlay, digest/SSE; optional).
 
+**25.12 status:** shipped and release-approved with no known 25.12-specific bugs (see [acceptance](fwlive-acceptance.md#supported-versions-and-targets)); formal two-architecture compatibility sign-off is a separate manual check and is not current Next work (see [validation matrix](validation-matrix.md)).
+
 **Backport / versions:** support floor **23.05.5** (x86 smoke); production target **armsr 24.10**. **21.02.7** / **22.03.7** were historical lab sign-offs and are unsupported. See [`fwlive-acceptance.md`](fwlive-acceptance.md).
 
 ---
