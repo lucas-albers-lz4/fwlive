@@ -217,7 +217,7 @@ async function testEnableVariants() {
 		false
 	);
 	await testEnableReply(
-		rpcError(-32002),
+		new Error('RPC call to fwlive/enable_wan_logging failed with error -32002: Access denied'),
 		'Administrator access is required to enable logging.',
 		false
 	);
@@ -225,7 +225,7 @@ async function testEnableVariants() {
 		new Error(
 			'RPC call to fwlive/enable_wan_logging failed with ubus code 6: Permission denied'
 		),
-		'Could not reach the router; check the current logging state.',
+		'Administrator access is required to enable logging.',
 		false
 	);
 	console.log('fwlive-view logging: enable variants and persistence OK');
@@ -321,14 +321,14 @@ async function testDisableVariants() {
 		'Administrator access is required to disable logging.'
 	);
 	await testDisableReply(
-		rpcError(-32002),
+		new Error('RPC call to fwlive/disable_wan_logging failed with error -32002: Access denied'),
 		'Administrator access is required to disable logging.'
 	);
 	await testDisableReply(
 		new Error(
 			'RPC call to fwlive/disable_wan_logging failed with ubus code 6: Permission denied'
 		),
-		'Could not reach the router; check the current logging state.'
+		'Administrator access is required to disable logging.'
 	);
 	console.log('fwlive-view logging: disable variants and no-change behavior OK');
 }

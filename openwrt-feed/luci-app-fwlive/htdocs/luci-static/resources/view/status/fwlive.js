@@ -68,14 +68,14 @@ const callFwliveEnableLogging = rpc.declare({
 	object: 'fwlive',
 	method: 'enable_wan_logging',
 	expect: { '': { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] } },
-	raise: true
+	reject: true
 });
 
 const callFwliveDisableLogging = rpc.declare({
 	object: 'fwlive',
 	method: 'disable_wan_logging',
 	expect: { '': { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] } },
-	raise: true
+	reject: true
 });
 
 function storedValue(key, fallback) {

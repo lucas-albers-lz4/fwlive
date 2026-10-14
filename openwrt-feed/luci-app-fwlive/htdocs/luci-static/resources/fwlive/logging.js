@@ -88,9 +88,21 @@ function toggleFailureNotice(code, fallback) {
 	}
 }
 
+function luciRpcFailureCode(err) {
+	const msg = err && typeof err.message === 'string' ? err.message : '';
+	let match = /failed with ubus code (-?\d+):/.exec(msg);
+	if (!match)
+		match = /failed with error (-?\d+):/.exec(msg);
+	if (!match)
+		return null;
+	const code = Number(match[1]);
+	return code === code ? code : null;
+}
+
 function toggleRpcCatchNotice(err, accessNotice, fallback) {
-	const code = err && err.code;
-	if (code === 6 || code === -32002) return accessNotice;
+	const code = luciRpcFailureCode(err);
+	if (code === 6 || code === -32002)
+		return accessNotice;
 	return fallback;
 }
 
@@ -209,7 +221,7 @@ function enableLoggingButton(state, callbacks) {
 			'type': 'button',
 			'data-fwlive-logging-action': 'enable',
 			'title': _('Enable WAN zone drop/reject logging (same as Network → Firewall).'),
-			'disabled': state.loggingBusy ? '' : null,
+			'aria-disabled': state.loggingBusy ? 'true' : null,
 			'click': function () {
 				callbacks.onEnable();
 			}
@@ -311,7 +323,7 @@ function appendWanLogDisableControl(host, state, callbacks) {
 				'type': 'button',
 				'data-fwlive-logging-action': 'disable',
 				'title': _('WAN logging on (%s). Click to disable.').format(limit),
-				'disabled': busy ? '' : null,
+				'aria-disabled': busy ? 'true' : null,
 				'click': function () {
 					callbacks.onDisable();
 				}
