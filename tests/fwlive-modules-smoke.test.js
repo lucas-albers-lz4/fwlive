@@ -273,12 +273,25 @@ for (const code of ['other', undefined, null, 'constructor', '__proto__'])
 	assert.strictEqual(logging.toggleFailureNotice(code, 'fallback'), 'fallback',
 		'unknown toggle codes must use the per-action fallback: ' + code);
 assert.strictEqual(
-	String(logging.toggleRpcCatchNotice({ code: 6 }, 'access', 'neutral')),
+	String(logging.toggleRpcCatchNotice(
+		{ message: 'RPC call to fwlive/enable_wan_logging failed with ubus code 6: Permission denied' },
+		'access',
+		'neutral'
+	)),
 	'access'
 );
 assert.strictEqual(
-	String(logging.toggleRpcCatchNotice({ code: -32002 }, 'access', 'neutral')),
+	String(logging.toggleRpcCatchNotice(
+		{ message: 'RPC call to fwlive/enable_wan_logging failed with error -32002: Access denied' },
+		'access',
+		'neutral'
+	)),
 	'access'
+);
+assert.strictEqual(
+	String(logging.toggleRpcCatchNotice({ code: 6 }, 'access', 'neutral')),
+	'neutral',
+	'LuCI does not set err.code; a bare code must not select the access notice'
 );
 assert.strictEqual(
 	String(logging.toggleRpcCatchNotice({ message: 'Permission denied' }, 'access', 'neutral')),
