@@ -125,6 +125,8 @@ done
 artifact_count="$(feed_publish_find_artifacts 23.05.5 0.1.45 | wc -l)"
 assert_eq "$artifact_count" "4" "find_artifacts returns app plus three i18n ipks"
 rm -f "${dir}"/luci-i18n-fwlive-de_0.1.45_all.ipk
+partial_out="$(feed_publish_find_artifacts 23.05.5 0.1.45 2>/dev/null || true)"
+assert_eq "$partial_out" "" "find_artifacts must not print a partial path list"
 err="$(assert_fails "partial i18n fails closed" feed_publish_find_artifacts 23.05.5 0.1.45)"
 grep -q 'luci-i18n-fwlive-de' "$err" || {
 	echo "FAIL: missing i18n locale must name the package" >&2

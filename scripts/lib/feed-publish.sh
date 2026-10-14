@@ -217,25 +217,54 @@ feed_publish_find_artifact() {
 	feed_publish_find_named_artifact "$dir" "$pkg_version" luci-app-fwlive
 }
 
-# App plus every i18n locale for a matrix cell. Fails closed if any is missing.
-feed_publish_find_artifacts() {
+# Resolve app + i18n paths for a matrix cell into FEED_PUBLISH_ARTIFACTS.
+# Exit 0 when all are present; 1 when the app is missing (cell not built);
+# 2 when the app exists but a locale is missing (partial set — must not publish).
+feed_publish_resolve_artifacts() {
 	local version_label="$1"
 	local pkg_version="${2:-}"
 	local root dir lang prefix path
+	FEED_PUBLISH_ARTIFACTS=()
 	root="$(feed_publish_root)"
 	dir="${root}/out/x86_64/${version_label}/fwlive"
 	if [[ -z "$pkg_version" ]]; then
-		echo "feed_publish_find_artifacts: expected package version is required" >&2
+		echo "feed_publish_resolve_artifacts: expected package version is required" >&2
 		return 1
 	fi
-	path="$(feed_publish_find_named_artifact "$dir" "$pkg_version" luci-app-fwlive)" || return 1
-	printf '%s\n' "$path"
+	if ! path="$(feed_publish_find_named_artifact "$dir" "$pkg_version" luci-app-fwlive 2>/dev/null)"; then
+		return 1
+	fi
+	FEED_PUBLISH_ARTIFACTS=("$path")
 	while IFS= read -r lang; do
 		[[ -n "$lang" ]] || continue
 		prefix="luci-i18n-fwlive-${lang}"
-		path="$(feed_publish_find_named_artifact "$dir" "$pkg_version" "$prefix")" || return 1
-		printf '%s\n' "$path"
+		if ! path="$(feed_publish_find_named_artifact "$dir" "$pkg_version" "$prefix" 2>/dev/null)"; then
+			echo "feed_publish_resolve_artifacts: incomplete i18n set for ${version_label} (missing ${prefix})" >&2
+			FEED_PUBLISH_ARTIFACTS=()
+			return 2
+		fi
+		FEED_PUBLISH_ARTIFACTS+=("$path")
 	done < <(feed_publish_i18n_locales)
+	return 0
+}
+
+# App plus every i18n locale for a matrix cell. Prints paths only on full success.
+feed_publish_find_artifacts() {
+	local rc
+	feed_publish_resolve_artifacts "$@" || return $?
+	printf '%s\n' "${FEED_PUBLISH_ARTIFACTS[@]}"
+}
+
+# Abort on a partial set (rc 2). Treat a missing app as an empty cell (rc 1).
+feed_publish_resolve_artifacts_or_abort() {
+	local version_label="$1" pkg_version="$2" rc
+	feed_publish_resolve_artifacts "$version_label" "$pkg_version"
+	rc=$?
+	case "$rc" in
+		0) return 0 ;;
+		1) FEED_PUBLISH_ARTIFACTS=(); return 0 ;;
+		*) return 1 ;;
+	esac
 }
 
 # Map SDK output dir (e.g. 23.05.5) → feed/release key (e.g. 23.05).
@@ -269,15 +298,16 @@ feed_publish_stage_release_assets() {
 	find "$dest" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 	for ver in 23.05 24.10 25.12; do
 		ver_label="$(sdk_matrix_version_label "$ver")"
-		while IFS= read -r path; do
-			[[ -n "$path" ]] || continue
+		feed_publish_resolve_artifacts_or_abort "$ver_label" "$pkg_version" || return 1
+		[[ ${#FEED_PUBLISH_ARTIFACTS[@]} -gt 0 ]] || continue
+		for path in "${FEED_PUBLISH_ARTIFACTS[@]}"; do
 			name="$(feed_publish_release_asset_basename "$path")"
 			if [[ -e "${dest}/${name}" ]]; then
 				echo "duplicate release asset name: ${name} (${path})" >&2
 				return 1
 			fi
 			cp -a "$path" "${dest}/${name}"
-		done < <(feed_publish_find_artifacts "$ver_label" "$pkg_version" 2>/dev/null || true)
+		done
 	done
 }
 
@@ -583,16 +613,15 @@ feed_publish_stage_opkg() {
 	fi
 	ver_label="$(sdk_matrix_version_label "$version_key")"
 	feed_dir="${staging}/$(feed_publish_feed_dir "$version_key")"
-	artifact=""
-	while IFS= read -r path; do
-		[[ -n "$path" ]] || continue
-		[[ -n "$artifact" ]] || artifact="$path"
-		mkdir -p "$feed_dir"
-		cp -a "$path" "$feed_dir/"
-	done < <(feed_publish_find_artifacts "$ver_label" "$pkg_version") || {
-		echo "missing built ipk/i18n for ${ver_label} under out/x86_64/${ver_label}/fwlive/" >&2
+	feed_publish_resolve_artifacts "$ver_label" "$pkg_version" || {
+		echo "missing or incomplete built ipk/i18n for ${ver_label} under out/x86_64/${ver_label}/fwlive/" >&2
 		return 1
 	}
+	artifact="${FEED_PUBLISH_ARTIFACTS[0]}"
+	mkdir -p "$feed_dir"
+	for path in "${FEED_PUBLISH_ARTIFACTS[@]}"; do
+		cp -a "$path" "$feed_dir/"
+	done
 	[[ -n "${OPKG_FEED_SECRET_KEY:-}" ]] || {
 		echo "OPKG_FEED_SECRET_KEY must point to usign secret key file" >&2
 		return 1
@@ -625,16 +654,15 @@ feed_publish_stage_apk() {
 	fi
 	ver_label="$(sdk_matrix_version_label "$version_key")"
 	feed_dir="${staging}/$(feed_publish_feed_dir "$version_key")/all"
-	artifact=""
-	while IFS= read -r path; do
-		[[ -n "$path" ]] || continue
-		[[ -n "$artifact" ]] || artifact="$path"
-		mkdir -p "$feed_dir"
-		cp -a "$path" "$feed_dir/"
-	done < <(feed_publish_find_artifacts "$ver_label" "$pkg_version") || {
-		echo "missing built apk/i18n for ${ver_label} under out/x86_64/${ver_label}/fwlive/" >&2
+	feed_publish_resolve_artifacts "$ver_label" "$pkg_version" || {
+		echo "missing or incomplete built apk/i18n for ${ver_label} under out/x86_64/${ver_label}/fwlive/" >&2
 		return 1
 	}
+	artifact="${FEED_PUBLISH_ARTIFACTS[0]}"
+	mkdir -p "$feed_dir"
+	for path in "${FEED_PUBLISH_ARTIFACTS[@]}"; do
+		cp -a "$path" "$feed_dir/"
+	done
 	pkg_dir="$feed_dir"
 	[[ -n "${APK_FEED_SECRET_KEY:-}" ]] || {
 		echo "APK_FEED_SECRET_KEY must point to RSA private key for apk mkndx --sign" >&2
@@ -744,16 +772,16 @@ feed_publish_write_manifest() {
 		ver_label="$(sdk_matrix_version_label "$ver")"
 		artifact=""
 		artifacts_json=""
-		while IFS= read -r path; do
-			[[ -n "$path" ]] || continue
+		feed_publish_resolve_artifacts_or_abort "$ver_label" "$pkg_version" || return 1
+		[[ ${#FEED_PUBLISH_ARTIFACTS[@]} -gt 0 ]] || continue
+		for path in "${FEED_PUBLISH_ARTIFACTS[@]}"; do
 			[[ -n "$artifact" ]] || artifact="$path"
 			sum="$(sha256sum "$path" | awk '{print $1}')"
 			if [[ -n "$artifacts_json" ]]; then
 				artifacts_json+=', '
 			fi
 			artifacts_json+='{"file": "'"${path##*/}"'", "sha256": "'"$sum"'"}'
-		done < <(feed_publish_find_artifacts "$ver_label" "$pkg_version" 2>/dev/null || true)
-		[[ -n "$artifact" ]] || continue
+		done
 		sum="$(sha256sum "$artifact" | awk '{print $1}')"
 		# Record the immutable digest of the SDK image this cell was built from
 		# (mutable tag → digest makes the release attributable). Per-cell:

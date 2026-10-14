@@ -66,6 +66,36 @@ test -f "$staging/luci-app-fwlive-0.1.16-r1.apk"
 staged_count="$(find "$staging" -mindepth 1 -maxdepth 1 -type f | wc -l)"
 assert_eq "$staged_count" "12" "active matrix stages app+i18n for 23.05, 24.10, and 25.12"
 
+# Partial locale set must abort before copying the app (#1271).
+partial_fixture="$(mktemp -d)"
+partial_staging="$(mktemp -d)"
+partial_err="$(mktemp)"
+mkdir -p "${partial_fixture}/out/x86_64/23.05.5/fwlive"
+echo app-only > "${partial_fixture}/out/x86_64/23.05.5/fwlive/luci-app-fwlive_0.1.16_all.ipk"
+FEED_PUBLISH_ROOT="$partial_fixture" FWLIVE_PKG_VERSION=0.1.16 \
+	feed_publish_stage_release_assets "$partial_staging" 2>"$partial_err" && {
+	echo "FAIL: partial i18n must abort release asset staging" >&2
+	exit 1
+}
+partial_count="$(find "$partial_staging" -mindepth 1 -maxdepth 1 -type f 2>/dev/null | wc -l)"
+assert_eq "$partial_count" "0" "partial i18n must not stage any release asset"
+grep -q 'incomplete i18n set' "$partial_err" || {
+	echo "FAIL: partial i18n abort must name incomplete set" >&2
+	exit 1
+}
+opkg_partial="${partial_fixture}/opkg-staging"
+if FEED_PUBLISH_ROOT="$partial_fixture" FWLIVE_PKG_VERSION=0.1.16 \
+	feed_publish_stage_opkg 23.05 "$opkg_partial" 2>"$partial_err"; then
+	echo "FAIL: partial i18n must abort opkg feed staging" >&2
+	exit 1
+fi
+if [[ -e "${opkg_partial}/23.05/luci-app-fwlive_0.1.16_all.ipk" ]]; then
+	echo "FAIL: partial i18n must not copy the app ipk into the feed cell" >&2
+	exit 1
+fi
+rm -rf "$partial_fixture" "$partial_staging"
+rm -f "$partial_err"
+
 # Guard #144: manifest records ONE SDK image digest per target×version cell.
 # Docker is mocked so the test is hermetic (RepoDigests source + the
 # empty-RepoDigests → @sha256:<image ID> fallback path + abort path).
