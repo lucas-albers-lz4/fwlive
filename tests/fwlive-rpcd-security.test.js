@@ -1040,8 +1040,8 @@ fwlive_adaptive_clock_cs() {
 	_n=$((_n + 1))
 	printf '%s\\n' "$_n" >"$TEST_CLOCK_CALLS"
 	case "$_n" in
-		2) printf '%s\\n' "$TEST_CLOCK_START" ;;
-		3) printf '%s\\n' "$TEST_CLOCK_END" ;;
+		1) printf '%s\\n' "$TEST_CLOCK_START" ;;
+		2) printf '%s\\n' "$TEST_CLOCK_END" ;;
 		*) printf '%s\\n' 1001 ;;
 	esac
 }

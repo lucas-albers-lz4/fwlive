@@ -107,9 +107,11 @@ function json_get_msg(obj, s, i, c, esc, out, hex, n) {
 }
 function is_fw(s, action) {
 	s = trim(normalize(s))
+	fw_norm = s
 	if (s == "") return 0
 	if (non_fw_prefix(s)) return 0
 	action = detect_action(s)
+	fw_action = action
 	if (((has_kv(s, "SRC") && has_kv(s, "DST")) || ((has_kv(s, "IN") || has_kv(s, "OUT")) && (has_kv(s, "SRC") || has_kv(s, "DST") || has_kv(s, "PROTO") || has_kv(s, "SPT") || has_kv(s, "DPT"))) || (action != "UNKNOWN" && (has_kv(s, "IN") || has_kv(s, "OUT") || has_kv(s, "PROTO") || has_kv(s, "SRC") || has_kv(s, "DST"))))) return 1
 	if ((has_hint(s) && action != "UNKNOWN")) return 1
 	if ((has_hint(s) && (has_kv(s, "IN") || has_kv(s, "OUT") || has_kv(s, "SRC") || has_kv(s, "DST") || has_kv(s, "PROTO")))) return 1
@@ -131,14 +133,14 @@ function utf8_prefix(s, max_bytes, out, i, c, width) {
 	return out
 }
 function summary_kv(s, key, part) {
-	s = normalize(s)
+	s = fw_norm
 	if (!match(s, "(^|[[:space:]])" key "=[^[:space:]]+")) return ""
 	part = substr(s, RSTART, RLENGTH)
 	sub(/^[^=]*=/, "", part)
 	return part
 }
 function summary_rule(s, first) {
-	s = trim(normalize(s))
+	s = fw_norm
 	sub(/^\[[[:space:]]*[0-9.]+\][[:space:]]*/, "", s)
 	if (tolower(s) ~ /^fw4:[[:space:]]*/) return "fw4"
 	# Shared with parseRuleHint: token then IN=/OUT=/SRC=/DST=/PROTO=, else colon tag.
@@ -189,7 +191,7 @@ function summary_top(counts, limit, out, i, k, best, best_n) {
 }
 function summary_add(s, action, src, dst, rule) {
 	summary_count++
-	action = tolower(detect_action(normalize(s)))
+	action = tolower(fw_action)
 	if (action == "drop" || action == "reject" || action == "deny" || action == "block") summary_add_count(summary_drop_counts, action)
 	src = summary_kv(s, "SRC")
 	if (src == "") src = summary_kv(s, "DST")

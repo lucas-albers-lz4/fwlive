@@ -169,14 +169,16 @@ security smoke instead checks the production behavior: a held lock returns
 
 `scripts/formal-tlc.sh` downloads the official TLA+ v1.7.4 tools jar and checks
 its pinned SHA-256 before running TLC with one worker. It runs the production
-models as passing checks and asserts that eight counterfactual configs still
+models as passing checks and asserts that ten counterfactual configs still
 report their violations: ungated hostname disposal (`NoLateWrite`),
 whole-critical-section kill (`NoOrphanStaging`), value-only rollback ABA
 (`NoOverwriteForeignIntent`), rollback effectiveness with the fairness
 conjunct removed (`RestoreLandsWithoutForeignCommit`, which TLC reports as an
 unnamed temporal-property violation), value-only rollback despite later intent
 (`NoRestoreAfterNewerIntent`) and incorrect restore values
-(`RestoreValueIsPrevious`) for both enable and disable primary directions. No
+(`RestoreValueIsPrevious`) for both enable and disable primary directions,
+adaptive-cap unfair liveness (`Converges`), and the 500 cs clocked adaptive-cap
+arm (`Converges`, the #1241 flap). No
 TLA+ tooling is included in the OpenWrt package. The unnamed temporal-failure
 check intentionally requires a simple
 counterexample configuration: one identifier per SPECIFICATION, INVARIANT or

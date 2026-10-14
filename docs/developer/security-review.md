@@ -29,6 +29,14 @@ per-name `json_escape` and `slug_key` forks. Host coverage: rpcd `__selftest`,
 `testRulesPrefixUtilitiesAreBounded`), and `tests/fwlive-jshn-compat.test.py`.
 No ACL, DOM sink, or read/write-scope change.
 
+**2026-10-14 #1241/#1254 scoped delta.** The adaptive line cap is a
+sample-sequence state machine: cooldown windows no longer measure the gap
+since the previous poll, so browser RTT cannot change the cap.
+`completed_cs` remains the prior-decision marker. The poll summary reuses
+`is_fw`'s normalized string and action. Host tests cover per-step
+sample-sequence cases, cadence-equal trajectories, and summary contract
+goldens. No ACL, DOM-sink, or command-surface change.
+
 **2026-10-11 #1197 scoped delta.** Matrix validation selects exactly one
 package from the requested SDK target/version cell for both build and
 `--skip-build`, then passes that path to the guest installer. SDK builds clear
@@ -938,7 +946,7 @@ change. This scoped smoke review is not a full security audit.
 | Untrusted rules-map prefix/name strings use `printf '%s\\n'`; `-n`/`-E` unlabeled prefixes stay hints | `host` | nft prepared slug in `nft_dump_fields`; `tests/fwlive-rules-map.test.js` `testDashFlagUnlabeledPrefix`; rpcd selftest |
 | `resolve` wall-clock budget uses `/proc/uptime` centiseconds; a backward `date` step cannot stretch the loop | `host` | `fwlive_adaptive_clock_cs`; `tests/fwlive-rpcd-security.test.js` `testResolveBudgetIgnoresDateJump` |
 | Adaptive state at `/var/run/fwlive-state.json` — owner/dir check once per record before the lock, atomic rename, non-blocking `flock -n` on sibling `.lock` (fail-open only when `flock` is missing or the lock is busy; fail-closed when the directory check fails or the lock cannot be created, opened, or is not a regular writable file; release by closing fd; busy ⇒ last-writer-wins; lock created 0600), never `source`/`eval` | `host` | `tests/fwlive-adaptive-cap.test.sh`; lock only around short update, never across ubus/filter |
-| Hot shed surfaces `shed` + `truncated`; `resolve` returns `disabled:load` when previous poll was hot; failed `log.read` or filter/classifier output does not clear prior bucket; expired hot/warm cooldown probes upward and retains only healthy recovery | `host` | `tests/fwlive-rpcd-security.test.js` `testAdaptiveHotSurvivesFailedPoll` / `testAdaptiveHotSurvivesFilterFailures`; `tests/fwlive-adaptive-cap.test.sh` deterministic cooldown vectors |
+| Hot shed surfaces `shed` + `truncated`; `resolve` returns `disabled:load` when previous poll was hot; failed `log.read` or filter/classifier output does not clear prior bucket; a healthy sample probes upward and a still-hot sample holds the previous limit, with no poll-spacing window | `host` | `tests/fwlive-rpcd-security.test.js` `testAdaptiveHotSurvivesFailedPoll` / `testAdaptiveHotSurvivesFilterFailures`; `tests/fwlive-adaptive-cap.test.sh`; `tests/fwlive-adaptive-trajectory.test.sh` |
 | Forwarding-SLO lab topology owns only `fwlive-slo-*` network namespaces, bridges, TAPs, and veths; teardown validates the prefix before removing them; setup rollback is prefix-scoped; no shipped surface or runtime ACL is changed | `host + manual` | `scripts/qemu-forwarding-slo-net.sh` / `scripts/lib/qemu-forwarding-slo-net.sh`; static shell checks cover names/MAC/model and manual lab verification covers setup/rollback/teardown in #344 |
 | Forwarding-SLO guest helper resolves a unique interface by caller-supplied MAC, snapshots/restores test-link and IPv4-forwarding state, uses fixed temporary forwarding/logging rule comments, validates all four rules, validates rule handles as digits during cleanup, and changes no shipped package or ACL | `host + manual` | `scripts/qemu-forwarding-slo-guest.sh`; shell syntax/ShellCheck plus manual armsr/x86 verification in #344 |
 | Forwarding-SLO traffic probe requires root-owned named namespaces, validates positive bounded duration/count/stream inputs and a safe label, treats `--bitrate` as aggregate across streams, uses an absolute `iperf3` path, verifies protected temporary-parent ownership, and emits raw iperf/ping artifacts for valid and invalid samples without changing runtime state | `host + manual` | `scripts/qemu-forwarding-slo-traffic.sh`; ShellCheck and stubbed traffic tests cover aggregate stream-rate calculation and retained raw output; routed qualification remains manual |

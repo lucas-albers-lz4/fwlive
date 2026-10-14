@@ -361,6 +361,9 @@ bash tests/feeds-lock-pins.test.sh
 echo "== fwlive adaptive cap (#306 Layer 1) ==" >&2
 bash tests/fwlive-adaptive-cap.test.sh
 
+echo "== fwlive adaptive cap trajectory (#1241) ==" >&2
+bash tests/fwlive-adaptive-trajectory.test.sh
+
 echo "== fwlive logging lock (race) ==" >&2
 bash tests/fwlive-logging-lock.test.sh
 

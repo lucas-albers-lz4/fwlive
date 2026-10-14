@@ -50,6 +50,16 @@ set -- $(fwlive_adaptive_plan 2000)
 	|| die "state duration must stay cool after gap"
 ok "plan uses processing duration not inter-arrival"
 
+# Raised cool limit survives a wall-clock gap (no elapsed-time discriminator).
+fwlive_adaptive_write_state 150 500 cool 0 0 1
+sleep 1
+set -- $(fwlive_adaptive_plan 2000)
+[ "$1" = 500 ] || die "raised cool limit must survive gap, got $1"
+ok "cool retain ignores wall-clock gap"
+
+# Restore the cool-floor state the cold-recovery climb starts from.
+fwlive_adaptive_write_state 150 250 cool 0 0 1
+
 # A full-sized cold sample probes upward one step at a time instead of
 # jumping from the cool cap straight to POLL_LINES_MAX.
 fwlive_adaptive_record 40 250
@@ -65,7 +75,7 @@ set -- $(fwlive_adaptive_plan 2000)
 [ "$1" = 2000 ] || die "third cold probe=$1 want 2000"
 ok "cold recovery probes upward without oscillation"
 
-# Warm: first warm halves; second consecutive warm holds.
+# Warm: first warm halves; a healthy follow-up probes upward.
 fwlive_adaptive_write_state 0 2000 cold 0 0 0
 fwlive_adaptive_record 400 2000
 set -- $(fwlive_adaptive_read_state)
@@ -73,12 +83,11 @@ set -- $(fwlive_adaptive_read_state)
 [ "$2" = 1000 ] || die "first warm half limit=$2 want 1000"
 [ "$4" = 1 ] || die "warm_halved=$4"
 set -- $(fwlive_adaptive_plan 2000)
-# Still in warm cooldown holding halved limit from state.
-[ "$1" = 1000 ] || die "plan after warm half=$1 want 1000"
-fwlive_adaptive_record 400 1000
+[ "$1" = 2000 ] || die "plan after warm half probes=$1 want 2000"
+fwlive_adaptive_record 400 2000
 set -- $(fwlive_adaptive_read_state)
-[ "$2" = 1000 ] || die "second warm must hold=$2 want 1000"
-ok "warm halves once then holds"
+[ "$2" = 2000 ] || die "healthy warm record must probe=$2 want 2000"
+ok "warm halves once then probes on a healthy sample"
 
 # Hot: floor 250 + shed; resolve gate.
 fwlive_adaptive_write_state 0 2000 cold 0 0 0
@@ -95,8 +104,8 @@ set -- $(fwlive_adaptive_plan 50)
 [ "$1" = 50 ] || die "hot floor must not raise 50 → got $1"
 ok "hot floor + shed + min(request)"
 
-# Cooldown expiry: use a deterministic clock after sourcing so the probe
-# vector controls the helper's clock seam rather than /proc/uptime.
+# Sample-sequence recovery: clock is stubbed so completed_cs stays a
+# prior-decision marker, not an elapsed-time input.
 (
 	FWLIVE_ADAPTIVE_STATE_FILE="$WORKDIR/probe-state.json"
 	FWLIVE_ADAPTIVE_OFF_FILE="$WORKDIR/probe-off"
@@ -105,36 +114,42 @@ ok "hot floor + shed + min(request)"
 	_probe_cs=1600
 	fwlive_adaptive_clock_cs() { printf '%s\n' "$_probe_cs"; }
 
-	# Expired hot cooldown probes upward from the 250-line floor.
+	# Prior hot + still-hot sample holds the floor.
 	fwlive_adaptive_write_state 900 250 hot 0 1 1000
 	set -- $(fwlive_adaptive_plan 2000)
-	[ "$1" = 500 ] || die "expired hot cooldown probe=$1 want 500"
+	[ "$1" = 250 ] || die "hot hold while still hot=$1 want 250"
 
-	# A still-hot probe falls back to the floor.
 	_probe_cs=1601
-	fwlive_adaptive_record 900 500
+	fwlive_adaptive_record 900 250
 	set -- $(fwlive_adaptive_read_state)
-	[ "$2" = 250 ] && [ "$3" = hot ] || die "hot probe recovery state=$*"
+	[ "$2" = 250 ] && [ "$3" = hot ] || die "still-hot record state=$*"
 
-	# A healthy probe retains the raised limit for the short probe window.
+	# First healthy record probes upward even if served is the floor.
 	fwlive_adaptive_write_state 900 250 hot 0 1 1000
 	_probe_cs=1600
 	set -- $(fwlive_adaptive_plan 2000)
-	[ "$1" = 500 ] || die "healthy probe setup=$1 want 500"
+	[ "$1" = 250 ] || die "plan still holds hot floor=$1 want 250"
 	_probe_cs=1601
-	fwlive_adaptive_record 150 500
+	fwlive_adaptive_record 150 250
 	set -- $(fwlive_adaptive_read_state)
-	[ "$2" = 500 ] && [ "$3" = cool ] || die "healthy probe state=$*"
+	[ "$2" = 500 ] && [ "$3" = cool ] || die "healthy record probe state=$*"
 	set -- $(fwlive_adaptive_plan 2000)
-	[ "$1" = 500 ] || die "healthy probe retained limit=$1 want 500"
+	[ "$1" = 500 ] || die "cool band retains raised limit=$1 want 500"
 
-	# Warm cooldown also doubles its previous limit once the window expires.
+	# A record must not store a failed uptime read as "fresh".
+	fwlive_adaptive_clock_cs() { printf '%s\n' 0; }
+	fwlive_adaptive_write_state 900 250 hot 0 1 1000
+	fwlive_adaptive_record 150 250
+	set -- $(fwlive_adaptive_read_state)
+	[ "$6" = 1 ] || die "zero clock stored as fresh completed_cs=$6"
+
+	# Prior warm + healthy sample probes upward.
 	fwlive_adaptive_write_state 400 1000 warm 1 0 1000
 	_probe_cs=1300
 	set -- $(fwlive_adaptive_plan 2000)
-	[ "$1" = 2000 ] || die "expired warm cooldown probe=$1 want 2000"
+	[ "$1" = 2000 ] || die "healthy warm plan probe=$1 want 2000"
 )
-ok "cooldown expiry probes upward and recovers"
+ok "hot/warm hold while hot and probe on first healthy sample"
 
 # Cap rule on cool: request 50 stays 50.
 fwlive_adaptive_write_state 150 250 cool 0 0 "$(fwlive_adaptive_clock_cs)"
@@ -543,228 +558,161 @@ set -- $(fwlive_adaptive_read_state)
 [ "$1" = 40 ] || die "find-count record did not run, duration=$1"
 ok "record checks state dir once"
 
-# Table-driven characterization of fwlive_adaptive_compute_limit (#1046).
-# Captured before the limit-policy refactor. Clock is stubbed.
-# Columns: label ms planning prev_limit prev_bucket prev_warm prev_completed_cs now req expected
+# Table-driven characterization of fwlive_adaptive_compute_limit (#1241).
+# Sample-sequence semantics: prev_completed_cs is a fresh/prior flag.
+# Columns: label ms planning prev_limit prev_bucket prev_warm prev_completed_cs req expected
 (
 	FWLIVE_ADAPTIVE_STATE_FILE="$WORKDIR/char-state.json"
 	FWLIVE_ADAPTIVE_OFF_FILE="$WORKDIR/char-off"
 	export FWLIVE_ADAPTIVE_STATE_FILE FWLIVE_ADAPTIVE_OFF_FILE
 	# shellcheck disable=SC1090
 	. "$ADAPTIVE_SH"
-	_char_now=0
-	fwlive_adaptive_clock_cs() { printf '%s\n' "$_char_now"; }
 	_char_n=0
-	while read -r _label _ms _plan _prev_l _prev_b _prev_w _prev_c _now _req _want; do
+	while read -r _label _ms _plan _prev_l _prev_b _prev_w _prev_c _req _want; do
 		[ -n "$_label" ] || continue
-		_char_now=$_now
 		_got=$(fwlive_adaptive_compute_limit "$_req" "$_ms" "$_prev_l" "$_prev_b" "$_prev_w" "$_prev_c" "$_plan")
 		[ "$_got" = "$_want" ] || die \
 			"compute_limit $_label got $_got want $_want"
 		_char_n=$((_char_n + 1))
 	done <<'EOF'
-cold-p0-cold-none-above 40 0 500 cold 0 0 1000 2000 1000
-cold-p0-cold-none-below 40 0 500 cold 0 0 1000 100 100
-cold-p0-cold-active-above 40 0 500 cold 0 1000 1100 2000 1000
-cold-p0-cold-active-below 40 0 500 cold 0 1000 1100 100 100
-cold-p0-cold-expired-above 40 0 500 cold 0 1000 2000 2000 1000
-cold-p0-cold-expired-below 40 0 500 cold 0 1000 2000 100 100
-cold-p0-cool-none-above 40 0 500 cool 0 0 1000 2000 1000
-cold-p0-cool-none-below 40 0 500 cool 0 0 1000 100 100
-cold-p0-cool-active-above 40 0 500 cool 0 1000 1100 2000 1000
-cold-p0-cool-active-below 40 0 500 cool 0 1000 1100 100 100
-cold-p0-cool-expired-above 40 0 500 cool 0 1000 2000 2000 1000
-cold-p0-cool-expired-below 40 0 500 cool 0 1000 2000 100 100
-cold-p0-warm-none-above 40 0 500 warm 0 0 1000 2000 1000
-cold-p0-warm-none-below 40 0 500 warm 0 0 1000 100 100
-cold-p0-warm-active-above 40 0 500 warm 0 1000 1100 2000 1000
-cold-p0-warm-active-below 40 0 500 warm 0 1000 1100 100 100
-cold-p0-warm-expired-above 40 0 500 warm 0 1000 2000 2000 1000
-cold-p0-warm-expired-below 40 0 500 warm 0 1000 2000 100 100
-cold-p0-hot-none-above 40 0 500 hot 0 0 1000 2000 1000
-cold-p0-hot-none-below 40 0 500 hot 0 0 1000 100 100
-cold-p0-hot-active-above 40 0 500 hot 0 1000 1100 2000 1000
-cold-p0-hot-active-below 40 0 500 hot 0 1000 1100 100 100
-cold-p0-hot-expired-above 40 0 500 hot 0 1000 2000 2000 1000
-cold-p0-hot-expired-below 40 0 500 hot 0 1000 2000 100 100
-cold-p1-cold-none-above 40 1 500 cold 0 0 1000 2000 500
-cold-p1-cold-none-below 40 1 500 cold 0 0 1000 100 100
-cold-p1-cold-active-above 40 1 500 cold 0 1000 1100 2000 500
-cold-p1-cold-active-below 40 1 500 cold 0 1000 1100 100 100
-cold-p1-cold-expired-above 40 1 500 cold 0 1000 2000 2000 500
-cold-p1-cold-expired-below 40 1 500 cold 0 1000 2000 100 100
-cold-p1-cool-none-above 40 1 500 cool 0 0 1000 2000 500
-cold-p1-cool-none-below 40 1 500 cool 0 0 1000 100 100
-cold-p1-cool-active-above 40 1 500 cool 0 1000 1100 2000 500
-cold-p1-cool-active-below 40 1 500 cool 0 1000 1100 100 100
-cold-p1-cool-expired-above 40 1 500 cool 0 1000 2000 2000 500
-cold-p1-cool-expired-below 40 1 500 cool 0 1000 2000 100 100
-cold-p1-warm-none-above 40 1 500 warm 0 0 1000 2000 500
-cold-p1-warm-none-below 40 1 500 warm 0 0 1000 100 100
-cold-p1-warm-active-above 40 1 500 warm 0 1000 1100 2000 500
-cold-p1-warm-active-below 40 1 500 warm 0 1000 1100 100 100
-cold-p1-warm-expired-above 40 1 500 warm 0 1000 2000 2000 1000
-cold-p1-warm-expired-below 40 1 500 warm 0 1000 2000 100 100
-cold-p1-hot-none-above 40 1 500 hot 0 0 1000 2000 500
-cold-p1-hot-none-below 40 1 500 hot 0 0 1000 100 100
-cold-p1-hot-active-above 40 1 500 hot 0 1000 1100 2000 500
-cold-p1-hot-active-below 40 1 500 hot 0 1000 1100 100 100
-cold-p1-hot-expired-above 40 1 500 hot 0 1000 2000 2000 1000
-cold-p1-hot-expired-below 40 1 500 hot 0 1000 2000 100 100
-cool-p0-cold-none-above 150 0 500 cold 0 0 1000 2000 250
-cool-p0-cold-none-below 150 0 500 cold 0 0 1000 100 100
-cool-p0-cold-active-above 150 0 500 cold 0 1000 1100 2000 500
-cool-p0-cold-active-below 150 0 500 cold 0 1000 1100 100 100
-cool-p0-cold-expired-above 150 0 500 cold 0 1000 2000 2000 250
-cool-p0-cold-expired-below 150 0 500 cold 0 1000 2000 100 100
-cool-p0-cool-none-above 150 0 500 cool 0 0 1000 2000 250
-cool-p0-cool-none-below 150 0 500 cool 0 0 1000 100 100
-cool-p0-cool-active-above 150 0 500 cool 0 1000 1100 2000 500
-cool-p0-cool-active-below 150 0 500 cool 0 1000 1100 100 100
-cool-p0-cool-expired-above 150 0 500 cool 0 1000 2000 2000 250
-cool-p0-cool-expired-below 150 0 500 cool 0 1000 2000 100 100
-cool-p0-warm-none-above 150 0 500 warm 0 0 1000 2000 250
-cool-p0-warm-none-below 150 0 500 warm 0 0 1000 100 100
-cool-p0-warm-active-above 150 0 500 warm 0 1000 1100 2000 500
-cool-p0-warm-active-below 150 0 500 warm 0 1000 1100 100 100
-cool-p0-warm-expired-above 150 0 500 warm 0 1000 2000 2000 1000
-cool-p0-warm-expired-below 150 0 500 warm 0 1000 2000 100 100
-cool-p0-hot-none-above 150 0 500 hot 0 0 1000 2000 250
-cool-p0-hot-none-below 150 0 500 hot 0 0 1000 100 100
-cool-p0-hot-active-above 150 0 500 hot 0 1000 1100 2000 500
-cool-p0-hot-active-below 150 0 500 hot 0 1000 1100 100 100
-cool-p0-hot-expired-above 150 0 500 hot 0 1000 2000 2000 1000
-cool-p0-hot-expired-below 150 0 500 hot 0 1000 2000 100 100
-cool-p1-cold-none-above 150 1 500 cold 0 0 1000 2000 250
-cool-p1-cold-none-below 150 1 500 cold 0 0 1000 100 100
-cool-p1-cold-active-above 150 1 500 cold 0 1000 1100 2000 500
-cool-p1-cold-active-below 150 1 500 cold 0 1000 1100 100 100
-cool-p1-cold-expired-above 150 1 500 cold 0 1000 2000 2000 250
-cool-p1-cold-expired-below 150 1 500 cold 0 1000 2000 100 100
-cool-p1-cool-none-above 150 1 500 cool 0 0 1000 2000 250
-cool-p1-cool-none-below 150 1 500 cool 0 0 1000 100 100
-cool-p1-cool-active-above 150 1 500 cool 0 1000 1100 2000 500
-cool-p1-cool-active-below 150 1 500 cool 0 1000 1100 100 100
-cool-p1-cool-expired-above 150 1 500 cool 0 1000 2000 2000 250
-cool-p1-cool-expired-below 150 1 500 cool 0 1000 2000 100 100
-cool-p1-warm-none-above 150 1 500 warm 0 0 1000 2000 250
-cool-p1-warm-none-below 150 1 500 warm 0 0 1000 100 100
-cool-p1-warm-active-above 150 1 500 warm 0 1000 1100 2000 500
-cool-p1-warm-active-below 150 1 500 warm 0 1000 1100 100 100
-cool-p1-warm-expired-above 150 1 500 warm 0 1000 2000 2000 1000
-cool-p1-warm-expired-below 150 1 500 warm 0 1000 2000 100 100
-cool-p1-hot-none-above 150 1 500 hot 0 0 1000 2000 250
-cool-p1-hot-none-below 150 1 500 hot 0 0 1000 100 100
-cool-p1-hot-active-above 150 1 500 hot 0 1000 1100 2000 500
-cool-p1-hot-active-below 150 1 500 hot 0 1000 1100 100 100
-cool-p1-hot-expired-above 150 1 500 hot 0 1000 2000 2000 1000
-cool-p1-hot-expired-below 150 1 500 hot 0 1000 2000 100 100
-warm-p0-cold-none-above 400 0 500 cold 0 0 1000 2000 250
-warm-p0-cold-none-below 400 0 500 cold 0 0 1000 100 100
-warm-p0-cold-active-above 400 0 500 cold 0 1000 1100 2000 250
-warm-p0-cold-active-below 400 0 500 cold 0 1000 1100 100 100
-warm-p0-cold-expired-above 400 0 500 cold 0 1000 2000 2000 250
-warm-p0-cold-expired-below 400 0 500 cold 0 1000 2000 100 100
-warm-p0-cool-none-above 400 0 500 cool 0 0 1000 2000 250
-warm-p0-cool-none-below 400 0 500 cool 0 0 1000 100 100
-warm-p0-cool-active-above 400 0 500 cool 0 1000 1100 2000 250
-warm-p0-cool-active-below 400 0 500 cool 0 1000 1100 100 100
-warm-p0-cool-expired-above 400 0 500 cool 0 1000 2000 2000 250
-warm-p0-cool-expired-below 400 0 500 cool 0 1000 2000 100 100
-warm-p0-warm-none-above 400 0 500 warm 0 0 1000 2000 250
-warm-p0-warm-none-below 400 0 500 warm 0 0 1000 100 100
-warm-p0-warm-active-above 400 0 500 warm 0 1000 1100 2000 250
-warm-p0-warm-active-below 400 0 500 warm 0 1000 1100 100 100
-warm-p0-warm-expired-above 400 0 500 warm 0 1000 2000 2000 1000
-warm-p0-warm-expired-below 400 0 500 warm 0 1000 2000 100 100
-warm-p0-hot-none-above 400 0 500 hot 0 0 1000 2000 250
-warm-p0-hot-none-below 400 0 500 hot 0 0 1000 100 100
-warm-p0-hot-active-above 400 0 500 hot 0 1000 1100 2000 250
-warm-p0-hot-active-below 400 0 500 hot 0 1000 1100 100 100
-warm-p0-hot-expired-above 400 0 500 hot 0 1000 2000 2000 1000
-warm-p0-hot-expired-below 400 0 500 hot 0 1000 2000 100 100
-warm-p1-cold-none-above 400 1 500 cold 0 0 1000 2000 250
-warm-p1-cold-none-below 400 1 500 cold 0 0 1000 100 100
-warm-p1-cold-active-above 400 1 500 cold 0 1000 1100 2000 250
-warm-p1-cold-active-below 400 1 500 cold 0 1000 1100 100 100
-warm-p1-cold-expired-above 400 1 500 cold 0 1000 2000 2000 250
-warm-p1-cold-expired-below 400 1 500 cold 0 1000 2000 100 100
-warm-p1-cool-none-above 400 1 500 cool 0 0 1000 2000 250
-warm-p1-cool-none-below 400 1 500 cool 0 0 1000 100 100
-warm-p1-cool-active-above 400 1 500 cool 0 1000 1100 2000 250
-warm-p1-cool-active-below 400 1 500 cool 0 1000 1100 100 100
-warm-p1-cool-expired-above 400 1 500 cool 0 1000 2000 2000 250
-warm-p1-cool-expired-below 400 1 500 cool 0 1000 2000 100 100
-warm-p1-warm-none-above 400 1 500 warm 0 0 1000 2000 250
-warm-p1-warm-none-below 400 1 500 warm 0 0 1000 100 100
-warm-p1-warm-active-above 400 1 500 warm 0 1000 1100 2000 250
-warm-p1-warm-active-below 400 1 500 warm 0 1000 1100 100 100
-warm-p1-warm-expired-above 400 1 500 warm 0 1000 2000 2000 1000
-warm-p1-warm-expired-below 400 1 500 warm 0 1000 2000 100 100
-warm-p1-hot-none-above 400 1 500 hot 0 0 1000 2000 250
-warm-p1-hot-none-below 400 1 500 hot 0 0 1000 100 100
-warm-p1-hot-active-above 400 1 500 hot 0 1000 1100 2000 250
-warm-p1-hot-active-below 400 1 500 hot 0 1000 1100 100 100
-warm-p1-hot-expired-above 400 1 500 hot 0 1000 2000 2000 1000
-warm-p1-hot-expired-below 400 1 500 hot 0 1000 2000 100 100
-hot-p0-cold-none-above 900 0 500 cold 0 0 1000 2000 250
-hot-p0-cold-none-below 900 0 500 cold 0 0 1000 100 100
-hot-p0-cold-active-above 900 0 500 cold 0 1000 1100 2000 250
-hot-p0-cold-active-below 900 0 500 cold 0 1000 1100 100 100
-hot-p0-cold-expired-above 900 0 500 cold 0 1000 2000 2000 250
-hot-p0-cold-expired-below 900 0 500 cold 0 1000 2000 100 100
-hot-p0-cool-none-above 900 0 500 cool 0 0 1000 2000 250
-hot-p0-cool-none-below 900 0 500 cool 0 0 1000 100 100
-hot-p0-cool-active-above 900 0 500 cool 0 1000 1100 2000 250
-hot-p0-cool-active-below 900 0 500 cool 0 1000 1100 100 100
-hot-p0-cool-expired-above 900 0 500 cool 0 1000 2000 2000 250
-hot-p0-cool-expired-below 900 0 500 cool 0 1000 2000 100 100
-hot-p0-warm-none-above 900 0 500 warm 0 0 1000 2000 250
-hot-p0-warm-none-below 900 0 500 warm 0 0 1000 100 100
-hot-p0-warm-active-above 900 0 500 warm 0 1000 1100 2000 500
-hot-p0-warm-active-below 900 0 500 warm 0 1000 1100 100 100
-hot-p0-warm-expired-above 900 0 500 warm 0 1000 2000 2000 250
-hot-p0-warm-expired-below 900 0 500 warm 0 1000 2000 100 100
-hot-p0-hot-none-above 900 0 500 hot 0 0 1000 2000 250
-hot-p0-hot-none-below 900 0 500 hot 0 0 1000 100 100
-hot-p0-hot-active-above 900 0 500 hot 0 1000 1100 2000 500
-hot-p0-hot-active-below 900 0 500 hot 0 1000 1100 100 100
-hot-p0-hot-expired-above 900 0 500 hot 0 1000 2000 2000 250
-hot-p0-hot-expired-below 900 0 500 hot 0 1000 2000 100 100
-hot-p1-cold-none-above 900 1 500 cold 0 0 1000 2000 250
-hot-p1-cold-none-below 900 1 500 cold 0 0 1000 100 100
-hot-p1-cold-active-above 900 1 500 cold 0 1000 1100 2000 250
-hot-p1-cold-active-below 900 1 500 cold 0 1000 1100 100 100
-hot-p1-cold-expired-above 900 1 500 cold 0 1000 2000 2000 250
-hot-p1-cold-expired-below 900 1 500 cold 0 1000 2000 100 100
-hot-p1-cool-none-above 900 1 500 cool 0 0 1000 2000 250
-hot-p1-cool-none-below 900 1 500 cool 0 0 1000 100 100
-hot-p1-cool-active-above 900 1 500 cool 0 1000 1100 2000 250
-hot-p1-cool-active-below 900 1 500 cool 0 1000 1100 100 100
-hot-p1-cool-expired-above 900 1 500 cool 0 1000 2000 2000 250
-hot-p1-cool-expired-below 900 1 500 cool 0 1000 2000 100 100
-hot-p1-warm-none-above 900 1 500 warm 0 0 1000 2000 250
-hot-p1-warm-none-below 900 1 500 warm 0 0 1000 100 100
-hot-p1-warm-active-above 900 1 500 warm 0 1000 1100 2000 500
-hot-p1-warm-active-below 900 1 500 warm 0 1000 1100 100 100
-hot-p1-warm-expired-above 900 1 500 warm 0 1000 2000 2000 1000
-hot-p1-warm-expired-below 900 1 500 warm 0 1000 2000 100 100
-hot-p1-hot-none-above 900 1 500 hot 0 0 1000 2000 250
-hot-p1-hot-none-below 900 1 500 hot 0 0 1000 100 100
-hot-p1-hot-active-above 900 1 500 hot 0 1000 1100 2000 500
-hot-p1-hot-active-below 900 1 500 hot 0 1000 1100 100 100
-hot-p1-hot-expired-above 900 1 500 hot 0 1000 2000 2000 1000
-hot-p1-hot-expired-below 900 1 500 hot 0 1000 2000 100 100
-edge-prev0-cold-full 40 0 0 cold 0 0 1000 2000 2000
-edge-prev0-cold-short 40 0 0 cold 0 0 1000 100 100
-edge-prev0-plan 40 1 0 cold 0 0 1000 2000 2000
-edge-prev1-double 40 0 1 cold 0 0 1000 250 2
-edge-warm-hold 400 0 1000 warm 1 1000 1100 2000 1000
-edge-warm-hold-plan 400 1 1000 warm 1 1000 1100 2000 1000
-edge-cool-probe 150 0 500 cool 0 1000 1200 2000 500
-edge-req-eq-prev 40 0 500 cold 0 0 1000 500 1000
+cold-p0-cold-fresh-above 40 0 500 cold 0 0 2000 1000
+cold-p0-cold-fresh-below 40 0 500 cold 0 0 100 100
+cold-p0-cold-prior-above 40 0 500 cold 0 1000 2000 1000
+cold-p0-cold-prior-below 40 0 500 cold 0 1000 100 100
+cold-p0-cool-fresh-above 40 0 500 cool 0 0 2000 1000
+cold-p0-cool-fresh-below 40 0 500 cool 0 0 100 100
+cold-p0-cool-prior-above 40 0 500 cool 0 1000 2000 1000
+cold-p0-cool-prior-below 40 0 500 cool 0 1000 100 100
+cold-p0-warm-fresh-above 40 0 500 warm 0 0 2000 1000
+cold-p0-warm-fresh-below 40 0 500 warm 0 0 100 100
+cold-p0-warm-prior-above 40 0 500 warm 0 1000 2000 1000
+cold-p0-warm-prior-below 40 0 500 warm 0 1000 100 1000
+cold-p0-hot-fresh-above 40 0 500 hot 0 0 2000 1000
+cold-p0-hot-fresh-below 40 0 500 hot 0 0 100 100
+cold-p0-hot-prior-above 40 0 500 hot 0 1000 2000 1000
+cold-p0-hot-prior-below 40 0 500 hot 0 1000 100 1000
+cold-p1-cold-fresh-above 40 1 500 cold 0 0 2000 500
+cold-p1-cold-fresh-below 40 1 500 cold 0 0 100 100
+cold-p1-cold-prior-above 40 1 500 cold 0 1000 2000 500
+cold-p1-cold-prior-below 40 1 500 cold 0 1000 100 100
+cold-p1-cool-fresh-above 40 1 500 cool 0 0 2000 500
+cold-p1-cool-fresh-below 40 1 500 cool 0 0 100 100
+cold-p1-cool-prior-above 40 1 500 cool 0 1000 2000 500
+cold-p1-cool-prior-below 40 1 500 cool 0 1000 100 100
+cold-p1-warm-fresh-above 40 1 500 warm 0 0 2000 500
+cold-p1-warm-fresh-below 40 1 500 warm 0 0 100 100
+cold-p1-warm-prior-above 40 1 500 warm 0 1000 2000 1000
+cold-p1-warm-prior-below 40 1 500 warm 0 1000 100 100
+cold-p1-hot-fresh-above 40 1 500 hot 0 0 2000 500
+cold-p1-hot-fresh-below 40 1 500 hot 0 0 100 100
+cold-p1-hot-prior-above 40 1 500 hot 0 1000 2000 1000
+cold-p1-hot-prior-below 40 1 500 hot 0 1000 100 100
+cool-p0-cold-fresh-above 150 0 500 cold 0 0 2000 250
+cool-p0-cold-fresh-below 150 0 500 cold 0 0 100 100
+cool-p0-cold-prior-above 150 0 500 cold 0 1000 2000 500
+cool-p0-cold-prior-below 150 0 500 cold 0 1000 100 100
+cool-p0-cool-fresh-above 150 0 500 cool 0 0 2000 250
+cool-p0-cool-fresh-below 150 0 500 cool 0 0 100 100
+cool-p0-cool-prior-above 150 0 500 cool 0 1000 2000 500
+cool-p0-cool-prior-below 150 0 500 cool 0 1000 100 100
+cool-p0-warm-fresh-above 150 0 500 warm 0 0 2000 250
+cool-p0-warm-fresh-below 150 0 500 warm 0 0 100 100
+cool-p0-warm-prior-above 150 0 500 warm 0 1000 2000 1000
+cool-p0-warm-prior-below 150 0 500 warm 0 1000 100 1000
+cool-p0-hot-fresh-above 150 0 500 hot 0 0 2000 250
+cool-p0-hot-fresh-below 150 0 500 hot 0 0 100 100
+cool-p0-hot-prior-above 150 0 500 hot 0 1000 2000 1000
+cool-p0-hot-prior-below 150 0 500 hot 0 1000 100 1000
+cool-p1-cold-fresh-above 150 1 500 cold 0 0 2000 250
+cool-p1-cold-fresh-below 150 1 500 cold 0 0 100 100
+cool-p1-cold-prior-above 150 1 500 cold 0 1000 2000 500
+cool-p1-cold-prior-below 150 1 500 cold 0 1000 100 100
+cool-p1-cool-fresh-above 150 1 500 cool 0 0 2000 250
+cool-p1-cool-fresh-below 150 1 500 cool 0 0 100 100
+cool-p1-cool-prior-above 150 1 500 cool 0 1000 2000 500
+cool-p1-cool-prior-below 150 1 500 cool 0 1000 100 100
+cool-p1-warm-fresh-above 150 1 500 warm 0 0 2000 250
+cool-p1-warm-fresh-below 150 1 500 warm 0 0 100 100
+cool-p1-warm-prior-above 150 1 500 warm 0 1000 2000 1000
+cool-p1-warm-prior-below 150 1 500 warm 0 1000 100 100
+cool-p1-hot-fresh-above 150 1 500 hot 0 0 2000 250
+cool-p1-hot-fresh-below 150 1 500 hot 0 0 100 100
+cool-p1-hot-prior-above 150 1 500 hot 0 1000 2000 1000
+cool-p1-hot-prior-below 150 1 500 hot 0 1000 100 100
+warm-p0-cold-fresh-above 400 0 500 cold 0 0 2000 250
+warm-p0-cold-fresh-below 400 0 500 cold 0 0 100 100
+warm-p0-cold-prior-above 400 0 500 cold 0 1000 2000 250
+warm-p0-cold-prior-below 400 0 500 cold 0 1000 100 100
+warm-p0-cool-fresh-above 400 0 500 cool 0 0 2000 250
+warm-p0-cool-fresh-below 400 0 500 cool 0 0 100 100
+warm-p0-cool-prior-above 400 0 500 cool 0 1000 2000 250
+warm-p0-cool-prior-below 400 0 500 cool 0 1000 100 100
+warm-p0-warm-fresh-above 400 0 500 warm 0 0 2000 250
+warm-p0-warm-fresh-below 400 0 500 warm 0 0 100 100
+warm-p0-warm-prior-above 400 0 500 warm 0 1000 2000 1000
+warm-p0-warm-prior-below 400 0 500 warm 0 1000 100 1000
+warm-p0-hot-fresh-above 400 0 500 hot 0 0 2000 250
+warm-p0-hot-fresh-below 400 0 500 hot 0 0 100 100
+warm-p0-hot-prior-above 400 0 500 hot 0 1000 2000 1000
+warm-p0-hot-prior-below 400 0 500 hot 0 1000 100 1000
+warm-p1-cold-fresh-above 400 1 500 cold 0 0 2000 250
+warm-p1-cold-fresh-below 400 1 500 cold 0 0 100 100
+warm-p1-cold-prior-above 400 1 500 cold 0 1000 2000 250
+warm-p1-cold-prior-below 400 1 500 cold 0 1000 100 100
+warm-p1-cool-fresh-above 400 1 500 cool 0 0 2000 250
+warm-p1-cool-fresh-below 400 1 500 cool 0 0 100 100
+warm-p1-cool-prior-above 400 1 500 cool 0 1000 2000 250
+warm-p1-cool-prior-below 400 1 500 cool 0 1000 100 100
+warm-p1-warm-fresh-above 400 1 500 warm 0 0 2000 250
+warm-p1-warm-fresh-below 400 1 500 warm 0 0 100 100
+warm-p1-warm-prior-above 400 1 500 warm 0 1000 2000 1000
+warm-p1-warm-prior-below 400 1 500 warm 0 1000 100 100
+warm-p1-hot-fresh-above 400 1 500 hot 0 0 2000 250
+warm-p1-hot-fresh-below 400 1 500 hot 0 0 100 100
+warm-p1-hot-prior-above 400 1 500 hot 0 1000 2000 1000
+warm-p1-hot-prior-below 400 1 500 hot 0 1000 100 100
+hot-p0-cold-fresh-above 900 0 500 cold 0 0 2000 250
+hot-p0-cold-fresh-below 900 0 500 cold 0 0 100 100
+hot-p0-cold-prior-above 900 0 500 cold 0 1000 2000 250
+hot-p0-cold-prior-below 900 0 500 cold 0 1000 100 100
+hot-p0-cool-fresh-above 900 0 500 cool 0 0 2000 250
+hot-p0-cool-fresh-below 900 0 500 cool 0 0 100 100
+hot-p0-cool-prior-above 900 0 500 cool 0 1000 2000 250
+hot-p0-cool-prior-below 900 0 500 cool 0 1000 100 100
+hot-p0-warm-fresh-above 900 0 500 warm 0 0 2000 250
+hot-p0-warm-fresh-below 900 0 500 warm 0 0 100 100
+hot-p0-warm-prior-above 900 0 500 warm 0 1000 2000 500
+hot-p0-warm-prior-below 900 0 500 warm 0 1000 100 100
+hot-p0-hot-fresh-above 900 0 500 hot 0 0 2000 250
+hot-p0-hot-fresh-below 900 0 500 hot 0 0 100 100
+hot-p0-hot-prior-above 900 0 500 hot 0 1000 2000 500
+hot-p0-hot-prior-below 900 0 500 hot 0 1000 100 100
+hot-p1-cold-fresh-above 900 1 500 cold 0 0 2000 250
+hot-p1-cold-fresh-below 900 1 500 cold 0 0 100 100
+hot-p1-cold-prior-above 900 1 500 cold 0 1000 2000 250
+hot-p1-cold-prior-below 900 1 500 cold 0 1000 100 100
+hot-p1-cool-fresh-above 900 1 500 cool 0 0 2000 250
+hot-p1-cool-fresh-below 900 1 500 cool 0 0 100 100
+hot-p1-cool-prior-above 900 1 500 cool 0 1000 2000 250
+hot-p1-cool-prior-below 900 1 500 cool 0 1000 100 100
+hot-p1-warm-fresh-above 900 1 500 warm 0 0 2000 250
+hot-p1-warm-fresh-below 900 1 500 warm 0 0 100 100
+hot-p1-warm-prior-above 900 1 500 warm 0 1000 2000 500
+hot-p1-warm-prior-below 900 1 500 warm 0 1000 100 100
+hot-p1-hot-fresh-above 900 1 500 hot 0 0 2000 250
+hot-p1-hot-fresh-below 900 1 500 hot 0 0 100 100
+hot-p1-hot-prior-above 900 1 500 hot 0 1000 2000 500
+hot-p1-hot-prior-below 900 1 500 hot 0 1000 100 100
+edge-prev0-cold-full 40 0 0 cold 0 0 2000 2000
+edge-prev0-cold-short 40 0 0 cold 0 0 100 100
+edge-prev0-plan 40 1 0 cold 0 0 2000 2000
+edge-prev1-double 40 0 1 cold 0 0 250 2
+edge-warm-healthy-probe 400 0 1000 warm 1 1000 2000 2000
+edge-warm-healthy-probe-plan 400 1 1000 warm 1 1000 2000 2000
+edge-cool-retain 150 0 500 cool 0 1000 2000 500
+edge-req-eq-prev 40 0 500 cold 0 0 500 1000
 EOF
-	[ "$_char_n" = 200 ] || die "characterization rows $_char_n want 200"
+	[ "$_char_n" = 136 ] || die "characterization rows $_char_n want 136"
 )
 ok "compute_limit characterization"
 
