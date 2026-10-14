@@ -430,7 +430,6 @@ fwlive_adaptive__record_body() {
 	_prev_w=$4
 	_prev_c=$6
 	_bucket=$(fwlive_adaptive_bucket_for_ms "$_ms")
-	_now=$(fwlive_adaptive_clock_cs)
 	_limit=$(fwlive_adaptive_compute_limit "$_served" "$_ms" "$_prev_l" "$_prev_b" "$_prev_w" "$_prev_c")
 	_warm=0
 	_shed=0
@@ -438,7 +437,9 @@ fwlive_adaptive__record_body() {
 		warm) _warm=1 ;;
 		hot) _shed=1 ;;
 	esac
-	fwlive_adaptive_write_state "$_ms" "$_limit" "$_bucket" "$_warm" "$_shed" "$_now"
+	# 1 means a decision was recorded. 0 is fresh, so a missing uptime
+	# must not be stored here or the next sample drops hot/warm protection.
+	fwlive_adaptive_write_state "$_ms" "$_limit" "$_bucket" "$_warm" "$_shed" 1
 }
 
 fwlive_adaptive_record() {

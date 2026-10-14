@@ -11,8 +11,8 @@ cool-band probe window against `_elapsed`.
 ## Production behavior
 
 `fwlive_adaptive_plan` applies the previous poll's duration; a successful
-`fwlive_adaptive_record` stores the new limit and writes `completed_cs`
-from `/proc/uptime`. `completed_cs > 0` is the prior-decision marker (`prior`
+`fwlive_adaptive_record` stores the new limit and writes `completed_cs=1`.
+`completed_cs > 0` is the prior-decision marker (`prior`
 in the model). A fresh state (`completed_cs = 0`) still applies the 250-line
 cool cap. Hot/warm samples hold the previous limit while they stay hot and
 probe one doubling on the first healthy sample. Cool samples retain a raised

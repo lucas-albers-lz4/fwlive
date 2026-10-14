@@ -136,6 +136,13 @@ ok "hot floor + shed + min(request)"
 	set -- $(fwlive_adaptive_plan 2000)
 	[ "$1" = 500 ] || die "cool band retains raised limit=$1 want 500"
 
+	# A record must not store a failed uptime read as "fresh".
+	fwlive_adaptive_clock_cs() { printf '%s\n' 0; }
+	fwlive_adaptive_write_state 900 250 hot 0 1 1000
+	fwlive_adaptive_record 150 250
+	set -- $(fwlive_adaptive_read_state)
+	[ "$6" = 1 ] || die "zero clock stored as fresh completed_cs=$6"
+
 	# Prior warm + healthy sample probes upward.
 	fwlive_adaptive_write_state 400 1000 warm 1 0 1000
 	_probe_cs=1300
