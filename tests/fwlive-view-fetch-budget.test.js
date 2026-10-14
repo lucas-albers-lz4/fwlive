@@ -737,6 +737,57 @@ async function testPersistedPagehideKeepsCoordinator() {
 	console.log('fwlive-view fetch-budget: persisted pagehide keeps coordinator OK');
 }
 
+async function testPendingResolveDoesNotHoldPollCoordinator() {
+	let release;
+	const gate = new Promise(function (resolve) {
+		release = resolve;
+	});
+	let pollCalls = 0;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				pollCalls++;
+				return {
+					log: [
+						{
+							id: 914,
+							time: 1717675742,
+							msg: 'fw4: DROP IN=br-lan OUT=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP SPT=49210 DPT=443'
+						}
+					]
+				};
+			},
+			'fwlive.resolve': async function () {
+				return gate;
+			}
+		}
+	});
+	const v = h.view;
+	v.showHostnames = true;
+	v.loadRulesMap = v.loadLoggingStatus = function () {
+		return Promise.resolve();
+	};
+	const loading = v.load();
+	await waitFor(function () {
+		return v.resolveInFlight === true;
+	});
+	assert.strictEqual(
+		v.ensurePollCoordinator().getState().inFlight,
+		false,
+		'pending reverse-DNS must not keep the poll coordinator in flight'
+	);
+	assert.strictEqual(pollCalls, 1, 'the first poll must have finished before resolve');
+	const second = v.requestPoll();
+	await waitFor(function () {
+		return pollCalls === 2;
+	});
+	release({ names: { '192.0.2.1': 'host.example' } });
+	await second;
+	await loading;
+	h.dispatchPagehide();
+	console.log('fwlive-view fetch-budget: pending resolve does not hold poll coordinator OK');
+}
+
 async function testPagehideDuringHostnameResolution() {
 	let release;
 	const gate = new Promise(resolve => { release = resolve; });
@@ -955,6 +1006,7 @@ async function main() {
 	await testPagehideDropsLateStartupUi();
 	await testPagehideDropsLateStartupFailures();
 	await testPersistedPagehideKeepsCoordinator();
+	await testPendingResolveDoesNotHoldPollCoordinator();
 	await testPagehideDuringHostnameResolution();
 	await testRulesThrowKeepsGoodMap();
 	await testRulesThrowWipesEmptyMap();

@@ -193,10 +193,10 @@ async function testLoggingStatusFailurePreservesToolbar() {
 	await v.handleEnableLogging();
 	assert.equal(
 		v.loggingStatus && v.loggingStatus.wan_log,
-		true,
-		'failed refresh after enable must keep wan_log true'
+		false,
+		'failed refresh after enable must keep last-known wan_log'
 	);
-	assert.match(collectText(bar), /WAN logging on/, 'toolbar must still look enabled');
+	assert.match(collectText(bar), /Enable logging/, 'toolbar must keep the last-known off control');
 	assert.match(String(v.loggingNotice), /WAN drop\/reject logging is on/);
 	assert.doesNotMatch(
 		String(v.loggingNotice),

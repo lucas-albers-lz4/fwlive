@@ -8,7 +8,7 @@
  * Logging toolbar and empty-state DOM renderers for luci-app-fwlive.
  *
  * renderToolbar(host, state, callbacks) → void
- *   host      - #fwlive-logging-bar strip slot (cleared and rebuilt; element kept)
+ *   host      - #fwlive-logging-bar strip slot (controls rebuilt; live status kept)
  *   state     - { loggingStatus, loggingBusy, loggingNotice, loggingNoticeFail }
  *   callbacks - { onEnable(), onDisable() }
  *
@@ -28,7 +28,14 @@
  * toggleFailureNotice(code, fallback) → string
  *   rpcd enable/disable error code → notice; unknown codes return fallback.
  *
- * Modules must not mutate state. host is cleared then rebuilt (idempotent replace).
+ * toggleRpcCatchNotice(err, accessNotice, fallback) → string
+ *   ubus code 6 / JSON-RPC -32002 → accessNotice; any other rejection → fallback.
+ *
+ * captureFocus(host, active) / restoreFocus(host, focused)
+ *   chips.js pattern: if focus was inside host, move it to the replacement control.
+ *
+ * Modules must not mutate state. Toolbar controls are replaced; the role=status
+ * node is reused so live announcements survive rebuilds.
  */
 
 const CONSENT_STORAGE_KEY = 'fwlive-logging-consent-v1';
@@ -81,12 +88,126 @@ function toggleFailureNotice(code, fallback) {
 	}
 }
 
+function toggleRpcCatchNotice(err, accessNotice, fallback) {
+	const code = err && err.code;
+	if (code === 6 || code === -32002) return accessNotice;
+	return fallback;
+}
+
+function nodeIsInside(node, host) {
+	while (node) {
+		if (node === host) return true;
+		node = node.parentNode;
+	}
+	return false;
+}
+
+function captureFocus(host, active) {
+	if (!host || !active || !nodeIsInside(active, host)) return null;
+	const action =
+		typeof active.getAttribute === 'function'
+			? active.getAttribute('data-fwlive-logging-action')
+			: null;
+	return { action: action || 'host' };
+}
+
+function findLoggingControl(root, action) {
+	if (!root || !action) return null;
+	const pending = [root];
+	while (pending.length) {
+		const node = pending.pop();
+		if (!node || node.nodeType !== 1) continue;
+		if (node.getAttribute && node.getAttribute('data-fwlive-logging-action') === action)
+			return node;
+		const children = node.childNodes || [];
+		for (let i = children.length - 1; i >= 0; i--) pending.push(children[i]);
+	}
+	return null;
+}
+
+function primaryLoggingControl(root) {
+	return (
+		findLoggingControl(root, 'enable') ||
+		findLoggingControl(root, 'disable') ||
+		findLoggingControl(root, 'dismiss')
+	);
+}
+
+function restoreFocus(host, focused) {
+	if (!focused || !host) return;
+	let target = focused.action ? findLoggingControl(host, focused.action) : null;
+	if (!target) target = primaryLoggingControl(host);
+	if (target && typeof target.focus === 'function') target.focus();
+}
+
+function toolbarLiveStatus(host) {
+	let live = host._fwliveLoggingLive;
+	if (!live || live.nodeType !== 1) {
+		live = E(
+			'span',
+			{
+				'class': 'fwlive-logging-live',
+				'role': 'status'
+			},
+			['']
+		);
+		host._fwliveLoggingLive = live;
+	}
+	if (live.parentNode !== host) host.appendChild(live);
+	return live;
+}
+
+function replaceToolbarControls(host, live) {
+	const kids = [];
+	for (let i = 0; i < host.childNodes.length; i++) kids.push(host.childNodes[i]);
+	for (let i = 0; i < kids.length; i++) {
+		if (kids[i] !== live) host.removeChild(kids[i]);
+	}
+}
+
+function placeToolbarNode(host, live, node) {
+	if (live && live.parentNode === host) host.insertBefore(node, live);
+	else host.appendChild(node);
+}
+
+function setLiveText(live, text) {
+	const msg = text == null ? '' : String(text);
+	let tn = null;
+	const kids = live.childNodes || [];
+	for (let i = 0; i < kids.length; i++) {
+		if (kids[i].nodeType === 3) {
+			tn = kids[i];
+			break;
+		}
+	}
+	if (!tn) {
+		const tmp = E('span', {}, [msg]);
+		tn = tmp.childNodes && tmp.childNodes[0];
+		if (tn) live.appendChild(tn);
+		return;
+	}
+	tn.textContent = msg;
+	if (tn.nodeValue !== undefined) tn.nodeValue = msg;
+}
+
+function updateLiveStatus(live, state) {
+	setLiveText(live, state.loggingNotice || '');
+	live.setAttribute(
+		'class',
+		state.loggingNotice
+			? 'fwlive-logging-live ' + loggingNoticeClass(state)
+			: 'fwlive-logging-live'
+	);
+	live.setAttribute('role', 'status');
+}
+
 function enableLoggingButton(state, callbacks) {
 	return E(
 		'button',
 		{
 			'class': 'cbi-button cbi-button-action',
 			'type': 'button',
+			'data-fwlive-logging-action': 'enable',
 			'title': _('Enable WAN zone drop/reject logging (same as Network → Firewall).'),
 			'disabled': state.loggingBusy ? '' : null,
 			'click': function () {
@@ -130,26 +251,25 @@ function loggingNoticeClass(state) {
 		: 'fwlive-logging-notice';
 }
 
-function appendLoggingNotice(host, state) {
-	if (!state.loggingNotice) return;
-	host.appendChild(E('span', { 'class': loggingNoticeClass(state) }, [state.loggingNotice]));
-}
-
-function appendBlockerStatus(host, blocker, st) {
+function appendBlockerStatus(host, live, blocker, st) {
 	if (blocker === 'no_wan_zone') {
-		host.appendChild(
+		placeToolbarNode(
+			host,
+			live,
 			E(
 				'span',
 				{ 'class': 'fwlive-logging-status' },
 				labelWithZoneCandidates(_('WAN logging unavailable: no WAN zone'), st)
 			)
 		);
-		host.appendChild(links.firewallZonesLink());
+		placeToolbarNode(host, live, links.firewallZonesLink());
 		return;
 	}
 
 	if (blocker === 'nf_log_missing') {
-		host.appendChild(
+		placeToolbarNode(
+			host,
+			live,
 			E('span', { 'class': 'fwlive-logging-status' }, [
 				_('WAN logging unavailable: missing kernel log modules')
 			])
@@ -158,7 +278,9 @@ function appendBlockerStatus(host, blocker, st) {
 	}
 
 	if (blocker === 'unknown') {
-		host.appendChild(
+		placeToolbarNode(
+			host,
+			live,
 			E('span', { 'class': 'fwlive-logging-status' }, [_('WAN logging unavailable')])
 		);
 	}
@@ -179,12 +301,15 @@ function appendWanLogDisableControl(host, state, callbacks) {
 				E('span', { 'class': 'fwlive-log-label' }, [_('WAN logging on')]),
 				E('span', { 'class': 'fwlive-log-rate' }, [_('· %s').format(limit)])
 			];
-	host.appendChild(
+	placeToolbarNode(
+		host,
+		host._fwliveLoggingLive,
 		E(
 			'button',
 			{
 				'class': 'cbi-button fwlive-log-merged',
 				'type': 'button',
+				'data-fwlive-logging-action': 'disable',
 				'title': _('WAN logging on (%s). Click to disable.').format(limit),
 				'disabled': busy ? '' : null,
 				'click': function () {
@@ -197,7 +322,10 @@ function appendWanLogDisableControl(host, state, callbacks) {
 }
 
 function renderToolbar(host, state, callbacks) {
-	host.innerHTML = '';
+	const live = toolbarLiveStatus(host);
+	replaceToolbarControls(host, live);
+	updateLiveStatus(live, state);
+
 	const st = state.loggingStatus;
 	if (!st) {
 		host.style.display = 'none';
@@ -207,21 +335,16 @@ function renderToolbar(host, state, callbacks) {
 	host.style.display = 'contents';
 	const blocker = blockerCode(state);
 
-	if (blocker) appendBlockerStatus(host, blocker, st);
+	if (blocker) appendBlockerStatus(host, live, blocker, st);
 
 	if (st.wan_log) {
 		appendWanLogDisableControl(host, state, callbacks);
-		appendLoggingNotice(host, state);
 		return;
 	}
 
-	if (blocker) {
-		appendLoggingNotice(host, state);
-		return;
-	}
+	if (blocker) return;
 
-	host.appendChild(enableLoggingButton(state, callbacks));
-	appendLoggingNotice(host, state);
+	placeToolbarNode(host, live, enableLoggingButton(state, callbacks));
 }
 
 function wanLogLimitDescription(limit) {
@@ -265,7 +388,8 @@ function buildConsentPanel(state, callbacks) {
 			E('label', {}, [
 				E('input', {
 					'type': 'checkbox',
-					'id': dontShowId
+					'id': dontShowId,
+					'data-fwlive-logging-action': 'consent-dont-show'
 				}),
 				' ',
 				_('Don’t show this again')
@@ -279,6 +403,7 @@ function buildConsentPanel(state, callbacks) {
 				{
 					'class': 'cbi-button',
 					'type': 'button',
+					'data-fwlive-logging-action': 'dismiss',
 					'click': function () {
 						const box = document.getElementById(dontShowId);
 						const persist = !!(box && box.checked);
@@ -446,6 +571,9 @@ return baseclass.extend({
 	consentDismissedPermanent: consentDismissedPermanent,
 	persistConsentDismissed: persistConsentDismissed,
 	toggleFailureNotice: toggleFailureNotice,
+	toggleRpcCatchNotice: toggleRpcCatchNotice,
+	captureFocus: captureFocus,
+	restoreFocus: restoreFocus,
 	renderToolbar: renderToolbar,
 	buildEmptyStateNodes: buildEmptyStateNodes,
 	renderEmptyState: renderEmptyState,

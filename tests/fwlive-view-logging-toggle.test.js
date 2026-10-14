@@ -7,7 +7,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { createFwliveView: loadFwliveView } = require('./lib/load-fwlive-view');
+const { createFwliveView: loadFwliveView, waitFor } = require('./lib/load-fwlive-view');
 
 const STORAGE_KEY = 'fwlive-logging-consent-v1';
 const WRONG_TYPE_REPLIES = [null, [], 'bad', 7];
@@ -80,6 +80,34 @@ function makeHarness(method, reply, storage, options) {
 
 function notice(view) {
 	return String(view.loggingNotice);
+}
+
+function rpcError(code, message) {
+	const err = new Error(message || 'RPC failed');
+	err.code = code;
+	return err;
+}
+
+function findRoleStatus(node) {
+	if (!node) return null;
+	if (node.getAttribute && node.getAttribute('role') === 'status') return node;
+	const kids = node.childNodes || [];
+	for (let i = 0; i < kids.length; i++) {
+		const hit = findRoleStatus(kids[i]);
+		if (hit) return hit;
+	}
+	return null;
+}
+
+function findFirstButton(node) {
+	if (!node) return null;
+	if (node.tagName === 'button') return node;
+	const kids = node.childNodes || [];
+	for (let i = 0; i < kids.length; i++) {
+		const hit = findFirstButton(kids[i]);
+		if (hit) return hit;
+	}
+	return null;
 }
 
 async function testEnableReply(reply, expectedNotice, shouldPersist) {
@@ -175,7 +203,29 @@ async function testEnableVariants() {
 	await testEnableReply({ ok: true, changed: false }, 'WAN logging is already enabled.', true);
 	await testEnableReply(
 		new Error('permission denied'),
+		'Could not reach the router; check the current logging state.',
+		false
+	);
+	await testEnableReply(
+		new Error('XHR request timed out'),
+		'Could not reach the router; check the current logging state.',
+		false
+	);
+	await testEnableReply(
+		rpcError(6, 'RPC call to fwlive/enable_wan_logging failed with ubus code 6: xx'),
 		'Administrator access is required to enable logging.',
+		false
+	);
+	await testEnableReply(
+		rpcError(-32002),
+		'Administrator access is required to enable logging.',
+		false
+	);
+	await testEnableReply(
+		new Error(
+			'RPC call to fwlive/enable_wan_logging failed with ubus code 6: Permission denied'
+		),
+		'Could not reach the router; check the current logging state.',
 		false
 	);
 	console.log('fwlive-view logging: enable variants and persistence OK');
@@ -260,7 +310,25 @@ async function testDisableVariants() {
 	assert.equal(disabled.view.loggingStatus && disabled.view.loggingStatus.wan_log, false);
 	await testDisableReply(
 		new Error('permission denied'),
+		'Could not reach the router; check the current logging state.'
+	);
+	await testDisableReply(
+		new Error('XHR request timed out'),
+		'Could not reach the router; check the current logging state.'
+	);
+	await testDisableReply(
+		rpcError(6, 'RPC call to fwlive/disable_wan_logging failed with ubus code 6: xx'),
 		'Administrator access is required to disable logging.'
+	);
+	await testDisableReply(
+		rpcError(-32002),
+		'Administrator access is required to disable logging.'
+	);
+	await testDisableReply(
+		new Error(
+			'RPC call to fwlive/disable_wan_logging failed with ubus code 6: Permission denied'
+		),
+		'Could not reach the router; check the current logging state.'
 	);
 	console.log('fwlive-view logging: disable variants and no-change behavior OK');
 }
@@ -540,6 +608,94 @@ async function testBusyReentry() {
 	console.log('fwlive-view logging: busy re-entry OK');
 }
 
+async function testToolbarKeepsPreToggleBusyLabel() {
+	let mockWanLog = false;
+	let enableReturned = false;
+	let releaseStatus;
+	const statusGate = new Promise(function (resolve) {
+		releaseStatus = resolve;
+	});
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.enable_wan_logging': async function () {
+				mockWanLog = true;
+				enableReturned = true;
+				return { ok: true, changed: true };
+			},
+			'fwlive.logging_status': async function () {
+				if (enableReturned) await statusGate;
+				return Object.assign({}, LOGGING_STATUS_DEFAULT, {
+					wan_log: mockWanLog,
+					ready: true
+				});
+			}
+		}
+	});
+	h.view.loggingStatus = Object.assign({}, LOGGING_STATUS_DEFAULT, {
+		wan_log: false,
+		ready: true
+	});
+	h.view.updateLoggingToolbarUi();
+	const bar = h.document.getElementById('fwlive-logging-bar');
+	assert.match(collectText(bar), /Enable logging/);
+
+	const done = h.view.handleEnableLogging();
+	await waitFor(function () {
+		return enableReturned && h.view.loggingBusy;
+	});
+	const busyText = collectText(bar);
+	assert.match(busyText, /Enabling/);
+	assert.doesNotMatch(busyText, /Disabling/);
+	releaseStatus();
+	await done;
+	assert.match(collectText(bar), /WAN logging on/);
+	console.log('fwlive-view logging: toolbar keeps pre-toggle busy label OK');
+}
+
+async function testLoggingToggleRestoresFocusAndLiveStatus() {
+	let mockWanLog = false;
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.enable_wan_logging': async function () {
+				mockWanLog = true;
+				return { ok: true, changed: true };
+			},
+			'fwlive.logging_status': async function () {
+				return Object.assign({}, LOGGING_STATUS_DEFAULT, {
+					wan_log: mockWanLog,
+					ready: true
+				});
+			}
+		}
+	});
+	h.view.loggingStatus = Object.assign({}, LOGGING_STATUS_DEFAULT, {
+		wan_log: false,
+		ready: true
+	});
+	h.view.updateLoggingToolbarUi();
+	const bar = h.document.getElementById('fwlive-logging-bar');
+	const live = findRoleStatus(bar);
+	assert.ok(live, 'logging bar must expose a persistent status region');
+	assert.equal(live.getAttribute('role'), 'status');
+	assert.deepEqual(live._innerHTMLWrites || [], [], 'status region must not use an HTML sink');
+
+	const enableBtn = findFirstButton(bar);
+	assert.ok(enableBtn, 'off toolbar must render Enable');
+	h.document.activeElement = enableBtn;
+	enableBtn.focus();
+	assert.equal(h.document.activeElement, enableBtn);
+
+	await h.view.handleEnableLogging();
+	assert.equal(findRoleStatus(bar), live, 'status region must survive toolbar rebuilds');
+	assert.match(collectText(live), /WAN drop\/reject logging is on/);
+	assert.deepEqual(live._innerHTMLWrites || [], [], 'status text must stay on a text node');
+
+	const focused = h.document.activeElement;
+	assert.ok(focused && focused.parentNode, 'focus must land on a connected replacement');
+	assert.equal(focused.getAttribute('data-fwlive-logging-action'), 'disable');
+	console.log('fwlive-view logging: focus restore and persistent status OK');
+}
+
 (async function main() {
 	try {
 		await testEnableVariants();
@@ -553,6 +709,8 @@ async function testBusyReentry() {
 		testBackendDisplayLabels();
 		testLegacyIptablesWarning();
 		await testBusyReentry();
+		await testToolbarKeepsPreToggleBusyLabel();
+		await testLoggingToggleRestoresFocusAndLiveStatus();
 		console.log('fwlive-view logging-toggle tests passed');
 	} catch (e) {
 		console.error(e && e.stack ? e.stack : String(e));

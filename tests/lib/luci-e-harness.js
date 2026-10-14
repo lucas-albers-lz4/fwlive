@@ -209,7 +209,13 @@ class Element extends Node {
 		if (!parts.length) return null;
 		return queryFrom(this, parts, false);
 	}
+
+	focus() {
+		if (Element.focusDocument) Element.focusDocument.activeElement = this;
+	}
 }
+
+Element.focusDocument = null;
 
 class TextNode extends Node {
 	constructor(text) {

@@ -67,13 +67,15 @@ const callFwliveLoggingStatus = rpc.declare({
 const callFwliveEnableLogging = rpc.declare({
 	object: 'fwlive',
 	method: 'enable_wan_logging',
-	expect: { '': { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] } }
+	expect: { '': { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] } },
+	raise: true
 });
 
 const callFwliveDisableLogging = rpc.declare({
 	object: 'fwlive',
 	method: 'disable_wan_logging',
-	expect: { '': { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] } }
+	expect: { '': { ok: false, changed: false, wan_zone: null, wan_zone_candidates: [] } },
+	raise: true
 });
 
 function storedValue(key, fallback) {
@@ -597,6 +599,14 @@ return view.extend({
 		const td = tr.querySelector('td');
 		if (!td || typeof getComputedStyle !== 'function') return;
 
+		/* Measure without the solid fallback so a palette change cannot treat
+		 * fallback paint as evidence that theme tint works. */
+		if (map.getAttribute('data-tint-fallback') === '1') {
+			map.style.removeProperty('--fwlive-pass-color');
+			map.style.removeProperty('--fwlive-deny-color');
+			map.removeAttribute('data-tint-fallback');
+		}
+
 		const hadPass = tr.classList.contains('fwlive-row-pass');
 		const hadDeny = tr.classList.contains('fwlive-row-deny');
 		const probeClass = hadDeny ? 'fwlive-row-deny' : 'fwlive-row-pass';
@@ -927,13 +937,12 @@ return view.extend({
 			this.loggingNoticeFail = false;
 			this._loggingNoticeFromToggle = !!this.loggingNotice;
 			if (opts.onSuccess) opts.onSuccess(res);
-			if (this.loggingStatus && typeof opts.wanLog === 'boolean')
-				this.loggingStatus = Object.assign({}, this.loggingStatus, {
-					wan_log: opts.wanLog
-				});
 			await this.loadLoggingStatus();
-		} catch (_e) {
-			this.loggingNotice = opts.catchNotice();
+		} catch (e) {
+			this.loggingNotice =
+				typeof opts.catchNotice === 'function'
+					? opts.catchNotice(e)
+					: _('Could not reach the router; check the current logging state.');
 			this.loggingNoticeFail = true;
 			this._loggingNoticeFromToggle = true;
 			await this.loadLoggingStatus();
@@ -948,7 +957,6 @@ return view.extend({
 
 	async handleEnableLogging() {
 		return this.runLoggingToggle({
-			wanLog: true,
 			call: () => callFwliveEnableLogging(),
 			initialUi: () => {
 				this.updateEmptyStateUi();
@@ -963,19 +971,28 @@ return view.extend({
 						)
 					: _('WAN logging is already enabled.'),
 			onSuccess: () => logging.persistConsentDismissed(),
-			catchNotice: () => _('Administrator access is required to enable logging.')
+			catchNotice: (err) =>
+				logging.toggleRpcCatchNotice(
+					err,
+					_('Administrator access is required to enable logging.'),
+					_('Could not reach the router; check the current logging state.')
+				)
 		});
 	},
 
 	async handleDisableLogging() {
 		return this.runLoggingToggle({
-			wanLog: false,
 			call: () => callFwliveDisableLogging(),
 			initialUi: () => this.updateLoggingToolbarUi(),
 			failureNotice: (res) =>
 				logging.toggleFailureNotice(res && res.error, _('Could not disable logging.')),
 			successNotice: (res) => (res.changed ? _('WAN drop/reject logging is off.') : ''),
-			catchNotice: () => _('Administrator access is required to disable logging.')
+			catchNotice: (err) =>
+				logging.toggleRpcCatchNotice(
+					err,
+					_('Administrator access is required to disable logging.'),
+					_('Could not reach the router; check the current logging state.')
+				)
 		});
 	},
 
@@ -1033,10 +1050,15 @@ return view.extend({
 		const sig = this.loggingUiSignature();
 		if (sig === this._loggingToolbarSig) return;
 
+		const focused = logging.captureFocus(
+			bar,
+			typeof document !== 'undefined' ? document.activeElement : null
+		);
 		logging.renderToolbar(bar, this.loggingState(), {
 			onEnable: () => this.handleEnableLogging(),
 			onDisable: () => this.handleDisableLogging()
 		});
+		logging.restoreFocus(bar, focused);
 		this._loggingToolbarSig = sig;
 	},
 
@@ -1048,10 +1070,15 @@ return view.extend({
 		if (sig === this._loggingEmptySig) return;
 
 		const visible = empty.style.display !== 'none';
+		const focused = logging.captureFocus(
+			empty,
+			typeof document !== 'undefined' ? document.activeElement : null
+		);
 		logging.renderEmptyState(empty, this.loggingState(), {
 			onEnable: () => this.handleEnableLogging(),
 			onDismissConsent: (persist) => this.handleDismissConsent(persist)
 		});
+		logging.restoreFocus(empty, focused);
 		if (visible) empty.style.display = 'block';
 		this._loggingEmptySig = sig;
 	},
@@ -2426,7 +2453,11 @@ return view.extend({
 			}
 
 			try {
-				await this.resolveHostnamesForEntries(this.filteredRows());
+				Promise.resolve(this.resolveHostnamesForEntries(this.filteredRows())).catch(
+					function () {
+						/* resolve unavailable — show IPs */
+					}
+				);
 			} catch (_e) {
 				/* resolve unavailable — show IPs */
 			}
