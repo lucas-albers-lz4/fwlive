@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Document the Simple-view **Show full message** button in the user guide (#1229).
 - Mention `npm run test:view` in the contributor change workflow (#1230).
-- Install the signed feed on OpenWrt 25.12 from the same copy-paste snippet as 23.05/24.10 (#1235).
+- Install the signed feed on OpenWrt 23.05, 24.10, and 25.12 from one copy-paste snippet (#1235).
 
 ## [v0.1.53] — 2026-10-12
 

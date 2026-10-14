@@ -13,14 +13,30 @@ Install directly from the signed GitHub Pages feed — no manual download.
 
 OpenWrt **21.02** / **22.03** are unsupported: those feed directories are no longer published.
 
-Run this on the router. It reads `/etc/openwrt_release` and installs from the matching opkg or apk feed:
+Run this on the router. It reads `/etc/openwrt_release` and installs from the matching **23.05** / **24.10** (`opkg`) or **25.12** (`apk`) feed:
 
 ```sh
 BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
 . /etc/openwrt_release
 feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
 case "$feed" in
-  23.05|24.10|25.12) ;;
+  23.05|24.10)
+    wget -O /tmp/fwlive.key "$BASE/public.key"
+    opkg-key add /tmp/fwlive.key
+    mkdir -p /etc/opkg
+    touch /etc/opkg/customfeeds.conf
+    { grep -v '^src/gz fwlive ' /etc/opkg/customfeeds.conf || true; } > /etc/opkg/customfeeds.conf.tmp
+    mv /etc/opkg/customfeeds.conf.tmp /etc/opkg/customfeeds.conf
+    echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
+    opkg update && opkg install luci-app-fwlive
+    ;;
+  25.12)
+    wget -O /tmp/fwlive-feed.rsa.pub "$BASE/fwlive-feed.rsa.pub"
+    mkdir -p /etc/apk/keys /etc/apk/repositories.d
+    cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
+    printf '%s\n' "$BASE/$feed/all/packages.adb" > /etc/apk/repositories.d/fwlive.list
+    apk update && apk add luci-app-fwlive
+    ;;
   21.02|22.03)
     echo "OpenWrt $DISTRIB_RELEASE is unsupported; no published feed" >&2
     exit 1
@@ -30,22 +46,6 @@ case "$feed" in
     exit 1
     ;;
 esac
-if [ "$feed" = 25.12 ]; then
-  wget -O /tmp/fwlive-feed.rsa.pub "$BASE/fwlive-feed.rsa.pub"
-  mkdir -p /etc/apk/keys /etc/apk/repositories.d
-  cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
-  printf '%s\n' "$BASE/$feed/all/packages.adb" > /etc/apk/repositories.d/fwlive.list
-  apk update && apk add luci-app-fwlive
-else
-  wget -O /tmp/fwlive.key "$BASE/public.key"
-  opkg-key add /tmp/fwlive.key
-  mkdir -p /etc/opkg
-  touch /etc/opkg/customfeeds.conf
-  { grep -v '^src/gz fwlive ' /etc/opkg/customfeeds.conf || true; } > /etc/opkg/customfeeds.conf.tmp
-  mv /etc/opkg/customfeeds.conf.tmp /etc/opkg/customfeeds.conf
-  echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
-  opkg update && opkg install luci-app-fwlive
-fi
 ```
 
 Feed layout and signing keys: [Binary feed](../binary-feed.md).

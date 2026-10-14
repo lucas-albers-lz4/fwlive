@@ -138,10 +138,19 @@ grep -Fxq 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.1
 grep -Fxq 'src/gz other http://example/packages' "$fake/etc/opkg/customfeeds.conf" \
 	|| bad "24.10 must preserve unrelated opkg feeds"
 
-# 23.05 uses the same opkg path with its feed directory.
+# 23.05 uses the same opkg path with its own feed directory.
 fake="$TMP/owrt-2305"
 run_snippet "$fake" '23.05.5'
-[[ "$rc" -eq 0 ]] || bad "23.05.5 snippet rc=$rc ($(cat "$fake/err"))"
+if [[ "$rc" -eq 0 ]]; then
+	ok "23.05.5 snippet exits 0"
+else
+	bad "23.05.5 snippet rc=$rc ($(cat "$fake/err"))"
+fi
+grep -Fq 'wget -O ' "$TMP/cmd.log" && grep -Fq '/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key' "$TMP/cmd.log" \
+	|| bad "23.05 must wget public.key ($(cat "$TMP/cmd.log"))"
+grep -Fq 'opkg update' "$TMP/cmd.log" && grep -Fq 'opkg install luci-app-fwlive' "$TMP/cmd.log" \
+	|| bad "23.05 must opkg update && install ($(cat "$TMP/cmd.log"))"
+grep -Fq 'apk ' "$TMP/cmd.log" && bad "23.05 must not call apk ($(cat "$TMP/cmd.log"))"
 grep -Fxq 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/23.05' \
 	"$fake/etc/opkg/customfeeds.conf" \
 	|| bad "23.05 customfeeds must point at /23.05 ($(cat "$fake/etc/opkg/customfeeds.conf"))"
