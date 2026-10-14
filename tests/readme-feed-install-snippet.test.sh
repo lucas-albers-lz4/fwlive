@@ -72,6 +72,9 @@ while [ $# -gt 0 ]; do
 	esac
 done
 printf 'wget -O %s %s\n' "$out" "$url" >>"$log"
+if [ -n "${SNIPPET_WGET_FAIL:-}" ]; then
+	exit 1
+fi
 [ -n "$out" ] || exit 1
 printf 'key\n' >"$out"
 EOF
@@ -110,7 +113,7 @@ run_snippet() {
 	set -e
 }
 
-# 24.10 opkg: rewrite a stale src/gz line, keep unrelated feeds.
+# 24.10 opkg: append the feed line. A pre-existing fwlive line is kept.
 fake="$TMP/owrt-2410"
 mkdir -p "$fake/etc/opkg"
 printf '%s\n' \
@@ -131,12 +134,28 @@ grep -Fq 'opkg update' "$TMP/cmd.log" && grep -Fq 'opkg install luci-app-fwlive'
 	|| bad "24.10 must opkg update && install ($(cat "$TMP/cmd.log"))"
 grep -Fq 'apk ' "$TMP/cmd.log" && bad "24.10 must not call apk ($(cat "$TMP/cmd.log"))"
 fw_n="$(grep -c '^src/gz fwlive ' "$fake/etc/opkg/customfeeds.conf" || true)"
-[[ "$fw_n" -eq 1 ]] || bad "24.10 must keep one src/gz fwlive line (got $fw_n)"
+[[ "$fw_n" -eq 2 ]] || bad "24.10 appends a fwlive line and keeps the old one (got $fw_n)"
 grep -Fxq 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' \
 	"$fake/etc/opkg/customfeeds.conf" \
 	|| bad "24.10 customfeeds must point at /24.10 ($(cat "$fake/etc/opkg/customfeeds.conf"))"
+grep -Fxq 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/23.05' \
+	"$fake/etc/opkg/customfeeds.conf" \
+	|| bad "24.10 must keep the pre-existing fwlive line"
 grep -Fxq 'src/gz other http://example/packages' "$fake/etc/opkg/customfeeds.conf" \
 	|| bad "24.10 must preserve unrelated opkg feeds"
+
+# A failed key download stops before opkg-key.
+fake="$TMP/owrt-wget-fail"
+mkdir -p "$fake/etc/opkg"
+SNIPPET_WGET_FAIL=1 run_snippet "$fake" '24.10.8'
+unset SNIPPET_WGET_FAIL
+if [[ "$rc" -ne 0 ]]; then
+	ok "failed wget exits nonzero"
+else
+	bad "failed wget must exit nonzero"
+fi
+grep -Fq 'opkg-key ' "$TMP/cmd.log" && bad "failed wget must not run opkg-key ($(cat "$TMP/cmd.log"))"
+grep -Fq 'opkg ' "$TMP/cmd.log" && bad "failed wget must not run opkg ($(cat "$TMP/cmd.log"))"
 
 # 23.05 uses the same opkg path with its own feed directory.
 fake="$TMP/owrt-2305"
