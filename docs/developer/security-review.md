@@ -10,6 +10,15 @@ i18n locales) on gh-pages, in `manifest.json` `artifacts`, and GitHub Release
 assets. Locales are gated upstream by `tests/fwlive-i18n.test.js`. No ACL, DOM
 sink, or read/write-scope change.
 
+**2026-10-14 #1240/#1245 scoped delta.** A failed WAN-log baseline write after
+open now removes the truncated marker so the next Enable re-snapshots;
+uninstall must not treat an empty leftover file as an "unset" baseline. Host
+coverage forces that post-open write failure with `ulimit -f 0`. The WAN-log
+lock concurrency test fails UCI `set`/`commit` unless exclusive `flock` is
+still held at those calls; Part B's serial-outcome oracle is not a lost-update
+proof. The TLA `Commit` model gap remains #1265. No ACL or command-surface
+change.
+
 **2026-10-11 #1197 scoped delta.** Matrix validation selects exactly one
 package from the requested SDK target/version cell for both build and
 `--skip-build`, then passes that path to the guest installer. SDK builds clear
@@ -872,7 +881,7 @@ change. This scoped smoke review is not a full security audit.
 | GitHub Release normal-path body is the CHANGELOG section; missing-section fallback is `--generate-notes` with a loud warning (body may be sparse — fold before tagging) | `host` | `feed_publish_release_notes_file` in `scripts/lib/feed-publish.sh`; `tests/feed-publish-release-assets.test.sh` notes assertions; `publish_new` warn on fallback |
 | JSON filter unescapes libubox string escapes (`\b` `\f` `\n` `\r` `\t` `\u00XX`) before classify | `host + lab` | `tests/fwlive-shell-filter.test.js` `runJsonGetMsgEscapes` / `runJsonParity`; actual guest jsonfilter used for selected host fixtures via SSH, plus native installed nft/log pipeline on 24.10/25.12, 2026-10-01. |
 | JSON string content escaped per RFC 8259 | `host` | rpcd `__selftest` |
-| WAN log toggles serialize, bound lock acquisition, and do not roll back a later fwlive intent after an ABA | `host + formal` | `tests/fwlive-logging-lock.test.sh`, `tests/fwlive-logging.test.sh`, `scripts/formal-tlc.sh` |
+| WAN log toggles serialize, bound lock acquisition, and do not roll back a later fwlive intent after an ABA | `host + formal` | `tests/fwlive-logging-lock.test.sh` (Part A flock canary; Part B concurrent serial-outcome sweep plus ownership-at-commit: the UCI stub fails `set`/`commit` unless exclusive `flock` is still held), `tests/fwlive-logging.test.sh`, `scripts/formal-tlc.sh` |
 | Reload failure rolls back the UCI write; restore returns non-zero if `uci set`/`uci delete` never staged | `host` | `tests/fwlive-logging.test.sh` |
 | `resolve` stops starting additional lookups when its elapsed budget is reached; in-progress lookups have no fwlive deadline | `host + manual` | Budget admission tests in `tests/fwlive-rpcd-security.test.js`; direct-execution source inspection. No whole-call duration or descendant-cleanup guarantee |
 | `poll` requests a five-second ubus invocation reply timeout after object lookup; a nonzero reply path maps to `log_read_failed` and does not clear adaptive load state | `host + manual` | `tests/fwlive-rpcd-security.test.js` `testPollUbusFailure` asserts argv/error path (plumbing only) and `testAdaptiveHotSurvivesFailedPoll` covers retained hot state; the exact ubus source revisions pinned by OpenWrt 23.05/24.10/25.12 pass this timeout to `ubus_invoke`. No native stalled-service integration test; lookup, connection and remote cancellation are outside this bound |
