@@ -131,9 +131,11 @@ stateDiagram-v2
 
 The view creates one coordinator with a request runner, poll and visibility
 adapters, a visibility reader, and the initial cadence from `constants.js`.
-`startPolling()` subscribes to visibility and registers the timer once; it does
-not fetch. The view resolves RPC preferences before starting the coordinator
-and requesting the first batch. Filter widgets still restore in `addFooter`.
+`startPolling()` subscribes to visibility and registers the timer once. On LuCI
+24.10+, an idle `poll.add` runs the new entry synchronously, so the first
+request starts inside `startPolling()`. The view resolves RPC preferences before
+starting the coordinator; `load()` joins that request via `catchUp()` instead of
+issuing a duplicate fetch. Filter widgets still restore in `addFooter`.
 
 `requestPoll()` returns a promise for the requested batch. Calls during an
 active batch share one pending batch, which reads current preferences when it

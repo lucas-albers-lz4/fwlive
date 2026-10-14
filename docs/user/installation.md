@@ -150,8 +150,10 @@ opkg update && opkg install luci-app-fwlive
 
 **apk (25.12.x):**
 ```sh
-apk update && apk add luci-app-fwlive
+apk update && apk upgrade luci-app-fwlive
 ```
+
+If you installed from a GitHub Release `.apk` file, that pins the package identity in `world`; run `apk upgrade --available` to reset the pin and upgrade from the feed.
 
 After upgrade, refresh the LuCI page in your browser (may need a cache-busting hard refresh: Ctrl+Shift+R / Cmd+Shift+R).
 

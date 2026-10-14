@@ -60,14 +60,15 @@ user or maintainer workflow.
 | Script | Role |
 |--------|------|
 | `gen-shell-classifier.js` | **Codegen** — emits `fwlive-is-firewall-event.sh` from `CLASSIFY_SPEC` |
-| `gen-luci-wrapper.js` | **Gate** — deep-equals full LuCI `CLASSIFY_SPEC` to core, checks preserve markers / the ES5-compatible absence of `Array.includes` and `Object.values` in shipped `log.js`; re-emits committed `log.js` bytes (does not transform shared logic) |
+| `gen-luci-wrapper.js` | **Gate** — deep-equals full LuCI `CLASSIFY_SPEC` to core, checks preserve markers / bans `Array.includes` and `Object.values` in shipped `log.js`; re-emits committed `log.js` bytes (does not transform shared logic) |
 
 After editing classification: update **both** `core/fwlive-log.js` and the LuCI `CLASSIFY_SPEC` mirror, run `./scripts/gen-all.sh`, and commit the regenerated shell classifier. A drifted LuCI wrapper fails the gate — it is not auto-fixed by `gen-all.sh`. SDK package builds do not run Node.
 
-The `Array.includes` / `Object.values` check is an ES5-compatible LuCI/browser
-compatibility gate for the supported 23.05+ surface. It is not a remaining
-21.02 support claim; remove or relabel it only after the supported LuCI/browser
-floor changes and the generated wrapper contract is revalidated.
+The `Array.includes` / `Object.values` check bans those two API names in
+shipped `log.js`; it is not an ES5 syntax floor. Shipped LuCI JS already
+requires ES2017 because of async/await and other modern syntax. Remove or
+relabel the check only after the wrapper contract and supported browser floor
+are revalidated.
 
 ## Feed / package changes
 

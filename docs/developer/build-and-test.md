@@ -171,8 +171,7 @@ Functional, performance, and sign-off tables: [`../fwlive-acceptance.md`](../fwl
 ## CI-friendly sequence
 
 ```sh
-./scripts/validate-baseline.sh
-./scripts/validate-openwrt-all.sh build
+./scripts/validate-openwrt-all.sh build --sdk-target x86-64
 ./scripts/validate-openwrt-all.sh smoke-x86 --skip-build
 ```
 

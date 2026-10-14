@@ -36,11 +36,11 @@ The URL hash stores all active filters, limit, view mode, and — in Manual fetc
 
 ### Why do some rows have no Rule column data?
 
-Live View shows a **Rule** label only when the nft log line includes a **prefix** (e.g. `log prefix "my-rule "`) and fw4 can resolve it to a UCI rule name. Rules without `log prefix` do not carry enough metadata.
+A **Rule** label appears whenever the log line carries a prefix or tag. It shows the UCI/fw4 name when `fwlive rules` can resolve it, otherwise a cosmetic form of the prefix. Rules without `log prefix` do not carry enough metadata.
 
 ### What does "Enable logging" on the page actually do?
 
-It sets `option log '1'` on your WAN firewall zone via ubus and reloads the firewall. That enables logging of **rejected and dropped** packets on WAN. It does **not** add allow/deny rules and does **not** log normal LAN browsing. Click **WAN logging on** on the watch strip to turn it off again.
+It sets the zone's filter-log bit (bit 0 of `log`) and keeps other mask bits on your WAN firewall zone via ubus and reloads the firewall. That enables logging of **rejected and dropped** packets on WAN. It does **not** add allow/deny rules and does **not** log normal LAN browsing. Click **WAN logging on** on the watch strip to turn it off again.
 
 ---
 
