@@ -53,13 +53,15 @@ Back-compat: `./scripts/validate-openwrt-23.05.sh` → `validate-openwrt.sh --ve
 
 Via `qemu-smoke-fwlive.sh`:
 
-For a release or compatibility sign-off, run both lab architectures with
-`scripts/qemu-smoke-matrix.sh` after starting and installing the package in
-each guest. The wrapper keeps the existing single-guest smoke unchanged and
-fails if either guest fails, including when `uname -m` does not match the
-leg (`x86_64` vs `aarch64`). x86_64 is the fast lab path; armsr/armv8 runs
-under TCG and is substantially slower, so the two-architecture check is
-manual/release validation rather than a required pull-request CI job.
+A formal two-architecture compatibility sign-off requires running both lab
+architectures with `scripts/qemu-smoke-matrix.sh` after starting and installing
+the package in each guest. This technical matrix sign-off is distinct from
+release approval based on known-bug status. The wrapper keeps the existing
+single-guest smoke unchanged and fails if either guest fails, including when
+`uname -m` does not match the leg (`x86_64` vs `aarch64`). x86_64 is the fast
+lab path; armsr/armv8 runs under TCG and is substantially slower, so the
+two-architecture check is manual compatibility validation rather than a
+required pull-request CI job.
 
 | Matrix leg | Expected `uname -m` | SSH | HTTP |
 |------------|---------------------|-----|------|

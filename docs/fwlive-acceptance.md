@@ -14,15 +14,15 @@ Run the checks again after changes — see [Build & test](developer/build-and-te
 
 `luci-app-fwlive` builds as **`_all`** (no per-SoC binaries). The app is **not hardware-specific** — LuCI JS, the ash `rpcd` plugin, and **`ubus fwlive.poll`** are portable. The browser calls `fwlive.poll`; rpcd invokes `log.read` internally. LuCI sessions do **not** call `ubus log.read` directly. **Testing on one ARM target (e.g. armsr/armv8) is sufficient for other ARM boards** on the same OpenWrt version; differences show up by **release** (23.05 vs 24.10), not by CPU model.
 
-| OpenWrt | SDK build | Lab target | End-to-end sign-off |
-| ------- | --------- | ---------- | ------------------- |
+| OpenWrt | SDK build | Lab target | Release / end-to-end status |
+| ------- | --------- | ---------- | -------------------------- |
 | **21.02.7** (historical) | ✓ x86-64 (retired) | **x86_64** (KVM, fw3/iptables) | historical `qemu-smoke-fwlive.sh` (2026-06-20) |
 | **22.03.7** (historical) | ✓ x86-64 (retired) | **x86_64** (KVM) | historical `qemu-smoke-fwlive.sh` (2026-06-27) |
 | **24.10.8** | ✓ armsr-armv8, x86-64 | **armsr/armv8** (production) | ✓ LuCI, ubus, nft log, rules |
 | **24.10.8** | ✓ | **x86_64** (fast KVM lab) | ✓ primary dev loop |
 | **23.05.5** | ✓ armsr-armv8 | **x86_64** (KVM) | ✓ `qemu-smoke-fwlive.sh` |
 | **23.05.5** | ✓ (same `_all` ipk) | armsr/armv8 | Same package; TCG QEMU boot slow — not re-signed in lab |
-| **25.12.5** | ✓ armsr-armv8, x86-64 | x86 + armsr (QEMU) | **supported-but-not-signed-off** — [validation matrix](validation-matrix.md) |
+| **25.12.5** | ✓ armsr-armv8, x86-64 | x86 + armsr (QEMU) | **Supported and shipped; v0.1.53 release sign-off (2026-10-12) recorded no known 25.12-specific bugs ([record](https://github.com/lucas-albers-lz4/fwlive/issues/1231#issuecomment-6158027230)).** This is distinct from the formal two-architecture end-to-end sign-off described in the [validation matrix](validation-matrix.md). |
 | **snapshot** | ✓ matrix | — | Best-effort; not formally signed off |
 
 **Production target:** armsr **24.10.8**. **23.05.5** is supported (EOL). **22.03.7** / **21.02.7** are historical lab notes only — see [supported releases](supported-releases.md#2305x), [22.03 notes](supported-releases.md#2203x-historical), and [21.02 notes](supported-releases.md#2102x-historical).
