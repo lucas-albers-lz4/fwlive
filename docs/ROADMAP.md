@@ -50,7 +50,7 @@ Stage 4 ✓ ──► Stage 5 ✓ ──► Stage 3 ✓ ──► Stage 4b ✓ �
 
 **Next:** publish upstream · Stage 6–7 rest (rule overlay, digest/SSE; optional).
 
-**Backport / versions:** current floor **23.05.5** (x86 smoke) + armsr **24.10**. **21.02.7** / **22.03.7** were historical lab sign-offs and are unsupported. See [`fwlive-acceptance.md`](fwlive-acceptance.md).
+**Backport / versions:** support floor **23.05.5** (x86 smoke); production target **armsr 24.10**. **21.02.7** / **22.03.7** were historical lab sign-offs and are unsupported. See [`fwlive-acceptance.md`](fwlive-acceptance.md).
 
 ---
 
