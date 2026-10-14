@@ -272,6 +272,32 @@ assert.strictEqual(String(logging.toggleFailureNotice('nf_log_missing', 'fallbac
 for (const code of ['other', undefined, null, 'constructor', '__proto__'])
 	assert.strictEqual(logging.toggleFailureNotice(code, 'fallback'), 'fallback',
 		'unknown toggle codes must use the per-action fallback: ' + code);
+assert.strictEqual(
+	String(logging.toggleRpcCatchNotice(
+		{ message: 'RPC call to fwlive/enable_wan_logging failed with ubus code 6: Permission denied' },
+		'access',
+		'neutral'
+	)),
+	'access'
+);
+assert.strictEqual(
+	String(logging.toggleRpcCatchNotice(
+		{ message: 'RPC call to fwlive/enable_wan_logging failed with error -32002: Access denied' },
+		'access',
+		'neutral'
+	)),
+	'access'
+);
+assert.strictEqual(
+	String(logging.toggleRpcCatchNotice({ code: 6 }, 'access', 'neutral')),
+	'neutral',
+	'LuCI does not set err.code; a bare code must not select the access notice'
+);
+assert.strictEqual(
+	String(logging.toggleRpcCatchNotice({ message: 'Permission denied' }, 'access', 'neutral')),
+	'neutral',
+	'toggle catch notice must not match English permission text'
+);
 const manualNftHost = luciE.E('li', { 'id': 'fwlive-manual-test' }, []);
 logging.renderManualTestNodes(manualNftHost, { firewallBackend: 'nft' }, {});
 const manualNftText = collectText(manualNftHost);
@@ -317,7 +343,9 @@ logging.renderToolbar(
 	{ onEnable: function () {}, onDisable: function () {} }
 );
 assert.strictEqual(bar.style.display, 'contents');
-assert.strictEqual(bar.childNodes.length, 1, 'merged on-control is one button');
+const onLive = bar.childNodes[bar.childNodes.length - 1];
+assert.strictEqual(onLive.getAttribute('role'), 'status', 'toolbar must keep a status live region');
+assert.strictEqual(bar.childNodes.length, 2, 'merged on-control plus persistent status');
 assert.strictEqual(bar.childNodes[0].tagName, 'button');
 assert.ok(String(bar.childNodes[0]._attrs['class']).indexOf('fwlive-log-merged') >= 0);
 const onText = collectText(bar.childNodes[0]);
@@ -393,7 +421,8 @@ logging.renderToolbar(
 	{ onEnable: function () {}, onDisable: function () {} }
 );
 assert.strictEqual(bar.style.display, 'contents');
-assert.strictEqual(bar.childNodes.length, 1, 'off state is Enable CTA only');
+assert.strictEqual(bar.childNodes[bar.childNodes.length - 1], onLive, 'status region must survive rebuilds');
+assert.strictEqual(bar.childNodes.length, 2, 'off state is Enable CTA plus persistent status');
 assert.ok(collectText(bar.childNodes[0]).indexOf('Enable logging') >= 0);
 
 let disableCalled = false;
@@ -416,7 +445,7 @@ logging.renderToolbar(
 	}
 );
 assert.strictEqual(bar.style.display, 'contents');
-assert.strictEqual(bar.childNodes.length, 2, 'blocker status + merged disable control');
+assert.strictEqual(bar.childNodes.length, 3, 'blocker status + merged disable + persistent status');
 const blockedStatus = bar.childNodes[0];
 const blockedDisable = bar.childNodes[1];
 assert.strictEqual(blockedStatus.tagName, 'span');
@@ -444,7 +473,7 @@ logging.renderToolbar(
 	{ onEnable: function () {}, onDisable: function () {} }
 );
 assert.strictEqual(bar.style.display, 'contents');
-assert.strictEqual(bar.childNodes.length, 1, 'unknown blocker is status only');
+assert.strictEqual(bar.childNodes.length, 2, 'unknown blocker is status plus live region');
 const unknownStatus = bar.childNodes[0];
 assert.strictEqual(unknownStatus.tagName, 'span');
 assert.ok(String(unknownStatus._attrs['class']).indexOf('fwlive-logging-status') >= 0);

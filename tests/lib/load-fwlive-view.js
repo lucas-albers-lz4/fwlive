@@ -228,12 +228,16 @@ function createFwliveView(options, deferRender) {
 	const chips = loadFwliveModule('chips', { log: log });
 	const hostname = loadFwliveModule('hostname');
 	const links = loadFwliveModule('links', { log: log, hostname: hostname });
+	luciE.Element.focusDocument = document;
+	document.activeElement = document.body || null;
+
 	const logging = loadFwliveModule('logging', {
 		log: log,
 		links: links,
 		E: luciE.E,
 		_: fakeGettext,
-		localStorage: localStorage
+		localStorage: localStorage,
+		document: document
 	});
 	const table = loadFwliveModule('table', { log: log, links: links, E: luciE.E });
 	const buffer = loadFwliveModule('buffer');

@@ -48,4 +48,59 @@ assert.equal(map.getAttribute('data-tint-fallback'), null);
 assert.equal(map.style['--fwlive-pass-color'], undefined);
 assert.equal(v.tintFallbackActive, false);
 
+function paintDependsOnFallback(mapEl) {
+	return function (el) {
+		if (el === mapEl) {
+			return {
+				getPropertyValue: function () {
+					return mapEl.getAttribute('data-tint-fallback') === '1' ? '#46a546' : '';
+				}
+			};
+		}
+		const tr = el && el.parentNode;
+		const tinted =
+			tr &&
+			tr.classList &&
+			(tr.classList.contains('fwlive-row-pass') || tr.classList.contains('fwlive-row-deny'));
+		const fallbackOn = mapEl.getAttribute('data-tint-fallback') === '1';
+		return {
+			backgroundColor:
+				tinted && fallbackOn ? 'rgb(70, 165, 70)' : 'rgba(0, 0, 0, 0)'
+		};
+	};
+}
+
+const previousComputed = global.getComputedStyle;
+try {
+	v.entries = [
+		{
+			id: '1',
+			action: 'drop',
+			src: '192.0.2.1',
+			dst: '198.51.100.1',
+			proto: 'TCP'
+		}
+	];
+	v.rowTint = 'classic';
+	v.rowTintPalette = 'classic';
+	v.applyRowTintMode();
+	v.applyTintFallback(map);
+	assert.equal(map.getAttribute('data-tint-fallback'), '1');
+	global.getComputedStyle = paintDependsOnFallback(map);
+	v.onRowTintPaletteChange({ target: { value: 'accessible' } });
+	h.flushFrames();
+	assert.equal(map.getAttribute('data-row-tint'), 'accessible');
+	assert.equal(
+		map.getAttribute('data-tint-fallback'),
+		'1',
+		'palette change must re-probe without fallback paint and re-apply it'
+	);
+	assert.equal(v.tintFallbackActive, true);
+	assert.equal(map.style['--fwlive-pass-color'], '#0d9488');
+	assert.equal(map.style['--fwlive-deny-color'], '#c2410c');
+} finally {
+	if (previousComputed) global.getComputedStyle = previousComputed;
+	else delete global.getComputedStyle;
+}
+
 console.log('fwlive-view tint fallback harness OK');
