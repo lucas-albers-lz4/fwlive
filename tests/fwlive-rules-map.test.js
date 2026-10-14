@@ -1091,6 +1091,13 @@ function testResolveNslookup() {
 	parsed = parseNslookup('name = dns.google. hostname = evil.example.');
 	assert.equal(parsed.got, 'dns.google', 'standalone name = must beat hostname =');
 	assert.equal(parsed.status, 0, 'standalone name = must succeed');
+	const rfc2317 = 'Server:\t\t127.0.0.1\nAddress:\t127.0.0.1:53\n\nNon-authoritative answer:\n37.191.152.204.in-addr.arpa\tcanonical name = 37.32-27.191.152.204.in-addr.arpa\n37.32-27.191.152.204.in-addr.arpa\tname = zeus-pub2.kernel.org';
+	parsed = parseNslookup(rfc2317);
+	assert.equal(parsed.got, 'zeus-pub2.kernel.org', 'RFC 2317 PTR must beat canonical name');
+	assert.equal(parsed.status, 0, 'RFC 2317 PTR must succeed');
+	parsed = parseNslookup('37.191.152.204.in-addr.arpa\tcanonical name = 37.32-27.191.152.204.in-addr.arpa');
+	assert.equal(parsed.got, '', 'CNAME-only must not return canonical target');
+	assert.equal(parsed.status, 1, 'CNAME-only parse must fail');
 
 	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-ns-'));
 	try {
@@ -1595,6 +1602,33 @@ exec /usr/bin/${utility} "$@"
 			assert.ok(invoked.length <= 4, `${count} prefixes must use bounded utility calls, got ${invoked.length}`);
 			assert.ok(invoked.every((utility) => utility === 'awk'),
 				`nft prefix mapping must not fork sed/tr/cat per field: ${invoked}`);
+		}
+		for (const count of [1, 400]) {
+			const uciLines = Array.from({ length: count }, (_, i) =>
+				`firewall.@rule[${i}].name='ucirule-${i}'`).join('\n');
+			makeStub(work, 'uci', `#!/bin/sh
+if [ "$1" = -q ] && [ "$2" = show ] && [ "$3" = firewall ]; then
+cat <<'EOF'
+${uciLines}
+EOF
+fi
+`);
+			makeStub(work, 'nft', '#!/bin/sh\nprintf \'table inet fw4 { }\\n\'\n');
+			fs.rmSync(calls, { force: true });
+			const raw = runRpcd('dash', ['call', 'rules'], {
+				encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', PATH: `${work}:/usr/bin:/bin` }
+			});
+			const reply = JSON.parse(raw);
+			const expected = Object.fromEntries(Array.from({ length: count }, (_, i) => {
+				const name = `ucirule-${i}`;
+				return [name, name];
+			}));
+			assert.deepEqual(reply.rules, expected, `${count} UCI names map without per-name escape forks`);
+			assert.equal(reply.truncated, false);
+			const invoked = fs.readFileSync(calls, 'utf8').trim().split('\n').filter(Boolean);
+			assert.ok(invoked.length <= 4, `${count} UCI names must use bounded utility calls, got ${invoked.length}`);
+			assert.ok(!invoked.includes('tr'),
+				`UCI name mapping must not fork tr per rule: ${invoked.join(',')}`);
 		}
 	} finally {
 		fs.rmSync(work, { recursive: true, force: true });
