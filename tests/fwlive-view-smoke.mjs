@@ -762,6 +762,99 @@ async function testSimpleActionLayout(page) {
 	console.log('OK: Simple Action/Time geometry for en/de/ru/zh_Hans at 13px/16px narrow/desktop widths');
 }
 
+const LONG_IPV6_FLOW = {
+	src: '2001:db8:0123:4567:89ab:cdef:0123:4567',
+	dst: '2001:db8:fedc:ba98:7654:3210:fedc:ba98'
+};
+
+async function testSimpleFlowColumnLayout(page) {
+	await clearFilters(page);
+	await ensureSimpleView(page);
+	await page.evaluate((addrs) => {
+		const view = window.fwliveView;
+		const row = view.entries.find((entry) =>
+			String(entry.src || '').startsWith('2001:db8')
+		);
+		if (!row) throw new Error('missing IPv6 fixture row');
+		row.src = addrs.src;
+		row.dst = addrs.dst;
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+	}, LONG_IPV6_FLOW);
+
+	await page.setViewportSize({ width: 960, height: 900 });
+	const geometry = await page.evaluate(() => {
+		const table = document.getElementById('fwlive-table');
+		const scroll = document.getElementById('fwlive-scroll');
+		const map = document.querySelector('.fwlive-map');
+		map.style.maxWidth = '940px';
+
+		const box = (element) => {
+			const rect = element.getBoundingClientRect();
+			return {
+				left: rect.left,
+				right: rect.right,
+				width: rect.width
+			};
+		};
+		const contentRight = (element) => {
+			const range = document.createRange();
+			range.selectNodeContents(element);
+			return range.getBoundingClientRect().right;
+		};
+
+		const row = Array.from(table.querySelectorAll('tbody tr')).find((tr) => {
+			const flow = tr.querySelector('td.fwlive-flow-cell');
+			return flow && flow.textContent.includes('2001:db8');
+		});
+		if (!row) throw new Error('missing rendered long IPv6 flow row');
+
+		const flow = row.querySelector('td.fwlive-flow-cell');
+		const proto = row.querySelector('td.fwlive-proto');
+		const rule = row.querySelector('td.fwlive-rule');
+		const flowBox = box(flow);
+		const flowContentRight = contentRight(flow);
+
+		return {
+			flowWidth: flowBox.width,
+			flowRight: flowBox.right,
+			flowContentRight,
+			protoLeft: proto ? box(proto).left : null,
+			ruleLeft: rule ? box(rule).left : null,
+			flowColumnWidth: parseFloat(
+				getComputedStyle(table.querySelector('col.fwlive-col-flow')).width
+			),
+			scrollWidth: scroll.scrollWidth,
+			scrollClientWidth: scroll.clientWidth
+		};
+	});
+
+	if (geometry.flowWidth <= 0)
+		throw new Error(`Simple Flow cell must have width: ${JSON.stringify(geometry)}`);
+	if (geometry.flowColumnWidth < 300)
+		throw new Error(
+			`Simple Flow column width too narrow: ${JSON.stringify(geometry)}`
+		);
+	if (geometry.flowContentRight > geometry.flowRight + 0.5)
+		throw new Error(
+			`Flow content painted past its cell: ${JSON.stringify(geometry)}`
+		);
+	if (geometry.protoLeft != null && geometry.protoLeft < geometry.flowRight - 0.5)
+		throw new Error(
+			`Flow overlapped Proto column: ${JSON.stringify(geometry)}`
+		);
+	if (geometry.ruleLeft != null && geometry.ruleLeft < geometry.protoLeft - 0.5)
+		throw new Error(
+			`Proto overlapped Rule column: ${JSON.stringify(geometry)}`
+		);
+	if (geometry.scrollWidth <= geometry.scrollClientWidth)
+		throw new Error(
+			`Simple view must scroll horizontally with a long IPv6 flow: ${JSON.stringify(geometry)}`
+		);
+
+	console.log('OK: Simple Flow/Proto/Rule geometry with long IPv6 flow');
+}
+
 async function expansionButtonByRowId(page, rowId, name) {
 	const buttons = page.locator('button.fwlive-row-expand');
 	const index = await buttons.evaluateAll(
@@ -1459,6 +1552,7 @@ async function runSmoke(browser) {
 		await testResolverError(page);
 		await testRulesTruncatedDegraded(page);
 		await testSimpleActionLayout(page);
+		await testSimpleFlowColumnLayout(page);
 		await testSimpleExpansionKeyboard(page);
 		await testChipCallbacksAfterDisposal(page);
 
