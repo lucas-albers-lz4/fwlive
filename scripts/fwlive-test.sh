@@ -346,6 +346,9 @@ bash tests/feed-index-version.test.sh
 echo "== fwlive feed-install version assert (#421) ==" >&2
 bash tests/qemu-install-from-feed.test.sh
 
+echo "== fwlive README feed install snippet (#1235) ==" >&2
+bash tests/readme-feed-install-snippet.test.sh
+
 echo "== fwlive agent-build-and-deploy ipk-only (#434) ==" >&2
 bash tests/agent-build-and-deploy-ipk.test.sh
 
