@@ -129,6 +129,7 @@ if command -v busybox >/dev/null 2>&1; then
 
 	echo "== fwlive BusyBox awk >= 1.37 (classifier + rpcd selftest) ==" >&2
 	if fwlive_test_prepare_busybox_awk "$ROOT"; then
+		fwlive_test_assert_busybox_awk_lane "$FWLIVE_BUSYBOX_AWK_BIN"
 		"${FWLIVE_BUSYBOX_AWK_BIN}/awk" -f \
 			"${ROOT}/openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.awk" </dev/null
 		PATH="${FWLIVE_BUSYBOX_AWK_BIN}:${PATH}" busybox sh \

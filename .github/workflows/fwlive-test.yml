@@ -54,6 +54,9 @@ jobs:
       - name: Classifier and rpcd selftest under BusyBox awk >= 1.37
         run: |
           bin="$(./scripts/ensure-busybox-awk.sh)"
+          # shellcheck source=scripts/lib/fwlive-test-busybox-awk.sh
+          source scripts/lib/fwlive-test-busybox-awk.sh
+          fwlive_test_assert_busybox_awk_lane "$bin"
           PATH="$bin:$PATH" busybox sh openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive __selftest
           PATH="$bin:$PATH" SH='busybox sh' node tests/fwlive-shell-filter.test.js
       - name: Link check (internal markdown links + external URLs)

@@ -16,6 +16,7 @@ fi
 BB="${CACHE}/busybox-static"
 BIN="${CACHE}/bin"
 AWK="${BIN}/awk"
+BUSYBOX="${BIN}/busybox"
 DEB_NAME="busybox-static_1.37.0-6+b9_amd64.deb"
 DEB="${CACHE}/${DEB_NAME}"
 
@@ -44,11 +45,13 @@ extract="$(mktemp -d)"
 download=""
 bb_tmp=""
 awk_tmp=""
+lane_bb_tmp=""
 cleanup() {
 	rm -rf "$extract"
 	[[ -z "$download" ]] || rm -f "$download"
 	[[ -z "$bb_tmp" ]] || rm -f "$bb_tmp"
 	[[ -z "$awk_tmp" ]] || rm -f "$awk_tmp"
+	[[ -z "$lane_bb_tmp" ]] || rm -f "$lane_bb_tmp"
 }
 trap cleanup EXIT
 
@@ -59,8 +62,8 @@ deb_sha256_matches() {
 	[[ "$got" == "$SHA256" ]]
 }
 
-# The extracted executable and wrapper live in the cache too, so never trust
-# them on a cache hit. Verify the package on every run and recreate both files.
+# The extracted executable and lane wrappers live in the cache too, so never trust
+# them on a cache hit. Verify the package on every run and recreate lane files.
 if ! deb_sha256_matches; then
 	download="$(mktemp "${CACHE}/.${DEB_NAME}.XXXXXX")"
 	curl -fsSL --connect-timeout 10 --max-time 60 --retry 2 --retry-delay 1 --retry-max-time 90 "$URL" -o "$download"
@@ -106,4 +109,9 @@ EOF
 chmod 0755 "$awk_tmp"
 mv -f "$awk_tmp" "$AWK"
 awk_tmp=""
+
+lane_bb_tmp="$(mktemp "${BIN}/.busybox.XXXXXX")"
+install -m 0755 "$BB" "$lane_bb_tmp"
+mv -f "$lane_bb_tmp" "$BUSYBOX"
+lane_bb_tmp=""
 printf '%s\n' "$BIN"

@@ -90,6 +90,13 @@ if [ "$#" -eq 0 ]; then
 	printf '%s\n' 'BusyBox v1.37.0 fixture'
 elif [ "$1" = awk ]; then
 	printf '%s\n' 'verified-artifact'
+elif [ "$1" = sh ]; then
+	shift
+	if [ "$1" = "-c" ] && [ "$2" = 'awk 2>&1 | head -1' ]; then
+		printf '%s\n' 'BusyBox v1.37.0 fixture'
+		exit 0
+	fi
+	exec /bin/sh "$@"
 else
 	exit 2
 fi
@@ -130,6 +137,10 @@ EOF
 	[[ ! -e "${TMP}/cached-curl.args" ]] || fail "valid package cache must avoid network fetch"
 	[[ "$("${cache}/bin/awk")" == verified-artifact ]] || fail "cache hit did not restore the executable from the verified package"
 	[[ ! -e "${TMP}/poisoned-wrapper-was-run" ]] || fail "cache hit trusted a poisoned awk wrapper"
+	[[ -x "${cache}/bin/busybox" ]] || fail "cache hit did not install the pinned busybox binary on PATH"
+	banner="$("${cache}/bin/busybox" 2>&1 | head -1 || true)"
+	[[ "$banner" == 'BusyBox v1.37.0 fixture' ]] || fail "cache hit did not restore pinned busybox (got: $banner)"
+	fwlive_test_assert_busybox_awk_lane "${cache}/bin" || fail "lane assertion must pass with pinned busybox on PATH"
 
 	# A corrupt package cache is replaced from the URL, with bounded curl.
 	printf '%s\n' corrupted >"${cache}/${deb_name}"
