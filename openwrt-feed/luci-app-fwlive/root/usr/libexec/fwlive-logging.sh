@@ -594,7 +594,14 @@ maybe_snapshot_wan_log_baseline() {
 	else
 		current=$(wan_zone_log_value "$zone")
 	fi
-	printf '%s' "$current" >"$path" 2>/dev/null || return 1
+	# Redirection truncates before the write. If the write fails, drop the
+	# partial marker so the next call re-snapshots instead of treating an
+	# empty file as a valid "unset" baseline (#1240). A kill between open
+	# and write remains an accepted residual.
+	if ! printf '%s' "$current" >"$path" 2>/dev/null; then
+		rm -f "$path"
+		return 1
+	fi
 	return 0
 }
 

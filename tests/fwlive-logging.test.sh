@@ -1963,6 +1963,28 @@ else
 	skip "read-only baseline directory under root"
 fi
 
+# #1240: a write that fails after open/truncate must drop the 0-byte marker
+# so the next call re-snapshots. The read-only-directory case fails at open
+# and never creates the file. ulimit -f 0 lets open succeed, then write hits
+# EFBIG once SIGXFSZ is ignored (otherwise the shell is killed before rm).
+WRITEFAIL_WORK=$(mktemp -d)
+WAN_LOG_BASELINE_FILE="$WRITEFAIL_WORK/wan-log-baseline"
+export WAN_LOG_BASELINE_FILE
+WAN_ZONE_LOG='2'
+writefail_rc=0
+(
+	ulimit -f 0
+	trap '' XFSZ
+	maybe_snapshot_wan_log_baseline '@zone[0]'
+) || writefail_rc=$?
+[ "$writefail_rc" -ne 0 ] || die "#1240 post-open write failure must fail closed"
+[ ! -e "$WAN_LOG_BASELINE_FILE" ] || die "#1240 post-open write failure must drop the truncated marker"
+maybe_snapshot_wan_log_baseline '@zone[0]' || die "#1240 retry after dropped marker must snapshot"
+[ "$(cat "$WAN_LOG_BASELINE_FILE")" = '2' ] \
+	|| die "#1240 retry expected baseline '2', got '$(cat "$WAN_LOG_BASELINE_FILE")'"
+ok "#1240 post-open write failure drops truncated baseline and re-snapshots"
+rm -rf "$WRITEFAIL_WORK"
+
 SYMLINK_WORK=$(mktemp -d)
 WAN_LOG_BASELINE_FILE="$SYMLINK_WORK/wan-log-baseline"
 export WAN_LOG_BASELINE_FILE

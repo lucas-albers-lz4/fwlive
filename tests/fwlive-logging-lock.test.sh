@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # Concurrency test for the WAN logging lock (#151).
 #
-# Evidence that enable/disable_wan_logging no longer lose an update when two
-# write-ACL callers race on the same zone:
+# Evidence for enable/disable_wan_logging under two write-ACL callers:
 #   A) A general read-modify-write (counter) canary proves the flock helper
 #      itself serializes: WITHOUT the lock the counter loses updates, WITH
 #      the lock it never does (the harness is sensitive to lost updates).
 #   B) The REAL enable_wan_logging / disable_wan_logging functions, run
-#      concurrently against a stubbed shared UCI store, always leave the
-#      committed firewall.<zone>.log bit equal to SOME serial-execution
-#      outcome (never a torn or stale value), and every invocation succeeds
-#      with well-formed ok/changed JSON (applied or no-op, never a false pass).
+#      concurrently against a stubbed shared UCI store, leave a committed
+#      firewall.<zone>.log bit equal to some serial-execution outcome and
+#      succeed with well-formed ok/changed JSON. That oracle accepts every
+#      value one enable plus one disable can produce, so it cannot observe a
+#      lost update. The UCI stub fails set and commit unless flock -n on the
+#      lock path fails — i.e. the exclusive lock is still held at the write
+#      (#1245).
 #
 # BusyBox flock has no -w timeout, so production polls `flock -n` for a
 # bounded interval. The critical section stays short (read->compute->set->
@@ -198,6 +200,9 @@ FWLIVE_WAN_LOG_LOCK_FILE="$WORK/busy.lock" \
 ok "busy lock times out after bounded nonblocking retries and closes fd 9"
 
 # --- Part B: real functions, concurrent enable/disable on shared UCI -------
+# Serial-outcome oracle plus ownership-at-commit (#1245). The oracle cannot
+# prove a lost update is impossible; the UCI stub fails writes unless the
+# exclusive lock is still held.
 # usage: $0 <logging-sh> <dir> <enable|disable> <seed>
 cat > "$WORK/child.sh" <<'EOF'
 #!/bin/sh
@@ -216,6 +221,13 @@ check_nf_log_ipv4() { return 0; }
 check_nf_log_ipv6() { return 0; }
 reload_firewall() { return 0; }
 logger() { return 0; }
+
+# flock -n on a second open succeeds only when this process does not hold
+# LOCK_EX on the logging lock (fd 9). Fail set/commit in that case.
+wan_log_lock_must_be_held() {
+	flock -n "$WAN_LOG_LOCK_FILE" true 2>/dev/null && return 1
+	return 0
+}
 
 uci() {
 	case "$1" in
@@ -245,18 +257,21 @@ uci() {
 			return 0
 			;;
 		set)
+			wan_log_lock_must_be_held || return 1
 			STAGED="${2#*=}"
 			STAGED_DELETE=0
 			STAGED_PENDING=1
 			sleep "0.0$((seed % 3 + 1))"
 			;;
 		delete)
+			wan_log_lock_must_be_held || return 1
 			STAGED=''
 			STAGED_DELETE=1
 			STAGED_PENDING=1
 			sleep "0.0$((seed % 3 + 1))"
 			;;
 		commit)
+			wan_log_lock_must_be_held || return 1
 			sleep "0.0$((seed % 3 + 1))"
 			if [ -n "$STAGED" ]; then
 				printf '%s' "$STAGED" > "$COMMIT_FILE"
@@ -350,7 +365,7 @@ if [ "$sweep_fail" -ne 0 ]; then
 	cat "$failures" >&2
 	die "concurrent sweep produced an inconsistent state or malformed JSON"
 fi
-ok "real enable/disable: 32 concurrent trials -> serial-consistent log bit, well-formed JSON"
+ok "real enable/disable: 32 concurrent trials -> serial-consistent log bit, lock held at set/commit, well-formed JSON"
 
 # --- Part C: reload-failure conditional rollback (luna fold 2026-08-10) -----
 # A failed reload must only roll back to the pre-commit value if the CURRENT

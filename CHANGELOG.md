@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep the first `SRC`/`DST`/`PROTO`/`LEN` when the kernel repeats those keys on ICMP errors and UDP, so the table matches the outer packet (#1237).
 - Glue a log prefix only onto the first netfilter key, so `PHYSIN=`/`PHYSOUT=`/`HTYPE`/`MACSRC` no longer overwrite the interface fields (#1251).
 - Leave the action unknown unless the log line contains a verdict word; UCI rule logging and `nft log` prefixes without ACCEPT/DROP no longer display as pass (#1238).
+- Drop a truncated WAN log baseline after a failed save so a later Enable can snapshot again; uninstall no longer treats that empty marker as "logging was unset" (#1240).
 
 ### Changed
 - Document the Simple-view **Show full message** button in the user guide (#1229).
