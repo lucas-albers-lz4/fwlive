@@ -91,18 +91,15 @@ function toggleFailureNotice(code, fallback) {
 function luciRpcFailureCode(err) {
 	const msg = err && typeof err.message === 'string' ? err.message : '';
 	let match = /failed with ubus code (-?\d+):/.exec(msg);
-	if (!match)
-		match = /failed with error (-?\d+):/.exec(msg);
-	if (!match)
-		return null;
+	if (!match) match = /failed with error (-?\d+):/.exec(msg);
+	if (!match) return null;
 	const code = Number(match[1]);
 	return code === code ? code : null;
 }
 
 function toggleRpcCatchNotice(err, accessNotice, fallback) {
 	const code = luciRpcFailureCode(err);
-	if (code === 6 || code === -32002)
-		return accessNotice;
+	if (code === 6 || code === -32002) return accessNotice;
 	return fallback;
 }
 
