@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep the logging toolbar on its pre-toggle busy label until status refresh returns, restore focus in the logging bar and consent panel across rebuilds, and announce the result from a persistent status region. Logging-toggle failures use a neutral reachability message unless the RPC reports ubus code 6 or -32002 (#1250, #1249, #1247).
 - Resolve hostnames after each poll without holding the poll coordinator in-flight, so Auto cadence is not blocked by reverse DNS (#1239).
 - Re-probe row tint with the solid fallback disabled after a palette change, then re-apply it if paint is still broken (#1252).
+- Simple view no longer paints long flows over Proto and Rule (#1248).
 
 ### Changed
 - Rules map builds UCI name keys without per-rule `json_escape`/`tr` forks (#1253).

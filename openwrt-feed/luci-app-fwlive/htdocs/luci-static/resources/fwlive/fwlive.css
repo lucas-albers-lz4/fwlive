@@ -290,6 +290,7 @@
 .fwlive-map[data-view="simple"] col.fwlive-col-iface { width: 5.5rem; }
 .fwlive-map[data-view="simple"] col.fwlive-col-proto { width: 4rem; }
 .fwlive-map[data-view="simple"] col.fwlive-col-rule { width: 12rem; }
+.fwlive-map[data-view="simple"] col.fwlive-col-flow { width: 320px; }
 .fwlive-map[data-view="detailed"] .fwlive-scroll #fwlive-table {
 	width: max-content;
 	min-width: 100%;
