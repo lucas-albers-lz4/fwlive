@@ -20,6 +20,7 @@ OPENWRT_SSH_PORT="${OPENWRT_SSH_PORT:-2222}"
 OPENWRT_USER="${OPENWRT_USER:-root}"
 FWLIVE_FEED_BASE_URL="${FWLIVE_FEED_BASE_URL:?set FWLIVE_FEED_BASE_URL (GitHub Pages base, no trailing slash)}"
 VERSION="${OWRT_FWLIVE_VERSION:-24.10}"
+EXPECT_VERSION="${FWLIVE_EXPECT_PKG_VERSION:-}"
 RUN_SMOKE=1
 
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
@@ -30,11 +31,13 @@ Usage: qemu-install-from-feed.sh [options]
 
 Options:
   --version VERSION   23.05 | 24.10 | 25.12 (default: 24.10)
+  --expect-version V  require the feed index (and i18n packages) to carry PKG_VERSION V
   --no-smoke          skip qemu-smoke-fwlive.sh after install
   -h, --help
 
 Environment:
   FWLIVE_FEED_BASE_URL   e.g. https://lucas-albers-lz4.github.io/fwlive-packages
+  FWLIVE_EXPECT_PKG_VERSION  same as --expect-version (release smoke)
   OPKG_FEED_PUBLIC_KEY_URL  override opkg public key URL (default: \${BASE}/public.key)
   APK_FEED_PUBLIC_KEY_URL   override apk public key URL (default: \${BASE}/fwlive-feed.rsa.pub)
 EOF
@@ -43,6 +46,7 @@ EOF
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--version) VERSION="${2:?}"; shift 2 ;;
+		--expect-version) EXPECT_VERSION="${2:?}"; shift 2 ;;
 		--no-smoke) RUN_SMOKE=0; shift ;;
 		-h | --help) usage; exit 0 ;;
 		*) echo "unknown arg: $1" >&2; usage >&2; exit 1 ;;
@@ -169,9 +173,14 @@ fetch_feed_index() {
 }
 
 assert_opkg_cell() {
-	local tmp="$1" want raw got
+	local tmp="$1" want raw got release_want
 	fetch_feed_index "$tmp/Packages.gz" "${base}/${feed_dir}/Packages.gz" || return 1
 	want="$(feed_index_opkg_version "$tmp/Packages.gz")" || return 1
+	if [[ -n "$EXPECT_VERSION" ]]; then
+		release_want="$(feed_index_expected_app_version "$EXPECT_VERSION" ipk)" || return 1
+		feed_index_versions_match "$want" "$release_want" || return 1
+		feed_index_assert_i18n_oracle "$tmp/Packages.gz" "$EXPECT_VERSION" ipk || return 1
+	fi
 	raw="$(ssh_run "$FEED_INDEX_GUEST_OPKG_CMD")" || return 1
 	printf '%s\n' "$raw" >"$tmp/opkg-info" || return 1
 	got="$(feed_index_guest_opkg_version "$tmp/opkg-info")" || return 1
@@ -179,9 +188,14 @@ assert_opkg_cell() {
 }
 
 assert_apk_cell() {
-	local tmp="$1" want raw got
+	local tmp="$1" want raw got release_want
 	fetch_feed_index "$tmp/packages.adb" "${base}/${feed_dir}/all/packages.adb" || return 1
 	want="$(feed_index_apk_pkgver "$tmp/packages.adb")" || return 1
+	if [[ -n "$EXPECT_VERSION" ]]; then
+		release_want="$(feed_index_expected_app_version "$EXPECT_VERSION" apk)" || return 1
+		feed_index_versions_match "$want" "$release_want" || return 1
+		feed_index_assert_i18n_oracle "$tmp/packages.adb" "$EXPECT_VERSION" apk || return 1
+	fi
 	raw="$(ssh_run "$FEED_INDEX_GUEST_APK_CMD")" || return 1
 	printf '%s\n' "$raw" >"$tmp/apk-query.json" || return 1
 	got="$(feed_index_guest_apk_query_pkgver "$tmp/apk-query.json")" || return 1

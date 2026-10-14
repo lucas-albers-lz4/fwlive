@@ -47,16 +47,24 @@ staging="$(mktemp -d)"
 trap 'rm -rf "$fixture" "$staging"' EXIT
 export FEED_PUBLISH_ROOT="$fixture"
 mkdir -p "${fixture}/out/x86_64"/{23.05.5,24.10.8,25.12.5}/fwlive
-echo ipk23 > "${fixture}/out/x86_64/23.05.5/fwlive/luci-app-fwlive_0.1.16_all.ipk"
-echo ipk24 > "${fixture}/out/x86_64/24.10.8/fwlive/luci-app-fwlive_0.1.16_all.ipk"
+for cell in 23.05.5 24.10.8; do
+	echo ipk > "${fixture}/out/x86_64/${cell}/fwlive/luci-app-fwlive_0.1.16_all.ipk"
+	for lang in de ru zh-cn; do
+		echo "i18n-${lang}" > "${fixture}/out/x86_64/${cell}/fwlive/luci-i18n-fwlive-${lang}_0.1.16_all.ipk"
+	done
+done
+for lang in de ru zh-cn; do
+	echo "apk-i18n-${lang}" > "${fixture}/out/x86_64/25.12.5/fwlive/luci-i18n-fwlive-${lang}-0.1.16-r1.apk"
+done
 echo apk25 > "${fixture}/out/x86_64/25.12.5/fwlive/luci-app-fwlive-0.1.16-r1.apk"
 export FWLIVE_PKG_VERSION=0.1.16
 feed_publish_stage_release_assets "$staging"
 test -f "$staging/luci-app-fwlive_0.1.16_23.05_all.ipk"
 test -f "$staging/luci-app-fwlive_0.1.16_24.10_all.ipk"
+test -f "$staging/luci-i18n-fwlive-de_0.1.16_23.05_all.ipk"
 test -f "$staging/luci-app-fwlive-0.1.16-r1.apk"
 staged_count="$(find "$staging" -mindepth 1 -maxdepth 1 -type f | wc -l)"
-assert_eq "$staged_count" "3" "active matrix stages exactly 23.05, 24.10, and 25.12"
+assert_eq "$staged_count" "12" "active matrix stages app+i18n for 23.05, 24.10, and 25.12"
 
 # Guard #144: manifest records ONE SDK image digest per target×version cell.
 # Docker is mocked so the test is hermetic (RepoDigests source + the
@@ -164,6 +172,7 @@ command -v node >/dev/null 2>&1 && node -e '
 		if (!p.feeds || !/^[0-9a-f]{40}$/.test(p.feeds.base || "") ||
 			!/^[0-9a-f]{40}$/.test(p.feeds.packages || "") ||
 			!/^[0-9a-f]{40}$/.test(p.feeds.luci || "")) process.exit(1);
+		if (!Array.isArray(p.artifacts) || p.artifacts.length !== 4) process.exit(1);
 	}
 ' "${fixture}/manifest-staging/manifest.json"
 

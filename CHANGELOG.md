@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Binary feed and GitHub Releases now ship `luci-i18n-fwlive-{de,ru,zh-cn}` alongside `luci-app-fwlive` on every OpenWrt line (#1243).
+
 ### Fixed
 - Keep the first `SRC`/`DST`/`PROTO`/`LEN` when the kernel repeats those keys on ICMP errors and UDP, so the table matches the outer packet (#1237).
 - Glue a log prefix only onto the first netfilter key, so `PHYSIN=`/`PHYSOUT=`/`HTYPE`/`MACSRC` no longer overwrite the interface fields (#1251).

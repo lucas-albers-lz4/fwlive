@@ -117,4 +117,24 @@ grep -q 'expected package version is required' "$err" || {
 }
 rm -f "$err"
 
+# i18n locales ship with the app on the binary feed (#1243).
+echo app > "${dir}/luci-app-fwlive_0.1.45_all.ipk"
+for lang in de ru zh-cn; do
+	touch "${dir}/luci-i18n-fwlive-${lang}_0.1.45_all.ipk"
+done
+artifact_count="$(feed_publish_find_artifacts 23.05.5 0.1.45 | wc -l)"
+assert_eq "$artifact_count" "4" "find_artifacts returns app plus three i18n ipks"
+rm -f "${dir}"/luci-i18n-fwlive-de_0.1.45_all.ipk
+err="$(assert_fails "partial i18n fails closed" feed_publish_find_artifacts 23.05.5 0.1.45)"
+grep -q 'luci-i18n-fwlive-de' "$err" || {
+	echo "FAIL: missing i18n locale must name the package" >&2
+	cat "$err" >&2
+	rm -f "$err"
+	exit 1
+}
+rm -f "$err"
+for lang in de ru zh-cn; do
+	touch "${dir}/luci-i18n-fwlive-${lang}_0.1.45_all.ipk"
+done
+
 echo "feed-publish find-artifact version+mtime tests passed"
