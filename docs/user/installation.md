@@ -13,26 +13,35 @@ Install directly from the signed GitHub Pages feed — no manual download.
 
 OpenWrt **21.02** / **22.03** are unsupported: those feed directories are no longer published.
 
-**opkg (23.05 / 24.10)** — set the path for your release:
+Run this on the router. It reads `/etc/openwrt_release` and installs from the matching **23.05** / **24.10** (`opkg`) or **25.12** (`apk`) feed:
 
 ```sh
-wget -O /tmp/fwlive.key https://lucas-albers-lz4.github.io/fwlive-packages/public.key
-opkg-key add /tmp/fwlive.key
-echo 'src/gz fwlive https://lucas-albers-lz4.github.io/fwlive-packages/24.10' >> /etc/opkg/customfeeds.conf
-opkg update && opkg install luci-app-fwlive
-```
-
-Use `…/23.05` for OpenWrt 23.05 and `…/24.10` for OpenWrt 24.10.
-
-**apk (25.12.x):**
-
-```sh
-wget -O /tmp/fwlive-feed.rsa.pub https://lucas-albers-lz4.github.io/fwlive-packages/fwlive-feed.rsa.pub
-mkdir -p /etc/apk/keys
-cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
-echo 'https://lucas-albers-lz4.github.io/fwlive-packages/25.12/all/packages.adb' \
-  >> /etc/apk/repositories.d/fwlive.list
-apk update && apk add luci-app-fwlive
+BASE='https://lucas-albers-lz4.github.io/fwlive-packages'
+. /etc/openwrt_release
+feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
+case "$feed" in
+  23.05|24.10)
+    wget -O /tmp/fwlive.key "$BASE/public.key" || exit 1
+    opkg-key add /tmp/fwlive.key || exit 1
+    echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
+    opkg update && opkg install luci-app-fwlive
+    ;;
+  25.12)
+    wget -O /tmp/fwlive-feed.rsa.pub "$BASE/fwlive-feed.rsa.pub" || exit 1
+    mkdir -p /etc/apk/keys /etc/apk/repositories.d
+    cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub || exit 1
+    printf '%s\n' "$BASE/$feed/all/packages.adb" > /etc/apk/repositories.d/fwlive.list
+    apk update && apk add luci-app-fwlive
+    ;;
+  21.02|22.03)
+    echo "OpenWrt $DISTRIB_RELEASE is unsupported; no published feed" >&2
+    exit 1
+    ;;
+  *)
+    echo "OpenWrt $DISTRIB_RELEASE is not a published fwlive feed (23.05/24.10 opkg, 25.12 apk)" >&2
+    exit 1
+    ;;
+esac
 ```
 
 Feed layout and signing keys: [Binary feed](../binary-feed.md).
