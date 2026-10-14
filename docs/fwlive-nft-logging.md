@@ -62,9 +62,11 @@ SSH into the router or QEMU guest, then:
 
 ```sh
 # Log + drop TCP port 9999 on INPUT (test rule)
+# Insert at the top of input — an appended input rule sees no zone traffic
+# at all (fw4 jumps to input_<zone> before the end of the chain).
 # Note: avoid ':' inside the prefix — OpenWrt ash/nft often strips quotes and
 # then treats the colon as nft syntax (your error). Use a trailing space instead.
-nft add rule inet fw4 input tcp dport 9999 log prefix "fwlive-test " drop
+nft insert rule inet fw4 input tcp dport 9999 log prefix "fwlive-test " drop
 ```
 
 **Do not use** `prefix "fwlive-test: "` on the shell — it commonly fails with:
@@ -78,19 +80,18 @@ If you need awkward characters, use an nft snippet file:
 
 ```sh
 nft -f - <<'EOF'
-add rule inet fw4 input tcp dport 9999 log prefix "fwlive-test: " drop
+insert rule inet fw4 input tcp dport 9999 log prefix "fwlive-test: " drop
 EOF
 ```
 
-**Interface:** you usually do **not** need `iifname "eth0"`. On Docker/LuCI experiments the LAN bridge is often **`br-lan`**, not `eth0`. A plain `tcp dport` rule at the end of `input` is enough for a test.
+**Interface:** you usually do **not** need `iifname "eth0"`. On Docker/LuCI experiments the LAN bridge is often **`br-lan`**, not `eth0`. A plain `tcp dport` rule **inserted** at the top of `input` is enough for a test. An appended `input` rule sees no zone traffic at all.
 
-Generate traffic **from another host** (not loopback — `iif lo accept` runs first):
+Generate traffic (an inserted rule sits before `iif "lo" accept`, so loopback is enough):
 
 ```sh
-# From build host, if guest SSH is on 2222 and you add a temporary forward, or from LAN:
-nc -vz <guest-lan-ip> 9999
+nc -vz 127.0.0.1 9999
 # or
-wget -q -O /dev/null --timeout=2 http://<guest-lan-ip>:9999/
+wget -q -O /dev/null --timeout=2 http://127.0.0.1:9999/
 ```
 
 Check logs on the guest:
@@ -136,10 +137,10 @@ Add **`counter`** to the same rule (or use the top rule from `fwlive-nft-ping-lo
 nft insert rule inet fw4 input ip protocol icmp icmp type echo-request counter log prefix "fwlive-hit " accept
 ```
 
-Ping from **another host** (not `ping 127.0.0.1` on the guest — loopback is accepted before your rule):
+Ping (an inserted rule sits before `iif "lo" accept`, so loopback is enough):
 
 ```sh
-ping -c 5 "$(ip -4 addr show br-lan | awk '/inet /{print $2}' | cut -d/ -f1)"
+ping -c 5 127.0.0.1
 ```
 
 Check the counter:

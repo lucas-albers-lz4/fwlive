@@ -8,6 +8,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('./lib/child-process-timeout');
 const { loadFwliveModule } = require('./lib/load-fwlive-module');
 
 const ROOT = path.join(__dirname, '..');
@@ -107,11 +108,11 @@ assert.strictEqual(luci.normalizeEntry(medialDeny).action, 'unknown');
 const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
 assert.strictEqual(
 	core.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),
-	'PASS'
+	'UNKNOWN'
 );
 assert.strictEqual(
 	luci.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),
-	'PASS'
+	'UNKNOWN'
 );
 
 const classifyMsgs = [
@@ -121,7 +122,13 @@ const classifyMsgs = [
 	'x DST= DROP',
 	'IN=wan OUT= SRC= DST=2001:db8::2 PROTO=TCP',
 	'[  239.247521] fwlive-pingIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP',
-	'not-a-firewall-line at all'
+	'not-a-firewall-line at all',
+	/* #499 — leading whitespace before daemon prefix must trim like shell */
+	'  dnsmasq[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP',
+	' wpad[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP DROP',
+	' IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP',
+	/* #620 — NBSP + daemon + netfilter KVs */
+	'\u00a0dnsmasq[1]: IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP DROP'
 ];
 for (let i = 0; i < classifyMsgs.length; i++) {
 	const msg = classifyMsgs[i];
@@ -368,3 +375,110 @@ for (const implementation of [core, luci]) {
 		assert.strictEqual(implementation.matchesFilter(row, { [field]: '' }), true);
 	}
 }
+
+const IS_FW = path.join(ROOT,
+	'openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh');
+
+function shellIsFirewallMany(msgs) {
+	const flags = [];
+	for (let i = 0; i < msgs.length; i++) {
+		const r = spawnSync('sh', ['-c',
+			'. "$IS_FW" && is_firewall_event_msg "$FW_MSG" && echo yes || echo no'], {
+			encoding: 'utf8',
+			env: {
+				...process.env,
+				FILTER_DIR: path.dirname(IS_FW),
+				IS_FW: IS_FW,
+				FW_MSG: msgs[i]
+			}
+		});
+		assert.equal(r.status, 0, r.stderr || 'shell classify failed for ' + JSON.stringify(msgs[i]));
+		flags.push(r.stdout.trim() === 'yes');
+	}
+	return flags;
+}
+
+function seededRng(seed) {
+	let s = seed >>> 0;
+	return function() {
+		s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+		return s / 4294967296;
+	};
+}
+
+function generatedParserCorpus(n) {
+	const rng = seededRng(1246);
+	const pick = function(arr) {
+		return arr[Math.floor(rng() * arr.length)];
+	};
+	const prefixes = [
+		'', 'fw4: DROP ', 'fw4: ', 'kernel: ', 'Kids-Bedtime: ',
+		'WAN', 'fwlive-ping', 'dnsmasq[1]: ', 'Allow-Ping: '
+	];
+	const ifaces = ['wan', 'br-lan', 'eth0', 'lo'];
+	const protos = ['TCP', 'UDP', 'ICMP'];
+	const extras = [
+		'',
+		' PHYSIN=lan1 PHYSOUT=lan2',
+		' HTYPE=1 MACSRC=aa:bb:cc:dd:ee:ff',
+		' LEN=68 PROTO=UDP SPT=1 DPT=53 LEN=48'
+	];
+	const ws = ['', ' ', '\t', '\u00a0'];
+	const out = [];
+	for (let i = 0; i < n; i++) {
+		const pfx = pick(prefixes);
+		const glued = rng() < 0.3 && pfx !== '' && pfx.indexOf(':') < 0 && !/ $/.test(pfx);
+		const inPart = (glued ? '' : ' ') + 'IN=' + pick(ifaces);
+		out.push({
+			time: 1717676000 + i,
+			msg: pick(ws) + pfx + inPart + ' OUT= SRC=192.0.2.' + (i % 250) +
+				' DST=198.51.100.' + (i % 250) + ' PROTO=' + pick(protos) + pick(extras)
+		});
+	}
+	return out;
+}
+
+const fixtureFiles = [
+	'logread-mixed.json',
+	'logread-iptables.json',
+	'logread-tcp-flags.json',
+	'logread-parser-kv.json'
+];
+const diffEntries = [];
+for (let i = 0; i < fixtureFiles.length; i++) {
+	const payload = JSON.parse(fs.readFileSync(
+		path.join(__dirname, 'fixtures', fixtureFiles[i]), 'utf8'));
+	const log = payload.log || [];
+	for (let j = 0; j < log.length; j++)
+		diffEntries.push(log[j]);
+}
+for (let i = 0; i < classifyMsgs.length; i++)
+	diffEntries.push({ msg: classifyMsgs[i] });
+const generated = generatedParserCorpus(48);
+for (let i = 0; i < generated.length; i++)
+	diffEntries.push(generated[i]);
+
+const shellFlags = shellIsFirewallMany(diffEntries.map((e) => e.msg || ''));
+for (let i = 0; i < diffEntries.length; i++) {
+	const entry = diffEntries[i];
+	const coreFw = core.isFirewallEvent(entry);
+	const luciFw = luci.isFirewallEvent(entry);
+	assert.strictEqual(luciFw, coreFw,
+		'isFirewallEvent luci mismatch: ' + JSON.stringify(entry.msg));
+	assert.strictEqual(shellFlags[i], coreFw,
+		'isFirewallEvent shell mismatch: ' + JSON.stringify(entry.msg));
+	const coreRow = core.normalizeEntry(entry);
+	const luciRow = luci.normalizeEntry(entry);
+	assert.deepStrictEqual(luciRow, coreRow,
+		'normalizeEntry mismatch: ' + JSON.stringify(entry.msg));
+	for (let j = 0; j < syncFilters.length; j++) {
+		assert.strictEqual(
+			luci.matchesFilter(luciRow, syncFilters[j]),
+			core.matchesFilter(coreRow, syncFilters[j]),
+			'matchesFilter mismatch for ' + JSON.stringify(entry.msg) +
+				' filter ' + JSON.stringify(syncFilters[j])
+		);
+	}
+}
+
+console.log('fwlive parser sync OK (differential core/LuCI/shell)');

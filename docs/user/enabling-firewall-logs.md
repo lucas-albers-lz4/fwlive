@@ -50,9 +50,9 @@ uci commit firewall
 /etc/init.d/firewall reload
 ```
 
-#### 2. Optional — confirm the UI with a ping (synthetic pass events)
+#### 2. Optional — confirm the UI with a ping
 
-Useful when WAN is quiet or you want a guaranteed **pass** row:
+Useful when WAN is quiet or you want a guaranteed firewall row. The ping prefix has no verdict word, so Action stays unknown:
 
 ```sh
 nft insert rule inet fw4 input ip protocol icmp icmp type echo-request \

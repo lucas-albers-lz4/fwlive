@@ -32,7 +32,10 @@ const SHELL = (() => {
 	throw new Error("SH must be exactly 'sh' or 'busybox sh'");
 })();
 
-const FIXTURES = [ 'logread-mixed.json', 'logread-iptables.json', 'logread-tcp-flags.json' ];
+const FIXTURES = [
+	'logread-mixed.json', 'logread-iptables.json', 'logread-tcp-flags.json',
+	'logread-parser-kv.json'
+];
 
 const ROW_FIELDS = [
 	'id', 'log_id',
@@ -139,7 +142,7 @@ const GOLDEN = [
 	{
 		fixture: 'logread-iptables.json', i: 0, firewall: true,
 		msg: '[  123.456789] fwlive-ping: IN=br-lan OUT= MAC=00:11:22:33:44:55:66:77 SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP TYPE=8 CODE=0',
-		action: 'pass', action_raw: 'PASS', proto: 'ICMP',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'ICMP',
 		src: '192.168.1.10', dst: '192.168.1.1', sport: '', dport: '',
 		interface_in: 'br-lan', interface_out: '', rule_hint: 'fwlive-ping',
 		id: 'log:3000', log_id: 3000,
@@ -166,7 +169,7 @@ const GOLDEN = [
 	{
 		fixture: 'logread-iptables.json', i: 3, firewall: true,
 		msg: 'fwlive-testIN=eth0 OUT= SRC=192.168.1.20 DST=1.1.1.1 PROTO=ICMP',
-		action: 'pass', action_raw: 'PASS', proto: 'ICMP',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'ICMP',
 		src: '192.168.1.20', dst: '1.1.1.1', sport: '', dport: '',
 		interface_in: 'eth0', interface_out: '', rule_hint: 'fwlive-test',
 		id: 'log:3003', log_id: 3003,
@@ -179,7 +182,7 @@ const GOLDEN = [
 	{
 		fixture: 'logread-iptables.json', i: 5, firewall: true,
 		msg: '[   42.147422] fwlive-custom: IN=lo OUT= MAC=00:00:00:00:00:00:00:00:00:00:00:00:08:00 SRC=127.0.0.1 DST=127.0.0.1 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=340 DF PROTO=ICMP TYPE=8 CODE=0 ID=5365 SEQ=0',
-		action: 'pass', action_raw: 'PASS', proto: 'ICMP',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'ICMP',
 		src: '127.0.0.1', dst: '127.0.0.1', sport: '', dport: '',
 		interface_in: 'lo', interface_out: '', rule_hint: 'fwlive-custom',
 		id: 'log:3005', log_id: 3005,
@@ -211,6 +214,78 @@ const GOLDEN = [
 		interface_in: 'eth0', interface_out: '', rule_hint: 'reject_from_wan',
 		id: 'log:3008', log_id: 3008,
 		flags: '', length: null, timestamp: 1717675807
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 0, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=198.51.100.7 DST=192.0.2.10 LEN=88 TOS=0x00 PREC=0xC0 TTL=64 ID=0 PROTO=ICMP TYPE=3 CODE=1 [SRC=192.0.2.10 DST=198.51.100.7 LEN=40 TOS=0x00 PREC=0x00 TTL=1 ID=54321 PROTO=UDP SPT=33434 DPT=53 LEN=40 ]',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'ICMP',
+		src: '198.51.100.7', dst: '192.0.2.10', sport: '33434', dport: '53',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:4000', log_id: 4000,
+		flags: '', length: 88, timestamp: 1717675900
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 1, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=198.51.100.7 DST=192.0.2.10 LEN=88 TOS=0x00 PREC=0xC0 TTL=64 ID=0 PROTO=ICMP TYPE=11 CODE=0 [SRC=192.0.2.10 DST=198.51.100.7 LEN=60 TOS=0x00 PREC=0x00 TTL=1 ID=54322 PROTO=TCP SPT=12345 DPT=80 LEN=40 ]',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'ICMP',
+		src: '198.51.100.7', dst: '192.0.2.10', sport: '12345', dport: '80',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:4001', log_id: 4001,
+		flags: '', length: 88, timestamp: 1717675901
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 2, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=192.0.2.1 DST=192.0.2.2 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=12345 PROTO=UDP SPT=12345 DPT=53 LEN=48',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'UDP',
+		src: '192.0.2.1', dst: '192.0.2.2', sport: '12345', dport: '53',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:4002', log_id: 4002,
+		flags: '', length: 68, timestamp: 1717675902
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 3, firewall: true,
+		msg: 'kernel: IN=eth0 OUT= MAC=... SRC=2001:db8::1 DST=2001:db8::2 LEN=76 TC=0 HOPLIMIT=64 FLOWLBL=0 PROTO=UDP SPT=12345 DPT=53 LEN=48',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'UDP',
+		src: '2001:db8::1', dst: '2001:db8::2', sport: '12345', dport: '53',
+		interface_in: 'eth0', interface_out: '', rule_hint: '',
+		id: 'log:4003', log_id: 4003,
+		flags: '', length: 76, timestamp: 1717675903
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 4, firewall: true,
+		msg: 'fw4: DROP IN=br-lan OUT=br-lan PHYSIN=lan1 PHYSOUT=lan2 SRC=192.168.1.2 DST=192.168.1.3 LEN=60 PROTO=TCP SPT=1234 DPT=80',
+		action: 'drop', action_raw: 'DROP', proto: 'TCP',
+		src: '192.168.1.2', dst: '192.168.1.3', sport: '1234', dport: '80',
+		interface_in: 'br-lan', interface_out: 'br-lan', rule_hint: 'fw4',
+		id: 'log:4004', log_id: 4004,
+		flags: '', length: 60, timestamp: 1717675904
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 5, firewall: true,
+		msg: 'kernel: IN=br-lan OUT= HTYPE=1 PTYPE=0x0800 OPCODE=1 MACSRC=aa:bb:cc:dd:ee:ff MACDST=00:11:22:33:44:55 SRC=192.168.1.2 DST=192.168.1.3 PROTO=ARP',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'ARP',
+		src: '192.168.1.2', dst: '192.168.1.3', sport: '', dport: '',
+		interface_in: 'br-lan', interface_out: '', rule_hint: '',
+		id: 'log:4005', log_id: 4005,
+		flags: '', length: null, timestamp: 1717675905
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 6, firewall: true,
+		msg: 'WANIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'ICMP',
+		src: '127.0.0.1', dst: '127.0.0.1', sport: '', dport: '',
+		interface_in: 'lo', interface_out: '', rule_hint: 'WAN',
+		id: 'log:4006', log_id: 4006,
+		flags: '', length: null, timestamp: 1717675906
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 7, firewall: true,
+		msg: 'Kids-Bedtime: IN=br-lan OUT=eth1 SRC=192.168.1.5 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=5000 DPT=443',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		src: '192.168.1.5', dst: '1.1.1.1', sport: '5000', dport: '443',
+		interface_in: 'br-lan', interface_out: 'eth1', rule_hint: 'Kids-Bedtime',
+		id: 'log:4007', log_id: 4007,
+		flags: '', length: 60, timestamp: 1717675907
 	}
 ];
 

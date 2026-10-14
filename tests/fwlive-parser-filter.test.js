@@ -73,8 +73,8 @@ function run() {
 	assert.equal(pingRow.src, '127.0.0.1');
 	assert.equal(pingRow.dst, '127.0.0.1');
 	assert.equal(pingRow.length, 84);
-	assert.equal(pingRow.action, 'pass');
-	assert.equal(pingRow.action_raw, 'PASS');
+	assert.equal(pingRow.action, 'unknown');
+	assert.equal(pingRow.action_raw, 'UNKNOWN');
 	assert.equal(pingRow.rule_hint, 'fwlive-ping');
 	assert.equal(pingRow.rule_label, 'fwlive ping');
 
@@ -125,7 +125,7 @@ function run() {
 	}
 	const iptPing = core.normalizeEntry(iptPayload.log[0]);
 	assert.equal(iptPing.rule_hint, 'fwlive-ping');
-	assert.equal(iptPing.action, 'pass');
+	assert.equal(iptPing.action, 'unknown');
 	assert.equal(iptPing.interface_in, 'br-lan');
 	const iptDrop = core.normalizeEntry(iptPayload.log[1]);
 	assert.equal(iptDrop.action, 'drop');
@@ -137,7 +137,7 @@ function run() {
 	assert.equal(iptGlued.rule_hint, 'fwlive-test');
 	const ipt2102 = core.normalizeEntry(iptPayload.log[5]);
 	assert.equal(ipt2102.rule_hint, 'fwlive-custom');
-	assert.equal(ipt2102.action, 'pass');
+	assert.equal(ipt2102.action, 'unknown');
 	assert.equal(ipt2102.interface_in, 'lo');
 
 	const validFirewall = {

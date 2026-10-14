@@ -157,24 +157,37 @@ const MAX_DATE_SECONDS = 8640000000000;
  * capture limited to a final flag run and return only group 1, never the
  * trailer fields. */
 const TCP_FLAG_TAIL = /\b((?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR))*)(?:\s+[A-Z][A-Z0-9_]*=[^\s]+)*\s*$/i;
-const NETFILTER_KV_GLUE = /([^\s])(?=(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=)/g;
+/* First KEY= only. Exact-case glueKeys (uppercase-character guard). */
+const NETFILTER_KV_GLUE = /(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=/;
 
 /** nft log prefixes are concatenated with IN= in kernel lines (e.g. fwlive-pingIN=lo). */
 function normalizeNetfilterMessage(message) {
 	if (typeof message !== 'string')
 		message = '';
-	return message.replace(NETFILTER_KV_GLUE, '$1 ');
+	const match = NETFILTER_KV_GLUE.exec(message);
+	if (!match)
+		return message;
+	const idx = match.index;
+	if (idx === 0)
+		return message;
+	const prev = message.charAt(idx - 1);
+	if (/\s/.test(prev))
+		return message;
+	return message.slice(0, idx) + ' ' + message.slice(idx);
 }
 
 function parseKeyValueLog(message) {
 	const out = {};
-	/* Non-empty values only — dual KV semantics vs presence-based classify (kvHas). */
+	/* Non-empty values only — dual KV semantics vs presence-based classify (kvHas).
+	 * First occurrence wins so outer SRC/DST/PROTO/LEN beat a quoted inner packet. */
 	const re = /\b([A-Z]+)=([^\s]+)/g;
 	const normalized = normalizeNetfilterMessage(message);
 	let match;
 
-	while ((match = re.exec(normalized)) !== null)
-		out[match[1]] = match[2];
+	while ((match = re.exec(normalized)) !== null) {
+		if (out[match[1]] === undefined)
+			out[match[1]] = match[2];
+	}
 
 	return out;
 }
@@ -283,23 +296,10 @@ function formatRuleLabel(hint) {
 	return hint.replace(/-/g, ' ');
 }
 
-/** nft `log … accept` lines often omit ACCEPT; infer pass when context is clearly non-deny. */
-function inferActionRaw(message, kv, actionRaw) {
+/** Action is UNKNOWN unless a verdict word is present. nft `log` does not print the verdict. */
+function inferActionRaw(_message, _kv, actionRaw) {
 	if (actionRaw && actionRaw !== 'UNKNOWN')
 		return actionRaw;
-
-	const msg = normalizeNetfilterMessage(message || '');
-	/* Ignore KEY=value payloads so MAC=…DROP… / PASS=… do not suppress pass inference. */
-	const withoutKv = msg.replace(/\b[A-Z]+=[^\s]*/g, ' ');
-	if (DENY_ACTION.test(withoutKv) || DENY_ACTION_UNDERSCORE.test(withoutKv))
-		return 'UNKNOWN';
-
-	if (/^kernel:/i.test(msg.trim()))
-		return 'UNKNOWN';
-
-	const hasTuple = !!(kv.IN || kv.OUT) && !!(kv.SRC || kv.DST || kv.PROTO);
-	if (hasTuple)
-		return 'PASS';
 
 	return 'UNKNOWN';
 }

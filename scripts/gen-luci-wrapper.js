@@ -54,8 +54,7 @@ function buildClassifyRegexes(spec) {
 			'i'
 		),
 		NETFILTER_KV_GLUE: new RegExp(
-			'([^\\s])(?=(' + spec.glueKeys.join('|') + ')=)',
-			'g'
+			'(' + spec.glueKeys.join('|') + ')='
 		)
 	};
 }

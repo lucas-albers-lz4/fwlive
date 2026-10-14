@@ -21,16 +21,16 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 - `timestamp`: Unix epoch seconds when the entry time is valid; `null` when it is missing, invalid, or out of range.
 - `timestamp_display`: ISO-8601 in normalized JSON, or an empty string when `timestamp` is `null`; LuCI renders valid values as local `YYYY-MM-DD HH:MM:SS` via `formatTimestampLocal()`.
 - `action`: normalized enum: `pass`, `block`, `drop`, `reject`, or `unknown`.
-- `action_raw`: the action token from the log line (`ACCEPT`, `DROP`, …) when present. Otherwise, `PASS` is inferred only when the message is not kernel-tagged or deny-class and contains `IN` or `OUT` plus at least one of `SRC`, `DST`, or `PROTO`; when no action can be inferred safely it is `UNKNOWN`.
+- `action_raw`: the action token from the log line (`ACCEPT`, `DROP`, …) when present. Otherwise `UNKNOWN`. A prefix with no verdict word (UCI rule logging, `nft log prefix` without ACCEPT/DROP in the text) stays `UNKNOWN`; nft `log` does not print the verdict.
 - `rule_hint`: tag parsed from log prefix / nft `log prefix` (e.g. `fwlive-ping`, `fw4`, `fwlive-test`); empty when unknown.
 - `rule_label`: display label derived from `rule_hint` (UCI name resolve via `ubus fwlive rules`).
 - `interface`: `IN` or `OUT` (legacy convenience).
 - `interface_in` / `interface_out`: from `IN=` / `OUT=`.
 - `direction`: `in`, `out`, `forward`, or `unknown`.
 - `proto`: upper-cased `PROTO`.
-- `src`, `sport`, `dst`, `dport`: 5-tuple fields.
+- `src`, `sport`, `dst`, `dport`: 5-tuple fields. Header keys (`SRC`, `DST`, `PROTO`, `LEN`, ports) come from the **first** occurrence of each key. On ICMP-error rows the kernel quotes the offending packet in `[ … ]`, so `SPT`/`DPT` may still come from that inner packet (those keys appear only there).
 - `flags`: TCP flag text (`SYN`, `SYN,ACK`, …) or `TCPFLAGS=` / `FLAGS=` when present.
-- `length`: packet length from `LEN=` when present (integer, else `null`).
+- `length`: packet length from the first `LEN=` (the outer IP length). A second `LEN=` on UDP is the datagram length and is ignored.
 - `message`: original unmodified log message.
 
 ## Fetch budget and adaptive metadata

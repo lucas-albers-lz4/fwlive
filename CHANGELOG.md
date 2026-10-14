@@ -9,10 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Keep the first `SRC`/`DST`/`PROTO`/`LEN` when the kernel repeats those keys on ICMP errors and UDP, so the table matches the outer packet (#1237).
+- Glue a log prefix only onto the first netfilter key, so `PHYSIN=`/`PHYSOUT=`/`HTYPE`/`MACSRC` no longer overwrite the interface fields (#1251).
+- Leave the action unknown unless the log line contains a verdict word; UCI rule logging and `nft log` prefixes without ACCEPT/DROP no longer display as pass (#1238).
+
 ### Changed
 - Document the Simple-view **Show full message** button in the user guide (#1229).
 - Mention `npm run test:view` in the contributor change workflow (#1230).
 - Install the signed feed on OpenWrt 23.05, 24.10, and 25.12 from one copy-paste snippet (#1235).
+- Insert the TCP logging quick test at the top of `input`; an appended `input` rule sees no zone traffic (#1257).
 
 ## [v0.1.53] — 2026-10-12
 
