@@ -5,13 +5,20 @@
 # source: core/fwlive-log.js CLASSIFY_SPEC
 # Standalone awk program loaded by fwlive-is-firewall-event.sh.
 
-function normalize(s, keys, n, i, k) {
+function normalize(s, keys, n, i, k, best, pos) {
+	# Glue only at the first KEY=. Exact-case glueKeys (uppercase guard).
 	n = split("IN OUT SRC DST PROTO SPT DPT LEN MAC TYPE CODE TTL TOS PREC DF", keys, " ")
+	best = 0
 	for (i = 1; i <= n; i++) {
 		k = keys[i]
-		while (match(s, "[^[:space:]]" k "="))
-			s = substr(s, 1, RSTART) " " substr(s, RSTART + 1)
+		if (match(s, k "=")) {
+			pos = RSTART
+			if (best == 0 || pos < best)
+				best = pos
+		}
 	}
+	if (best > 1 && substr(s, best - 1, 1) !~ /[[:space:]]/)
+		s = substr(s, 1, best - 1) " " substr(s, best)
 	return s
 }
 function trim(s) {

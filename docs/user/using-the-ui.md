@@ -27,7 +27,7 @@ Nothing changes until you click **Enable logging**.
 2. A green notice shows that WAN drop/reject logging is on — not normal LAN browsing.
 3. If the table is still empty, you are **waiting for firewall events** (quiet WAN). Blocked inbound traffic appears as it happens.
 
-Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping-synthetic-pass-events).
+Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping).
 
 ## Simple view (default)
 
@@ -181,7 +181,7 @@ available; a failed refresh keeps previously loaded names when available.
 
 If no events appear after install, that is expected until logging is on — see [First visit](#first-visit). **Enable logging** sets WAN zone `log=1` (same as **Network → Firewall**). The empty state explains what will and will not appear (WAN drops/rejects, not normal LAN browsing).
 
-If logging is already on but the table is still empty, wait for inbound WAN traffic or see **[Quick start — optional ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping-synthetic-pass-events)**. Advanced setup: **[Enabling firewall logs](enabling-firewall-logs.md)**.
+If logging is already on but the table is still empty, wait for inbound WAN traffic or see **[Quick start — optional ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping)**. Advanced setup: **[Enabling firewall logs](enabling-firewall-logs.md)**.
 
 ## High traffic rate
 

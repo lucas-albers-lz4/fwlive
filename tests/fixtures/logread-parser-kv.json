@@ -1,0 +1,44 @@
+{
+  "log": [
+    {
+      "time": 1717675900,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=198.51.100.7 DST=192.0.2.10 LEN=88 TOS=0x00 PREC=0xC0 TTL=64 ID=0 PROTO=ICMP TYPE=3 CODE=1 [SRC=192.0.2.10 DST=198.51.100.7 LEN=40 TOS=0x00 PREC=0x00 TTL=1 ID=54321 PROTO=UDP SPT=33434 DPT=53 LEN=40 ]",
+      "id": 4000
+    },
+    {
+      "time": 1717675901,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=198.51.100.7 DST=192.0.2.10 LEN=88 TOS=0x00 PREC=0xC0 TTL=64 ID=0 PROTO=ICMP TYPE=11 CODE=0 [SRC=192.0.2.10 DST=198.51.100.7 LEN=60 TOS=0x00 PREC=0x00 TTL=1 ID=54322 PROTO=TCP SPT=12345 DPT=80 LEN=40 ]",
+      "id": 4001
+    },
+    {
+      "time": 1717675902,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=192.0.2.1 DST=192.0.2.2 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=12345 PROTO=UDP SPT=12345 DPT=53 LEN=48",
+      "id": 4002
+    },
+    {
+      "time": 1717675903,
+      "msg": "kernel: IN=eth0 OUT= MAC=... SRC=2001:db8::1 DST=2001:db8::2 LEN=76 TC=0 HOPLIMIT=64 FLOWLBL=0 PROTO=UDP SPT=12345 DPT=53 LEN=48",
+      "id": 4003
+    },
+    {
+      "time": 1717675904,
+      "msg": "fw4: DROP IN=br-lan OUT=br-lan PHYSIN=lan1 PHYSOUT=lan2 SRC=192.168.1.2 DST=192.168.1.3 LEN=60 PROTO=TCP SPT=1234 DPT=80",
+      "id": 4004
+    },
+    {
+      "time": 1717675905,
+      "msg": "kernel: IN=br-lan OUT= HTYPE=1 PTYPE=0x0800 OPCODE=1 MACSRC=aa:bb:cc:dd:ee:ff MACDST=00:11:22:33:44:55 SRC=192.168.1.2 DST=192.168.1.3 PROTO=ARP",
+      "id": 4005
+    },
+    {
+      "time": 1717675906,
+      "msg": "WANIN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=ICMP",
+      "id": 4006
+    },
+    {
+      "time": 1717675907,
+      "msg": "Kids-Bedtime: IN=br-lan OUT=eth1 SRC=192.168.1.5 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=5000 DPT=443",
+      "id": 4007
+    }
+  ]
+}

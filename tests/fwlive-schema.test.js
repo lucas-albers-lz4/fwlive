@@ -68,16 +68,16 @@ function run() {
 	assert.equal(edgeRows.length, 3);
 	assert.equal(edgeRows[0].timestamp, null);
 	assert.equal(edgeRows[0].timestamp_display, '');
-	assert.equal(edgeRows[0].action, 'pass');
-	assert.equal(edgeRows[0].action_raw, 'PASS');
+	assert.equal(edgeRows[0].action, 'unknown');
+	assert.equal(edgeRows[0].action_raw, 'UNKNOWN');
 	assert.equal(edgeRows[1].timestamp, null);
 	assert.equal(edgeRows[1].timestamp_display, '');
 	assert.equal(edgeRows[1].action, 'drop');
 	assert.equal(edgeRows[1].action_raw, 'DROP');
 	assert.equal(edgeRows[2].timestamp, null);
 	assert.equal(edgeRows[2].timestamp_display, '');
-	assert.equal(edgeRows[2].action, 'pass');
-	assert.equal(edgeRows[2].action_raw, 'PASS');
+	assert.equal(edgeRows[2].action, 'unknown');
+	assert.equal(edgeRows[2].action_raw, 'UNKNOWN');
 
 	console.log('fwlive schema tests passed');
 }

@@ -127,13 +127,20 @@ function emitAwkProgram() {
 	const ruleHint = ruleHintFromParseRuleHint();
 
 	return [
-		'function normalize(s, keys, n, i, k) {',
+		'function normalize(s, keys, n, i, k, best, pos) {',
+		'\t# Glue only at the first KEY=. Exact-case glueKeys (uppercase guard).',
 		'\tn = split("' + glue + '", keys, " ")',
+		'\tbest = 0',
 		'\tfor (i = 1; i <= n; i++) {',
 		'\t\tk = keys[i]',
-		'\t\twhile (match(s, "[^[:space:]]" k "="))',
-		'\t\t\ts = substr(s, 1, RSTART) " " substr(s, RSTART + 1)',
+		'\t\tif (match(s, k "=")) {',
+		'\t\t\tpos = RSTART',
+		'\t\t\tif (best == 0 || pos < best)',
+		'\t\t\t\tbest = pos',
+		'\t\t}',
 		'\t}',
+		'\tif (best > 1 && substr(s, best - 1, 1) !~ /[[:space:]]/)',
+		'\t\ts = substr(s, 1, best - 1) " " substr(s, best)',
 		'\treturn s',
 		'}',
 		'function trim(s) {',
