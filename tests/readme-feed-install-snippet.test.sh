@@ -81,6 +81,9 @@ EOF
 cat >"$TMP/bin/opkg-key" <<'EOF'
 #!/bin/sh
 printf 'opkg-key %s\n' "$*" >>"${SNIPPET_CMD_LOG:?}"
+if [ -n "${SNIPPET_OPKG_KEY_FAIL:-}" ]; then
+	exit 1
+fi
 EOF
 cat >"$TMP/bin/opkg" <<'EOF'
 #!/bin/sh
@@ -156,6 +159,22 @@ else
 fi
 grep -Fq 'opkg-key ' "$TMP/cmd.log" && bad "failed wget must not run opkg-key ($(cat "$TMP/cmd.log"))"
 grep -Fq 'opkg ' "$TMP/cmd.log" && bad "failed wget must not run opkg ($(cat "$TMP/cmd.log"))"
+
+# A failed opkg-key must not append the feed line.
+fake="$TMP/owrt-key-fail"
+mkdir -p "$fake/etc/opkg"
+printf '%s\n' 'src/gz other http://example/packages' >"$fake/etc/opkg/customfeeds.conf"
+before="$(cat "$fake/etc/opkg/customfeeds.conf")"
+SNIPPET_OPKG_KEY_FAIL=1 run_snippet "$fake" '24.10.8'
+unset SNIPPET_OPKG_KEY_FAIL
+if [[ "$rc" -ne 0 ]]; then
+	ok "failed opkg-key exits nonzero"
+else
+	bad "failed opkg-key must exit nonzero"
+fi
+[[ "$(cat "$fake/etc/opkg/customfeeds.conf")" == "$before" ]] \
+	|| bad "failed opkg-key must not change customfeeds.conf ($(cat "$fake/etc/opkg/customfeeds.conf"))"
+grep -Fq 'opkg update' "$TMP/cmd.log" && bad "failed opkg-key must not run opkg update"
 
 # 23.05 uses the same opkg path with its own feed directory.
 fake="$TMP/owrt-2305"

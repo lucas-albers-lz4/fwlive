@@ -22,14 +22,14 @@ feed="$(echo "$DISTRIB_RELEASE" | cut -d. -f1,2)"
 case "$feed" in
   23.05|24.10)
     wget -O /tmp/fwlive.key "$BASE/public.key" || exit 1
-    opkg-key add /tmp/fwlive.key
+    opkg-key add /tmp/fwlive.key || exit 1
     echo "src/gz fwlive $BASE/$feed" >> /etc/opkg/customfeeds.conf
     opkg update && opkg install luci-app-fwlive
     ;;
   25.12)
     wget -O /tmp/fwlive-feed.rsa.pub "$BASE/fwlive-feed.rsa.pub" || exit 1
     mkdir -p /etc/apk/keys /etc/apk/repositories.d
-    cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub
+    cp /tmp/fwlive-feed.rsa.pub /etc/apk/keys/fwlive-feed.rsa.pub || exit 1
     printf '%s\n' "$BASE/$feed/all/packages.adb" > /etc/apk/repositories.d/fwlive.list
     apk update && apk add luci-app-fwlive
     ;;
