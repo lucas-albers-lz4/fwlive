@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary feed and GitHub Releases now ship `luci-i18n-fwlive-{de,ru,zh-cn}` alongside `luci-app-fwlive` on every OpenWrt line (#1243).
 
 ### Fixed
+- Make the adaptive poll line cap a function of the sample sequence so a 5 s cadence no longer flaps the truncation banner (#1241).
+- Reuse the classifier's normalized line and action in the poll summary instead of recomputing them (#1254).
 - Keep the first `SRC`/`DST`/`PROTO`/`LEN` when the kernel repeats those keys on ICMP errors and UDP, so the table matches the outer packet (#1237).
 - Glue a log prefix only onto the first netfilter key, so `PHYSIN=`/`PHYSOUT=`/`HTYPE`/`MACSRC` no longer overwrite the interface fields (#1251).
 - Leave the action unknown unless the log line contains a verdict word; UCI rule logging and `nft log` prefixes without ACCEPT/DROP no longer display as pass (#1238).

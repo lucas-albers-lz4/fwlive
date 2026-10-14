@@ -111,6 +111,8 @@ case "$*" in
 	*WanLogRollbackAba.cfg*) echo 'Invariant NoOverwriteForeignIntent is violated'; exit 12 ;;
 	*HostnameDisposeUngated.cfg*) echo 'Invariant NoLateWrite is violated'; exit 12 ;;
 	*WanLogRollbackRevisionUnfair.cfg*) echo 'Error: Temporal properties were violated.'; exit 13 ;;
+	*AdaptiveCapUnfair.cfg*) echo 'Error: Temporal properties were violated.'; exit 13 ;;
+	*AdaptiveCapClockedLong.cfg*) echo 'Error: Temporal properties were violated.'; exit 13 ;;
 	*WanLogRollbackOutcomesValueOnly.cfg*)
 		echo 'Invariant NoRestoreAfterNewerIntent is violated'; exit 12 ;;
 	*WanLogRollbackOutcomesWrongRestore.cfg*)
@@ -135,21 +137,26 @@ fi
 ! grep -q '^java ' "$TLC_TOOL_LOG" || fail "failed download must not run Java"
 : > "$TLC_TOOL_LOG"
 PATH="$WORK/bin" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/download" 2>&1
-[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 16 ]] || fail "expected sixteen model invocations"
+[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 20 ]] || fail "expected twenty model invocations"
 : > "$TLC_TOOL_LOG"
 printf fixture > "$WORK/cached.jar"
 PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/cached" 2>&1
-[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 16 ]] || fail "cached jar expected sixteen invocations"
+[[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 20 ]] || fail "cached jar expected twenty invocations"
 ! grep -q 'connect-timeout' "$TLC_TOOL_LOG" || fail "cached jar must not download"
 
 # The generic temporal-failure message is attributed only to the one property
 # actually declared in the selected cfg. Use an isolated runner root so these
 # fixtures never mutate the checked-in configuration.
 PROBE="$WORK/property-probe"
-mkdir -p "$PROBE/scripts" "$PROBE/formal/wan-log-lock" "$PROBE/formal/hostname-dispose"
+mkdir -p "$PROBE/scripts" "$PROBE/formal/wan-log-lock" "$PROBE/formal/hostname-dispose" \
+	"$PROBE/formal/adaptive-cap"
 cp "$ROOT/scripts/formal-tlc.sh" "$PROBE/scripts/formal-tlc.sh"
 cp "$ROOT/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg" \
 	"$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"
+cp "$ROOT/formal/adaptive-cap/AdaptiveCapUnfair.cfg" \
+	"$PROBE/formal/adaptive-cap/AdaptiveCapUnfair.cfg"
+cp "$ROOT/formal/adaptive-cap/AdaptiveCapClockedLong.cfg" \
+	"$PROBE/formal/adaptive-cap/AdaptiveCapClockedLong.cfg"
 expect_bad_property_cfg() {
 	local label="$1"
 	: > "$TLC_TOOL_LOG"
@@ -169,9 +176,9 @@ if ! PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" \
 	fail "single expected PROPERTY declaration must pass"
 fi
 valid_invocations="$(grep -c '^java ' "$TLC_TOOL_LOG")"
-if [[ "$valid_invocations" != 16 ]]; then
+if [[ "$valid_invocations" != 20 ]]; then
 	cat "$TLC_TOOL_LOG" >&2
-	fail "valid property config must run all sixteen models (ran $valid_invocations)"
+	fail "valid property config must run all twenty models (ran $valid_invocations)"
 fi
 printf 'SPECIFICATION SpecNoFairness\nINVARIANT TypeOK\n' \
 	> "$PROBE/formal/wan-log-lock/WanLogRollbackRevisionUnfair.cfg"

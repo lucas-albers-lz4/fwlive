@@ -40,9 +40,6 @@ FWLIVE_ADAPTIVE_HOT_EXIT_MS=500
 FWLIVE_ADAPTIVE_COOL_CAP=250
 FWLIVE_ADAPTIVE_HOT_FLOOR=250
 FWLIVE_ADAPTIVE_WARM_MIN=50
-FWLIVE_ADAPTIVE_COOLDOWN_WARM_CS=300
-FWLIVE_ADAPTIVE_COOLDOWN_HOT_CS=600
-FWLIVE_ADAPTIVE_COOLDOWN_PROBE_CS=300
 
 fwlive_adaptive_lock_path() {
 	if [ -n "${FWLIVE_ADAPTIVE_LOCK_FILE:-}" ]; then
@@ -303,7 +300,8 @@ fwlive_adaptive_double() {
 
 # Args: requested_limit duration_ms prev_limit prev_bucket prev_warm
 #       prev_completed_cs planning
-# Prints next limit. A full-sized cold sample may retain one upward probe
+# Prints next limit. Sample-sequence only: completed_cs > 0 means a prior
+# decision exists. A full-sized cold sample may retain one upward probe
 # above the number of lines served; planning then holds that retained probe.
 fwlive_adaptive_compute_limit() {
 	_req=$1
@@ -314,48 +312,35 @@ fwlive_adaptive_compute_limit() {
 	_prev_c=$6
 	_planning=${7:-0}
 	_max="${POLL_LINES_MAX:-2000}"
-	_now=$(fwlive_adaptive_clock_cs)
 	_bucket=$(fwlive_adaptive_bucket_for_ms "$_ms")
 	_limit=$_max
-	_cd=0
 	_probe=0
 
+	# Hot/warm: hold the previous limit while samples stay hot, and probe
+	# upward on the first healthy sample. Record may retain that step above
+	# the lines just served (same as a full-sized cold probe).
 	case "$_prev_b" in
-		hot) _cd=$FWLIVE_ADAPTIVE_COOLDOWN_HOT_CS ;;
-		warm) _cd=$FWLIVE_ADAPTIVE_COOLDOWN_WARM_CS ;;
+		hot|warm)
+			if [ "$_prev_c" -gt 0 ]; then
+				if [ "$_ms" -gt "$FWLIVE_ADAPTIVE_HOT_EXIT_MS" ] || \
+					[ "$_bucket" = hot ]; then
+					_limit=$_prev_l
+					fwlive_adaptive_clamp "$_req" "$_max"
+					printf '%s\n' "$_limit"
+					return 0
+				fi
+				_limit=$_prev_l
+				fwlive_adaptive_double "$_max"
+				if [ "$_planning" = 1 ]; then
+					fwlive_adaptive_clamp "$_req" "$_max"
+				else
+					fwlive_adaptive_clamp "$_max" "$_max"
+				fi
+				printf '%s\n' "$_limit"
+				return 0
+			fi
+			;;
 	esac
-	_elapsed=$((_now - _prev_c))
-
-	if [ "$_cd" -gt 0 ] && [ "$_prev_c" -gt 0 ] && \
-		[ "$_elapsed" -lt "$_cd" ]; then
-		if [ "$_ms" -gt "$FWLIVE_ADAPTIVE_HOT_EXIT_MS" ] || \
-			[ "$_bucket" = hot ]; then
-			_limit=$_prev_l
-			fwlive_adaptive_clamp "$_req" "$_max"
-			printf '%s\n' "$_limit"
-			return 0
-		fi
-	fi
-
-	# Once a hot/warm cooldown expires, deliberately test a larger request.
-	# Planning raises the next request. Recording raises the retained limit
-	# only when that probe completed below the hot-exit threshold. A still-hot
-	# probe falls through to the hot floor below.
-	if [ "$_cd" -gt 0 ] && [ "$_prev_c" -gt 0 ] && \
-		[ "$_elapsed" -ge "$_cd" ]; then
-		_healthy=0
-		if [ "$_ms" -le "$FWLIVE_ADAPTIVE_HOT_EXIT_MS" ] && \
-			[ "$_bucket" != hot ]; then
-			_healthy=1
-		fi
-		if [ "$_planning" = 1 ] || [ "$_healthy" = 1 ]; then
-			_limit=$_prev_l
-			fwlive_adaptive_double "$_max"
-			fwlive_adaptive_clamp "$_req" "$_max"
-			printf '%s\n' "$_limit"
-			return 0
-		fi
-	fi
 
 	case "$_bucket" in
 		cold)
@@ -376,12 +361,11 @@ fwlive_adaptive_compute_limit() {
 			fi
 			;;
 		cool)
-			# A healthy cooldown probe may retain its raised limit for the
-			# short probe window. Ordinary cool samples still use the fixed
-			# 250-line cap.
+			# Retain a raised limit while samples stay cold or cool once a
+			# prior decision exists. A fresh state still applies the 250-line
+			# cool cap.
 			if [ "$_prev_l" -gt "$FWLIVE_ADAPTIVE_COOL_CAP" ] && \
-				[ "$_prev_c" -gt 0 ] && \
-				[ "$_elapsed" -lt "$FWLIVE_ADAPTIVE_COOLDOWN_PROBE_CS" ]; then
+				[ "$_prev_c" -gt 0 ]; then
 				_limit=$_prev_l
 			else
 				_limit=$FWLIVE_ADAPTIVE_COOL_CAP

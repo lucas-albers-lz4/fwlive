@@ -20,3 +20,4 @@ jobs:
           sudo apt-get install -y openjdk-17-jre-headless
       - name: Check TLA+ models (pinned TLC 1.7.4)
         run: ./scripts/formal-tlc.sh
+        # Includes wan-log-lock, hostname-dispose, and adaptive-cap (four arms).

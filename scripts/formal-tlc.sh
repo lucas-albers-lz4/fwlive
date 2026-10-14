@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Run the small TLA+ models and assert that the eight known counterexamples
+# Run the small TLA+ models and assert that the ten known counterexamples
 # remain counterexamples. TLC runs in single-worker mode for stable liveness
 # checking. This script is CI/developer tooling only; it is not packaged.
 set -euo pipefail
@@ -74,6 +74,7 @@ run_expected_property_violation() {
 	declared_properties="$(awk '
 		{ sub(/\\\*.*/, "") }
 		NF == 0 { next }
+		$1 ~ /^CONSTANTS?$/ { next }
 		NF != 2 || $1 !~ /^(SPECIFICATION|INVARIANT|PROPERTY)$/ ||
 			$2 !~ /^[A-Za-z_][A-Za-z0-9_]*$/ { bad = 1; next }
 		$1 == "PROPERTY" { properties = properties $2 "\n" }
@@ -161,3 +162,7 @@ run_expected_violation wan-log-lock WanLogRollbackOutcomes \
 	WanLogRollbackOutcomesWrongRestoreDisable.cfg RestoreValueIsPrevious
 run_pass hostname-dispose HostnameDispose HostnameDispose.cfg
 run_expected_violation hostname-dispose HostnameDispose HostnameDisposeUngated.cfg NoLateWrite
+run_pass adaptive-cap AdaptiveCap AdaptiveCap.cfg
+run_expected_property_violation adaptive-cap AdaptiveCap AdaptiveCapUnfair.cfg Converges
+run_pass adaptive-cap AdaptiveCapClocked AdaptiveCapClockedShort.cfg
+run_expected_property_violation adaptive-cap AdaptiveCapClocked AdaptiveCapClockedLong.cfg Converges

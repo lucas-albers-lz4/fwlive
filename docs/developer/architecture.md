@@ -54,7 +54,7 @@ sequenceDiagram
   RPC-->>UI: filtered reply + adaptive metadata
   Note over UI: Measure RTT then reclassify and normalize.<br/>Apply user filters buffer and render.
   Note over UI: 3 consecutive samples in one band set cadence:<br/>under 300 ms → 1 s, 300–1500 ms → 2 s,<br/>over 1500 ms or error → 5 s.
-  Note over CAP: Server processing time selects the next line cap.<br/>It is independent of browser RTT.
+  Note over CAP: Server processing time selects the next line cap.<br/>It is independent of browser RTT. A change takes effect on the next poll.
 ```
 
 ## WAN logging and baseline lifecycle

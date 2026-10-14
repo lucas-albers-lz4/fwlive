@@ -29,6 +29,14 @@ per-name `json_escape` and `slug_key` forks. Host coverage: rpcd `__selftest`,
 `testRulesPrefixUtilitiesAreBounded`), and `tests/fwlive-jshn-compat.test.py`.
 No ACL, DOM sink, or read/write-scope change.
 
+**2026-10-14 #1241/#1254 scoped delta.** The adaptive line cap is a
+sample-sequence state machine: cooldown windows no longer measure the gap
+since the previous poll, so browser RTT cannot change the cap.
+`completed_cs` remains the prior-decision marker. The poll summary reuses
+`is_fw`'s normalized string and action. Host tests cover per-step
+sample-sequence cases, cadence-equal trajectories, and summary contract
+goldens. No ACL, DOM-sink, or command-surface change.
+
 **2026-10-11 #1197 scoped delta.** Matrix validation selects exactly one
 package from the requested SDK target/version cell for both build and
 `--skip-build`, then passes that path to the guest installer. SDK builds clear
