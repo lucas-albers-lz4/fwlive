@@ -10,6 +10,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/validate-matrix.sh
 source "${ROOT}/scripts/lib/validate-matrix.sh"
+# shellcheck source=lib/feed-publish.sh
+source "${ROOT}/scripts/lib/feed-publish.sh"
 
 VERSION="${OWRT_VALIDATE_VERSION:-24.10}"
 QEMU_TARGET="${OWRT_VALIDATE_QEMU_TARGET:-x86}"
@@ -64,7 +66,8 @@ validate_matrix_start_qemu "$QEMU_TARGET" "$VERSION"
 validate_matrix_wait_ssh "$QEMU_TARGET"
 
 export FWLIVE_FEED_BASE_URL="$FEED_URL"
-"${ROOT}/scripts/qemu-install-from-feed.sh" --version "$VERSION"
+pkg_version="$(feed_publish_pkg_version)"
+"${ROOT}/scripts/qemu-install-from-feed.sh" --version "$VERSION" --expect-version "$pkg_version"
 
 validate_matrix_stop_qemu
 echo "== feed smoke passed: ${VERSION} ==" >&2

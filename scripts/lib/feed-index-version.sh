@@ -10,6 +10,8 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/sdk-apk.sh"
 
 FEED_INDEX_PKG=luci-app-fwlive
+# Keep in sync with feed_publish_i18n_locales / tests/fwlive-i18n-spotcheck.mjs.
+FEED_INDEX_I18N_LOCALES=(de ru zh-cn)
 
 # Exact string compare of published forms. Empty values fail closed.
 feed_index_versions_match() {
@@ -25,9 +27,31 @@ feed_index_versions_match() {
 	return 0
 }
 
+# PKG_VERSION (Makefile) → published index form for a cell (ipk: N-1, apk: N-r1).
+feed_index_expected_app_version() {
+	local pkg_version="${1:-}" fmt="${2:-}"
+	if [[ -z "$pkg_version" || -z "$fmt" ]]; then
+		echo "feed-index: expected app version requires PKG_VERSION and format" >&2
+		return 1
+	fi
+	case "$fmt" in
+		ipk) printf '%s\n' "${pkg_version}-1" ;;
+		apk) printf '%s\n' "${pkg_version}-r1" ;;
+		*)
+			echo "feed-index: unknown package format '$fmt'" >&2
+			return 1
+			;;
+	esac
+}
+
 # Usage: feed_index_opkg_version Packages|Packages.gz
 feed_index_opkg_version() {
-	local src="${1:-}" text got
+	feed_index_opkg_version_for "$1" "$FEED_INDEX_PKG"
+}
+
+# Usage: feed_index_opkg_version_for Packages|Packages.gz PACKAGE
+feed_index_opkg_version_for() {
+	local src="${1:-}" want="${2:-}" text got
 	[[ -n "$src" && -f "$src" ]] || {
 		echo "feed-index: Packages not found: ${src:-}" >&2
 		return 1
@@ -47,7 +71,11 @@ feed_index_opkg_version() {
 		echo "feed-index: empty Packages: $src" >&2
 		return 1
 	}
-	got="$(awk -v want="$FEED_INDEX_PKG" '
+	[[ -n "$want" ]] || {
+		echo "feed-index: opkg package name required" >&2
+		return 1
+	}
+	got="$(awk -v want="$want" '
 		BEGIN { RS = ""; FS = "\n"; found = 0; got = "" }
 		{
 			name = ""
@@ -76,11 +104,11 @@ feed_index_opkg_version() {
 			print got
 		}
 	' <<<"$text")" || {
-		echo "feed-index: $FEED_INDEX_PKG missing or empty Version in $src" >&2
+		echo "feed-index: $want missing or empty Version in $src" >&2
 		return 1
 	}
 	[[ -n "$got" ]] || {
-		echo "feed-index: empty Version for $FEED_INDEX_PKG in $src" >&2
+		echo "feed-index: empty Version for $want in $src" >&2
 		return 1
 	}
 	printf '%s\n' "$got"
@@ -89,7 +117,12 @@ feed_index_opkg_version() {
 # Usage: feed_index_apk_pkgver packages.adb
 # Dumps via sdk_apk_adbdump (pinned SDK apk). Never host apk.
 feed_index_apk_pkgver() {
-	local src="${1:-}" dump
+	feed_index_apk_pkgver_for "$1" "$FEED_INDEX_PKG"
+}
+
+# Usage: feed_index_apk_pkgver_for packages.adb PACKAGE
+feed_index_apk_pkgver_for() {
+	local src="${1:-}" want="${2:-}" dump
 	[[ -n "$src" && -f "$src" ]] || {
 		echo "feed-index: packages.adb not found: ${src:-}" >&2
 		return 1
@@ -104,6 +137,10 @@ feed_index_apk_pkgver() {
 	}
 	[[ -n "$dump" ]] || {
 		echo "feed-index: empty apk adbdump for $src" >&2
+		return 1
+	}
+	[[ -n "$want" ]] || {
+		echo "feed-index: apk package name required" >&2
 		return 1
 	}
 	printf '%s' "$dump" | python3 -c '
@@ -138,7 +175,30 @@ for pkg in pkgs:
     sys.exit(0)
 sys.stderr.write("feed-index: %s missing from packages.adb dump\n" % want)
 sys.exit(1)
-' "$FEED_INDEX_PKG"
+' "$want"
+}
+
+# When --expect-version is set, every shipped i18n locale must appear at that release.
+feed_index_assert_i18n_oracle() {
+	local index_path="$1" pkg_version="$2" fmt="$3"
+	local lang pkg expect got
+	expect="$(feed_index_expected_app_version "$pkg_version" "$fmt")" || return 1
+	for lang in "${FEED_INDEX_I18N_LOCALES[@]}"; do
+		pkg="luci-i18n-fwlive-${lang}"
+		case "$fmt" in
+			ipk)
+				got="$(feed_index_opkg_version_for "$index_path" "$pkg")" || return 1
+				;;
+			apk)
+				got="$(feed_index_apk_pkgver_for "$index_path" "$pkg")" || return 1
+				;;
+			*)
+				echo "feed-index: unknown package format '$fmt'" >&2
+				return 1
+				;;
+		esac
+		feed_index_versions_match "$got" "$expect" || return 1
+	done
 }
 
 # Pinned guest queries (#421 slice 2). Compare per cell, not across formats.

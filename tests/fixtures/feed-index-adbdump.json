@@ -7,6 +7,18 @@
     {
       "name": "luci-app-fwlive",
       "version": "0.1.45-r1"
+    },
+    {
+      "name": "luci-i18n-fwlive-de",
+      "version": "0.1.45-r1"
+    },
+    {
+      "name": "luci-i18n-fwlive-ru",
+      "version": "0.1.45-r1"
+    },
+    {
+      "name": "luci-i18n-fwlive-zh-cn",
+      "version": "0.1.45-r1"
     }
   ]
 }

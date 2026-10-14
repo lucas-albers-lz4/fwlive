@@ -175,8 +175,13 @@ Compare index vs guest **per cell**. Opkg may spell `0.1.45-1` while APK spells
 Host tests cover the guest-query parsers with matching and stale fixtures, and
 drive `qemu-install-from-feed.sh` against a local `file://` index with ssh
 stubs. The 25.12 guest query is pinned in that host test before CI uses it.
-The QEMU feed smoke calls `feed_index_versions_match` after install so a
-stale Pages cell cannot pass.
+The QEMU feed smoke passes `--expect-version` (PKG_VERSION from the release
+tag checkout) so the published index must carry that release before install,
+and still calls `feed_index_versions_match` after install so guest and index
+agree. A cell where both guest and index are an older release but internally
+consistent no longer passes when the release being published is newer.
+`wait-feed-pages.sh` still accepts any HTTP 200 without a cache-bust, so slow
+Pages propagation can fail the job until a re-run.
 
 ## Targeted coverage review
 
@@ -404,7 +409,7 @@ audit ledger.
 | UCI zone identity and staged changes | `tests/fwlive-logging.test.sh` covers named and anonymous WAN-zone lookup, `@zone[N]` versus `cfgXXXX` identity through `uci -X`, duplicate names, and filtering unrelated staged changes. Its host stubs preserve those UCI output shapes but do not prove an installed UCI/rpcd boundary. | Executed and enforced host evidence for the modeled identifier and commit-scope contracts; installed-system behavior remains unproven. | Existing host coverage is sufficient for those contracts. Add a focused QEMU check if an installed UCI/rpcd seam escapes or supported UCI behavior changes. |
 | Existing poll guard and adaptive-cap behavior | Host contracts cover in-flight guarding, cap/degradation, and bounded work without a browser. | Executed and enforced host evidence where the named tests are in the required suite. | Existing coverage is sufficient for those contracts. When a failure escapes or the state machine changes, strengthen the tests. |
 | Client visibility/backoff races in [#306](https://github.com/lucas-albers-lz4/fwlive/issues/306) | Shipped in v0.1.42. `tests/fwlive-view-layer2-backoff.test.js` covers visibility pause, poll-epoch discard, RTT cadence hysteresis, adaptive shedding, and recovery using the host view/module loaders; `./scripts/fwlive-test.sh` runs it in the required suite. This contract is distinct from the existing poll guard/adaptive-cap tests. Stub DOM, browser smoke, and QEMU prove different seams. | Implemented, Executed, and Enforced for the shipped host contracts in the required suite. | Existing host coverage is sufficient for epoch/backoff and recovery. Add browser coverage only for real DOM/LuCI event wiring, and QEMU coverage only for an installed transport/service boundary. Revisit if an escape crosses those seams or the Layer 2 state machine changes. |
-| Feed smoke installed version ([#421](https://github.com/lucas-albers-lz4/fwlive/issues/421)) | After feed install, guest `opkg info` `Version:` (23.05/24.10) or `apk query --installed --format json --fields name,version luci-app-fwlive` (25.12) is compared to that cell's `Packages.gz` / `packages.adb` form, including `-r1`. Host tests cover match vs stale parsers and stubbed `qemu-install-from-feed.sh`. | Host parsers Implemented/Executed/Enforced in the required suite. Live QEMU remains the install boundary; this check fails the smoke on mismatch. | Keep per-cell exact compare. Revisit if OpenWrt changes the `apk query` JSON shape or opkg `Version:` field. |
+| Feed smoke installed version ([#421](https://github.com/lucas-albers-lz4/fwlive/issues/421), [#1242](https://github.com/lucas-albers-lz4/fwlive/issues/1242)) | Release smoke passes `--expect-version` (PKG_VERSION) so the index must carry that release (and i18n packages) before install; after install, guest `opkg info` / `apk query` is compared to the index, including `-r1`. Host tests cover match vs stale index/guest and stubbed `qemu-install-from-feed.sh`. | Host parsers Implemented/Executed/Enforced in the required suite. Live QEMU remains the install boundary. | Keep per-cell exact compare. Revisit if OpenWrt changes the `apk query` JSON shape or opkg `Version:` field. |
 
 The host renderer/document shim is not the mocked Playwright job. A fake
 `document` can prove a text-content or state contract. It does not prove

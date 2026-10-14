@@ -1,5 +1,15 @@
 # Security review state
 
+**2026-10-14 #1242 / #1243 scoped delta.** Release feed smoke passes
+`--expect-version` so the published index must carry the tag's PKG_VERSION
+(and each `luci-i18n-fwlive-{de,ru,zh-cn}` at that version) before install;
+guest-vs-index matching remains. Residual: `wait-feed-pages.sh` still treats
+any HTTP 200 as ready without a cache-bust (~600 s Pages cache vs 300 s wait).
+Publish staging now signs and ships four packages per matrix cell (app + three
+i18n locales) on gh-pages, in `manifest.json` `artifacts`, and GitHub Release
+assets. Locales are gated upstream by `tests/fwlive-i18n.test.js`. No ACL, DOM
+sink, or read/write-scope change.
+
 **2026-10-11 #1197 scoped delta.** Matrix validation selects exactly one
 package from the requested SDK target/version cell for both build and
 `--skip-build`, then passes that path to the guest installer. SDK builds clear

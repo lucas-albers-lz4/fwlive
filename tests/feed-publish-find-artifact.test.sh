@@ -98,6 +98,27 @@ got="$(feed_publish_find_artifact 23.05.5 0.1.45)"
 assert_eq "$got" "$ipk_rel" "IPK PKG_RELEASE suffix -1 must match PKG_VERSION"
 rm -f "$ipk_rel"
 
+# 0.1.45.1 shares the 0.1.45 prefix but is a different package version.
+longer="${dir}/luci-app-fwlive_0.1.45.1_all.ipk"
+locale_longer="${dir}/luci-i18n-fwlive-de_0.1.45.1_all.ipk"
+echo longer > "$longer"
+echo locale-longer > "$locale_longer"
+err="$(assert_fails "longer app version is not 0.1.45" feed_publish_find_artifact 23.05.5 0.1.45)"
+rm -f "$err"
+echo app > "${dir}/luci-app-fwlive_0.1.45_all.ipk"
+for lang in ru zh-cn; do
+	touch "${dir}/luci-i18n-fwlive-${lang}_0.1.45_all.ipk"
+done
+err="$(assert_fails "longer locale version does not complete the set" feed_publish_find_artifacts 23.05.5 0.1.45)"
+grep -q 'missing luci-i18n-fwlive-de' "$err" || {
+	echo "FAIL: prefix locale must not satisfy the de artifact" >&2
+	cat "$err" >&2
+	rm -f "$err"
+	exit 1
+}
+rm -f "$err" "$longer" "$locale_longer" "${dir}/luci-app-fwlive_0.1.45_all.ipk"
+rm -f "${dir}"/luci-i18n-fwlive-*_0.1.45_all.ipk
+
 # No matching artifact → fail closed with a clear error.
 err="$(assert_fails "missing PKG_VERSION fails closed" feed_publish_find_artifact 23.05.5 0.1.99)"
 grep -q 'PKG_VERSION 0.1.99' "$err" || {
@@ -116,5 +137,27 @@ grep -q 'expected package version is required' "$err" || {
 	exit 1
 }
 rm -f "$err"
+
+# i18n locales ship with the app on the binary feed (#1243).
+echo app > "${dir}/luci-app-fwlive_0.1.45_all.ipk"
+for lang in de ru zh-cn; do
+	touch "${dir}/luci-i18n-fwlive-${lang}_0.1.45_all.ipk"
+done
+artifact_count="$(feed_publish_find_artifacts 23.05.5 0.1.45 | wc -l)"
+assert_eq "$artifact_count" "4" "find_artifacts returns app plus three i18n ipks"
+rm -f "${dir}"/luci-i18n-fwlive-de_0.1.45_all.ipk
+partial_out="$(feed_publish_find_artifacts 23.05.5 0.1.45 2>/dev/null || true)"
+assert_eq "$partial_out" "" "find_artifacts must not print a partial path list"
+err="$(assert_fails "partial i18n fails closed" feed_publish_find_artifacts 23.05.5 0.1.45)"
+grep -q 'luci-i18n-fwlive-de' "$err" || {
+	echo "FAIL: missing i18n locale must name the package" >&2
+	cat "$err" >&2
+	rm -f "$err"
+	exit 1
+}
+rm -f "$err"
+for lang in de ru zh-cn; do
+	touch "${dir}/luci-i18n-fwlive-${lang}_0.1.45_all.ipk"
+done
 
 echo "feed-publish find-artifact version+mtime tests passed"

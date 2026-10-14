@@ -29,6 +29,7 @@ grep -Fq 'NumberOfPasswordPrompts=0' "$WAIT" || fail "wait must disable password
 grep -Fq 'cleanup_on_fail' "$SMOKE" || fail "feed smoke must define cleanup_on_fail"
 grep -Fq 'trap cleanup_on_fail EXIT' "$SMOKE" || fail "feed smoke must trap EXIT"
 grep -Fq 'validate_matrix_stop_qemu' "$SMOKE" || fail "feed smoke cleanup must stop QEMU"
+grep -Fq -- '--expect-version' "$SMOKE" || fail "feed smoke must pass --expect-version (#1242)"
 
 if err="$(MAX_WAIT=abc "$WAIT" 2>&1)"; then
 	fail "MAX_WAIT=abc must fail"

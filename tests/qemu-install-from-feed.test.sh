@@ -60,6 +60,18 @@ write_packages() {
 write_packages "$TMP/packages.match" \
 	'Package: luci-app-fwlive' \
 	'Version: 0.1.45-1' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-de' \
+	'Version: 0.1.45-1' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-ru' \
+	'Version: 0.1.45-1' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-zh-cn' \
+	'Version: 0.1.45-1' \
 	'Architecture: all'
 gzip -9cn "$TMP/packages.match" >"$TMP/feed/24.10/Packages.gz"
 gzip -9cn "$TMP/packages.match" >"$TMP/feed/23.05/Packages.gz"
@@ -319,6 +331,39 @@ grep -Fq 'opkg install luci-app-fwlive' "$FWLIVE_STUB_LOG" \
 [[ ! -s "$FWLIVE_DOCKER_LOG" ]] || fail "24.10 opkg cell invoked docker"
 [[ ! -e "$TMP/apk-invoked" ]] || fail "host apk was invoked on 24.10"
 
+if run_install "$TMP/opkg-24-expect.log" --version 24.10 --expect-version 0.1.45; then
+	ok "24.10 index at expected release version succeeds"
+else
+	fail "24.10 expect-version match failed: $(cat "$TMP/opkg-24-expect.log")"
+fi
+
+write_packages "$TMP/packages.stale-index" \
+	'Package: luci-app-fwlive' \
+	'Version: 0.1.44-1' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-de' \
+	'Version: 0.1.44-1' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-ru' \
+	'Version: 0.1.44-1' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-zh-cn' \
+	'Version: 0.1.44-1' \
+	'Architecture: all'
+gzip -9cn "$TMP/packages.stale-index" >"$TMP/feed/24.10/Packages.gz"
+FWLIVE_STUB_OPKG_INFO="$opkg_info_fix"
+export FWLIVE_STUB_OPKG_INFO
+if run_install "$TMP/opkg-stale-index.log" --version 24.10 --expect-version 0.1.45; then
+	fail "stale feed index must fail when --expect-version names the release"
+fi
+grep -Fq "version mismatch" "$TMP/opkg-stale-index.log" \
+	|| fail "stale index vs expect-version must report version mismatch ($(cat "$TMP/opkg-stale-index.log"))"
+ok "stale feed index fails release expect-version"
+gzip -9cn "$TMP/packages.match" >"$TMP/feed/24.10/Packages.gz"
+
 if run_install "$TMP/opkg-23.log" --version 23.05; then
 	ok "23.05 matching opkg info vs Packages.gz succeeds"
 else
@@ -386,6 +431,12 @@ if run_install "$TMP/apk-25.log" --version 25.12; then
 	ok "25.12 matching apk query vs packages.adb succeeds"
 else
 	fail "25.12 match failed: $(cat "$TMP/apk-25.log")"
+fi
+
+if run_install "$TMP/apk-25-expect.log" --version 25.12 --expect-version 0.1.45; then
+	ok "25.12 index at expected release version succeeds"
+else
+	fail "25.12 expect-version match failed: $(cat "$TMP/apk-25-expect.log")"
 fi
 assert_apk_install_urls "$FWLIVE_STUB_LOG" 25.12
 assert_manager_matches_format "$FWLIVE_STUB_LOG" 25.12

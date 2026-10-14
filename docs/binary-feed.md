@@ -18,12 +18,14 @@ fwlive-packages/          (gh-pages branch)
   manifest.json           release metadata + sha256
   23.05/
     luci-app-fwlive_*_all.ipk
+    luci-i18n-fwlive-{de,ru,zh-cn}_*_all.ipk
     Packages  Packages.gz  Packages.sig
   24.10/
     … (same as 23.05)
   25.12/
     all/
       luci-app-fwlive-*.apk
+      luci-i18n-fwlive-{de,ru,zh-cn}-*.apk
       packages.adb
 ```
 
@@ -61,9 +63,11 @@ making a release attributable to the exact image despite the moving tag.
 }
 ```
 
-The `file` field is the feed artifact basename (the `.ipk` / `.apk` under
-each OpenWrt line on gh-pages), not the GitHub Release download name, which
-may add a line suffix such as `_23.05` to disambiguate assets.
+The `file` and `sha256` fields name the primary `luci-app-fwlive` artifact.
+Each cell also lists every published package in `artifacts` (app plus
+`luci-i18n-fwlive-{de,ru,zh-cn}`). Feed basenames match gh-pages; GitHub
+Release download names may add a line suffix such as `_23.05` to disambiguate
+assets.
 
 Each cell records the package hash, the SDK image and digest, the feeds lock
 hash, and the `base` / `packages` / `luci` commits from that lock. Those SHAs
