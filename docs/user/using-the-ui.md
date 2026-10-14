@@ -164,7 +164,7 @@ matching substring.
 |------|------------|
 | See only drops | Action → `drop` |
 | Hide passes | Click **pass** in the table, then **≠** on the `action: pass` chip |
-| One client | Click source in **Flow** or use **More filters → Source** |
+| One client | Click source in **Flow** or use **More filters → Source** (substring match — e.g. `10.0.0.1` also matches `10.0.0.10`) |
 | ICMP test | Protocol → `ICMP` after [enabling ping logging](enabling-firewall-logs.md) |
 
 ## Rule column
@@ -179,7 +179,7 @@ available; a failed refresh keeps previously loaded names when available.
 
 ## Empty table
 
-If no events appear after install, that is expected until logging is on — see [First visit](#first-visit). **Enable logging** sets WAN zone `log=1` (same as **Network → Firewall**). The empty state explains what will and will not appear (WAN drops/rejects, not normal LAN browsing).
+If no events appear after install, that is expected until logging is on — see [First visit](#first-visit). **Enable logging** sets the zone's filter-log bit (bit 0 of `log`) and keeps other bits (same as **Network → Firewall**). The empty state explains what will and will not appear (WAN drops/rejects, not normal LAN browsing).
 
 If logging is already on but the table is still empty, wait for inbound WAN traffic or see **[Quick start — optional ping test](enabling-firewall-logs.md#2-optional--confirm-the-ui-with-a-ping)**. Advanced setup: **[Enabling firewall logs](enabling-firewall-logs.md)**.
 

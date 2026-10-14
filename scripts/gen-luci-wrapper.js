@@ -3,7 +3,8 @@
 
 /**
  * LuCI wrapper gate for gen-all.sh: verifies preserve markers, CLASSIFY_SPEC surface,
- * spec-derived classify regex parity, and ES5 API constraints; emits committed log.js
+ * spec-derived classify regex parity, and bans Array.includes/Object.values in log.js
+ * (shipped LuCI JS requires ES2017); emits committed log.js
  * bytes (idempotent).
  *
  * This is a gate, not a generator: shared classify logic in log.js is hand-maintained

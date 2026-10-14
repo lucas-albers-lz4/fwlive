@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Rules map builds UCI name keys without per-rule `json_escape`/`tr` forks (#1253).
+- Correct user-guide wording for apk upgrades, WAN logging bit behavior, Rule labels, and client filter substring matching (#1256, #1258, #1259, #1260).
 - Document the Simple-view **Show full message** button in the user guide (#1229).
 - Mention `npm run test:view` in the contributor change workflow (#1230).
 - Install the signed feed on OpenWrt 23.05, 24.10, and 25.12 from one copy-paste snippet (#1235).

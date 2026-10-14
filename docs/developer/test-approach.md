@@ -270,9 +270,9 @@ session-authenticated proof on armsr or 25.12 apk.
 **#378.** Phases 1–3 are merged (nft-only rules, UI warning, drop
 21.02/22.03 from the matrix). The compatibility gate is retained as a
 checked shipped-artifact constraint: `gen-luci-wrapper.js` rejects
-`Array.includes` and `Object.values` in `log.js`. That is an ES5 check
-for 23.05+ LuCI/browser, recorded in [contributing.md](contributing.md);
-it is not a 21.02 support claim.
+`Array.includes` and `Object.values` in `log.js`. That bans two API names in
+the shipped wrapper; the rest of the shipped JS already requires ES2017 (for
+example async/await), as recorded in [contributing.md](contributing.md).
 G1 is resolved by pruning, not by adding tests for deleted iptables
 backend branches; `iptables` log-tag classification remains covered.
 `snapshot` stays SDK-internal, not a published feed.
