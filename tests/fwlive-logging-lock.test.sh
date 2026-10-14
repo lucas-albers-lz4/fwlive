@@ -320,6 +320,24 @@ check_json() {
 	esac
 }
 
+# Isolated callers: the concurrent sweep can pass if a sibling still holds
+# the shared lock while this caller already released it. Each op must fail
+# its own UCI write unless it holds the lock.
+for op in enable disable; do
+	dir="$WORK/ownership-$op"
+	mkdir -p "$dir"
+	if [ "$op" = enable ]; then
+		rm -f "$dir/log"
+	else
+		printf '%s' 1 > "$dir/log"
+	fi
+	FWLIVE_WAN_LOG_BASELINE_FILE="$dir/baseline" \
+		sh "$WORK/child.sh" "$LOGGING_SH" "$dir" "$op" 0 > "$dir/out" 2>&1 \
+		|| die "$op caller did not hold the lock at its UCI write"
+	check_json "$(cat "$dir/out")" \
+		|| die "$op caller returned invalid JSON"
+done
+
 sweep_fail=0
 failures="$WORK/failures"
 : > "$failures"
