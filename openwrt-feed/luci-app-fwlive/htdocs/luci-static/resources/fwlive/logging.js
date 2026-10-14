@@ -33,6 +33,8 @@
  *
  * captureFocus(host, active) / restoreFocus(host, focused)
  *   chips.js pattern: if focus was inside host, move it to the replacement control.
+ * hasLoggingAction(host, action) → bool
+ *   true when host still contains that data-fwlive-logging-action.
  *
  * Modules must not mutate state. Toolbar controls are replaced; the role=status
  * node is reused so live announcements survive rebuilds.
@@ -147,6 +149,10 @@ function restoreFocus(host, focused) {
 	let target = focused.action ? findLoggingControl(host, focused.action) : null;
 	if (!target) target = primaryLoggingControl(host);
 	if (target && typeof target.focus === 'function') target.focus();
+}
+
+function hasLoggingAction(host, action) {
+	return !!findLoggingControl(host, action);
 }
 
 function toolbarLiveStatus(host) {
@@ -583,6 +589,7 @@ return baseclass.extend({
 	toggleRpcCatchNotice: toggleRpcCatchNotice,
 	captureFocus: captureFocus,
 	restoreFocus: restoreFocus,
+	hasLoggingAction: hasLoggingAction,
 	renderToolbar: renderToolbar,
 	buildEmptyStateNodes: buildEmptyStateNodes,
 	renderEmptyState: renderEmptyState,

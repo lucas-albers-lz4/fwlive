@@ -1079,6 +1079,15 @@ return view.extend({
 			onDismissConsent: (persist) => this.handleDismissConsent(persist)
 		});
 		logging.restoreFocus(empty, focused);
+		/* Consent Enable disappears once logging is on. The replacement is the toolbar control. */
+		if (
+			focused &&
+			(focused.action === 'enable' || focused.action === 'disable') &&
+			!logging.hasLoggingAction(empty, focused.action)
+		) {
+			const bar = document.getElementById('fwlive-logging-bar');
+			logging.restoreFocus(bar, focused);
+		}
 		if (visible) empty.style.display = 'block';
 		this._loggingEmptySig = sig;
 	},
