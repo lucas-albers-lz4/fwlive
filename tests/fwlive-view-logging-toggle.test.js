@@ -110,6 +110,26 @@ function findFirstButton(node) {
 	return null;
 }
 
+function findLoggingAction(node, action) {
+	if (!node) return null;
+	if (node.getAttribute && node.getAttribute('data-fwlive-logging-action') === action)
+		return node;
+	const kids = node.childNodes || [];
+	for (let i = 0; i < kids.length; i++) {
+		const hit = findLoggingAction(kids[i], action);
+		if (hit) return hit;
+	}
+	return null;
+}
+
+function nodeInside(node, host) {
+	while (node) {
+		if (node === host) return true;
+		node = node.parentNode;
+	}
+	return false;
+}
+
 async function testEnableReply(reply, expectedNotice, shouldPersist) {
 	const storage = {};
 	const x = makeHarness('enable_wan_logging', reply, storage);
@@ -696,6 +716,45 @@ async function testLoggingToggleRestoresFocusAndLiveStatus() {
 	console.log('fwlive-view logging: focus restore and persistent status OK');
 }
 
+async function testConsentEnableMovesFocusToToolbar() {
+	let mockWanLog = false;
+	const h = loadFwliveView({
+		storage: {},
+		rpcMocks: {
+			'fwlive.enable_wan_logging': async function () {
+				mockWanLog = true;
+				return { ok: true, changed: true };
+			},
+			'fwlive.logging_status': async function () {
+				return Object.assign({}, LOGGING_STATUS_DEFAULT, {
+					wan_log: mockWanLog,
+					ready: true
+				});
+			}
+		}
+	});
+	h.view.loggingStatus = Object.assign({}, LOGGING_STATUS_DEFAULT, {
+		wan_log: false,
+		ready: true
+	});
+	h.view.updateLoggingToolbarUi();
+	h.view.updateEmptyStateUi();
+	const empty = h.document.getElementById('fwlive-empty');
+	const bar = h.document.getElementById('fwlive-logging-bar');
+	const consentEnable = findLoggingAction(empty, 'enable');
+	assert.ok(consentEnable, 'consent panel must render Enable');
+	h.document.activeElement = consentEnable;
+	consentEnable.focus();
+
+	await h.view.handleEnableLogging();
+
+	const focused = h.document.activeElement;
+	assert.ok(focused && focused.parentNode, 'focus must land on a connected replacement');
+	assert.equal(focused.getAttribute('data-fwlive-logging-action'), 'disable');
+	assert.equal(nodeInside(focused, bar), true, 'replacement Disable lives in the logging bar');
+	console.log('fwlive-view logging: consent Enable moves focus to toolbar Disable OK');
+}
+
 (async function main() {
 	try {
 		await testEnableVariants();
@@ -711,6 +770,7 @@ async function testLoggingToggleRestoresFocusAndLiveStatus() {
 		await testBusyReentry();
 		await testToolbarKeepsPreToggleBusyLabel();
 		await testLoggingToggleRestoresFocusAndLiveStatus();
+		await testConsentEnableMovesFocusToToolbar();
 		console.log('fwlive-view logging-toggle tests passed');
 	} catch (e) {
 		console.error(e && e.stack ? e.stack : String(e));
