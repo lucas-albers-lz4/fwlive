@@ -68,8 +68,11 @@ _="$(feed_publish_probe_mkhash)" || true
 [[ "$SDK_MATRIX_IMAGE" == sentinel-image ]] || fail "probe leaked IMAGE=$SDK_MATRIX_IMAGE"
 [[ "$SDK_MATRIX_VOLUME" == sentinel-volume ]] || fail "probe leaked VOLUME=$SDK_MATRIX_VOLUME"
 [[ "$SDK_MATRIX_OUT_DIR" == sentinel-out ]] || fail "probe leaked OUT_DIR=$SDK_MATRIX_OUT_DIR"
-grep -Fq 'mkhash="$(feed_publish_probe_mkhash)"' "$ROOT/scripts/lib/feed-publish.sh" \
-	|| fail "stage_opkg_host must capture probe via command substitution"
+grep -Fq 'mkhash="$(command -v mkhash' "$ROOT/scripts/lib/feed-publish.sh" \
+	|| fail "stage_opkg_host must use host command -v mkhash"
+if grep -Fq 'mkhash="$(feed_publish_probe_mkhash)"' "$ROOT/scripts/lib/feed-publish.sh"; then
+	fail "host indexer must not take the SDK probe path"
+fi
 
 # Caller RETURN trap survives feed_keys normalize (#812).
 marker="$tmpd/return-fired"

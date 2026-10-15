@@ -569,6 +569,24 @@ next-tag pin checklist remains in force.
 > Host coverage checks armsr vs an x86_64 decoy. No ACL, DOM sink, or
 > read/write-scope change.
 
+> **2026-10-14 #1281 / #1282 delta:** `verify_one` now returns nonzero when
+> the initial docker-sdk build, `sdk_matrix_make`, `sdk_matrix_copy_out`,
+> or `sdk_matrix_clean_package` fails (`main` uses `|| fail=1`, so errexit
+> does not apply). Host coverage plants a leftover ipk, injects clean/make
+> failure, and asserts no `== OK:`. `sdk_matrix_clear_out_packages`
+> returns nonzero when `rm -f` fails, and `sdk_matrix_copy_out` returns
+> before the existence check when that clear or the docker copy-out fails,
+> so a leftover package cannot be reported as this build. The fallback
+> `cp` no longer uses `|| true`, so a failed copy fails the container
+> instead of leaving a partial package for the existence check. Host Packages indexing uses
+> `command -v mkhash` and refuses `/builder/...` SDK paths;
+> `feed_publish_probe_mkhash` remains isolated for `SDK_MATRIX_*` leaks but
+> is not the host indexer. Skill step 5 re-check: workflows keep SHA-pinned
+> actions and do not interpolate inputs into `run:` bodies; `ipkg-make-index.sh`
+> stays commit+sha256 pinned; secret key files and `*.tmp` siblings stay
+> gitignored; no secret path reaches `feed-staging/`. No ACL, DOM sink, or
+> read/write-scope change.
+
 > **2026-09-22 #435 delta:** `sdk_matrix_copy_out` now removes matching
 > luci-app-fwlive ipk/apk files from the destination (`$dest/fwlive` and
 > dest-root globs) before copying, then fail-closes if no matching artifact

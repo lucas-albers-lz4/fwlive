@@ -65,6 +65,24 @@ grep -q 'no luci-app-fwlive package artifact' "$err" \
 	&& ok "stale matching ipk: clear error message" \
 	|| bad "stale matching ipk: missing artifact error"
 
+# A failed rm must not fall through to the existence check. Docker exiting 0
+# without planting a new artifact would otherwise accept the leftover ipk.
+: >"${dest}/fwlive/luci-app-fwlive_0.1.0_all.ipk"
+chmod a-w "${dest}/fwlive"
+err="$TMP/rmfail.err"
+if sdk_matrix_copy_out >"$TMP/rmfail.out" 2>"$err"; then
+	bad "failed stale removal must not make sdk_matrix_copy_out succeed"
+else
+	ok "failed stale removal: copy_out returns non-zero"
+fi
+chmod u+w "${dest}/fwlive"
+if [[ -e "${dest}/fwlive/luci-app-fwlive_0.1.0_all.ipk" ]]; then
+	ok "failed stale removal: leftover ipk was not treated as this copy"
+else
+	bad "failed stale removal: ipk disappeared despite rm failure"
+fi
+rm -f "${dest}/fwlive/luci-app-fwlive_0.1.0_all.ipk"
+
 docker() {
 	mkdir -p "${dest}/fwlive"
 	: >"${dest}/fwlive/luci-app-fwlive_0.1.0_all.ipk"

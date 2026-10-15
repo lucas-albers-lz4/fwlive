@@ -97,7 +97,11 @@ cat >"${host_tools}/usign" <<'EOF'
 printf 'usign %s\n' "$*" >>"$HOST_TOOL_LOG"
 exit 0
 EOF
-chmod +x "${host_tools}/grep" "${host_tools}/gzip" "${host_tools}/usign"
+cat >"${host_tools}/mkhash" <<'EOF'
+#!/bin/sh
+printf 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n'
+EOF
+chmod +x "${host_tools}/grep" "${host_tools}/gzip" "${host_tools}/usign" "${host_tools}/mkhash"
 
 # A failed grep may have written bytes to Packages, but must stop before
 # compression and signing. Assert those later production stages were skipped.
