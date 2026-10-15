@@ -77,7 +77,11 @@ grep -q '^usign ' "${host_work}/tool-log" || fail "positive path must run usign"
 no_mkhash="${host_work}/no-mkhash"
 mkdir -p "$no_mkhash"
 for bin in gzip usign mktemp rm cat grep; do
-	src="$(command -v "$bin")" || fail "need $bin to build the missing-mkhash PATH"
+	if [[ -x "${host_tools}/${bin}" ]]; then
+		src="${host_tools}/${bin}"
+	else
+		src="$(command -v "$bin")" || fail "need $bin to build the missing-mkhash PATH"
+	fi
 	cp "$src" "${no_mkhash}/${bin}"
 	chmod +x "${no_mkhash}/${bin}"
 done
