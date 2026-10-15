@@ -1946,6 +1946,25 @@ fi
 ok "restore_wan_log_baseline keeps baseline when post-reload UCI raced"
 reload_firewall() { return 0; }
 
+# #1278: a failed baseline READ must not treat empty as originally-unset.
+# Seed a valid nonempty marker and a committed mask, then fail only cat.
+WAN_ZONE_LOG='3'
+printf '2' >"$WAN_LOG_BASELINE_FILE"
+cat() {
+	if [ "$1" = "$WAN_LOG_BASELINE_FILE" ]; then
+		return 1
+	fi
+	command cat "$@"
+}
+if restore_wan_log_baseline; then
+	die "#1278 restore expected non-zero when baseline read fails"
+fi
+unset -f cat
+[ -f "$WAN_LOG_BASELINE_FILE" ] || die "#1278 failed read must keep the marker"
+[ "$(cat "$WAN_LOG_BASELINE_FILE")" = "2" ] || die "#1278 marker contents must be unchanged"
+[ "$WAN_ZONE_LOG" = "3" ] || die "#1278 failed read must not mutate UCI, got '$WAN_ZONE_LOG'"
+ok "#1278 failed baseline read keeps marker and does not delete WAN log"
+
 if [ "$(id -u)" -ne 0 ]; then
 	READONLY_WORK=$(mktemp -d)
 	WAN_LOG_BASELINE_FILE="$READONLY_WORK/wan-log-baseline"
