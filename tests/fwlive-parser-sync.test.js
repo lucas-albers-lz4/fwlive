@@ -137,6 +137,13 @@ assert.strictEqual(core.normalizeEntry(ifaceAccept).action, 'unknown');
 assert.strictEqual(core.normalizeEntry(ifaceAccept).action_raw, 'UNKNOWN');
 assert.strictEqual(luci.normalizeEntry(ifaceAccept).action, 'unknown');
 
+const midTokenKey = {
+	time: 1717675747,
+	msg: 'kernel: tagX=DROP IN=wan SRC=203.0.113.9 DST=192.0.2.1 PROTO=TCP'
+};
+assert.strictEqual(core.normalizeEntry(midTokenKey).action_raw, 'DROP');
+assert.strictEqual(luci.normalizeEntry(midTokenKey).action_raw, 'DROP');
+
 const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
 assert.strictEqual(
 	core.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),

@@ -783,8 +783,9 @@ should carry a note saying what would raise it.
 > `gen-shell-classifier.js` stay aligned; generated
 > `fwlive-is-firewall-event.sh` / `.awk` come from `./scripts/gen-all.sh`.
 > Host proof: parser sync/filter goldens plus shell-filter summary of
-> `IN=br-drop`. Logs remain stdin data; no command-string sink. Proof class
-> `host`. Full surface re-pass deferred.
+> `IN=br-drop`. The generated strip uses the same word boundary as the JS
+> span, so `tagX=DROP` still counts as DROP. Logs remain stdin data; no
+> command-string sink. Proof class `host`. Full surface re-pass deferred.
 
 ### 2026-10-01: startup polling delta (#1073)
 

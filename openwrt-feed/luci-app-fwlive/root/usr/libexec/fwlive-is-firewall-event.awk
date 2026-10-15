@@ -37,8 +37,25 @@ function non_fw_prefix(s, lc) {
 	lc = tolower(s)
 	return lc ~ "^(dnsmasq|procd|ubusd|netifd|odhcpd|logd|dropbear|uhttpd|hostapd|wpad)([^a-z0-9_-]|$)"
 }
+function strip_kv(s, out, i, n, prev, rest) {
+	# Same boundary as JS /\b[A-Z][A-Z0-9_]*=/. tagX=DROP keeps DROP.
+	out = ""
+	i = 1
+	n = length(s)
+	while (i <= n) {
+		prev = (i == 1) ? "" : substr(s, i - 1, 1)
+		rest = substr(s, i)
+		if ((prev == "" || prev !~ /[A-Za-z0-9_]/) && match(rest, /^[A-Z][A-Z0-9_]*=[^[:space:]]+/)) {
+			i += RLENGTH
+			continue
+		}
+		out = out substr(s, i, 1)
+		i++
+	}
+	return out
+}
 function detect_action(s, words, n, i, w, wl, lc, start, pos, before, afterc, best, bestpos) {
-	gsub(/[A-Z][A-Z0-9_]*=[^[:space:]]+/, "", s)
+	s = strip_kv(s)
 	n = split("ACCEPT ALLOW PASS DROP REJECT DENY BLOCK", words, " ")
 	lc = tolower(s)
 	best = ""

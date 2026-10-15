@@ -545,6 +545,17 @@ function runSummaryContract() {
 		const ifaceSummary = JSON.parse(ifaceFiltered.stdout).summary;
 		assert.deepEqual(ifaceSummary.top_drops || [], [],
 			'IN=br-drop must not count as a drop verdict');
+		const midToken = JSON.stringify({
+			log: [{
+				msg: 'kernel: tagX=DROP IN=wan SRC=203.0.113.9 DST=192.0.2.1 PROTO=TCP'
+			}]
+		});
+		const midFiltered = shSpawn(null, {
+			argvFile: FILTER_SH, input: midToken, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(midFiltered.status, 0, midFiltered.stderr || midFiltered.stdout);
+		assert.equal(JSON.parse(midFiltered.stdout).summary.top_drops[0].value, 'drop',
+			'a verdict after a mid-token key must still count');
 		assert.equal(out.summary.top_talkers[0].value, '203.0.113.1');
 		assert.ok(Buffer.byteLength(JSON.stringify(out.summary), 'utf8') <= 1024,
 			'summary must stay within the escaped JSON byte bound');

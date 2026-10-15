@@ -132,6 +132,12 @@ function run() {
 	});
 	assert.equal(brAccept.action, 'unknown');
 	assert.equal(brAccept.action_raw, 'UNKNOWN');
+	const midTokenKey = core.normalizeEntry({
+		time: 1717675747,
+		msg: 'kernel: tagX=DROP IN=wan SRC=203.0.113.9 DST=192.0.2.1 PROTO=TCP'
+	});
+	assert.equal(midTokenKey.action, 'drop');
+	assert.equal(midTokenKey.action_raw, 'DROP');
 
 	assert.equal(core.parseFlags('SRC=1.2.3.4 ECE', {}), 'ECE');
 	assert.equal(core.parseFlags('SRC=1.2.3.4 CWR', {}), 'CWR');
