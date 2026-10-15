@@ -1316,8 +1316,10 @@ fi
 echo "uci $*" >> "${stubDir}/uci.log"
 if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
 	echo "firewall.@rule[0].name='Once-UCI'"
+	echo "firewall.@rule[0].target='REJECT'"
 	echo "firewall.allow-ssh=rule"
 	echo "firewall.allow-ssh.name='Allow-SSH'"
+	echo "firewall.allow-ssh.target='ACCEPT'"
 fi
 exit 0
 `);
@@ -1329,9 +1331,87 @@ exit 0
 			const res = JSON.parse(raw);
 			assert.equal(res.rules['Once-UCI'], 'Once-UCI', `[${shell}] anonymous UCI name mapped`);
 			assert.equal(res.rules['Allow-SSH'], 'Allow-SSH', `[${shell}] named UCI rule mapped`);
+			assert.equal(res.targets['Once-UCI'], 'REJECT', `[${shell}] anonymous UCI target mapped`);
+			assert.equal(res.targets['Allow-SSH'], 'ACCEPT', `[${shell}] named UCI target mapped`);
+			assert.equal(res.targets['x'], undefined, `[${shell}] nft prefix must not appear in targets`);
 			const uciCalls = fs.readFileSync(path.join(stubDir, 'uci.log'), 'utf8').trim().split('\n');
 			assert.deepEqual(uciCalls, ['uci -q show firewall'],
 				`[${shell}] one rules call must use one UCI show and no per-section get`);
+		}
+	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+}
+
+function testUciTargetsMap() {
+	// Display-only UCI target sibling (#1264). Name/slug keys only; nft
+	// prefixes stay out of targets. Empty/invalid targets are omitted.
+	const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-stub-uci-tgt-'));
+	try {
+		makeStub(stubDir, 'nft', `#!/bin/sh
+if [ "$1" = "list" ] && [ "$2" = "ruleset" ]; then
+cat <<'EOF'
+table inet fw4 {
+	chain input {
+		log prefix "fwlive-ssh" comment "!fw4: Allow-SSH"
+		log prefix "nft-only"
+	}
+}
+EOF
+else
+	exit 1
+fi
+`);
+		makeStub(stubDir, 'uci', `#!/bin/sh
+if [ "$1" = "-q" ] && [ "$2" = "show" ] && [ "$3" = "firewall" ]; then
+	cat <<'UCI'
+firewall.@zone[0]=zone
+firewall.@zone[0].name='lan'
+firewall.wan=zone
+firewall.wan.name='wan'
+firewall.@rule[0].name='Kids-Bedtime'
+firewall.@rule[0].target='REJECT'
+firewall.@rule[1].target='ACCEPT'
+firewall.@rule[1].name='Allow-Ping'
+firewall.@rule[2].name='no-target'
+firewall.@rule[3].name='empty-tgt'
+firewall.@rule[3].target=''
+firewall.@rule[4].name='weird-tgt'
+firewall.@rule[4].target='reject with tcp reset'
+firewall.@rule[5].name='bad-semi'
+firewall.@rule[5].target='DROP;id'
+firewall.allow-ssh=rule
+firewall.allow-ssh.name='Allow-SSH'
+firewall.allow-ssh.target='ACCEPT'
+UCI
+else
+	exit 0
+fi
+`);
+		const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
+		for (const shell of posixShells()) {
+			let raw;
+			try { raw = runWithShell(shell, env); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+			const res = JSON.parse(raw);
+			assert.equal(typeof res.targets, 'object', `[${shell}] targets object always present`);
+			assert.equal(Array.isArray(res.targets), false, `[${shell}] targets is not an array`);
+			assert.equal(res.targets['Kids-Bedtime'], 'REJECT', `[${shell}] name-then-target`);
+			assert.equal(res.targets['kids-bedtime'], 'REJECT', `[${shell}] Kids-Bedtime slug key`);
+			assert.equal(res.targets['Allow-Ping'], 'ACCEPT', `[${shell}] target-then-name`);
+			assert.equal(res.targets['Allow-SSH'], 'ACCEPT', `[${shell}] named section target`);
+			assert.equal(res.rules['Kids-Bedtime'], 'Kids-Bedtime');
+			assert.equal(res.rules['no-target'], 'no-target');
+			assert.equal(res.targets['no-target'], undefined, `[${shell}] missing target omitted`);
+			assert.equal(res.targets['empty-tgt'], undefined, `[${shell}] empty target omitted`);
+			assert.equal(res.rules['weird-tgt'], 'weird-tgt');
+			assert.equal(res.targets['weird-tgt'], undefined, `[${shell}] is_uci_style_name rejects spaced target`);
+			assert.equal(res.rules['bad-semi'], 'bad-semi');
+			assert.equal(res.targets['bad-semi'], undefined, `[${shell}] is_uci_style_name rejects ; in target`);
+			assert.equal(res.targets['fwlive-ssh'], undefined, `[${shell}] nft labeled prefix absent from targets`);
+			assert.equal(res.targets['nft-only'], undefined, `[${shell}] nft cosmetic prefix absent from targets`);
+			assert.equal(res.rules['nft-only'], 'nft only', `[${shell}] nft cosmetic still in rules`);
+			assert.equal(res.rules['lan'], undefined, `[${shell}] zone name must not be a rule key`);
+			assert.equal(res.targets['lan'], undefined, `[${shell}] zone name must not be a target key`);
+			assert.equal(res.rules['wan'], undefined);
+			assert.equal(res.targets['wan'], undefined);
 		}
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
@@ -1784,6 +1864,7 @@ async function run() {
 	testRulesMapKeyBound();
 	testRulesMapLineBound();
 	testUciShowOnce();
+	testUciTargetsMap();
 	testUciNameWalkBound();
 	testRulesMapByteBound();
 	testGlobMetacharDedup();

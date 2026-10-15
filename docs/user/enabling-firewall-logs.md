@@ -122,6 +122,8 @@ config rule
         option log '1'
 ```
 
+Action stays **unknown** unless the log prefix contains a verdict word (ACCEPT/DROP/REJECT). The Rule column may show the UCI target as a display-only suffix. **Action → drop** and summary **Top drops** will not count these rows. Zone logging (`drop wan in:`) is unchanged.
+
 ### Temporary — observe forwarded traffic
 
 ```sh

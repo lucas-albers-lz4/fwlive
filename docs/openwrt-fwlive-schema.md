@@ -24,6 +24,7 @@ Shipped as feed package [`openwrt-feed/luci-app-fwlive`](../openwrt-feed/luci-ap
 - `action_raw`: the action token from the log line (`ACCEPT`, `DROP`, …) when present. Otherwise `UNKNOWN`. A prefix with no verdict word (UCI rule logging, `nft log prefix` without ACCEPT/DROP in the text) stays `UNKNOWN`; nft `log` does not print the verdict.
 - `rule_hint`: tag parsed from log prefix / nft `log prefix` (e.g. `fwlive-ping`, `fw4`, `fwlive-test`); empty when unknown.
 - `rule_label`: display label derived from `rule_hint` (UCI name resolve via `ubus fwlive rules`).
+- UCI `target` on the Rule column is view-only. It comes from `ubus fwlive rules` `targets` (UCI name/slug → target token), not from poll or the `action` field.
 - `interface`: `IN` or `OUT` (legacy convenience).
 - `interface_in` / `interface_out`: from `IN=` / `OUT=`.
 - `direction`: `in`, `out`, `forward`, or `unknown`.

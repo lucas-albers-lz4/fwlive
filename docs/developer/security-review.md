@@ -1,5 +1,11 @@
 # Security review state
 
+**2026-10-15 #1264 scoped delta.** `fwlive rules` now also returns `targets`
+(UCI name/slug → target token from the same `uci show` pass). Values are
+admin UCI strings; the view renders them as text nodes on the Rule column.
+No new ACL method; sessions still do not get `ubus log.read`. `action` /
+`action_raw` stay line-derived.
+
 **2026-10-14 #1242 / #1243 scoped delta.** Release feed smoke passes
 `--expect-version` so the published index must carry the tag's PKG_VERSION
 (and each `luci-i18n-fwlive-{de,ru,zh-cn}` at that version) before install;
