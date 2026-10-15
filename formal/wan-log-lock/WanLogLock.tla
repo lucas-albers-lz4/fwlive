@@ -1,7 +1,11 @@
 ---- MODULE WanLogLock ----
 (* WAN-zone log=1 enable/disable mutex of luci-app-fwlive, abstracted from
    openwrt-feed/.../root/usr/libexec/fwlive-logging.sh: acquire_wan_log_lock ->
-   read/commit -> release_wan_log_lock, run by concurrent ubus toggle callers.
+   commit -> release_wan_log_lock, run by concurrent ubus toggle callers.
+
+   Scope: mutex ownership and bounded flock retry. Commit writes Target[p]
+   without reading log, so this module does not model read-modify-write
+   lost updates (#1265). TLC-green is not an RMW / lost-update proof.
 
    Current acquisition is bounded by `flock -n 9` retries with a five-second
    budget (BusyBox flock has no -w; the implementation uses the existing
@@ -73,9 +77,9 @@ AcquireLock(p) ==
   /\ owner' = p
   /\ UNCHANGED <<log, remaining, result>>
 
-\* Critical section, ATOMIC: re-read bit under lock, stage/commit the chosen
-\* value, then release fd 9. One action because the timeout budget applies
-\* only before acquisition; it never wraps this critical section.
+\* Critical section, ATOMIC while owner = p: write Target[p] and release
+\* fd 9. This is mutex-serialized mutation, not a re-read of log (#1265).
+\* The timeout budget applies only before acquisition.
 Commit(p) ==
   /\ pc[p] = "Hold"
   /\ owner = p
