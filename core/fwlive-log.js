@@ -153,12 +153,18 @@ const DENY_ACTION_UNDERSCORE = new RegExp(
 const MAX_DATE_SECONDS = 8640000000000;
 
 /* Kernel nf_log may append trailer KVs such as WINDOW=… RES=0x00 URGP=0
- * after the TCP flag words (CWR ECE URG ACK PSH RST SYN FIN). Keep the
- * capture limited to a final flag run and return only group 1, never the
- * trailer fields. */
-const TCP_FLAG_TAIL = /\b((?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR))*)(?:\s+[A-Z][A-Z0-9_]*=[^\s]+)*\s*$/i;
-/* First KEY= only. Exact-case glueKeys (uppercase-character guard). */
+ * and an OPT (...) dump after the TCP flag words. Match a standalone flag
+ * run (not a hyphenated KV value such as IN=br-ACK) and allow the OPT
+ * trailer. parseFlags strips KEY=value spans before applying this. */
+const TCP_FLAG_TAIL = /(?:^|\s)((?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR))*)(?:\s+OPT\s+\([^)]*\))?\s*$/i;
+/* Glue only at the first KEY=. Exact-case glueKeys. */
 const NETFILTER_KV_GLUE = /(IN|OUT|SRC|DST|PROTO|SPT|DPT|LEN|MAC|TYPE|CODE|TTL|TOS|PREC|DF)=/;
+const KV_SPAN = /\b[A-Z][A-Z0-9_]*=[^\s]+/g;
+
+/** Drop KEY=value spans so verdict/flag words inside interface names are ignored. */
+function stripKvSpans(message) {
+	return String(message).replace(KV_SPAN, '');
+}
 
 /** nft log prefixes are concatenated with IN= in kernel lines (e.g. fwlive-pingIN=lo). */
 function normalizeNetfilterMessage(message) {
@@ -194,7 +200,7 @@ function parseKeyValueLog(message) {
 
 /** Spec-derived action detection; m[2] is the word (group 1/3 are the boundaries). */
 function detectAction(message) {
-	const m = message.match(ACTION_RE);
+	const m = stripKvSpans(message).match(ACTION_RE);
 	return m ? m[2].toUpperCase() : 'UNKNOWN';
 }
 
@@ -310,7 +316,7 @@ function parseFlags(message, kv) {
 	if (kv.FLAGS)
 		return kv.FLAGS;
 
-	const m = message.match(TCP_FLAG_TAIL);
+	const m = stripKvSpans(message).match(TCP_FLAG_TAIL);
 	if (!m)
 		return '';
 
@@ -645,6 +651,7 @@ module.exports = {
 	parseRuleHint,
 	formatRuleLabel,
 	detectAction,
+	stripKvSpans,
 	inferActionRaw,
 	normalizeAction,
 	parseFlags,

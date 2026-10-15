@@ -527,6 +527,35 @@ function runSummaryContract() {
 		assert.equal(out.summary.scope, 'top of shown sample');
 		assert.equal(out.summary.top_drops[0].value, 'drop');
 		assert.equal(out.summary.top_drops[0].count, 2);
+
+		const ifaceVerdict = JSON.stringify({
+			log: [
+				{
+					msg: 'kernel: IN=br-drop OUT= SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=TCP SPT=12345 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0'
+				},
+				{
+					msg: 'kernel: IN=br-accept OUT= SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=TCP SPT=12345 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0'
+				}
+			]
+		});
+		const ifaceFiltered = shSpawn(null, {
+			argvFile: FILTER_SH, input: ifaceVerdict, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(ifaceFiltered.status, 0, ifaceFiltered.stderr || ifaceFiltered.stdout);
+		const ifaceSummary = JSON.parse(ifaceFiltered.stdout).summary;
+		assert.deepEqual(ifaceSummary.top_drops || [], [],
+			'IN=br-drop must not count as a drop verdict');
+		const midToken = JSON.stringify({
+			log: [{
+				msg: 'kernel: tagX=DROP IN=wan SRC=203.0.113.9 DST=192.0.2.1 PROTO=TCP'
+			}]
+		});
+		const midFiltered = shSpawn(null, {
+			argvFile: FILTER_SH, input: midToken, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(midFiltered.status, 0, midFiltered.stderr || midFiltered.stdout);
+		assert.equal(JSON.parse(midFiltered.stdout).summary.top_drops[0].value, 'drop',
+			'a verdict after a mid-token key must still count');
 		assert.equal(out.summary.top_talkers[0].value, '203.0.113.1');
 		assert.ok(Buffer.byteLength(JSON.stringify(out.summary), 'utf8') <= 1024,
 			'summary must stay within the escaped JSON byte bound');

@@ -792,6 +792,18 @@ should carry a note saying what would raise it.
 > No DOM sink, ACL or command-string boundary changed. Full surface re-audit
 > deferred: this is a bounded classifier delta, not a new trust boundary.
 
+> **2026-10-14 #1280/#1283/#1284/#1251 generated-classifier delta:** Action
+> detection and TCP flag parsing skip KEY=value spans, so `IN=br-drop` /
+> `IN=br-accept` / `IN=br-ACK` are metadata, not verdicts or flags. nf_log
+> `OPT (...)` trailers no longer drop a valid SYN run. #1251 glue remains
+> first-KEY-only (no uppercase-character guard). Core, LuCI mirror, and
+> `gen-shell-classifier.js` stay aligned; generated
+> `fwlive-is-firewall-event.sh` / `.awk` come from `./scripts/gen-all.sh`.
+> Host proof: parser sync/filter goldens plus shell-filter summary of
+> `IN=br-drop`. The generated strip uses the same word boundary as the JS
+> span, so `tagX=DROP` still counts as DROP. Logs remain stdin data; no
+> command-string sink. Proof class `host`. Full surface re-pass deferred.
+
 ### 2026-10-01: startup polling delta (#1073)
 
 Capture the bootstrap poll promise during registration rather than after metadata

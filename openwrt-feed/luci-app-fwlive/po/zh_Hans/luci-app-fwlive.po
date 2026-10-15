@@ -43,7 +43,7 @@ msgid ""
 msgstr ""
 "%s · 请求最多 %d 行原始日志 · 服务器将抓取限制为 %d · 返回 %d 条防火墙消息"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:575
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:580
 msgid "%s: %s"
 msgstr "%s: %s"
 
@@ -55,7 +55,7 @@ msgstr "0 条匹配 · 已存 %d/%d"
 msgid "Accessible (teal/orange)"
 msgstr "无障碍（青绿/橙色）"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:435
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:440
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:38
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2866
 msgid "Action"
@@ -212,7 +212,7 @@ msgstr "无法刷新日志状态；显示上次已知状态。"
 msgid "Could not refresh rule names."
 msgstr "无法刷新规则名称。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:807
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:808
 msgid "Could not refresh rule names; previously loaded names are still shown."
 msgstr "无法刷新规则名称；仍显示之前加载的名称。"
 
@@ -232,7 +232,7 @@ msgstr "无法安全跟踪日志记录的更改；日志记录未更改。"
 msgid "Could not write the WAN zone log option."
 msgstr "无法写入 WAN 区域日志选项。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2896
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2897
 msgid "Custom protocol (prefix ! to exclude). Overrides the menu when set."
 msgstr "自定义协议（! 排除）。有内容时覆盖菜单。"
 
@@ -240,7 +240,7 @@ msgstr "自定义协议（! 排除）。有内容时覆盖菜单。"
 msgid "DPort"
 msgstr "目的端口"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:439
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:444
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:46
 msgid "Destination"
 msgstr "目的地址"
@@ -249,7 +249,7 @@ msgstr "目的地址"
 msgid "Destination IP contains (! to exclude)"
 msgstr "目的 IP 包含（! 表示排除）"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:441
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:446
 msgid "Destination port"
 msgstr "目标端口"
 
@@ -345,7 +345,7 @@ msgstr ""
 msgid "Filter by %s"
 msgstr "按 %s 筛选"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:121
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:122
 msgid "Filter logs by rule (hint: %s). Ctrl+click to open firewall settings."
 msgstr "按规则筛选日志（提示：%s）。Ctrl+点击可打开防火墙设置。"
 
@@ -450,7 +450,7 @@ msgstr ""
 msgid "Installation is incomplete. Reinstall luci-app-fwlive."
 msgstr "安装不完整。请重新安装 luci-app-fwlive。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:436
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:441
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:40
 msgid "Interface"
 msgstr "接口"
@@ -476,7 +476,7 @@ msgstr "长度"
 msgid "Limit"
 msgstr "行数限制"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:855
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:856
 msgid "Live view may be incomplete — a legacy iptables table is registered"
 msgstr "实时视图可能不完整 — 已注册旧版 iptables 表"
 
@@ -606,7 +606,7 @@ msgid ""
 "Polling slowed: the router is responding slowly, so polls run less often."
 msgstr "轮询已放慢：路由器响应较慢，因此降低轮询频率。"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:437
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:442
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:44
 msgid "Proto"
 msgstr "协议"
@@ -676,7 +676,7 @@ msgstr "规则名称查询已达到安全限制。"
 msgid "SPort"
 msgstr "源端口"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:434
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:439
 msgid "Search"
 msgstr "搜索"
 
@@ -736,7 +736,7 @@ msgstr ""
 msgid "Some rule names may be missing"
 msgstr "部分规则名称可能缺失"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:438
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:443
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:45
 msgid "Source"
 msgstr "源地址"
@@ -745,7 +745,7 @@ msgstr "源地址"
 msgid "Source IP contains (! to exclude)"
 msgstr "源 IP 包含（! 表示排除）"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:440
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:445
 msgid "Source port"
 msgstr "源端口"
 

@@ -45,7 +45,7 @@ msgstr ""
 "%s · bis zu %d Rohzeilen angefordert · Server begrenzte Abruf auf %d · %d "
 "Firewall-Meldungen zurückgegeben"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:575
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:580
 msgid "%s: %s"
 msgstr "%s: %s"
 
@@ -57,7 +57,7 @@ msgstr "0 Treffer · %d/%d gespeichert"
 msgid "Accessible (teal/orange)"
 msgstr "Barrierefrei (teal/orange)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:435
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:440
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:38
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2866
 msgid "Action"
@@ -232,7 +232,7 @@ msgstr ""
 msgid "Could not refresh rule names."
 msgstr "Die Regelnamen konnten nicht aktualisiert werden."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:807
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:808
 msgid "Could not refresh rule names; previously loaded names are still shown."
 msgstr ""
 "Die Regelnamen konnten nicht aktualisiert werden; die zuvor geladenen Namen "
@@ -256,7 +256,7 @@ msgstr ""
 msgid "Could not write the WAN zone log option."
 msgstr "Die WAN-Zonen-Log-Option konnte nicht geschrieben werden."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2896
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2897
 msgid "Custom protocol (prefix ! to exclude). Overrides the menu when set."
 msgstr ""
 "Eigenes Protokoll (! zum Ausschließen). Überschreibt das Menü, wenn gesetzt."
@@ -265,7 +265,7 @@ msgstr ""
 msgid "DPort"
 msgstr "Ziel-Port"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:439
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:444
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:46
 msgid "Destination"
 msgstr "Ziel"
@@ -274,7 +274,7 @@ msgstr "Ziel"
 msgid "Destination IP contains (! to exclude)"
 msgstr "Ziel-IP enthält (! zum Ausschließen)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:441
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:446
 msgid "Destination port"
 msgstr "Ziel-Port"
 
@@ -377,7 +377,7 @@ msgstr ""
 msgid "Filter by %s"
 msgstr "Filtern nach %s"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:121
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js:122
 msgid "Filter logs by rule (hint: %s). Ctrl+click to open firewall settings."
 msgstr ""
 "Logs nach Regel filtern (Hinweis: %s). Strg+Klick öffnet die Firewall-"
@@ -491,7 +491,7 @@ msgstr ""
 msgid "Installation is incomplete. Reinstall luci-app-fwlive."
 msgstr "Installation unvollständig. Installieren Sie luci-app-fwlive neu."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:436
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:441
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:40
 msgid "Interface"
 msgstr "Schnittstelle"
@@ -517,7 +517,7 @@ msgstr "Länge"
 msgid "Limit"
 msgstr "Limit"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:855
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:856
 msgid "Live view may be incomplete — a legacy iptables table is registered"
 msgstr ""
 "Die Live-Ansicht kann unvollständig sein — eine veraltete iptables-Tabelle "
@@ -658,7 +658,7 @@ msgstr ""
 "Abfragen verlangsamt: Der Router antwortet langsam, daher wird seltener "
 "abgefragt."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:437
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:442
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:44
 msgid "Proto"
 msgstr "Protokoll"
@@ -731,7 +731,7 @@ msgstr "Beim Laden der Regelnamen wurde eine Schutzgrenze erreicht."
 msgid "SPort"
 msgstr "Quell-Port"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:434
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:439
 msgid "Search"
 msgstr "Suche"
 
@@ -796,7 +796,7 @@ msgstr ""
 msgid "Some rule names may be missing"
 msgstr "Einige Regelnamen fehlen möglicherweise"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:438
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:443
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:45
 msgid "Source"
 msgstr "Quelle"
@@ -805,7 +805,7 @@ msgstr "Quelle"
 msgid "Source IP contains (! to exclude)"
 msgstr "Quell-IP enthält (! zum Ausschließen)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:440
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:445
 msgid "Source port"
 msgstr "Quell-Port"
 
