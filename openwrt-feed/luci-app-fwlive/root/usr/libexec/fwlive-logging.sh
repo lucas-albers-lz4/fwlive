@@ -617,8 +617,13 @@ maybe_snapshot_wan_log_baseline() {
 restore_wan_log_baseline() {
 	path="$(wan_log_baseline_path)"
 	[ -f "$path" ] || return 0
-	# Empty file is a valid "option was unset" baseline.
-	baseline=$(cat "$path" 2>/dev/null || true)
+	# Empty file is a valid "option was unset" baseline. A failed read
+	# must not become that empty value: restore would then delete the
+	# WAN log option and retire the only recovery marker.
+	if ! baseline=$(cat "$path" 2>/dev/null); then
+		logger -t fwlive "WAN log baseline restore skipped: baseline read failed" 2>/dev/null || true
+		return 1
+	fi
 	find_wan_zone_section_state
 	zone=$WAN_ZONE_FOUND
 	if [ -z "$zone" ]; then

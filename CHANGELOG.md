@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Glue a log prefix only onto the first netfilter key, so `PHYSIN=`/`PHYSOUT=`/`HTYPE`/`MACSRC` no longer overwrite the interface fields (#1251).
 - Leave the action unknown unless the log line contains a verdict word; UCI rule logging and `nft log` prefixes without ACCEPT/DROP no longer display as pass (#1238).
 - Drop a truncated WAN log baseline after a failed save so a later Enable can snapshot again; uninstall no longer treats that empty marker as "logging was unset" (#1240).
+- Keep a valid WAN log baseline when restore cannot read the marker, instead of treating a failed read as originally-unset (#1278).
 - Reverse DNS for classless (RFC 2317) delegations shows the PTR hostname instead of the CNAME `in-addr.arpa` target (#1244).
 - Keep the logging toolbar on its pre-toggle busy label until status refresh returns, restore focus in the logging bar and consent panel across rebuilds, and announce the result from a persistent status region. Logging-toggle failures use a neutral reachability message unless the RPC reports ubus code 6 or -32002 (#1250, #1249, #1247).
 - Enabling logging from the empty-state consent panel moves keyboard focus to the toolbar control that replaces that button (#1249).

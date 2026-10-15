@@ -2135,3 +2135,20 @@ This documentation-only disposition claims no new security mitigation.
 coordinator callback, and view adapter. No tests were added or run for these
 comment corrections. Existing runtime behavior and previously recorded proof
 remain unchanged; this is not a new security audit or runtime verification.
+
+### 2026-10-14 — #1278 WAN baseline restore read failure
+
+**Scope.** `restore_wan_log_baseline` checks the `cat` status of the
+saved marker separately from its contents. A failed read returns
+nonzero before any UCI mutation and keeps the marker. An empty
+successful read remains the valid originally-unset baseline. #1240
+(failed write dropping a truncated marker) is unchanged.
+
+**Delta (skill step 4, shell helpers).** Quoted path; no `eval`; no
+command substitution of log or UCI content into a command string. The
+read is `baseline=$(cat "$path" 2>/dev/null)` with the assignment
+status tested. Host proof: `tests/fwlive-logging.test.sh` injects a
+failing `cat` over a nonempty baseline (`2`) with current `log=3` and
+asserts nonzero status, unchanged UCI, and a retained marker. Proof
+class `host`. Full surface re-pass deferred: local restore-read
+fail-closed, no ACL, DOM sink, or command-surface change.
