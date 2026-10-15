@@ -167,7 +167,16 @@ if [[ "\${1:-}" == -D ]]; then
 fi
 
 if [[ "\${1:-}" == -L ]]; then
-	cat "\$CHAIN"
+	n=1
+	while IFS= read -r row; do
+		[[ -n "\$row" ]] || continue
+		if [[ " \$* " == *" --line-numbers "* ]]; then
+			echo "\$n \${row#* }"
+		else
+			echo "\$row"
+		fi
+		n=\$((n + 1))
+	done <"\$CHAIN"
 	exit 0
 fi
 
@@ -192,5 +201,24 @@ mapfile -t rules2 <"$IPT_CHAIN"
 [[ ${#rules2[@]} -eq 2 ]] || die "second add mutated chain: $(cat "$IPT_CHAIN")"
 grep -q 'already present' "$WORK/ipt-add2.out" || die "second add should report already present"
 ok "#1287 iptables add is idempotent"
+
+# An existing LOG rule further down the chain must stay ahead of the new ACCEPT.
+: >"$IPT_CHAIN"
+printf '%s\n' \
+	'1 -p tcp -j DROP' \
+	'8 -p icmp --icmp-type echo-request -m comment --comment fwlive-ping -j LOG --log-prefix "fwlive-ping: "' \
+	>"$IPT_CHAIN"
+PATH="$BIN:$PATH" "$ROOT/scripts/fwlive-iptables-ping-log.sh" add >"$WORK/ipt-existing-log.out"
+mapfile -t rules3 <"$IPT_CHAIN"
+log_at=0
+acc_at=0
+i=0
+for r in "${rules3[@]}"; do
+	i=$((i + 1))
+	[[ "$r" == *"-j LOG"* ]] && log_at=$i
+	[[ "$r" == *"-j ACCEPT"* ]] && acc_at=$i
+done
+[[ "$log_at" -gt 0 && "$acc_at" -gt "$log_at" ]] || die "ACCEPT landed before existing LOG: $(cat "$IPT_CHAIN")"
+ok "#1287 ACCEPT is inserted after an existing LOG rule"
 
 echo "fwlive-ping-log-helpers tests passed"
