@@ -54,14 +54,16 @@ command -v iptables >/dev/null 2>&1 || { echo "iptables not found" >&2; exit 1; 
 if iptables -C INPUT -p icmp --icmp-type echo-request -j LOG --log-prefix "${LOG_PREFIX}" 2>/dev/null; then
 	echo "fwlive-ping LOG rule already present in INPUT"
 else
-	iptables -I INPUT -p icmp --icmp-type echo-request -m comment --comment fwlive-ping \\
+	# Position 1: both -I inserts default to 1, so LOG must be inserted
+	# after ACCEPT (or with an explicit index) to stay ahead of ACCEPT.
+	iptables -I INPUT 1 -p icmp --icmp-type echo-request -m comment --comment fwlive-ping \\
 		-j LOG --log-prefix "${LOG_PREFIX}"
 	echo "added: INPUT icmp LOG (${LOG_PREFIX})"
 fi
 if iptables -C INPUT -p icmp --icmp-type echo-request -j ACCEPT 2>/dev/null; then
 	echo "fwlive-ping ACCEPT rule already present"
 else
-	iptables -I INPUT -p icmp --icmp-type echo-request -j ACCEPT
+	iptables -I INPUT 2 -p icmp --icmp-type echo-request -j ACCEPT
 	echo "added: INPUT icmp ACCEPT"
 fi
 EOS
