@@ -1411,15 +1411,18 @@ async function testStorageFailure(page) {
 
 async function testResolverError(page) {
 	try {
-		await page.evaluate(async () => {
+		const state = await page.evaluate(async () => {
 			const view = window.fwliveView;
 			view.showHostnames = true;
 			view.hostnameCache.clear();
 			view.hostnameFailed.clear();
 			view.resolveLoadShed = false;
 			view.resolveShedUntil = 0;
+			view.resolveErrorUntil = 0;
 			let reply = { names: {}, error: 'jshn_lib_missing' };
+			let resolveCalls = 0;
 			window.__fwlivePrevResolveMock = window.setFwliveResolveMock(function() {
+				resolveCalls++;
 				return reply;
 			});
 			await view.resolveHostnamesForEntries([
@@ -1427,18 +1430,47 @@ async function testResolverError(page) {
 			]);
 			if (view.hostnameFailed.size !== 0)
 				throw new Error('jshn_lib_missing must not enter the negative hostname cache');
+			if (resolveCalls !== 1)
+				throw new Error('string error reply must invoke resolve once, got ' + resolveCalls);
+			/* Error replies arm resolveErrorUntil; clear it so the numeric case runs. */
+			view.resolveErrorUntil = 0;
 			reply = 5;
 			await view.resolveHostnamesForEntries([
 				{ src: '2001:db8::1', dst: '2001:db8::2' }
 			]);
+			if (resolveCalls !== 2)
+				throw new Error('numeric resolver-error reply must invoke resolve RPC, got ' + resolveCalls);
+			if (view.hostnameFailed.size !== 0)
+				throw new Error('numeric resolver error must not enter the negative hostname cache');
+			const errorUntil = view.resolveErrorUntil;
+			if (!(errorUntil > view.nowMs()))
+				throw new Error('numeric malformed reply must arm resolveErrorUntil');
+			/* Mutation guard: treating a numeric reply as a names map would cache failures. */
+			const orig = view.resolveNamesFromReply;
+			view.resolveNamesFromReply = function(res) {
+				if (typeof res === 'number') return { '2001:db8::1': 'poison.example' };
+				return orig.call(this, res);
+			};
+			view.resolveErrorUntil = 0;
+			reply = 7;
+			await view.resolveHostnamesForEntries([
+				{ src: '2001:db8::1', dst: '2001:db8::2' }
+			]);
+			view.resolveNamesFromReply = orig;
+			if (resolveCalls !== 3)
+				throw new Error('mutation guard must invoke resolve RPC, got ' + resolveCalls);
+			if (view.hostnameFailed.size === 0)
+				throw new Error('mutation guard: numeric reply must not be treated as a names map');
+			view.hostnameFailed.clear();
+			return {
+				failed: view.hostnameFailed.size,
+				shed: view.resolveLoadShed,
+				inFlight: view.resolveInFlight,
+				resolveCalls
+			};
 		});
-		const state = await page.evaluate(() => ({
-			failed: window.fwliveView.hostnameFailed.size,
-			shed: window.fwliveView.resolveLoadShed,
-			inFlight: window.fwliveView.resolveInFlight
-		}));
-		if (state.failed !== 0 || state.shed || state.inFlight)
-			throw new Error(`resolver error mutated hostname state: ${JSON.stringify(state)}`);
+		if (state.failed !== 0 || state.shed || state.inFlight || state.resolveCalls !== 3)
+			throw new Error(`resolver error hostname state: ${JSON.stringify(state)}`);
 		console.log('OK: string and numeric resolver-error reply paths');
 	} finally {
 		await page.evaluate(() => {
