@@ -729,7 +729,7 @@ sdk_matrix_copy_out() {
 			if [ -d /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/fwlive ]; then
 				cp -a /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/fwlive \"\$dest/\"
 			else
-				cp -a /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/. \"\$dest/\" 2>/dev/null || true
+				cp -a /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/. \"\$dest/\"
 			fi
 			chmod -R a+rX /out
 			ls -la \"\$dest\"/fwlive/luci-app-fwlive* 2>/dev/null || ls -la \"\$dest\"/luci-app-fwlive* 2>/dev/null || true

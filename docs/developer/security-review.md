@@ -570,7 +570,9 @@ next-tag pin checklist remains in force.
 > failure, and asserts no `== OK:`. `sdk_matrix_clear_out_packages`
 > returns nonzero when `rm -f` fails, and `sdk_matrix_copy_out` returns
 > before the existence check when that clear or the docker copy-out fails,
-> so a leftover package cannot be reported as this build. Host Packages indexing uses
+> so a leftover package cannot be reported as this build. The fallback
+> `cp` no longer uses `|| true`, so a failed copy fails the container
+> instead of leaving a partial package for the existence check. Host Packages indexing uses
 > `command -v mkhash` and refuses `/builder/...` SDK paths;
 > `feed_publish_probe_mkhash` remains isolated for `SDK_MATRIX_*` leaks but
 > is not the host indexer. Skill step 5 re-check: workflows keep SHA-pinned
