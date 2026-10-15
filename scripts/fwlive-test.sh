@@ -245,6 +245,8 @@ bash tests/validate-matrix-artifact.test.sh
 bash tests/qemu-smoke-log-pipeline.test.sh
 bash tests/qemu-reset-wan-logging.test.sh
 bash tests/qemu-security-gaps-smoke.test.sh
+echo "== fwlive ping-log lab helpers (#1286 #1287) ==" >&2
+bash tests/fwlive-ping-log-helpers.test.sh
 echo "== UCI option-scoped rollback source contract (#1199) ==" >&2
 bash tests/qemu-uci-stage-revert-smoke.test.sh
 

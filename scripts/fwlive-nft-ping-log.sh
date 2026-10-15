@@ -69,13 +69,13 @@ EOS
 remove_rules() {
 	run_guest "$(cat <<'EOS'
 set -e
-for pat in 'fwlive-ping ' 'fwlive-ping6 '; do
-	while nft -a list chain inet fw4 input 2>/dev/null | grep "prefix \"${pat%\ }\"" | grep -o 'handle [0-9]*' | awk '{print $2}' | head -1 | grep -q .; do
-		h=$(nft -a list chain inet fw4 input | grep "prefix \"${pat%\ }\"" | grep -o 'handle [0-9]*' | awk '{print $2}' | head -1)
-		nft delete rule inet fw4 input handle "$h"
-		echo "deleted handle $h (${pat})"
+	for pat in 'fwlive-ping ' 'fwlive-ping6 '; do
+		while nft -a list chain inet fw4 input 2>/dev/null | grep "prefix \"${pat}\"" | grep -o 'handle [0-9]*' | awk '{print $2}' | head -1 | grep -q .; do
+			h=$(nft -a list chain inet fw4 input | grep "prefix \"${pat}\"" | grep -o 'handle [0-9]*' | awk '{print $2}' | head -1)
+			nft delete rule inet fw4 input handle "$h"
+			echo "deleted handle $h (${pat})"
+		done
 	done
-done
 EOS
 )"
 }

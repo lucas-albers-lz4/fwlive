@@ -759,6 +759,17 @@ should carry a note saying what would raise it.
 > dated delta above, `tests/qemu-highrate-controls.test.py`, and
 > `lab/forwarding-slo/2026-10-02-highrate-controls/`. Post-filing review is pending.
 
+> **2026-10-14 #1286/#1287 lab ping-helper delta:** `fwlive-nft-ping-log.sh`
+> remove matches the installed `log prefix "fwlive-ping "` /
+> `"fwlive-ping6 "` strings (trailing space included).
+> `fwlive-iptables-ping-log.sh` inserts LOG at INPUT position 1 and ACCEPT
+> at 2 so LOG stays ahead of the terminating ACCEPT. Host proof:
+> `tests/fwlive-ping-log-helpers.test.sh` drives the production add/remove
+> guest bodies through stubbed `nft`/`iptables` (add-shaped listing, unrelated
+> handle control, resulting INPUT order). Skill step 4: quoted prefixes, no
+> `eval`, no log content in a command string. Proof class `host`. Lab-only
+> helpers; no ACL, DOM sink, or shipped rpcd change. Full re-pass deferred.
+
 > **#1066 logging lock delta:** existing non-regular lock paths are rejected before
 > the first append; absent locks are still created and type/symlink checks precede
 > fd 9 acquisition. `tests/fwlive-logging-lock.test.sh` exercises missing/regular
