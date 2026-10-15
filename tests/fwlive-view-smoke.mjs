@@ -1524,6 +1524,63 @@ async function testRulesTruncatedDegraded(page) {
 	}
 }
 
+async function testConsentEnableMovesFocus(browser) {
+	const page = await browser.newPage();
+	const pageErrors = [];
+	page.on('pageerror', (e) => pageErrors.push(e.message));
+	try {
+		await waitForHarness(page);
+		await page.evaluate(() => {
+			const view = window.fwliveView;
+			view.entries = [];
+			view.renderRows(true);
+		});
+		const enable = page.locator('#fwlive-consent [data-fwlive-logging-action="enable"]');
+		await enable.waitFor({ state: 'visible', timeout: 10000 });
+		await enable.focus();
+		await page.evaluate(() => {
+			const live = document.querySelector('#fwlive-logging-bar [role="status"]');
+			if (!live) throw new Error('logging bar has no status region before toggle');
+			live.dataset.fwliveLiveMark = 'kept';
+		});
+		await enable.click();
+		await page.waitForFunction(() => {
+			const el = document.activeElement;
+			const bar = document.getElementById('fwlive-logging-bar');
+			return !!(
+				el &&
+				bar &&
+				bar.contains(el) &&
+				el.getAttribute('data-fwlive-logging-action') === 'disable'
+			);
+		}, { timeout: 10000 });
+		const live = await page.evaluate(() => {
+			const node = document.querySelector('#fwlive-logging-bar [role="status"]');
+			const empty = document.getElementById('fwlive-empty');
+			if (!node) return null;
+			return {
+				role: node.getAttribute('role'),
+				text: node.textContent || '',
+				inEmpty: !!(empty && empty.contains(node)),
+				marked: node.dataset.fwliveLiveMark || ''
+			};
+		});
+		if (!live || live.role !== 'status')
+			throw new Error('status live region missing after consent Enable');
+		if (live.inEmpty)
+			throw new Error('status live region sits inside the cleared empty subtree');
+		if (live.marked !== 'kept')
+			throw new Error('status live region was replaced instead of reused');
+		if (!/WAN drop\/reject logging is on/.test(live.text))
+			throw new Error('status region did not announce enable: ' + live.text);
+		if (pageErrors.length)
+			throw new Error('pageerror during consent focus: ' + pageErrors.join('; '));
+		console.log('OK: consent Enable moves focus to toolbar Disable and keeps the status region');
+	} finally {
+		await page.close().catch(() => {});
+	}
+}
+
 async function runSmoke(browser) {
 	const pageErrors = [];
 	const page = await browser.newPage();
@@ -1534,6 +1591,7 @@ async function runSmoke(browser) {
 
 	try {
 		await waitForHarness(page);
+		await testConsentEnableMovesFocus(browser);
 		await testInitialRender(page);
 		await testFilterControlAccessibleNames(page);
 		await testLocalizedFilterControlAccessibleNames(page);

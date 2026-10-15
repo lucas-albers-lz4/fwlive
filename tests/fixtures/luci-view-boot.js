@@ -91,7 +91,7 @@
 			return {
 				wan_zone: 'wan',
 				wan_zone_candidates: ['wan'],
-				wan_log: false,
+				wan_log: !!window.fwliveMockWanLog,
 				wan_log_limit: 10,
 				nf_log_ipv4: true,
 				nf_log_ipv6: true,
@@ -102,9 +102,11 @@
 			};
 		},
 		'fwlive.enable_wan_logging': function() {
+			window.fwliveMockWanLog = true;
 			return { ok: true, changed: true, wan_zone: 'wan', wan_zone_candidates: ['wan'] };
 		},
 		'fwlive.disable_wan_logging': function() {
+			window.fwliveMockWanLog = false;
 			return { ok: true, changed: true, wan_zone: 'wan', wan_zone_candidates: ['wan'] };
 		}
 	};
