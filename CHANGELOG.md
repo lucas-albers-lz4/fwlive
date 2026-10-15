@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enabling logging from the empty-state consent panel moves keyboard focus to the toolbar control that replaces that button (#1249).
 - Resolve hostnames after each poll without holding the poll coordinator in-flight, so Auto cadence is not blocked by reverse DNS (#1239).
 - Re-probe row tint with the solid fallback disabled after a palette change, then re-apply it if paint is still broken (#1252).
+- Hold the paused table through queued live-poll frames, hostname paints, scheduler rAF callbacks, and Resume-then-Pause before the RPC returns (#1279).
 - Simple view no longer paints long flows over Proto and Rule (#1248).
 - Match nft ping-helper removal to the installed `fwlive-ping ` / `fwlive-ping6 ` log prefixes, and keep the iptables ping LOG rule ahead of ACCEPT (#1286, #1287).
 

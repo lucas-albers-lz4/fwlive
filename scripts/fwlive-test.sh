@@ -217,6 +217,8 @@ echo "== fwlive harness fidelity (#837 #836) =="
 "$NODE" tests/fwlive-harness-fidelity.test.js
 echo "== fwlive view Layer 2 backoff =="
 "$NODE" tests/fwlive-view-layer2-backoff.test.js
+echo "== fwlive view pause queued paint (#1279) ==" >&2
+"$NODE" tests/fwlive-view-pause-queued-paint.test.js
 echo "== fwlive view fetch budget (#347) ==" >&2
 "$NODE" tests/fwlive-view-fetch-budget.test.js
 "$NODE" tests/fwlive-layer2-performance-rpc.test.mjs

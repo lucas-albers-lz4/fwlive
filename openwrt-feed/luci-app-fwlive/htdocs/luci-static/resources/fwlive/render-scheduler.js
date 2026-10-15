@@ -12,6 +12,7 @@ function createScheduler(options) {
 	if (!Number.isFinite(capacity) || capacity <= 0)
 		throw new TypeError('capacity must be a positive number');
 	const now = options.now || Date.now;
+	const isPaused = options.isPaused;
 
 	let pending = null;
 	let nextForce = null;
@@ -30,6 +31,7 @@ function createScheduler(options) {
 		const epoch = getEpoch();
 		if (typeof requestFrame !== 'function') {
 			nextForce = null;
+			if (typeof isPaused === 'function' && isPaused()) return;
 			render(!!force);
 			return;
 		}
@@ -49,6 +51,7 @@ function createScheduler(options) {
 			pending = null;
 			frameId = null;
 			if (disposed || request.epoch !== getEpoch()) return;
+			if (typeof isPaused === 'function' && isPaused()) return;
 
 			/* Drop only the reservation this frame used. A newer forceNextRender
 			 * after an unforced schedule must survive this callback. */

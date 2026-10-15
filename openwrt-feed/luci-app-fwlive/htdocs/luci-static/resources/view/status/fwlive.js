@@ -1397,6 +1397,7 @@ return view.extend({
 		if (this.renderScheduler) return this.renderScheduler;
 		this.renderScheduler = renderScheduler.create({
 			getEpoch: () => this.currentPollEpoch(),
+			isPaused: () => !!this.tablePaused,
 			render: (force) => this.renderRows(force),
 			renderCost: renderPolicy.renderCost,
 			now: () => this.nowMs(),
@@ -1920,10 +1921,14 @@ return view.extend({
 			this.requestPoll()
 				.then(() => {
 					/* A hide/show bump abandons this epoch; the catch-up poll paints. */
-					if (epoch === this.currentPollEpoch()) {
-						this.resolvePaintPending = false;
-						this.renderRows(true);
+					if (epoch !== this.currentPollEpoch()) return;
+					/* Pause can be pressed again before this RPC returns. */
+					if (this.tablePaused) {
+						this.updateStatus();
+						return;
 					}
+					this.resolvePaintPending = false;
+					this.renderRows(true);
 				})
 				.catch(function () {});
 		}
