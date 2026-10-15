@@ -87,7 +87,7 @@ make defconfig
 make package/luci-app-fwlive/compile V=s
 ```
 
-The `.ipk` appears under `bin/packages/.../luci/luci-app-fwlive_*.ipk` (exact path varies by arch).
+The `.ipk` appears under `bin/packages/<arch>/fwlive/luci-app-fwlive_*.ipk` (exact arch segment varies). Package output follows the registered feed name (`fwlive`), not the `luci` feed directory.
 
 ### 4a. Compile with Docker (optional; same result as §4)
 
@@ -104,14 +104,14 @@ The command sets up the feeds, compiles `luci-app-fwlive`, and copies the packag
 #### Typical LAN router
 
 ```sh
-scp bin/packages/*/luci/luci-app-fwlive_*.ipk root@192.168.1.1:/tmp/
+scp bin/packages/*/fwlive/luci-app-fwlive_*.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1 'opkg install /tmp/luci-app-fwlive_*.ipk'
 ```
 
 #### Linux: QEMU user networking (hostfwd)
 
 ```sh
-./scripts/agent-build-and-deploy.sh --legacy-hostfwd --ipk bin/packages/*/luci/luci-app-fwlive_*.ipk
+./scripts/agent-build-and-deploy.sh --legacy-hostfwd --ipk bin/packages/*/fwlive/luci-app-fwlive_*.ipk
 ```
 
 LuCI: **`http://127.0.0.1:8080`**, SSH: **`ssh -p 2222 root@127.0.0.1`**.
@@ -121,7 +121,7 @@ LuCI: **`http://127.0.0.1:8080`**, SSH: **`ssh -p 2222 root@127.0.0.1`**.
 Use the guest's real IP and port 22 for SSH/SCP:
 
 ```sh
-scp -o StrictHostKeyChecking=no bin/packages/*/luci/luci-app-fwlive_*.ipk root@<guest-ip>:/tmp/luci-app-fwlive.ipk
+scp -o StrictHostKeyChecking=no bin/packages/*/fwlive/luci-app-fwlive_*.ipk root@<guest-ip>:/tmp/luci-app-fwlive.ipk
 ssh -o StrictHostKeyChecking=no root@<guest-ip> 'opkg install /tmp/luci-app-fwlive.ipk'
 ```
 
@@ -129,7 +129,7 @@ Or use the helper:
 
 ```sh
 export QEMU_MAC_LAN=52:54:00:44:55:66
-./scripts/agent-build-and-deploy.sh --ipk bin/packages/*/luci/luci-app-fwlive_*.ipk
+./scripts/agent-build-and-deploy.sh --ipk bin/packages/*/fwlive/luci-app-fwlive_*.ipk
 ```
 
 ## 6. Post-deploy: run the checks

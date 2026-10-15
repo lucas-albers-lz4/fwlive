@@ -64,11 +64,15 @@ user or maintainer workflow.
 
 After editing classification: update **both** `core/fwlive-log.js` and the LuCI `CLASSIFY_SPEC` mirror, run `./scripts/gen-all.sh`, and commit the regenerated shell classifier. A drifted LuCI wrapper fails the gate — it is not auto-fixed by `gen-all.sh`. SDK package builds do not run Node.
 
-The `Array.includes` / `Object.values` check bans those two API names in
-shipped `log.js`; it is not an ES5 syntax floor. Shipped LuCI JS already
-requires ES2017 because of async/await and other modern syntax. Remove or
-relabel the check only after the wrapper contract and supported browser floor
-are revalidated.
+Shipped LuCI JavaScript (view and `luci-static/resources/fwlive/**`) is linted
+with ESLint **`ecmaVersion: 2020`** — treat that as the enforced syntax ceiling
+for new code in those paths. Syntax above ES2020 fails the required lint run in
+`scripts/fwlive-test.sh`.
+
+The `Array.includes` / `Object.values` check in `gen-luci-wrapper.js` bans those
+two API names in shipped `log.js` only; it is a wrapper contract, not the syntax
+floor. Remove or relabel it only after the wrapper contract and supported browser
+floor are revalidated.
 
 ## Feed / package changes
 
