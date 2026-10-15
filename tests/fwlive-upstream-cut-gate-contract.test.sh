@@ -265,6 +265,52 @@ d=$(m r-renamed-header); sed -i 's/| Path | Role |/| Path | Purpose |/' "$d/READ
 d=$(m r-no-delim);       printf '| Path | Role |\n| `root/x.sh` | Helper |\n' > "$d/README.md"; check_diag R-no-delim 1 'invalid delimiter row' G_readme "$d"
 d=$(m r-2nd-table);      printf '\n| Path | Role |\n| --- | --- |\n| `root/ghost.sh` | Ghost |\n' >> "$d/README.md"; check R-2nd-table 1 G_readme "$d"
 d=$(m r-2nd-ok);         printf '\n| Path | Role |\n| --- | --- |\n| `root/x.sh` | Helper |\n' >> "$d/README.md"; check R-2nd-ok 0 G_readme "$d"
+# Fence inventory: pinned from tests/fwlive-upstream-cut.test.sh:306-363 (#1228).
+d=$(m r-fence-closed)
+cat > "$d/README.md" <<'EOF'
+| Path | Role |
+| --- | --- |
+| `root/x.sh` | Helper |
+
+```text
+| Path | Role |
+| --- | --- |
+| `root/x.sh` | example |
+```
+
+| Path | Role |
+| --- | --- |
+| `root/ghost.sh` | Ghost |
+EOF
+check_diag R-fence-closed 1 'names a path the cut does not ship' G_readme "$d"
+for fence_case in unterminated mismatched suffix; do
+	case "$fence_case" in
+		unterminated) fence_open='```text'; fence_close='' ;;
+		mismatched)   fence_open='````text'; fence_close='```' ;;
+		suffix)       fence_open='```text'; fence_close='```not-a-closer' ;;
+	esac
+	d=$(m "r-fence-$fence_case")
+	printf '| Path | Role |\n| --- | --- |\n| `root/x.sh` | Helper |\n\n%s\n| Path | Role |\n| --- | --- |\n| `root/ghost.sh` | Ghost |\n%s\n' \
+		"$fence_open" "$fence_close" > "$d/README.md"
+	check_diag "R-fence-$fence_case" 1 'unterminated code fence' G_readme "$d"
+done
+d=$(m r-fence-tilde-ok)
+cat > "$d/README.md" <<'EOF'
+| Path | Role |
+| --- | --- |
+| `root/x.sh` | Helper |
+
+~~~text`info
+| Path | Role |
+| --- | --- |
+| `root/ghost.sh` | example |
+~~~
+EOF
+check R-fence-tilde-ok 0 G_readme "$d"
+d=$(m r-fence-invalid-backtick)
+printf '| Path | Role |\n| --- | --- |\n| `root/x.sh` | Helper |\n\n```text`x\n| Path | Role |\n| --- | --- |\n| `root/ghost.sh` | Ghost |\n```\n' \
+	> "$d/README.md"
+check_diag R-fence-invalid-backtick 1 'invalid backtick code fence opener' G_readme "$d"
 d=$(m r-abs);            printf '| `/etc/passwd` | X |\n' >> "$d/README.md";                    check_diag R-abs 1 'absolute path outside the documented runtime allowlist' G_readme "$d"
 d=$(m r-traverse);       printf '| `../secret` | X |\n' >> "$d/README.md";                      check_diag R-traverse 1 'resolves outside the cut artifact' G_readme "$d"
 
@@ -281,6 +327,23 @@ d=$(m a-tracker-noncarrier); printf 'var x = "#123456"; // ref\n' > "$d/$JS/log.
 d=$(m a-hex-palette)
 css_carrier '#333333' "$d"
 check A-hex-palette 0 G_art "$d"
+# Non-canonical css.js carrier shapes fail closed on tracker-like hex in styleText (#1228).
+d=$(m a-carrier-blank-tracker)
+cat > "$d/$JS/css.js" <<'EOF'
+return baseclass.extend({
+
+	styleText: "\n.fwlive-map {\n\tcolor: #333333;\n}\n"
+});
+EOF
+check_diag A-carrier-blank-tracker 1 'numeric tracker reference #333333' G_art "$d"
+d=$(m a-carrier-extra-tracker)
+cat > "$d/$JS/css.js" <<'EOF'
+return baseclass.extend({
+	styleText: "\n.fwlive-map {\n\tcolor: #333333;\n}\n",
+	probe: true
+});
+EOF
+check_diag A-carrier-extra-tracker 1 'numeric tracker reference #333333' G_art "$d"
 d=$(m a-hex-tint); printf "var T_PROBE_HEX = '#333333';\n" >> "$d/$JS/tint.js"; check A-hex-tint 0 G_art "$d"
 d=$(m a-hex-3)
 css_carrier '#123' "$d"
