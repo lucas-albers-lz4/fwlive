@@ -256,4 +256,39 @@ for (const force of [false, true]) {
 	assert.deepEqual(renders, [false, true], 'fallback also respects disposal');
 }
 
+{
+	let paused = false;
+	const h = makeFrames();
+	const scheduler = makeScheduler({
+		isPaused: () => paused,
+		requestFrame: (fn) => {
+			h.frames.push(fn);
+			return h.frames.length;
+		},
+		render: (force) => h.renders.push(force)
+	});
+	scheduler.schedule(true);
+	paused = true;
+	h.frames.shift()();
+	assert.deepEqual(h.renders, [], 'paused rAF callback must not paint');
+	paused = false;
+	scheduler.schedule(false);
+	h.frames.shift()();
+	assert.deepEqual(h.renders, [false], 'unpaused frame still paints');
+}
+
+{
+	let paused = true;
+	const renders = [];
+	const s = makeScheduler({
+		isPaused: () => paused,
+		render: (force) => renders.push(force)
+	});
+	s.schedule(true);
+	assert.deepEqual(renders, [], 'paused synchronous fallback must not paint');
+	paused = false;
+	s.schedule(true);
+	assert.deepEqual(renders, [true], 'unpaused fallback still paints');
+}
+
 console.log('fwlive render-scheduler tests passed');
