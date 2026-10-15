@@ -19,6 +19,12 @@ still held at those calls; Part B's serial-outcome oracle is not a lost-update
 proof. The TLA `Commit` model gap remains #1265. No ACL or command-surface
 change.
 
+**2026-10-14 #1265 scoped delta.** `WanLogLock.tla` covers mutex ownership
+and bounded flock retry. `Commit` writes `log' = Target[p]` and never
+reads `log`; TLC-green is not a read-modify-write lost-update proof. The
+module header and `formal/wan-log-lock/README-wan-log-lock.md` now state
+that limit. No TLA logic, ACL, or command-surface change.
+
 **2026-10-14 #1244 / #1253 scoped delta.** `parse_nslookup_name` skips
 `canonical name =` CNAME lines and takes the first PTR `name =` answer; a
 CNAME-only response yields no hostname. UCI rules-map names already match

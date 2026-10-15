@@ -31,7 +31,7 @@ or production dependency.
 | `WaitTick(p)` | Nonblocking attempt finds contention, then one `sleep 1` interval elapses. `remaining` models the finite retry budget. |
 | `Timeout(p)` | Contention remains after the retry budget; caller closes fd 9 and reports `lock_failed`. |
 | `AcquireLock(p)` | `flock -n 9` succeeds while no caller owns the lock. |
-| `Commit(p)` | Re-read, stage, commit, and release while holding fd 9. This step also abstracts revision bumping before the UCI write. |
+| `Commit(p)` | Stage, write `Target[p]`, and release while holding fd 9. This step also abstracts revision bumping before the UCI write. It models mutex-serialized mutation, not a re-read of `log`; read-modify-write lost-update properties are out of scope (#1265). |
 
 TLC 2.19 checks the model with three callers and a five-interval budget.
 `TypeOK`, `MutualExclusion`, `LockOwnership`, `ConfigWhole`, and
