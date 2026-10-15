@@ -43,7 +43,7 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 |--------|---------|
 | **Action** | pass, drop, reject, etc. — color-coded |
 | **Time** | Compact `HH:MM:SS` (today) |
-| **Interface** | Ingress interface (badge) |
+| **Interface** | Interface badge: **IN** when present, otherwise **OUT** (Detail view shows separate IN/OUT and direction) |
 | **Flow** | `source:port → destination:port` — click parts to filter |
 | **Proto** | TCP, UDP, ICMP, … |
 | **Rule** | Resolved fw4/UCI name when possible |

@@ -153,7 +153,18 @@ opkg update && opkg install luci-app-fwlive
 apk update && apk upgrade luci-app-fwlive
 ```
 
-If you installed from a GitHub Release `.apk` file, that pins the package identity in `world`; run `apk upgrade --available` to reset the pin and upgrade from the feed.
+If you installed from a **GitHub Release `.apk` file**, that install pins the
+package identity in `world`. When `apk upgrade luci-app-fwlive` does not move you
+to the feed version, reset versioned pins with:
+
+```sh
+apk update && apk upgrade --available
+```
+
+**Warning:** `apk upgrade --available` resets **all** installed packages to the
+versions available from your configured repositories. It can replace or downgrade
+packages system-wide — not only `luci-app-fwlive`. Use it when you need to clear
+a release-file pin, not as a routine single-package upgrade.
 
 After upgrade, refresh the LuCI page in your browser (may need a cache-busting hard refresh: Ctrl+Shift+R / Cmd+Shift+R).
 

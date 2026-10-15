@@ -353,6 +353,9 @@ bash tests/readme-feed-install-snippet.test.sh
 echo "== fwlive agent-build-and-deploy ipk-only (#434) ==" >&2
 bash tests/agent-build-and-deploy-ipk.test.sh
 
+echo "== fwlive minimal-build-sdk deploy glob (#1289) ==" >&2
+bash tests/minimal-build-sdk-deploy-glob.test.sh
+
 echo "== fwlive fetch-pin gate ==" >&2
 bash tests/fetch-pin-gate.test.sh
 
