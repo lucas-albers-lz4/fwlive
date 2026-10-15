@@ -128,7 +128,7 @@ function emitAwkProgram() {
 
 	return [
 		'function normalize(s, keys, n, i, k, best, pos) {',
-		'\t# Glue only at the first KEY=. Exact-case glueKeys (uppercase guard).',
+		'\t# Glue only at the first KEY=. Exact-case glueKeys.',
 		'\tn = split("' + glue + '", keys, " ")',
 		'\tbest = 0',
 		'\tfor (i = 1; i <= n; i++) {',
@@ -160,6 +160,7 @@ function emitAwkProgram() {
 		'\treturn lc ~ "^(' + prefixes + ')(' + prefixBoundary + '|$)"',
 		'}',
 		'function detect_action(s, words, n, i, w, wl, lc, start, pos, before, afterc, best, bestpos) {',
+		'\tgsub(/[A-Z][A-Z0-9_]*=[^[:space:]]+/, "", s)',
 		'\tn = split("' + actions + '", words, " ")',
 		'\tlc = tolower(s)',
 		'\tbest = ""',

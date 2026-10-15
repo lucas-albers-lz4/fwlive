@@ -183,8 +183,9 @@ return baseclass.extend({
 	validateClassifySpec: validateClassifySpec,
 
 	TCP_FLAG_TAIL:
-		/\b((?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR))*)(?:\s+[A-Z][A-Z0-9_]*=[^\s]+)*\s*$/i,
+		/(?:^|\s)((?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR)(?:\s+(?:SYN|ACK|FIN|RST|PSH|URG|ECE|CWR))*)(?:\s+OPT\s+\([^)]*\))?\s*$/i,
 	NETFILTER_KV_GLUE: NETFILTER_KV_GLUE,
+	KV_SPAN: /\b[A-Z][A-Z0-9_]*=[^\s]+/g,
 
 	kvHas: function (msg, key) {
 		if (typeof key === 'string' && Object.prototype.hasOwnProperty.call(KV_HAS_PATTERNS, key)) {
@@ -226,8 +227,12 @@ return baseclass.extend({
 		return out;
 	},
 
+	stripKvSpans: function (message) {
+		return String(message).replace(this.KV_SPAN, '');
+	},
+
 	detectAction: function (message) {
-		const m = message.match(this.ACTION_RE);
+		const m = this.stripKvSpans(message).match(this.ACTION_RE);
 		return m ? m[2].toUpperCase() : 'UNKNOWN';
 	},
 
@@ -335,7 +340,7 @@ return baseclass.extend({
 		if (kv.TCPFLAGS) return kv.TCPFLAGS;
 		if (kv.FLAGS) return kv.FLAGS;
 
-		const m = message.match(this.TCP_FLAG_TAIL);
+		const m = this.stripKvSpans(message).match(this.TCP_FLAG_TAIL);
 		if (!m) return '';
 
 		return m[1].trim().toUpperCase().replace(/\s+/g, ',');

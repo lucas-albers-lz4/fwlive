@@ -109,6 +109,30 @@ function run() {
 	const kernelRow = core.normalizeEntry(kernelOnly);
 	assert.equal(kernelRow.action, 'unknown');
 
+	const optRow = core.normalizeEntry({
+		time: 1717675747,
+		msg: 'kernel: IN=wan OUT= SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=TCP SPT=12345 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0 OPT (020405B40103030801010402)'
+	});
+	assert.equal(optRow.flags, 'SYN');
+	const brAck = core.normalizeEntry({
+		time: 1717675747,
+		msg: 'kernel: IN=br-ACK OUT=wan SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=UDP SPT=12345 DPT=53 LEN=40'
+	});
+	assert.equal(brAck.proto, 'UDP');
+	assert.equal(brAck.flags, '');
+	const brDrop = core.normalizeEntry({
+		time: 1717675747,
+		msg: 'kernel: IN=br-drop OUT= SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=TCP SPT=12345 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0'
+	});
+	assert.equal(brDrop.action, 'unknown');
+	assert.equal(brDrop.action_raw, 'UNKNOWN');
+	const brAccept = core.normalizeEntry({
+		time: 1717675747,
+		msg: 'kernel: IN=br-accept OUT= SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=TCP SPT=12345 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0'
+	});
+	assert.equal(brAccept.action, 'unknown');
+	assert.equal(brAccept.action_raw, 'UNKNOWN');
+
 	assert.equal(core.parseFlags('SRC=1.2.3.4 ECE', {}), 'ECE');
 	assert.equal(core.parseFlags('SRC=1.2.3.4 CWR', {}), 'CWR');
 	assert.equal(core.parseFlags('SRC=1.2.3.4 ECE CWR', {}), 'ECE,CWR');

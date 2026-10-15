@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep the first `SRC`/`DST`/`PROTO`/`LEN` when the kernel repeats those keys on ICMP errors and UDP, so the table matches the outer packet (#1237).
 - Glue a log prefix only onto the first netfilter key, so `PHYSIN=`/`PHYSOUT=`/`HTYPE`/`MACSRC` no longer overwrite the interface fields (#1251).
 - Leave the action unknown unless the log line contains a verdict word; UCI rule logging and `nft log` prefixes without ACCEPT/DROP no longer display as pass (#1238).
+- Ignore verdict words and TCP flag tokens inside KEY=value fields, and keep SYN when nf_log appends an OPT trailer (#1280, #1283, #1284).
 - Drop a truncated WAN log baseline after a failed save so a later Enable can snapshot again; uninstall no longer treats that empty marker as "logging was unset" (#1240).
 - Reverse DNS for classless (RFC 2317) delegations shows the PTR hostname instead of the CNAME `in-addr.arpa` target (#1244).
 - Keep the logging toolbar on its pre-toggle busy label until status refresh returns, restore focus in the logging bar and consent panel across rebuilds, and announce the result from a persistent status region. Logging-toggle failures use a neutral reachability message unless the RPC reports ubus code 6 or -32002 (#1250, #1249, #1247).

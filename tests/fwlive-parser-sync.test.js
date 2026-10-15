@@ -105,6 +105,38 @@ const medialDeny = {
 assert.strictEqual(core.normalizeEntry(medialDeny).action, 'unknown');
 assert.strictEqual(luci.normalizeEntry(medialDeny).action, 'unknown');
 
+const optFlags = {
+	time: 1717675747,
+	msg: 'kernel: IN=wan OUT= SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=TCP SPT=12345 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0 OPT (020405B40103030801010402)'
+};
+assert.strictEqual(core.normalizeEntry(optFlags).flags, 'SYN');
+assert.strictEqual(luci.normalizeEntry(optFlags).flags, 'SYN');
+
+const ifaceAckUdp = {
+	time: 1717675747,
+	msg: 'kernel: IN=br-ACK OUT=wan SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=UDP SPT=12345 DPT=53 LEN=40'
+};
+assert.strictEqual(core.normalizeEntry(ifaceAckUdp).proto, 'UDP');
+assert.strictEqual(core.normalizeEntry(ifaceAckUdp).flags, '');
+assert.strictEqual(luci.normalizeEntry(ifaceAckUdp).flags, '');
+
+const ifaceDrop = {
+	time: 1717675747,
+	msg: 'kernel: IN=br-drop OUT= SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=TCP SPT=12345 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0'
+};
+assert.strictEqual(core.normalizeEntry(ifaceDrop).action, 'unknown');
+assert.strictEqual(core.normalizeEntry(ifaceDrop).action_raw, 'UNKNOWN');
+assert.strictEqual(luci.normalizeEntry(ifaceDrop).action, 'unknown');
+assert.strictEqual(luci.normalizeEntry(ifaceDrop).action_raw, 'UNKNOWN');
+
+const ifaceAccept = {
+	time: 1717675747,
+	msg: 'kernel: IN=br-accept OUT= SRC=192.0.2.10 DST=198.51.100.20 LEN=60 PROTO=TCP SPT=12345 DPT=443 WINDOW=65535 RES=0x00 SYN URGP=0'
+};
+assert.strictEqual(core.normalizeEntry(ifaceAccept).action, 'unknown');
+assert.strictEqual(core.normalizeEntry(ifaceAccept).action_raw, 'UNKNOWN');
+assert.strictEqual(luci.normalizeEntry(ifaceAccept).action, 'unknown');
+
 const kvPass = core.parseKeyValueLog('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise');
 assert.strictEqual(
 	core.inferActionRaw('IN=wan OUT= SRC=1.2.3.4 DST=5.6.7.8 PROTO=TCP MAC=aa:bb PASS=noise', kvPass, 'UNKNOWN'),
