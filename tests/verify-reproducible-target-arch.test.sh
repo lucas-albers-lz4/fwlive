@@ -121,6 +121,68 @@ else
 	ok "artifact_sha uses sdk_matrix_out_package_candidates"
 fi
 
+# Issue #1281: failed clean/make must not hash a leftover artifact twice.
+sdk_matrix_resolve x86-64 24.10
+leftover="$TMP/out/${SDK_MATRIX_PACKAGE_ARCH}/${label}/fwlive/luci-app-fwlive_0_all.ipk"
+mkdir -p "$(dirname "$leftover")"
+printf 'old-builder\n' >"$leftover"
+sdk_matrix_feeds_ready() { return 0; }
+sdk_matrix_make() {
+	echo "INJECT: SDK package clean failed (rc=43); old builder artifact unchanged" >&2
+	return 43
+}
+sdk_matrix_copy_out() { echo "INJECT: copy would reuse leftover" >&2; return 0; }
+sdk_matrix_clean_package() {
+	echo "INJECT: SDK package clean failed (rc=43); old builder artifact unchanged" >&2
+	return 43
+}
+clean_log="$TMP/clean-fail.log"
+if verify_one 24.10 >"$clean_log" 2>&1; then
+	bad "verify_one succeeded after failed clean/make with leftover artifact"
+else
+	ok "verify_one fails after failed clean/make"
+fi
+if grep -q '== OK:' "$clean_log"; then
+	bad "verify_one printed reproducible OK after failed clean/make"
+else
+	ok "verify_one did not print OK after failed clean/make"
+fi
+if grep -q 'make pass 1 failed' "$clean_log"; then
+	ok "verify_one reported make pass 1 failure"
+else
+	bad "verify_one did not report make failure: $(tr '\n' ' ' <"$clean_log")"
+fi
+
+# Initial docker-sdk build failure with a leftover host artifact.
+mkdir -p "$TMP/scripts"
+cat >"$TMP/scripts/docker-sdk.sh" <<'EOF'
+#!/bin/sh
+echo "INJECT: docker-sdk build failed" >&2
+exit 42
+EOF
+chmod +x "$TMP/scripts/docker-sdk.sh"
+sdk_matrix_feeds_ready() { return 1; }
+docker_log="$TMP/docker-fail.log"
+if verify_one 24.10 >"$docker_log" 2>&1; then
+	bad "verify_one succeeded after failed docker-sdk build with leftover artifact"
+else
+	ok "verify_one fails after failed docker-sdk build"
+fi
+if grep -q '== OK:' "$docker_log"; then
+	bad "verify_one printed reproducible OK after failed docker-sdk build"
+else
+	ok "verify_one did not print OK after failed docker-sdk build"
+fi
+if grep -q 'initial docker-sdk build failed' "$docker_log"; then
+	ok "verify_one reported docker-sdk build failure"
+else
+	bad "verify_one did not report docker-sdk failure: $(tr '\n' ' ' <"$docker_log")"
+fi
+sdk_matrix_feeds_ready() { return 0; }
+sdk_matrix_make() { :; }
+sdk_matrix_copy_out() { :; }
+sdk_matrix_clean_package() { :; }
+
 # Underscore-apk shape accepted by copy_out / feed staging (#807).
 sdk_matrix_resolve x86-64 24.10
 rm -rf "$TMP/out"

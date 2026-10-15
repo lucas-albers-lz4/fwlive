@@ -447,10 +447,16 @@ feed_publish_stage_opkg_host() {
 	prev_return="$(trap -p RETURN)"
 	trap 'rm -f "$index_script"; if [[ -n "${prev_return:-}" ]]; then eval "$prev_return"; else trap - RETURN; fi' RETURN
 	raw="$(mktemp)"
+	# Host indexer must use a host-executable mkhash. The SDK probe path
+	# /builder/staging_dir/host/bin/mkhash is not resolvable on the host (#1282).
 	# ipkg-make-index.sh uses $MKHASH sha256 (OpenWrt mkhash), not sha256sum alone.
-	mkhash="$(feed_publish_probe_mkhash)"
-	[[ -n "$mkhash" ]] || mkhash="$(command -v mkhash || true)"
-	if ! ( cd "$pkg_dir" && MKHASH="${mkhash:-mkhash}" "$index_script" . >"$raw" ); then
+	mkhash="$(command -v mkhash || true)"
+	if [[ -z "$mkhash" || "$mkhash" == /builder/* ]]; then
+		echo "feed_publish: host mkhash not found on PATH" >&2
+		rm -f "$raw"
+		return 1
+	fi
+	if ! ( cd "$pkg_dir" && MKHASH="$mkhash" "$index_script" . >"$raw" ); then
 		echo "ipkg-make-index failed for ${ver_label}" >&2
 		cat "$raw" >&2
 		rm -f "$raw"

@@ -53,13 +53,25 @@ verify_one() {
 	export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(sdk_matrix_source_date_epoch)}"
 	echo "== reproducible build: ${version_key} (${label}) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} ==" >&2
 
+	# main() uses `verify_one || fail=1`, which disables errexit here.
+	# Propagate every required operation so a leftover artifact cannot be
+	# hashed twice and reported as reproducible (#1281).
 	if ! sdk_matrix_feeds_ready 2>/dev/null; then
 		echo "→ initial build (feeds setup)..." >&2
-		"${ROOT}/scripts/docker-sdk.sh" build --target "$TARGET" --version "$version_key"
+		"${ROOT}/scripts/docker-sdk.sh" build --target "$TARGET" --version "$version_key" || {
+			echo "initial docker-sdk build failed for ${version_key}" >&2
+			return 1
+		}
 	else
 		echo "→ build pass 1..." >&2
-		sdk_matrix_make
-		sdk_matrix_copy_out
+		sdk_matrix_make || {
+			echo "make pass 1 failed for ${label}" >&2
+			return 1
+		}
+		sdk_matrix_copy_out || {
+			echo "copy-out pass 1 failed for ${label}" >&2
+			return 1
+		}
 	fi
 
 	out="$(artifact_sha "$label")" || {
@@ -74,9 +86,18 @@ verify_one() {
 	echo "  pass 1: ${h1}  ${f1##*/}" >&2
 
 	echo "→ clean + build pass 2..." >&2
-	sdk_matrix_clean_package
-	sdk_matrix_make
-	sdk_matrix_copy_out
+	sdk_matrix_clean_package || {
+		echo "package clean failed for ${label}" >&2
+		return 1
+	}
+	sdk_matrix_make || {
+		echo "make pass 2 failed for ${label}" >&2
+		return 1
+	}
+	sdk_matrix_copy_out || {
+		echo "copy-out pass 2 failed for ${label}" >&2
+		return 1
+	}
 
 	out="$(artifact_sha "$label")" || {
 		echo "no artifact after pass 2 for ${label}" >&2
