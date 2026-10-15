@@ -567,7 +567,10 @@ next-tag pin checklist remains in force.
 > the initial docker-sdk build, `sdk_matrix_make`, `sdk_matrix_copy_out`,
 > or `sdk_matrix_clean_package` fails (`main` uses `|| fail=1`, so errexit
 > does not apply). Host coverage plants a leftover ipk, injects clean/make
-> failure, and asserts no `== OK:`. Host Packages indexing uses
+> failure, and asserts no `== OK:`. `sdk_matrix_clear_out_packages`
+> returns nonzero when `rm -f` fails, and `sdk_matrix_copy_out` returns
+> before the existence check when that clear or the docker copy-out fails,
+> so a leftover package cannot be reported as this build. Host Packages indexing uses
 > `command -v mkhash` and refuses `/builder/...` SDK paths;
 > `feed_publish_probe_mkhash` remains isolated for `SDK_MATRIX_*` leaks but
 > is not the host indexer. Skill step 5 re-check: workflows keep SHA-pinned

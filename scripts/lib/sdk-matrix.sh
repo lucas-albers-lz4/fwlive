@@ -700,7 +700,7 @@ sdk_matrix_clear_out_packages() {
 	local f
 	sdk_matrix_out_package_candidates "$dest" candidates
 	for f in "${candidates[@]}"; do
-		rm -f "$f"
+		rm -f "$f" || return 1
 	done
 }
 
@@ -716,8 +716,8 @@ sdk_matrix_copy_out() {
 	# Reused out/ may still hold a matching ipk/apk from an earlier build.
 	# Clear those paths before copy so the post-copy existence check is
 	# fail-closed for this invocation (docker copy also uses || true).
-	sdk_matrix_clear_out_packages "$dest_host"
-	(
+	sdk_matrix_clear_out_packages "$dest_host" || return 1
+	if ! (
 		cd "$root"
 		OWRT_SDK_IMAGE="$SDK_MATRIX_IMAGE" \
 		OWRT_SDK_VOLUME="$SDK_MATRIX_VOLUME" \
@@ -734,7 +734,10 @@ sdk_matrix_copy_out() {
 			chmod -R a+rX /out
 			ls -la \"\$dest\"/fwlive/luci-app-fwlive* 2>/dev/null || ls -la \"\$dest\"/luci-app-fwlive* 2>/dev/null || true
 		"
-	)
+	); then
+		echo "sdk-matrix: docker copy-out failed for ${dest_host}" >&2
+		return 1
+	fi
 	if ! sdk_matrix_out_has_package "$dest_host"; then
 		echo "sdk-matrix: no luci-app-fwlive package artifact under ${dest_host}" >&2
 		echo "sdk-matrix: expected luci-app-fwlive_*_all.ipk or luci-app-fwlive-*.apk (or luci-app-fwlive_*.apk)" >&2
