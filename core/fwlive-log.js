@@ -166,6 +166,10 @@ function stripKvSpans(message) {
 	return String(message).replace(KV_SPAN, '');
 }
 
+function isClassifyActionWord(token) {
+	return CLASSIFY_SPEC.actionWords.indexOf((token || '').toUpperCase()) >= 0;
+}
+
 /** Drop parseRuleHint prefix so hyphenated UCI names (Allow-Ping) are not verdicts. */
 function messageForDetectAction(message) {
 	let msg = normalizeNetfilterMessage(message || '').trim();
@@ -175,7 +179,7 @@ function messageForDetectAction(message) {
 		return msg.replace(/^fw4:\s*/i, '');
 
 	const beforeKv = msg.match(/^([A-Za-z0-9_.-]+)(?::|\s+)(?=IN=|OUT=|SRC=|DST=|PROTO=)/);
-	if (beforeKv)
+	if (beforeKv && !isClassifyActionWord(beforeKv[1]))
 		return msg.slice(beforeKv[0].length);
 
 	const colon = msg.match(/^([A-Za-z0-9_.-]+):/);

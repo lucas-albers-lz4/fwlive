@@ -239,8 +239,19 @@ return baseclass.extend({
 			return msg.replace(/^fw4:\s*/i, '');
 
 		const beforeKv = msg.match(/^([A-Za-z0-9_.-]+)(?::|\s+)(?=IN=|OUT=|SRC=|DST=|PROTO=)/);
-		if (beforeKv)
-			return msg.slice(beforeKv[0].length);
+		if (beforeKv) {
+			const prefix = beforeKv[1].toUpperCase();
+			const words = this.CLASSIFY_SPEC.actionWords;
+			let isAction = false;
+			for (let i = 0; i < words.length; i++) {
+				if (words[i] === prefix) {
+					isAction = true;
+					break;
+				}
+			}
+			if (!isAction)
+				return msg.slice(beforeKv[0].length);
+		}
 
 		const colon = msg.match(/^([A-Za-z0-9_.-]+):/);
 		if (colon) {

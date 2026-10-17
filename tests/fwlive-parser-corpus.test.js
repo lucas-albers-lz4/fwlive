@@ -191,7 +191,7 @@ const GOLDEN = [
 	{
 		fixture: 'logread-iptables.json', i: 6, firewall: true,
 		msg: 'DROPIN=wan SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22',
-		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		action: 'drop', action_raw: 'DROP', proto: 'TCP',
 		src: '203.0.113.5', dst: '192.168.1.1', sport: '', dport: '22',
 		interface_in: 'wan', interface_out: '', rule_hint: 'DROP',
 		id: 'log:3006', log_id: 3006,
@@ -200,7 +200,7 @@ const GOLDEN = [
 	{
 		fixture: 'logread-iptables.json', i: 7, firewall: true,
 		msg: 'REJECTIN=lan SRC=192.168.1.1 DST=203.0.113.5 PROTO=TCP DPT=22',
-		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		action: 'reject', action_raw: 'REJECT', proto: 'TCP',
 		src: '192.168.1.1', dst: '203.0.113.5', sport: '', dport: '22',
 		interface_in: 'lan', interface_out: '', rule_hint: 'REJECT',
 		id: 'log:3007', log_id: 3007,

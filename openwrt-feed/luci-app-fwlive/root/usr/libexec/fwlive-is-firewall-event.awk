@@ -54,12 +54,25 @@ function strip_kv(s, out, i, n, prev, rest) {
 	}
 	return out
 }
-function strip_leading_rule_hint(s, first) {
+function action_word_prefix(first, words, n, i) {
+	n = split("ACCEPT ALLOW PASS DROP REJECT DENY BLOCK", words, " ")
+	first = tolower(first)
+	for (i = 1; i <= n; i++) {
+		if (tolower(words[i]) == first) return 1
+	}
+	return 0
+}
+function strip_leading_rule_hint(s, first, hint_end) {
 	sub(/^\[[[:space:]]*[0-9.]+\][[:space:]]*/, "", s)
 	if (match(tolower(s), /^fw4:[[:space:]]*/))
 		s = substr(s, RSTART + RLENGTH)
-	else if (match(s, "^[A-Za-z0-9_.-]+(:|[[:space:]]+)(IN=|OUT=|SRC=|DST=|PROTO=)"))
-		s = substr(s, RSTART + RLENGTH)
+	else if (match(s, "^[A-Za-z0-9_.-]+(:|[[:space:]]+)(IN=|OUT=|SRC=|DST=|PROTO=)")) {
+		hint_end = RSTART + RLENGTH
+		match(s, "^[A-Za-z0-9_.-]+")
+		first = substr(s, RSTART, RLENGTH)
+		if (!action_word_prefix(first))
+			s = substr(s, hint_end)
+	}
 	else if (match(s, "^[A-Za-z0-9_.-]+:")) {
 		first = substr(s, RSTART, RLENGTH - 1)
 		if (tolower(first) != "kernel" && tolower(first) != "iptables")
