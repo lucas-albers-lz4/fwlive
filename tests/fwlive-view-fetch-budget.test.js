@@ -346,6 +346,43 @@ async function testSummaryModeHidesAdaptiveBanner() {
 	console.log('fwlive-view fetch-budget: summary mode hides adaptive banner OK');
 }
 
+async function testHashDiagGatesAdaptiveBanner() {
+	const on = loadFwliveView({ location: { hash: '#diag=1' } });
+	on.view.applyHash();
+	assert.strictEqual(on.view.diagnosticMode, true, '#diag=1 applyHash must enable diagnostics');
+	on.view.lastPollRequestedLines = 400;
+	on.view.lastPollReturnedMessages = 50;
+	on.view.serverAdaptive = 1;
+	on.view.serverTruncated = 1;
+	on.view.lastPollEffectiveLimit = 50;
+	on.view.updateAdaptiveBanner();
+	assert.match(
+		on.document.getElementById('fwlive-adaptive').textContent,
+		/raw lines/,
+		'applyHash #diag=1 must show fetch-budget diagnostics'
+	);
+
+	const off = loadFwliveView();
+	off.view.lastPollRequestedLines = 400;
+	off.view.lastPollReturnedMessages = 50;
+	off.view.serverAdaptive = 1;
+	off.view.serverTruncated = 1;
+	off.view.lastPollEffectiveLimit = 50;
+	off.view.updateAdaptiveBanner();
+	assert.strictEqual(off.document.getElementById('fwlive-adaptive').textContent, '');
+	off.view.setViewMode('detailed');
+	assert.strictEqual(
+		off.document.getElementById('fwlive-adaptive').textContent,
+		'',
+		'Detail without diag=1 must still hide the adaptive banner'
+	);
+	assert.ok(
+		off.document.getElementById('fwlive-fetch-mode'),
+		'Fetch budget stays in the DOM; CSS hides it only in Simple'
+	);
+	console.log('fwlive-view fetch-budget: hash diag gates adaptive banner OK');
+}
+
 async function testMalformedEffectiveLimits() {
 	const values = [0, 2001, 250.5, '250.5', '250junk'];
 	const h = loadFwliveView({
@@ -1049,6 +1086,7 @@ async function main() {
 	await testStartupPollFinishesBeforeMetadata();
 	await testBudgetControlsAndMetadata();
 	await testSummaryModeHidesAdaptiveBanner();
+	await testHashDiagGatesAdaptiveBanner();
 	await testMalformedEffectiveLimits();
 	await testBudgetChangesRespectCadence();
 	await testPausedBudgetChangesDoNotFetch();

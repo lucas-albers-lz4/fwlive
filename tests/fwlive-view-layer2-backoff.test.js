@@ -613,6 +613,26 @@ async function testShippedHidesUnactionableDiagnostics() {
 		String(h.document.getElementById('fwlive-flood').textContent),
 		/table refresh throttled/i
 	);
+
+	v.diagnosticMode = true;
+	v.updateAdaptiveBanner();
+	v.updateFloodBanner();
+	const revealed = v.statusSuffix();
+	assert.ok(revealed.includes('polling slowed'), 'diag=1 must show polling slowed');
+	assert.ok(revealed.includes('server limited fetch'), 'diag=1 must show server limited fetch');
+	assert.ok(
+		revealed.includes('hostname lookup paused'),
+		'diag=1 must show hostname lookup paused'
+	);
+	assert.match(
+		String(h.document.getElementById('fwlive-adaptive').textContent),
+		/polling slowed|Polling slowed/i
+	);
+	assert.match(
+		String(h.document.getElementById('fwlive-flood').textContent),
+		/table refresh throttled/i,
+		'actionable flood banner stays visible with diag=1'
+	);
 	console.log('fwlive-view layer2: shipped UI hides unactionable diagnostics OK');
 }
 

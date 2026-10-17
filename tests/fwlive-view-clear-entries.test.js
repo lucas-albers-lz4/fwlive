@@ -102,10 +102,69 @@ function testClearLeavesSummaryMode() {
 	console.log('fwlive-view clear: summary mode dismissed OK');
 }
 
+function testClearClickHandlerIsWired() {
+	const h = loadFwliveView();
+	const v = h.view;
+	applyPoll(v, [logLine(1, '203.0.113.1')]);
+	v.attachHandlers();
+	const clear = h.document.getElementById('fwlive-clear');
+	assert.ok(clear._listeners && clear._listeners.click && clear._listeners.click.length === 1);
+	clear._listeners.click[0]({ type: 'click' });
+	assert.strictEqual(v.entries.length, 0, 'wired Clear click must empty the table');
+	assert.strictEqual(v.suppressSeenIngest, true);
+	console.log('fwlive-view clear: click handler wired OK');
+}
+
+function testClearWhilePausedDoesNotResume() {
+	const h = loadFwliveView();
+	const v = h.view;
+	applyPoll(v, [logLine(1, '203.0.113.1'), logLine(2, '203.0.113.2')]);
+	v.tablePaused = true;
+	v.fillingBuffer = true;
+	v.pauseBufferLoading = true;
+	v.lastBatchNewIdCount = 2;
+	v.expandedRowId = '1';
+
+	v.onClearEntriesClick();
+	assert.strictEqual(v.tablePaused, true, 'Clear must not Resume');
+	assert.strictEqual(v.fillingBuffer, false);
+	assert.strictEqual(v.pauseBufferLoading, false);
+	assert.strictEqual(v.lastBatchNewIdCount, 0);
+	assert.strictEqual(v.expandedRowId, null);
+	assert.strictEqual(v.entries.length, 0);
+	assert.strictEqual(v.suppressSeenIngest, true);
+
+	applyPoll(v, [logLine(1, '203.0.113.1'), logLine(2, '203.0.113.2')]);
+	assert.strictEqual(v.entries.length, 0, 'paused Clear still hides already seen lines');
+	assert.strictEqual(v.tablePaused, true);
+	console.log('fwlive-view clear: paused Clear does not resume OK');
+}
+
+function testClearKeepsFiltersAndHelp() {
+	const h = loadFwliveView();
+	const v = h.view;
+	h.document.getElementById('fwlive-src').value = '203.0.113.1';
+	h.document.getElementById('fwlive-q').value = 'DROP';
+	applyPoll(v, [logLine(1, '203.0.113.1')]);
+	v.onClearEntriesClick();
+	const filters = v.readFilters();
+	assert.strictEqual(filters.src, '203.0.113.1', 'Clear must keep the source filter');
+	assert.strictEqual(filters.q, 'DROP', 'Clear must keep the search filter');
+	assert.match(
+		collectText(h.document.getElementById('fwlive-help')),
+		/Clear empties the table/
+	);
+	assert.strictEqual(h.localStorage.getItem('fwlive-diag'), null);
+	console.log('fwlive-view clear: filters and Help OK');
+}
+
 function main() {
 	testClearButtonSitsBesidePause();
 	testClearDropsRowsAndKeepsSeenHidden();
 	testClearLeavesSummaryMode();
+	testClearClickHandlerIsWired();
+	testClearWhilePausedDoesNotResume();
+	testClearKeepsFiltersAndHelp();
 	console.log('fwlive-view clear-entries tests passed');
 }
 

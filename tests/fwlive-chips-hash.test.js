@@ -638,6 +638,28 @@ function testDiagHashIsSessionOnly() {
 	assert.strictEqual(hostile.view.diagnosticMode, false, 'hostile diag values must not enable');
 }
 
+function testDiagHashRejectsNonTruthyAndStaysSessionOnly() {
+	['0', 'false', 'yes', '', 'TRUE'].forEach(function (val) {
+		const h = loadFwliveView({ location: { hash: '#diag=' + encodeURIComponent(val) } });
+		withSelectOptions(h);
+		h.view.applyHash();
+		assert.strictEqual(h.view.diagnosticMode, false, 'diag=' + val + ' must stay off');
+	});
+
+	const on = loadFwliveView({ location: { hash: '#diag=1' } });
+	withSelectOptions(on);
+	on.view.applyHash();
+	assert.strictEqual(on.view.diagnosticMode, true);
+	on.view.updateHash(on.view.readFilters());
+	assert.strictEqual(on.localStorage.getItem('fwlive-diag'), null, 'diag must not use localStorage');
+	assert.strictEqual(on.localStorage.getItem('diag'), null);
+	on.view.setViewMode('detailed');
+	assert.match(on.location.hash, /diag=1/, 'view toggle must keep session diag=1');
+	assert.match(on.location.hash, /view=detailed/);
+	assert.strictEqual(on.localStorage.getItem('fwlive-view-mode'), 'detailed');
+	assert.strictEqual(on.localStorage.getItem('fwlive-diag'), null);
+}
+
 function testApplyHashHostileAsText() {
 	const encoded = encodeURIComponent(HOSTILE);
 	const h = loadFwliveView({
@@ -675,4 +697,5 @@ testUpdateHashUsesReplaceState();
 testPollPaintLeavesHashAlone();
 testApplyHashHostileAsText();
 testDiagHashIsSessionOnly();
+testDiagHashRejectsNonTruthyAndStaysSessionOnly();
 console.log('fwlive chips/hash sink tests passed');
