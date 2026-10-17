@@ -954,7 +954,7 @@ async function testSimpleExpansionKeyboard(page) {
 		throw new Error('Tab from the action filter link must reach the message button');
 
 	clicks = await page.evaluate(() => window.__fwliveRowClickCalls);
-	await show.press('Enter');
+	await page.keyboard.press('Enter');
 	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, targetId);
 	const afterEnter = await page.evaluate(() => window.__fwliveRowClickCalls);
 	if (afterEnter !== clicks + 1)
@@ -988,7 +988,7 @@ async function testSimpleExpansionKeyboard(page) {
 		throw new Error(`expanded panel association/text failed: ${JSON.stringify(expanded)}`);
 
 	clicks = afterEnter;
-	await hide.press('Space');
+	await page.keyboard.press('Space');
 	await page.waitForFunction(() => window.fwliveView.expandedRowId === null);
 	const afterSpace = await page.evaluate(() => window.__fwliveRowClickCalls);
 	if (afterSpace !== clicks + 1)
@@ -997,8 +997,19 @@ async function testSimpleExpansionKeyboard(page) {
 	if (!(await isFocused(show)) || (await page.locator('#fwlive-expanded-message').count()))
 		throw new Error('collapsed control must keep focus and remove its panel association');
 
+	/* A live paint can reorder rows after the retained-focus assertion.
+	 * Use the actual focused control, not a previously computed ordinal. */
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		view.entries.reverse();
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+	});
+	const retainedRowId = await page.evaluate(() => document.activeElement?._fwliveRowId);
+	if (retainedRowId !== targetId)
+		throw new Error(`row reorder must retain keyboard focus: ${retainedRowId}`);
 	clicks = afterSpace;
-	await show.press('Enter');
+	await page.keyboard.press('Enter');
 	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, targetId);
 	hide = page.getByRole('button', { name: 'Hide full message', exact: true });
 	await page.evaluate((id) => {
