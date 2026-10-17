@@ -1,5 +1,11 @@
 # Security review state
 
+**2026-10-17 #1299 scoped delta.** Verdict detection strips the same leading
+rule-hint token as `parseRuleHint` before `detectAction`, so hyphenated UCI rule
+names (Allow-Ping, Reject-LAN) no longer supply Action from embedded verdict
+words. `action` / `action_raw` remain line-derived; no ACL, rpcd, or DOM-sink
+change. Host coverage: parser corpus/sync and shell summary top_drops.
+
 **2026-10-16 #1303 scoped delta.** Clear snapshots event identities separately
 from the evicting session-new counter cache. A bounded observation set refreshes
 hits in logd poll order; identities include the original time precision and

@@ -39,6 +39,31 @@
       "time": 1717675907,
       "msg": "Kids-Bedtime: IN=br-lan OUT=eth1 SRC=192.168.1.5 DST=1.1.1.1 LEN=60 PROTO=TCP SPT=5000 DPT=443",
       "id": 4007
+    },
+    {
+      "time": 1717675908,
+      "msg": "Allow-Ping: IN=br-lan OUT= SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP TYPE=8 CODE=0",
+      "id": 4008
+    },
+    {
+      "time": 1717675909,
+      "msg": "Allow-Ping: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22",
+      "id": 4009
+    },
+    {
+      "time": 1717675910,
+      "msg": "drop wan in: IN=wan OUT= SRC=203.0.113.6 DST=192.168.1.1 PROTO=TCP DPT=22",
+      "id": 4010
+    },
+    {
+      "time": 1717675911,
+      "msg": "Reject-LAN: IN=lan OUT= SRC=192.168.1.20 DST=8.8.8.8 PROTO=TCP SPT=50000 DPT=443",
+      "id": 4011
+    },
+    {
+      "time": 1717675912,
+      "msg": "Drop-Guest: IN=guest OUT= SRC=192.168.1.30 DST=1.1.1.1 PROTO=UDP SPT=5353 DPT=5353",
+      "id": 4012
     }
   ]
 }

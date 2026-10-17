@@ -528,6 +528,27 @@ function runSummaryContract() {
 		assert.equal(out.summary.top_drops[0].value, 'drop');
 		assert.equal(out.summary.top_drops[0].count, 2);
 
+		const allowPingSummary = JSON.stringify({
+			log: [
+				{
+					msg: 'Allow-Ping: IN=br-lan OUT= SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP'
+				},
+				{
+					msg: 'Allow-Ping: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22'
+				},
+				{
+					msg: 'drop wan in: IN=wan OUT= SRC=203.0.113.6 DST=192.168.1.1 PROTO=TCP DPT=22'
+				}
+			]
+		});
+		const allowPingFiltered = shSpawn(null, {
+			argvFile: FILTER_SH, input: allowPingSummary, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(allowPingFiltered.status, 0, allowPingFiltered.stderr || allowPingFiltered.stdout);
+		const allowPingOut = JSON.parse(allowPingFiltered.stdout).summary;
+		assert.deepEqual(allowPingOut.top_drops, [{ value: 'drop', count: 2 }],
+			'Allow-Ping without verdict must not count as pass; zone drop wan in stays drop');
+
 		const ifaceVerdict = JSON.stringify({
 			log: [
 				{

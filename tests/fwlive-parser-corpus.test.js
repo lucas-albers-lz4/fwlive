@@ -191,7 +191,7 @@ const GOLDEN = [
 	{
 		fixture: 'logread-iptables.json', i: 6, firewall: true,
 		msg: 'DROPIN=wan SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22',
-		action: 'drop', action_raw: 'DROP', proto: 'TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '203.0.113.5', dst: '192.168.1.1', sport: '', dport: '22',
 		interface_in: 'wan', interface_out: '', rule_hint: 'DROP',
 		id: 'log:3006', log_id: 3006,
@@ -200,7 +200,7 @@ const GOLDEN = [
 	{
 		fixture: 'logread-iptables.json', i: 7, firewall: true,
 		msg: 'REJECTIN=lan SRC=192.168.1.1 DST=203.0.113.5 PROTO=TCP DPT=22',
-		action: 'reject', action_raw: 'REJECT', proto: 'TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
 		src: '192.168.1.1', dst: '203.0.113.5', sport: '', dport: '22',
 		interface_in: 'lan', interface_out: '', rule_hint: 'REJECT',
 		id: 'log:3007', log_id: 3007,
@@ -286,6 +286,51 @@ const GOLDEN = [
 		interface_in: 'br-lan', interface_out: 'eth1', rule_hint: 'Kids-Bedtime',
 		id: 'log:4007', log_id: 4007,
 		flags: '', length: 60, timestamp: 1717675907
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 8, firewall: true,
+		msg: 'Allow-Ping: IN=br-lan OUT= SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP TYPE=8 CODE=0',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'ICMP',
+		src: '192.168.1.10', dst: '192.168.1.1', sport: '', dport: '',
+		interface_in: 'br-lan', interface_out: '', rule_hint: 'Allow-Ping',
+		id: 'log:4008', log_id: 4008,
+		flags: '', length: 84, timestamp: 1717675908
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 9, firewall: true,
+		msg: 'Allow-Ping: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22',
+		action: 'drop', action_raw: 'DROP', proto: 'TCP',
+		src: '203.0.113.5', dst: '192.168.1.1', sport: '', dport: '22',
+		interface_in: 'wan', interface_out: '', rule_hint: 'Allow-Ping',
+		id: 'log:4009', log_id: 4009,
+		flags: '', length: null, timestamp: 1717675909
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 10, firewall: true,
+		msg: 'drop wan in: IN=wan OUT= SRC=203.0.113.6 DST=192.168.1.1 PROTO=TCP DPT=22',
+		action: 'drop', action_raw: 'DROP', proto: 'TCP',
+		src: '203.0.113.6', dst: '192.168.1.1', sport: '', dport: '22',
+		interface_in: 'wan', interface_out: '', rule_hint: '',
+		id: 'log:4010', log_id: 4010,
+		flags: '', length: null, timestamp: 1717675910
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 11, firewall: true,
+		msg: 'Reject-LAN: IN=lan OUT= SRC=192.168.1.20 DST=8.8.8.8 PROTO=TCP SPT=50000 DPT=443',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'TCP',
+		src: '192.168.1.20', dst: '8.8.8.8', sport: '50000', dport: '443',
+		interface_in: 'lan', interface_out: '', rule_hint: 'Reject-LAN',
+		id: 'log:4011', log_id: 4011,
+		flags: '', length: null, timestamp: 1717675911
+	},
+	{
+		fixture: 'logread-parser-kv.json', i: 12, firewall: true,
+		msg: 'Drop-Guest: IN=guest OUT= SRC=192.168.1.30 DST=1.1.1.1 PROTO=UDP SPT=5353 DPT=5353',
+		action: 'unknown', action_raw: 'UNKNOWN', proto: 'UDP',
+		src: '192.168.1.30', dst: '1.1.1.1', sport: '5353', dport: '5353',
+		interface_in: 'guest', interface_out: '', rule_hint: 'Drop-Guest',
+		id: 'log:4012', log_id: 4012,
+		flags: '', length: null, timestamp: 1717675912
 	}
 ];
 

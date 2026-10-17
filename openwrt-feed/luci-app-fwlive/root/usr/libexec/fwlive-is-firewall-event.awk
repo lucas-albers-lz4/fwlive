@@ -54,8 +54,21 @@ function strip_kv(s, out, i, n, prev, rest) {
 	}
 	return out
 }
+function strip_leading_rule_hint(s, first) {
+	sub(/^\[[[:space:]]*[0-9.]+\][[:space:]]*/, "", s)
+	if (match(tolower(s), /^fw4:[[:space:]]*/))
+		s = substr(s, RSTART + RLENGTH)
+	else if (match(s, "^[A-Za-z0-9_.-]+(:|[[:space:]]+)(IN=|OUT=|SRC=|DST=|PROTO=)"))
+		s = substr(s, RSTART + RLENGTH)
+	else if (match(s, "^[A-Za-z0-9_.-]+:")) {
+		first = substr(s, RSTART, RLENGTH - 1)
+		if (tolower(first) != "kernel" && tolower(first) != "iptables")
+			s = substr(s, RSTART + RLENGTH)
+	}
+	return s
+}
 function detect_action(s, words, n, i, w, wl, lc, start, pos, before, afterc, best, bestpos) {
-	s = strip_kv(s)
+	s = strip_kv(strip_leading_rule_hint(s))
 	n = split("ACCEPT ALLOW PASS DROP REJECT DENY BLOCK", words, " ")
 	lc = tolower(s)
 	best = ""
