@@ -1471,6 +1471,52 @@ async function testClearControl(browser) {
 	}
 }
 
+async function testReusedLogIdPaint(browser) {
+	for (const afterClear of [false, true]) {
+		for (const change of ['time', 'message', 'both']) {
+			const page = await browser.newPage();
+			const pageErrors = [];
+			page.on('pageerror', error => pageErrors.push(error.message));
+			try {
+				await waitForHarness(page);
+				const result = await page.evaluate(({ afterClear, change }) => {
+					const view = window.fwliveView;
+					const body = document.querySelector('#fwlive-table tbody');
+					function apply(time, src) {
+						view.applyPollReply({ rtt: 20, reply: { adaptive: 1, log: [{
+							id: 7, time,
+							msg: 'fw4: DROP IN=wan OUT= SRC=' + src + ' DST=192.0.2.2 PROTO=TCP DPT=22'
+						}] } }, { resumeMerge: false, pausedAtStart: false, fetchLines: 200,
+							beforeLength: view.entries.length });
+						view.renderRows(false);
+					}
+					if (afterClear) {
+						apply(1704067140, '192.0.2.1');
+						view.onClearEntriesClick();
+					}
+					apply(1704067200, '203.0.113.1');
+					const before = body.firstElementChild;
+					const oldText = before.textContent;
+					apply(1704067200, '203.0.113.1');
+					const unchanged = body.firstElementChild === before;
+					apply(change === 'message' ? 1704067200 : 1704067260,
+						change === 'time' ? '203.0.113.1' : '198.51.100.9');
+					const painted = body.firstElementChild;
+					return { afterClear, change, unchanged,
+						replaced: painted !== before, textChanged: painted.textContent !== oldText,
+						sourceUpdated: change === 'time' || painted.textContent.includes('198.51.100.9') };
+				}, { afterClear, change });
+				if (!result.unchanged || !result.replaced || !result.textChanged || !result.sourceUpdated)
+					throw new Error('reused logd ID must repaint changed event text: ' + JSON.stringify(result));
+				if (pageErrors.length) throw new Error('pageerror during reused-ID paint: ' + pageErrors.join('; '));
+			} finally {
+				await page.close().catch(() => {});
+			}
+		}
+	}
+	console.log('OK: reused logd IDs repaint changed event text before and after Clear');
+}
+
 async function testStorageFailure(page) {
 	/* No-throw smoke: save* swallow storage denial; no visible fallback exists. */
 	const completed = await page.evaluate(() => {
@@ -1726,6 +1772,7 @@ async function runSmoke(browser) {
 		await testPollErrorBanner(page);
 		await testAdaptiveSummaryAndWarnings(page);
 		await testClearControl(browser);
+		await testReusedLogIdPaint(browser);
 		await testStorageFailure(page);
 		await testResolverError(page);
 		await testRulesTruncatedDegraded(page);

@@ -7,6 +7,11 @@
 /* Own queued render intent and the token bucket; the view owns DOM work.
  * Adapters supply the epoch, paint callback, cost policy, clock and frame APIs.
  * Without a frame API, schedule() paints synchronously. */
+function headIdentity(rows) {
+	/* logd may reuse IDs after restart; the view preserves raw time/message. */
+	return rows.length ? rows[0]._clearKey || rows[0].id : '';
+}
+
 function createScheduler(options) {
 	const { getEpoch, render, renderCost, capacity, requestFrame, cancelFrame } = options;
 	if (!Number.isFinite(capacity) || capacity <= 0)
@@ -71,7 +76,7 @@ function createScheduler(options) {
 
 		const cost = renderCost({
 			visibleRowCount: rows.length,
-			visibleHeadId: rows.length ? rows[0].id : '',
+			visibleHeadId: headIdentity(rows),
 			lastRenderedRowCount: lastRenderedRowCount,
 			lastRenderedHeadId: lastRenderedHeadId,
 			lastBatchNewIdCount: lastBatchNewIdCount
@@ -101,7 +106,7 @@ function createScheduler(options) {
 
 	function markRendered(rows) {
 		lastRenderedRowCount = rows.length;
-		lastRenderedHeadId = rows.length ? rows[0].id : '';
+		lastRenderedHeadId = headIdentity(rows);
 	}
 
 	function resetBudget() {

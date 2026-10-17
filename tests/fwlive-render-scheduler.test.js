@@ -65,6 +65,22 @@ function makeFrames() {
 	assert.strictEqual(s.shouldRender([], false, 99), false, 'empty table remains unchanged');
 }
 
+/* Event incarnation, not numeric logd ID, identifies an unchanged head. */
+{
+	const s = makeScheduler();
+	const first = [{ id: 'log:7', _clearKey: '["log:7",1000,"first"]' }];
+	const next = [{ id: 'log:7', _clearKey: '["log:7",1001,"first"]' }];
+	s.markRendered(first);
+	assert.strictEqual(s.shouldRender(first, false, 0), false);
+	assert.strictEqual(s.shouldRender(next, false, 0), true, 'raw-time incarnation changes cost one');
+	assert.strictEqual(s.shouldRender(first, false, 0), false, 'decision does not commit the new key');
+	s.markRendered(next);
+	assert.strictEqual(s.shouldRender(next, false, 0), false, 'paint commits the new key');
+	s.markRendered(rows(['fallback']));
+	assert.strictEqual(s.shouldRender(rows(['fallback']), false, 0), false, 'ID-only callers still skip');
+	assert.strictEqual(s.shouldRender(rows(['changed']), false, 0), true, 'ID fallback still detects changes');
+}
+
 /* Recovery uses elapsed time, including clocks whose first timestamp is zero. */
 {
 	let time = 0;
