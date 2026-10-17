@@ -1,5 +1,20 @@
 # Security review state
 
+**2026-10-16 #1301 scoped delta.** The complete `rules` reply shares one
+65,536-byte budget across rule labels, target suffixes, and a conservative
+serialization envelope (including the longest backend/error forms). Targets
+are appended only after UCI and nft labels, from the captured UCI records;
+there is still one `uci show` per call. Target overflow sets `truncated`
+without changing backend/error status. `LC_ALL=C` makes shell lengths count
+bytes even when nft prefixes contain UTF-8. Host evidence:
+`testRulesReplyByteBoundWithTargets` in `tests/fwlive-rules-map.test.js`
+executes the real plugin under dash and BusyBox ash, covering oversized
+values, long keys, aggregate growth, exact-fit/one-byte-over boundaries,
+serialization overhead, nft-label priority, enrichment failure, and UTF-8.
+**Non-findings:** No ACL, command-string, HTML sink, or Action-source change.
+Full audit deferred: this is a bounded rules-reply delta; dump/helper lifetime
+and raw UCI capture limits remain the existing residuals.
+
 **2026-10-15 #1264 scoped delta.** `fwlive rules` now also returns `targets`
 (UCI name/slug → target token from the same `uci show` pass). Values are
 admin UCI strings; the view renders them as text nodes on the Rule column.
@@ -988,7 +1003,7 @@ change. This scoped smoke review is not a full security audit.
 | Lock path rejects symlinks before truncate/chmod/chown | `host` | `tests/fwlive-logging-lock.test.sh` Part E — #204 |
 | Production lock dir check works without `stat -c` (BusyBox `STAT=n`) | `host` | `wan_log_lock_dir_safe`: `[ -O ]` + `find -prune -perm`; Part F shadows `stat` |
 | Rules map prefers `!fw4:` labels over earlier cosmetics for the same prefix (UCI still first-wins) | `host` | labeled-then-unlabeled passes; `tests/fwlive-rules-map.test.js` `testFw4LabeledBeatsCosmetic` |
-| Rules map key/byte caps remain enforced after direct `nft list ruleset`; dump duration is unbounded | `host + manual` | `testRulesMapKeyBound`, `testRulesMapByteBound`; direct-execution source inspection |
+| Rules map key cap and complete reply byte cap (labels + targets + envelope) remain enforced after direct `nft list ruleset`; dump duration is unbounded | `host + manual` | `testRulesMapKeyBound`, `testRulesMapByteBound`, `testRulesReplyByteBoundWithTargets` (2026-10-16); direct-execution source inspection |
 | mktemp-skip on rules map surfaces `error:mktemp_failed` | `host` | `testNoMktempGracefulDegradation` |
 | `rules` dump failure surfaces `error:no_backend`, never a silent empty map | `host` | `tests/fwlive-rpcd-security.test.js` `testRulesNftDumpFailure` |
 | `rules` is nft-only: missing nft or a failed detect dump is `unknown`/`no_backend`; `iptables-save` on PATH is not invoked | `host` | same file `testRulesNoBackend` / `testRulesNoIptablesFallback` |

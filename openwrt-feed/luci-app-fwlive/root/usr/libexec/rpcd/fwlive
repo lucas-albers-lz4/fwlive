@@ -41,6 +41,11 @@ POLL_LINES_MAX=2000
 # Cap rules JSON size so a huge ruleset cannot unbound an rpcd reply.
 RULES_MAP_MAX_KEYS=512
 RULES_MAP_MAX_BYTES=65536
+# Reserve the longest envelope (unknown backend, false, mktemp_failed)
+# including both objects, commas and the closing brace. Map contents
+# are counted separately after JSON escaping.
+RULES_MAP_ENVELOPE='{"backend":"unknown","rules":{},"targets":{},"truncated":false,"error":"mktemp_failed"}'
+RULES_MAP_MAX_PAYLOAD_BYTES=$(( RULES_MAP_MAX_BYTES - ${#RULES_MAP_ENVELOPE} ))
 # First-wins dups never increment _map_keys, so they would otherwise walk
 # the whole dump. Bound prepared prefix records independently.
 RULES_MAP_MAX_LINES=512
@@ -54,8 +59,8 @@ json_object_append() {
 	OUT="${OUT}\"$1\":\"$2\""
 }
 
-# UCI target tokens. First-wins on TARGETS_OUT; does not touch _map_keys or
-# RULES_MAP_MAX_BYTES, so targets cannot steal nft prefix slots.
+# UCI target tokens use only the space left after all rule labels.
+# Keys/values have passed is_uci_style_name, so their JSON form is unchanged.
 targets_add() {
 	esc_key="$1"
 	esc_val="$2"
@@ -63,6 +68,13 @@ targets_add() {
 	case "$TARGETS_OUT" in
 		*"\"$esc_key\":"*) return 0 ;;
 	esac
+	_pair_len=$(( ${#esc_key} + ${#esc_val} + 5 ))
+	_next_len=$(( ${#OUT} + ${#TARGETS_OUT} + _pair_len ))
+	[ -n "$TARGETS_OUT" ] && _next_len=$((_next_len + 1))
+	if [ "$_next_len" -gt "$RULES_MAP_MAX_PAYLOAD_BYTES" ]; then
+		_targets_overflow=1
+		return 0
+	fi
 	if [ -n "$TARGETS_OUT" ]; then
 		TARGETS_OUT="${TARGETS_OUT},"
 	fi
@@ -102,7 +114,7 @@ map_add_escaped() {
 	_next_len=$(( ${#OUT} + _pair_len ))
 	[ -n "$OUT" ] && _next_len=$((_next_len + 1))
 	if [ "${_map_keys:-0}" -ge "$RULES_MAP_MAX_KEYS" ] || \
-		[ "$_next_len" -gt "$RULES_MAP_MAX_BYTES" ]; then
+		[ "$_next_len" -gt "$RULES_MAP_MAX_PAYLOAD_BYTES" ]; then
 		_map_overflow=1
 		return 0
 	fi
@@ -248,7 +260,6 @@ map_uci_rule_names() {
 	# do not trip the output key/byte caps.
 	# Keep the loop in this shell so map_add mutations reach OUT.
 	# TSV is name<TAB>slug<TAB>target; target may be empty.
-	TARGETS_OUT=''
 	if _uci_names="$(uci_rule_names)"; then
 		_uci_names_truncated=''
 	else
@@ -267,17 +278,8 @@ map_uci_rule_names() {
 		[ -n "$_map_overflow" ] && break
 		[ -n "$line" ] || continue
 		name="${line%%${_tab}*}"
-		rest="${line#*"$_tab"}"
-		case "$rest" in
-			*"$_tab"*)
-				slug="${rest%%${_tab}*}"
-				target="${rest#*"$_tab"}"
-				;;
-			*)
-				slug="$rest"
-				target=""
-				;;
-		esac
+		slug="${line#*"$_tab"}"
+		slug="${slug%%${_tab}*}"
 		[ -n "$name" ] || continue
 		is_uci_style_name "$name" || continue
 		map_add_escaped "$name" "$name"
@@ -285,18 +287,39 @@ map_uci_rule_names() {
 		if [ -n "$slug" ] && [ "$slug" != "$name" ]; then
 			map_add_escaped "$slug" "$name"
 		fi
-		if [ -n "$target" ] && is_uci_style_name "$target"; then
-			targets_add "$name" "$target"
-			if [ -n "$slug" ] && [ "$slug" != "$name" ]; then
-				targets_add "$slug" "$target"
-			fi
-		fi
 	done <<EOF
 $_uci_names
 EOF
 	if [ -n "$_uci_names_truncated" ]; then
 		_map_overflow=1
 	fi
+}
+
+# Reuse the captured UCI records after nft enrichment. Target truncation must
+# neither consume rule-label space nor stop the labeled/unlabeled nft passes.
+map_uci_rule_targets() {
+	_targets_overflow=''
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$_targets_overflow" ] && break
+		name="${line%%${_tab}*}"
+		rest="${line#*"$_tab"}"
+		slug="${rest%%${_tab}*}"
+		target="${rest#*"$_tab"}"
+		is_uci_style_name "$name" && is_uci_style_name "$target" || continue
+		# Do not attach targets to UCI names excluded by the rule-map caps.
+		case "$OUT" in
+			*"\"$name\":\"$name\""*) ;;
+			*) continue ;;
+		esac
+		targets_add "$name" "$target"
+		[ -n "$_targets_overflow" ] && break
+		if [ -n "$slug" ] && [ "$slug" != "$name" ]; then
+			targets_add "$slug" "$target"
+		fi
+	done <<EOF
+$_uci_names
+EOF
+	[ -z "$_targets_overflow" ] || _map_overflow=1
 }
 
 # One awk pass; output encoding depends on mode (default: raw). Raw mode emits
@@ -611,6 +634,9 @@ enrich_rules_dump() {
 }
 
 build_rules_map() {
+	# Shell string lengths must count UTF-8 bytes, not locale characters.
+	LC_ALL=C
+	export LC_ALL
 	OUT=''
 	TARGETS_OUT=''
 	_map_keys=0
@@ -627,6 +653,8 @@ build_rules_map() {
 	if command -v nft >/dev/null 2>&1; then
 		enrich_rules_dump fwlive-nft
 	fi
+
+	map_uci_rule_targets
 
 	if [ "$backend" = unknown ] && [ -z "$_enrich_error" ]; then
 		_enrich_error='no_backend'

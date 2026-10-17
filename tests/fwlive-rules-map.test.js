@@ -1500,6 +1500,89 @@ function testRulesMapByteBound() {
 	} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
 }
 
+function testRulesReplyByteBoundWithTargets() {
+	// Check the complete wire reply, including the envelope and both maps.
+	// Large values, long keys, and many ordinary pairs can each overflow it.
+	const maxBytes = 65536;
+	const longName = 'a'.repeat(15000);
+	const laterName = 'b'.repeat(9000);
+	const flood = Array.from({ length: 100 }, (_, i) => [
+		`rule-${String(i).padStart(3, '0')}-${'x'.repeat(290)}`, 'DROP'
+	]);
+	const edgeLength = maxBytes - Buffer.byteLength(JSON.stringify({
+		backend: 'unknown', rules: { edge: 'edge' }, targets: { edge: '' },
+		truncated: false, error: 'mktemp_failed'
+	}));
+	const cases = [
+		{ name: 'oversized target', entries: [['rule', 'T'.repeat(70000)]],
+			kept: [], omitted: ['rule'] },
+		{ name: 'duplicate targets', entries: [['same', 'DROP'], ['same', 'T'.repeat(70000)]],
+			truncated: false, kept: ['same'], omitted: [] },
+		{ name: 'slug target overflow', entries: [['Mixed_Rule', 'T'.repeat(40000)]],
+			kept: ['Mixed_Rule'], omitted: ['mixed-rule'] },
+		{ name: 'long keys', entries: [[longName, 'DROP'], [laterName, 'REJECT']],
+			kept: [longName], omitted: [laterName] },
+		{ name: 'aggregate targets', entries: flood,
+			kept: [flood[0][0]], omitted: [flood.at(-1)[0]] },
+		{ name: 'nft label priority', entries: [['rule', 'T'.repeat(8000)]],
+			prefix: 'p'.repeat(30000), kept: [], omitted: ['rule'] },
+		{ name: 'envelope reserve', entries: [['rule', 'DROP']],
+			prefix: 'p'.repeat(32740), prefixOmitted: true, kept: ['rule'], omitted: [] },
+		{ name: 'exact payload fit', entries: [['edge', 'T'.repeat(edgeLength)]],
+			nftFails: true, truncated: false, kept: ['edge'], omitted: [] },
+		{ name: 'one byte over', entries: [['edge', 'T'.repeat(edgeLength + 1)]],
+			nftFails: true, kept: [], omitted: ['edge'] },
+		{ name: 'enrichment error', entries: [['rule', 'T'.repeat(70000)]],
+			tempFails: true, kept: [], omitted: ['rule'] },
+		{ name: 'UTF-8 byte accounting', entries: [['rule', 'T'.repeat(8000)]],
+			prefix: 'é'.repeat(15000), kept: [], omitted: ['rule'] }
+	];
+	for (const fixture of cases) {
+		const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwlive-target-bytes-'));
+		try {
+			const uci = fixture.entries.flatMap(([name, target], i) => [
+				`firewall.@rule[${i}].name='${name}'`,
+				`firewall.@rule[${i}].target='${target}'`
+			]).join('\n');
+			makeStub(stubDir, 'uci', `#!/bin/sh
+printf '%s\\n' "$*" >> "${stubDir}/uci.log"
+cat <<'EOF'
+${uci}
+EOF
+`);
+			const prefix = fixture.prefix || 'nft-kept';
+			makeStub(stubDir, 'nft', fixture.nftFails ? '#!/bin/sh\nexit 1\n' :
+				`#!/bin/sh\ncat <<'EOF'\nlog prefix "${prefix}"\nEOF\n`);
+			if (fixture.tempFails) makeStub(stubDir, 'mktemp', '#!/bin/sh\nexit 1\n');
+			const env = { ...process.env, LC_ALL: 'C.utf8', PATH: `${stubDir}:${process.env.PATH}`,
+				FWLIVE_TEST_TEMP_FIXTURES: '1' };
+			for (const shell of posixShells()) {
+				fs.rmSync(path.join(stubDir, 'uci.log'), { force: true });
+				const raw = runWithShell(shell, env);
+				const res = JSON.parse(raw);
+				const context = `[${shell}] ${fixture.name}`;
+				assert.ok(Buffer.byteLength(raw) <= maxBytes, `${context}: complete reply exceeds cap`);
+				assert.equal(res.truncated, fixture.truncated ?? true, `${context}: truncation signal`);
+				assert.equal(res.error, fixture.tempFails ? 'mktemp_failed' :
+					fixture.nftFails ? 'no_backend' : undefined, `${context}: independent backend status`);
+				for (const [name] of fixture.entries) {
+					assert.equal(res.rules[name], name, `${context}: UCI label preserved`);
+					if (fixture.kept.includes(name))
+						assert.equal(res.targets[name], fixture.entries.find(([key]) => key === name)[1],
+							`${context}: first fitting target preserved`);
+				}
+				for (const name of fixture.omitted)
+					assert.equal(res.targets[name], undefined, `${context}: overflowing target omitted`);
+				if (!fixture.nftFails && !fixture.tempFails)
+					assert.equal(res.rules[prefix], fixture.prefixOmitted ? undefined : prefix.replace(/-/g, ' '),
+						`${context}: targets cannot steal nft label space`);
+				assert.deepEqual(fs.readFileSync(path.join(stubDir, 'uci.log'), 'utf8').trim().split('\n'),
+					['-q show firewall'], `${context}: UCI snapshot is read once`);
+			}
+		} finally { fs.rmSync(stubDir, { recursive: true, force: true }); }
+	}
+}
+
 function installNslookupStub(stubDir) {
 	makeStub(stubDir, 'nslookup', `#!/bin/sh
 echo "marker-nslookup $1" >> "${stubDir}/called"
@@ -1867,6 +1950,7 @@ async function run() {
 	testUciTargetsMap();
 	testUciNameWalkBound();
 	testRulesMapByteBound();
+	testRulesReplyByteBoundWithTargets();
 	testGlobMetacharDedup();
 	testTmpDirSticky();
 	testTmpDirStickyBusybox();
