@@ -96,7 +96,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | **Fetch budget** | Visible in **Detail** view. **Auto** reads extra kernel log lines so the table can fill; that count is not the same as **Limit**. **Manual** selects a bounded maximum from 25, 50, 100, 250, 500, 1000, or 2000. Both modes retain server protection and adaptive polling cadence. |
 | **Maximum raw lines** | Visible in **Detail** view. Enabled in **Manual** mode. It is a raw-line fetch budget, not a number of firewall rows displayed. Paused Manual fetches use this maximum; paused Auto keeps the compatibility 2000-line request. |
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns. Hover shows the IP. Click still filters by IP. |
-| **Quick search** | Matches across all normalized fields. |
+| **Quick search** | Matches across all normalized fields, including the displayed rule name and UCI target. |
 
 ## Performance on small devices
 
@@ -171,7 +171,7 @@ matching substring.
 
 ## Rule column
 
-When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint. Named `option log '1'` / `nft log` prefixes with no verdict word keep Action unknown; the Rule column may still show the UCI target after the name as display-only. That suffix is not a filter and does not change Action, the Action filter, or Top drops.
+When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint. Named `option log '1'` / `nft log` prefixes with no verdict word keep Action unknown; the Rule column may still show the UCI target after the name as display-only. That suffix is not a clickable Action filter and does not change Action, the Action filter, or Top drops.
 
 If **Some rule names may be missing** appears near the title, open **Details**
 for the cause and diagnostic code. Some entries may use names derived from log

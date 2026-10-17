@@ -63,6 +63,10 @@ function run() {
 	assert.equal(notProto.length, 1);
 	assert.ok(notProto.every((r) => r.proto !== 'TCP'));
 
+	const unknownRejectTarget = { action: '', rule_target: 'REJECT' };
+	assert.equal(core.matchesFilter(unknownRejectTarget, { q: 'reject' }), true);
+	assert.equal(core.matchesFilter(unknownRejectTarget, { action: 'reject' }), false);
+
 	const iptFixture = path.join(__dirname, 'fixtures', 'logread-iptables.json');
 	const iptPayload = JSON.parse(fs.readFileSync(iptFixture, 'utf8'));
 	const iptStats = core.statsLogEntries(iptPayload.log);
