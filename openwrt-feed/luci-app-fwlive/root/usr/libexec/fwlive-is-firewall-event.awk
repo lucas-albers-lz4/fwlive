@@ -77,7 +77,7 @@ function strip_leading_rule_hint(s, first, rest) {
 	}
 	else if (match(s, "^[A-Za-z0-9_.-]+:")) {
 		first = substr(s, RSTART, RLENGTH - 1)
-		if (tolower(first) != "kernel" && tolower(first) != "iptables")
+		if (tolower(first) != "kernel" && tolower(first) != "iptables" && !action_word_prefix(first))
 			s = substr(s, RSTART + RLENGTH)
 	}
 	return s

@@ -573,6 +573,18 @@ function runSummaryContract() {
 		assert.deepEqual(kvKeyHintOut.top_drops, [{ value: 'drop', count: 1 }],
 			'whitespace/glued hints must keep the first KV key; br-DROP is not a drop');
 
+		const colonVerdict = 'DROP: IN=wan OUT= SRC=192.0.2.3 DST=192.0.2.4 PROTO=TCP';
+		assert.equal(core.detectAction(colonVerdict), 'DROP',
+			'JS must keep a colon-tagged DROP prefix as the verdict');
+		const colonVerdictSummary = JSON.stringify({ log: [{ msg: colonVerdict }] });
+		const colonVerdictFiltered = shSpawn(null, {
+			argvFile: FILTER_SH, input: colonVerdictSummary, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(colonVerdictFiltered.status, 0, colonVerdictFiltered.stderr || colonVerdictFiltered.stdout);
+		assert.deepEqual(JSON.parse(colonVerdictFiltered.stdout).summary.top_drops,
+			[{ value: 'drop', count: 1 }],
+			'colon-tagged DROP prefix must still count in the shell summary');
+
 		const ifaceVerdict = JSON.stringify({
 			log: [
 				{

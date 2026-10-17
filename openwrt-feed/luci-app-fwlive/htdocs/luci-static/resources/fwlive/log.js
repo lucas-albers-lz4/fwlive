@@ -231,6 +231,15 @@ return baseclass.extend({
 		return String(message).replace(this.KV_SPAN, '');
 	},
 
+	isClassifyActionWord: function (token) {
+		const prefix = (token || '').toUpperCase();
+		const words = this.CLASSIFY_SPEC.actionWords;
+		for (let i = 0; i < words.length; i++) {
+			if (words[i] === prefix) return true;
+		}
+		return false;
+	},
+
 	messageForDetectAction: function (message) {
 		let msg = this.normalizeNetfilterMessage(message || '').trim();
 		msg = msg.replace(/^\[\s*[\d.]+\]\s*/, '');
@@ -238,23 +247,13 @@ return baseclass.extend({
 		if (/^fw4:\s*/i.test(msg)) return msg.replace(/^fw4:\s*/i, '');
 
 		const beforeKv = msg.match(/^([A-Za-z0-9_.-]+)(?::|\s+)(?=IN=|OUT=|SRC=|DST=|PROTO=)/);
-		if (beforeKv) {
-			const prefix = beforeKv[1].toUpperCase();
-			const words = this.CLASSIFY_SPEC.actionWords;
-			let isAction = false;
-			for (let i = 0; i < words.length; i++) {
-				if (words[i] === prefix) {
-					isAction = true;
-					break;
-				}
-			}
-			if (!isAction) return msg.slice(beforeKv[0].length);
-		}
+		if (beforeKv && !this.isClassifyActionWord(beforeKv[1]))
+			return msg.slice(beforeKv[0].length);
 
 		const colon = msg.match(/^([A-Za-z0-9_.-]+):/);
 		if (colon) {
 			const tag = colon[1].toLowerCase();
-			if (tag !== 'kernel' && tag !== 'iptables')
+			if (tag !== 'kernel' && tag !== 'iptables' && !this.isClassifyActionWord(colon[1]))
 				return msg.slice(colon[0].length).replace(/^\s*/, '');
 		}
 

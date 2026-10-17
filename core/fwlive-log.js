@@ -185,7 +185,7 @@ function messageForDetectAction(message) {
 	const colon = msg.match(/^([A-Za-z0-9_.-]+):/);
 	if (colon) {
 		const tag = colon[1].toLowerCase();
-		if (tag !== 'kernel' && tag !== 'iptables')
+		if (tag !== 'kernel' && tag !== 'iptables' && !isClassifyActionWord(colon[1]))
 			return msg.slice(colon[0].length).replace(/^\s*/, '');
 	}
 

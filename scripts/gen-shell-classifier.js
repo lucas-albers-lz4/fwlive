@@ -200,7 +200,7 @@ function emitAwkProgram() {
 		'\t}',
 		'\telse if (match(s, "^' + ruleHint.tokenClassAwk + '+:")) {',
 		'\t\tfirst = substr(s, RSTART, RLENGTH - 1)',
-		'\t\tif (tolower(first) != "kernel" && tolower(first) != "iptables")',
+		'\t\tif (tolower(first) != "kernel" && tolower(first) != "iptables" && !action_word_prefix(first))',
 		'\t\t\ts = substr(s, RSTART + RLENGTH)',
 		'\t}',
 		'\treturn s',

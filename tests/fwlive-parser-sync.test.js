@@ -173,6 +173,18 @@ const uciRuleVerdictCases = [
 	{
 		msg: 'Allow-PingIN=br-DROP OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
 		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Allow-Ping'
+	},
+	{
+		msg: 'DROP: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'DROP'
+	},
+	{
+		msg: 'PASS: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'pass', action_raw: 'PASS', rule_hint: 'PASS'
+	},
+	{
+		msg: 'DROP:IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'DROP'
 	}
 ];
 for (let i = 0; i < uciRuleVerdictCases.length; i++) {
