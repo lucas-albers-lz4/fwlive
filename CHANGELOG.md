@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Match nft ping-helper removal to the installed `fwlive-ping ` / `fwlive-ping6 ` log prefixes, and keep the iptables ping LOG rule ahead of ACCEPT (#1286, #1287).
 
 ### Changed
+- Hide Fetch budget in Simple view; add a Clear button next to Pause; keep poll-cap diagnostics behind `#diag=1` (#1302).
 - Rules map builds UCI name keys without per-rule `json_escape`/`tr` forks (#1253).
 - Correct user-guide wording for apk upgrades, WAN logging bit behavior, Rule labels, and client filter substring matching (#1256, #1258, #1259, #1260).
 - Document the Simple-view **Show full message** button in the user guide (#1229).

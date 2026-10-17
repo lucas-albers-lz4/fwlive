@@ -269,9 +269,26 @@ async function testBudgetControlsAndMetadata() {
 	const manual = h.document.getElementById('fwlive-manual-lines');
 	assert.ok(mode, 'Fetch budget control must render');
 	assert.strictEqual(mode._attrs['aria-controls'], 'fwlive-manual-lines');
+	assert.match(
+		mode._attrs.title,
+		/not the same as Limit/i,
+		'Fetch budget tooltip must distinguish Auto from Limit'
+	);
 	assert.strictEqual(manual.disabled, true, 'Manual maximum is disabled in Auto');
+	assert.strictEqual(
+		v.viewMode,
+		'simple',
+		'Simple view keeps Fetch budget in the DOM; CSS hides the control'
+	);
 
 	await v.fetchEntries();
+	assert.strictEqual(
+		h.document.getElementById('fwlive-adaptive').style.display,
+		'none',
+		'shipped UI hides the adaptive banner without diag=1'
+	);
+	v.diagnosticMode = true;
+	v.updateAdaptiveBanner();
 	assert.match(
 		h.document.getElementById('fwlive-adaptive').textContent,
 		/server limited fetch to 250/
@@ -295,6 +312,40 @@ async function testBudgetControlsAndMetadata() {
 	console.log('fwlive-view fetch-budget: controls and metadata validation OK');
 }
 
+async function testSummaryModeHidesAdaptiveBanner() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.diagnosticMode = true;
+	v.lastPollRequestedLines = 400;
+	v.lastPollReturnedMessages = 50;
+	v.serverAdaptive = 1;
+	v.serverTruncated = 1;
+	v.lastPollEffectiveLimit = 50;
+	v.updateAdaptiveBanner();
+	assert.match(
+		h.document.getElementById('fwlive-adaptive').textContent,
+		/raw lines/,
+		'diagnostic mode keeps fetch-budget diagnostics outside summary mode'
+	);
+	v.enterSummaryMode({
+		top_talkers: [{ value: '203.0.113.1', count: 2 }],
+		top_drops: [],
+		top_rules: []
+	});
+	assert.strictEqual(
+		h.document.getElementById('fwlive-adaptive').style.display,
+		'none',
+		'summary mode must hide fetch-budget diagnostics'
+	);
+	v.leaveSummaryMode();
+	assert.match(
+		h.document.getElementById('fwlive-adaptive').textContent,
+		/raw lines/,
+		'leaving summary mode restores diagnostic fetch-budget diagnostics'
+	);
+	console.log('fwlive-view fetch-budget: summary mode hides adaptive banner OK');
+}
+
 async function testMalformedEffectiveLimits() {
 	const values = [0, 2001, 250.5, '250.5', '250junk'];
 	const h = loadFwliveView({
@@ -306,6 +357,7 @@ async function testMalformedEffectiveLimits() {
 	});
 	const v = h.view;
 	v.rpcPreferencesResolved = true;
+	v.diagnosticMode = true;
 	const count = values.length;
 	for (let i = 0; i < count; i++) {
 		await v.fetchEntries();
@@ -996,6 +1048,7 @@ async function main() {
 	await testFirstRpcUsesResolvedPreferences();
 	await testStartupPollFinishesBeforeMetadata();
 	await testBudgetControlsAndMetadata();
+	await testSummaryModeHidesAdaptiveBanner();
 	await testMalformedEffectiveLimits();
 	await testBudgetChangesRespectCadence();
 	await testPausedBudgetChangesDoNotFetch();

@@ -530,6 +530,7 @@ async function testAdaptiveOffDisablesBackoff() {
 		'adaptive:0 keeps 1s'
 	);
 	assert.strictEqual(v.degradedSampling, false);
+	v.diagnosticMode = true;
 	v.updateAdaptiveBanner();
 	const el = h.document.getElementById('fwlive-adaptive');
 	assert.ok(el);
@@ -572,6 +573,7 @@ async function testLoadConditionVocabulary() {
 		const h = loadFwliveView();
 		const v = h.view;
 		v.serverAdaptive = 1;
+		v.diagnosticMode = true;
 		apply(v);
 		v.updateAdaptiveBanner();
 		v.updateFloodBanner();
@@ -583,6 +585,35 @@ async function testLoadConditionVocabulary() {
 		);
 	}
 	console.log('fwlive-view layer2: load-condition vocabulary OK');
+}
+
+async function testShippedHidesUnactionableDiagnostics() {
+	const h = loadFwliveView();
+	const v = h.view;
+	v.serverAdaptive = 1;
+	v.degradedSampling = true;
+	v.serverTruncated = 1;
+	v.resolveLoadShed = true;
+	v.weakDevice = true;
+	v.rowLimit = 1000;
+	v.ensureRenderScheduler().isFloodSuppressed = () => true;
+	v.updateAdaptiveBanner();
+	v.updateFloodBanner();
+	const adaptive = h.document.getElementById('fwlive-adaptive');
+	const suffix = v.statusSuffix();
+	assert.strictEqual(v.diagnosticMode, false);
+	assert.strictEqual(adaptive.style.display, 'none', 'shipped UI hides the gray adaptive banner');
+	assert.strictEqual(adaptive.textContent, '');
+	assert.ok(suffix.includes('display limited to 250 rows'));
+	assert.ok(suffix.includes('table refresh throttled'));
+	assert.ok(!suffix.includes('polling slowed'));
+	assert.ok(!suffix.includes('server limited fetch'));
+	assert.ok(!suffix.includes('hostname lookup paused'));
+	assert.match(
+		String(h.document.getElementById('fwlive-flood').textContent),
+		/table refresh throttled/i
+	);
+	console.log('fwlive-view layer2: shipped UI hides unactionable diagnostics OK');
 }
 
 async function testResolveLoadShed() {
@@ -685,6 +716,7 @@ async function testShedSurfacing() {
 	assert.strictEqual(v.serverTruncated, 1);
 	assert.strictEqual(v.serverShed.limit, 250);
 	v.degradedSampling = true;
+	v.diagnosticMode = true;
 	v.updateAdaptiveBanner();
 	const el = h.document.getElementById('fwlive-adaptive');
 	assert.strictEqual(el.style.display, 'block');
@@ -1892,6 +1924,7 @@ async function testPausedDisplayControlsPaint() {
 		await testHostnameToggleAsyncResolveDefersPaintWhilePaused();
 		await testPausedDisplayControlsPaint();
 		await testLoadConditionVocabulary();
+		await testShippedHidesUnactionableDiagnostics();
 		console.log('fwlive-view layer2 backoff tests passed');
 	} catch (e) {
 		fail(e && e.stack ? e.stack : String(e));

@@ -97,6 +97,10 @@ ssh -p 2222 root@127.0.0.1 'ping -c 5 127.0.0.1'
 ./scripts/fwlive-ubus-read.sh --lines 20
 ```
 
+LuCI is `http://127.0.0.1:8080/cgi-bin/luci/admin/status/fwlive`. Append
+`#diag=1` to show the gray adaptive banner and unactionable Watching tags
+(session hash only; not stored in the browser).
+
 Reset WAN logging state before toggle/uninstall tests (QEMU disk persists UCI):
 
 ```sh

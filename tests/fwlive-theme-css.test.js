@@ -309,6 +309,13 @@ if (!text.includes('fwlive-display-bar') || !text.includes('fwlive-display-contr
 	console.error('missing inline display options bar');
 	process.exit(1);
 }
+if (
+	!css.includes('.fwlive-map[data-view="simple"] label[for="fwlive-fetch-mode"]') ||
+	!css.includes('.fwlive-map[data-view="simple"] label[for="fwlive-manual-lines"]')
+) {
+	console.error('missing Simple-view hide for Fetch budget / Maximum raw lines');
+	process.exit(1);
+}
 if (!css.includes('.fwlive-map.fwlive-watch-paused .fwlive-title-row')) {
 	console.error('missing paused styling on compact title row');
 	process.exit(1);

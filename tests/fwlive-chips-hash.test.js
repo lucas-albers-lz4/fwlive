@@ -606,6 +606,38 @@ function testApplyHashUnlistedActionStaysSelected() {
 	assert.strictEqual(valueOf(h, 'fwlive-action'), 'uncommon');
 }
 
+function testDiagHashIsSessionOnly() {
+	const on = loadFwliveView({ location: { hash: '#diag=1&src=192.0.2.1' } });
+	withSelectOptions(on);
+	on.view.applyHash();
+	assert.strictEqual(on.view.diagnosticMode, true, '#diag=1 must enable diagnostics');
+	assert.strictEqual(valueOf(on, 'fwlive-src'), '192.0.2.1');
+	assert.strictEqual(on.view.hashFilterKeyAllowed('diag'), false);
+	on.view.updateHash(on.view.readFilters());
+	assert.match(on.location.hash, /diag=1/, 'updateHash must keep #diag=1');
+	assert.doesNotMatch(on.location.hash, /fwlive-diag/, 'diag must not persist as a filter field');
+
+	const truthy = loadFwliveView({ location: { hash: '#diag=true' } });
+	withSelectOptions(truthy);
+	truthy.view.applyHash();
+	assert.strictEqual(truthy.view.diagnosticMode, true, '#diag=true must enable diagnostics');
+
+	const off = loadFwliveView({ location: { hash: '#src=192.0.2.1' } });
+	withSelectOptions(off);
+	off.view.diagnosticMode = true;
+	off.view.applyHash();
+	assert.strictEqual(off.view.diagnosticMode, false, 'missing diag hash must clear diagnostics');
+	off.view.updateHash(off.view.readFilters());
+	assert.doesNotMatch(off.location.hash, /diag=/);
+
+	const hostile = loadFwliveView({
+		location: { hash: '#diag=' + encodeURIComponent(HOSTILE) }
+	});
+	withSelectOptions(hostile);
+	hostile.view.applyHash();
+	assert.strictEqual(hostile.view.diagnosticMode, false, 'hostile diag values must not enable');
+}
+
 function testApplyHashHostileAsText() {
 	const encoded = encodeURIComponent(HOSTILE);
 	const h = loadFwliveView({
@@ -642,4 +674,5 @@ testUpdateHashRoundTripsEqualsAndAmpersand();
 testUpdateHashUsesReplaceState();
 testPollPaintLeavesHashAlone();
 testApplyHashHostileAsText();
+testDiagHashIsSessionOnly();
 console.log('fwlive chips/hash sink tests passed');

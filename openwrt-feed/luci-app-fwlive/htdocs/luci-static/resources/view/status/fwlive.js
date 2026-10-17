@@ -152,6 +152,9 @@ return view.extend({
 	entries: [],
 	filteredRowsCache: null,
 	sessionSeen: null,
+	/* After Clear, skip already-seen IDs and merge so the live poll window
+	 * cannot refill the table with the same kernel log lines. */
+	suppressSeenIngest: false,
 	pauseBufferLoading: false,
 	/* Freezes row rendering while polling, health, and cadence updates continue. */
 	tablePaused: false,
@@ -209,6 +212,8 @@ return view.extend({
 	rulesMap: {},
 	firewallBackend: 'nft',
 	viewMode: 'simple',
+	/* Hash diag=1: adaptive banner and unactionable Watching tags. */
+	diagnosticMode: false,
 	expandedRowId: null,
 	loggingStatus: null,
 	/* Invalidates status reads started before a newer toggle or refresh. */
@@ -264,6 +269,7 @@ return view.extend({
 			parts.push('maxraw=%s'.format(encodeURIComponent(this.manualFetchLines)));
 		}
 		if (this.viewMode === 'detailed') parts.push('view=detailed');
+		if (this.diagnosticMode) parts.push('diag=1');
 		history.replaceState(history.state, '', '#' + parts.join('&'));
 	},
 
@@ -419,12 +425,17 @@ return view.extend({
 	applyHash() {
 		this.resolveRpcPreferences();
 
+		this.diagnosticMode = false;
 		const entries = this.hashEntries();
 		for (let i = 0; i < entries.length; i++) {
 			const key = entries[i].key;
 			const val = entries[i].val;
 			if (key === 'limit' || key === 'poll' || key === 'maxraw') continue;
 			if (key === 'fetch-mode' || key === 'row-tint') continue;
+			if (key === 'diag') {
+				this.diagnosticMode = val === '1' || val === 'true';
+				continue;
+			}
 			if (key === 'view') {
 				if (val === 'advanced' || val === 'detailed') this.viewMode = 'detailed';
 				else if (val === 'simple') this.viewMode = 'simple';
@@ -686,6 +697,7 @@ return view.extend({
 		this.updateDetailToggleUi();
 		this.renderThead();
 		this.updateHash(this.readFilters());
+		this.updateAdaptiveBanner();
 		this.renderRows(true);
 	},
 
@@ -1141,7 +1153,9 @@ return view.extend({
 			const row = this.enrichEntry(log.normalizeEntry(raw[i]));
 			if (seen[row.id]) continue;
 			seen[row.id] = true;
-			if (this.rememberSessionId(row.id)) pollNew++;
+			const isNew = this.rememberSessionId(row.id);
+			if (isNew) pollNew++;
+			if (this.suppressSeenIngest && !isNew) continue;
 			normalized.push(row);
 		}
 
@@ -1247,7 +1261,7 @@ return view.extend({
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
 			/* buffer.js retains its public paused option; this is the view's table state. */
 			paused: this.tablePaused,
-			resumeMerge: resumeMerge || context.pausedAtStart,
+			resumeMerge: resumeMerge || context.pausedAtStart || this.suppressSeenIngest,
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});
@@ -1331,9 +1345,11 @@ return view.extend({
 			bits.push(
 				_('display limited to %d rows').format(constants.WEAK_DEVICE_DISPLAY_ROW_CAP)
 			);
-		if (this.degradedSampling) bits.push(_('polling slowed'));
-		if (this.serverTruncated) bits.push(_('server limited fetch'));
-		if (this.resolveLoadShed) bits.push(_('hostname lookup paused'));
+		if (this.diagnosticMode) {
+			if (this.degradedSampling) bits.push(_('polling slowed'));
+			if (this.serverTruncated) bits.push(_('server limited fetch'));
+			if (this.resolveLoadShed) bits.push(_('hostname lookup paused'));
+		}
 		if (!this.tablePaused && !this.followLive)
 			bits.push(_('scroll frozen — scroll to top to follow live'));
 		return bits.length ? ' — ' + bits.join(', ') : '';
@@ -1529,7 +1545,8 @@ return view.extend({
 		const el = document.getElementById('fwlive-adaptive');
 		if (!el) return;
 
-		const parts = this.adaptiveBannerParts();
+		const parts =
+			!this.diagnosticMode || this.summaryMode ? [] : this.adaptiveBannerParts();
 
 		if (parts.length) {
 			el.style.display = 'block';
@@ -1628,6 +1645,7 @@ return view.extend({
 		this.summaryData =
 			summary && typeof summary === 'object' && !Array.isArray(summary) ? summary : null;
 		this.renderSummary();
+		this.updateAdaptiveBanner();
 	},
 
 	leaveSummaryMode() {
@@ -1636,6 +1654,7 @@ return view.extend({
 		this.summaryRowsShown = false;
 		this.summaryData = null;
 		this.updateSummaryUi();
+		this.updateAdaptiveBanner();
 		if (this.tablePaused) {
 			this.syncEmptyScrollVisibility(this.filteredRowsState().rows.length);
 			this.updateStatus();
@@ -1932,6 +1951,25 @@ return view.extend({
 				})
 				.catch(function () {});
 		}
+	},
+
+	onClearEntriesClick() {
+		this.entries = [];
+		this.expandedRowId = null;
+		this.lastBatchNewIdCount = 0;
+		this.fillingBuffer = false;
+		this.pauseBufferLoading = false;
+		this.suppressSeenIngest = true;
+		this.invalidateFilteredRows();
+		this.ensureRenderScheduler().resetBudget();
+		if (this.summaryMode) {
+			this.summaryMode = false;
+			this.summaryRowsShown = false;
+			this.summaryData = null;
+			this.updateSummaryUi();
+			this.updateAdaptiveBanner();
+		}
+		this.renderRows(true);
 	},
 
 	onRowLimitChange(ev) {
@@ -2401,6 +2439,9 @@ return view.extend({
 		const pauseBtn = document.getElementById('fwlive-pause');
 		if (pauseBtn) pauseBtn.addEventListener('click', this.onPauseClick.bind(this));
 
+		const clearBtn = document.getElementById('fwlive-clear');
+		if (clearBtn) clearBtn.addEventListener('click', this.onClearEntriesClick.bind(this));
+
 		const limitSel = document.getElementById('fwlive-limit');
 		if (limitSel) limitSel.addEventListener('change', this.onRowLimitChange.bind(this));
 
@@ -2537,7 +2578,10 @@ return view.extend({
 						{
 							'id': 'fwlive-fetch-mode',
 							'class': 'cbi-input-select',
-							'aria-controls': 'fwlive-manual-lines'
+							'aria-controls': 'fwlive-manual-lines',
+							'title': _(
+								'Auto reads extra kernel log lines so the table can fill; it is not the same as Limit.'
+							)
 						},
 						this.fetchModeOptions()
 					)
@@ -2605,12 +2649,17 @@ return view.extend({
 					]),
 					E('li', {}, [
 						_(
+							'Clear empties the table. Already seen events stay hidden; new ones still appear.'
+						)
+					]),
+					E('li', {}, [
+						_(
 							'Enable logging turns on WAN zone drop/reject logging only (same as Network → Firewall). It does not add rules or log normal LAN browsing.'
 						)
 					]),
 					E('li', {}, [
 						_(
-							'Display options set Limit, Fetch budget, Maximum raw lines, row tint, palette, and hostnames.'
+							'Display options set Limit, row tint, palette, and hostnames. Fetch budget is in Detail view.'
 						)
 					]),
 					E('li', {}, [
@@ -2620,7 +2669,7 @@ return view.extend({
 					]),
 					E('li', {}, [
 						_(
-							'Fetch budget controls raw log lines per poll. Auto derives from Limit; Manual selects a bounded maximum.'
+							'Limit is how many events the table keeps. In Detail view, Fetch budget Auto reads extra kernel log lines so the table can fill; Manual selects that read size.'
 						)
 					]),
 					E('li', {}, [
@@ -2746,6 +2795,16 @@ return view.extend({
 								'type': 'button'
 							},
 							[_('Pause')]
+						),
+						E(
+							'button',
+							{
+								'id': 'fwlive-clear',
+								'class': 'cbi-button fwlive-btn-ghost',
+								'type': 'button',
+								'title': _('Remove shown events. New events still appear.')
+							},
+							[_('Clear')]
 						),
 						E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, [])
 					]),
