@@ -1180,9 +1180,11 @@ return view.extend({
 			if (seen[row.id]) continue;
 			seen[row.id] = true;
 			/* Keep the original time precision: logd can reuse IDs after restart. */
-			row._clearKey = JSON.stringify([row.id, raw[i].time, row.message]);
-			this.rememberRecentEntryKey(row._clearKey);
-			if (this.clearedEntryKeys && this.clearedEntryKeys.has(row._clearKey)) continue;
+			const clearKey = JSON.stringify([row.id, raw[i].time, row.message]);
+			/* Free-text search enumerates row fields; this identity is private. */
+			Object.defineProperty(row, '_clearKey', { value: clearKey });
+			this.rememberRecentEntryKey(clearKey);
+			if (this.clearedEntryKeys && this.clearedEntryKeys.has(clearKey)) continue;
 			if (this.rememberSessionId(row.id)) pollNew++;
 			normalized.push(row);
 		}

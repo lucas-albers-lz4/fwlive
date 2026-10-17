@@ -203,6 +203,21 @@ function testClearAdmitsReusedIdsAndTimePrecision() {
 	console.log('fwlive-view clear: reused log IDs and raw timestamp precision OK');
 }
 
+function testClearIdentityStaysOutOfQuickSearch() {
+	const h = loadFwliveView();
+	const v = h.view;
+	applyPoll(v, [{ ...logLine(1, '203.0.113.1'), time: 1704067200001 }]);
+	h.document.getElementById('fwlive-q').value = '1704067200001';
+	assert.strictEqual(v.filteredRows().length, 0,
+		'private raw-time identity must not extend normalized-field quick search');
+	h.document.getElementById('fwlive-q').value = '203.0.113.1';
+	assert.strictEqual(v.filteredRows().length, 1, 'event fields remain searchable');
+	v.onClearEntriesClick();
+	applyPoll(v, [{ ...logLine(1, '203.0.113.1'), time: 1704067200001 }]);
+	assert.strictEqual(v.entries.length, 0, 'non-enumerable identities still support Clear');
+	console.log('fwlive-view clear: private identities stay out of quick search OK');
+}
+
 function testClearDoesNotRepublishServerSummary() {
 	const h = loadFwliveView();
 	const v = h.view;
@@ -254,6 +269,7 @@ async function main() {
 	testClearKeepsFiltersAndHelp();
 	testClearSurvivesWiderLookbacksAndRepeatedClear();
 	testClearAdmitsReusedIdsAndTimePrecision();
+	testClearIdentityStaysOutOfQuickSearch();
 	testClearDoesNotRepublishServerSummary();
 	await testClearDuringInflightPoll();
 	console.log('fwlive-view clear-entries tests passed');
