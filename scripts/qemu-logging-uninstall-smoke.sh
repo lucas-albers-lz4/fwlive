@@ -3,8 +3,8 @@
 #
 #   ./scripts/qemu-logging-uninstall-smoke.sh
 #   OPENWRT_SSH_PORT=2222 ./scripts/qemu-logging-uninstall-smoke.sh
-#   # Set the exact package filename from the build output; assignment globs do not expand.
-#   OWRT_FWLIVE_ARTIFACT=out/x86_64/24.10.8/fwlive/luci-app-fwlive_0.1.53-r1_all.ipk \\
+# Set the exact package filename from the build output; assignment globs do not expand.
+#   OWRT_FWLIVE_ARTIFACT=out/x86_64/24.10.8/fwlive/luci-app-fwlive_0.1.53-r1_all.ipk \
 #     ./scripts/qemu-logging-uninstall-smoke.sh
 #
 # Prereqs: QEMU guest up with luci-app-fwlive installed from the package
