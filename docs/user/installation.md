@@ -55,10 +55,14 @@ Use these methods when the binary feed does not work for you. Most users do not 
 
 Download the prebuilt package from **[GitHub Releases](https://github.com/lucas-albers-lz4/fwlive/releases)** for your OpenWrt version.
 
+`luci-app-fwlive` is enough to use the app. Locale packages are optional add-ons in separate files; they are not inside `luci-app-fwlive`. Those locale assets exist only on releases that publish them. The current published tag **v0.1.53** has `luci-app-fwlive` only.
+
 | OpenWrt | Artifact | Package manager |
 |---------|----------|-----------------|
 | **23.05** / **24.10** | `luci-app-fwlive_*_all.ipk` | `opkg` |
 | **25.12.x** | `luci-app-fwlive-*.apk` | `apk` |
+
+GitHub Release `.ipk` names include the OpenWrt line (`_23.05` or `_24.10`) so both files can attach to one release. Download the file that matches your OpenWrt version.
 
 The package is **`_all`** — architecture-independent. One `.ipk` or `.apk` per OpenWrt release works on any router (ARM, x86, etc.).
 
@@ -77,6 +81,34 @@ ssh root@192.168.1.1 opkg install /tmp/luci-app-fwlive_*.ipk
 scp luci-app-fwlive-*.apk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1 apk add --allow-untrusted /tmp/luci-app-fwlive-*.apk
 ```
+
+### Optional locale packages
+
+On releases that publish locale assets, GitHub Releases also attach:
+
+| LuCI language | Package |
+|---------------|---------|
+| German | `luci-i18n-fwlive-de` |
+| Russian | `luci-i18n-fwlive-ru` |
+| Simplified Chinese | `luci-i18n-fwlive-zh-cn` (`po/zh_Hans` maps to package language `zh-cn`) |
+
+Install only the package that matches the LuCI language you use, with the same OpenWrt line as the app (`.ipk` with `_23.05` or `_24.10`, or `.apk` for 25.12). Example for German:
+
+**OpenWrt 23.05 / 24.10** (`opkg`):
+
+```sh
+scp luci-i18n-fwlive-de_*_all.ipk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 opkg install /tmp/luci-i18n-fwlive-de_*_all.ipk
+```
+
+**OpenWrt 25.12.x** (`apk`):
+
+```sh
+scp luci-i18n-fwlive-de-*.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 apk add --allow-untrusted /tmp/luci-i18n-fwlive-de-*.apk
+```
+
+Replace `de` with `ru` or `zh-cn` for the other languages. Feed names for the same packages: [Binary feed](../binary-feed.md).
 
 Refresh LuCI in the browser. The menu appears under **Status → Firewall Live View**.
 

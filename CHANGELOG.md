@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Clarify that Quick Search matches the displayed rule name and UCI target, and that the Rule suffix is not a clickable Action filter (#1310).
+- Document optional GitHub Release locale packages (`luci-i18n-fwlive-de`, `luci-i18n-fwlive-ru`, `luci-i18n-fwlive-zh-cn`) and that v0.1.53 is app-only (#1314).
 - Hide Fetch budget in Simple view; add a Clear button next to Pause; keep poll-cap diagnostics behind `#diag=1` (#1302).
 - Rules map builds UCI name keys without per-rule `json_escape`/`tr` forks (#1253).
 - Correct user-guide wording for apk upgrades, WAN logging bit behavior, Rule labels, and client filter substring matching (#1256, #1258, #1259, #1260).
