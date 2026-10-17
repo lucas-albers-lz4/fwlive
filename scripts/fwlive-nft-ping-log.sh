@@ -49,7 +49,7 @@ add_rules() {
 	run_guest "$(cat <<'EOS'
 set -e
 # Insert at top of input — appended rules never see br-lan traffic (input_lan jump).
-if nft list chain inet fw4 input | grep -q 'fwlive-ping'; then
+if nft list chain inet fw4 input | grep -q 'prefix "fwlive-ping "'; then
 	echo "fwlive-ping rule already present in inet fw4 input"
 else
 	nft insert rule inet fw4 input ip protocol icmp icmp type echo-request log prefix "fwlive-ping " accept

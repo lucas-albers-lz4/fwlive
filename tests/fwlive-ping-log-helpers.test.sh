@@ -98,6 +98,56 @@ if grep -F 'pat%\\ ' "$ROOT/scripts/fwlive-nft-ping-log.sh"; then
 fi
 ok "#1286 nft remove keeps the installed trailing space in the matcher"
 
+# --- nft add when only v6 rule is present (#1312) ---
+grep -q 'prefix "fwlive-ping "' "$ROOT/scripts/fwlive-nft-ping-log.sh" || \
+	die "IPv4 add guard must match the installed log prefix (trailing space)"
+NFT_ADD_LIST="$WORK/nft-add.list"
+NFT_ADD_INSERTS="$WORK/nft-add.inserts"
+: >"$NFT_ADD_INSERTS"
+cat >"$NFT_ADD_LIST" <<'EOS'
+table inet fw4 {
+	chain input {
+		type filter hook input priority filter; policy drop;
+		ip6 nexthdr ipv6-icmpv6 icmpv6 type echo-request log prefix "fwlive-ping6 " accept # handle 11
+	}
+}
+EOS
+
+cat >"$BIN/nft" <<EOS
+#!/usr/bin/env bash
+set -euo pipefail
+LIST="$NFT_ADD_LIST"
+INSERTS="$NFT_ADD_INSERTS"
+if [[ "\${1:-}" == -a && "\${2:-}" == list ]]; then
+	cat "\$LIST"
+	exit 0
+fi
+if [[ "\${1:-}" == list ]]; then
+	cat "\$LIST"
+	exit 0
+fi
+if [[ "\${1:-}" == insert ]]; then
+	echo "\$*" >>"\$INSERTS"
+	exit 0
+fi
+echo "unexpected nft args: \$*" >&2
+exit 1
+EOS
+chmod +x "$BIN/nft"
+
+PATH="$BIN:$PATH" "$ROOT/scripts/fwlive-nft-ping-log.sh" add >"$WORK/nft-add.out"
+grep -qE 'ip protocol icmp.*log prefix .*fwlive-ping ' "$NFT_ADD_INSERTS" || \
+	die "nft add skipped IPv4 insert when only fwlive-ping6 was present: $(cat "$NFT_ADD_INSERTS")"
+grep -q 'fwlive-ping6' "$NFT_ADD_INSERTS" && \
+	die "must not insert v6 when fwlive-ping6 is already present: $(cat "$NFT_ADD_INSERTS")"
+grep -q 'added: inet fw4 input (IPv4 ping log)' "$WORK/nft-add.out" || \
+	die "missing IPv4 add log: $(cat "$WORK/nft-add.out")"
+grep -q 'fwlive-ping rule already present' "$WORK/nft-add.out" && \
+	die "IPv4 add must not treat fwlive-ping6 as the v4 rule"
+grep -q 'fwlive-ping6 rule already present' "$WORK/nft-add.out" || \
+	die "expected v6 already-present message: $(cat "$WORK/nft-add.out")"
+ok "#1312 nft add inserts IPv4 when chain lists only fwlive-ping6"
+
 # --- iptables LOG-before-ACCEPT (#1287) ---
 IPT_CHAIN="$WORK/ipt.chain"
 : >"$IPT_CHAIN"
