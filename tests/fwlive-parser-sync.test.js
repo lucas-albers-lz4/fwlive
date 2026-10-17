@@ -161,6 +161,18 @@ const uciRuleVerdictCases = [
 	{
 		msg: 'Drop-Guest: IN=guest OUT= SRC=192.168.1.30 DST=1.1.1.1 PROTO=UDP SPT=5353 DPT=5353',
 		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Drop-Guest'
+	},
+	{
+		msg: 'Allow-Ping IN=br-DROP OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Allow-Ping'
+	},
+	{
+		msg: 'Allow-Ping IN=br-ACCEPT OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP DROP',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'Allow-Ping'
+	},
+	{
+		msg: 'Allow-PingIN=br-DROP OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Allow-Ping'
 	}
 ];
 for (let i = 0; i < uciRuleVerdictCases.length; i++) {

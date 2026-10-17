@@ -3,8 +3,12 @@
 **2026-10-17 #1299 scoped delta.** Verdict detection strips the same leading
 rule-hint token as `parseRuleHint` before `detectAction`, so hyphenated UCI rule
 names (Allow-Ping, Reject-LAN) no longer supply Action from embedded verdict
-words. `action` / `action_raw` remain line-derived; no ACL, rpcd, or DOM-sink
-change. Host coverage: parser corpus/sync and shell summary top_drops.
+words. POSIX awk cannot lookahead, so the generator matches the first KV key
+only to select that branch, then slices token plus delimiter; `IN=br-DROP`
+still suppresses the interface value. `action` / `action_raw` remain
+line-derived; no ACL, rpcd, or DOM-sink change. Host coverage: parser
+corpus/sync and shell summary top_drops, including whitespace and glued hints
+with a verdict-like first field.
 
 **2026-10-16 #1303 scoped delta.** Clear snapshots event identities separately
 from the evicting session-new counter cache. A bounded observation set refreshes

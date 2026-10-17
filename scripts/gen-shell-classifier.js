@@ -20,7 +20,8 @@ const SPEC = core.CLASSIFY_SPEC;
 /**
  * Pull token/lookahead atoms from parseRuleHint() so awk summary_rule cannot
  * list a prefix the table Rule column would leave blank. POSIX awk has no
- * lookahead; (?=KV) becomes a consuming KV match. Do not edit parseRuleHint.
+ * lookahead; match the KV key to select the branch, then slice only token plus
+ * delimiter so the first key remains (JS uses (?=KV)). Do not edit parseRuleHint.
  */
 function ruleHintFromParseRuleHint() {
 	const src = core.parseRuleHint.toString();
@@ -184,16 +185,18 @@ function emitAwkProgram() {
 		'\t}',
 		'\treturn 0',
 		'}',
-		'function strip_leading_rule_hint(s, first, hint_end) {',
+		'function strip_leading_rule_hint(s, first, rest) {',
 		'\tsub(/^\\[[[:space:]]*[0-9.]+\\][[:space:]]*/, "", s)',
 		'\tif (match(tolower(s), /^fw4:[[:space:]]*/))',
 		'\t\ts = substr(s, RSTART + RLENGTH)',
 		'\telse if (match(s, "^' + ruleHint.tokenClassAwk + '+(:|[[:space:]]+)(' + ruleHint.lookaheadKv + ')")) {',
-		'\t\thint_end = RSTART + RLENGTH',
 		'\t\tmatch(s, "^' + ruleHint.tokenClassAwk + '+")',
 		'\t\tfirst = substr(s, RSTART, RLENGTH)',
-		'\t\tif (!action_word_prefix(first))',
-		'\t\t\ts = substr(s, hint_end)',
+		'\t\tif (!action_word_prefix(first)) {',
+		'\t\t\trest = substr(s, RSTART + RLENGTH)',
+		'\t\t\tmatch(rest, "^(:|[[:space:]]+)")',
+		'\t\t\ts = substr(rest, RSTART + RLENGTH)',
+		'\t\t}',
 		'\t}',
 		'\telse if (match(s, "^' + ruleHint.tokenClassAwk + '+:")) {',
 		'\t\tfirst = substr(s, RSTART, RLENGTH - 1)',

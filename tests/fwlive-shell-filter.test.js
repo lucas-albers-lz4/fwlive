@@ -549,6 +549,30 @@ function runSummaryContract() {
 		assert.deepEqual(allowPingOut.top_drops, [{ value: 'drop', count: 2 }],
 			'Allow-Ping without verdict must not count as pass; zone drop wan in stays drop');
 
+		const whitespaceHintIface = 'Allow-Ping IN=br-DROP OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP';
+		const whitespaceHintDeny = 'Allow-Ping IN=br-ACCEPT OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP DROP';
+		const gluedHintIface = 'Allow-PingIN=br-DROP OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP';
+		assert.equal(core.detectAction(whitespaceHintIface), 'UNKNOWN',
+			'JS must keep IN= so br-DROP is not a verdict');
+		assert.equal(core.detectAction(whitespaceHintDeny), 'DROP',
+			'JS must still see a later DROP after IN=br-ACCEPT');
+		assert.equal(core.detectAction(gluedHintIface), 'UNKNOWN',
+			'JS glue plus hint strip must keep IN=br-DROP out of the verdict scan');
+		const kvKeyHintSummary = JSON.stringify({
+			log: [
+				{ msg: whitespaceHintIface },
+				{ msg: whitespaceHintDeny },
+				{ msg: gluedHintIface }
+			]
+		});
+		const kvKeyHintFiltered = shSpawn(null, {
+			argvFile: FILTER_SH, input: kvKeyHintSummary, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(kvKeyHintFiltered.status, 0, kvKeyHintFiltered.stderr || kvKeyHintFiltered.stdout);
+		const kvKeyHintOut = JSON.parse(kvKeyHintFiltered.stdout).summary;
+		assert.deepEqual(kvKeyHintOut.top_drops, [{ value: 'drop', count: 1 }],
+			'whitespace/glued hints must keep the first KV key; br-DROP is not a drop');
+
 		const ifaceVerdict = JSON.stringify({
 			log: [
 				{
