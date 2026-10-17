@@ -218,6 +218,44 @@ function testClearIdentityStaysOutOfQuickSearch() {
 	console.log('fwlive-view clear: private identities stay out of quick search OK');
 }
 
+function testOrdinaryPaintRefreshesReusedIds() {
+	for (const afterClear of [false, true]) {
+		for (const change of ['time', 'message', 'both']) {
+			const h = loadFwliveView();
+			const v = h.view;
+			const body = h.document.getElementById('fwlive-table').querySelector('tbody');
+			const before = logLine(7, '203.0.113.1');
+			if (afterClear) {
+				applyPoll(v, [{ ...before, time: before.time - 60 }]);
+				v.onClearEntriesClick();
+			}
+			applyPoll(v, [before]);
+			v.renderRows(false);
+			const oldRow = body.childNodes[0];
+			const oldKey = oldRow._fwliveRowKey;
+			applyPoll(v, [{ ...before }]);
+			v.renderRows(false);
+			assert.strictEqual(body.childNodes[0], oldRow, 'unchanged samples reuse the painted row');
+
+			const after = change === 'time' ? { ...before } : logLine(7, '198.51.100.9');
+			if (change !== 'message') after.time += 60;
+			applyPoll(v, [after]);
+			assert.strictEqual(v.lastBatchNewIdCount, 0, 'reused IDs do not count as session-new');
+			v.renderRows(false);
+			assert.notStrictEqual(body.childNodes[0], oldRow,
+				change + ' replacement must repaint, afterClear=' + afterClear);
+			assert.notStrictEqual(body.childNodes[0]._fwliveRowKey, oldKey);
+			if (change !== 'time')
+				assert.ok(body.childNodes[0]._fwliveRowKey.includes('198.51.100.9'));
+			const paintedRow = body.childNodes[0];
+			applyPoll(v, [{ ...after }]);
+			v.renderRows(false);
+			assert.strictEqual(body.childNodes[0], paintedRow, 'replacement becomes the unchanged sample');
+		}
+	}
+	console.log('fwlive-view clear: ordinary paints refresh reused IDs before and after Clear OK');
+}
+
 function testClearDoesNotRepublishServerSummary() {
 	const h = loadFwliveView();
 	const v = h.view;
@@ -270,6 +308,7 @@ async function main() {
 	testClearSurvivesWiderLookbacksAndRepeatedClear();
 	testClearAdmitsReusedIdsAndTimePrecision();
 	testClearIdentityStaysOutOfQuickSearch();
+	testOrdinaryPaintRefreshesReusedIds();
 	testClearDoesNotRepublishServerSummary();
 	await testClearDuringInflightPoll();
 	console.log('fwlive-view clear-entries tests passed');
