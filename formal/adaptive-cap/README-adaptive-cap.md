@@ -74,8 +74,10 @@ Hot/warm hold-and-probe, `warm_halved`, and client request sizes other than
 `tests/fwlive-adaptive-trajectory.test.sh` cover those at the helper.
 
 TLC 1.7.4: the fair clock-free arm has 8 distinct states, a complete graph,
-depth 8. T1 in the trajectory test proves the shipped shell realises the
-same cadence-independent sequences. A green model with a drifted shell is
-the #1265 failure mode; #1265 is out of scope here.
+depth 8. The trajectory test supplies separate shell evidence: T1 checks that
+the tested scenarios produce equal limit sequences at 100 cs and 500 cs, and
+T2 checks that each steady scenario reaches and retains some plateau within
+eight polls. Neither assertion compares a shell trace with a TLA+ trace or
+requires a particular plateau value.
 
 Refs #1241.
