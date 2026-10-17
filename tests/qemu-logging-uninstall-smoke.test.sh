@@ -52,17 +52,42 @@ grep -Fq 'uninstall overwrote later operator log mask' "$SCRIPT" \
 	|| die 'smoke must assert uninstall preserved the operator log mask'
 
 # Same-cell stale artifact must not win when the caller pins OWRT_FWLIVE_ARTIFACT.
-CELL="$ROOT/out/x86_64/24.10.8/fwlive"
+# Fixture lives in a temporary tree. The smoke derives out/ from its own
+# script directory, so running the repo copy would truncate real SDK packages
+# under out/x86_64/24.10.8/fwlive and the EXIT trap would delete them.
+TREE="$TMP/tree"
+mkdir -p "$TREE/scripts/lib" "$TREE/out/x86_64/24.10.8/fwlive"
+cp "$ROOT/scripts/qemu-logging-uninstall-smoke.sh" "$TREE/scripts/"
+cp "$ROOT/scripts/qemu-reset-wan-logging.sh" "$TREE/scripts/"
+cp "$ROOT/scripts/lib/sdk-matrix.sh" "$TREE/scripts/lib/"
+cp "$ROOT/scripts/lib/feeds-lock.sh" "$TREE/scripts/lib/"
+chmod 755 "$TREE/scripts/qemu-logging-uninstall-smoke.sh" \
+	"$TREE/scripts/qemu-reset-wan-logging.sh"
+RUN_SCRIPT="$TREE/scripts/qemu-logging-uninstall-smoke.sh"
+CELL="$TREE/out/x86_64/24.10.8/fwlive"
 INTENDED="$CELL/luci-app-fwlive_0.1.52-r1_all.ipk"
 STALE="$CELL/luci-app-fwlive_0.1.51-r1_all.ipk"
-mkdir -p "$CELL"
 printf 'intended package\n' >"$INTENDED"
 printf 'stale same-cell package\n' >"$STALE"
 touch -d '@1' "$INTENDED"
 touch -d '@2' "$STALE"
+
+# Real build outputs at these names must survive the host test.
+REAL_CELL="$ROOT/out/x86_64/24.10.8/fwlive"
+REAL_INTENDED="$REAL_CELL/luci-app-fwlive_0.1.52-r1_all.ipk"
+REAL_STALE="$REAL_CELL/luci-app-fwlive_0.1.51-r1_all.ipk"
+artifact_snapshot() {
+	local path="$1"
+	if [[ -e "$path" ]]; then
+		stat -c '%F %s %Y' "$path"
+		sha256sum "$path"
+	else
+		printf 'absent\n'
+	fi
+}
+REAL_INTENDED_BEFORE="$(artifact_snapshot "$REAL_INTENDED")"
+REAL_STALE_BEFORE="$(artifact_snapshot "$REAL_STALE")"
 cleanup() {
-	rm -f "$INTENDED" "$STALE"
-	rmdir "$CELL" 2>/dev/null || true
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -186,7 +211,7 @@ run_smoke() {
 	FWLIVE_INSTALL_SCRIPT="$TMP/bin/qemu-install-fwlive.sh" \
 	FWLIVE_INSTALL_LOG="$TMP/install.log" \
 	FWLIVE_STUB_STATE="$TMP/state" \
-	bash "$SCRIPT" >"$TMP/smoke.log" 2>&1
+	bash "$RUN_SCRIPT" >"$TMP/smoke.log" 2>&1
 }
 
 run_smoke || die 'host stub smoke run failed (see '"$TMP/smoke.log"')'
@@ -204,10 +229,17 @@ grep -Fq -- "$STALE" "$TMP/install.log" \
 
 if PATH="$TMP/bin:$PATH" OPENWRT_HOST=127.0.0.1 OPENWRT_SSH_PORT=2222 \
 	OWRT_FWLIVE_VERSION=24.10.8 FWLIVE_STUB_STATE="$TMP/state" \
-	bash "$SCRIPT" >"$TMP/ambiguous.log" 2>&1; then
+	bash "$RUN_SCRIPT" >"$TMP/ambiguous.log" 2>&1; then
 	die 'smoke accepted ambiguous same-cell artifacts without OWRT_FWLIVE_ARTIFACT'
 fi
 grep -Fq 'expected exactly one package' "$TMP/ambiguous.log" \
 	|| die 'ambiguous artifact fixture did not fail closed'
+
+[[ "$(artifact_snapshot "$REAL_INTENDED")" == "$REAL_INTENDED_BEFORE" ]] \
+	|| die 'host test changed the real 0.1.52-r1 SDK artifact'
+[[ "$(artifact_snapshot "$REAL_STALE")" == "$REAL_STALE_BEFORE" ]] \
+	|| die 'host test changed the real 0.1.51-r1 SDK artifact'
+[[ "$INTENDED" == "$TREE/"* && "$STALE" == "$TREE/"* ]] \
+	|| die 'fixture packages must stay under the temporary tree'
 
 echo 'qemu logging-uninstall source-contract checks passed'
