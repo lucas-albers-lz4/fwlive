@@ -184,10 +184,17 @@ artifact_fn="$(awk '/^upstream_cut_verify_artifacts\(\)/,/^}/' "$ROOT/scripts/up
 symlink_fn="$(awk '/^upstream_cut_verify_no_symlinks\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 rewrite_fn="$(awk '/^upstream_cut_rewrite_generated_headers\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 guarded_rewrite_fn="$(awk '/^upstream_cut_guarded_rewrite\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+locale_drop_fn="$(awk '/^upstream_cut_drop_locale_dirs\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
+locale_verify_fn="$(awk '/^upstream_cut_verify_po_only_templates\(\)/,/^}/' "$ROOT/scripts/upstream-cut.sh")"
 [[ -n "$pot_fn" && -n "$row_fn" && -n "$artifact_fn" && -n "$rewrite_fn" ]] \
 	|| die "cut verifier functions not found in upstream-cut.sh"
 [[ -n "$symlink_fn" && -n "$guarded_rewrite_fn" ]] \
 	|| die "cut symlink/rewrite functions not found in upstream-cut.sh"
+[[ -n "$locale_drop_fn" && -n "$locale_verify_fn" ]] \
+	|| die "cut locale drop/verify functions not found in upstream-cut.sh"
+if grep -q 'DROP_PO_LANGS' "$ROOT/scripts/upstream-cut.sh"; then
+	die "upstream-cut.sh still uses DROP_PO_LANGS allowlist"
+fi
 # shellcheck disable=SC1090
 eval "$pot_fn"
 # shellcheck disable=SC1090
@@ -200,6 +207,38 @@ eval "$symlink_fn"
 eval "$rewrite_fn"
 # shellcheck disable=SC1090
 eval "$guarded_rewrite_fn"
+# shellcheck disable=SC1090
+eval "$locale_drop_fn"
+# shellcheck disable=SC1090
+eval "$locale_verify_fn"
+
+# Isolated locale helpers: drop every po/* except templates, and fail closed
+# if a leftover directory remains. The production scratch cut below is the
+# integration that would still pass on a three-name allowlist.
+LOCALE_FX="$CUT_WORK/locale-fx"
+mkdir -p "$LOCALE_FX/good/po/templates" "$LOCALE_FX/leak/po/templates" \
+	"$LOCALE_FX/leak/po/fr" "$LOCALE_FX/drop/po/templates" \
+	"$LOCALE_FX/drop/po/fr" "$LOCALE_FX/drop/po/de"
+touch "$LOCALE_FX/good/po/templates/luci-app-fwlive.pot"
+touch "$LOCALE_FX/leak/po/templates/luci-app-fwlive.pot"
+touch "$LOCALE_FX/leak/po/fr/luci-app-fwlive.po"
+touch "$LOCALE_FX/drop/po/templates/luci-app-fwlive.pot"
+touch "$LOCALE_FX/drop/po/fr/luci-app-fwlive.po"
+touch "$LOCALE_FX/drop/po/de/luci-app-fwlive.po"
+upstream_cut_verify_po_only_templates "$LOCALE_FX/good" \
+	|| die "locale leftover verify rejected templates-only po/"
+if upstream_cut_verify_po_only_templates "$LOCALE_FX/leak" \
+	>/dev/null 2>"$LOCALE_FX/leak.err"; then
+	die "locale leftover verify accepted po/fr"
+fi
+grep -Fq 'po/fr still present' "$LOCALE_FX/leak.err" \
+	|| die "locale leftover verify did not name po/fr ($(cat "$LOCALE_FX/leak.err"))"
+upstream_cut_drop_locale_dirs "$LOCALE_FX/drop"
+[ -f "$LOCALE_FX/drop/po/templates/luci-app-fwlive.pot" ] \
+	|| die "locale drop removed po/templates"
+[ ! -e "$LOCALE_FX/drop/po/fr" ] || die "locale drop left po/fr"
+[ ! -e "$LOCALE_FX/drop/po/de" ] || die "locale drop left po/de"
+ok "locale drop/verify keep templates and fail closed on leftovers"
 
 FX="$CUT_WORK/verifier-fx"
 REL=htdocs/luci-static/resources/fwlive
@@ -827,6 +866,50 @@ if grep -qF "$ORDER_TARGET" "$CUT_WORK/production-order.err"; then
 fi
 ok "top-level upstream-cut rejects archive symlinks before its first rewrite"
 
+# Extra locale must be in the scratch package tree, not the live feed: git
+# archive of the monorepo never sees po/fr. Inject a committed fixture and
+# run the production wrapper so an allowlist drop would leak it.
+[ ! -e "$ROOT/$PKG/po/fr" ] || die "live feed must not contain po/fr"
+for lang in de ru zh_Hans; do
+	[ -f "$ROOT/$PKG/po/$lang/luci-app-fwlive.po" ] \
+		|| die "live feed missing po/$lang"
+done
+LOCALE_REPO="$CUT_WORK/extra-locale-repo"
+LOCALE_OUT="$CUT_WORK/extra-locale-out"
+EXTRA_PO="$ROOT/tests/fixtures/upstream-cut-extra-locale/po/fr/luci-app-fwlive.po"
+[ -f "$EXTRA_PO" ] || die "missing extra-locale fixture $EXTRA_PO"
+mkdir -p "$LOCALE_REPO/scripts" "$LOCALE_REPO/openwrt-feed"
+cp -a "$ROOT/$PKG" "$LOCALE_REPO/openwrt-feed/"
+cp "$ROOT/scripts/upstream-cut.sh" "$LOCALE_REPO/scripts/upstream-cut.sh"
+mkdir -p "$LOCALE_REPO/$PKG/po/fr"
+cp "$EXTRA_PO" "$LOCALE_REPO/$PKG/po/fr/luci-app-fwlive.po"
+git -C "$LOCALE_REPO" init -q -b main
+git -C "$LOCALE_REPO" config user.email 'fwlive-test@example.com'
+git -C "$LOCALE_REPO" config user.name 'fwlive-test'
+git -C "$LOCALE_REPO" add .
+git -C "$LOCALE_REPO" commit -q -m 'package with extra po/fr locale'
+if ! (cd "$LOCALE_REPO" && ./scripts/upstream-cut.sh "$LOCALE_OUT") \
+	>"$CUT_WORK/extra-locale.out" 2>"$CUT_WORK/extra-locale.err"; then
+	die "production cut rejected the extra-locale scratch fixture: $(cat "$CUT_WORK/extra-locale.err")$(cat "$CUT_WORK/extra-locale.out")"
+fi
+[ -f "$LOCALE_OUT/po/templates/luci-app-fwlive.pot" ] \
+	|| die "scratch cut missing po/templates/luci-app-fwlive.pot"
+[ ! -e "$LOCALE_OUT/po/fr" ] || die "scratch cut leaked po/fr"
+leftover=$(find "$LOCALE_OUT/po" -mindepth 1 -maxdepth 1 ! -name templates)
+[ -z "$leftover" ] || die "scratch cut leaked locale paths: $leftover"
+# Fail closed if a locale dir leaks after drop: plant po/fr in a copy.
+LEAK_OUT="$CUT_WORK/extra-locale-leak"
+cp -a "$LOCALE_OUT" "$LEAK_OUT"
+mkdir -p "$LEAK_OUT/po/fr"
+cp "$EXTRA_PO" "$LEAK_OUT/po/fr/luci-app-fwlive.po"
+if upstream_cut_verify_po_only_templates "$LEAK_OUT" \
+	>/dev/null 2>"$CUT_WORK/extra-locale-leak.err"; then
+	die "locale leftover verify accepted leaked po/fr in scratch cut copy"
+fi
+grep -Fq 'po/fr still present' "$CUT_WORK/extra-locale-leak.err" \
+	|| die "leaked po/fr was not named ($(cat "$CUT_WORK/extra-locale-leak.err"))"
+ok "production cut drops unlisted po/fr; leftover locale verify fails closed"
+
 printf '%s\n' \
 	'https://example.org/openwrt-feed/releases/README.md' \
 	'https://example.org/../core/fwlive-log.js is an example URL.' \
@@ -972,9 +1055,8 @@ ok "cut generated headers are labels only"
 
 [ -f "$CUT_WORK/cut/po/templates/luci-app-fwlive.pot" ] \
 	|| die "po/templates/luci-app-fwlive.pot missing from cut"
-for lang in de ru zh_Hans; do
-	[ ! -e "$CUT_WORK/cut/po/$lang" ] || die "locale dir po/$lang still present"
-done
+leftover=$(find "$CUT_WORK/cut/po" -mindepth 1 -maxdepth 1 ! -name templates)
+[ -z "$leftover" ] || die "locale paths remain in cut: $leftover"
 ok "cut ships .pot only (template present, locale dirs dropped)"
 
 # The cut re-shapes the .pot: the PR ships this file, so its refs must resolve

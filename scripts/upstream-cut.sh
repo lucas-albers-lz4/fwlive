@@ -100,9 +100,35 @@ upstream_cut_rewrite_generated_headers() {
 	fi
 }
 
+# First luci PR ships .pot only. Empty locale dirs still make luci.mk emit
+# luci-i18n-* packages — drop every po/* entry except po/templates.
+upstream_cut_drop_locale_dirs() {
+	local out="$1" entry
+	[ -d "$out/po" ] || return 0
+	while IFS= read -r -d '' entry; do
+		rm -rf "$entry"
+	done < <(find "$out/po" -mindepth 1 -maxdepth 1 ! -name templates -print0)
+}
+
+upstream_cut_verify_po_only_templates() {
+	local out="$1" entry name found=0
+	if [ ! -d "$out/po" ]; then
+		echo "  FAIL: po/ missing (first luci PR ships po/templates only)" >&2
+		return 1
+	fi
+	while IFS= read -r -d '' entry; do
+		name="${entry##*/}"
+		if [ "$name" != "templates" ]; then
+			echo "  FAIL: po/${name} still present (first luci PR ships po/templates only)" >&2
+			found=1
+		fi
+	done < <(find "$out/po" -mindepth 1 -maxdepth 1 -print0)
+	return "$found"
+}
+
 trap cleanup_split_branch EXIT
-# Locale dirs kept in the feed for the binary release; first luci PR ships .pot only.
-DROP_PO_LANGS=(de ru zh_Hans)
+# Locale dirs stay in the feed for the binary release; first luci PR ships .pot
+# only (every po/<lang>/ directory except po/templates).
 # Source for embed-fwlive-css.js; view loads css.js (styleText), not this asset.
 DROP_CSS=1
 
@@ -158,10 +184,8 @@ sed -i '/^# Reproducible build: honor SOURCE_DATE_EPOCH/,/^endif$/d' "$OUT/Makef
 sed -i '/^PKG_RELEASE:=/{n;/^$/{n;/^$/d;};}' "$OUT/Makefile"
 
 # First luci PR: .pot only. Empty locale dirs still make luci.mk emit empty
-# luci-i18n-* packages — remove the directories entirely.
-for lang in "${DROP_PO_LANGS[@]}"; do
-	rm -rf "$OUT/po/$lang"
-done
+# luci-i18n-* packages — remove every locale directory except po/templates.
+upstream_cut_drop_locale_dirs "$OUT"
 
 if [ "$DROP_CSS" -eq 1 ]; then
 	rm -f "$OUT/htdocs/luci-static/resources/fwlive/fwlive.css"
@@ -897,7 +921,14 @@ echo "== 4/5 verify =="
 fail=0
 
 src_count=$(git ls-tree -r --name-only "HEAD:$PKG" | wc -l)
-drop_count=${#DROP_PO_LANGS[@]}
+# Count committed locale files under po/ excluding po/templates/, not a fixed
+# language-name list. An extra locale file raises src_count; subtracting only
+# three slots would still match while that directory remains in $OUT.
+drop_count=$(git ls-tree -r --name-only "HEAD:$PKG" | awk '
+	BEGIN { n = 0 }
+	/^po\// && $0 !~ /^po\/templates\// { n++ }
+	END { print n }
+')
 if [ "$DROP_CSS" -eq 1 ]; then
 	drop_count=$((drop_count + 1))
 fi
@@ -908,12 +939,9 @@ if [ "$out_count" -ne "$expected" ]; then
 	fail=1
 fi
 
-for lang in "${DROP_PO_LANGS[@]}"; do
-	if [ -e "$OUT/po/$lang" ]; then
-		echo "  FAIL: po/$lang still present (first luci PR is .pot only)" >&2
-		fail=1
-	fi
-done
+if ! upstream_cut_verify_po_only_templates "$OUT"; then
+	fail=1
+fi
 
 if [ "$DROP_CSS" -eq 1 ] && [ -f "$OUT/htdocs/luci-static/resources/fwlive/fwlive.css" ]; then
 	echo "  FAIL: fwlive.css still present (view loads css.js)" >&2
@@ -1041,7 +1069,7 @@ if [[ "$REPLACE_CANONICAL" == 1 ]]; then
 fi
 
 echo "  OK: $out_count files (source $src_count minus $drop_count); Makefile include rewritten;"
-echo "  OK: luci README has no out-of-tree GitHub links; po template present; locale dirs dropped"
+echo "  OK: luci README has no out-of-tree GitHub links; po/templates only (all other po/ dirs dropped)"
 
 echo "== 5/5 next steps =="
 echo "  Copy $OUT into a luci fork at luci/applications/luci-app-fwlive/"

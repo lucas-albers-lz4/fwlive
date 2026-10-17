@@ -1,5 +1,13 @@
 # Security review state
 
+**2026-10-17 #1313 scoped delta.** The first luci upstream cut drops every
+`po/<lang>/` directory except `po/templates`, and file-count expected drop is
+the actual locale files removed (plus CSS when enabled), not a fixed
+`de`/`ru`/`zh_Hans` allowlist. Verify fails if any other `po/*` entry remains.
+Host proof: `tests/fwlive-upstream-cut.test.sh` (scratch repo with extra
+`po/fr` fixture). No ACL, signing, or binary-feed locale-publish change. This
+is a scoped cut-contract delta, not a full release-pipeline audit.
+
 **2026-10-17 #1299 scoped delta.** Verdict detection strips the same leading
 rule-hint token as `parseRuleHint` before `detectAction`, so hyphenated UCI rule
 names (Allow-Ping, Reject-LAN) no longer supply Action from embedded verdict
@@ -945,6 +953,7 @@ change. This scoped smoke review is not a full security audit.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
+| Release pipeline — upstream-cut first-cut locale drop | 2026-10-17 | Scoped source + host tests | #1313 drops every `po/<lang>/` directory except `po/templates` and counts the actual locale files removed (plus CSS). Verify fails closed if any other `po/*` entry remains. `tests/fwlive-upstream-cut.test.sh` covers a scratch-repo extra `po/fr` fixture; no installed-router or release run. Binary-feed locale publishing is unchanged. |
 | Release pipeline — upstream-cut README fence boundary | 2026-10-11 | Scoped source + host tests | #1206 flags invalid backtick openers and checks following Path/Role rows. Properly closed fences skip their contents and later rows remain checked; unterminated or mismatched fences fail at EOF without parsing rows inside the open fence. Tilde info strings may contain backticks. `tests/fwlive-upstream-cut.test.sh` covers these boundaries; no installed-router or release run. |
 | Release pipeline — upstream-cut CSS exemption boundary | 2026-10-11 | Scoped source + host tests | #1207 masks JS comments and string/template bodies before shape matching; regex source remains scanned and cannot supply the multiline carrier shape. Only the generated `styleText` declaration receives the hex-color exemption. `tests/fwlive-upstream-cut-gate-contract.test.sh` covers wrapped fake carriers, fake values, and accepted literals; no installed-router or release run. |
 | Release pipeline — matrix artifact identity | 2026-10-11 | Scoped source + host test + 24.10.8 SDK/QEMU validation | Validation requires exactly one package in the requested target/version output and passes its exact path to install. `tests/validate-matrix-artifact.test.sh` covers exact-cell selection, propagation, and stale cleanup before compile. `validate-openwrt.sh --version 24.10 --qemu-target x86 --sdk-target armsr-armv8 --skip-baseline` built/selected the 24.10.8 SDK artifact, installed it into an OpenWrt 24.10.8 x86 guest, and passed smoke. Other SDK cells and QEMU architectures were not run. |
