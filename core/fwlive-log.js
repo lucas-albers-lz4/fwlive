@@ -166,6 +166,32 @@ function stripKvSpans(message) {
 	return String(message).replace(KV_SPAN, '');
 }
 
+function isClassifyActionWord(token) {
+	return CLASSIFY_SPEC.actionWords.indexOf((token || '').toUpperCase()) >= 0;
+}
+
+/** Drop parseRuleHint prefix so hyphenated UCI names (Allow-Ping) are not verdicts. */
+function messageForDetectAction(message) {
+	let msg = normalizeNetfilterMessage(message || '').trim();
+	msg = msg.replace(/^\[\s*[\d.]+\]\s*/, '');
+
+	if (/^fw4:\s*/i.test(msg))
+		msg = msg.replace(/^fw4:\s*/i, '');
+
+	const beforeKv = msg.match(/^([A-Za-z0-9_.-]+)(?::|\s+)(?=IN=|OUT=|SRC=|DST=|PROTO=)/);
+	if (beforeKv && !isClassifyActionWord(beforeKv[1]))
+		return msg.slice(beforeKv[0].length);
+
+	const colon = msg.match(/^([A-Za-z0-9_.-]+):/);
+	if (colon) {
+		const tag = colon[1].toLowerCase();
+		if (tag !== 'kernel' && tag !== 'iptables' && !isClassifyActionWord(colon[1]))
+			return msg.slice(colon[0].length).replace(/^\s*/, '');
+	}
+
+	return msg;
+}
+
 /** nft log prefixes are concatenated with IN= in kernel lines (e.g. fwlive-pingIN=lo). */
 function normalizeNetfilterMessage(message) {
 	if (typeof message !== 'string')
@@ -200,7 +226,7 @@ function parseKeyValueLog(message) {
 
 /** Spec-derived action detection; m[2] is the word (group 1/3 are the boundaries). */
 function detectAction(message) {
-	const m = stripKvSpans(message).match(ACTION_RE);
+	const m = stripKvSpans(messageForDetectAction(message)).match(ACTION_RE);
 	return m ? m[2].toUpperCase() : 'UNKNOWN';
 }
 
@@ -651,6 +677,7 @@ module.exports = {
 	parseRuleHint,
 	formatRuleLabel,
 	detectAction,
+	messageForDetectAction,
 	stripKvSpans,
 	inferActionRaw,
 	normalizeAction,

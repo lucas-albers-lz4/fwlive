@@ -1,5 +1,16 @@
 # Security review state
 
+**2026-10-17 #1299 scoped delta.** Verdict detection strips the same leading
+rule-hint token as `parseRuleHint` before `detectAction`, so hyphenated UCI rule
+names (Allow-Ping, Reject-LAN) no longer supply Action from embedded verdict
+words. Action-word prefixes (`DROP:`, `PASS:`) are not stripped. After removing
+`fw4:`, the same UCI-hint strip still runs so `fw4: Drop-Guest IN=` does not
+become a drop. POSIX awk cannot lookahead, so the generator matches the first
+KV key only to select that branch, then slices token plus delimiter;
+`IN=br-DROP` still suppresses the interface value. `action` / `action_raw` remain line-derived; no ACL,
+rpcd, or DOM-sink change. Host coverage: parser corpus/sync and shell summary
+top_drops, including whitespace, glued, and colon-tagged hints.
+
 **2026-10-16 #1303 scoped delta.** Clear snapshots event identities separately
 from the evicting session-new counter cache. A bounded observation set refreshes
 hits in logd poll order; identities include the original time precision and

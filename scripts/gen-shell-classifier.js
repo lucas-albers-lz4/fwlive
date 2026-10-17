@@ -20,7 +20,8 @@ const SPEC = core.CLASSIFY_SPEC;
 /**
  * Pull token/lookahead atoms from parseRuleHint() so awk summary_rule cannot
  * list a prefix the table Rule column would leave blank. POSIX awk has no
- * lookahead; (?=KV) becomes a consuming KV match. Do not edit parseRuleHint.
+ * lookahead; match the KV key to select the branch, then slice only token plus
+ * delimiter so the first key remains (JS uses (?=KV)). Do not edit parseRuleHint.
  */
 function ruleHintFromParseRuleHint() {
 	const src = core.parseRuleHint.toString();
@@ -176,8 +177,36 @@ function emitAwkProgram() {
 		'\t}',
 		'\treturn out',
 		'}',
+		'function action_word_prefix(first, words, n, i) {',
+		'\tn = split("' + actions + '", words, " ")',
+		'\tfirst = tolower(first)',
+		'\tfor (i = 1; i <= n; i++) {',
+		'\t\tif (tolower(words[i]) == first) return 1',
+		'\t}',
+		'\treturn 0',
+		'}',
+		'function strip_leading_rule_hint(s, first, rest) {',
+		'\tsub(/^\\[[[:space:]]*[0-9.]+\\][[:space:]]*/, "", s)',
+		'\tif (match(tolower(s), /^fw4:[[:space:]]*/))',
+		'\t\ts = substr(s, RSTART + RLENGTH)',
+		'\tif (match(s, "^' + ruleHint.tokenClassAwk + '+(:|[[:space:]]+)(' + ruleHint.lookaheadKv + ')")) {',
+		'\t\tmatch(s, "^' + ruleHint.tokenClassAwk + '+")',
+		'\t\tfirst = substr(s, RSTART, RLENGTH)',
+		'\t\tif (!action_word_prefix(first)) {',
+		'\t\t\trest = substr(s, RSTART + RLENGTH)',
+		'\t\t\tmatch(rest, "^(:|[[:space:]]+)")',
+		'\t\t\ts = substr(rest, RSTART + RLENGTH)',
+		'\t\t}',
+		'\t}',
+		'\telse if (match(s, "^' + ruleHint.tokenClassAwk + '+:")) {',
+		'\t\tfirst = substr(s, RSTART, RLENGTH - 1)',
+		'\t\tif (tolower(first) != "kernel" && tolower(first) != "iptables" && !action_word_prefix(first))',
+		'\t\t\ts = substr(s, RSTART + RLENGTH)',
+		'\t}',
+		'\treturn s',
+		'}',
 		'function detect_action(s, words, n, i, w, wl, lc, start, pos, before, afterc, best, bestpos) {',
-		'\ts = strip_kv(s)',
+		'\ts = strip_kv(strip_leading_rule_hint(s))',
 		'\tn = split("' + actions + '", words, " ")',
 		'\tlc = tolower(s)',
 		'\tbest = ""',

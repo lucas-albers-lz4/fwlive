@@ -45,7 +45,7 @@ msgstr ""
 "%s · запрошено до %d сырых строк · сервер ограничил выборку до %d · "
 "возвращено %d сообщений firewall"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:580
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:609
 msgid "%s: %s"
 msgstr "%s: %s"
 
@@ -57,7 +57,7 @@ msgstr "0 совпад. · сохранено %d/%d"
 msgid "Accessible (teal/orange)"
 msgstr "Доступный (бирюзовый/оранжевый)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:440
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:469
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:38
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/view/status/fwlive.js:2977
 msgid "Action"
@@ -279,7 +279,7 @@ msgstr "Свой протокол (! для исключения). Переоп�
 msgid "DPort"
 msgstr "Порт назн."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:444
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:473
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:46
 msgid "Destination"
 msgstr "Назначение"
@@ -288,7 +288,7 @@ msgstr "Назначение"
 msgid "Destination IP contains (! to exclude)"
 msgstr "IP назначения содержит (! для исключения)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:446
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:475
 msgid "Destination port"
 msgstr "Порт назначения"
 
@@ -496,7 +496,7 @@ msgstr ""
 msgid "Installation is incomplete. Reinstall luci-app-fwlive."
 msgstr "Установка не завершена. Переустановите luci-app-fwlive."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:441
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:470
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:40
 msgid "Interface"
 msgstr "Интерфейс"
@@ -671,7 +671,7 @@ msgstr ""
 "Опрос замедлен: маршрутизатор отвечает медленно, поэтому опросы выполняются "
 "реже."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:442
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:471
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:44
 msgid "Proto"
 msgstr "Протокол"
@@ -748,7 +748,7 @@ msgstr "При загрузке имён правил достигнут защ�
 msgid "SPort"
 msgstr "Порт ист."
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:439
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:468
 msgid "Search"
 msgstr "Поиск"
 
@@ -812,7 +812,7 @@ msgstr ""
 msgid "Some rule names may be missing"
 msgstr "Некоторые имена правил могут отсутствовать"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:443
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:472
 #: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js:45
 msgid "Source"
 msgstr "Источник"
@@ -821,7 +821,7 @@ msgstr "Источник"
 msgid "Source IP contains (! to exclude)"
 msgstr "IP источника содержит (! для исключения)"
 
-#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:445
+#: openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js:474
 msgid "Source port"
 msgstr "Порт источника"
 

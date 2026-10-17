@@ -137,6 +137,76 @@ assert.strictEqual(core.normalizeEntry(ifaceAccept).action, 'unknown');
 assert.strictEqual(core.normalizeEntry(ifaceAccept).action_raw, 'UNKNOWN');
 assert.strictEqual(luci.normalizeEntry(ifaceAccept).action, 'unknown');
 
+const uciRuleVerdictCases = [
+	{
+		msg: 'Allow-Ping: IN=br-lan OUT= SRC=192.168.1.10 DST=192.168.1.1 LEN=84 PROTO=ICMP',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Allow-Ping'
+	},
+	{
+		msg: 'Allow-Ping: DROP IN=wan OUT= SRC=203.0.113.5 DST=192.168.1.1 PROTO=TCP DPT=22',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'Allow-Ping'
+	},
+	{
+		msg: 'Kids-Bedtime: IN=br-lan OUT=eth1 SRC=192.168.1.5 DST=1.1.1.1 LEN=60 PROTO=TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Kids-Bedtime'
+	},
+	{
+		msg: 'drop wan in: IN=wan OUT= SRC=203.0.113.6 DST=192.168.1.1 PROTO=TCP DPT=22',
+		action: 'drop', action_raw: 'DROP', rule_hint: ''
+	},
+	{
+		msg: 'Reject-LAN: IN=lan OUT= SRC=192.168.1.20 DST=8.8.8.8 PROTO=TCP SPT=50000 DPT=443',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Reject-LAN'
+	},
+	{
+		msg: 'Drop-Guest: IN=guest OUT= SRC=192.168.1.30 DST=1.1.1.1 PROTO=UDP SPT=5353 DPT=5353',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Drop-Guest'
+	},
+	{
+		msg: 'Allow-Ping IN=br-DROP OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Allow-Ping'
+	},
+	{
+		msg: 'Allow-Ping IN=br-ACCEPT OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP DROP',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'Allow-Ping'
+	},
+	{
+		msg: 'Allow-PingIN=br-DROP OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'Allow-Ping'
+	},
+	{
+		msg: 'DROP: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'DROP'
+	},
+	{
+		msg: 'PASS: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'pass', action_raw: 'PASS', rule_hint: 'PASS'
+	},
+	{
+		msg: 'DROP:IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'DROP'
+	},
+	{
+		msg: 'fw4: Drop-Guest IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'fw4'
+	},
+	{
+		msg: 'fw4: DROP IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'fw4'
+	}
+];
+for (let i = 0; i < uciRuleVerdictCases.length; i++) {
+	const sample = uciRuleVerdictCases[i];
+	const entry = { time: 1717675908, msg: sample.msg };
+	const coreRow = core.normalizeEntry(entry);
+	const luciRow = luci.normalizeEntry(entry);
+	assert.deepStrictEqual(luciRow, coreRow,
+		'normalizeEntry parity for ' + JSON.stringify(sample.msg));
+	assert.strictEqual(coreRow.action, sample.action, sample.msg);
+	assert.strictEqual(coreRow.action_raw, sample.action_raw, sample.msg);
+	assert.strictEqual(coreRow.rule_hint, sample.rule_hint, sample.msg);
+}
+
 const midTokenKey = {
 	time: 1717675747,
 	msg: 'kernel: tagX=DROP IN=wan SRC=203.0.113.9 DST=192.0.2.1 PROTO=TCP'
