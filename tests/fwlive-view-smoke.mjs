@@ -5,7 +5,7 @@
  *
  *   npm run test:view
  */
-import { chromium } from 'playwright';
+import { chromium, selectors } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -15,6 +15,18 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.FWLIVE_HARNESS_PORT || 8765);
 const EXTERNAL_URL = process.env.FWLIVE_HARNESS_URL || '';
 const BASE = EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+
+/* The live table can insert, drop and rebuild rows between locator creation
+ * and action. Resolve its existing row identity on each action, in the page
+ * world where the renderer stores that metadata; no test markup is shipped. */
+await selectors.register('fwlive_row', () => ({
+	query(root, id) {
+		return Array.from(root.querySelectorAll('tr')).find(row => row._fwliveRowId === id) || null;
+	},
+	queryAll(root, id) {
+		return Array.from(root.querySelectorAll('tr')).filter(row => row._fwliveRowId === id);
+	}
+}));
 
 async function waitForHarness(page) {
 	await page.goto(`${BASE}/tests/fixtures/luci-view-harness.html`, {
@@ -856,16 +868,10 @@ async function testSimpleFlowColumnLayout(page) {
 }
 
 async function expansionButtonByRowId(page, rowId, name) {
-	const buttons = page.locator('button.fwlive-row-expand');
-	const index = await buttons.evaluateAll(
-		(nodes, wanted) => nodes.findIndex((button) => button._fwliveRowId === wanted),
-		rowId
-	);
-	if (index < 0) throw new Error(`Simple-view expansion button missing for ${rowId}`);
-	const named = page.getByRole('button', { name, exact: true });
-	if ((await named.count()) <= index)
+	const button = page.locator('fwlive_row=' + rowId).getByRole('button', { name, exact: true });
+	if (await button.count() !== 1)
 		throw new Error(`button ${rowId} is not exposed as ${name}`);
-	return named.nth(index);
+	return button;
 }
 
 async function isFocused(locator) {
@@ -926,24 +932,21 @@ async function testSimpleExpansionKeyboard(page) {
 		);
 	await clearFilters(page);
 
-	const firstRowId = await page
-		.locator('button.fwlive-row-expand')
-		.first()
-		.evaluate((button) => button._fwliveRowId);
+	const targetId = 'log:5';
+	const mouseRow = page.locator('fwlive_row=' + targetId);
 	let clicks = await page.evaluate(() => window.__fwliveRowClickCalls);
-	await page.locator('#fwlive-table tbody tr').first().locator('td.fwlive-time').click();
-	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, firstRowId);
+	await mouseRow.locator('td.fwlive-time').click();
+	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, targetId);
 	let afterMouseOpen = await page.evaluate(() => window.__fwliveRowClickCalls);
 	if (afterMouseOpen !== clicks + 1)
 		throw new Error(`existing row click must toggle once, got ${afterMouseOpen - clicks}`);
 	clicks = afterMouseOpen;
-	await page.locator('#fwlive-table tbody tr').first().locator('td.fwlive-time').click();
+	await mouseRow.locator('td.fwlive-time').click();
 	await page.waitForFunction(() => window.fwliveView.expandedRowId === null);
 	const afterMouseClose = await page.evaluate(() => window.__fwliveRowClickCalls);
 	if (afterMouseClose !== clicks + 1)
 		throw new Error(`second row click must collapse once, got ${afterMouseClose - clicks}`);
 
-	const targetId = 'log:5';
 	let show = await expansionButtonByRowId(page, targetId, 'Show full message');
 	const actionLink = show.locator('xpath=ancestor::tr').locator('a.fwlive-filter-link').first();
 	if ((await actionLink.count()) !== 1)
