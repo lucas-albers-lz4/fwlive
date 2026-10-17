@@ -41,12 +41,12 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 
 | Column | Meaning |
 |--------|---------|
-| **Action** | pass, drop, reject, etc. — color-coded |
+| **Action** | pass, drop, reject, etc. — color-coded. Without a verdict word in the log line, Action stays unknown. |
 | **Time** | Compact `HH:MM:SS` (today) |
 | **Interface** | Interface badge: **IN** when present, otherwise **OUT** (Detail view shows separate IN/OUT and direction) |
 | **Flow** | `source:port → destination:port` — click parts to filter |
 | **Proto** | TCP, UDP, ICMP, … |
-| **Rule** | Resolved fw4/UCI name when possible |
+| **Rule** | Resolved fw4/UCI name when possible; the UCI target may appear after the name as display-only |
 
 **Expand raw message:** activate **Show full message** (▸ in the Action cell) or click any data row that is not a filter link. The full netfilter log line appears below that row. **Hide full message** or a second row click collapses it.
 
@@ -169,7 +169,7 @@ matching substring.
 
 ## Rule column
 
-When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint.
+When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint. Named `option log '1'` / `nft log` prefixes with no verdict word keep Action unknown; the Rule column may still show the UCI target after the name as display-only. That suffix is not a filter and does not change Action, the Action filter, or Top drops.
 
 If **Some rule names may be missing** appears near the title, open **Details**
 for the cause and diagnostic code. Some entries may use names derived from log

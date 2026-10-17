@@ -41,6 +41,11 @@ POLL_LINES_MAX=2000
 # Cap rules JSON size so a huge ruleset cannot unbound an rpcd reply.
 RULES_MAP_MAX_KEYS=512
 RULES_MAP_MAX_BYTES=65536
+# Reserve the longest envelope (unknown backend, false, mktemp_failed)
+# including both objects, commas and the closing brace. Map contents
+# are counted separately after JSON escaping.
+RULES_MAP_ENVELOPE='{"backend":"unknown","rules":{},"targets":{},"truncated":false,"error":"mktemp_failed"}'
+RULES_MAP_MAX_PAYLOAD_BYTES=$(( RULES_MAP_MAX_BYTES - ${#RULES_MAP_ENVELOPE} ))
 # First-wins dups never increment _map_keys, so they would otherwise walk
 # the whole dump. Bound prepared prefix records independently.
 RULES_MAP_MAX_LINES=512
@@ -52,6 +57,28 @@ json_object_append() {
 		OUT="${OUT},"
 	fi
 	OUT="${OUT}\"$1\":\"$2\""
+}
+
+# UCI target tokens use only the space left after all rule labels.
+# Keys/values have passed is_uci_style_name, so their JSON form is unchanged.
+targets_add() {
+	esc_key="$1"
+	esc_val="$2"
+	[ -n "$esc_key" ] && [ -n "$esc_val" ] || return 0
+	case "$TARGETS_OUT" in
+		*"\"$esc_key\":"*) return 0 ;;
+	esac
+	_pair_len=$(( ${#esc_key} + ${#esc_val} + 5 ))
+	_next_len=$(( ${#OUT} + ${#TARGETS_OUT} + _pair_len ))
+	[ -n "$TARGETS_OUT" ] && _next_len=$((_next_len + 1))
+	if [ "$_next_len" -gt "$RULES_MAP_MAX_PAYLOAD_BYTES" ]; then
+		_targets_overflow=1
+		return 0
+	fi
+	if [ -n "$TARGETS_OUT" ]; then
+		TARGETS_OUT="${TARGETS_OUT},"
+	fi
+	TARGETS_OUT="${TARGETS_OUT}\"$esc_key\":\"$esc_val\""
 }
 
 map_add() {
@@ -87,7 +114,7 @@ map_add_escaped() {
 	_next_len=$(( ${#OUT} + _pair_len ))
 	[ -n "$OUT" ] && _next_len=$((_next_len + 1))
 	if [ "${_map_keys:-0}" -ge "$RULES_MAP_MAX_KEYS" ] || \
-		[ "$_next_len" -gt "$RULES_MAP_MAX_BYTES" ]; then
+		[ "$_next_len" -gt "$RULES_MAP_MAX_PAYLOAD_BYTES" ]; then
 		_map_overflow=1
 		return 0
 	fi
@@ -98,6 +125,8 @@ map_add_escaped() {
 uci_rule_names() {
 	# uci missing / empty firewall config is "no names", not fatal.
 	# Read the captured show output once; never fork one uci get per section.
+	# Emit name<TAB>slug<TAB>target (target may be empty). Buffer per section
+	# so name-then-target and target-then-name both pair.
 	_firewall_show=$(uci -q show firewall 2>/dev/null || true)
 	printf '%s\n' "$_firewall_show" |
 		awk -v max="$RULES_MAP_MAX_LINES" '
@@ -109,36 +138,96 @@ uci_rule_names() {
 				}
 				return out
 			}
-			function emit(value, quote) {
+			function strip_quotes(value, quote) {
 				quote = sprintf("%c", 39)
 				if (substr(value, 1, 1) == quote && substr(value, length(value), 1) == quote)
 					value = substr(value, 2, length(value) - 2)
+				return value
+			}
+			function emit_buffered(    out_name, out_target) {
+				out_name = buf_name
+				out_target = buf_target
+				buf_name = ""
+				buf_target = ""
+				if (truncated) return
+				if (out_name == "") return
+				if (buf_kind == "named" && buf_is_rule != 1) return
 				if (count >= max) {
 					truncated = 1
 					exit 42
 				}
-				print value "\t" slug_uci(value)
+				print out_name "\t" slug_uci(out_name) "\t" out_target
 				count++
+			}
+			function new_section(id, kind, is_rule) {
+				emit_buffered()
+				buf_id = id
+				buf_kind = kind
+				buf_is_rule = 0
+				if (is_rule) buf_is_rule = 1
 			}
 			{
 				equal = index($0, "=")
 				if (!equal) next
 				key = substr($0, 1, equal - 1)
 				value = substr($0, equal + 1)
+				if (key ~ /^firewall\.@rule\[[0-9][0-9]*\]$/) {
+					if (buf_id != key || buf_kind != "anon")
+						new_section(key, "anon", 1)
+					else
+						buf_is_rule = 1
+					next
+				}
 				if (key ~ /^firewall\.@rule\[[0-9][0-9]*\]\.name$/) {
-					emit(value)
+					sid = key
+					sub(/\.name$/, "", sid)
+					if (buf_id != sid || buf_kind != "anon")
+						new_section(sid, "anon", 1)
+					buf_name = strip_quotes(value)
+					next
+				}
+				if (key ~ /^firewall\.@rule\[[0-9][0-9]*\]\.target$/) {
+					sid = key
+					sub(/\.target$/, "", sid)
+					if (buf_id != sid || buf_kind != "anon")
+						new_section(sid, "anon", 1)
+					buf_target = strip_quotes(value)
 					next
 				}
 				if (key ~ /^firewall\.[A-Za-z0-9_-]+$/) {
 					section = key
 					sub(/^firewall\./, "", section)
-					current_rule = (value == "rule")
+					if (buf_id == section && buf_kind == "named") {
+						buf_is_rule = 0
+						if (value == "rule") buf_is_rule = 1
+					} else {
+						new_section(section, "named", (value == "rule"))
+					}
 					next
 				}
-				if (current_rule && key == "firewall." section ".name")
-					emit(value)
+				if (key ~ /^firewall\.[A-Za-z0-9_-]+\.name$/) {
+					section = key
+					sub(/^firewall\./, "", section)
+					sub(/\.name$/, "", section)
+					if (buf_id != section || buf_kind != "named")
+						new_section(section, "named", 0)
+					buf_name = strip_quotes(value)
+					next
+				}
+				if (key ~ /^firewall\.[A-Za-z0-9_-]+\.target$/) {
+					section = key
+					sub(/^firewall\./, "", section)
+					sub(/\.target$/, "", section)
+					if (buf_id != section || buf_kind != "named")
+						new_section(section, "named", 0)
+					buf_target = strip_quotes(value)
+					next
+				}
 			}
-			END { if (truncated) exit 42 }
+			END {
+				if (truncated) exit 42
+				emit_buffered()
+			}
 		'
 }
 
@@ -170,6 +259,7 @@ map_uci_rule_names() {
 	# are skipped; one shared line cap also bounds duplicate UCI names that
 	# do not trip the output key/byte caps.
 	# Keep the loop in this shell so map_add mutations reach OUT.
+	# TSV is name<TAB>slug<TAB>target; target may be empty.
 	if _uci_names="$(uci_rule_names)"; then
 		_uci_names_truncated=''
 	else
@@ -189,6 +279,7 @@ map_uci_rule_names() {
 		[ -n "$line" ] || continue
 		name="${line%%${_tab}*}"
 		slug="${line#*"$_tab"}"
+		slug="${slug%%${_tab}*}"
 		[ -n "$name" ] || continue
 		is_uci_style_name "$name" || continue
 		map_add_escaped "$name" "$name"
@@ -202,6 +293,33 @@ EOF
 	if [ -n "$_uci_names_truncated" ]; then
 		_map_overflow=1
 	fi
+}
+
+# Reuse the captured UCI records after nft enrichment. Target truncation must
+# neither consume rule-label space nor stop the labeled/unlabeled nft passes.
+map_uci_rule_targets() {
+	_targets_overflow=''
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$_targets_overflow" ] && break
+		name="${line%%${_tab}*}"
+		rest="${line#*"$_tab"}"
+		slug="${rest%%${_tab}*}"
+		target="${rest#*"$_tab"}"
+		is_uci_style_name "$name" && is_uci_style_name "$target" || continue
+		# Do not attach targets to UCI names excluded by the rule-map caps.
+		case "$OUT" in
+			*"\"$name\":\"$name\""*) ;;
+			*) continue ;;
+		esac
+		targets_add "$name" "$target"
+		[ -n "$_targets_overflow" ] && break
+		if [ -n "$slug" ] && [ "$slug" != "$name" ]; then
+			targets_add "$slug" "$target"
+		fi
+	done <<EOF
+$_uci_names
+EOF
+	[ -z "$_targets_overflow" ] || _map_overflow=1
 }
 
 # One awk pass; output encoding depends on mode (default: raw). Raw mode emits
@@ -516,7 +634,11 @@ enrich_rules_dump() {
 }
 
 build_rules_map() {
+	# Shell string lengths must count UTF-8 bytes, not locale characters.
+	LC_ALL=C
+	export LC_ALL
 	OUT=''
+	TARGETS_OUT=''
 	_map_keys=0
 	_map_lines=0
 	_map_overflow=''
@@ -532,10 +654,12 @@ build_rules_map() {
 		enrich_rules_dump fwlive-nft
 	fi
 
+	map_uci_rule_targets
+
 	if [ "$backend" = unknown ] && [ -z "$_enrich_error" ]; then
 		_enrich_error='no_backend'
 	fi
-	_rules_json="{\"backend\":\"$backend\",\"rules\":{$OUT}"
+	_rules_json="{\"backend\":\"$backend\",\"rules\":{$OUT},\"targets\":{${TARGETS_OUT}}"
 	# Map limits and enrichment failures are independent outcomes.
 	_truncated=false
 	[ -n "$_map_overflow" ] && _truncated=true

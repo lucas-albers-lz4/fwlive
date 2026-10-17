@@ -195,10 +195,16 @@ function buildColumnCell(col, row, state, callbacks) {
 				actionChildren.push(' ', rowExpandButton(row, state, callbacks));
 			return E('td', { 'class': log.actionRowClass(row.action) }, actionChildren);
 		}
-		case 'rule':
-			return E('td', { 'class': columnCellClass(col) }, [
+		case 'rule': {
+			const ruleChildren = [
 				links.ruleAdminLink(row.rule_hint, row.rule_label, onFilterClick)
-			]);
+			];
+			if (typeof row.rule_target === 'string' && row.rule_target) {
+				ruleChildren.push(' · ');
+				ruleChildren.push(E('span', { 'class': 'fwlive-rule-target' }, [row.rule_target]));
+			}
+			return E('td', { 'class': columnCellClass(col) }, ruleChildren);
+		}
 		case 'iface':
 			return E('td', { 'class': columnCellClass(col) }, [
 				links.ifaceLink(row.interface, onFilterClick)
@@ -313,6 +319,7 @@ function rowRenderKey(row, state, columns) {
 		row.action,
 		row.rule_hint,
 		row.rule_label,
+		row.rule_target,
 		row.interface_in,
 		row.interface_out,
 		row.direction,

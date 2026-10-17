@@ -57,14 +57,17 @@ async function testOutcomesAndRecovery() {
 
 async function testRefreshRetainsSnapshot() {
 	for (const rules of [{ 'allow-ssh': 'Allow SSH' }, {}]) {
+		const targets = Object.keys(rules).length ? { 'allow-ssh': 'ACCEPT' } : {};
 		const h = loadFwliveView({ rpcMocks: {
-			'fwlive.rules': async () => ({ backend: 'unknown', rules, truncated: true, error: 'no_backend' })
+			'fwlive.rules': async () => ({ backend: 'unknown', rules, targets, truncated: true, error: 'no_backend' })
 		} });
 		await h.view.loadRulesMap();
 		const map = h.view.rulesMap;
+		const targetMap = h.view.ruleTargets;
 		h.setRpcMock('fwlive.rules', async () => { throw new Error('transport failed'); });
 		await h.view.loadRulesMap();
 		assert.strictEqual(h.view.rulesMap, map, 'failed refresh must retain the map object');
+		assert.strictEqual(h.view.ruleTargets, targetMap, 'failed refresh must retain targets');
 		assert.equal(h.view.firewallBackend, 'unknown');
 		assert.equal(h.view.rulesMapTruncated, true, 'even an empty map retains its limit state');
 		assert.equal(h.view.lastRulesError, 'rules_unavailable');

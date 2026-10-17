@@ -173,4 +173,51 @@ function findElementByClass(root, className) {
 	);
 }
 
+{
+	const rows = [{
+		id: '1',
+		timestamp: 1,
+		action: 'unknown',
+		rule_hint: 'Kids-Bedtime',
+		rule_label: 'Kids-Bedtime',
+		rule_target: 'REJECT',
+		src: '192.0.2.1',
+		dst: '198.51.100.1',
+		proto: 'tcp',
+		message: 'Kids-Bedtime: IN=br-lan OUT=eth0 SRC=192.0.2.1 DST=198.51.100.1 PROTO=TCP'
+	}];
+	const body = luciE.E('tbody', {}, []);
+	const cb = callbacks();
+	const state = baseState(rows, { columns: ['rule', 'action'] });
+	table.renderRows(body, state, cb);
+	const span = findElementByClass(body, 'fwlive-rule-target');
+	assert.ok(span, 'rule cell paints a target suffix span');
+	assert.strictEqual(span.tagName, 'span');
+	assert.strictEqual(span.childNodes.length, 1);
+	assert.strictEqual(span.childNodes[0].nodeType, 3, 'target is a text node');
+	assert.strictEqual(span.childNodes[0].textContent, 'REJECT');
+	assert.deepEqual(span._innerHTMLWrites, [], 'target must not use an HTML sink');
+	assert.ok(!span.classList.contains('fwlive-filter-link'), 'target suffix is not a filter link');
+	const td = span.parentNode;
+	assert.ok(td && td.classList.contains('fwlive-rule'));
+	const sep = td.childNodes[1];
+	assert.ok(sep && sep.nodeType === 3 && sep.textContent === ' · ',
+		'name and target are separated by a text node');
+	const actionTd = findElementByClass(body.childNodes[0], 'fwlive-action');
+	assert.ok(actionTd, 'Action cell stays on the action column');
+	assert.ok(actionTd.classList.contains('fwlive-unknown'),
+		'target suffix must not change Action coloring');
+	assert.ok(!actionTd.classList.contains('fwlive-deny'));
+	assert.strictEqual(findElementByClass(actionTd, 'fwlive-rule-target'), null);
+	const key1 = body.childNodes[0]._fwliveRowKey;
+	rows[0].rule_target = 'DROP';
+	table.renderRows(body, state, cb);
+	const key2 = body.childNodes[0]._fwliveRowKey;
+	assert.notEqual(key1, key2, 'rowRenderKey must include rule_target');
+	assert.strictEqual(
+		findElementByClass(body, 'fwlive-rule-target').childNodes[0].textContent,
+		'DROP'
+	);
+}
+
 console.log('fwlive table keyed reuse tests passed');

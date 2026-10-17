@@ -361,6 +361,9 @@
 	font-weight: 500;
 }
 .fwlive-rule-link:hover { text-decoration: underline; }
+.fwlive-rule-target {
+	opacity: 0.65;
+}
 .fwlive-iface-badge {
 	display: inline-block;
 	padding: 1px 6px;

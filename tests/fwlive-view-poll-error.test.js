@@ -213,15 +213,34 @@ async function testConstructorHintDoesNotPaintObjectSource() {
 		'constructor: IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP SPT=1234 DPT=443';
 	const h = loadFwliveView();
 	h.view.rulesMap = {};
+	h.view.ruleTargets = {};
 	const batch = h.view.normalizePollBatch([{ id: 1, time: 1704067200, msg: msg }]);
 	assert.equal(batch.rows.length, 1, 'constructor-prefixed firewall line must stay a row');
 	assert.equal(batch.rows[0].rule_hint, 'constructor');
 	assert.equal(batch.rows[0].rule_label, 'constructor',
 		'Rule label must not be the Object constructor source');
+	assert.equal(batch.rows[0].rule_target, '',
+		'Rule target must not be the Object constructor source');
 	assert.equal(h.view.resolveRuleLabel('__proto__'), '__proto__');
 	assert.equal(h.view.resolveRuleLabel('toString'), 'toString');
+	assert.equal(h.view.resolveRuleTarget('__proto__'), '');
+	assert.equal(h.view.resolveRuleTarget('constructor'), '');
+	assert.equal(h.view.resolveRuleTarget('toString'), '');
 	h.view.rulesMap = { constructor: 'Allow-ctor' };
 	assert.equal(h.view.resolveRuleLabel('constructor'), 'Allow-ctor');
+	h.view.ruleTargets = { constructor: 'DROP' };
+	assert.equal(h.view.resolveRuleTarget('constructor'), 'DROP',
+		'own constructor string is a real map entry');
+	const row = {
+		rule_hint: 'Kids-Bedtime',
+		action: 'unknown',
+		action_raw: 'UNKNOWN'
+	};
+	h.view.ruleTargets = { 'Kids-Bedtime': 'REJECT' };
+	h.view.enrichEntry(row);
+	assert.equal(row.rule_target, 'REJECT');
+	assert.equal(row.action, 'unknown', 'enrichEntry must not set action from targets');
+	assert.equal(row.action_raw, 'UNKNOWN', 'enrichEntry must not set action_raw from targets');
 	console.log('fwlive-view poll-error: constructor rule hint OK');
 }
 

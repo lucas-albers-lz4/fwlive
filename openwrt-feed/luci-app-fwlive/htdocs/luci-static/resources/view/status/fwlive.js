@@ -207,6 +207,7 @@ return view.extend({
 	nextRulesRetryAt: 0,
 	followLive: true,
 	rulesMap: {},
+	ruleTargets: {},
 	firewallBackend: 'nft',
 	viewMode: 'simple',
 	expandedRowId: null,
@@ -749,6 +750,10 @@ return view.extend({
 			const res = await callFwliveRules();
 			if (!this.isCurrentPollEpoch(epoch)) return;
 			this.rulesMap = (res && res.rules) || {};
+			this.ruleTargets =
+				res && res.targets && typeof res.targets === 'object' && !Array.isArray(res.targets)
+					? res.targets
+					: {};
 			this.rulesMapTruncated = !!(res && res.truncated === true);
 			this.rulesMapLoaded = true;
 			this.firewallBackend = (res && res.backend) || 'nft';
@@ -1106,8 +1111,23 @@ return view.extend({
 		return log.formatRuleLabel(hint);
 	},
 
+	resolveRuleTarget(hint) {
+		if (!hint) return '';
+
+		const own = Object.prototype.hasOwnProperty;
+		if (own.call(this.ruleTargets, hint) && typeof this.ruleTargets[hint] === 'string')
+			return this.ruleTargets[hint];
+
+		const slug = hint.toLowerCase();
+		if (own.call(this.ruleTargets, slug) && typeof this.ruleTargets[slug] === 'string')
+			return this.ruleTargets[slug];
+
+		return '';
+	},
+
 	enrichEntry(row) {
 		row.rule_label = this.resolveRuleLabel(row.rule_hint);
+		row.rule_target = this.resolveRuleTarget(row.rule_hint);
 		return row;
 	},
 
@@ -1116,8 +1136,13 @@ return view.extend({
 		for (let i = 0; i < this.entries.length; i++) {
 			const row = this.entries[i];
 			const label = this.resolveRuleLabel(row.rule_hint);
+			const target = this.resolveRuleTarget(row.rule_hint);
 			if (row.rule_label !== label) {
 				row.rule_label = label;
+				changed = true;
+			}
+			if (row.rule_target !== target) {
+				row.rule_target = target;
 				changed = true;
 			}
 		}
