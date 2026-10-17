@@ -714,6 +714,8 @@
 	background: color-mix(in srgb, var(--warn-color-high) 10%, transparent);
 }
 .fwlive-map[data-view="simple"] #fwlive-msg-group { display: none; }
+.fwlive-map[data-view="simple"] label[for="fwlive-fetch-mode"],
+.fwlive-map[data-view="simple"] label[for="fwlive-manual-lines"] { display: none; }
 @media (max-width: 850px) {
 	.fwlive-title-status {
 		flex-basis: 100%;

@@ -34,8 +34,8 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 ![Simple view — compact table](assets/fwlive-simple-view.png)
 
 1. **Title row** — **Firewall Live View** on the left; **Watching** status (dot + counts) on the right.
-2. **Watch strip** — Pause/Resume, logging control, and segmented **Simple / Detail** and **Wrap / One line** groups.
-3. **Display options bar** — **Limit**, **Fetch budget**, **Maximum raw lines**, **Row tint**, **Palette**, and **Show hostnames** (no drawer; controls wrap as needed).
+2. **Watch strip** — Pause/Resume, **Clear**, logging control, and segmented **Simple / Detail** and **Wrap / One line** groups.
+3. **Display options bar** — **Limit**, **Row tint**, **Palette**, and **Show hostnames** on one line (no drawer). **Fetch budget** and **Maximum raw lines** stay in **Detail**.
 4. **Filter row** — quick search, Action, and Protocol (grouped menu + optional custom type-in); open **More filters** for the rest.
 5. **Table** — click a filter link (action, IP, protocol, interface, flow endpoint) to filter. In **Simple** view, activate **Show full message** or click a row body such as the **Time** cell to expand Message.
 
@@ -86,14 +86,15 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | Control | Behavior |
 |---------|----------|
 | **Pause / Resume** | Live updates run until you Pause. Resume continues the table. Polling never stops. |
+| **Clear** | Empties the table. Events already shown stay hidden for this session; new events still appear. After Clear, this tab stays in row mode until reloaded. |
 | **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall). No allow/deny rules are added. Concurrent toggles from multiple admins serialize under an exclusive file lock (`flock`). A caller retries across five one-second intervals for the short read→commit section, then reports a lock error if contention remains (plus scheduling overhead). Firewall reload runs after the lock is released. Each toggle re-reads WAN state under the lock before committing. On fw4 builds that support per-zone `log_limit`, the WAN zone setting configures that limiter; the fw4 bundled with OpenWrt 23.05.5 ignores it, and a configured value on another build does not prove it is active. Kernel/logd may still constrain total log volume. |
 | **WAN logging on · configured limit** | When logging is on, one merged control shows status and the configured WAN zone `log_limit`. The configured value does not confirm that the active fw4 applies it. Click it to disable. |
 | **Simple / Detail** | Segmented pair on the watch strip. The active segment is highlighted. Preferences saved in `localStorage`. |
 | **Wrap / One line** | Segmented pair next to Simple / Detail. Visible in Detailed view only. |
-| **Display options** | Inline bar below the watch strip: **Limit**, **Fetch budget**, **Maximum raw lines**, **Row tint** (checkbox + palette), and **Show hostnames**. |
+| **Display options** | Inline bar below the watch strip: **Limit**, **Row tint** (checkbox + palette), and **Show hostnames**. **Fetch budget** and **Maximum raw lines** are in **Detail** view. |
 | **Limit** | Rows to keep (25 … 2000, default 100). Stored in the browser. On a router reported as a weak device, the browser renders at most 250 rows and explains the cap in the status line; the larger limit remains available for buffering and stronger devices. |
-| **Fetch budget** | **Auto** requests `min(max(Limit × 4, 100), 2000)` raw log lines for live polls. **Manual** selects a bounded maximum from 25, 50, 100, 250, 500, 1000, or 2000. Both modes retain server protection and adaptive polling cadence. |
-| **Maximum raw lines** | Enabled in **Manual** mode. It is a raw-line fetch budget, not a number of firewall rows displayed. Paused Manual fetches use this maximum; paused Auto keeps the compatibility 2000-line request. |
+| **Fetch budget** | Visible in **Detail** view. **Auto** reads extra kernel log lines so the table can fill; that count is not the same as **Limit**. **Manual** selects a bounded maximum from 25, 50, 100, 250, 500, 1000, or 2000. Both modes retain server protection and adaptive polling cadence. |
+| **Maximum raw lines** | Visible in **Detail** view. Enabled in **Manual** mode. It is a raw-line fetch budget, not a number of firewall rows displayed. Paused Manual fetches use this maximum; paused Auto keeps the compatibility 2000-line request. |
 | **Show hostnames** | Off by default. When checked, resolved names replace IPs in **Flow** and address columns. Hover shows the IP. Click still filters by IP. |
 | **Quick search** | Matches across all normalized fields. |
 
@@ -117,16 +118,17 @@ bring it back sooner; **Hide rows** returns to the card. Polling continues and
 filters still apply — the switch trims render work on a busy client or router,
 not a frozen display.
 
-Load conditions use the same name in the status line and in the banner below
-the watch strip, which adds one sentence of explanation:
+**Watching** names conditions you can act on. Fetch-budget counts, poll-cap
+details, and other scaling internals stay off the shipped page. Add `#diag=1`
+to the page URL for that diagnostic banner and the extra tags; the flag lives
+in the hash only (it is not stored in the browser).
 
 | Status line | Meaning |
 |---|---|
-| **polling slowed** | The router answers slowly, so polls run less often. |
-| **server limited fetch** | The router returned fewer raw log lines this poll to protect itself. |
-| **hostname lookup paused** | Reverse-DNS lookups wait while the router is under load. |
 | **table refresh throttled** | Events arrive faster than the browser should repaint; the buffer still updates. |
 | **display limited to 250 rows** | On a weak device the table paints at most 250 rows; a larger Limit still buffers rows. |
+| **scroll frozen — scroll to top to follow live** | The table is not following new rows; scroll to the top to resume. |
+| **buffer filling** / **buffer full** / **loading buffer** | Pause is holding a snapshot while the buffer catches up or is at capacity. |
 
 When a poll fails, the status line says **Connection lost — retrying…** if no
 reply arrived, **The router could not read the firewall log — retrying…** if
@@ -152,7 +154,7 @@ signal to reduce the workload.
 - **Click a filter link** (action, IP, protocol, interface, flow endpoint) to filter. In **Simple** view, the **Time** cell is not a filter link; clicking it expands the row, as does **Show full message**. In **Detail** view, that click does not expand the row and there is no message button.
 - Active filters appear as **chips** — click **≠** on a chip to flip include ↔ exclude; **×** removes one; **Clear all** resets.
 - You can also prefix text filters with **`!`** for negation (same as **≠** on a chip).
-- **URL hash** stores filters, limit, `view=detailed`, and in Manual mode `poll=manual` plus `maxraw=` (raw-line fetch budget) for shareable links.
+- **URL hash** stores filters, limit, `view=detailed`, and in Manual mode `poll=manual` plus `maxraw=` (raw-line fetch budget) for shareable links. `#diag=1` is a session diagnostic flag, not a filter.
 
 Source and Destination IP fields match substrings without regard to case, so
 uppercase IPv6 hex matches lowercase log addresses. Prefix `!` to exclude the
@@ -191,8 +193,9 @@ flood, the scheduler still paints periodically even when one batch is larger
 than the per-second budget; the table should not remain frozen until traffic
 slows or a control changes.
 
-The status banner can distinguish the requested raw-line budget, a successful
-server-applied limit, and the number of classified firewall messages returned.
+With `#diag=1` in the URL, a gray banner can distinguish the requested raw-line
+budget, a successful server-applied limit, and the classified messages
+returned. The shipped Simple and Detail views omit that banner.
 Fewer returned messages do not by themselves prove shedding: filtering, sparse
 logs, deduplication, and finite router log retention can all reduce the result.
 While paused in Manual mode, the status line says **buffer filling** when

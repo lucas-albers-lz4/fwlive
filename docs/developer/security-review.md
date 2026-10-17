@@ -1,5 +1,20 @@
 # Security review state
 
+**2026-10-16 #1303 scoped delta.** Clear snapshots event identities separately
+from the evicting session-new counter cache. A bounded observation set refreshes
+hits in logd poll order; identities include the original time precision and
+message so reused log IDs do not hide new events. Repeated Clear replaces the
+snapshot with recent observations plus buffered rows. After Clear, raw server
+summaries are not shown because their sample cannot honor the browser baseline;
+poll cadence backoff and render throttling remain active. Host regressions cover
+wider lookbacks, cache rollover, repeated Clear, reused IDs, in-flight replies,
+and pause/resume. Browser smoke covers Clear DOM behavior, Simple/Detail fetch
+controls, default/diagnostic banner visibility, and Summary banner suppression.
+**Non-findings:** No ACL, rpcd method, command string, or HTML sink changed.
+This pass covers view state and text rendering; broad audit deferred. Retention
+assumes the existing bounded, oldest-first logd poll contract; no universal
+ordering guarantee is claimed for arbitrary alternate log producers.
+
 **2026-10-16 #1301 scoped delta.** The complete `rules` reply shares one
 65,536-byte budget across rule labels, target suffixes, and a conservative
 serialization envelope (including the longest backend/error forms). Targets

@@ -152,6 +152,10 @@ return view.extend({
 	entries: [],
 	filteredRowsCache: null,
 	sessionSeen: null,
+	/* Recent identities follow poll recency, independently of session-new counts.
+	 * Clear snapshots them so counter-cache eviction cannot resurrect rows. */
+	recentEntryKeys: null,
+	clearedEntryKeys: null,
 	pauseBufferLoading: false,
 	/* Freezes row rendering while polling, health, and cadence updates continue. */
 	tablePaused: false,
@@ -210,6 +214,8 @@ return view.extend({
 	ruleTargets: {},
 	firewallBackend: 'nft',
 	viewMode: 'simple',
+	/* Hash diag=1: adaptive banner and unactionable Watching tags. */
+	diagnosticMode: false,
 	expandedRowId: null,
 	loggingStatus: null,
 	/* Invalidates status reads started before a newer toggle or refresh. */
@@ -265,6 +271,7 @@ return view.extend({
 			parts.push('maxraw=%s'.format(encodeURIComponent(this.manualFetchLines)));
 		}
 		if (this.viewMode === 'detailed') parts.push('view=detailed');
+		if (this.diagnosticMode) parts.push('diag=1');
 		history.replaceState(history.state, '', '#' + parts.join('&'));
 	},
 
@@ -420,12 +427,17 @@ return view.extend({
 	applyHash() {
 		this.resolveRpcPreferences();
 
+		this.diagnosticMode = false;
 		const entries = this.hashEntries();
 		for (let i = 0; i < entries.length; i++) {
 			const key = entries[i].key;
 			const val = entries[i].val;
 			if (key === 'limit' || key === 'poll' || key === 'maxraw') continue;
 			if (key === 'fetch-mode' || key === 'row-tint') continue;
+			if (key === 'diag') {
+				this.diagnosticMode = val === '1' || val === 'true';
+				continue;
+			}
 			if (key === 'view') {
 				if (val === 'advanced' || val === 'detailed') this.viewMode = 'detailed';
 				else if (val === 'simple') this.viewMode = 'simple';
@@ -687,6 +699,7 @@ return view.extend({
 		this.updateDetailToggleUi();
 		this.renderThead();
 		this.updateHash(this.readFilters());
+		this.updateAdaptiveBanner();
 		this.renderRows(true);
 	},
 
@@ -1166,6 +1179,12 @@ return view.extend({
 			const row = this.enrichEntry(log.normalizeEntry(raw[i]));
 			if (seen[row.id]) continue;
 			seen[row.id] = true;
+			/* Keep the original time precision: logd can reuse IDs after restart. */
+			const clearKey = JSON.stringify([row.id, raw[i].time, row.message]);
+			/* Free-text search enumerates row fields; this identity is private. */
+			Object.defineProperty(row, '_clearKey', { value: clearKey });
+			this.rememberRecentEntryKey(clearKey);
+			if (this.clearedEntryKeys && this.clearedEntryKeys.has(clearKey)) continue;
 			if (this.rememberSessionId(row.id)) pollNew++;
 			normalized.push(row);
 		}
@@ -1249,7 +1268,9 @@ return view.extend({
 
 		this.notePollRtt(rtt, false);
 		this.updateAdaptiveBanner();
-		if (this.clientBackoffEnabled()) {
+		/* Server summaries cover the raw sample and cannot honor a browser Clear.
+		 * Keep rows after Clear; cadence backoff and render throttling still apply. */
+		if (this.clientBackoffEnabled() && !this.clearedEntryKeys) {
 			if (this.summaryMode) {
 				this.summaryData =
 					reply.summary &&
@@ -1272,7 +1293,7 @@ return view.extend({
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
 			/* buffer.js retains its public paused option; this is the view's table state. */
 			paused: this.tablePaused,
-			resumeMerge: resumeMerge || context.pausedAtStart,
+			resumeMerge: resumeMerge || context.pausedAtStart || !!this.clearedEntryKeys,
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});
@@ -1316,6 +1337,18 @@ return view.extend({
 		}
 	},
 
+	rememberRecentEntryKey(key) {
+		if (!this.recentEntryKeys) this.recentEntryKeys = new Set();
+		/* logd returns oldest first. Touch hits as well as misses so a wider
+		 * lookback cannot make still-reachable recent events the first evicted.
+		 * The cache covers at least the maximum raw poll window. */
+		this.recentEntryKeys.delete(key);
+		this.recentEntryKeys.add(key);
+		const cap = Math.max(this.rowLimit * 2, constants.FETCH_LINES_MAX);
+		while (this.recentEntryKeys.size > cap)
+			this.recentEntryKeys.delete(this.recentEntryKeys.values().next().value);
+	},
+
 	rememberSessionId(id) {
 		if (!this.sessionSeen) this.sessionSeen = new Set();
 		if (this.sessionSeen.has(id)) return false;
@@ -1356,9 +1389,11 @@ return view.extend({
 			bits.push(
 				_('display limited to %d rows').format(constants.WEAK_DEVICE_DISPLAY_ROW_CAP)
 			);
-		if (this.degradedSampling) bits.push(_('polling slowed'));
-		if (this.serverTruncated) bits.push(_('server limited fetch'));
-		if (this.resolveLoadShed) bits.push(_('hostname lookup paused'));
+		if (this.diagnosticMode) {
+			if (this.degradedSampling) bits.push(_('polling slowed'));
+			if (this.serverTruncated) bits.push(_('server limited fetch'));
+			if (this.resolveLoadShed) bits.push(_('hostname lookup paused'));
+		}
 		if (!this.tablePaused && !this.followLive)
 			bits.push(_('scroll frozen — scroll to top to follow live'));
 		return bits.length ? ' — ' + bits.join(', ') : '';
@@ -1554,7 +1589,7 @@ return view.extend({
 		const el = document.getElementById('fwlive-adaptive');
 		if (!el) return;
 
-		const parts = this.adaptiveBannerParts();
+		const parts = !this.diagnosticMode || this.summaryMode ? [] : this.adaptiveBannerParts();
 
 		if (parts.length) {
 			el.style.display = 'block';
@@ -1653,6 +1688,7 @@ return view.extend({
 		this.summaryData =
 			summary && typeof summary === 'object' && !Array.isArray(summary) ? summary : null;
 		this.renderSummary();
+		this.updateAdaptiveBanner();
 	},
 
 	leaveSummaryMode() {
@@ -1661,6 +1697,7 @@ return view.extend({
 		this.summaryRowsShown = false;
 		this.summaryData = null;
 		this.updateSummaryUi();
+		this.updateAdaptiveBanner();
 		if (this.tablePaused) {
 			this.syncEmptyScrollVisibility(this.filteredRowsState().rows.length);
 			this.updateStatus();
@@ -1957,6 +1994,29 @@ return view.extend({
 				})
 				.catch(function () {});
 		}
+	},
+
+	onClearEntriesClick() {
+		this.clearedEntryKeys = new Set(this.recentEntryKeys || []);
+		for (let i = 0; i < this.entries.length; i++) {
+			const key = this.entries[i]._clearKey;
+			if (key) this.clearedEntryKeys.add(key);
+		}
+		this.entries = [];
+		this.expandedRowId = null;
+		this.lastBatchNewIdCount = 0;
+		this.fillingBuffer = false;
+		this.pauseBufferLoading = false;
+		this.invalidateFilteredRows();
+		this.ensureRenderScheduler().resetBudget();
+		if (this.summaryMode) {
+			this.summaryMode = false;
+			this.summaryRowsShown = false;
+			this.summaryData = null;
+			this.updateSummaryUi();
+			this.updateAdaptiveBanner();
+		}
+		this.renderRows(true);
 	},
 
 	onRowLimitChange(ev) {
@@ -2426,6 +2486,9 @@ return view.extend({
 		const pauseBtn = document.getElementById('fwlive-pause');
 		if (pauseBtn) pauseBtn.addEventListener('click', this.onPauseClick.bind(this));
 
+		const clearBtn = document.getElementById('fwlive-clear');
+		if (clearBtn) clearBtn.addEventListener('click', this.onClearEntriesClick.bind(this));
+
 		const limitSel = document.getElementById('fwlive-limit');
 		if (limitSel) limitSel.addEventListener('change', this.onRowLimitChange.bind(this));
 
@@ -2562,7 +2625,10 @@ return view.extend({
 						{
 							'id': 'fwlive-fetch-mode',
 							'class': 'cbi-input-select',
-							'aria-controls': 'fwlive-manual-lines'
+							'aria-controls': 'fwlive-manual-lines',
+							'title': _(
+								'Auto reads extra kernel log lines so the table can fill; it is not the same as Limit.'
+							)
 						},
 						this.fetchModeOptions()
 					)
@@ -2630,12 +2696,17 @@ return view.extend({
 					]),
 					E('li', {}, [
 						_(
+							'Clear empties the table. Already seen events stay hidden; new ones still appear.'
+						)
+					]),
+					E('li', {}, [
+						_(
 							'Enable logging turns on WAN zone drop/reject logging only (same as Network → Firewall). It does not add rules or log normal LAN browsing.'
 						)
 					]),
 					E('li', {}, [
 						_(
-							'Display options set Limit, Fetch budget, Maximum raw lines, row tint, palette, and hostnames.'
+							'Display options set Limit, row tint, palette, and hostnames. Fetch budget is in Detail view.'
 						)
 					]),
 					E('li', {}, [
@@ -2645,7 +2716,7 @@ return view.extend({
 					]),
 					E('li', {}, [
 						_(
-							'Fetch budget controls raw log lines per poll. Auto derives from Limit; Manual selects a bounded maximum.'
+							'Limit is how many events the table keeps. In Detail view, Fetch budget Auto reads extra kernel log lines so the table can fill; Manual selects that read size.'
 						)
 					]),
 					E('li', {}, [
@@ -2771,6 +2842,16 @@ return view.extend({
 								'type': 'button'
 							},
 							[_('Pause')]
+						),
+						E(
+							'button',
+							{
+								'id': 'fwlive-clear',
+								'class': 'cbi-button fwlive-btn-ghost',
+								'type': 'button',
+								'title': _('Remove shown events. New events still appear.')
+							},
+							[_('Clear')]
 						),
 						E('span', { 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' }, [])
 					]),

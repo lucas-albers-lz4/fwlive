@@ -5,7 +5,7 @@
  *
  *   npm run test:view
  */
-import { chromium } from 'playwright';
+import { chromium, selectors } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -15,6 +15,18 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.FWLIVE_HARNESS_PORT || 8765);
 const EXTERNAL_URL = process.env.FWLIVE_HARNESS_URL || '';
 const BASE = EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+
+/* The live table can insert, drop and rebuild rows between locator creation
+ * and action. Resolve its existing row identity on each action, in the page
+ * world where the renderer stores that metadata; no test markup is shipped. */
+await selectors.register('fwlive_row', () => ({
+	query(root, id) {
+		return Array.from(root.querySelectorAll('tr')).find(row => row._fwliveRowId === id) || null;
+	},
+	queryAll(root, id) {
+		return Array.from(root.querySelectorAll('tr')).filter(row => row._fwliveRowId === id);
+	}
+}));
 
 async function waitForHarness(page) {
 	await page.goto(`${BASE}/tests/fixtures/luci-view-harness.html`, {
@@ -856,16 +868,10 @@ async function testSimpleFlowColumnLayout(page) {
 }
 
 async function expansionButtonByRowId(page, rowId, name) {
-	const buttons = page.locator('button.fwlive-row-expand');
-	const index = await buttons.evaluateAll(
-		(nodes, wanted) => nodes.findIndex((button) => button._fwliveRowId === wanted),
-		rowId
-	);
-	if (index < 0) throw new Error(`Simple-view expansion button missing for ${rowId}`);
-	const named = page.getByRole('button', { name, exact: true });
-	if ((await named.count()) <= index)
+	const button = page.locator('fwlive_row=' + rowId).getByRole('button', { name, exact: true });
+	if (await button.count() !== 1)
 		throw new Error(`button ${rowId} is not exposed as ${name}`);
-	return named.nth(index);
+	return button;
 }
 
 async function isFocused(locator) {
@@ -926,24 +932,21 @@ async function testSimpleExpansionKeyboard(page) {
 		);
 	await clearFilters(page);
 
-	const firstRowId = await page
-		.locator('button.fwlive-row-expand')
-		.first()
-		.evaluate((button) => button._fwliveRowId);
+	const targetId = 'log:5';
+	const mouseRow = page.locator('fwlive_row=' + targetId);
 	let clicks = await page.evaluate(() => window.__fwliveRowClickCalls);
-	await page.locator('#fwlive-table tbody tr').first().locator('td.fwlive-time').click();
-	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, firstRowId);
+	await mouseRow.locator('td.fwlive-time').click();
+	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, targetId);
 	let afterMouseOpen = await page.evaluate(() => window.__fwliveRowClickCalls);
 	if (afterMouseOpen !== clicks + 1)
 		throw new Error(`existing row click must toggle once, got ${afterMouseOpen - clicks}`);
 	clicks = afterMouseOpen;
-	await page.locator('#fwlive-table tbody tr').first().locator('td.fwlive-time').click();
+	await mouseRow.locator('td.fwlive-time').click();
 	await page.waitForFunction(() => window.fwliveView.expandedRowId === null);
 	const afterMouseClose = await page.evaluate(() => window.__fwliveRowClickCalls);
 	if (afterMouseClose !== clicks + 1)
 		throw new Error(`second row click must collapse once, got ${afterMouseClose - clicks}`);
 
-	const targetId = 'log:5';
 	let show = await expansionButtonByRowId(page, targetId, 'Show full message');
 	const actionLink = show.locator('xpath=ancestor::tr').locator('a.fwlive-filter-link').first();
 	if ((await actionLink.count()) !== 1)
@@ -954,7 +957,7 @@ async function testSimpleExpansionKeyboard(page) {
 		throw new Error('Tab from the action filter link must reach the message button');
 
 	clicks = await page.evaluate(() => window.__fwliveRowClickCalls);
-	await show.press('Enter');
+	await page.keyboard.press('Enter');
 	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, targetId);
 	const afterEnter = await page.evaluate(() => window.__fwliveRowClickCalls);
 	if (afterEnter !== clicks + 1)
@@ -988,7 +991,7 @@ async function testSimpleExpansionKeyboard(page) {
 		throw new Error(`expanded panel association/text failed: ${JSON.stringify(expanded)}`);
 
 	clicks = afterEnter;
-	await hide.press('Space');
+	await page.keyboard.press('Space');
 	await page.waitForFunction(() => window.fwliveView.expandedRowId === null);
 	const afterSpace = await page.evaluate(() => window.__fwliveRowClickCalls);
 	if (afterSpace !== clicks + 1)
@@ -997,8 +1000,19 @@ async function testSimpleExpansionKeyboard(page) {
 	if (!(await isFocused(show)) || (await page.locator('#fwlive-expanded-message').count()))
 		throw new Error('collapsed control must keep focus and remove its panel association');
 
+	/* A live paint can reorder rows after the retained-focus assertion.
+	 * Use the actual focused control, not a previously computed ordinal. */
+	await page.evaluate(() => {
+		const view = window.fwliveView;
+		view.entries.reverse();
+		view.invalidateFilteredRows();
+		view.renderRows(true);
+	});
+	const retainedRowId = await page.evaluate(() => document.activeElement?._fwliveRowId);
+	if (retainedRowId !== targetId)
+		throw new Error(`row reorder must retain keyboard focus: ${retainedRowId}`);
 	clicks = afterSpace;
-	await show.press('Enter');
+	await page.keyboard.press('Enter');
 	await page.waitForFunction((id) => window.fwliveView.expandedRowId === id, targetId);
 	hide = page.getByRole('button', { name: 'Hide full message', exact: true });
 	await page.evaluate((id) => {
@@ -1260,6 +1274,19 @@ async function testPollErrorBanner(page) {
 async function testAdaptiveSummaryAndWarnings(page) {
 	try {
 		await page.evaluate(async () => {
+			const view = window.fwliveView;
+			window.__fwliveWarningState = {
+				loggingStatus: view.loggingStatus,
+				firewallBackend: view.firewallBackend,
+				lastRulesError: view.lastRulesError,
+				lastPollError: view.lastPollError,
+				lastPollErrorCode: view.lastPollErrorCode,
+				hash: location.hash
+			};
+			const hash = new URLSearchParams(location.hash.slice(1));
+			hash.delete('diag');
+			history.replaceState(history.state, '', '#' + hash.toString());
+			view.applyHash();
 			window.__fwlivePrevPollMock = window.setFwlivePollMock(async function() {
 				await new Promise((resolve) => setTimeout(resolve, 1600));
 				return {
@@ -1289,8 +1316,8 @@ async function testAdaptiveSummaryAndWarnings(page) {
 		}, { timeout: 10000 });
 		const banner = await page.locator('#fwlive-adaptive').textContent();
 		const summary = await page.locator('#fwlive-summary-body').textContent();
-		if (!/Server limited fetch/i.test(banner || '') || !/25/.test(banner || ''))
-			throw new Error(`adaptive shedding banner missing: ${banner}`);
+		if (banner || await page.locator('#fwlive-adaptive').isVisible())
+			throw new Error(`summary must hide adaptive diagnostics: ${banner}`);
 		if (!String(summary).includes('<img src=x onerror=alert(1)>') ||
 			!String(summary).includes('2001:db8::99'))
 			throw new Error(`summary fixture missing expected text: ${summary}`);
@@ -1298,14 +1325,31 @@ async function testAdaptiveSummaryAndWarnings(page) {
 			throw new Error('summary values must remain text nodes');
 
 		await page.evaluate(() => {
+			const hash = new URLSearchParams(location.hash.slice(1));
+			hash.set('diag', '1');
+			history.replaceState(history.state, '', '#' + hash.toString());
+			window.fwliveView.applyHash();
+			window.fwliveView.updateAdaptiveBanner();
+		});
+		if (await page.locator('#fwlive-adaptive').isVisible())
+			throw new Error('Summary must hide the banner even with #diag=1');
+		await page.evaluate(() => window.fwliveView.leaveSummaryMode());
+		const diagnosticBanner = await page.locator('#fwlive-adaptive').textContent();
+		if (!await page.locator('#fwlive-adaptive').isVisible() ||
+			!/server limited fetch to 25/i.test(diagnosticBanner || ''))
+			throw new Error(`#diag=1 must show row-mode diagnostics: ${diagnosticBanner}`);
+		await page.evaluate(() => {
+			const hash = new URLSearchParams(location.hash.slice(1));
+			hash.delete('diag');
+			history.replaceState(history.state, '', '#' + hash.toString());
+			window.fwliveView.applyHash();
+			window.fwliveView.updateAdaptiveBanner();
+		});
+		if (await page.locator('#fwlive-adaptive').isVisible())
+			throw new Error('row mode must hide the banner without #diag=1');
+
+		await page.evaluate(() => {
 			const view = window.fwliveView;
-			window.__fwliveWarningState = {
-				loggingStatus: view.loggingStatus,
-				firewallBackend: view.firewallBackend,
-				lastRulesError: view.lastRulesError,
-				lastPollError: view.lastPollError,
-				lastPollErrorCode: view.lastPollErrorCode
-			};
 			view.loggingStatus = Object.assign({}, view.loggingStatus, {
 				warnings: ['legacy_iptables_detected']
 			});
@@ -1371,16 +1415,59 @@ async function testAdaptiveSummaryAndWarnings(page) {
 			}
 			const view = window.fwliveView;
 			const state = window.__fwliveWarningState;
-			view.loggingStatus = state.loggingStatus;
-			view.firewallBackend = state.firewallBackend;
-			view.lastRulesError = state.lastRulesError;
-			view.lastPollError = state.lastPollError;
-			view.lastPollErrorCode = state.lastPollErrorCode;
+			if (state) {
+				view.loggingStatus = state.loggingStatus;
+				view.firewallBackend = state.firewallBackend;
+				view.lastRulesError = state.lastRulesError;
+				view.lastPollError = state.lastPollError;
+				view.lastPollErrorCode = state.lastPollErrorCode;
+				history.replaceState(history.state, '', state.hash || location.pathname);
+				view.applyHash();
+			}
 			delete window.__fwliveWarningState;
 			view.updateBackendUi();
 			view.updateStatus();
 			view.leaveSummaryMode();
 		});
+	}
+}
+
+async function testClearControl(browser) {
+	const page = await browser.newPage();
+	try {
+		await waitForHarness(page);
+		await page.locator('#fwlive-view-simple').click();
+		for (const id of ['fwlive-fetch-mode', 'fwlive-manual-lines']) {
+			if (await page.locator('label[for="' + id + '"]').isVisible())
+				throw new Error('Simple must hide ' + id);
+		}
+		await page.locator('#fwlive-view-detail').click();
+		if (!await page.locator('label[for="fwlive-fetch-mode"]').isVisible())
+			throw new Error('Detail must show Fetch budget');
+		await page.evaluate(async () => {
+			window.__clearLogs = [901, 902].map(id => ({ id, time: 1704067200 + id,
+				msg: 'fw4: DROP IN=wan SRC=203.0.113.1 DST=192.0.2.2 PROTO=TCP DPT=22' }));
+			window.setFwlivePollMock(() => ({ log: window.__clearLogs, adaptive: 1 }));
+			await window.fwliveView.fetchEntries();
+			window.fwliveView.renderRows(true);
+		});
+		await page.locator('#fwlive-clear').click();
+		await page.evaluate(async () => {
+			await window.fwliveView.fetchEntries();
+			window.fwliveView.renderRows(true);
+		});
+		if (await page.locator('#fwlive-table tbody tr').count())
+			throw new Error('Clear must keep repeated kernel lines out of the real DOM');
+		await page.evaluate(async () => {
+			window.__clearLogs.push({ ...window.__clearLogs[0], id: 903, time: 1704068103 });
+			await window.fwliveView.fetchEntries();
+			window.fwliveView.renderRows(true);
+		});
+		if (await page.locator('#fwlive-table tbody tr').count() !== 1)
+			throw new Error('a new post-Clear event must appear in the real DOM');
+		console.log('OK: Simple/Detail fetch controls and Clear DOM behavior');
+	} finally {
+		await page.close().catch(() => {});
 	}
 }
 
@@ -1638,6 +1725,7 @@ async function runSmoke(browser) {
 		await testHostnamesToggle(page);
 		await testPollErrorBanner(page);
 		await testAdaptiveSummaryAndWarnings(page);
+		await testClearControl(browser);
 		await testStorageFailure(page);
 		await testResolverError(page);
 		await testRulesTruncatedDegraded(page);

@@ -221,6 +221,8 @@ echo "== fwlive view pause queued paint (#1279) ==" >&2
 "$NODE" tests/fwlive-view-pause-queued-paint.test.js
 echo "== fwlive view fetch budget (#347) ==" >&2
 "$NODE" tests/fwlive-view-fetch-budget.test.js
+echo "== fwlive view clear entries ==" >&2
+"$NODE" tests/fwlive-view-clear-entries.test.js
 "$NODE" tests/fwlive-layer2-performance-rpc.test.mjs
 bash tests/qemu-forwarding-slo-net.test.sh
 python3 tests/qemu-highrate-controls.test.py
