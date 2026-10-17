@@ -1260,6 +1260,19 @@ async function testPollErrorBanner(page) {
 async function testAdaptiveSummaryAndWarnings(page) {
 	try {
 		await page.evaluate(async () => {
+			const view = window.fwliveView;
+			window.__fwliveWarningState = {
+				loggingStatus: view.loggingStatus,
+				firewallBackend: view.firewallBackend,
+				lastRulesError: view.lastRulesError,
+				lastPollError: view.lastPollError,
+				lastPollErrorCode: view.lastPollErrorCode,
+				hash: location.hash
+			};
+			const hash = new URLSearchParams(location.hash.slice(1));
+			hash.delete('diag');
+			history.replaceState(history.state, '', '#' + hash.toString());
+			view.applyHash();
 			window.__fwlivePrevPollMock = window.setFwlivePollMock(async function() {
 				await new Promise((resolve) => setTimeout(resolve, 1600));
 				return {
@@ -1289,8 +1302,8 @@ async function testAdaptiveSummaryAndWarnings(page) {
 		}, { timeout: 10000 });
 		const banner = await page.locator('#fwlive-adaptive').textContent();
 		const summary = await page.locator('#fwlive-summary-body').textContent();
-		if (!/Server limited fetch/i.test(banner || '') || !/25/.test(banner || ''))
-			throw new Error(`adaptive shedding banner missing: ${banner}`);
+		if (banner || await page.locator('#fwlive-adaptive').isVisible())
+			throw new Error(`summary must hide adaptive diagnostics: ${banner}`);
 		if (!String(summary).includes('<img src=x onerror=alert(1)>') ||
 			!String(summary).includes('2001:db8::99'))
 			throw new Error(`summary fixture missing expected text: ${summary}`);
@@ -1298,14 +1311,31 @@ async function testAdaptiveSummaryAndWarnings(page) {
 			throw new Error('summary values must remain text nodes');
 
 		await page.evaluate(() => {
+			const hash = new URLSearchParams(location.hash.slice(1));
+			hash.set('diag', '1');
+			history.replaceState(history.state, '', '#' + hash.toString());
+			window.fwliveView.applyHash();
+			window.fwliveView.updateAdaptiveBanner();
+		});
+		if (await page.locator('#fwlive-adaptive').isVisible())
+			throw new Error('Summary must hide the banner even with #diag=1');
+		await page.evaluate(() => window.fwliveView.leaveSummaryMode());
+		const diagnosticBanner = await page.locator('#fwlive-adaptive').textContent();
+		if (!await page.locator('#fwlive-adaptive').isVisible() ||
+			!/server limited fetch to 25/i.test(diagnosticBanner || ''))
+			throw new Error(`#diag=1 must show row-mode diagnostics: ${diagnosticBanner}`);
+		await page.evaluate(() => {
+			const hash = new URLSearchParams(location.hash.slice(1));
+			hash.delete('diag');
+			history.replaceState(history.state, '', '#' + hash.toString());
+			window.fwliveView.applyHash();
+			window.fwliveView.updateAdaptiveBanner();
+		});
+		if (await page.locator('#fwlive-adaptive').isVisible())
+			throw new Error('row mode must hide the banner without #diag=1');
+
+		await page.evaluate(() => {
 			const view = window.fwliveView;
-			window.__fwliveWarningState = {
-				loggingStatus: view.loggingStatus,
-				firewallBackend: view.firewallBackend,
-				lastRulesError: view.lastRulesError,
-				lastPollError: view.lastPollError,
-				lastPollErrorCode: view.lastPollErrorCode
-			};
 			view.loggingStatus = Object.assign({}, view.loggingStatus, {
 				warnings: ['legacy_iptables_detected']
 			});
@@ -1371,16 +1401,59 @@ async function testAdaptiveSummaryAndWarnings(page) {
 			}
 			const view = window.fwliveView;
 			const state = window.__fwliveWarningState;
-			view.loggingStatus = state.loggingStatus;
-			view.firewallBackend = state.firewallBackend;
-			view.lastRulesError = state.lastRulesError;
-			view.lastPollError = state.lastPollError;
-			view.lastPollErrorCode = state.lastPollErrorCode;
+			if (state) {
+				view.loggingStatus = state.loggingStatus;
+				view.firewallBackend = state.firewallBackend;
+				view.lastRulesError = state.lastRulesError;
+				view.lastPollError = state.lastPollError;
+				view.lastPollErrorCode = state.lastPollErrorCode;
+				history.replaceState(history.state, '', state.hash || location.pathname);
+				view.applyHash();
+			}
 			delete window.__fwliveWarningState;
 			view.updateBackendUi();
 			view.updateStatus();
 			view.leaveSummaryMode();
 		});
+	}
+}
+
+async function testClearControl(browser) {
+	const page = await browser.newPage();
+	try {
+		await waitForHarness(page);
+		await page.locator('#fwlive-view-simple').click();
+		for (const id of ['fwlive-fetch-mode', 'fwlive-manual-lines']) {
+			if (await page.locator('label[for="' + id + '"]').isVisible())
+				throw new Error('Simple must hide ' + id);
+		}
+		await page.locator('#fwlive-view-detail').click();
+		if (!await page.locator('label[for="fwlive-fetch-mode"]').isVisible())
+			throw new Error('Detail must show Fetch budget');
+		await page.evaluate(async () => {
+			window.__clearLogs = [901, 902].map(id => ({ id, time: 1704067200 + id,
+				msg: 'fw4: DROP IN=wan SRC=203.0.113.1 DST=192.0.2.2 PROTO=TCP DPT=22' }));
+			window.setFwlivePollMock(() => ({ log: window.__clearLogs, adaptive: 1 }));
+			await window.fwliveView.fetchEntries();
+			window.fwliveView.renderRows(true);
+		});
+		await page.locator('#fwlive-clear').click();
+		await page.evaluate(async () => {
+			await window.fwliveView.fetchEntries();
+			window.fwliveView.renderRows(true);
+		});
+		if (await page.locator('#fwlive-table tbody tr').count())
+			throw new Error('Clear must keep repeated kernel lines out of the real DOM');
+		await page.evaluate(async () => {
+			window.__clearLogs.push({ ...window.__clearLogs[0], id: 903, time: 1704068103 });
+			await window.fwliveView.fetchEntries();
+			window.fwliveView.renderRows(true);
+		});
+		if (await page.locator('#fwlive-table tbody tr').count() !== 1)
+			throw new Error('a new post-Clear event must appear in the real DOM');
+		console.log('OK: Simple/Detail fetch controls and Clear DOM behavior');
+	} finally {
+		await page.close().catch(() => {});
 	}
 }
 
@@ -1638,6 +1711,7 @@ async function runSmoke(browser) {
 		await testHostnamesToggle(page);
 		await testPollErrorBanner(page);
 		await testAdaptiveSummaryAndWarnings(page);
+		await testClearControl(browser);
 		await testStorageFailure(page);
 		await testResolverError(page);
 		await testRulesTruncatedDegraded(page);

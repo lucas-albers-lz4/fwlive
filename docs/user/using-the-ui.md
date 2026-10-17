@@ -41,12 +41,12 @@ Optional synthetic check: [Enabling firewall logs → ping test](enabling-firewa
 
 | Column | Meaning |
 |--------|---------|
-| **Action** | pass, drop, reject, etc. — color-coded |
+| **Action** | pass, drop, reject, etc. — color-coded. Without a verdict word in the log line, Action stays unknown. |
 | **Time** | Compact `HH:MM:SS` (today) |
 | **Interface** | Interface badge: **IN** when present, otherwise **OUT** (Detail view shows separate IN/OUT and direction) |
 | **Flow** | `source:port → destination:port` — click parts to filter |
 | **Proto** | TCP, UDP, ICMP, … |
-| **Rule** | Resolved fw4/UCI name when possible |
+| **Rule** | Resolved fw4/UCI name when possible; the UCI target may appear after the name as display-only |
 
 **Expand raw message:** activate **Show full message** (▸ in the Action cell) or click any data row that is not a filter link. The full netfilter log line appears below that row. **Hide full message** or a second row click collapses it.
 
@@ -86,7 +86,7 @@ Use Detailed when you need the raw `KEY=value` message inline without expanding 
 | Control | Behavior |
 |---------|----------|
 | **Pause / Resume** | Live updates run until you Pause. Resume continues the table. Polling never stops. |
-| **Clear** | Empties the table. Events already shown stay hidden for this session; new events still appear. |
+| **Clear** | Empties the table. Events already shown stay hidden for this session; new events still appear. After Clear, this tab stays in row mode until reloaded. |
 | **Enable logging** | Filled button on the watch strip when WAN logging is off. Sets WAN zone drop/reject logging (same as Network → Firewall). No allow/deny rules are added. Concurrent toggles from multiple admins serialize under an exclusive file lock (`flock`). A caller retries across five one-second intervals for the short read→commit section, then reports a lock error if contention remains (plus scheduling overhead). Firewall reload runs after the lock is released. Each toggle re-reads WAN state under the lock before committing. On fw4 builds that support per-zone `log_limit`, the WAN zone setting configures that limiter; the fw4 bundled with OpenWrt 23.05.5 ignores it, and a configured value on another build does not prove it is active. Kernel/logd may still constrain total log volume. |
 | **WAN logging on · configured limit** | When logging is on, one merged control shows status and the configured WAN zone `log_limit`. The configured value does not confirm that the active fw4 applies it. Click it to disable. |
 | **Simple / Detail** | Segmented pair on the watch strip. The active segment is highlighted. Preferences saved in `localStorage`. |
@@ -171,7 +171,7 @@ matching substring.
 
 ## Rule column
 
-When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint.
+When fw4 logs a **prefix** (for example, `fwlive-ping` followed by a space), the UI shows a label. Ctrl+click (Cmd+click on macOS) a rule name to open the firewall configuration; plain click filters on that hint. Named `option log '1'` / `nft log` prefixes with no verdict word keep Action unknown; the Rule column may still show the UCI target after the name as display-only. That suffix is not a filter and does not change Action, the Action filter, or Top drops.
 
 If **Some rule names may be missing** appears near the title, open **Details**
 for the cause and diagnostic code. Some entries may use names derived from log

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Rule column can show the UCI target as a display-only suffix; named rule logging without a verdict word stays unknown Action (#1264).
 - Binary feed and GitHub Releases now ship `luci-i18n-fwlive-{de,ru,zh-cn}` alongside `luci-app-fwlive` on every OpenWrt line (#1243).
 
 ### Fixed

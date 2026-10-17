@@ -21,11 +21,11 @@ function logLine(id, ip) {
 	};
 }
 
-function applyPoll(view, logs) {
+function applyPoll(view, logs, rtt = 20, summary = undefined) {
 	view.applyPollReply(
 		{
-			rtt: 20,
-			reply: { log: logs, adaptive: 1 }
+			rtt: rtt,
+			reply: { log: logs, adaptive: 1, summary: summary }
 		},
 		{
 			resumeMerge: false,
@@ -67,7 +67,7 @@ function testClearDropsRowsAndKeepsSeenHidden() {
 
 	v.onClearEntriesClick();
 	assert.strictEqual(v.entries.length, 0, 'Clear must empty the table');
-	assert.strictEqual(v.suppressSeenIngest, true);
+	assert.ok(v.clearedEntryKeys instanceof Set);
 	assert.strictEqual(v.expandedRowId, null);
 
 	applyPoll(v, [logLine(1, '203.0.113.1'), logLine(2, '203.0.113.2')]);
@@ -111,7 +111,7 @@ function testClearClickHandlerIsWired() {
 	assert.ok(clear._listeners && clear._listeners.click && clear._listeners.click.length === 1);
 	clear._listeners.click[0]({ type: 'click' });
 	assert.strictEqual(v.entries.length, 0, 'wired Clear click must empty the table');
-	assert.strictEqual(v.suppressSeenIngest, true);
+	assert.ok(v.clearedEntryKeys instanceof Set);
 	console.log('fwlive-view clear: click handler wired OK');
 }
 
@@ -132,7 +132,7 @@ function testClearWhilePausedDoesNotResume() {
 	assert.strictEqual(v.lastBatchNewIdCount, 0);
 	assert.strictEqual(v.expandedRowId, null);
 	assert.strictEqual(v.entries.length, 0);
-	assert.strictEqual(v.suppressSeenIngest, true);
+	assert.ok(v.clearedEntryKeys instanceof Set);
 
 	applyPoll(v, [logLine(1, '203.0.113.1'), logLine(2, '203.0.113.2')]);
 	assert.strictEqual(v.entries.length, 0, 'paused Clear still hides already seen lines');
@@ -158,14 +158,105 @@ function testClearKeepsFiltersAndHelp() {
 	console.log('fwlive-view clear: filters and Help OK');
 }
 
-function main() {
+function testClearSurvivesWiderLookbacksAndRepeatedClear() {
+	const h = loadFwliveView();
+	const v = h.view;
+	const window = (first, last) => Array.from({ length: last - first + 1 },
+		(_, i) => logLine(first + i, '203.0.113.1'));
+	applyPoll(v, window(1901, 2000));
+	applyPoll(v, window(1, 2000));
+	v.onClearEntriesClick();
+	applyPoll(v, window(2, 2001));
+	assert.deepStrictEqual(v.entries.map(row => row.id), ['log:2001']);
+	applyPoll(v, window(2, 2001));
+	assert.deepStrictEqual(v.entries.map(row => row.id), ['log:2001'],
+		'repeated windows must not resurrect cleared events after counter-cache eviction');
+	assert.strictEqual(v.lastBatchNewIdCount, 0, 'suppressed events do not consume the render budget');
+	v.onClearEntriesClick();
+	applyPoll(v, window(3, 2002));
+	applyPoll(v, window(3, 2002));
+	assert.deepStrictEqual(v.entries.map(row => row.id), ['log:2002'],
+		'a second Clear must retain all cleared identities still in the ring');
+	for (let first = 2003; first <= 6003; first += 100)
+		applyPoll(v, window(first, first + 99));
+	v.onClearEntriesClick();
+	applyPoll(v, window(4103, 6102));
+	assert.strictEqual(v.entries.length, 0, 'cleared rows stay hidden after observation-cache rollover');
+	assert.ok(v.recentEntryKeys.size <= 2000, 'observation retention stays bounded');
+	assert.ok(v.clearedEntryKeys.size <= 2100, 'Clear snapshot plus buffer stays bounded');
+	console.log('fwlive-view clear: bounded rollover, wide lookback and repeated Clear OK');
+}
+
+function testClearAdmitsReusedIdsAndTimePrecision() {
+	const h = loadFwliveView();
+	const v = h.view;
+	const before = { ...logLine(1, '203.0.113.1'), time: 1704067200001 };
+	applyPoll(v, [before]);
+	v.onClearEntriesClick();
+	applyPoll(v, [before]);
+	assert.strictEqual(v.entries.length, 0);
+	applyPoll(v, [{ ...before, time: 1704067200002 }]);
+	assert.strictEqual(v.entries.length, 1, 'a reused ID with a new raw time is a new event');
+	v.onClearEntriesClick();
+	applyPoll(v, [{ ...before, time: 1704067200002, msg: before.msg + ' LEN=64' }]);
+	assert.strictEqual(v.entries.length, 1, 'a reused ID with a new message is a new event');
+	console.log('fwlive-view clear: reused log IDs and raw timestamp precision OK');
+}
+
+function testClearDoesNotRepublishServerSummary() {
+	const h = loadFwliveView();
+	const v = h.view;
+	const logs = [logLine(1, '203.0.113.1')];
+	const summary = { top_talkers: [{ value: '203.0.113.1', count: 1 }],
+		top_drops: [{ value: '203.0.113.1', count: 1 }], top_rules: [] };
+	applyPoll(v, logs, 1600, summary);
+	assert.strictEqual(v.summaryMode, true);
+	v.onClearEntriesClick();
+	applyPoll(v, logs, 1600, summary);
+	assert.strictEqual(v.entries.length, 0);
+	assert.strictEqual(v.summaryMode, false, 'an unchanged slow sample cannot republish cleared summary');
+	assert.strictEqual(h.document.getElementById('fwlive-summary').style.display, 'none');
+	applyPoll(v, logs.concat(logLine(2, '198.51.100.1')), 1600, summary);
+	assert.deepStrictEqual(v.entries.map(row => row.id), ['log:2']);
+	assert.strictEqual(v.summaryMode, false);
+	assert.strictEqual(v.degradedSampling, true, 'post-Clear rows keep cadence backoff');
+	console.log('fwlive-view clear: slow replies preserve Clear while new events appear OK');
+}
+
+async function testClearDuringInflightPoll() {
+	let finish;
+	const h = loadFwliveView({ rpcMocks: { 'fwlive.poll': () => new Promise(resolve => { finish = resolve; }) } });
+	const v = h.view;
+	applyPoll(v, [logLine(1, '203.0.113.1')]);
+	const pending = v.fetchEntries();
+	assert.strictEqual(typeof finish, 'function');
+	v.onClearEntriesClick();
+	finish({ adaptive: 1, log: [logLine(1, '203.0.113.1'), logLine(2, '198.51.100.1')] });
+	await pending;
+	assert.deepStrictEqual(v.entries.map(row => row.id), ['log:2']);
+	v.tablePaused = true;
+	v.onClearEntriesClick();
+	applyPoll(v, [logLine(2, '198.51.100.1'), logLine(3, '198.51.100.2')]);
+	assert.strictEqual(v.tablePaused, true);
+	assert.deepStrictEqual(v.entries.map(row => row.id), ['log:3']);
+	v.tablePaused = false;
+	applyPoll(v, [logLine(2, '198.51.100.1'), logLine(3, '198.51.100.2')]);
+	assert.deepStrictEqual(v.entries.map(row => row.id), ['log:3']);
+	console.log('fwlive-view clear: in-flight, paused and resumed replies respect Clear OK');
+}
+
+async function main() {
 	testClearButtonSitsBesidePause();
 	testClearDropsRowsAndKeepsSeenHidden();
 	testClearLeavesSummaryMode();
 	testClearClickHandlerIsWired();
 	testClearWhilePausedDoesNotResume();
 	testClearKeepsFiltersAndHelp();
+	testClearSurvivesWiderLookbacksAndRepeatedClear();
+	testClearAdmitsReusedIdsAndTimePrecision();
+	testClearDoesNotRepublishServerSummary();
+	await testClearDuringInflightPoll();
 	console.log('fwlive-view clear-entries tests passed');
 }
 
-main();
+main().catch(error => { console.error(error); process.exitCode = 1; });

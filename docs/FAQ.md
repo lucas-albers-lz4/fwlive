@@ -38,6 +38,10 @@ The URL hash stores all active filters, limit, view mode, and — in Manual fetc
 
 A **Rule** label appears whenever the log line carries a prefix or tag. It shows the UCI/fw4 name when `fwlive rules` can resolve it, otherwise a cosmetic form of the prefix. Rules without `log prefix` do not carry enough metadata.
 
+### Why can a logged reject or drop rule show Action unknown?
+
+fw4 rule logging prefixes the **rule name only**. Action, the Action filter, and summary **Top drops** use the log line, so named `option log '1'` / `nft log` prefixes with no verdict word stay **unknown** and are not counted as drops. The Rule column may show the UCI `target` as a display-only suffix when `fwlive rules` can resolve it. Zone logging (`drop wan in:`) still shows drop.
+
 ### What does "Enable logging" on the page actually do?
 
 It sets the zone's filter-log bit (bit 0 of `log`) and keeps other mask bits on your WAN firewall zone via ubus and reloads the firewall. That enables logging of **rejected and dropped** packets on WAN. It does **not** add allow/deny rules and does **not** log normal LAN browsing. Click **WAN logging on** on the watch strip to turn it off again.

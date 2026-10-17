@@ -152,9 +152,10 @@ return view.extend({
 	entries: [],
 	filteredRowsCache: null,
 	sessionSeen: null,
-	/* After Clear, skip already-seen IDs and merge so the live poll window
-	 * cannot refill the table with the same kernel log lines. */
-	suppressSeenIngest: false,
+	/* Recent identities follow poll recency, independently of session-new counts.
+	 * Clear snapshots them so counter-cache eviction cannot resurrect rows. */
+	recentEntryKeys: null,
+	clearedEntryKeys: null,
 	pauseBufferLoading: false,
 	/* Freezes row rendering while polling, health, and cadence updates continue. */
 	tablePaused: false,
@@ -210,6 +211,7 @@ return view.extend({
 	nextRulesRetryAt: 0,
 	followLive: true,
 	rulesMap: {},
+	ruleTargets: {},
 	firewallBackend: 'nft',
 	viewMode: 'simple',
 	/* Hash diag=1: adaptive banner and unactionable Watching tags. */
@@ -761,6 +763,10 @@ return view.extend({
 			const res = await callFwliveRules();
 			if (!this.isCurrentPollEpoch(epoch)) return;
 			this.rulesMap = (res && res.rules) || {};
+			this.ruleTargets =
+				res && res.targets && typeof res.targets === 'object' && !Array.isArray(res.targets)
+					? res.targets
+					: {};
 			this.rulesMapTruncated = !!(res && res.truncated === true);
 			this.rulesMapLoaded = true;
 			this.firewallBackend = (res && res.backend) || 'nft';
@@ -1118,8 +1124,23 @@ return view.extend({
 		return log.formatRuleLabel(hint);
 	},
 
+	resolveRuleTarget(hint) {
+		if (!hint) return '';
+
+		const own = Object.prototype.hasOwnProperty;
+		if (own.call(this.ruleTargets, hint) && typeof this.ruleTargets[hint] === 'string')
+			return this.ruleTargets[hint];
+
+		const slug = hint.toLowerCase();
+		if (own.call(this.ruleTargets, slug) && typeof this.ruleTargets[slug] === 'string')
+			return this.ruleTargets[slug];
+
+		return '';
+	},
+
 	enrichEntry(row) {
 		row.rule_label = this.resolveRuleLabel(row.rule_hint);
+		row.rule_target = this.resolveRuleTarget(row.rule_hint);
 		return row;
 	},
 
@@ -1128,8 +1149,13 @@ return view.extend({
 		for (let i = 0; i < this.entries.length; i++) {
 			const row = this.entries[i];
 			const label = this.resolveRuleLabel(row.rule_hint);
+			const target = this.resolveRuleTarget(row.rule_hint);
 			if (row.rule_label !== label) {
 				row.rule_label = label;
+				changed = true;
+			}
+			if (row.rule_target !== target) {
+				row.rule_target = target;
 				changed = true;
 			}
 		}
@@ -1153,9 +1179,11 @@ return view.extend({
 			const row = this.enrichEntry(log.normalizeEntry(raw[i]));
 			if (seen[row.id]) continue;
 			seen[row.id] = true;
-			const isNew = this.rememberSessionId(row.id);
-			if (isNew) pollNew++;
-			if (this.suppressSeenIngest && !isNew) continue;
+			/* Keep the original time precision: logd can reuse IDs after restart. */
+			row._clearKey = JSON.stringify([row.id, raw[i].time, row.message]);
+			this.rememberRecentEntryKey(row._clearKey);
+			if (this.clearedEntryKeys && this.clearedEntryKeys.has(row._clearKey)) continue;
+			if (this.rememberSessionId(row.id)) pollNew++;
 			normalized.push(row);
 		}
 
@@ -1238,7 +1266,9 @@ return view.extend({
 
 		this.notePollRtt(rtt, false);
 		this.updateAdaptiveBanner();
-		if (this.clientBackoffEnabled()) {
+		/* Server summaries cover the raw sample and cannot honor a browser Clear.
+		 * Keep rows after Clear; cadence backoff and render throttling still apply. */
+		if (this.clientBackoffEnabled() && !this.clearedEntryKeys) {
 			if (this.summaryMode) {
 				this.summaryData =
 					reply.summary &&
@@ -1261,7 +1291,7 @@ return view.extend({
 		this.entries = buffer.applyFetchedEntries(this.entries, batch.rows, {
 			/* buffer.js retains its public paused option; this is the view's table state. */
 			paused: this.tablePaused,
-			resumeMerge: resumeMerge || context.pausedAtStart || this.suppressSeenIngest,
+			resumeMerge: resumeMerge || context.pausedAtStart || !!this.clearedEntryKeys,
 			rowLimit: this.rowLimit,
 			fetchLinesMax: constants.FETCH_LINES_MAX
 		});
@@ -1303,6 +1333,18 @@ return view.extend({
 			await this.loadRulesMap(epoch);
 			if (epoch !== this.currentPollEpoch() || this.viewDisposed) return;
 		}
+	},
+
+	rememberRecentEntryKey(key) {
+		if (!this.recentEntryKeys) this.recentEntryKeys = new Set();
+		/* logd returns oldest first. Touch hits as well as misses so a wider
+		 * lookback cannot make still-reachable recent events the first evicted.
+		 * The cache covers at least the maximum raw poll window. */
+		this.recentEntryKeys.delete(key);
+		this.recentEntryKeys.add(key);
+		const cap = Math.max(this.rowLimit * 2, constants.FETCH_LINES_MAX);
+		while (this.recentEntryKeys.size > cap)
+			this.recentEntryKeys.delete(this.recentEntryKeys.values().next().value);
 	},
 
 	rememberSessionId(id) {
@@ -1545,8 +1587,7 @@ return view.extend({
 		const el = document.getElementById('fwlive-adaptive');
 		if (!el) return;
 
-		const parts =
-			!this.diagnosticMode || this.summaryMode ? [] : this.adaptiveBannerParts();
+		const parts = !this.diagnosticMode || this.summaryMode ? [] : this.adaptiveBannerParts();
 
 		if (parts.length) {
 			el.style.display = 'block';
@@ -1954,12 +1995,16 @@ return view.extend({
 	},
 
 	onClearEntriesClick() {
+		this.clearedEntryKeys = new Set(this.recentEntryKeys || []);
+		for (let i = 0; i < this.entries.length; i++) {
+			const key = this.entries[i]._clearKey;
+			if (key) this.clearedEntryKeys.add(key);
+		}
 		this.entries = [];
 		this.expandedRowId = null;
 		this.lastBatchNewIdCount = 0;
 		this.fillingBuffer = false;
 		this.pauseBufferLoading = false;
-		this.suppressSeenIngest = true;
 		this.invalidateFilteredRows();
 		this.ensureRenderScheduler().resetBudget();
 		if (this.summaryMode) {
