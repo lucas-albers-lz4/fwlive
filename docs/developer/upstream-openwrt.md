@@ -79,8 +79,9 @@ An in-tree snapshot with a clear “fwlive wins” rule fits LuCI practice bette
    - Refuses uncommitted edits under `openwrt-feed/luci-app-fwlive/` (`--allow-dirty` to override)
    - `git subtree split` onto a temporary branch (`--replace` updates `upstream/luci-app-fwlive`)
    - Rewrites `include ../../luci.mk`, drops feed-wiring Makefile header
-   - Drops `po/{de,ru,zh_Hans}` (first luci PR is `.pot` only; keep those
-     `.po` files here for the binary feed)
+   - Drops every `po/<lang>/` directory except `po/templates` (first luci
+     PR is `.pot` only; empty locale dirs still make luci.mk emit
+     `luci-i18n-*` packages). Keep the `.po` files here for the binary feed.
    - Drops `fwlive.css` (view loads `css.js`)
    - Rewrites README / GENERATED / `constants.js` so they do not cite
      monorepo-only paths (`core/`, `openwrt-feed/`, `./scripts/gen-all.sh`).
