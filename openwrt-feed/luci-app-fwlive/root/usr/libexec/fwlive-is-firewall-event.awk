@@ -66,7 +66,7 @@ function strip_leading_rule_hint(s, first, rest) {
 	sub(/^\[[[:space:]]*[0-9.]+\][[:space:]]*/, "", s)
 	if (match(tolower(s), /^fw4:[[:space:]]*/))
 		s = substr(s, RSTART + RLENGTH)
-	else if (match(s, "^[A-Za-z0-9_.-]+(:|[[:space:]]+)(IN=|OUT=|SRC=|DST=|PROTO=)")) {
+	if (match(s, "^[A-Za-z0-9_.-]+(:|[[:space:]]+)(IN=|OUT=|SRC=|DST=|PROTO=)")) {
 		match(s, "^[A-Za-z0-9_.-]+")
 		first = substr(s, RSTART, RLENGTH)
 		if (!action_word_prefix(first)) {

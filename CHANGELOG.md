@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary feed and GitHub Releases now ship `luci-i18n-fwlive-{de,ru,zh-cn}` alongside `luci-app-fwlive` on every OpenWrt line (#1243).
 
 ### Fixed
-- Strip the parsed rule-hint prefix before scanning for verdict words, so UCI rule names such as Allow-Ping or Drop-Guest no longer set Action from embedded ALLOW/DROP tokens; keep a colon-tagged `DROP:`/`PASS:` prefix as the verdict, and leave the first `IN=`/`OUT=`/`SRC=`/`DST=`/`PROTO=` key intact so interface values like `br-DROP` are not counted as verdicts (#1299).
+- Strip the parsed rule-hint prefix before scanning for verdict words, so UCI rule names such as Allow-Ping or Drop-Guest no longer set Action from embedded ALLOW/DROP tokens, including after an `fw4:` tag; keep a colon-tagged `DROP:`/`PASS:` prefix as the verdict, and leave the first `IN=`/`OUT=`/`SRC=`/`DST=`/`PROTO=` key intact so interface values like `br-DROP` are not counted as verdicts (#1299).
 - Fail the reproducibility gate when docker-sdk build, package clean, make, or copy-out fails, so a leftover artifact is not hashed twice and reported as OK (#1281).
 - Index host Packages with a host-executable `mkhash` instead of the SDK container path `/builder/staging_dir/host/bin/mkhash` (#1282).
 - Make the adaptive poll line cap a function of the sample sequence so a 5 s cadence no longer flaps the truncation banner (#1241).

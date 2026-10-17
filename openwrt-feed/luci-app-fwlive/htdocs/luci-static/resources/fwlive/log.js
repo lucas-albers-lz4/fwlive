@@ -244,7 +244,7 @@ return baseclass.extend({
 		let msg = this.normalizeNetfilterMessage(message || '').trim();
 		msg = msg.replace(/^\[\s*[\d.]+\]\s*/, '');
 
-		if (/^fw4:\s*/i.test(msg)) return msg.replace(/^fw4:\s*/i, '');
+		if (/^fw4:\s*/i.test(msg)) msg = msg.replace(/^fw4:\s*/i, '');
 
 		const beforeKv = msg.match(/^([A-Za-z0-9_.-]+)(?::|\s+)(?=IN=|OUT=|SRC=|DST=|PROTO=)/);
 		if (beforeKv && !this.isClassifyActionWord(beforeKv[1]))

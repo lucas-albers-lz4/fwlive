@@ -185,6 +185,14 @@ const uciRuleVerdictCases = [
 	{
 		msg: 'DROP:IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
 		action: 'drop', action_raw: 'DROP', rule_hint: 'DROP'
+	},
+	{
+		msg: 'fw4: Drop-Guest IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'unknown', action_raw: 'UNKNOWN', rule_hint: 'fw4'
+	},
+	{
+		msg: 'fw4: DROP IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP',
+		action: 'drop', action_raw: 'DROP', rule_hint: 'fw4'
 	}
 ];
 for (let i = 0; i < uciRuleVerdictCases.length; i++) {

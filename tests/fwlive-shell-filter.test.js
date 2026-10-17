@@ -585,6 +585,21 @@ function runSummaryContract() {
 			[{ value: 'drop', count: 1 }],
 			'colon-tagged DROP prefix must still count in the shell summary');
 
+		const fw4Hint = 'fw4: Drop-Guest IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP';
+		const fw4Drop = 'fw4: DROP IN=wan OUT= SRC=192.0.2.1 DST=192.0.2.2 PROTO=TCP';
+		assert.equal(core.detectAction(fw4Hint), 'UNKNOWN',
+			'JS must strip Drop-Guest after fw4:');
+		assert.equal(core.detectAction(fw4Drop), 'DROP',
+			'JS must keep a real DROP after fw4:');
+		const fw4HintSummary = JSON.stringify({ log: [{ msg: fw4Hint }, { msg: fw4Drop }] });
+		const fw4HintFiltered = shSpawn(null, {
+			argvFile: FILTER_SH, input: fw4HintSummary, encoding: 'utf8', env: jf.env
+		});
+		assert.equal(fw4HintFiltered.status, 0, fw4HintFiltered.stderr || fw4HintFiltered.stdout);
+		assert.deepEqual(JSON.parse(fw4HintFiltered.stdout).summary.top_drops,
+			[{ value: 'drop', count: 1 }],
+			'fw4: Drop-Guest must not count as a drop in the shell summary');
+
 		const ifaceVerdict = JSON.stringify({
 			log: [
 				{

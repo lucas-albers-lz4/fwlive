@@ -189,7 +189,7 @@ function emitAwkProgram() {
 		'\tsub(/^\\[[[:space:]]*[0-9.]+\\][[:space:]]*/, "", s)',
 		'\tif (match(tolower(s), /^fw4:[[:space:]]*/))',
 		'\t\ts = substr(s, RSTART + RLENGTH)',
-		'\telse if (match(s, "^' + ruleHint.tokenClassAwk + '+(:|[[:space:]]+)(' + ruleHint.lookaheadKv + ')")) {',
+		'\tif (match(s, "^' + ruleHint.tokenClassAwk + '+(:|[[:space:]]+)(' + ruleHint.lookaheadKv + ')")) {',
 		'\t\tmatch(s, "^' + ruleHint.tokenClassAwk + '+")',
 		'\t\tfirst = substr(s, RSTART, RLENGTH)',
 		'\t\tif (!action_word_prefix(first)) {',
