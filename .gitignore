@@ -75,3 +75,6 @@ fwlive-feed.rsa.pub.*
 # Node dev deps (screenshot capture only — not shipped in .ipk)
 node_modules/
 __pycache__/
+
+# Host-only Quint backend output
+/_apalache-out/

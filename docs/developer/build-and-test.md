@@ -221,3 +221,10 @@ when run standalone; the runner sets `FWLIVE_LOGGING_VIA_RUNNER=1` so the
 suite is not executed twice. The rpcd selftest uses the matched BusyBox/jshn
 pair (24.10 by default; select another supported pair with
 `FWLIVE_JSHN_RELEASE`). A missing pair is a test failure, not a successful skip.
+
+### Quint polling conformance pilot
+
+`npm run test:formal-quint` checks the finite polling model and replays generated
+ITF traces against the shipped coordinator, including mutation controls. Tool
+pins, setup, event bounds, provenance, and the separate view-fencing evidence
+are in [the polling fidelity map](../../formal/poll-coordinator/README.md).
