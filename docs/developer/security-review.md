@@ -1,7 +1,7 @@
 # Security review state
 
 **2026-10-17 #1322 formal CI gate delta (base `8927e9911d`).** The
-always-reporting `formal TLC / formal-tlc` job now runs on pull requests,
+always-reporting `formal-tlc` (workflow `formal TLC`) job now runs on pull requests,
 pushes to `master`/`main`, and manual dispatch. Its detector skips TLC only
 when every changed path is positively classified as unrelated; modeled paths,
 new/unclassified paths, empty diffs, invalid SHAs, and fetch/diff errors run
@@ -23,7 +23,7 @@ failure-artifact step
 retains per-config TLC output, replay observations/projections/configs, and
 runner provenance before temporary state cleanup. GitHub API inspection found
 no required status checks and no repository rulesets; the owner must require
-`formal TLC / formal-tlc` in branch protection or a ruleset. No merge queue
+`formal-tlc` (workflow `formal TLC`) in branch protection or a ruleset. No merge queue
 was configured, so this workflow has no `merge_group` trigger. No shipped
 package or router runtime changed; this is CI/model enforcement and evidence.
 
