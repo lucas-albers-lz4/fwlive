@@ -11,6 +11,21 @@ The failed `v0.1.54` publish run reproduced `Permission denied` in all three
 SDK cells before any feed staging or release upload. No signing keys, feed
 contents, or shipped package code changed.
 
+**2026-10-18 #1321 repeat copy-out ownership delta.** The first repair exposed
+that `cp -a` restores the SDK owner on existing output directories during the
+first reproducibility pass, so the second pass still could not unlink its old
+package file. `sdk_matrix_copy_out` now rejects symlinked output paths and
+restores only output-directory ownership to the numeric caller UID/GID inside
+the existing root-running SDK container after each copy. Since the workflow
+checks out the requested release tag, it temporarily fetches and installs the
+current helper only around reproducibility verification, then restores the
+tag's helper before feed staging. Package files and their modes remain
+unchanged. Host proof: `tests/sdk-matrix-copy-out.test.sh` checks the
+directory-only repair and symlink rejection; `tests/release-tag-validation.test.py`
+checks overlay, verification and restoration order. The failed rerun stopped
+before feed staging or release upload; no ACL, key, feed, or shipped-package
+behavior changed.
+
 **2026-10-17 #1313 scoped delta.** The first luci upstream cut drops every
 `po/<lang>/` directory except `po/templates`, and file-count expected drop is
 the actual locale files removed (plus CSS when enabled), not a fixed
@@ -968,7 +983,7 @@ change. This scoped smoke review is not a full security audit.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
-| Release pipeline — SDK output ownership | 2026-10-18 | Scoped source + host contract + failed release-run reproduction | #1320: Docker copy-out left output directories root-owned, so reproducibility cleanup could not unlink old package artifacts. Workflow rejects symlinked `out/` paths and assigns only directory ownership to the runner before rebuilding; package bytes/file modes and signing/feed inputs are unchanged. `tests/release-tag-validation.test.py` checks the guard and ordering. No publication succeeded in the failing run. |
+| Release pipeline — SDK output ownership | 2026-10-18 | Scoped source + host contract + failed release-run reproduction | #1320/#1321: Docker copy-out and later `cp -a` restore SDK ownership on output directories, so reproducibility cleanup could not unlink prior package artifacts. Workflow and copy-out reject symlinked output paths; the workflow and each copy-out assign only directory ownership to the runner. The current helper is overlaid only for reproducibility verification, then the release-tag helper is restored before feed staging. Package bytes/file modes and signing/feed inputs are unchanged. `tests/release-tag-validation.test.py` and `tests/sdk-matrix-copy-out.test.sh` cover the guards, overlay/restoration order, and ownership command. No publication succeeded in either failed run. |
 | Release pipeline — upstream-cut first-cut locale drop | 2026-10-17 | Scoped source + host tests | #1313 drops every `po/<lang>/` directory except `po/templates` and counts the actual locale files removed (plus CSS). Verify fails closed if any other `po/*` entry remains. `tests/fwlive-upstream-cut.test.sh` covers a scratch-repo extra `po/fr` fixture; no installed-router or release run. Binary-feed locale publishing is unchanged. |
 | Release pipeline — upstream-cut README fence boundary | 2026-10-11 | Scoped source + host tests | #1206 flags invalid backtick openers and checks following Path/Role rows. Properly closed fences skip their contents and later rows remain checked; unterminated or mismatched fences fail at EOF without parsing rows inside the open fence. Tilde info strings may contain backticks. `tests/fwlive-upstream-cut.test.sh` covers these boundaries; no installed-router or release run. |
 | Release pipeline — upstream-cut CSS exemption boundary | 2026-10-11 | Scoped source + host tests | #1207 masks JS comments and string/template bodies before shape matching; regex source remains scanned and cannot supply the multiline carrier shape. Only the generated `styleText` declaration receives the hex-color exemption. `tests/fwlive-upstream-cut-gate-contract.test.sh` covers wrapped fake carriers, fake values, and accepted literals; no installed-router or release run. |

@@ -98,6 +98,28 @@ class ReleaseTagValidation(unittest.TestCase):
         self.assertIn('sudo find "$PWD/out" -type d -exec chown "$out_uid:$out_gid" {} +', ownership)
         self.assertIn("Package bytes and file modes remain unchanged.", ownership)
 
+    def test_reproducibility_overlays_current_helper_and_restores_tag_helper(self):
+        fetch = step("Fetch current SDK copy-out helper", BUILD_STEPS)
+        install = step("Install current SDK copy-out helper", BUILD_STEPS)
+        verify = step("Verify reproducible builds", BUILD_STEPS)
+        restore = step("Restore release-tag SDK helper", BUILD_STEPS)
+        stage = step("Stage signed feed", BUILD_STEPS)
+        self.assertLess(BUILD_STEPS.index(fetch), BUILD_STEPS.index(install))
+        self.assertLess(BUILD_STEPS.index(install), BUILD_STEPS.index(verify))
+        self.assertLess(BUILD_STEPS.index(verify), BUILD_STEPS.index(restore))
+        self.assertLess(BUILD_STEPS.index(restore), BUILD_STEPS.index(stage))
+        self.assertIn("uses: actions/checkout@", fetch)
+        self.assertIn("repository: lucas-albers-lz4/fwlive", fetch)
+        self.assertIn("ref: master", fetch)
+        self.assertIn("path: .ci-sdk-copyout-tools", fetch)
+        self.assertIn("sparse-checkout: scripts/lib/sdk-matrix.sh", fetch)
+        self.assertIn("persist-credentials: false", fetch)
+        self.assertIn('cp -- scripts/lib/sdk-matrix.sh "$RUNNER_TEMP/sdk-matrix-release-tag.sh"', install)
+        self.assertIn("install -m 0755 .ci-sdk-copyout-tools/scripts/lib/sdk-matrix.sh scripts/lib/sdk-matrix.sh", install)
+        self.assertIn("if: always()", restore)
+        self.assertIn('install -m 0755 "$RUNNER_TEMP/sdk-matrix-release-tag.sh" scripts/lib/sdk-matrix.sh', restore)
+        self.assertIn("rm -rf .ci-sdk-copyout-tools", restore)
+
     def test_dispatch_and_push(self):
         for env in ({}, {"EVENT_NAME": "push", "GITHUB_REF": "refs/tags/v1.2.3", "TAG": "ignored"}):
             with self.subTest(env=env):

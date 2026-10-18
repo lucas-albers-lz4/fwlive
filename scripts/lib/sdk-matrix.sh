@@ -705,10 +705,26 @@ sdk_matrix_clear_out_packages() {
 }
 
 sdk_matrix_copy_out() {
-	local root out_mount dest_host
+	local root out_mount dest_host out_uid out_gid
 	root="$(sdk_matrix_root)"
 	out_mount="${root}/out"
 	dest_host="${out_mount}/${SDK_MATRIX_PACKAGE_ARCH}/${SDK_MATRIX_VERSION_LABEL}"
+	# Refuse symlinked destinations before mkdir or mounting. Copy-out writes
+	# through a root-running container, so the output path must stay in the tree.
+	sdk_matrix_reject_symlink_path "$out_mount" || {
+		echo "sdk-matrix: output path must not traverse symlinks: ${out_mount}" >&2
+		return 1
+	}
+	sdk_matrix_reject_symlink_path "$dest_host" || {
+		echo "sdk-matrix: output path must not traverse symlinks: ${dest_host}" >&2
+		return 1
+	}
+	out_uid="$(id -u)" || return 1
+	out_gid="$(id -g)" || return 1
+	if [[ ! "$out_uid" =~ ^[0-9]+$ || ! "$out_gid" =~ ^[0-9]+$ ]]; then
+		echo "sdk-matrix: invalid host uid/gid for output ownership" >&2
+		return 1
+	fi
 	mkdir -p "$dest_host"
 	# SDK image runs as buildbot (uid 1000); GHA workspace is often uid 1001 — copy as root.
 	# Pass the same dl/feeds bind mounts as compose_run so defaults do not clobber /builder.
@@ -732,6 +748,10 @@ sdk_matrix_copy_out() {
 				cp -a /builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/. \"\$dest/\"
 			fi
 			chmod -R a+rX /out
+			# cp -a restores the SDK owner on existing output directories too.
+			# Return only directory ownership to the caller so a later clean
+			# reproducibility pass can unlink the root-copied package files.
+			find \"\$dest\" -type d -exec chown ${out_uid}:${out_gid} {} +
 			ls -la \"\$dest\"/fwlive/luci-app-fwlive* 2>/dev/null || ls -la \"\$dest\"/luci-app-fwlive* 2>/dev/null || true
 		"
 	); then

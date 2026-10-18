@@ -14,6 +14,7 @@ bad() { echo "FAIL: $*" >&2; fail=1; }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+DOCKER_COMMAND_FILE="$TMP/docker-command"
 
 sdk_matrix_root() { printf '%s' "$TMP"; }
 sdk_matrix_cache_dirs() {
@@ -108,6 +109,7 @@ fi
 
 rm -f "${dest}/luci-app-fwlive-0.1.0-r1.apk"
 docker() {
+	printf '%s' "${!#}" >"$DOCKER_COMMAND_FILE"
 	mkdir -p "${dest}/fwlive"
 	: >"${dest}/fwlive/luci-app-fwlive_0.1.0-r1.apk"
 	return 0
@@ -117,6 +119,29 @@ if sdk_matrix_copy_out >/dev/null 2>&1; then
 else
 	bad "matching luci-app-fwlive_*.apk planted by copy must make sdk_matrix_copy_out succeed"
 fi
+DOCKER_COMMAND="$(cat "$DOCKER_COMMAND_FILE")"
+printf -v owner_fix 'find "$dest" -type d -exec chown %s:%s {} +' "$(id -u)" "$(id -g)"
+if [[ "$DOCKER_COMMAND" == *"$owner_fix"* ]]; then
+	ok "copy-out restores caller ownership on output directories"
+else
+	bad "copy-out must restore caller ownership on output directories"
+fi
+
+mv "$TMP/out" "$TMP/out-real"
+ln -s "$TMP/out-real" "$TMP/out"
+rm -f "$DOCKER_COMMAND_FILE"
+err="$TMP/symlink.err"
+if sdk_matrix_copy_out >"$TMP/symlink.out" 2>"$err"; then
+	bad "symlinked output root must make sdk_matrix_copy_out fail"
+else
+	ok "symlinked output root: copy_out returns non-zero"
+fi
+grep -q 'output path must not traverse symlinks' "$err" \
+	&& ok "symlinked output root: clear error message" \
+	|| bad "symlinked output root: missing path guard error"
+[[ ! -e "$DOCKER_COMMAND_FILE" ]] \
+	&& ok "symlinked output root: Docker was not invoked" \
+	|| bad "symlinked output root: Docker must not be invoked"
 
 [ "$fail" = "0" ] || exit 1
 echo "sdk matrix copy-out test passed"
