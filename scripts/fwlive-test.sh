@@ -278,6 +278,7 @@ echo "== formal TLC host orchestration (#1087, #1121) ==" >&2
 bash tests/formal-ci-paths.test.sh
 bash tests/formal-tlc-tooling.test.sh
 bash tests/formal-rollback-trace-pilot.test.sh
+bash tests/formal-rollback-trace-expanded.test.sh
 
 echo "== fwlive feed artifact selection (#495) ==" >&2
 bash tests/feed-publish-find-artifact.test.sh
@@ -380,6 +381,7 @@ bash tests/fwlive-adaptive-trajectory.test.sh
 
 echo "== fwlive logging lock (race) ==" >&2
 bash tests/fwlive-logging-lock.test.sh
+bash tests/fwlive-generation-limit.test.sh
 
 echo "== fwlive rules map (nft) ==" >&2
 "$NODE" tests/fwlive-rules-map.test.js

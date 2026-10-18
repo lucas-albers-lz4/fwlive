@@ -18,8 +18,11 @@ The TLA+ v1.7.4 jar remains SHA-256 pinned. Host proof:
 `tests/formal-ci-paths.test.sh`, `tests/formal-tlc-tooling.test.sh`, and
 `tests/formal-rollback-trace-pilot.test.sh`; actual TLC 2.19 run passed all 20
 configs and the separate rollback replay passed five observed traces plus two
-mutation rejections on the Phase A working tree based on `8927e9911d`. The
-failure-artifact step
+mutation rejections on the Phase A working tree based on `8927e9911d`.
+**Phase B supersedes that historical replay matrix:** the current expanded
+runner checks 57 positive traces and three required mutation rejections; see
+[the Phase B evidence](#2026-10-18--1322-expanded-rollback-observation-conformance).
+The failure-artifact step
 retains per-config TLC output, replay observations/projections/configs, and
 runner provenance before temporary state cleanup. GitHub API inspection found
 no required status checks and no repository rulesets; the owner must require
@@ -2360,3 +2363,48 @@ argument and the sync-idle poll stub's absent timer/`e.r` behavior. Proof class
 model-check evidence remains scoped to the unchanged model. Required-check
 protection remains a separate owner setting. Full security surface re-pass
 deferred because this delta changes only verification and its reporting.
+
+### 2026-10-18 — #1322 expanded rollback observation conformance
+
+**Scope.** Test-only provider capture, observation projection, generated input
+schedules, and host generation-limit evidence. The shipped helper, ACLs and
+rpcd contracts are unchanged; the failure-aware Outcomes transition relation is
+reused without edits.
+
+**Evidence.** `formal`: 57 positive traces passed TLC and three mutation
+traces violated the required invariant. `host`: capture/projection, corruption
+and generation-limit checks passed. Cases cover enable/disable, unset/explicit-off
+baselines, later commit/no-op/failed stage/commit, and restoration/refusal/failure
+outcomes. Provider observations rather than English logs select model actions.
+Mutation and malformed-observation checks exercise missing generation advances,
+wrong failure-state claims, contradictory JSON, missing later-call terminals,
+and fatal-lock-history erasure. The generation-limit fixture exercises refusal
+at 2147483646 under the real lock and rejects a weakened guard on host dash/ash.
+
+**Boundary.** Finite fixtures and a stubbed UCI/reload boundary, not shell/model
+equivalence or installed-service evidence. Host arithmetic is 64-bit, not a
+32-bit runtime emulation. Source/action mapping, replay counts/bounds and
+reproduction commands are owned by the
+[rollback fidelity map](../../formal/wan-log-lock/README-wan-log-lock.md).
+Final-head review and current-head CI execution are recorded on the PR.
+
+### 2026-10-18 — #1322 rollback induction
+
+**Scope.** Host-only proof runner and shared Outcomes action parameterization;
+no shipped helper, rpcd, ACL, DOM or release payload changes. The existing
+`formal-tlc` job adds the pinned Apalache induction check and retains diagnostics.
+
+**Evidence.** `formal`: separate initialization, preservation and implication
+obligations for idealized Nat history and deployed generation cap 2147483646,
+plus no advancement from an invariant state at that cap. The value-only guard
+must produce an invariant counterexample. `host`: B separately checks the
+actual helper's cap refusal under dash and BusyBox ash (64-bit host arithmetic).
+The runner verifies both archive and jar SHA-256 before execution; failures and
+timeouts fail the gate. Final independent runner/CI review is recorded on its PR.
+
+**Boundary.** Cooperating serialized writers and uninterrupted volatile
+generation history; no direct-UCI-writer, reset-with-callers, provider-success,
+liveness or universal shell-refinement theorem. The owning fidelity map is
+[`README-wan-log-lock.md`](../../formal/wan-log-lock/README-wan-log-lock.md#inductive-rollback-safety-1322).
+Full security surface re-pass deferred: this delta changes only verification
+and its CI execution, not the shipped trust boundaries.

@@ -43,6 +43,11 @@ jobs:
         env:
           FWLIVE_ROLLBACK_TRACE_DIAGNOSTICS_DIR: ${{ runner.temp }}/fwlive-formal-diagnostics/replay
         run: ./scripts/formal-rollback-trace-replay.sh
+      - name: Check rollback integer induction
+        if: always() && steps.formal-paths.outputs.run_formal != 'false'
+        env:
+          FWLIVE_INDUCTION_DIAGNOSTICS_DIR: ${{ runner.temp }}/fwlive-formal-diagnostics/induction
+        run: ./scripts/formal-induction.sh
       - name: Upload formal diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
