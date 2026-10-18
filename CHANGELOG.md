@@ -9,13 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.55] — 2026-10-18
+
+### Fixed
+- Show “buffer full” only while the table is paused, and count paused stored events against the ingest cap instead of the display Limit (#1333).
+- Paint cached hostnames immediately when Show hostnames is toggled on a paused table (#1336).
+- Keep the logging toolbar visible after a failed first status fetch so “Could not load logging status.” remains on screen when rows hide the empty-state copy (#1335).
+- Select LuCI translation packages by locale when their generated version differs from the app version, while rejecting missing or ambiguous build outputs (#1325).
+
 ### Changed
 - Normalize Docker-created SDK output directory ownership before reproducibility rebuilds so the runner can clear prior package artifacts (#1320).
 - Restore caller ownership on output directories after each Docker copy-out; temporarily overlay the current helper during reproducibility checks for older release tags (#1321).
+- Name the Compose v2 apt package separately for Debian (`docker-compose`) and Ubuntu or Mint (`docker-compose-v2`) on the development host (#1338).
+- Expect the published app version for each OpenWrt line in feed smoke (23.05 unsuffixed; 24.10 and 25.12 with `-r1`) and require locale packages to be present rather than version-equal (#1344).
+- Run formal TLC and Quint checks on pull requests and master pushes (#1322).
 
-### Fixed
-- Keep the logging toolbar visible after a failed first status fetch so “Could not load logging status.” remains on screen when rows hide the empty-state copy (#1335).
-- Select LuCI translation packages by locale when their generated version differs from the app version, while rejecting missing or ambiguous build outputs (#1325).
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.54] — 2026-10-17
 
@@ -916,4 +931,5 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.51]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.50...v0.1.51
 [v0.1.52]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.51...v0.1.52
 [v0.1.53]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.52...v0.1.53
+[v0.1.55]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.54...v0.1.55
 [v0.1.54]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.53...v0.1.54
