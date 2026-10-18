@@ -115,7 +115,7 @@ mkdir -p "$WORKDIR/docs"
 git -C "$WORKDIR" mv formal/wan-log-lock/Model.tla docs/Model.tla
 git -C "$WORKDIR" commit -q -m move-out-of-formal
 head_move="$(git -C "$WORKDIR" rev-parse HEAD)"
-out="$(cd "$WORKDIR" && FORMAL_CI_BASE_SHA="$head_new" FORMAL_CI_HEAD_SHA="$head_move" formal_ci_decide)"
+out="$(cd "$WORKDIR" && FORMAL_CI_BASE_SHA="$head_unknown" FORMAL_CI_HEAD_SHA="$head_move" formal_ci_decide)"
 if [[ "$out" == 'run_formal=true' ]]; then ok 'move out of relevant path runs'; else bad "move out of relevant path: $out"; fi
 
 missing="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
