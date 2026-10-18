@@ -33,6 +33,7 @@ for source in \
 	printf 'rollback trace pilot source %s: %s\n' "$source" "$(git -C "$ROOT" hash-object "$ROOT/$source")" \
 		>>"$DIAGNOSTICS_DIR/replay-environment.txt"
 done
+cat "$DIAGNOSTICS_DIR/replay-environment.txt"
 
 for scenario in success aba noop failed refusal; do
 	"$CAPTURE" "$LOGGING_SH" "$scenario" "$DIAGNOSTICS_DIR/$scenario" \

@@ -238,7 +238,8 @@ The pinned TLC replay runner requires the five captured traces to complete,
 and the value-only ABA and broken no-op-generation traces to violate
 `NoInvalidObservation`. The command prints the checkout HEAD and Git blob IDs
 for the shipped helper, source model, replay adapter, capture fixture, and
-projector so the evidence can be tied to exact inputs. `tests/formal-rollback-trace-pilot.test.sh`
+projector, and preserves them in `replay-environment.txt` with the diagnostics
+so the evidence can be tied to exact inputs. `tests/formal-rollback-trace-pilot.test.sh`
 runs capture/projection integrity checks as part of the host suite, but does
 not run TLC. The always-reporting formal workflow separately runs the full
 model suite and this replay for relevant or unclassified changes.
