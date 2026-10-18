@@ -597,7 +597,28 @@ async function testInitialLoggingStatusRejectIsUnknown() {
 	assert.doesNotMatch(emptyText, /Logging is off on this router/);
 	assert.deepEqual(findButtons(empty), [], 'unknown status must not offer Enable');
 	assert.equal(hasConsent(empty), false, 'unknown status must not render the consent panel');
-	assert.equal(bar.style.display, 'none', 'unknown status must keep the toolbar hidden');
+
+	assert.notEqual(
+		bar.style.display,
+		'none',
+		'failed first fetch must keep the toolbar visible for the notice'
+	);
+	assert.equal(bar.style.display, 'contents');
+	assert.match(collectText(bar), /Could not load logging status/);
+	assert.deepEqual(findButtons(bar), [], 'unknown status must not offer Enable on the toolbar');
+	assert.equal(findLoggingAction(bar, 'enable'), null);
+	assert.equal(findLoggingAction(bar, 'disable'), null);
+	const live = findRoleStatus(bar);
+	assert.ok(live, 'toolbar must expose the status notice');
+	assert.match(collectText(live), /Could not load logging status/);
+	assert.deepEqual(live._innerHTMLWrites || [], [], 'toolbar notice must stay on a text node');
+
+	empty.style.display = 'none';
+	assert.match(
+		collectText(bar),
+		/Could not load logging status/,
+		'toolbar notice remains when empty-state copy is hidden'
+	);
 	console.log('fwlive-view logging: initial status reject stays unknown OK');
 }
 

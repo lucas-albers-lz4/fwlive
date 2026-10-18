@@ -913,7 +913,8 @@ return view.extend({
 				readGeneration !== this.loggingStatusReadGeneration
 			)
 				return;
-			/* Keep last-known toolbar; unknown until the first successful fetch. */
+			/* Keep last-known toolbar on refresh failure. First-fetch failure
+			 * leaves status unknown and sets loggingNotice for the toolbar. */
 			if (!this.loggingNotice) {
 				this.loggingNotice = this.loggingStatus
 					? _('Could not refresh logging status; showing the last known state.')

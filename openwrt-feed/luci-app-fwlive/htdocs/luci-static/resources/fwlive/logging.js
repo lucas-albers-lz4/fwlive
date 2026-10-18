@@ -343,6 +343,11 @@ function renderToolbar(host, state, callbacks) {
 
 	const st = state.loggingStatus;
 	if (!st) {
+		/* First-fetch failure: keep the host so loggingNotice stays visible. */
+		if (state.loggingNotice) {
+			host.style.display = 'contents';
+			return;
+		}
 		host.style.display = 'none';
 		return;
 	}
