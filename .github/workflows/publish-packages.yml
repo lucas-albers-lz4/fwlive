@@ -244,16 +244,19 @@ jobs:
             sudo find "$PWD/out" -type d -exec chown "$out_uid:$out_gid" {} +
           fi
 
-      # The workflow checks out the release tag, which can predate the
-      # copy-out ownership fix. Use the current helper for reproducibility,
-      # then restore the tag's copy before release staging.
-      - name: Fetch current SDK copy-out helper
+      # The workflow checks out the release tag, which can predate current
+      # release helpers. Fetch reviewed versions at an immutable commit;
+      # SDK copy-out is used only for reproducibility, while feed-publish is
+      # used for staging and GitHub Release assets.
+      - name: Fetch current release helpers
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           repository: lucas-albers-lz4/fwlive
-          ref: 535fd1b43237f674df164ef411efad18138761b5
+          ref: 997cf6210482a169fa6f9d55fcc0139194f61a2b
           path: .ci-sdk-copyout-tools
-          sparse-checkout: scripts/lib/sdk-matrix.sh
+          sparse-checkout: |
+            scripts/lib/sdk-matrix.sh
+            scripts/lib/feed-publish.sh
           sparse-checkout-cone-mode: false
           fetch-depth: 1
           persist-credentials: false
@@ -284,7 +287,15 @@ jobs:
             install -m 0755 "$RUNNER_TEMP/sdk-matrix-release-tag.sh" scripts/lib/sdk-matrix.sh
           fi
           rm -f "$RUNNER_TEMP/sdk-matrix-release-tag.sh"
-          rm -rf .ci-sdk-copyout-tools
+
+      # Feed staging and release assets also run from the release-tag tree.
+      # Overlay the reviewed selector so older tags can publish locale
+      # packages whose LuCI-generated versions differ from the app version.
+      - name: Install current feed publish helper
+        run: |
+          set -euo pipefail
+          cp -- scripts/lib/feed-publish.sh "$RUNNER_TEMP/feed-publish-release-tag.sh"
+          install -m 0755 .ci-sdk-copyout-tools/scripts/lib/feed-publish.sh scripts/lib/feed-publish.sh
 
       - name: Stage signed feed
         env:
@@ -419,6 +430,16 @@ jobs:
           else
             publish_new
           fi
+
+      - name: Restore release-tag feed publish helper
+        if: always()
+        run: |
+          set -euo pipefail
+          if [[ -f "$RUNNER_TEMP/feed-publish-release-tag.sh" ]]; then
+            install -m 0755 "$RUNNER_TEMP/feed-publish-release-tag.sh" scripts/lib/feed-publish.sh
+          fi
+          rm -f "$RUNNER_TEMP/feed-publish-release-tag.sh"
+          rm -rf .ci-sdk-copyout-tools
 
   # Single-cell QEMU feed smoke (#10): TCG on hosted runners; default OpenWrt 24.10.
   # Tag pushes always smoke that one 24.10 cell (do not add a second QEMU smoke
