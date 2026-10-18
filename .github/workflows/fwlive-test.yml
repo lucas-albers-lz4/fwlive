@@ -236,7 +236,7 @@ jobs:
             "$ACTIONLINT_IMAGE" \
             -color
 
-  # #121: authoritative Z3 suite (F1-F4).
+  # #121: authoritative Z3 suite (F1-F5).
   z3-verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20

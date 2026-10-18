@@ -2408,3 +2408,26 @@ liveness or universal shell-refinement theorem. The owning fidelity map is
 [`README-wan-log-lock.md`](../../formal/wan-log-lock/README-wan-log-lock.md#inductive-rollback-safety-1322).
 Full security surface re-pass deferred: this delta changes only verification
 and its CI execution, not the shipped trust boundaries.
+
+
+### 2026-10-18 — #1322 regex evidence disposition
+
+**Scope.** Documentation inventory on base `629dd4a892`; the workflow delta
+corrects only its F1–F5 comment. Runtime, ACLs, rpcd/shell helpers, solver pins
+and gate execution are unchanged.
+
+**Evidence.** Source inspection and file hashes bind the #571 targets and
+immediate preprocessing dependencies to current bytes. The maintainer-approved
+regexproof #652 research result is a route-local no-go, not product proof.
+Existing bounded Z3 predicates, finite JS/shell replay and robustness evidence
+retain their distinct limits in the owning
+[Z3 verification guide](z3-verification.md#phase-d-disposition-1322).
+The inventory records a prefix-mirror hyphen-boundary mismatch and unproved
+first-match/capture, preprocessing, case and UTF-16 correspondence; no universal
+classifier correctness or new witness is claimed.
+
+**Boundary.** No new local test run or installed-device evidence is claimed for
+this documentation delta. The original as-written goal remains open, with U9
+unchanged and no mirror substitute. Full security surface re-pass deferred:
+no shipped trust boundary changed. Final independent review and CI evidence
+belong to the PR record.
