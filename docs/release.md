@@ -25,10 +25,11 @@ For upstream/release sign-off, require fresh source extraction by setting
 Missing scanner prerequisites then fail the sign-off run instead of being
 treated as a passing skip.
 
-Before creating the release tag, run `./scripts/formal-tlc.sh` on the release
-commit. The models and pinned runner are repeatable locally; Actions provides a
-manual-only **formal TLC** workflow for rerunning the same check on a selected
-ref. This keeps TLC out of the normal push and pull-request CI path.
+Before creating the release tag, run `./scripts/formal-tlc.sh` and
+`./scripts/formal-rollback-trace-replay.sh` on the release commit. The models,
+replay, and pinned runner are repeatable locally; the **formal TLC** Actions
+workflow also runs them for relevant or unclassified push and pull-request
+changes, and remains available through `workflow_dispatch`.
 
 Optional QEMU confidence: `./scripts/validate-openwrt.sh --version 24.10` — see [validation matrix](validation-matrix.md).
 

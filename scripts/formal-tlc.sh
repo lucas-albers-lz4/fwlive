@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Run the small TLA+ models and assert that the ten known counterexamples
-# remain counterexamples. TLC runs in single-worker mode for stable liveness
+# Run the versioned TLA+ models and assert that ten counterexample configs
+# remain counterexamples (seven invariants and three temporal properties).
+# TLC runs in single-worker mode for stable liveness
 # checking. This script is CI/developer tooling only; it is not packaged.
 set -euo pipefail
 
@@ -9,19 +10,50 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TLA_VERSION=1.7.4
 TLA_SHA256=936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
 TLA_URL="https://github.com/tlaplus/tlaplus/releases/download/v${TLA_VERSION}/tla2tools.jar"
-fail() { echo "formal TLC FAIL: $*" >&2; exit 1; }
+DIAGNOSTICS_DIR=''
+fail() {
+	echo "formal TLC FAIL: $*" >&2
+	if [[ -n "$DIAGNOSTICS_DIR" ]]; then
+		printf 'formal TLC FAIL: %s\n' "$*" >>"$DIAGNOSTICS_DIR/formal-tlc-failures.log" 2>/dev/null || true
+	fi
+	exit 1
+}
 ok() { echo "formal TLC OK: $*"; }
 
-command -v java >/dev/null 2>&1 || fail "java is required; install a JRE (for example openjdk-17-jre-headless)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+if [[ -n "${FWLIVE_TLC_DIAGNOSTICS_DIR:-}" ]]; then
+	DIAGNOSTICS_DIR="$FWLIVE_TLC_DIAGNOSTICS_DIR"
+	case "$DIAGNOSTICS_DIR" in
+		/*) ;;
+		*) DIAGNOSTICS_DIR="$PWD/$DIAGNOSTICS_DIR" ;;
+	esac
+	mkdir -p "$DIAGNOSTICS_DIR"
+else
+	DIAGNOSTICS_DIR="$WORK/diagnostics"
+	mkdir -p "$DIAGNOSTICS_DIR"
+fi
+
+for required_tool in java sha256sum awk; do
+	command -v "$required_tool" >/dev/null 2>&1 || {
+		if [[ "$required_tool" == java ]]; then
+			fail "java is required; install a JRE to run TLC"
+		fi
+		fail "$required_tool is required to run TLC"
+	}
+done
 
 if [[ -n "${TLA2TOOLS_JAR:-}" ]]; then
 	JAR="$TLA2TOOLS_JAR"
 	[[ -f "$JAR" ]] || fail "TLA2TOOLS_JAR does not name a file: $JAR"
 else
+	command -v curl >/dev/null 2>&1 || fail "curl is required to download the pinned TLA+ tools jar"
 	JAR="$WORK/tla2tools.jar"
-	curl -fsSL --connect-timeout 10 --max-time 120 --retry 2 "$TLA_URL" -o "$JAR"
+	if ! curl -fsSL --connect-timeout 10 --max-time 120 --retry 2 "$TLA_URL" -o "$JAR" \
+		>"$DIAGNOSTICS_DIR/tla2tools-download.log" 2>&1; then
+		cat "$DIAGNOSTICS_DIR/tla2tools-download.log" >&2
+		fail "failed to download pinned TLA+ ${TLA_VERSION} tools jar"
+	fi
 fi
 
 # Both execution helpers change into model directories; preserve the caller's
@@ -34,30 +66,62 @@ esac
 actual_sha="$(sha256sum "$JAR" | awk '{print $1}')"
 [[ "$actual_sha" == "$TLA_SHA256" ]] \
 	|| fail "TLA+ ${TLA_VERSION} jar SHA-256 mismatch: $actual_sha"
+{
+	printf 'TLA+ version: %s\n' "$TLA_VERSION"
+	printf 'TLA+ jar SHA-256: %s\n' "$actual_sha"
+	printf 'runner source SHA-256: %s\n' "$(sha256sum "$ROOT/scripts/formal-tlc.sh" | awk '{print $1}')"
+} >"$DIAGNOSTICS_DIR/formal-tlc-environment.txt"
+
+run_tlc_command() {
+	local name="$1" status log
+	shift
+	log="$DIAGNOSTICS_DIR/$name.log"
+	if "$@" >"$log" 2>&1; then
+		status=0
+	else
+		status=$?
+	fi
+	cat "$log"
+	return "$status"
+}
+
+run_tlc_model() {
+	local dir="$1" jar="$2" metadir="$3" cfg="$4" module="$5"
+	(
+		cd "$dir"
+		java -jar "$jar" -workers 1 -metadir "$metadir" -config "$cfg" "$module.tla"
+	)
+}
 
 run_pass() {
-	local dir="$1" module="$2" cfg="$3"
-	(
-		cd "$ROOT/formal/$dir"
-		java -jar "$JAR" -workers 1 -metadir "$WORK/${module}-${cfg}-states" \
-			-config "$cfg" "$module.tla"
-	)
+	local dir="$1" module="$2" cfg="$3" status log
+	log="$DIAGNOSTICS_DIR/$module-$cfg.log"
+	if run_tlc_command "$module-$cfg" run_tlc_model \
+		"$ROOT/formal/$dir" "$JAR" "$WORK/${module}-${cfg}-states" "$cfg" "$module"; then
+		status=0
+	else
+		status=$?
+	fi
+	[[ "$status" -eq 0 ]] || fail "$module / $cfg failed (see $log)"
+	grep -Fq 'Model checking completed. No error has been found.' "$log" \
+		|| fail "$module / $cfg did not report a clean model-check completion (see $log)"
 	ok "$module / $cfg"
 }
 
 run_expected_violation() {
-	local dir="$1" module="$2" cfg="$3" property="$4" output status
-	set +e
-	output="$(cd "$ROOT/formal/$dir" && java -jar "$JAR" -workers 1 \
-		-metadir "$WORK/${module}-${cfg}-states" -config "$cfg" "$module.tla" 2>&1)"
-	status=$?
-	set -e
-	if [[ "$status" -eq 0 ]]; then
-		fail "$module / $cfg unexpectedly passed; expected $property violation"
+	local dir="$1" module="$2" cfg="$3" property="$4" status log
+	log="$DIAGNOSTICS_DIR/$module-$cfg.log"
+	if run_tlc_command "$module-$cfg" run_tlc_model \
+		"$ROOT/formal/$dir" "$JAR" "$WORK/${module}-${cfg}-states" "$cfg" "$module"; then
+		status=0
+	else
+		status=$?
 	fi
-	if ! grep -Fq "Invariant $property is violated" <<<"$output"; then
-		printf '%s\n' "$output" >&2
-		fail "$module / $cfg failed for a reason other than $property"
+	if [[ "$status" -eq 0 ]]; then
+		fail "$module / $cfg unexpectedly passed; expected $property violation (see $log)"
+	fi
+	if ! grep -Fq "Invariant $property is violated" "$log"; then
+		fail "$module / $cfg failed for a reason other than $property (see $log)"
 	fi
 	ok "$module / $cfg reports expected $property counterexample"
 }
@@ -65,7 +129,7 @@ run_expected_violation() {
 # A violated temporal property prints "Temporal properties were violated." with no
 # property name (TLC 2.19), so this arm is keyed to the cfg's single PROPERTY.
 run_expected_property_violation() {
-	local dir="$1" module="$2" cfg="$3" property="$4" output status config_file declared_properties
+	local dir="$1" module="$2" cfg="$3" property="$4" status config_file declared_properties log
 	config_file="$ROOT/formal/$dir/$cfg"
 	[[ -f "$config_file" ]] || fail "$module / $cfg config is missing"
 	# This counterexample cfg deliberately uses only one identifier per
@@ -86,23 +150,24 @@ run_expected_property_violation() {
 	if [[ "$declared_properties" != "$property" ]]; then
 		fail "$module / $cfg must declare exactly PROPERTY $property (found: ${declared_properties:-none})"
 	fi
-	set +e
-	output="$(cd "$ROOT/formal/$dir" && java -jar "$JAR" -workers 1 \
-		-metadir "$WORK/${module}-${cfg}-states" -config "$cfg" "$module.tla" 2>&1)"
-	status=$?
-	set -e
-	if [[ "$status" -eq 0 ]]; then
-		fail "$module / $cfg unexpectedly passed; expected a $property violation"
+	log="$DIAGNOSTICS_DIR/$module-$cfg.log"
+	if run_tlc_command "$module-$cfg" run_tlc_model \
+		"$ROOT/formal/$dir" "$JAR" "$WORK/${module}-${cfg}-states" "$cfg" "$module"; then
+		status=0
+	else
+		status=$?
 	fi
-	if ! grep -Fq "Temporal properties were violated" <<<"$output"; then
-		printf '%s\n' "$output" >&2
-		fail "$module / $cfg failed for a reason other than the $property property"
+	if [[ "$status" -eq 0 ]]; then
+		fail "$module / $cfg unexpectedly passed; expected a $property violation (see $log)"
+	fi
+	if ! grep -Fq "Temporal properties were violated" "$log"; then
+		fail "$module / $cfg failed for a reason other than the $property property (see $log)"
 	fi
 	ok "$module / $cfg reports expected $property property counterexample"
 }
 
 run_trace_replay_cases() {
-	local cases="$1" mode property config output status number=0
+	local cases="$1" mode property config status number=0 log
 	[[ -f "$cases" ]] || fail "trace replay case list is missing: $cases"
 	[[ -f "$ROOT/formal/wan-log-lock/WanLogRollbackReplay.tla" ]] \
 		|| fail "rollback trace replay module is missing"
@@ -110,24 +175,24 @@ run_trace_replay_cases() {
 		[[ -n "${mode:-}" ]] || continue
 		[[ -f "$config" ]] || fail "trace replay config is missing: $config"
 		number=$((number + 1))
-		set +e
-		output="$(cd "$ROOT/formal/wan-log-lock" && java -jar "$JAR" -workers 1 \
-			-metadir "$WORK/rollback-replay-${number}-states" -config "$config" \
-			WanLogRollbackReplay.tla 2>&1)"
-		status=$?
-		set -e
+		log="$DIAGNOSTICS_DIR/rollback-replay-$number.log"
+		if run_tlc_command "rollback-replay-$number" run_tlc_model \
+			"$ROOT/formal/wan-log-lock" "$JAR" "$WORK/rollback-replay-${number}-states" \
+			"$config" WanLogRollbackReplay; then
+			status=0
+		else
+			status=$?
+		fi
 		case "$mode" in
 			pass)
-				if [[ "$status" -ne 0 ]] || ! grep -Fq "Model checking completed. No error has been found." <<<"$output"; then
-					printf '%s\n' "$output" >&2
-					fail "observed rollback trace unexpectedly rejected: $config"
+				if [[ "$status" -ne 0 ]] || ! grep -Fq "Model checking completed. No error has been found." "$log"; then
+					fail "observed rollback trace unexpectedly rejected: $config (see $log)"
 				fi
 				ok "observed rollback trace passes: $config"
 				;;
 			reject)
-				if [[ "$status" -eq 0 ]] || ! grep -Fq "Invariant $property is violated" <<<"$output"; then
-					printf '%s\n' "$output" >&2
-					fail "mutated rollback trace did not violate $property: $config"
+				if [[ "$status" -eq 0 ]] || ! grep -Fq "Invariant $property is violated" "$log"; then
+					fail "mutated rollback trace did not violate $property: $config (see $log)"
 				fi
 				ok "mutated rollback trace rejected by $property: $config"
 				;;

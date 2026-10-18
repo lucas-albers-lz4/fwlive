@@ -1,6 +1,9 @@
 name: formal TLC
 
 on:
+  push:
+    branches: [master, main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -9,15 +12,42 @@ permissions:
 jobs:
   formal-tlc:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           persist-credentials: false
-      - name: Install Java runtime for TLC
+      - name: Decide whether formal checks are needed
+        id: formal-paths
+        env:
+          FORMAL_CI_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          FORMAL_CI_HEAD_SHA: ${{ github.sha }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jre-headless
+          set -euo pipefail
+          ./scripts/ci-formal-paths.sh | tee -a "$GITHUB_OUTPUT"
+      - name: Set up Java 21 for TLC
+        if: always() && steps.formal-paths.outputs.run_formal != 'false'
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad  # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
       - name: Check TLA+ models (pinned TLC 1.7.4)
+        if: always() && steps.formal-paths.outputs.run_formal != 'false'
+        env:
+          FWLIVE_TLC_DIAGNOSTICS_DIR: ${{ runner.temp }}/fwlive-formal-diagnostics/tlc
         run: ./scripts/formal-tlc.sh
-        # Includes wan-log-lock, hostname-dispose, and adaptive-cap (four arms).
+        # Includes the pass models and ten expected counterexample configurations.
+      - name: Replay captured WAN rollback traces through TLC
+        if: always() && steps.formal-paths.outputs.run_formal != 'false'
+        env:
+          FWLIVE_ROLLBACK_TRACE_DIAGNOSTICS_DIR: ${{ runner.temp }}/fwlive-formal-diagnostics/replay
+        run: ./scripts/formal-rollback-trace-replay.sh
+      - name: Upload formal diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: formal-tlc-diagnostics
+          path: ${{ runner.temp }}/fwlive-formal-diagnostics/
+          if-no-files-found: warn
+          retention-days: 7

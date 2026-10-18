@@ -85,8 +85,9 @@ cut procedure is in
 ## Formal models (TLA+/TLC)
 
 The versioned models, TLC configs, and runner are under `formal/` and
-`scripts/formal-tlc.sh`. Run the complete set, including the expected
-counterexamples, with:
+`scripts/formal-tlc.sh`. Run the complete model suite, including the ten
+expected counterexample configurations (seven invariant violations and three
+temporal-property violations), with:
 
 ```sh
 ./scripts/formal-tlc.sh
@@ -96,8 +97,34 @@ The runner fetches the official TLA+ v1.7.4 tools jar and verifies its pinned
 SHA-256 before execution. It needs Java, `curl`, and `sha256sum`; to use a
 pre-fetched jar, set `TLA2TOOLS_JAR=/path/to/tla2tools.jar` (the checksum is
 still verified). TLC state files go into a temporary directory and are removed
-when the run finishes. The **formal TLC** Actions workflow is manual-only, so
-ordinary push and pull-request CI do not install Java or run TLC.
+when the run finishes. Set `FWLIVE_TLC_DIAGNOSTICS_DIR=/path/to/diagnostics`
+to retain a log for each TLC invocation and runner provenance; state files
+remain temporary.
+
+The rollback capture/projection suite also has an actual TLC replay step. Run it
+as a separate invocation after the default model suite:
+
+```sh
+./scripts/formal-rollback-trace-replay.sh
+```
+
+Set `FWLIVE_ROLLBACK_TRACE_DIAGNOSTICS_DIR=/path/to/diagnostics` to retain its
+raw observations, projection output, generated replay `.cfg` files, and nested
+TLC stdout. Temporary TLC state files are still removed at exit.
+
+The **formal TLC** Actions workflow runs on pull requests and pushes to
+`master`/`main`, and remains available through `workflow_dispatch`. Its
+always-reporting `formal-tlc` job uses `scripts/ci-formal-paths.sh` to skip TLC
+only when every changed path is explicitly known to be unrelated. Relevant or
+unclassified paths, empty diffs, invalid base/head SHAs, and diff/fetch errors
+run the full model suite and separate rollback replay. The normal host suite
+keeps the cheap tooling-integrity and capture/projection checks.
+
+GitHub check context: `formal TLC / formal-tlc`. Workflow execution does not
+make it a required status check. The current repository branch protection has
+no required status checks and no rulesets; an owner must add this check to
+branch protection or a ruleset. No merge queue is configured; add a
+`merge_group` trigger if a merge queue is introduced.
 
 ### Renderer tests do not render
 
