@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Extract luci-app-fwlive Version / pkgver from a published feed index.
 # Canonical source is the index the guest will use (#421), not ${tag#v} or
-# the Makefile. Compare exact published forms (include -r1).
+# the Makefile. Compare exact published forms (23.05 has no suffix; 24.10/25.12 use -r1).
 #
 # Host/CI only — Bash required. Source from tests; do not execute directly.
 set -euo pipefail
@@ -27,18 +27,20 @@ feed_index_versions_match() {
 	return 0
 }
 
-# PKG_VERSION (Makefile) → published index form for a cell (ipk: N-1, apk: N-r1).
+# PKG_VERSION plus OpenWrt cell → published luci-app-fwlive Version.
+# 23.05 indexes omit the release suffix. 24.10 and 25.12 use N-r1.
+# Do not derive this from ipk vs apk: 23.05 and 24.10 are both ipk.
 feed_index_expected_app_version() {
-	local pkg_version="${1:-}" fmt="${2:-}"
-	if [[ -z "$pkg_version" || -z "$fmt" ]]; then
-		echo "feed-index: expected app version requires PKG_VERSION and format" >&2
+	local pkg_version="${1:-}" cell="${2:-}"
+	if [[ -z "$pkg_version" || -z "$cell" ]]; then
+		echo "feed-index: expected app version requires PKG_VERSION and OpenWrt cell" >&2
 		return 1
 	fi
-	case "$fmt" in
-		ipk) printf '%s\n' "${pkg_version}-1" ;;
-		apk) printf '%s\n' "${pkg_version}-r1" ;;
+	case "$cell" in
+		23.05 | 23.05.*) printf '%s\n' "$pkg_version" ;;
+		24.10 | 24.10.* | 25.12 | 25.12.*) printf '%s\n' "${pkg_version}-r1" ;;
 		*)
-			echo "feed-index: unknown package format '$fmt'" >&2
+			echo "feed-index: unknown OpenWrt cell '$cell'" >&2
 			return 1
 			;;
 	esac
@@ -178,11 +180,11 @@ sys.exit(1)
 ' "$want"
 }
 
-# When --expect-version is set, every shipped i18n locale must appear at that release.
-feed_index_assert_i18n_oracle() {
-	local index_path="$1" pkg_version="$2" fmt="$3"
-	local lang pkg expect got
-	expect="$(feed_index_expected_app_version "$pkg_version" "$fmt")" || return 1
+# When --expect-version is set, every shipped i18n locale must be present.
+# LuCI date-versions the locale packages; do not require them to equal PKG_VERSION.
+feed_index_assert_i18n_present() {
+	local index_path="$1" fmt="$2"
+	local lang pkg got
 	for lang in "${FEED_INDEX_I18N_LOCALES[@]}"; do
 		pkg="luci-i18n-fwlive-${lang}"
 		case "$fmt" in
@@ -197,13 +199,17 @@ feed_index_assert_i18n_oracle() {
 				return 1
 				;;
 		esac
-		feed_index_versions_match "$got" "$expect" || return 1
+		if [[ -z "$got" ]]; then
+			echo "feed-index: empty Version for ${pkg}" >&2
+			return 1
+		fi
 	done
 }
 
 # Pinned guest queries (#421 slice 2). Compare per cell, not across formats.
-# 23.05/24.10: opkg info Version:  (e.g. 0.1.45-1)
-# 25.12: one OpenWrt apk query     (e.g. 0.1.45-r1)
+# 23.05: opkg info Version:  (e.g. 0.1.45, no release suffix)
+# 24.10: opkg info Version:  (e.g. 0.1.45-r1)
+# 25.12: one OpenWrt apk query (e.g. 0.1.45-r1)
 # Consumed by qemu-install-from-feed.sh after sourcing this file.
 # shellcheck disable=SC2034
 FEED_INDEX_GUEST_OPKG_CMD='opkg info luci-app-fwlive'

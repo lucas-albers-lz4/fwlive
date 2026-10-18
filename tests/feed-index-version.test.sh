@@ -366,4 +366,48 @@ PY
 	ok "FWLIVE_SDK_ADBDUMP pinned SDK adbdump matches fixture and parser"
 fi
 
+got="$(feed_index_expected_app_version 0.1.54 23.05)" \
+	|| fail "23.05 expected app version failed"
+[[ "$got" == "0.1.54" ]] || fail "23.05 app form must be unsuffixed (got '$got')"
+got="$(feed_index_expected_app_version 0.1.54 24.10)" \
+	|| fail "24.10 expected app version failed"
+[[ "$got" == "0.1.54-r1" ]] || fail "24.10 app form must be -r1 (got '$got')"
+got="$(feed_index_expected_app_version 0.1.54 25.12)" \
+	|| fail "25.12 expected app version failed"
+[[ "$got" == "0.1.54-r1" ]] || fail "25.12 app form must be -r1 (got '$got')"
+if feed_index_expected_app_version 0.1.54 ipk >/dev/null 2>&1; then
+	fail "package format must not be accepted as an OpenWrt cell"
+fi
+ok "cell-aware app version forms"
+
+write_packages "$TMP/packages.i18n" \
+	'Package: luci-app-fwlive' \
+	'Version: 0.1.54-r1' \
+	'' \
+	'Package: luci-i18n-fwlive-de' \
+	'Version: 0.261018.60867' \
+	'' \
+	'Package: luci-i18n-fwlive-ru' \
+	'Version: 0.261018.60867' \
+	'' \
+	'Package: luci-i18n-fwlive-zh-cn' \
+	'Version: 0.261018.60867'
+gzip -9cn "$TMP/packages.i18n" >"$TMP/packages.i18n.gz"
+feed_index_assert_i18n_present "$TMP/packages.i18n.gz" ipk \
+	|| fail "date-versioned locales must count as present"
+write_packages "$TMP/packages.i18n-missing" \
+	'Package: luci-app-fwlive' \
+	'Version: 0.1.54-r1' \
+	'' \
+	'Package: luci-i18n-fwlive-de' \
+	'Version: 0.261018.60867' \
+	'' \
+	'Package: luci-i18n-fwlive-ru' \
+	'Version: 0.261018.60867'
+gzip -9cn "$TMP/packages.i18n-missing" >"$TMP/packages.i18n-missing.gz"
+if feed_index_assert_i18n_present "$TMP/packages.i18n-missing.gz" ipk >/dev/null 2>&1; then
+	fail "missing zh-cn locale must fail presence"
+fi
+ok "i18n presence does not require the app version"
+
 echo "feed-index-version helper test passed"
