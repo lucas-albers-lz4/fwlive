@@ -220,7 +220,7 @@ jobs:
             ./scripts/docker-sdk.sh build --target x86-64 --version "$ver"
           done
 
-      - name: Fix SDK cache permissions
+      - name: Fix SDK cache and output permissions
         if: always()
         run: |
           set -euo pipefail
@@ -232,6 +232,17 @@ jobs:
           # Re-assert ownership after buildbot writes (same least-privilege policy).
           sudo chown -R 1000:1000 .ci-sdk-cache
           sudo chmod -R u=rwX,g=rX,o=rX .ci-sdk-cache
+          if [[ -e "$PWD/out" || -L "$PWD/out" ]]; then
+            sdk_matrix_reject_symlink_path "$PWD/out" || { echo "output path must not traverse symlinks" >&2; exit 1; }
+            [[ -d "$PWD/out" ]] || { echo "output path is not a directory" >&2; exit 1; }
+            out_uid="$(id -u)"
+            out_gid="$(id -g)"
+            [[ "$out_uid" =~ ^[0-9]+$ && "$out_gid" =~ ^[0-9]+$ ]] || { echo "invalid runner uid/gid" >&2; exit 1; }
+            # Docker copy-out creates root-owned directories; give only those
+            # directories to the runner so reproducibility cleanup can unlink
+            # artifacts. Package bytes and file modes remain unchanged.
+            sudo find "$PWD/out" -type d -exec chown "$out_uid:$out_gid" {} +
+          fi
 
       - name: Save SDK dl/feeds cache
         if: success() && steps.sdk-feeds-cache.outputs.cache-hit != 'true'

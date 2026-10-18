@@ -1,5 +1,16 @@
 # Security review state
 
+**2026-10-18 release SDK output ownership delta.** The release build's Docker
+copy-out creates root-owned package directories, which blocked the runner from
+removing prior outputs during the reproducibility pass. The always-run
+workflow cleanup rejects symlinked `out/` paths and transfers only directory
+ownership to the runner UID/GID before rebuilding; package bytes and file
+modes remain unchanged. Host proof: `tests/release-tag-validation.test.py`
+checks the guarded command and its position before the reproducibility step.
+The failed `v0.1.54` publish run reproduced `Permission denied` in all three
+SDK cells before any feed staging or release upload. No signing keys, feed
+contents, or shipped package code changed.
+
 **2026-10-17 #1313 scoped delta.** The first luci upstream cut drops every
 `po/<lang>/` directory except `po/templates`, and file-count expected drop is
 the actual locale files removed (plus CSS when enabled), not a fixed
@@ -957,6 +968,7 @@ change. This scoped smoke review is not a full security audit.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
+| Release pipeline — SDK output ownership | 2026-10-18 | Scoped source + host contract + failed release-run reproduction | Docker copy-out left output directories root-owned, so reproducibility cleanup could not unlink old package artifacts. Workflow rejects symlinked `out/` paths and assigns only directory ownership to the runner before rebuilding; package bytes/file modes and signing/feed inputs are unchanged. `tests/release-tag-validation.test.py` checks the guard and ordering. No publication succeeded in the failing run. |
 | Release pipeline — upstream-cut first-cut locale drop | 2026-10-17 | Scoped source + host tests | #1313 drops every `po/<lang>/` directory except `po/templates` and counts the actual locale files removed (plus CSS). Verify fails closed if any other `po/*` entry remains. `tests/fwlive-upstream-cut.test.sh` covers a scratch-repo extra `po/fr` fixture; no installed-router or release run. Binary-feed locale publishing is unchanged. |
 | Release pipeline — upstream-cut README fence boundary | 2026-10-11 | Scoped source + host tests | #1206 flags invalid backtick openers and checks following Path/Role rows. Properly closed fences skip their contents and later rows remain checked; unterminated or mismatched fences fail at EOF without parsing rows inside the open fence. Tilde info strings may contain backticks. `tests/fwlive-upstream-cut.test.sh` covers these boundaries; no installed-router or release run. |
 | Release pipeline — upstream-cut CSS exemption boundary | 2026-10-11 | Scoped source + host tests | #1207 masks JS comments and string/template bodies before shape matching; regex source remains scanned and cannot supply the multiline carrier shape. Only the generated `styleText` declaration receives the hex-color exemption. `tests/fwlive-upstream-cut-gate-contract.test.sh` covers wrapped fake carriers, fake values, and accepted literals; no installed-router or release run. |
