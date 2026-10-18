@@ -59,22 +59,40 @@ write_packages() {
 
 write_packages "$TMP/packages.match" \
 	'Package: luci-app-fwlive' \
-	'Version: 0.1.45-1' \
+	'Version: 0.1.45-r1' \
 	'Architecture: all' \
 	'' \
 	'Package: luci-i18n-fwlive-de' \
-	'Version: 0.1.45-1' \
+	'Version: 0.261018.60867' \
 	'Architecture: all' \
 	'' \
 	'Package: luci-i18n-fwlive-ru' \
-	'Version: 0.1.45-1' \
+	'Version: 0.261018.60867' \
 	'Architecture: all' \
 	'' \
 	'Package: luci-i18n-fwlive-zh-cn' \
-	'Version: 0.1.45-1' \
+	'Version: 0.261018.60867' \
+	'Architecture: all'
+write_packages "$TMP/packages.2305" \
+	'Package: luci-app-fwlive' \
+	'Version: 0.1.45' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-de' \
+	'Version: 261018.60867' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-ru' \
+	'Version: 261018.60867' \
+	'Architecture: all' \
+	'' \
+	'Package: luci-i18n-fwlive-zh-cn' \
+	'Version: 261018.60867' \
 	'Architecture: all'
 gzip -9cn "$TMP/packages.match" >"$TMP/feed/24.10/Packages.gz"
-gzip -9cn "$TMP/packages.match" >"$TMP/feed/23.05/Packages.gz"
+gzip -9cn "$TMP/packages.2305" >"$TMP/feed/23.05/Packages.gz"
+sed 's/Version: 0.1.45-1/Version: 0.1.45-r1/' "$opkg_info_fix" >"$TMP/opkg-info.2410"
+sed 's/Version: 0.1.45-1/Version: 0.1.45/' "$opkg_info_fix" >"$TMP/opkg-info.2305"
 printf 'adb\n' >"$TMP/feed/25.12/all/packages.adb"
 
 write_packages "$TMP/opkg-info.stale" \
@@ -300,7 +318,7 @@ run_install() {
 }
 
 FWLIVE_STUB_HAS_APK=0
-FWLIVE_STUB_OPKG_INFO="$opkg_info_fix"
+FWLIVE_STUB_OPKG_INFO="$TMP/opkg-info.2410"
 FWLIVE_STUB_APK_QUERY="$apk_query_fix"
 FWLIVE_ADBDUMP_FIXTURE="$adbdump_fix"
 FWLIVE_STUB_FAIL_OPKG_UPDATE=0
@@ -364,6 +382,8 @@ grep -Fq "version mismatch" "$TMP/opkg-stale-index.log" \
 ok "stale feed index fails release expect-version"
 gzip -9cn "$TMP/packages.match" >"$TMP/feed/24.10/Packages.gz"
 
+FWLIVE_STUB_OPKG_INFO="$TMP/opkg-info.2305"
+export FWLIVE_STUB_OPKG_INFO
 if run_install "$TMP/opkg-23.log" --version 23.05; then
 	ok "23.05 matching opkg info vs Packages.gz succeeds"
 else
@@ -371,6 +391,11 @@ else
 fi
 assert_opkg_install_urls "$FWLIVE_STUB_LOG" 23.05
 assert_manager_matches_format "$FWLIVE_STUB_LOG" 23.05
+if run_install "$TMP/opkg-23-expect.log" --version 23.05 --expect-version 0.1.45; then
+	ok "23.05 index at unsuffixed expected version succeeds"
+else
+	fail "23.05 expect-version match failed: $(cat "$TMP/opkg-23-expect.log")"
+fi
 
 FWLIVE_STUB_OPKG_INFO="$TMP/opkg-info.stale"
 export FWLIVE_STUB_OPKG_INFO

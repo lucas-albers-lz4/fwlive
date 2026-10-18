@@ -31,7 +31,7 @@ Usage: qemu-install-from-feed.sh [options]
 
 Options:
   --version VERSION   23.05 | 24.10 | 25.12 (default: 24.10)
-  --expect-version V  require the feed index (and i18n packages) to carry PKG_VERSION V
+  --expect-version V  require the app index Version for this cell (23.05: V, 24.10/25.12: V-r1); locales must be present
   --no-smoke          skip qemu-smoke-fwlive.sh after install
   -h, --help
 
@@ -177,9 +177,9 @@ assert_opkg_cell() {
 	fetch_feed_index "$tmp/Packages.gz" "${base}/${feed_dir}/Packages.gz" || return 1
 	want="$(feed_index_opkg_version "$tmp/Packages.gz")" || return 1
 	if [[ -n "$EXPECT_VERSION" ]]; then
-		release_want="$(feed_index_expected_app_version "$EXPECT_VERSION" ipk)" || return 1
+		release_want="$(feed_index_expected_app_version "$EXPECT_VERSION" "$VERSION")" || return 1
 		feed_index_versions_match "$want" "$release_want" || return 1
-		feed_index_assert_i18n_oracle "$tmp/Packages.gz" "$EXPECT_VERSION" ipk || return 1
+		feed_index_assert_i18n_present "$tmp/Packages.gz" ipk || return 1
 	fi
 	raw="$(ssh_run "$FEED_INDEX_GUEST_OPKG_CMD")" || return 1
 	printf '%s\n' "$raw" >"$tmp/opkg-info" || return 1
@@ -192,9 +192,9 @@ assert_apk_cell() {
 	fetch_feed_index "$tmp/packages.adb" "${base}/${feed_dir}/all/packages.adb" || return 1
 	want="$(feed_index_apk_pkgver "$tmp/packages.adb")" || return 1
 	if [[ -n "$EXPECT_VERSION" ]]; then
-		release_want="$(feed_index_expected_app_version "$EXPECT_VERSION" apk)" || return 1
+		release_want="$(feed_index_expected_app_version "$EXPECT_VERSION" "$VERSION")" || return 1
 		feed_index_versions_match "$want" "$release_want" || return 1
-		feed_index_assert_i18n_oracle "$tmp/packages.adb" "$EXPECT_VERSION" apk || return 1
+		feed_index_assert_i18n_present "$tmp/packages.adb" apk || return 1
 	fi
 	raw="$(ssh_run "$FEED_INDEX_GUEST_APK_CMD")" || return 1
 	printf '%s\n' "$raw" >"$tmp/apk-query.json" || return 1

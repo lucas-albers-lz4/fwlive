@@ -30,6 +30,14 @@ no required status checks and no repository rulesets; the owner must require
 was configured, so this workflow has no `merge_group` trigger. No shipped
 package or router runtime changed; this is CI/model enforcement and evidence.
 
+**2026-10-18 #1344 feed-smoke version oracle.** `--expect-version` compares the
+published app Version for the OpenWrt cell (23.05: `PKG_VERSION`, 24.10 and
+25.12: `PKG_VERSION-r1`) and requires de/ru/zh-cn to be present with a non-empty
+Version. Locale packages keep LuCI date versions; they are not required to
+equal the app. Guest-vs-index exact compare is unchanged. No ACL, signing, or
+package-build change. Host proof: `tests/feed-index-version.test.sh` and
+`tests/qemu-install-from-feed.test.sh`.
+
 **2026-10-18 #1320 release SDK output ownership delta.** The release build's Docker
 copy-out creates root-owned package directories, which blocked the runner from
 removing prior outputs during the reproducibility pass. The always-run
