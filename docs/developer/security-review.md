@@ -2317,4 +2317,8 @@ The coordinator model does not prove view stale-result fencing or cancel RPCs.
 No universal refinement, temporal-progress, real-time or installed-LuCI claim.
 The model/implementation fidelity map owns the detailed domain and source map:
 [`formal/poll-coordinator/README.md`](../../formal/poll-coordinator/README.md).
-Final independent review and actual CI execution remain pending.
+**Review evidence.** Independent reviewers found no actionable code findings
+on the initial PR head `b5fe9ad9c373117b894b8aa8953a79a3f7bf7f6a`; the
+`formal-quint` workflow passed on `4bd5a245da1209b49b81877d4859c342c328fb9e`.
+CodeRabbit's full review of that head identified this stale status sentence;
+it is corrected in the following commit.
