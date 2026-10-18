@@ -59,8 +59,8 @@ function testFilteredRowsCache() {
 	assert.equal(matchCalls, 320,
 		'status, summary, and render consumers must share one full-buffer filter pass');
 	assert.match(h.document.getElementById('fwlive-status').textContent,
-		/320 matching · 320\/100 stored/,
-		'paused status must use the cached full-buffer match count');
+		/320 matching · 320\/2000 stored/,
+		'paused status must use the cached match count and the ingest cap');
 
 	h.document.getElementById('fwlive-q').value = '192.0.2.1';
 	const changedFilter = view.filteredRowsState();
