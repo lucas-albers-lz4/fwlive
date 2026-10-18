@@ -110,7 +110,7 @@ class ReleaseTagValidation(unittest.TestCase):
         self.assertLess(BUILD_STEPS.index(restore), BUILD_STEPS.index(stage))
         self.assertIn("uses: actions/checkout@", fetch)
         self.assertIn("repository: lucas-albers-lz4/fwlive", fetch)
-        self.assertIn("ref: master", fetch)
+        self.assertRegex(fetch, r"(?m)^\s+ref: [0-9a-f]{40}\s*$")
         self.assertIn("path: .ci-sdk-copyout-tools", fetch)
         self.assertIn("sparse-checkout: scripts/lib/sdk-matrix.sh", fetch)
         self.assertIn("persist-credentials: false", fetch)

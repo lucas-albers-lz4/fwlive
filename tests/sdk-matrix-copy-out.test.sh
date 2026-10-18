@@ -13,8 +13,19 @@ ok() { echo "ok: $*"; }
 bad() { echo "FAIL: $*" >&2; fail=1; }
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
 DOCKER_COMMAND_FILE="$TMP/docker-command"
+CAN_TEST_EFFECTIVE_OWNERSHIP=0
+if [[ "$(id -u)" -ne 0 ]] && sudo -n true 2>/dev/null; then
+	CAN_TEST_EFFECTIVE_OWNERSHIP=1
+fi
+cleanup() {
+	if [[ "$CAN_TEST_EFFECTIVE_OWNERSHIP" -eq 1 ]]; then
+		sudo -n rm -rf -- "$TMP"
+	else
+		rm -rf -- "$TMP"
+	fi
+}
+trap cleanup EXIT
 
 sdk_matrix_root() { printf '%s' "$TMP"; }
 sdk_matrix_cache_dirs() {
@@ -109,9 +120,20 @@ fi
 
 rm -f "${dest}/luci-app-fwlive-0.1.0-r1.apk"
 docker() {
-	printf '%s' "${!#}" >"$DOCKER_COMMAND_FILE"
-	mkdir -p "${dest}/fwlive"
-	: >"${dest}/fwlive/luci-app-fwlive_0.1.0-r1.apk"
+	local script="${!#}"
+	printf '%s' "$script" >"$DOCKER_COMMAND_FILE"
+	if [[ "$CAN_TEST_EFFECTIVE_OWNERSHIP" -eq 1 ]]; then
+		local source_dir="$TMP/builder/bin/packages/${SDK_MATRIX_PACKAGE_ARCH}/fwlive"
+		sudo -n mkdir -p "$source_dir" "$dest/fwlive" || return 1
+		sudo -n touch "$source_dir/luci-app-fwlive_0.1.0-r1.apk" || return 1
+		sudo -n chown -R 0:0 "$TMP/builder" "$dest" || return 1
+		script="$(printf '%s' "$script" |
+			sed -e "s|/out|$TMP/out|g" -e "s|/builder|$TMP/builder|g")"
+		sudo -n sh -ec "$script" || return 1
+	else
+		mkdir -p "${dest}/fwlive"
+		: >"${dest}/fwlive/luci-app-fwlive_0.1.0-r1.apk"
+	fi
 	return 0
 }
 if sdk_matrix_copy_out >/dev/null 2>&1; then
@@ -125,6 +147,18 @@ if [[ "$DOCKER_COMMAND" == *"$owner_fix"* ]]; then
 	ok "copy-out restores caller ownership on output directories"
 else
 	bad "copy-out must restore caller ownership on output directories"
+fi
+if [[ "$CAN_TEST_EFFECTIVE_OWNERSHIP" -eq 1 ]]; then
+	expected_owner="$(id -u):$(id -g)"
+	for output_dir in "$dest" "$dest/fwlive"; do
+		if [[ "$(stat -c '%u:%g' "$output_dir")" == "$expected_owner" ]]; then
+			ok "copy-out applies caller ownership to $output_dir"
+		else
+			bad "copy-out did not apply caller ownership to $output_dir"
+		fi
+	done
+else
+	echo "SKIP: effective ownership check needs a non-root caller with passwordless sudo"
 fi
 
 mv "$TMP/out" "$TMP/out-real"

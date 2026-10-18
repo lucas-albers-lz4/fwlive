@@ -251,7 +251,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           repository: lucas-albers-lz4/fwlive
-          ref: master
+          ref: 535fd1b43237f674df164ef411efad18138761b5
           path: .ci-sdk-copyout-tools
           sparse-checkout: scripts/lib/sdk-matrix.sh
           sparse-checkout-cone-mode: false
