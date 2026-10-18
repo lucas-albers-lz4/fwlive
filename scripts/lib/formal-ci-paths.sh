@@ -53,13 +53,13 @@ formal_ci_classify_path() {
 			openwrt-feed/luci-app-fwlive/root/usr/share/rpcd/acl.d/luci-app-fwlive.json) printf 'unrelated\n' ;;
 
 		# These repository areas have no source mapped by the current TLC models.
-		# The relevant cases above take precedence, including formal test names.
+		# Keep known documentation/assets explicit; do not use broad script/test
+		# globs here because a new modeled helper or test must fail closed.
 		CHANGELOG.md | README.md | LICENSE | ATTRIBUTION.md) printf 'unrelated\n' ;;
 		docs/* | docs) printf 'unrelated\n' ;;
 		core/* | core) printf 'unrelated\n' ;;
 		*.md) printf 'unrelated\n' ;;
-		tests/*.test.js | tests/*.test.sh | tests/*.test.py | tests/*.sh | tests/*.py) printf 'unrelated\n' ;;
-		scripts/*.js | scripts/*.py | scripts/*.sh) printf 'unrelated\n' ;;
+		tests/fwlive-parser.test.js | scripts/embed-fwlive-css.js) printf 'unrelated\n' ;;
 		*) printf 'unclassified\n' ;;
 	esac
 }

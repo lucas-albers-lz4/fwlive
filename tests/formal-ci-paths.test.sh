@@ -48,6 +48,8 @@ expect_class unrelated docs/developer/security-review.md
 expect_class unrelated docs/user/installation.md
 expect_class unrelated tests/fwlive-parser.test.js
 expect_class unrelated scripts/embed-fwlive-css.js
+expect_class unclassified scripts/new-modeled-source.sh
+expect_class unclassified tests/new-source.test.sh
 expect_class unclassified .github/workflows/fwlive-test.yml
 expect_class unclassified openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/new-module.js
 
@@ -99,13 +101,15 @@ head_deleted="$(git -C "$WORKDIR" rev-parse HEAD)"
 out="$(cd "$WORKDIR" && FORMAL_CI_BASE_SHA="$head_new" FORMAL_CI_HEAD_SHA="$head_deleted" formal_ci_decide)"
 if [[ "$out" == 'run_formal=true' ]]; then ok 'deleted relevant file runs'; else bad "deleted relevant file: $out"; fi
 
-mkdir -p "$WORKDIR/openwrt-feed/luci-app-fwlive"
+mkdir -p "$WORKDIR/openwrt-feed/luci-app-fwlive" "$WORKDIR/scripts" "$WORKDIR/tests"
 printf 'future\n' >"$WORKDIR/openwrt-feed/luci-app-fwlive/unknown-model-source.js"
-git -C "$WORKDIR" add openwrt-feed/luci-app-fwlive/unknown-model-source.js
+printf 'future\n' >"$WORKDIR/scripts/new-modeled-source.sh"
+printf 'future\n' >"$WORKDIR/tests/new-source.test.sh"
+git -C "$WORKDIR" add openwrt-feed/luci-app-fwlive/unknown-model-source.js scripts/new-modeled-source.sh tests/new-source.test.sh
 git -C "$WORKDIR" commit -q -m add-unclassified-source
 head_unknown="$(git -C "$WORKDIR" rev-parse HEAD)"
 out="$(cd "$WORKDIR" && FORMAL_CI_BASE_SHA="$head_deleted" FORMAL_CI_HEAD_SHA="$head_unknown" formal_ci_decide)"
-if [[ "$out" == 'run_formal=true' ]]; then ok 'unclassified diff runs'; else bad "unclassified path: $out"; fi
+if [[ "$out" == 'run_formal=true' ]]; then ok 'new source, script, and test paths run'; else bad "new source/script/test paths: $out"; fi
 
 mkdir -p "$WORKDIR/docs"
 git -C "$WORKDIR" mv formal/wan-log-lock/Model.tla docs/Model.tla
