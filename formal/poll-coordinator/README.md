@@ -19,7 +19,10 @@ checkpoint (`setImmediate`); there is no wall-clock scheduling assumption.
 | `dispose` | Listener/registration removal, invalidation, caller settlement, no new logical starts |
 
 The driver uses the production module loader and a test-only poll/visibility
-adapter based on `createLuciPoll()` in the existing coordinator tests. It checks
+adapter based on the synchronous idle-registration behavior of `createLuciPoll()`
+in the existing coordinator tests. This is a sync-idle stub: it does not implement
+LuCI periodic ticks, entry `e.r` running suppression, or timer-driven
+`requestPoll()` calls. It checks
 public state, registrations, runner start count/epoch, visible notifications,
 returned promise identity, and settlement after every transition. Numeric
 model batch IDs are abstract names; a bijection to observed promises checks
@@ -82,12 +85,27 @@ binary download. Model checking has a 120-second timeout; each generator process
 has a 30-second timeout. Retained artifacts contain the ITF traces, seed/domain
 manifest, SHA-256s of relevant source/adapter/tool inputs, verification log,
 summary and failure details. A failure reports its trace and event index; the
-retained case is reproducible and is not claimed automatically minimized.
+retained case is reproducible. For each detected deliberate mutation, the runner
+also saves and replays the shortest failing prefix of its directed trace and
+checks that its immediate predecessor passes. These are smallest-known prefixes
+of those fixed sequences, not globally minimal event sequences. Unexpected
+failures retain the original trace/index; they are not automatically minimized.
 
 Mutation controls load disposable in-memory copies of the shipped module:
 replace a coalesced queue, omit the visibility epoch bump, or omit active caller
 settlement on disposal. Each must fail at its named observed contract. A stale
 mutation site or unrelated execution error is not credited as detection.
+
+A fourth mutation removes `finish(batch)`'s `active !== batch` identity guard.
+It is replayed over the same 307 traces and reported separately as a survivor,
+never credited as detection. Within this public API domain it is equivalent:
+a native Promise finishes once; before its callback, only terminal disposal can
+detach that active batch. Disposal clears active/pending, settles callers and
+prevents any later batch from starting. A late unguarded finish therefore only
+clears null again and resolves an already-settled promise. No private-state
+injection is used to manufacture an unreachable competing active batch. This
+argument and bounded survivor evidence do not cover a future API that revives
+coordinators or replaces active batches before completion.
 
 ## Follow-on decision
 

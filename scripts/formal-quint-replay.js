@@ -93,10 +93,35 @@ async function main() {
 		try { await replay(trace, module, 8); }
 		catch (error) { failure = error.message; }
 		assert.ok(failure, `${name} mutation was not detected`);
-		assert.match(failure, { queue: /batch promise identity/, epoch: /^[+-]\s+epoch: /m, disposal: /batch 1 settlement/ }[name]);
-		mutations.push({ name, failure });
+		const contract = { queue: /batch promise identity/, epoch: /^[+-]\s+epoch: /m, disposal: /batch 1 settlement/ }[name];
+		assert.match(failure, contract);
+		const firstFailureEvent = Number(/^event (\d+) /.exec(failure)?.[1]);
+		assert.ok(firstFailureEvent > 1 && firstFailureEvent <= 8, 'mutation failure event');
+		// Preserve the shortest failing prefix of this directed trace. This is
+		// not global delta-debugging across different event sequences.
+		const prefix = structuredClone(trace);
+		prefix.states = prefix.states.slice(0, firstFailureEvent + 1);
+		const prefixFile = `mutation-${name}-prefix.itf.json`;
+		fs.writeFileSync(path.join(out, prefixFile), JSON.stringify(prefix, null, 2) + '\n');
+		await replay(prefix, undefined, firstFailureEvent);
+		await assert.rejects(() => replay(prefix, module, firstFailureEvent), contract);
+		const preceding = structuredClone(prefix);
+		preceding.states.pop();
+		await replay(preceding, module, firstFailureEvent - 1);
+		mutations.push({ name, failure, firstFailureEvent, prefixFile,
+			minimization: 'shortest failing prefix of this directed trace; not globally minimal' });
 	}
-	const summary = { traces: traces.length, events, mutations, malformedTracesRejected: malformed.length, result: 'pass' };
+	// In this API domain, stale finish is reachable only after irreversible
+	// disposal: active/pending are null and the native batch promise already
+	// settled. Removing this guard survives; do not count it as detection.
+	const finishGuardMutant = mutatedModule('if (active !== batch) return;', '/* remove stale finish guard */');
+	for (const { file, bound } of traces) {
+		await replay(JSON.parse(fs.readFileSync(file, 'utf8')), finishGuardMutant, bound);
+	}
+	const survivingMutations = [{ name: 'finish-stale-guard', traces: traces.length, events,
+		result: 'survived declared API domain; not credited as detection' }];
+	const summary = { traces: traces.length, events, mutations, survivingMutations,
+		malformedTracesRejected: malformed.length, result: 'pass' };
 	fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
 	console.log(`Quint MBT: ${traces.length} traces, ${events} events, ${mutations.length} mutations rejected`);
 }

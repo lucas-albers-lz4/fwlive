@@ -27,37 +27,19 @@ formal_ci_classify_path() {
 			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/hostname.js | \
 			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/poll-coordinator.js) printf 'relevant\n' ;;
 
-		# Existing package files outside the fidelity maps are known unrelated.
-		# Keep this explicit so a new feed path remains unclassified by default.
+		# Code can become modeled as fidelity maps grow. Keep all shipped
+		# resource/helper code and core code conservative instead of pinning
+		# an unrelated-code allowlist that could silently become stale.
+		openwrt-feed/luci-app-fwlive/htdocs/* | \
+			openwrt-feed/luci-app-fwlive/root/* | core/* | core) printf 'relevant\n' ;;
 		openwrt-feed/luci-app-fwlive/Makefile | openwrt-feed/luci-app-fwlive/README.md | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/chips.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/constants.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/css.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/fwlive.css | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/links.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/log.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/logging.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/proto.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/render-policy.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/render-scheduler.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/table.js | \
-			openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/tint.js | \
-			openwrt-feed/luci-app-fwlive/po/* | \
-			openwrt-feed/luci-app-fwlive/root/lib/upgrade/keep.d/luci-app-fwlive | \
-			openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.awk | \
-			openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-is-firewall-event.sh | \
-			openwrt-feed/luci-app-fwlive/root/usr/libexec/fwlive-log-filter.sh | \
-			openwrt-feed/luci-app-fwlive/root/usr/libexec/rpcd/fwlive | \
-			openwrt-feed/luci-app-fwlive/root/usr/share/luci/menu.d/luci-app-fwlive.json | \
-			openwrt-feed/luci-app-fwlive/root/usr/share/rpcd/acl.d/luci-app-fwlive.json) printf 'unrelated\n' ;;
+			openwrt-feed/luci-app-fwlive/po/*) printf 'unrelated\n' ;;
 
 		# These repository areas have no source mapped by the current TLC models.
 		# Keep known documentation/assets explicit; do not use broad script/test
 		# globs here because a new modeled helper or test must fail closed.
 		CHANGELOG.md | README.md | LICENSE | ATTRIBUTION.md) printf 'unrelated\n' ;;
 		docs/* | docs) printf 'unrelated\n' ;;
-		core/* | core) printf 'unrelated\n' ;;
 		*.md) printf 'unrelated\n' ;;
 		tests/fwlive-parser.test.js | scripts/embed-fwlive-css.js) printf 'unrelated\n' ;;
 		*) printf 'unclassified\n' ;;
