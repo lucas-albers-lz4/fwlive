@@ -93,10 +93,26 @@ temporal-property violations), with:
 ./scripts/formal-tlc.sh
 ```
 
-The runner fetches the official TLA+ v1.7.4 tools jar and verifies its pinned
-SHA-256 before execution. It needs Java, `curl`, and `sha256sum`; to use a
-pre-fetched jar, set `TLA2TOOLS_JAR=/path/to/tla2tools.jar` (the checksum is
-still verified). TLC state files go into a temporary directory and are removed
+For all four release formal checks (TLC, replay, induction and Quint), use
+Linux x86_64 with Bash, Git, Node.js/npm (CI uses Node 22), Python 3, Java 21+
+on `PATH`, and the usual Linux utilities including `flock`, `mktemp`, `awk`,
+GNU `timeout`, `tar` and `sha256sum`. Install the locked Node dependencies with
+`npm ci --ignore-scripts` before Quint.
+
+The TLC runner fetches the official TLA+ v1.7.4 tools jar and verifies its
+pinned SHA-256 before execution. Induction and Quint each fetch the pinned
+Apalache archive and verify both archive and jar checksums. These default
+download paths require `curl` and network access. To supply prefetched artifacts:
+
+```sh
+export TLA2TOOLS_JAR=/absolute/path/to/tla2tools.jar
+export FWLIVE_APALACHE_ARCHIVE=/absolute/path/to/apalache.tgz
+```
+
+Both overrides retain checksum validation; the Apalache override is used by
+both induction and Quint. They avoid those tool downloads, but Node dependency
+installation still requires registry access or a populated npm cache.
+TLC state files go into a temporary directory and are removed
 when the run finishes. Set `FWLIVE_TLC_DIAGNOSTICS_DIR=/path/to/diagnostics`
 to retain a log for each TLC invocation and runner provenance; state files
 remain temporary.
