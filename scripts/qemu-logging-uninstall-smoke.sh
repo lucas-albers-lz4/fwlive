@@ -3,6 +3,9 @@
 #
 #   ./scripts/qemu-logging-uninstall-smoke.sh
 #   OPENWRT_SSH_PORT=2222 ./scripts/qemu-logging-uninstall-smoke.sh
+# Set the exact package filename from the build output; assignment globs do not expand.
+#   OWRT_FWLIVE_ARTIFACT=out/x86_64/24.10.8/fwlive/luci-app-fwlive_0.1.53-r1_all.ipk \
+#     ./scripts/qemu-logging-uninstall-smoke.sh
 #
 # Prereqs: QEMU guest up with luci-app-fwlive installed from the package
 # artifact (`qemu-install-fwlive.sh --artifact-only`).
@@ -21,6 +24,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/sdk-matrix.sh
 source "$ROOT/scripts/lib/sdk-matrix.sh"
+INSTALLER="${FWLIVE_INSTALL_SCRIPT:-${ROOT}/scripts/qemu-install-fwlive.sh}"
+SMOKE_ARTIFACT="${OWRT_FWLIVE_ARTIFACT:-}"
 HOST="${OPENWRT_HOST:-127.0.0.1}"
 PORT="${OPENWRT_SSH_PORT:-2222}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -p "$PORT")
@@ -58,9 +63,24 @@ disabled_log_value() {
 	fi
 }
 
+resolve_smoke_artifact() {
+	local guest_arch="$1"
+	local dest="$ROOT/out/${guest_arch}/${OWRT_FWLIVE_VERSION}/fwlive"
+	local -a artifacts=()
+	if [[ -n "$SMOKE_ARTIFACT" ]]; then
+		[[ -f "$SMOKE_ARTIFACT" ]] \
+			|| die "OWRT_FWLIVE_ARTIFACT not found: ${SMOKE_ARTIFACT}"
+		return
+	fi
+	sdk_matrix_out_package_candidates "$dest" artifacts
+	[[ ${#artifacts[@]} -eq 1 && -f "${artifacts[0]}" ]] \
+		|| die "expected exactly one package under ${dest}; found ${#artifacts[@]} (set OWRT_FWLIVE_ARTIFACT or remove stale packages)"
+	SMOKE_ARTIFACT="${artifacts[0]}"
+}
+
 install_artifact() {
 	OWRT_FWLIVE_VERSION="$OWRT_FWLIVE_VERSION" \
-		"${ROOT}/scripts/qemu-install-fwlive.sh" --artifact-only >/dev/null 2>&1 \
+		"$INSTALLER" --artifact-only "$SMOKE_ARTIFACT" >/dev/null 2>&1 \
 		|| die "qemu-install-fwlive.sh --artifact-only failed${1:+ $1}"
 }
 
@@ -81,6 +101,15 @@ if [[ -z "${OWRT_FWLIVE_VERSION:-}" ]]; then
 	rel="$(ssh_guest '. /etc/openwrt_release && echo "$DISTRIB_RELEASE"')"
 	OWRT_FWLIVE_VERSION="$(sdk_matrix_version_label "$rel")"
 fi
+
+GUEST_MACH="$(ssh_guest 'uname -m')"
+case "$GUEST_MACH" in
+	x86_64) SMOKE_PKG_ARCH=x86_64 ;;
+	aarch64) SMOKE_PKG_ARCH=aarch64_generic ;;
+	*) die "unsupported guest arch: ${GUEST_MACH}" ;;
+esac
+resolve_smoke_artifact "$SMOKE_PKG_ARCH"
+ok "reinstall package artifact ${SMOKE_ARTIFACT}"
 
 "${ROOT}/scripts/qemu-reset-wan-logging.sh" >/dev/null
 
