@@ -203,6 +203,34 @@ feed_publish_find_named_artifact() {
 	ls -1t "${matched[@]}" 2>/dev/null | head -1
 }
 
+# LuCI translation package versions are generated independently from the app's
+# PKG_VERSION (often from the build date). Select the sole artifact for the
+# locale and fail closed when stale output makes the choice ambiguous.
+feed_publish_find_i18n_artifact() {
+	local dir="$1"
+	local prefix="$2"
+	local f
+	[[ -n "$dir" && -n "$prefix" ]] || {
+		echo "feed_publish_find_i18n_artifact: dir and package prefix are required" >&2
+		return 1
+	}
+	shopt -s nullglob
+	local candidates=( "${dir}/${prefix}"_[0-9]*_all.ipk "${dir}/${prefix}"-[0-9]*.apk "${dir}/${prefix}"_[0-9]*.apk )
+	shopt -u nullglob
+	if [[ ${#candidates[@]} -eq 0 ]]; then
+		echo "no ${prefix} artifact under ${dir}/" >&2
+		return 1
+	fi
+	if [[ ${#candidates[@]} -ne 1 ]]; then
+		echo "ambiguous ${prefix} artifacts under ${dir}/:" >&2
+		for f in "${candidates[@]}"; do
+			echo "  ${f##*/}" >&2
+		done
+		return 2
+	fi
+	printf '%s' "${candidates[0]}"
+}
+
 # $1 = SDK version label (out/x86_64/<label>/fwlive). $2 = expected PKG_VERSION.
 feed_publish_find_artifact() {
 	local version_label="$1"
@@ -223,7 +251,7 @@ feed_publish_find_artifact() {
 feed_publish_resolve_artifacts() {
 	local version_label="$1"
 	local pkg_version="${2:-}"
-	local root dir lang prefix path
+	local root dir lang prefix path rc
 	FEED_PUBLISH_ARTIFACTS=()
 	root="$(feed_publish_root)"
 	dir="${root}/out/x86_64/${version_label}/fwlive"
@@ -238,8 +266,15 @@ feed_publish_resolve_artifacts() {
 	while IFS= read -r lang; do
 		[[ -n "$lang" ]] || continue
 		prefix="luci-i18n-fwlive-${lang}"
-		if ! path="$(feed_publish_find_named_artifact "$dir" "$pkg_version" "$prefix" 2>/dev/null)"; then
-			echo "feed_publish_resolve_artifacts: incomplete i18n set for ${version_label} (missing ${prefix})" >&2
+		if path="$(feed_publish_find_i18n_artifact "$dir" "$prefix")"; then
+			:
+		else
+			rc=$?
+			if [[ "$rc" -eq 2 ]]; then
+				echo "feed_publish_resolve_artifacts: ambiguous i18n set for ${version_label} (${prefix})" >&2
+			else
+				echo "feed_publish_resolve_artifacts: incomplete i18n set for ${version_label} (missing ${prefix})" >&2
+			fi
 			FEED_PUBLISH_ARTIFACTS=()
 			return 2
 		fi

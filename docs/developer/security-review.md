@@ -26,6 +26,20 @@ checks overlay, verification and restoration order. The failed rerun stopped
 before feed staging or release upload; no ACL, key, feed, or shipped-package
 behavior changed.
 
+**2026-10-18 release i18n artifact selection delta.** A real `v0.1.54`
+publish build produced `luci-i18n-fwlive-de_261018.05377_all.ipk`, but the
+release-tag resolver incorrectly required the locale's LuCI-generated version
+to equal the app's `PKG_VERSION`. Translation selection now requires exactly
+one locale artifact per SDK cell regardless of its generated version and
+fails closed on missing or ambiguous outputs; app artifact selection remains
+bound to `PKG_VERSION`. The publish workflow pins and overlays the current
+feed helper for staging and GitHub Release assets, then restores the tag copy
+even on failure. Host proof: feed artifact and release asset tests exercise
+date-versioned locales and ambiguity; release-tag validation checks fetch,
+overlay, staging/upload, and restoration order. The failed publish stopped
+during feed staging, before deployment or release asset upload; no feed or
+release content was published.
+
 **2026-10-17 #1313 scoped delta.** The first luci upstream cut drops every
 `po/<lang>/` directory except `po/templates`, and file-count expected drop is
 the actual locale files removed (plus CSS when enabled), not a fixed
@@ -984,6 +998,7 @@ change. This scoped smoke review is not a full security audit.
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Release pipeline — SDK output ownership | 2026-10-18 | Scoped source + host contract + failed release-run reproduction | #1320/#1321: Docker copy-out and later `cp -a` restore SDK ownership on output directories, so reproducibility cleanup could not unlink prior package artifacts. Workflow and copy-out reject symlinked output paths; the workflow and each copy-out assign only directory ownership to the runner. The current helper is overlaid only for reproducibility verification, then the release-tag helper is restored before feed staging. Package bytes/file modes and signing/feed inputs are unchanged. `tests/release-tag-validation.test.py` and `tests/sdk-matrix-copy-out.test.sh` cover the guards, overlay/restoration order, and ownership command. No publication succeeded in either failed run. |
+| Release pipeline — i18n artifact version selection | 2026-10-18 | Scoped source + host tests + failed release-run reproduction | LuCI-generated translation package versions can differ from app `PKG_VERSION`; exactly one artifact per locale is now required while app selection remains version-bound. Current feed helper overlays the release tag only for feed staging and GitHub Release asset selection, then restores on all outcomes. `tests/feed-publish-find-artifact.test.sh`, `tests/feed-publish-release-assets.test.sh`, and `tests/release-tag-validation.test.py` cover selection and workflow ordering. The failed run stopped during feed staging before deployment or release asset upload; no feed or release content was published. |
 | Release pipeline — upstream-cut first-cut locale drop | 2026-10-17 | Scoped source + host tests | #1313 drops every `po/<lang>/` directory except `po/templates` and counts the actual locale files removed (plus CSS). Verify fails closed if any other `po/*` entry remains. `tests/fwlive-upstream-cut.test.sh` covers a scratch-repo extra `po/fr` fixture; no installed-router or release run. Binary-feed locale publishing is unchanged. |
 | Release pipeline — upstream-cut README fence boundary | 2026-10-11 | Scoped source + host tests | #1206 flags invalid backtick openers and checks following Path/Role rows. Properly closed fences skip their contents and later rows remain checked; unterminated or mismatched fences fail at EOF without parsing rows inside the open fence. Tilde info strings may contain backticks. `tests/fwlive-upstream-cut.test.sh` covers these boundaries; no installed-router or release run. |
 | Release pipeline — upstream-cut CSS exemption boundary | 2026-10-11 | Scoped source + host tests | #1207 masks JS comments and string/template bodies before shape matching; regex source remains scanned and cannot supply the multiline carrier shape. Only the generated `styleText` declaration receives the hex-color exemption. `tests/fwlive-upstream-cut-gate-contract.test.sh` covers wrapped fake carriers, fake values, and accepted literals; no installed-router or release run. |

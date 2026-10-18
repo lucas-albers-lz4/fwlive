@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Normalize Docker-created SDK output directory ownership before reproducibility rebuilds so the runner can clear prior package artifacts (#1320).
 - Restore caller ownership on output directories after each Docker copy-out; temporarily overlay the current helper during reproducibility checks for older release tags (#1321).
 
+### Fixed
+- Select LuCI translation packages by locale when their generated version differs from the app version, while rejecting missing or ambiguous build outputs.
+
 ## [v0.1.54] — 2026-10-17
 
 ### Added
