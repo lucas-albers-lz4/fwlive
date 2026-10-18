@@ -1382,8 +1382,7 @@ return view.extend({
 		}
 
 		const cap = this.ingestCap();
-		if (this.tablePaused && this.entries.length >= cap && cap > 0)
-			bits.push(_('buffer full'));
+		if (this.tablePaused && this.entries.length >= cap && cap > 0) bits.push(_('buffer full'));
 		if (this.ensureRenderScheduler().isFloodSuppressed())
 			bits.push(_('table refresh throttled'));
 		if (this.weakDevice && this.rowLimit > constants.WEAK_DEVICE_DISPLAY_ROW_CAP)
