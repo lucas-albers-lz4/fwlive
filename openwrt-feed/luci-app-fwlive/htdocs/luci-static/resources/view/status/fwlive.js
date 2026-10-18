@@ -1926,8 +1926,7 @@ return view.extend({
 		}
 
 		/* Paint the existing cache immediately; resolving only fills misses. */
-		if (this.tablePaused) this.updateStatus();
-		else this.renderRows(true);
+		this.renderRows(true);
 		if (this.showHostnames) this.resolveHostnamesForEntries(this.filteredRows());
 	},
 
