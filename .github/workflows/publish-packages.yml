@@ -244,6 +244,26 @@ jobs:
             sudo find "$PWD/out" -type d -exec chown "$out_uid:$out_gid" {} +
           fi
 
+      # The workflow checks out the release tag, which can predate the
+      # copy-out ownership fix. Use the current helper for reproducibility,
+      # then restore the tag's copy before release staging.
+      - name: Fetch current SDK copy-out helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          repository: lucas-albers-lz4/fwlive
+          ref: 535fd1b43237f674df164ef411efad18138761b5
+          path: .ci-sdk-copyout-tools
+          sparse-checkout: scripts/lib/sdk-matrix.sh
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install current SDK copy-out helper
+        run: |
+          set -euo pipefail
+          cp -- scripts/lib/sdk-matrix.sh "$RUNNER_TEMP/sdk-matrix-release-tag.sh"
+          install -m 0755 .ci-sdk-copyout-tools/scripts/lib/sdk-matrix.sh scripts/lib/sdk-matrix.sh
+
       - name: Save SDK dl/feeds cache
         if: success() && steps.sdk-feeds-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
@@ -255,6 +275,16 @@ jobs:
 
       - name: Verify reproducible builds
         run: ./scripts/verify-reproducible-build.sh
+
+      - name: Restore release-tag SDK helper
+        if: always()
+        run: |
+          set -euo pipefail
+          if [[ -f "$RUNNER_TEMP/sdk-matrix-release-tag.sh" ]]; then
+            install -m 0755 "$RUNNER_TEMP/sdk-matrix-release-tag.sh" scripts/lib/sdk-matrix.sh
+          fi
+          rm -f "$RUNNER_TEMP/sdk-matrix-release-tag.sh"
+          rm -rf .ci-sdk-copyout-tools
 
       - name: Stage signed feed
         env:

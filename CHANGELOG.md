@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Normalize Docker-created SDK output directory ownership before reproducibility rebuilds so the runner can clear prior package artifacts (#1320).
+- Restore caller ownership on output directories after each Docker copy-out; temporarily overlay the current helper during reproducibility checks for older release tags (#1321).
 
 ## [v0.1.54] — 2026-10-17
 
