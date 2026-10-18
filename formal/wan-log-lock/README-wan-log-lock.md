@@ -269,3 +269,67 @@ It does not prove arbitrary UCI parsing/bit masks, non-cooperating writers,
 crash recovery, deadlines, or universal shell/model equivalence. The existing
 host shell tests and installed smoke checks retain their separate evidence
 boundaries; the fidelity map and source review remain maintenance obligations.
+
+## Inductive rollback safety (#1322)
+
+Run `./scripts/formal-induction.sh` with Java 21+ and network access (or
+`FWLIVE_APALACHE_ARCHIVE` pointing to the exact pinned archive). Set
+`FWLIVE_INDUCTION_DIAGNOSTICS_DIR` to retain every backend log, counterexample,
+obligation command parameters, tool hashes and actual input hashes. The existing
+`formal-tlc` CI job runs induction on the same relevant-change decision and
+uploads these diagnostics. This does not configure repository required checks.
+
+`WanLogRollbackInduction.tla` reuses the Outcomes actions. `InitAt`,
+`PrimaryCommitAt`, and the `*When(CanAdvance)` operators parameterize only
+starting generation and budget guards. The original `Init`, `PrimaryCommit`,
+and finite action wrappers preserve the existing TLC relation. No second copy
+of the helper protocol is introduced. The existing source mapping for Outcomes
+therefore applies: successful primary commit; reload failure; later committed,
+no-op and failed-write intents; lock reacquisition; guarded restore; stage,
+post-stage and commit failures. Each recorded later intent advances the shared
+generation even if it leaves UCI unchanged. An attempt failing before generation
+recording is outside that category and is not claimed to invalidate a token.
+
+The invariant records the arithmetic relation
+`generation = rollbackToken + laterAttempts + restoreBump`. It also states that
+a restore bump implies zero intervening attempts. Apalache 0.62.1 checks these
+three obligations **separately for each contract**:
+
+| Obligation | Backend start / depth | Meaning |
+| --- | --- | --- |
+| Initialization | `HistoryInit` / 0 | `HistoryInit => IndInv` |
+| Preservation | arbitrary `IndInv` / 1 | `IndInv /\ HistoryNext => IndInv'` |
+| Safety implication | arbitrary `IndInv` / 0 | `IndInv => NoRestoreAfterNewerIntent` |
+
+The one-step preservation run starts from **any** invariant state, including
+arbitrarily large Nat counters, rather than states reached in one step from
+initialization. Mathematical induction therefore establishes safety for every
+finite history in this abstract transition system. Depth one here is an
+induction obligation, not a claim that a one-step bounded search proves safety.
+The backend uses SMT integers; Nat membership constrains them nonnegative and
+no finite `MaxLaterAttempts` or `MaxGeneration` is used by `HistoryNext`.
+
+- **Idealized contract:** `Limit=0`; arbitrary starting Nat generation and
+  arbitrarily many intervening recorded intents. No machine-width claim.
+- **Deployed contract:** `Limit=2147483646`; a primary transaction begins below
+  the cap, and all increments require `generation<Limit`. An additional
+  obligation begins in any `IndInv` state at the cap and proves the next state
+  retains that generation. Refusal or stuttering is allowed; completion of a
+  restore whose generation bump already happened is allowed. A fresh request
+  already at the cap cannot start a primary commit in this model; B's actual
+  helper boundary fixture separately checks refusal and unchanged bytes.
+
+The weakened `valueOnly` guard must fail preservation (an older rollback can
+begin after intervening recorded intent). Parser errors, unknown, crashes and
+timeouts cannot satisfy the negative control. The runner verifies the expected
+invariant-violation exit status and retains the counterexample.
+
+Assumptions: writers cooperate with the helper's serialized lock and generation
+protocol; generation reads/updates have the modeled success/refusal behavior;
+volatile state is not reset while callers are in flight; direct privileged UCI
+writes do not participate in this theorem. The refusal actions overapproximate
+provider failures and may occur before the cap. Fairness is unnecessary for this
+safety proof. It proves neither provider success, termination, reload success,
+wall-clock bounds, whole-shell refinement nor whole-repository correctness.
+The fixture shells use 64-bit arithmetic; the numeric ceiling is modeled
+explicitly, and no 32-bit shell execution is claimed.
