@@ -87,6 +87,17 @@ class ReleaseTagValidation(unittest.TestCase):
         deps_index = SMOKE_STEPS.index(step("Install lab dependencies", SMOKE_STEPS))
         self.assertLess(verify_index, deps_index)
 
+    def test_sdk_output_directories_are_runner_owned_before_rebuild(self):
+        ownership = step("Fix SDK cache and output permissions", BUILD_STEPS)
+        verify = step("Verify reproducible builds", BUILD_STEPS)
+        self.assertLess(BUILD_STEPS.index(ownership), BUILD_STEPS.index(verify))
+        self.assertIn('sdk_matrix_reject_symlink_path "$PWD/out"', ownership)
+        self.assertIn('[[ -d "$PWD/out" ]] ||', ownership)
+        self.assertIn('out_uid="$(id -u)"', ownership)
+        self.assertIn('out_gid="$(id -g)"', ownership)
+        self.assertIn('sudo find "$PWD/out" -type d -exec chown "$out_uid:$out_gid" {} +', ownership)
+        self.assertIn("Package bytes and file modes remain unchanged.", ownership)
+
     def test_dispatch_and_push(self):
         for env in ({}, {"EVENT_NAME": "push", "GITHUB_REF": "refs/tags/v1.2.3", "TAG": "ignored"}):
             with self.subTest(env=env):

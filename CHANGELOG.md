@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Normalize Docker-created SDK output directory ownership before reproducibility rebuilds so the runner can clear prior package artifacts (#1320).
+
 ## [v0.1.54] — 2026-10-17
 
 ### Added
