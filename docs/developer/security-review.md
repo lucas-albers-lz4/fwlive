@@ -2335,11 +2335,34 @@ The coordinator model does not prove view stale-result fencing or cancel RPCs.
 No universal refinement, temporal-progress, real-time or installed-LuCI claim.
 The model/implementation fidelity map owns the detailed domain and source map:
 [`formal/poll-coordinator/README.md`](../../formal/poll-coordinator/README.md).
-**Review evidence.** Independent reviewers found no actionable code findings
-on the initial PR head `b5fe9ad9c373117b894b8aa8953a79a3f7bf7f6a`; the
-`formal-quint` workflow passed on `4bd5a245da1209b49b81877d4859c342c328fb9e`.
-CodeRabbit's full review of that head identified this stale status sentence;
-it is corrected in the following commit.
+**Review evidence.** PR #1324 records the historical independent reviews and
+reviewed heads, including changed-diff confirmations after rebases. CodeRabbit
+identified a stale evidence sentence at `4bd5a245da1209b49b81877d4859c342c328fb9e`;
+the documentation correction landed at `e9439c3a9419d4aa7fc5ed5ed0af457f830b711a`.
+A CodeRabbit comment or skipped status is not itself the required independent
+final-head approval. The PR's review record owns that gate; this paragraph does
+not certify that every merged head received a pre-merge review.
+
+### 2026-10-18 — #1322 post-review formal tooling follow-up
+
+**Scope.** Host-only path selection, workflow structural checks, mutation
+reporting and fidelity documentation. No shipped coordinator/helper, ACL, DOM
+or release-payload change. Code under `core/` and shipped resource/helper paths
+now runs formal checks conservatively instead of relying on an unrelated-code
+allowlist that can become stale as the models expand. Documentation/locales
+remain known-unrelated. Both formal jobs have a host structural guard against
+a job-level `if:`, including rejected workflow mutations.
+
+**Evidence boundary.** The three original implementation mutations must still
+fail at their named observed contracts. Their retained prefixes are shortest
+failing prefixes of those directed sequences, not global minima. The removed
+stale-finish guard survives the declared API domain and is recorded separately,
+not counted as a detected defect. The fidelity map explains its equivalence
+argument and the sync-idle poll stub's absent timer/`e.r` behavior. Proof class
+`host` for the structural/mutation replay checks; existing bounded `formal`
+model-check evidence remains scoped to the unchanged model. Required-check
+protection remains a separate owner setting. Full security surface re-pass
+deferred because this delta changes only verification and its reporting.
 
 ### 2026-10-18 — #1322 expanded rollback observation conformance
 

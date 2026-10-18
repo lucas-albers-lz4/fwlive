@@ -16,6 +16,27 @@ expect_class() {
 	if [[ "$actual" == "$expected" ]]; then ok "$expected $path"; else bad "$path: expected $expected, got $actual"; fi
 }
 
+# Repository YAML style: jobs are two-space mappings; step guards are deeper.
+# Fail if the job disappears or gains a job-level condition, and prove this
+# guard rejects a disposable workflow mutation for each formal job.
+check_unconditional_job() {
+	local file="$1" job="$2" block
+	block="$(awk -v job="$job" '
+		$0 == "  " job ":" { p=1; print; next }
+		/^  [A-Za-z0-9_-]+:/ { if (p) exit }
+		p { print }
+	' "$file")"
+	[[ -n "$block" ]] && ! printf '%s\n' "$block" | grep -qE '^    if[[:space:]]*:'
+}
+for job in formal-tlc formal-quint; do
+	workflow="$ROOT/.github/workflows/$job.yml"
+	if check_unconditional_job "$workflow" "$job"; then ok "$job is unconditional"; else bad "$job must exist without job-level if"; fi
+	mutant="$(mktemp)"
+	awk -v job="$job" '{ print; if ($0 == "  " job ":") print "    if: false" }' "$workflow" > "$mutant"
+	if check_unconditional_job "$mutant" "$job"; then bad "$job job-level guard mutation survived"; else ok "$job job-level guard mutation rejected"; fi
+	rm -f "$mutant"
+done
+
 expect_class relevant formal/wan-log-lock/WanLogRollbackOutcomes.tla
 expect_class relevant formal/new-model/NewModel.cfg
 expect_class relevant scripts/formal-tlc.sh
@@ -51,7 +72,10 @@ expect_class unrelated scripts/embed-fwlive-css.js
 expect_class unclassified scripts/new-modeled-source.sh
 expect_class unclassified tests/new-source.test.sh
 expect_class unclassified .github/workflows/fwlive-test.yml
-expect_class unclassified openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/new-module.js
+expect_class relevant openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/new-module.js
+expect_class relevant openwrt-feed/luci-app-fwlive/htdocs/luci-static/resources/fwlive/buffer.js
+expect_class relevant core/fwlive-log.js
+expect_class unrelated openwrt-feed/luci-app-fwlive/po/de/luci-app-fwlive.po
 
 ZERO="0000000000000000000000000000000000000000"
 expect_decision() {
