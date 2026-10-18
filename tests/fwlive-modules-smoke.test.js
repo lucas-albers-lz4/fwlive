@@ -485,6 +485,57 @@ assert.ok(
 	'unknown blocker must not render Enable CTA'
 );
 
+const unknownBeforeFetch = luciE.E(
+	'span',
+	{ 'id': 'fwlive-logging-bar', 'class': 'fwlive-logging-bar' },
+	[]
+);
+unknownBeforeFetch.style = {};
+logging.renderToolbar(
+	unknownBeforeFetch,
+	{
+		loggingStatus: null,
+		loggingBusy: false,
+		loggingNotice: ''
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+assert.strictEqual(
+	unknownBeforeFetch.style.display,
+	'none',
+	'unknown status without a notice must keep the toolbar hidden'
+);
+
+logging.renderToolbar(
+	unknownBeforeFetch,
+	{
+		loggingStatus: null,
+		loggingBusy: false,
+		loggingNotice: 'Could not load logging status.',
+		loggingNoticeFail: true
+	},
+	{ onEnable: function () {}, onDisable: function () {} }
+);
+assert.strictEqual(
+	unknownBeforeFetch.style.display,
+	'contents',
+	'initial status failure must keep the toolbar visible'
+);
+assert.ok(collectText(unknownBeforeFetch).indexOf('Could not load logging status.') >= 0);
+assert.ok(
+	unknownBeforeFetch.childNodes.every(function (n) {
+		return n.tagName !== 'button';
+	}),
+	'initial status failure must not render Enable/Disable'
+);
+const unknownLive = unknownBeforeFetch.childNodes[unknownBeforeFetch.childNodes.length - 1];
+assert.strictEqual(unknownLive.getAttribute('role'), 'status');
+assert.strictEqual(
+	unknownLive._innerHTMLWrites.length,
+	0,
+	'initial status failure notice must stay on a text node'
+);
+
 const unknownEmptyHost = luciE.E('div', {}, []);
 logging.renderEmptyState(
 	unknownEmptyHost,
