@@ -120,7 +120,7 @@ unclassified paths, empty diffs, invalid base/head SHAs, and diff/fetch errors
 run the full model suite and separate rollback replay. The normal host suite
 keeps the cheap tooling-integrity and capture/projection checks.
 
-GitHub check context: `formal TLC / formal-tlc`. Workflow execution does not
+GitHub check context: `formal-tlc` (workflow: `formal TLC`, GitHub Actions app). Workflow execution does not
 make it a required status check. The current repository branch protection has
 no required status checks and no rulesets; an owner must add this check to
 branch protection or a ruleset. No merge queue is configured; add a

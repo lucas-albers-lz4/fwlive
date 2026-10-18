@@ -60,7 +60,7 @@ Use before making this repo public upstream.
 | `.github/workflows/formal-tlc.yml` | Always-reporting formal check on pushes/PRs; TLC runs for relevant or unclassified paths |
 | `.github/workflows/publish-packages.yml` | Release → build, feed deploy, QEMU smoke |
 
-The formal workflow's required check context is `formal TLC / formal-tlc`.
+The formal workflow's required check context is `formal-tlc` (workflow: `formal TLC`, GitHub Actions app).
 GitHub branch protection currently has no required status checks and the
 repository has no rulesets, so an owner must add that context to branch
 protection or a ruleset. No merge queue is configured; add the `merge_group`
