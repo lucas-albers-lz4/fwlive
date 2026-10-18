@@ -25,17 +25,40 @@ For upstream/release sign-off, require fresh source extraction by setting
 Missing scanner prerequisites then fail the sign-off run instead of being
 treated as a passing skip.
 
-Before creating the release tag, run `./scripts/formal-tlc.sh` and
-`./scripts/formal-rollback-trace-replay.sh` on the release commit. The models,
-replay, and pinned runner are repeatable locally; the **formal TLC** Actions
-workflow also runs them for relevant or unclassified push and pull-request
-changes, and remains available through `workflow_dispatch`.
+Before tagging, complete the [formal sign-off](#formal-sign-off-before-tagging)
+on the exact release commit.
 
 Optional QEMU confidence: `./scripts/validate-openwrt.sh --version 24.10` — see [validation matrix](validation-matrix.md).
 
 Full publish checklist: [github-publish-checklist.md](github-publish-checklist.md).
 Before cutting a `v*` tag, make sure that the `peaceiris/actions-gh-pages` SHA in
 `publish-packages.yml` still matches the upstream tag (checklist pre-release item).
+
+## Formal sign-off before tagging
+
+After committing the version bump and changelog, use a clean checkout of that
+exact release commit on Linux x86_64. With the
+[formal-tool prerequisites](developer/build-and-test.md#formal-models-tlatlc)
+available, install the locked host dependencies and run **all four checks**:
+
+```sh
+git rev-parse HEAD
+npm ci --ignore-scripts
+./scripts/formal-tlc.sh
+./scripts/formal-rollback-trace-replay.sh
+./scripts/formal-induction.sh
+npm run test:formal-quint
+```
+
+Record the commit SHA and successful outcomes in the release sign-off before
+creating or pushing the tag. Every command must succeed; a relevant-change CI
+skip or a pass on an earlier commit is insufficient. If the release commit
+changes, repeat the checks on the new commit. Tag only the verified SHA.
+
+These checks cover the tag that starts release creation and feed publishing;
+they do not need to be duplicated in the publishing workflow. A manual publish
+or rerun must use that same verified release tag. This is a maintainer tagging
+procedure, not an automatically enforced tag-push check.
 
 ## Release steps (automated CI)
 
@@ -62,7 +85,7 @@ Before cutting a `v*` tag, make sure that the `peaceiris/actions-gh-pages` SHA i
    Example: `v0.1.21` compares to `v0.1.19` because **v0.1.20 was never tagged**.
 4. Update [`scripts/feeds.lock/`](../scripts/feeds.lock/) if the OpenWrt point release changed — see [binary-feed.md](binary-feed.md).
 5. Commit as a **direct `chore: release v0.1.N` commit on `master`** (release commits are not PRs) and push.
-6. Create an annotated tag and push it — **do not** create or publish a GitHub Release first; CI creates it with assets attached:
+6. Complete [formal sign-off on the release commit](#formal-sign-off-before-tagging), then create an annotated tag and push it — **do not** create or publish a GitHub Release first; CI creates it with assets attached:
 
    ```sh
    git tag -a v0.1.N -m "fwlive v0.1.N"
