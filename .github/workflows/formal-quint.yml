@@ -30,12 +30,16 @@ jobs:
         if: always() && steps.paths.outputs.run_formal != 'false'
         with:
           node-version: '22'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad  # v6.1.0
+        if: always() && steps.paths.outputs.run_formal != 'false'
+        with:
+          distribution: temurin
+          java-version: '21'
+          check-latest: false
       - name: Install pinned host dependencies
         if: always() && steps.paths.outputs.run_formal != 'false'
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y openjdk-21-jre-headless
           npm ci --ignore-scripts
       - name: Check polling model and implementation traces
         if: always() && steps.paths.outputs.run_formal != 'false'

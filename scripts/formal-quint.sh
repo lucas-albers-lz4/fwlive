@@ -11,6 +11,9 @@ QUINT="$ROOT/node_modules/.bin/quint"
 [[ -x "$QUINT" ]] || { echo 'Run npm ci first (pinned Quint required)' >&2; exit 1; }
 [[ "$("$QUINT" --version)" == 0.33.0 ]] || { echo 'Unexpected Quint version' >&2; exit 1; }
 command -v java >/dev/null
+JAVA_MAJOR="$(java -XshowSettings:properties -version 2>&1 | awk '/java.specification.version =/ { print $3 }')"
+[[ "$JAVA_MAJOR" =~ ^[0-9]+$ && "$JAVA_MAJOR" -ge 21 ]] \
+	|| { echo 'Java 21 or newer must be selected on PATH' >&2; exit 1; }
 command -v timeout >/dev/null
 APALACHE_VERSION=0.62.1
 APALACHE_SHA256=38202a8c4ebeb3ab73e0fe5a7e4bb948442d46ad5de8a7fb45c9e5cac2beb2a6
