@@ -4,7 +4,18 @@
 (***************************************************************************)
 EXTENDS Naturals, TLC
 
-CONSTANTS PrimaryIntent, GuardMode, RestoreBehavior, AllowRefusals
+CONSTANT
+  \* @type: Str;
+  PrimaryIntent
+CONSTANT
+  \* @type: Str;
+  GuardMode
+CONSTANT
+  \* @type: Str;
+  RestoreBehavior
+CONSTANT
+  \* @type: Bool;
+  AllowRefusals
 
 ToggleIntents == {"enable", "disable"}
 GuardModes == {"revision", "valueOnly"}
@@ -25,8 +36,10 @@ UciValues == {Unset} \cup
   { [present |-> TRUE, rest |-> r, logBit |-> bit]
       : r \in OtherBits, bit \in BOOLEAN }
 
+\* @type: {present: Bool, rest: Str, logBit: Bool} => Bool;
 Enabled(value) == value.present /\ value.logBit
 
+\* @type: ({present: Bool, rest: Str, logBit: Bool}, Str) => {present: Bool, rest: Str, logBit: Bool};
 SetIntent(value, intent) ==
   IF intent = "enable" THEN
     [ present |-> TRUE,
@@ -45,6 +58,7 @@ PreviousValues ==
   THEN PreviousEnableValues
   ELSE PreviousDisableValues
 
+\* @type: {present: Bool, rest: Str, logBit: Bool} => {present: Bool, rest: Str, logBit: Bool};
 WrongRestoreValue(value) ==
   IF value.present THEN Unset
   ELSE [present |-> TRUE, rest |-> "zero", logBit |-> FALSE]
@@ -56,13 +70,42 @@ Outcomes ==
    "restore-stage-failure", "restore-post-stage-refusal",
    "restore-commit-failure"}
 
-(* Bound the state space: primary bump + two later attempts + restore bump. *)
+(* Bound the finite TLC wrappers: primary + two later attempts + restore.
+   The When(CanAdvance) operators below share the same transition bodies with
+   the induction driver, which supplies a different explicit budget guard. *)
 MaxLaterAttempts == 2
 MaxGeneration == 4
 
-VARIABLES phase, previous, current, generation, rollbackToken,
-          laterAttempts, lastIntent, outcome, restoreGenerationAdvanced,
-          restoreBaseGeneration
+VARIABLE
+  \* @type: Str;
+  phase
+VARIABLE
+  \* @type: {present: Bool, rest: Str, logBit: Bool};
+  previous
+VARIABLE
+  \* @type: {present: Bool, rest: Str, logBit: Bool};
+  current
+VARIABLE
+  \* @type: Int;
+  generation
+VARIABLE
+  \* @type: Int;
+  rollbackToken
+VARIABLE
+  \* @type: Int;
+  laterAttempts
+VARIABLE
+  \* @type: Str;
+  lastIntent
+VARIABLE
+  \* @type: Str;
+  outcome
+VARIABLE
+  \* @type: Bool;
+  restoreGenerationAdvanced
+VARIABLE
+  \* @type: Int;
+  restoreBaseGeneration
 vars == <<phase, previous, current, generation, rollbackToken,
           laterAttempts, lastIntent, outcome, restoreGenerationAdvanced,
           restoreBaseGeneration>>
@@ -84,26 +127,30 @@ TypeOK ==
   /\ restoreGenerationAdvanced \in BOOLEAN
   /\ restoreBaseGeneration \in 0..MaxGeneration
 
-Init ==
+InitAt(initialGeneration) ==
   /\ phase = "Fresh"
   /\ previous \in PreviousValues
   /\ current = previous
-  /\ generation = 0
-  /\ rollbackToken = 0
+  /\ generation = initialGeneration
+  /\ rollbackToken = initialGeneration
   /\ laterAttempts = 0
   /\ lastIntent = "none"
   /\ outcome = "none"
   /\ restoreGenerationAdvanced = FALSE
-  /\ restoreBaseGeneration = 0
+  /\ restoreBaseGeneration = initialGeneration
 
-PrimaryCommit ==
+Init == InitAt(0)
+
+PrimaryCommitAt(nextGeneration) ==
   /\ phase = "Fresh"
   /\ current' = TargetValue
-  /\ generation' = 1
-  /\ rollbackToken' = 1
+  /\ generation' = nextGeneration
+  /\ rollbackToken' = nextGeneration
   /\ phase' = "Reloading"
   /\ UNCHANGED <<previous, laterAttempts, lastIntent, outcome,
                   restoreGenerationAdvanced, restoreBaseGeneration>>
+
+PrimaryCommit == PrimaryCommitAt(1)
 
 ReloadFails ==
   /\ phase = "Reloading"
@@ -112,11 +159,10 @@ ReloadFails ==
                   laterAttempts, lastIntent, outcome,
                   restoreGenerationAdvanced, restoreBaseGeneration>>
 
-LaterCommit ==
+LaterCommitWhen(CanAdvance) ==
   \E intent \in ToggleIntents:
     /\ phase \in {"Reloading", "Waiting"}
-    /\ laterAttempts < MaxLaterAttempts
-    /\ generation < MaxGeneration
+    /\ CanAdvance
     /\ (IF intent = "enable" THEN ~Enabled(current) ELSE Enabled(current))
     /\ current' = SetIntent(current, intent)
     /\ generation' = generation + 1
@@ -125,13 +171,15 @@ LaterCommit ==
     /\ UNCHANGED <<phase, previous, rollbackToken, outcome,
                     restoreGenerationAdvanced, restoreBaseGeneration>>
 
+LaterCommit == LaterCommitWhen(
+  laterAttempts < MaxLaterAttempts /\ generation < MaxGeneration)
+
 (* Same-state requests are intent: they advance the shared generation even
    though committed UCI remains unchanged. *)
-LaterNoOp ==
+LaterNoOpWhen(CanAdvance) ==
   \E intent \in ToggleIntents:
     /\ phase \in {"Reloading", "Waiting"}
-    /\ laterAttempts < MaxLaterAttempts
-    /\ generation < MaxGeneration
+    /\ CanAdvance
     /\ (IF intent = "enable" THEN Enabled(current) ELSE ~Enabled(current))
     /\ generation' = generation + 1
     /\ laterAttempts' = laterAttempts + 1
@@ -139,18 +187,23 @@ LaterNoOp ==
     /\ UNCHANGED <<phase, previous, current, rollbackToken, outcome,
                     restoreGenerationAdvanced, restoreBaseGeneration>>
 
+LaterNoOp == LaterNoOpWhen(
+  laterAttempts < MaxLaterAttempts /\ generation < MaxGeneration)
+
 (* A writer can fail after recording its intent generation but before UCI
    commits. The failed attempt still invalidates an older rollback token. *)
-LaterFailedAttempt ==
+LaterFailedAttemptWhen(CanAdvance) ==
   \E intent \in ToggleIntents:
     /\ phase \in {"Reloading", "Waiting"}
-    /\ laterAttempts < MaxLaterAttempts
-    /\ generation < MaxGeneration
+    /\ CanAdvance
     /\ generation' = generation + 1
     /\ laterAttempts' = laterAttempts + 1
     /\ lastIntent' = intent
     /\ UNCHANGED <<phase, previous, current, rollbackToken, outcome,
                     restoreGenerationAdvanced, restoreBaseGeneration>>
+
+LaterFailedAttempt == LaterFailedAttemptWhen(
+  laterAttempts < MaxLaterAttempts /\ generation < MaxGeneration)
 
 ReacquireSuccess ==
   /\ phase = "Waiting"
@@ -200,16 +253,18 @@ RestoreGenerationRefusal ==
 
 (* Production advances generation inside restore_wan_zone_log before staging.
    Save the pre-bump live generation separately from the rollback token. *)
-BeginRestore ==
+BeginRestoreWhen(CanAdvance) ==
   /\ phase = "Holding"
   /\ GuardMatches
-  /\ generation < MaxGeneration
+  /\ CanAdvance
   /\ phase' = "Restoring"
   /\ generation' = generation + 1
   /\ restoreBaseGeneration' = generation
   /\ restoreGenerationAdvanced' = TRUE
   /\ UNCHANGED <<previous, current, rollbackToken, laterAttempts,
                   lastIntent, outcome>>
+
+BeginRestore == BeginRestoreWhen(generation < MaxGeneration)
 
 RestoreStageFailure ==
   /\ AllowRefusals

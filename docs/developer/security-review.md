@@ -2364,3 +2364,24 @@ equivalence or installed-service evidence. Host arithmetic is 64-bit, not a
 reproduction commands are owned by the
 [rollback fidelity map](../../formal/wan-log-lock/README-wan-log-lock.md).
 Final-head review and current-head CI execution are recorded on the PR.
+
+### 2026-10-18 — #1322 rollback induction
+
+**Scope.** Host-only proof runner and shared Outcomes action parameterization;
+no shipped helper, rpcd, ACL, DOM or release payload changes. The existing
+`formal-tlc` job adds the pinned Apalache induction check and retains diagnostics.
+
+**Evidence.** `formal`: separate initialization, preservation and implication
+obligations for idealized Nat history and deployed generation cap 2147483646,
+plus no advancement from an invariant state at that cap. The value-only guard
+must produce an invariant counterexample. `host`: B separately checks the
+actual helper's cap refusal under dash and BusyBox ash (64-bit host arithmetic).
+The runner verifies both archive and jar SHA-256 before execution; failures and
+timeouts fail the gate. Final independent runner/CI review is recorded on its PR.
+
+**Boundary.** Cooperating serialized writers and uninterrupted volatile
+generation history; no direct-UCI-writer, reset-with-callers, provider-success,
+liveness or universal shell-refinement theorem. The owning fidelity map is
+[`README-wan-log-lock.md`](../../formal/wan-log-lock/README-wan-log-lock.md#inductive-rollback-safety-1322).
+Full security surface re-pass deferred: this delta changes only verification
+and its CI execution, not the shipped trust boundaries.

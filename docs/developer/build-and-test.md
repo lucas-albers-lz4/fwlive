@@ -228,3 +228,13 @@ pair (24.10 by default; select another supported pair with
 ITF traces against the shipped coordinator, including mutation controls. Tool
 pins, setup, event bounds, provenance, and the separate view-fencing evidence
 are in [the polling fidelity map](../../formal/poll-coordinator/README.md).
+
+### Rollback induction
+
+`./scripts/formal-induction.sh` checks arbitrary-history safety through explicit
+init, one-step preservation and safety implication obligations, for both Nat and
+the deployed generation cap. It also checks cap preservation and rejects a
+weakened guard. Java 21+ is required; tooling is pinned and checksummed. Set
+`FWLIVE_INDUCTION_DIAGNOSTICS_DIR` to retain evidence. The `formal-tlc` workflow
+job runs it separately from finite TLC and concrete replay. See the owning
+[contract and limitations](../../formal/wan-log-lock/README-wan-log-lock.md#inductive-rollback-safety-1322).
