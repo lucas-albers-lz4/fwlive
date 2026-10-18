@@ -2298,3 +2298,23 @@ failing `cat` over a nonempty baseline (`2`) with current `log=3` and
 asserts nonzero status, unchanged UCI, and a retained marker. Proof
 class `host`. Full surface re-pass deferred: local restore-read
 fail-closed, no ACL, DOM sink, or command-surface change.
+
+### 2026-10-18 — #1322 Quint polling pilot
+
+**Scope.** Host-only Quint specification, Node observation driver and pinned
+verification tooling. The shipped coordinator, view, rpcd and ACLs are unchanged.
+
+**Evidence.** `formal`: Quint 0.33.0 / Apalache 0.62.1 TLC backend checked the
+polling invariant through five events (2,243 distinct states). `host`: 307 ITF
+traces / 9,056 events matched the shipped coordinator; queue, epoch and disposal
+mutations were rejected. Existing coordinator and view Layer 2 tests passed
+separately. Pins include npm integrity and archive/jar SHA-256; the scoped
+adm-zip override avoids its vulnerable transitive version.
+
+**Boundary.** Initial visible state, two cadence values, explicit API events
+and asynchronous runner completion; no unrelated poll entries or timer ticks.
+The coordinator model does not prove view stale-result fencing or cancel RPCs.
+No universal refinement, temporal-progress, real-time or installed-LuCI claim.
+The model/implementation fidelity map owns the detailed domain and source map:
+[`formal/poll-coordinator/README.md`](../../formal/poll-coordinator/README.md).
+Final independent review and actual CI execution remain pending.

@@ -1,0 +1,51 @@
+name: formal Quint
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  formal-quint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+      - name: Decide whether formal checks are needed
+        id: paths
+        env:
+          FORMAL_CI_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
+          FORMAL_CI_HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ./scripts/ci-formal-paths.sh | tee -a "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
+        if: steps.paths.outputs.run_formal != 'false'
+        with:
+          node-version: '22'
+      - name: Install pinned host dependencies
+        if: steps.paths.outputs.run_formal != 'false'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y openjdk-21-jre-headless
+          npm ci --ignore-scripts
+      - name: Check polling model and implementation traces
+        if: steps.paths.outputs.run_formal != 'false'
+        env:
+          FWLIVE_QUINT_DIAGNOSTICS_DIR: ${{ runner.temp }}/formal-quint-evidence
+        run: npm run test:formal-quint
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: formal-quint-evidence
+          path: ${{ runner.temp }}/formal-quint-evidence
+          if-no-files-found: warn
