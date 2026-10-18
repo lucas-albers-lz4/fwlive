@@ -703,15 +703,12 @@ async function testWarmHostnameTogglePaintsCache() {
 	renders.length = 0;
 	resolves = 0;
 	v.tablePaused = true;
-	let statusUpdates = 0;
-	const origUpdateStatus = v.updateStatus.bind(v);
-	v.updateStatus = function () {
-		statusUpdates++;
-		return origUpdateStatus.apply(this, arguments);
-	};
 	v.onShowHostnamesChange({ target: { checked: false } });
-	assert.deepStrictEqual(renders, [], 'hostname toggle must not paint while paused');
-	assert.ok(statusUpdates >= 1, 'hostname toggle may refresh status while paused');
+	assert.deepStrictEqual(
+		renders,
+		[true],
+		'hostname toggle must repaint from cache while paused'
+	);
 	console.log('fwlive-view layer2: warm hostname toggle paints cache OK');
 }
 
@@ -1849,14 +1846,14 @@ async function testHostnameToggleAsyncResolveDefersPaintWhilePaused() {
 	};
 
 	v.onShowHostnamesChange({ target: { checked: true } });
-	assert.strictEqual(renders.length, 0, 'toggle-on must not paint while paused');
+	assert.strictEqual(renders.length, 1, 'toggle-on must paint cached hostnames while paused');
 	assert.strictEqual(scheduled.length, 0, 'toggle-on must not schedule paint while paused');
 
 	/* Keep the async resolver pending while checking that no paint occurs. */
 	await sleep(10);
 	assert.strictEqual(
 		renders.length,
-		0,
+		1,
 		'toggle async resolve must not paint while paused and in flight'
 	);
 
@@ -1864,7 +1861,7 @@ async function testHostnameToggleAsyncResolveDefersPaintWhilePaused() {
 	await waitFor(() => v.resolvePaintPending === true);
 	assert.strictEqual(
 		renders.length,
-		0,
+		1,
 		'toggle async resolve completion must not paint while paused'
 	);
 	assert.strictEqual(

@@ -224,6 +224,39 @@ async function testResumeThenPauseBeforeRpc() {
 	console.log('fwlive-view pause: Resume-then-Pause before RPC holds OK');
 }
 
+async function testPausedShowHostnamesTogglePaints() {
+	const ip = '192.0.2.10';
+	const h = loadFwliveView({
+		rpcMocks: {
+			'fwlive.poll': async function () {
+				return { log: [], adaptive: 1 };
+			},
+			'fwlive.resolve': async function () {
+				return { names: {} };
+			}
+		}
+	});
+	const v = h.view;
+	v.updateStreamControlsUi = function () {};
+	v.showHostnames = false;
+	v.hostnameCache = new Map([[ip, 'router.example']]);
+	v.entries = [dropRow(1, ip)];
+	v.tablePaused = true;
+	v.renderRows(true);
+	const keysBefore = displayedKeys(h);
+
+	v.onShowHostnamesChange({ target: { checked: true } });
+	const keysAfter = displayedKeys(h);
+	assert.notDeepStrictEqual(keysAfter, keysBefore, 'show-hostnames toggle must repaint while paused');
+	assert.ok(
+		keysAfter.some(function (key) {
+			return String(key).indexOf('router.example') >= 0;
+		}),
+		'repaint must include cached hostname in the painted row key'
+	);
+	console.log('fwlive-view pause: show-hostnames toggle paints while paused OK');
+}
+
 async function testPausedDisplayControlStillPaints() {
 	const h = loadFwliveView();
 	const v = h.view;
@@ -251,6 +284,7 @@ async function testPausedDisplayControlStillPaints() {
 		await testQueuedHostnamePaint();
 		await testSchedulerRafCallback();
 		await testResumeThenPauseBeforeRpc();
+		await testPausedShowHostnamesTogglePaints();
 		await testPausedDisplayControlStillPaints();
 		console.log('fwlive-view pause queued paint tests passed');
 	} catch (e) {
