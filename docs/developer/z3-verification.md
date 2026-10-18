@@ -164,8 +164,10 @@ or an installed device. A later change requires refreshing the affected map.
 The map covers the #571 targets and their immediate preprocessing dependencies,
 not every regular expression in the application. Inputs are log-message
 strings, including untrusted content. The runtime imposes no ASCII-only or
-24-character restriction on these regex consumers. All target regexes use `i`
-without `u`, `m`, `s`, `g` or `y`; JavaScript strings therefore need their actual
+24-character restriction on these regex consumers. The #571 targets
+(`ACTION_RE`, `DENY_ACTION`, `NON_FIREWALL_PREFIX`, `TCP_FLAG_TAIL` and optional
+`FIREWALL_HINT`) use `i` without `u`, `m`, `s`, `g` or `y`; the preprocessing
+dependencies have their separately listed flags. JavaScript strings need their actual
 non-Unicode-mode UTF-16 behavior, including NUL and isolated surrogates, in any
 future correspondence claim.
 
