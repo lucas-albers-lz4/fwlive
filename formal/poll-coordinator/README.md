@@ -96,7 +96,7 @@ reviewed and its maintenance cost measured in CI. Their existing tests remain
 the evidence. Hostname already has a separate TLC disposal contract; any future
 MBT must identify an additional contract or connect to that existing model.
 
-The always-reporting CI check is `formal Quint / formal-quint`. It reuses the
+The always-reporting CI check is `formal-quint` (workflow: `formal Quint`, GitHub Actions app). It reuses the
 Phase A conservative path detector; relevant/unclassified/error diffs run the
 pilot, positively unrelated diffs skip only its expensive steps. The workflow
 also accepts merge-group events without assuming a merge queue is enabled.

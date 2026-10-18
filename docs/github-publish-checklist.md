@@ -129,6 +129,6 @@ Checklist:
 | `publish-packages.yml` | Tag push `v*` or `workflow_dispatch` — SDK build, reproducibility, Pages deploy, release assets, single-cell QEMU feed smoke (24.10 / TCG) |
 
 For the #1322 polling pilot, the required-check candidate is
-`formal Quint / formal-quint`; see the [polling fidelity map](../formal/poll-coordinator/README.md).
+`formal-quint` (workflow: `formal Quint`, GitHub Actions app); see the [polling fidelity map](../formal/poll-coordinator/README.md).
 Confirm repository protection actually requires the current check before
 reporting it as enforced. A recorded workflow pass alone is execution evidence.
