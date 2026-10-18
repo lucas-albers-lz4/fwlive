@@ -18,8 +18,11 @@ The TLA+ v1.7.4 jar remains SHA-256 pinned. Host proof:
 `tests/formal-ci-paths.test.sh`, `tests/formal-tlc-tooling.test.sh`, and
 `tests/formal-rollback-trace-pilot.test.sh`; actual TLC 2.19 run passed all 20
 configs and the separate rollback replay passed five observed traces plus two
-mutation rejections on the Phase A working tree based on `8927e9911d`. The
-failure-artifact step
+mutation rejections on the Phase A working tree based on `8927e9911d`.
+**Phase B supersedes that historical replay matrix:** the current expanded
+runner checks 57 positive traces and three required mutation rejections; see
+[the Phase B evidence](#2026-10-18--1322-expanded-rollback-observation-conformance).
+The failure-artifact step
 retains per-config TLC output, replay observations/projections/configs, and
 runner provenance before temporary state cleanup. GitHub API inspection found
 no required status checks and no repository rulesets; the owner must require
