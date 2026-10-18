@@ -21,8 +21,25 @@ Host tests assume **GNU** userland and **Bash ≥ 4** — for example `stat -c`,
 
 ## Host packages (Debian / Ubuntu / Mint)
 
+Install Docker Engine (`docker.io`) plus Compose v2 so host scripts can run
+`docker compose`. The apt package name depends on the distro (this is the
+**development host** only — GitHub Actions uses `ubuntu-latest` with its own
+image packages; OpenWrt SDK containers are separate Debian-based images).
+
+| Distro | Compose v2 (`docker compose` plugin) |
+|--------|----------------------------------------|
+| Ubuntu, Mint | `docker-compose-v2` |
+| Debian (e.g. trixie) | `docker-compose` |
+
 ```sh
+# Ubuntu / Mint
 sudo apt install build-essential libncurses-dev gawk docker.io docker-compose-v2 \
+  qemu-system-x86 qemu-system-arm curl git nodejs iproute2 busybox binutils tar xz-utils pipx
+```
+
+```sh
+# Debian (trixie and similar)
+sudo apt install build-essential libncurses-dev gawk docker.io docker-compose \
   qemu-system-x86 qemu-system-arm curl git nodejs iproute2 busybox binutils tar xz-utils pipx
 ```
 

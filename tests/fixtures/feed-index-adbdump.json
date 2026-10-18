@@ -10,15 +10,15 @@
     },
     {
       "name": "luci-i18n-fwlive-de",
-      "version": "0.1.45-r1"
+      "version": "0.261018.60867"
     },
     {
       "name": "luci-i18n-fwlive-ru",
-      "version": "0.1.45-r1"
+      "version": "0.261018.60867"
     },
     {
       "name": "luci-i18n-fwlive-zh-cn",
-      "version": "0.1.45-r1"
+      "version": "0.261018.60867"
     }
   ]
 }
