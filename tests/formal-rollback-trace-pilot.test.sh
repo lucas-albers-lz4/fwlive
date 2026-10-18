@@ -67,4 +67,4 @@ grep -q 'Step2 = "LaterNoOp"' "$WORK/noop-broken.cfg" \
 grep -q 'Generation2 = 1' "$WORK/noop-broken.cfg" \
 	|| fail "broken no-op fixture must preserve its observed missing generation bump"
 
-echo 'rollback trace pilot host checks passed (real helper capture/projection; TLC remains manual-only)'
+echo 'rollback trace pilot host checks passed (real helper capture/projection; TLC replay runs separately in CI)'

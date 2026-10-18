@@ -275,6 +275,7 @@ echo "== fwlive chip sink and applyHash (#393) ==" >&2
 "$NODE" tests/fwlive-chips-hash.test.js
 
 echo "== formal TLC host orchestration (#1087, #1121) ==" >&2
+bash tests/formal-ci-paths.test.sh
 bash tests/formal-tlc-tooling.test.sh
 bash tests/formal-rollback-trace-pilot.test.sh
 

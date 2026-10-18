@@ -1,5 +1,32 @@
 # Security review state
 
+**2026-10-17 #1322 formal CI gate delta (base `8927e9911d`).** The
+always-reporting `formal-tlc` (workflow `formal TLC`) job now runs on pull requests,
+pushes to `master`/`main`, and manual dispatch. Its detector skips TLC only
+when every changed path is positively classified as unrelated; modeled paths,
+new/unclassified paths, empty diffs, invalid SHAs, and fetch/diff errors run
+the complete pinned check. The detector covers the current formal models and
+fidelity maps, both formal runners and the projector, capture/negative-control
+fixtures, modeled shell helpers, hostname/poll sources and tests, tool pins,
+and the workflow gate. `scripts/formal-tlc.sh` and
+`scripts/formal-rollback-trace-replay.sh` are separate CI invocations; the
+default runner does not set `FWLIVE_TLC_REPLAY_CASES`. TLC uses one worker and
+the job has a 30-minute timeout. The exact current suite has 20 configs: ten
+passing models and ten expected counterexamples (seven invariant and three
+temporal-property violations), correcting older three-counterexample notes.
+The TLA+ v1.7.4 jar remains SHA-256 pinned. Host proof:
+`tests/formal-ci-paths.test.sh`, `tests/formal-tlc-tooling.test.sh`, and
+`tests/formal-rollback-trace-pilot.test.sh`; actual TLC 2.19 run passed all 20
+configs and the separate rollback replay passed five observed traces plus two
+mutation rejections on the Phase A working tree based on `8927e9911d`. The
+failure-artifact step
+retains per-config TLC output, replay observations/projections/configs, and
+runner provenance before temporary state cleanup. GitHub API inspection found
+no required status checks and no repository rulesets; the owner must require
+`formal-tlc` (workflow `formal TLC`) in branch protection or a ruleset. No merge queue
+was configured, so this workflow has no `merge_group` trigger. No shipped
+package or router runtime changed; this is CI/model enforcement and evidence.
+
 **2026-10-18 #1320 release SDK output ownership delta.** The release build's Docker
 copy-out creates root-owned package directories, which blocked the runner from
 removing prior outputs during the reproducibility pass. The always-run

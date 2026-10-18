@@ -8,7 +8,7 @@ Use before making this repo public upstream.
 - [ ] Review [LICENSE](../LICENSE) (Apache-2.0) and [ATTRIBUTION.md](../ATTRIBUTION.md) (OPNsense BSD 2-Clause)
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
-- [ ] Run `./scripts/formal-tlc.sh` on the release commit before tagging — see [Formal models](developer/build-and-test.md#formal-models-tlatlc)
+- [ ] Run `./scripts/formal-tlc.sh` and `./scripts/formal-rollback-trace-replay.sh` on the release commit before tagging — see [Formal models](developer/build-and-test.md#formal-models-tlatlc)
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
 - [ ] Make sure that nothing in the removed `archive/` tree (deleted in #98) is required for new users
 - [ ] `rg -n 'archive/' docs scripts docker-compose.yml --glob '!CHANGELOG.md' --glob '!docs/github-publish-checklist.md'` must return no live path hints (historical `archive/` mentions in CHANGELOG and this checklist are expected)
@@ -57,8 +57,14 @@ Use before making this repo public upstream.
 | `scripts/feeds.lock/` | Pinned OpenWrt feed commits (reproducible SDK builds) |
 | `README.md`, `docs/user/`, `docs/developer/`, `.gitignore`, `docker-compose.yml` | Entry points |
 | `.github/workflows/fwlive-test.yml` | Parser CI on push/PR |
-| `.github/workflows/formal-tlc.yml` | Manual formal check; not run on pushes or PRs |
+| `.github/workflows/formal-tlc.yml` | Always-reporting formal check on pushes/PRs; TLC runs for relevant or unclassified paths |
 | `.github/workflows/publish-packages.yml` | Release → build, feed deploy, QEMU smoke |
+
+The formal workflow's required check context is `formal-tlc` (workflow: `formal TLC`, GitHub Actions app).
+GitHub branch protection currently has no required status checks and the
+repository has no rulesets, so an owner must add that context to branch
+protection or a ruleset. No merge queue is configured; add the `merge_group`
+event if a merge queue is introduced.
 
 **Exclude** (already in `.gitignore` or should stay untracked):
 

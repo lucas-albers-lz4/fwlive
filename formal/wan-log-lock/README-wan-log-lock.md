@@ -178,16 +178,21 @@ unnamed temporal-property violation), value-only rollback despite later intent
 (`NoRestoreAfterNewerIntent`) and incorrect restore values
 (`RestoreValueIsPrevious`) for both enable and disable primary directions,
 adaptive-cap unfair liveness (`Converges`), and the 500 cs clocked adaptive-cap
-arm (`Converges`, the #1241 flap). No
+arm (`Converges`, the #1241 flap). The ten configurations comprise seven
+invariant counterexamples and three temporal-property counterexamples. No
 TLA+ tooling is included in the OpenWrt package. The unnamed temporal-failure
 check intentionally requires a simple
 counterexample configuration: one identifier per SPECIFICATION, INVARIANT or
 PROPERTY line and exactly the expected PROPERTY. It rejects additional operands,
 continuation lines and richer configuration syntax before invoking TLC, so a
 second temporal failure cannot be credited to the intended property.
-Run it locally with `./scripts/formal-tlc.sh`, or use the manual-only
-**formal TLC** Actions workflow. The workflow does not run on ordinary pushes
-or pull requests.
+Run it locally with `./scripts/formal-tlc.sh`, followed by the separate
+`./scripts/formal-rollback-trace-replay.sh` observation replay. The always-
+reporting **formal TLC** Actions job runs on pushes and pull requests, skips
+only all-known-unrelated path diffs, and retains `workflow_dispatch` for manual
+runs. GitHub check execution alone does not make the status required; see
+[`build-and-test.md`](../../docs/developer/build-and-test.md#formal-models-tlatlc)
+for the configured check context and repository-setting state.
 
 The normal host suite's `tests/formal-tlc-tooling.test.sh` also derives module
 and configuration paths from each `run_*` call in `scripts/formal-tlc.sh` and
@@ -229,13 +234,15 @@ outcome, and terminal rollback logs are separate observed boundaries. The
 adapter allows only terminal TLA stuttering, not unobserved semantic model
 steps between captured boundaries.
 
-The pinned manual TLC runner requires the five captured traces to complete,
+The pinned TLC replay runner requires the five captured traces to complete,
 and the value-only ABA and broken no-op-generation traces to violate
 `NoInvalidObservation`. The command prints the checkout HEAD and Git blob IDs
 for the shipped helper, source model, replay adapter, capture fixture, and
-projector so the evidence can be tied to exact inputs. `tests/formal-rollback-trace-pilot.test.sh`
+projector, and preserves them in `replay-environment.txt` with the diagnostics
+so the evidence can be tied to exact inputs. `tests/formal-rollback-trace-pilot.test.sh`
 runs capture/projection integrity checks as part of the host suite, but does
-not run TLC; ordinary CI remains Java/TLC-free.
+not run TLC. The always-reporting formal workflow separately runs the full
+model suite and this replay for relevant or unclassified changes.
 
 This is finite evidence for these fixture executions only: the UCI/provider
 commands are stubs, values are limited to unset and `log=1`, and each trace is

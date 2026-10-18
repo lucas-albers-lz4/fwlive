@@ -43,6 +43,12 @@ check_runner_references() {
 			return 1
 		}
 	fi
+	local violations
+	violations="$(grep -Ec '^[[:space:]]*run_expected_(violation|property_violation)([[:space:]]|$)' "$runner")"
+	[[ "$violations" == 10 ]] || {
+		echo "expected ten invariant/temporal counterexample configurations, found $violations" >&2
+		return 1
+	}
 }
 
 # Keep the runner itself as the reference source; no JRE, TLC download, or
@@ -54,7 +60,7 @@ ln -s "$(command -v grep)" "$NO_JAVA_PATH/grep"
 PATH="$NO_JAVA_PATH" check_runner_references "$ROOT" || fail "TLC runner references must exist without Java"
 [[ ! -e "$TLC_TOOL_LOG" ]] || fail "reference check must not invoke TLC tooling"
 mkdir "$WORK/bin"
-for tool in dirname mktemp rm awk grep; do ln -s "$(command -v "$tool")" "$WORK/bin/$tool"; done
+for tool in dirname mktemp rm mkdir awk grep cat bash; do ln -s "$(command -v "$tool")" "$WORK/bin/$tool"; done
 # Exercise missing-module and missing-config failures against isolated copies.
 # These probes go through the same runner-derived check and never start Java/TLC.
 PROBE="$WORK/integrity-probe"
@@ -125,6 +131,7 @@ case "$*" in
 		case "$*" in *replay-reject.cfg*) echo 'Invariant NoInvalidObservation is violated'; exit 12 ;; esac
 		echo 'Model checking completed. No error has been found.'; exit 0 ;;
 esac
+echo 'Model checking completed. No error has been found.'
 EOF
 cat > "$WORK/bin/sha256sum" <<'EOF'
 #!/bin/bash
@@ -136,8 +143,17 @@ if PATH="$WORK/bin" TLC_DOWNLOAD_FAIL=1 /bin/bash "$ROOT/scripts/formal-tlc.sh" 
 fi
 ! grep -q '^java ' "$TLC_TOOL_LOG" || fail "failed download must not run Java"
 : > "$TLC_TOOL_LOG"
-PATH="$WORK/bin" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/download" 2>&1
+mkdir "$WORK/formal-diagnostics"
+PATH="$WORK/bin" FWLIVE_TLC_DIAGNOSTICS_DIR="$WORK/formal-diagnostics" \
+	/bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/download" 2>&1 || {
+		cat "$WORK/download" >&2
+		fail "fake TLC successful run must pass"
+	}
 [[ "$(grep -c '^java ' "$TLC_TOOL_LOG")" == 20 ]] || fail "expected twenty model invocations"
+[[ "$(find "$WORK/formal-diagnostics" -maxdepth 1 -name '*.cfg.log' -type f | wc -l)" == 20 ]] \
+	|| fail "default formal run must retain one stdout/stderr log per TLC invocation"
+grep -q '^TLA+ jar SHA-256: 936a2620' "$WORK/formal-diagnostics/formal-tlc-environment.txt" \
+	|| fail "formal diagnostics must retain pinned jar provenance"
 : > "$TLC_TOOL_LOG"
 printf fixture > "$WORK/cached.jar"
 PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" /bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/cached" 2>&1
@@ -218,5 +234,23 @@ fi
 	|| fail "replay runner mode must invoke TLC exactly once per trace case"
 grep -q 'mutated rollback trace rejected by NoInvalidObservation' "$WORK/replay-runner" \
 	|| fail "replay runner mode must attribute the expected invariant violation"
+
+# A failed TLC invocation still leaves stdout in the selected diagnostics directory.
+cat > "$WORK/bin/java" <<'EOF'
+#!/bin/bash
+echo 'synthetic TLC failure output'
+exit 19
+EOF
+chmod +x "$WORK/bin/java"
+mkdir "$WORK/failed-diagnostics"
+if PATH="$WORK/bin" TLA2TOOLS_JAR="$WORK/cached.jar" \
+	FWLIVE_TLC_DIAGNOSTICS_DIR="$WORK/failed-diagnostics" \
+	/bin/bash "$ROOT/scripts/formal-tlc.sh" > "$WORK/failed-runner" 2>&1; then
+	fail "synthetic TLC failure must fail the formal runner"
+fi
+grep -q 'synthetic TLC failure output' "$WORK/failed-diagnostics/WanLogLock-WanLogLock.cfg.log" \
+	|| fail "failed TLC stdout must survive runner cleanup"
+grep -q 'see .*WanLogLock-WanLogLock.cfg.log' "$WORK/failed-runner" \
+	|| fail "failed TLC diagnostic must identify its retained log"
 
 echo 'formal TLC tooling host tests passed (runner integrity, transfer/Java gates, property attribution, replay mode)'
