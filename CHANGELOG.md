@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.54] — 2026-10-17
+
 ### Added
 - Rule column can show the UCI target as a display-only suffix; named rule logging without a verdict word stays unknown Action (#1264).
 - Binary feed and GitHub Releases now ship `luci-i18n-fwlive-{de,ru,zh-cn}` alongside `luci-app-fwlive` on every OpenWrt line (#1243).
@@ -33,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Re-probe row tint with the solid fallback disabled after a palette change, then re-apply it if paint is still broken (#1252).
 - Hold the paused table through queued live-poll frames, hostname paints, scheduler rAF callbacks, and Resume-then-Pause before the RPC returns (#1279).
 - Simple view no longer paints long flows over Proto and Rule (#1248).
-- Match nft ping-helper removal to the installed `fwlive-ping ` / `fwlive-ping6 ` log prefixes, and keep the iptables ping LOG rule ahead of ACCEPT (#1286, #1287).
+- Match nft ping-helper add/removal checks to the exact `fwlive-ping ` / `fwlive-ping6 ` prefixes, so a v6-only chain cannot suppress IPv4 insertion; keep the iptables ping LOG rule ahead of ACCEPT (#1286, #1287, #1315).
 
 ### Changed
 - Clarify that Quick Search matches the displayed rule name and UCI target, and that the Rule suffix is not a clickable Action filter (#1310).
@@ -46,6 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mention `npm run test:view` in the contributor change workflow (#1230).
 - Install the signed feed on OpenWrt 23.05, 24.10, and 25.12 from one copy-paste snippet (#1235).
 - Insert the TCP logging quick test at the top of `input`; an appended `input` rule sees no zone traffic (#1257).
+
+Supported OpenWrt: **23.05**, **24.10** (opkg) · **25.12** (apk)
+
+Feed install: [binary-feed.md](docs/binary-feed.md) · Menu: **Status → Firewall Live View**
+
+Requires firewall rules with **`log`** — [enabling firewall logs](docs/user/enabling-firewall-logs.md)
+
+Manual install: [installation.md](docs/user/installation.md)
 
 ## [v0.1.53] — 2026-10-12
 
@@ -898,3 +908,4 @@ Manual install: [installation.md](docs/user/installation.md)
 [v0.1.51]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.50...v0.1.51
 [v0.1.52]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.51...v0.1.52
 [v0.1.53]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.52...v0.1.53
+[v0.1.54]: https://github.com/lucas-albers-lz4/fwlive/compare/v0.1.53...v0.1.54
