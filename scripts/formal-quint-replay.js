@@ -93,7 +93,7 @@ async function main() {
 		try { await replay(trace, module, 8); }
 		catch (error) { failure = error.message; }
 		assert.ok(failure, `${name} mutation was not detected`);
-		assert.match(failure, { queue: /batch promise identity/, epoch: /epoch:/, disposal: /batch 1 settlement/ }[name]);
+		assert.match(failure, { queue: /batch promise identity/, epoch: /^[+-]\s+epoch: /m, disposal: /batch 1 settlement/ }[name]);
 		mutations.push({ name, failure });
 	}
 	const summary = { traces: traces.length, events, mutations, malformedTracesRejected: malformed.length, result: 'pass' };
