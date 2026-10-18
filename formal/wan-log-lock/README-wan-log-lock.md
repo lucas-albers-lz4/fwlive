@@ -204,53 +204,68 @@ expressions rather than line numbers; source-to-model conformance remains a
 review obligation, with the shell fixtures and QEMU smoke as separate
 implementation evidence.
 
-### Capped observation replay pilot (#1121)
+### Bounded observation conformance (#1121, expanded in #1322)
 
-Run the test-only trace pilot manually with:
+Run `./scripts/formal-rollback-trace-replay.sh`. The command sources the
+unchanged shipped helper and observes file-backed UCI, real flock, reload and
+generation-temp allocation seams. Facts include caller PID/role/intent, command
+results, committed value/generation, and complete helper return/JSON results.
+English logger messages are diagnostic only and cannot choose model actions.
 
-```sh
-./scripts/formal-rollback-trace-replay.sh
-```
+The deterministic matrix has 33 traces: primary enable with unset or explicit
+zero baseline, or primary disable with an enabled baseline, each exercising
+successful restore; opposite/on-off ABA; a no-op; a later failed commit or stage;
+pending-change refusal; unavailable reacquisition; unavailable generation temp;
+restore stage failure; post-stage foreign change; and restore commit failure.
+Another 24 schedules are generated from seed 1322, each with zero to two later
+requests. A requested commit failure may produce an actual no-op if the request
+is already satisfied: the observations, rather than the input label, determine
+the abstract action. `FWLIVE_ROLLBACK_TRACE_SEED` changes the recorded seed.
 
-It sources the unchanged `fwlive-logging.sh` and uses file-backed UCI, reload,
-and `flock` test seams. The raw observations include caller PID/role, toggle
-intent, UCI command/result, committed-value and generation snapshots, reload
-and lock results, and the helper JSON/log outcome. Five bounded executions are
-captured: successful restore, cooperating off/on ABA skip, a cooperating no-op
-skip, a later failed commit skip, and refusal while a foreign staged firewall
-change is pending. The no-op-generation mutation uses a disposable helper copy;
-the value-only-guard mutation changes only the replay config.
+`formal-rollback-trace-project.py` projects provider facts to checkpoints and
+names of actions already defined by `WanLogRollbackOutcomes`. The replay adapter
+dispatches those actions directly; it is not a second transition relation.
+Primary intent and unset/explicit-off/on values are observed, not hardcoded.
+Every later call requires matching begin, return and JSON facts, including calls
+with a commit. The first post-stage validation read is kept separately from
+cleanup reads. An observed pending/generation refusal cannot be followed by a
+restore write, and a fatal lock error cannot be erased by another attempt.
+Final committed value/generation must match the terminal checkpoint. Contradictory
+JSON, missing terminals and unclassified termination fail projection.
 
-`formal-rollback-trace-project.py` projects those observed facts (not a
-prewritten action list) to committed-value/generation/intent checkpoints and
-model action names. `WanLogRollbackReplay.tla` imports
-`WanLogRollbackOutcomes` and dispatches its existing actions directly; it does
-not define a second transition relation. The checkpoints force every observed
-value and generation to match the state reached by that model action. UCI
-staging and commit subcommands inside one cooperating toggle are folded into
-that toggle's abstract action; the rollback generation bump is observed before
-restore staging and projected as `BeginRestore`. Lock reacquisition, reload
-outcome, and terminal rollback logs are separate observed boundaries. The
-adapter allows only terminal TLA stuttering, not unobserved semantic model
-steps between captured boundaries.
+Subcommands inside one later toggle are folded into that toggle's model action.
+A restore's generation advance is checkpointed before its stage operation;
+lock reacquisition, reload and terminal failure outcomes are separate boundaries.
+The replay permits terminal stuttering only, with no unobserved semantic model
+steps between captured checkpoints. Its declared bounds remain eight abstract
+steps, two later attempts, and generation 0..4. Over-bound observations are
+rejected without truncation. These bounds suffice for the selected matrix;
+changing them requires changing the projector and adapter together.
 
-The pinned TLC replay runner requires the five captured traces to complete,
-and the value-only ABA and broken no-op-generation traces to violate
-`NoInvalidObservation`. The command prints the checkout HEAD and Git blob IDs
-for the shipped helper, source model, replay adapter, capture fixture, and
-projector, and preserves them in `replay-environment.txt` with the diagnostics
-so the evidence can be tied to exact inputs. `tests/formal-rollback-trace-pilot.test.sh`
-runs capture/projection integrity checks as part of the host suite, but does
-not run TLC. The always-reporting formal workflow separately runs the full
-model suite and this replay for relevant or unclassified changes.
+All 57 positive traces must complete through TLC. Three negative controls must
+violate `NoInvalidObservation`: a value-only ABA guard, a disposable helper with
+its no-op generation bump removed, and a restore-commit-failure checkpoint
+falsely claiming that restoration landed. Mutation-site drift fails the check.
+The host suite separately runs original and expanded capture/projection tests,
+including rewritten log messages and malformed final/secondary/lock histories;
+these host checks do not themselves run TLC.
 
-This is finite evidence for these fixture executions only: the UCI/provider
-commands are stubs, values are limited to unset and `log=1`, and each trace is
-one primary enable with at most two later attempts. It does not prove shell/model
-equivalence, arbitrary UCI values, external privileged writers, crash recovery,
-or runtime deadlines. Keep the fidelity-map and human conformance review as
-the broader maintenance obligation.
+The runner prints and retains HEAD plus Git blob IDs of the actual working
+source/model/adapter/fixture/projector/generator/mutator/runner files. The seed
+and SHA-256 of generated input cases are retained with the raw facts, configs,
+projection output and TLC logs when `FWLIVE_ROLLBACK_TRACE_DIAGNOSTICS_DIR` is
+set. HEAD alone does not identify dirty inputs; source hashes identify only the
+named inputs, not every installed provider binary or environmental condition.
 
-These checks validate the stated models and their counterexamples. They do not
-prove the models match future code; the shell tests and QEMU smoke cover the
-implementation boundary separately.
+The generation-limit test is separate from this finite replay:
+`tests/fwlive-generation-limit.test.sh` holds the real lock and checks
+2147483645 -> 2147483646 followed by exact-byte-preserving refusal, plus a
+weakened-guard mutation. It runs under dash and BusyBox ash and reports host
+arithmetic width. A 64-bit host run does not emulate a 32-bit OpenWrt shell.
+
+This is conformance evidence for fixture executions only. Providers are stubs;
+UCI values are unset, 0 and 1; later calls happen during one primary reload.
+It does not prove arbitrary UCI parsing/bit masks, non-cooperating writers,
+crash recovery, deadlines, or universal shell/model equivalence. The existing
+host shell tests and installed smoke checks retain their separate evidence
+boundaries; the fidelity map and source review remain maintenance obligations.

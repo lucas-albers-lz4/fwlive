@@ -2337,3 +2337,27 @@ on the initial PR head `b5fe9ad9c373117b894b8aa8953a79a3f7bf7f6a`; the
 `formal-quint` workflow passed on `4bd5a245da1209b49b81877d4859c342c328fb9e`.
 CodeRabbit's full review of that head identified this stale status sentence;
 it is corrected in the following commit.
+
+### 2026-10-18 — #1322 expanded rollback observation conformance
+
+**Scope.** Test-only provider capture, observation projection, generated input
+schedules, and host generation-limit evidence. The shipped helper, ACLs and
+rpcd contracts are unchanged; the failure-aware Outcomes transition relation is
+reused without edits.
+
+**Evidence.** `formal`: 57 positive traces passed TLC and three mutation
+traces violated the required invariant. `host`: capture/projection, corruption
+and generation-limit checks passed. Cases cover enable/disable, unset/explicit-off
+baselines, later commit/no-op/failed stage/commit, and restoration/refusal/failure
+outcomes. Provider observations rather than English logs select model actions.
+Mutation and malformed-observation checks exercise missing generation advances,
+wrong failure-state claims, contradictory JSON, missing later-call terminals,
+and fatal-lock-history erasure. The generation-limit fixture exercises refusal
+at 2147483646 under the real lock and rejects a weakened guard on host dash/ash.
+
+**Boundary.** Finite fixtures and a stubbed UCI/reload boundary, not shell/model
+equivalence or installed-service evidence. Host arithmetic is 64-bit, not a
+32-bit runtime emulation. Source/action mapping, replay counts/bounds and
+reproduction commands are owned by the
+[rollback fidelity map](../../formal/wan-log-lock/README-wan-log-lock.md).
+Final-head review and current-head CI execution are recorded on the PR.
