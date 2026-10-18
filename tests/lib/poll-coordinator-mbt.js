@@ -133,23 +133,29 @@ function driver(module = loadFwliveModule('poll-coordinator')) {
 	return { step, dispose: () => c.dispose() };
 }
 
-async function replay(raw, module) {
+async function replay(raw, module, expectedEvents) {
+	assert.ok(Number.isSafeInteger(expectedEvents) && expectedEvents > 0, 'explicit event bound required');
 	assert.equal(raw['#meta']?.format, 'ITF');
 	assert.equal(raw['#meta']?.status, 'ok');
-	assert.ok(Array.isArray(raw.states) && raw.states.length > 1, 'empty/short trace');
+	assert.ok(Array.isArray(raw.states), 'missing trace states');
+	assert.equal(raw.states.length, expectedEvents + 1, 'trace event bound');
+	assert.deepEqual([...raw.vars].sort(), ['s', 'event', 'argument', 'count', 'mbt::actionTaken', 'mbt::nondetPicks'].sort(), 'ITF variable schema');
 	const d = driver(module);
 	const states = raw.states.map(decode);
 	try {
 		for (let i = 0; i < states.length; i++) {
 			try {
 				assert.equal(states[i].count, i, 'trace count continuity');
+				assert.ok(states[i].argument === 1 || states[i].argument === 5, 'cadence domain');
 				if (i === 0) assert.equal(states[i].event, 'init');
 				else {
-					assert.notEqual(states[i].event, 'init', 'unexpected reinitialization');
+					assert.ok(['request', 'catchUp', 'start', 'hide', 'show', 'resolve', 'reject', 'cadence', 'dispose'].includes(states[i].event), 'unknown model event');
 					assert.equal(typeof states[i]['mbt::actionTaken'], 'string');
 					assert.ok(states[i]['mbt::actionTaken'].length > 0);
 					const picks = states[i]['mbt::nondetPicks'];
+					assert.deepEqual(Object.keys(picks).sort(), ['cadence', 'command']);
 					assert.equal(picks.command.tag, 'Some');
+					assert.equal(picks.cadence.tag, 'Some');
 					assert.equal(picks.command.value, states[i].event);
 					assert.equal(picks.cadence.value, states[i].argument);
 				}

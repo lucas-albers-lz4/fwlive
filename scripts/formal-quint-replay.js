@@ -54,19 +54,31 @@ async function main() {
 	for (let edge = 0; edge < 7; edge++) {
 		const name = `edge-${edge}.itf.json`;
 		generate(name, ['--seed', '1322', '--step', `edge${edge}`, '--max-samples', '1', '--max-steps', '8']);
-		traces.push(path.join(out, name));
+		traces.push({ file: path.join(out, name), bound: 8 });
 	}
 	for (const seed of seeds) {
 		generate(`seed-${seed}-{seq}.itf.json`, ['--seed', seed, '--max-samples', '100', '--n-traces', '100', '--max-steps', '30']);
-		for (let i = 0; i < 100; i++) traces.push(path.join(out, `seed-${seed}-${i}.itf.json`));
+		for (let i = 0; i < 100; i++) traces.push({ file: path.join(out, `seed-${seed}-${i}.itf.json`), bound: 30 });
 	}
 	let events = 0;
-	for (const file of traces) {
-		try { events += await replay(JSON.parse(fs.readFileSync(file, 'utf8'))); }
+	for (const { file, bound } of traces) {
+		try { events += await replay(JSON.parse(fs.readFileSync(file, 'utf8')), undefined, bound); }
 		catch (error) {
 			fs.writeFileSync(path.join(out, 'failure.json'), JSON.stringify({ file, error: error.stack }, null, 2));
 			throw error;
 		}
+	}
+	const valid = JSON.parse(fs.readFileSync(path.join(out, 'edge-0.itf.json'), 'utf8'));
+	const malformed = [
+		['truncated', t => { t.states = t.states.slice(0, 2); }, /trace event bound/],
+		['pick-tag', t => { t.states[1]['mbt::nondetPicks'].cadence.tag = 'None'; }, /Some/],
+		['unknown-event', t => { t.states[1].event = 'invented'; }, /unknown model event/],
+		['variable-schema', t => { t.vars.push('unexpected'); }, /ITF variable schema/]
+	];
+	for (const [name, corrupt, message] of malformed) {
+		const trace = structuredClone(valid);
+		corrupt(trace);
+		await assert.rejects(() => replay(trace, undefined, 8), message, name);
 	}
 	const controls = [
 		['queue', 0, 'if (!pending) pending = createBatch();', 'pending = createBatch();'],
@@ -78,13 +90,13 @@ async function main() {
 		const trace = JSON.parse(fs.readFileSync(path.join(out, `edge-${edge}.itf.json`), 'utf8'));
 		const module = mutatedModule(old, replacement);
 		let failure;
-		try { await replay(trace, module); }
+		try { await replay(trace, module, 8); }
 		catch (error) { failure = error.message; }
 		assert.ok(failure, `${name} mutation was not detected`);
 		assert.match(failure, { queue: /batch promise identity/, epoch: /epoch:/, disposal: /batch 1 settlement/ }[name]);
 		mutations.push({ name, failure });
 	}
-	const summary = { traces: traces.length, events, mutations, result: 'pass' };
+	const summary = { traces: traces.length, events, mutations, malformedTracesRejected: malformed.length, result: 'pass' };
 	fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
 	console.log(`Quint MBT: ${traces.length} traces, ${events} events, ${mutations.length} mutations rejected`);
 }

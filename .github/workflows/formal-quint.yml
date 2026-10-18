@@ -27,18 +27,18 @@ jobs:
           set -euo pipefail
           ./scripts/ci-formal-paths.sh | tee -a "$GITHUB_OUTPUT"
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
-        if: steps.paths.outputs.run_formal != 'false'
+        if: always() && steps.paths.outputs.run_formal != 'false'
         with:
           node-version: '22'
       - name: Install pinned host dependencies
-        if: steps.paths.outputs.run_formal != 'false'
+        if: always() && steps.paths.outputs.run_formal != 'false'
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y openjdk-21-jre-headless
           npm ci --ignore-scripts
       - name: Check polling model and implementation traces
-        if: steps.paths.outputs.run_formal != 'false'
+        if: always() && steps.paths.outputs.run_formal != 'false'
         env:
           FWLIVE_QUINT_DIAGNOSTICS_DIR: ${{ runner.temp }}/formal-quint-evidence
         run: npm run test:formal-quint
