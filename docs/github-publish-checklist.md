@@ -8,7 +8,7 @@ Use before making this repo public upstream.
 - [ ] Review [LICENSE](../LICENSE) (Apache-2.0) and [ATTRIBUTION.md](../ATTRIBUTION.md) (OPNsense BSD 2-Clause)
 - [ ] Run `./scripts/fwlive-test.sh`
 - [ ] `./scripts/validate-baseline.sh`
-- [ ] Run `./scripts/formal-tlc.sh` and `./scripts/formal-rollback-trace-replay.sh` on the release commit before tagging — see [Formal models](developer/build-and-test.md#formal-models-tlatlc)
+- [ ] Complete [formal sign-off before tagging](release.md#formal-sign-off-before-tagging) on the exact release commit (TLC, rollback replay, induction and Quint); record the verified SHA and outcomes.
 - [ ] Optional QEMU: `./scripts/validate-openwrt.sh --version 24.10` — see [`validation-matrix.md`](validation-matrix.md)
 - [ ] Make sure that nothing in the removed `archive/` tree (deleted in #98) is required for new users
 - [ ] `rg -n 'archive/' docs scripts docker-compose.yml --glob '!CHANGELOG.md' --glob '!docs/github-publish-checklist.md'` must return no live path hints (historical `archive/` mentions in CHANGELOG and this checklist are expected)

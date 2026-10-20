@@ -2439,3 +2439,17 @@ this documentation delta. The original as-written goal remains open, with U9
 unchanged and no mirror substitute. Full security surface re-pass deferred:
 no shipped trust boundary changed. Final independent review and CI evidence
 belong to the PR record.
+
+
+### 2026-10-18 — release tag formal sign-off
+
+**Scope.** The release procedure now requires TLC, rollback replay, induction
+and Quint on the exact clean release commit before tagging, with recorded SHA
+and outcomes. The publish checklist links to the release document as owner.
+
+**Evidence and boundary.** Documentation/source inspection confirms the four
+commands match the existing formal runners. No formal checks or release were
+executed for this documentation change. This is a maintainer procedure, not
+new automatic tag enforcement; workflow execution, signing, ACLs and shipped
+files are unchanged. Full security re-pass deferred because no execution or
+trust boundary changed. Independent review and CI belong to the PR record.
