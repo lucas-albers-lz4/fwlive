@@ -200,6 +200,10 @@ run_trace_replay_cases() {
 		esac
 	done < "$cases"
 	[[ "$number" -gt 0 ]] || fail "trace replay case list is empty"
+	if [[ -n "${FWLIVE_TLC_REPLAY_EXPECT:-}" ]]; then
+		[[ "$number" -eq "$FWLIVE_TLC_REPLAY_EXPECT" ]] \
+			|| fail "trace replay case list has $number entries, expected ${FWLIVE_TLC_REPLAY_EXPECT}"
+	fi
 }
 
 if [[ -n "${FWLIVE_TLC_REPLAY_CASES:-}" ]]; then

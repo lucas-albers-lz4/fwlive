@@ -22,6 +22,9 @@ mutation rejections on the Phase A working tree based on `8927e9911d`.
 **Phase B supersedes that historical replay matrix:** the current expanded
 runner checks 57 positive traces and three required mutation rejections; see
 [the Phase B evidence](#2026-10-18--1322-expanded-rollback-observation-conformance).
+The host count test and the replay preflight fail closed when the default
+generator matrix shrinks. `FWLIVE_TLC_REPLAY_EXPECT` is set only on that
+replay path, so the two-case tooling probe is unchanged.
 The failure-artifact step
 retains per-config TLC output, replay observations/projections/configs, and
 runner provenance before temporary state cleanup. GitHub API inspection found

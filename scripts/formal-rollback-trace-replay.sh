@@ -45,6 +45,14 @@ cat "$DIAGNOSTICS_DIR/replay-environment.txt"
 SEED="${FWLIVE_ROLLBACK_TRACE_SEED:-1322}"
 python3 "$ROOT/tests/lib/rollback-trace-cases.py" --seed "$SEED" \
 	> "$DIAGNOSTICS_DIR/input-cases"
+# Production omits --generated. 33 is --generated 0; 24 is the release default.
+deterministic="$(python3 "$ROOT/tests/lib/rollback-trace-cases.py" --seed "$SEED" --generated 0 | wc -l)"
+production_generated=24
+input_lines="$(wc -l < "$DIAGNOSTICS_DIR/input-cases")"
+[[ "$deterministic" -eq 33 ]] \
+	|| { echo "formal replay FAIL: deterministic cases must stay 33, got ${deterministic}" >&2; exit 1; }
+[[ "$input_lines" -eq $((deterministic + production_generated)) ]] \
+	|| { echo "formal replay FAIL: default cases must be $((deterministic + production_generated)), got ${input_lines}" >&2; exit 1; }
 printf 'rollback generated-schedule seed: %s\n' "$SEED" >> "$DIAGNOSTICS_DIR/replay-environment.txt"
 sha256sum "$DIAGNOSTICS_DIR/input-cases" >> "$DIAGNOSTICS_DIR/replay-environment.txt"
 : > "$DIAGNOSTICS_DIR/cases"
@@ -90,5 +98,13 @@ reject|NoInvalidObservation|$DIAGNOSTICS_DIR/aba-value-only.cfg
 reject|NoInvalidObservation|$DIAGNOSTICS_DIR/noop-broken.cfg
 reject|NoInvalidObservation|$DIAGNOSTICS_DIR/commit-wrong-value.cfg
 EOF
+pass_lines="$(grep -c '^pass|' "$DIAGNOSTICS_DIR/cases" || true)"
+reject_lines="$(grep -c '^reject|' "$DIAGNOSTICS_DIR/cases" || true)"
+[[ "$pass_lines" -eq "$input_lines" ]] \
+	|| { echo "formal replay FAIL: pass rows ${pass_lines} != input cases ${input_lines}" >&2; exit 1; }
+[[ "$reject_lines" -eq 3 ]] \
+	|| { echo "formal replay FAIL: reject rows must be 3, got ${reject_lines}" >&2; exit 1; }
 FWLIVE_TLC_DIAGNOSTICS_DIR="$DIAGNOSTICS_DIR/tlc" \
-	FWLIVE_TLC_REPLAY_CASES="$DIAGNOSTICS_DIR/cases" "$ROOT/scripts/formal-tlc.sh"
+	FWLIVE_TLC_REPLAY_CASES="$DIAGNOSTICS_DIR/cases" \
+	FWLIVE_TLC_REPLAY_EXPECT="$((pass_lines + reject_lines))" \
+	"$ROOT/scripts/formal-tlc.sh"
