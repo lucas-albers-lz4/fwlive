@@ -281,6 +281,7 @@ bash tests/formal-ci-paths.test.sh
 bash tests/formal-tlc-tooling.test.sh
 bash tests/formal-rollback-trace-pilot.test.sh
 bash tests/formal-rollback-trace-expanded.test.sh
+bash tests/formal-rollback-trace-count.test.sh
 
 echo "== fwlive feed artifact selection (#495) ==" >&2
 bash tests/feed-publish-find-artifact.test.sh
