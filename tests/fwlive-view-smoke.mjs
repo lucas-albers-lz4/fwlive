@@ -1247,6 +1247,174 @@ async function testHostnamesToggle(page) {
 	console.log('OK: hostnames resolve called and names applied');
 }
 
+async function dumpFilterLinkFocus(page) {
+	return page.evaluate(() => {
+		const links = Array.from(document.querySelectorAll('#fwlive-table tbody a.fwlive-filter-link'))
+			.map((node) => ({
+				field: node._fwliveFilterField || null,
+				rowId: node._fwliveRowId || null,
+				text: (node.textContent || '').slice(0, 40)
+			}));
+		const view = window.fwliveView;
+		const active = document.activeElement;
+		return {
+			viewMode: view && view.viewMode,
+			showHostnames: view && view.showHostnames,
+			inFlight: view && view.resolveInFlight,
+			activeId: active && active.id,
+			activeTag: active && active.tagName,
+			activeField: active && active._fwliveFilterField,
+			activeText: active && (active.textContent || '').slice(0, 40),
+			oldConnected: !!(window.__fwliveOldSrcLink && window.__fwliveOldSrcLink.isConnected),
+			links: links.slice(0, 12)
+		};
+	});
+}
+
+async function holdHostnameResolve(page, names) {
+	await page.evaluate((replyNames) => {
+		const view = window.fwliveView;
+		view.resolveGeneration = (view.resolveGeneration || 0) + 1;
+		view.resolveInFlight = false;
+		view.resolveLoadShed = false;
+		view.resolveShedUntil = 0;
+		view.resolveErrorUntil = 0;
+		if (view.hostnameCache) view.hostnameCache.clear();
+		if (view.hostnameFailed) view.hostnameFailed.clear();
+		view.showHostnames = false;
+		const box = document.getElementById('fwlive-show-hostnames');
+		if (box) box.checked = false;
+		let release;
+		const held = new Promise((resolve) => {
+			release = resolve;
+		});
+		window.__fwliveResolveHeld = held;
+		window.__fwliveResolveRelease = release;
+		const applyMock = window.setFwliveResolveMock(function () {
+			return window.__fwliveResolveHeld.then(function () {
+				return { names: replyNames };
+			});
+		});
+		if (typeof window.__fwlivePrevResolveMock === 'undefined')
+			window.__fwlivePrevResolveMock = applyMock;
+		view.renderRows(true);
+	}, names);
+}
+
+async function testHostnameFilterLinkFocus(page) {
+	await clearFilters(page);
+	const detail = await requireControl(page, '#fwlive-view-detail');
+	await detail.click();
+	await page.waitForFunction(() => {
+		const el = document.getElementById('fwlive-view-detail');
+		return el && el.getAttribute('aria-pressed') === 'true';
+	}, { timeout: 5000 });
+
+	const cb = page.locator('#fwlive-show-hostnames');
+
+	try {
+		await holdHostnameResolve(page, { '192.0.2.1': 'src-host' });
+		if (await cb.isChecked()) await cb.uncheck();
+		const srcReady = await page.waitForFunction(() => {
+			const link = Array.from(document.querySelectorAll('#fwlive-table tbody a.fwlive-filter-link'))
+				.find((node) => node._fwliveFilterField === 'src' && node.textContent.includes('192.0.2.1'));
+			return !!(link && link.isConnected);
+		}, { timeout: 5000 }).then(() => true, () => false);
+		if (!srcReady)
+			throw new Error('source filter link 192.0.2.1 not found: ' +
+				JSON.stringify(await dumpFilterLinkFocus(page)));
+
+		await cb.check();
+		const inFlight = await page.waitForFunction(() => window.fwliveView.resolveInFlight === true, {
+			timeout: 5000
+		}).then(() => true, () => false);
+		if (!inFlight)
+			throw new Error('held PTR must leave resolve in flight: ' +
+				JSON.stringify(await dumpFilterLinkFocus(page)));
+
+		const focused = await page.evaluate(() => {
+			const link = Array.from(document.querySelectorAll('#fwlive-table tbody a.fwlive-filter-link'))
+				.find((node) => node._fwliveFilterField === 'src' && node.textContent.includes('192.0.2.1'));
+			if (!link) return { found: false };
+			link.focus();
+			window.__fwliveOldSrcLink = link;
+			return {
+				found: true,
+				tag: document.activeElement && document.activeElement.tagName,
+				field: document.activeElement && document.activeElement._fwliveFilterField,
+				rowId: document.activeElement && document.activeElement._fwliveRowId
+			};
+		});
+		if (!focused.found || focused.tag !== 'A' || focused.field !== 'src')
+			throw new Error(`source filter link must take focus before the PTR reply: ${JSON.stringify(focused)}`);
+
+		await page.evaluate(() => window.__fwliveResolveRelease());
+		const restored = await page.waitForFunction(() => {
+			const active = document.activeElement;
+			const old = window.__fwliveOldSrcLink;
+			return !!(
+				active &&
+				active.classList.contains('fwlive-filter-link') &&
+				active._fwliveFilterField === 'src' &&
+				active.textContent.includes('src-host') &&
+				old &&
+				!old.isConnected
+			);
+		}, { timeout: 5000 }).then(() => true, () => false);
+		if (!restored)
+			throw new Error('hostname rebuild must restore the surviving source filter link: ' +
+				JSON.stringify(await dumpFilterLinkFocus(page)));
+
+		await holdHostnameResolve(page, { '192.0.2.2': 'dst-host' });
+		if (await cb.isChecked()) await cb.uncheck();
+		await page.waitForFunction(() => {
+			const link = Array.from(document.querySelectorAll('#fwlive-table tbody a.fwlive-filter-link'))
+				.find((node) => node._fwliveFilterField === 'src' && node.textContent.includes('192.0.2.1'));
+			return !!(link && link.isConnected);
+		}, { timeout: 5000 });
+		await cb.check();
+		const secondFlight = await page.waitForFunction(() => window.fwliveView.resolveInFlight === true, {
+			timeout: 5000
+		}).then(() => true, () => false);
+		if (!secondFlight)
+			throw new Error('second held PTR must leave resolve in flight: ' +
+				JSON.stringify(await dumpFilterLinkFocus(page)));
+		await page.evaluate(() => {
+			const link = Array.from(document.querySelectorAll('#fwlive-table tbody a.fwlive-filter-link'))
+				.find((node) => node._fwliveFilterField === 'src' && node.textContent.includes('192.0.2.1'));
+			if (link) link.focus();
+			document.getElementById('fwlive-q').focus();
+		});
+		await page.evaluate(() => window.__fwliveResolveRelease());
+		const keptSearch = await page.waitForFunction(() => {
+			const link = Array.from(document.querySelectorAll('#fwlive-table tbody a.fwlive-filter-link'))
+				.find((node) => node._fwliveFilterField === 'dst' && String(node.textContent).includes('dst-host'));
+			return !!(link && document.activeElement && document.activeElement.id === 'fwlive-q');
+		}, { timeout: 5000 }).then(() => true, () => false);
+		if (!keptSearch)
+			throw new Error('hostname rebuild must not steal Quick search focus: ' +
+				JSON.stringify(await dumpFilterLinkFocus(page)));
+		console.log('OK: hostname row rebuild restores source-link focus and does not steal from Quick search');
+	} finally {
+		await page.evaluate(() => {
+			if (typeof window.__fwlivePrevResolveMock !== 'undefined') {
+				window.setFwliveResolveMock(window.__fwlivePrevResolveMock);
+				delete window.__fwlivePrevResolveMock;
+			}
+			delete window.__fwliveResolveHeld;
+			delete window.__fwliveResolveRelease;
+			delete window.__fwliveOldSrcLink;
+			const view = window.fwliveView;
+			if (view) {
+				view.showHostnames = false;
+				view.resolveInFlight = false;
+			}
+			const cb = document.getElementById('fwlive-show-hostnames');
+			if (cb) cb.checked = false;
+		});
+	}
+}
+
 async function testPollErrorBanner(page) {
 	await page.evaluate(async () => {
 		window.__fwlivePrevPollMock = window.setFwlivePollMock(function() {
@@ -1769,6 +1937,7 @@ async function runSmoke(browser) {
 		await testSegmentToggles(page);
 		await testFixtureRowsAndTextSafety(page);
 		await testHostnamesToggle(page);
+		await testHostnameFilterLinkFocus(page);
 		await testPollErrorBanner(page);
 		await testAdaptiveSummaryAndWarnings(page);
 		await testClearControl(browser);

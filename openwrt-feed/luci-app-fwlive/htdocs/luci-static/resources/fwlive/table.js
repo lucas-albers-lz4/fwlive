@@ -353,6 +353,19 @@ function rowClass(index, row, state, callbacks) {
 		.join(' ');
 }
 
+function stampFilterLinkRowIds(node, rowId) {
+	if (!node) return;
+	if (
+		node.classList &&
+		typeof node.classList.contains === 'function' &&
+		node.classList.contains('fwlive-filter-link')
+	)
+		node._fwliveRowId = String(rowId);
+	const kids = node.childNodes;
+	if (!kids) return;
+	for (let i = 0; i < kids.length; i++) stampFilterLinkRowIds(kids[i], rowId);
+}
+
 function buildRow(row, index, state, columns, callbacks, key) {
 	const cells = [];
 	for (let c = 0; c < columns.length; c++)
@@ -368,6 +381,7 @@ function buildRow(row, index, state, columns, callbacks, key) {
 	);
 	tr._fwliveRowId = String(row.id);
 	tr._fwliveRowKey = key === undefined ? rowRenderKey(row, state, columns) : key;
+	stampFilterLinkRowIds(tr, row.id);
 	return tr;
 }
 

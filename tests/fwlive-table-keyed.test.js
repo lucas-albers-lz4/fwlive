@@ -106,6 +106,11 @@ function findElementByClass(root, className) {
 	table.renderRows(body, state, cb);
 	assert.ok(newChildCount(before, body) <= 1, 'one resolved name rebuilds only that row');
 	assert.strictEqual(body.childNodes[1], untouched, 'rows without a new name are reused');
+	assert.notEqual(body.childNodes[0], before[0], 'resolved row is rebuilt');
+	const rebuiltSrc = findElementByClass(body.childNodes[0], 'fwlive-filter-link');
+	assert.ok(rebuiltSrc, 'rebuilt row still has a source filter link');
+	assert.strictEqual(rebuiltSrc._fwliveFilterField, 'src');
+	assert.strictEqual(rebuiltSrc._fwliveRowId, '1');
 }
 
 {
