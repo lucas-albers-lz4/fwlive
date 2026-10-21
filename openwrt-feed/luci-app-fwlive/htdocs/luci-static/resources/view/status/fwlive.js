@@ -147,7 +147,9 @@ function filterLinkIdentity(node) {
 		if (row && row._fwliveRowId != null) rowId = row._fwliveRowId;
 	}
 	if (rowId == null) return null;
-	return { rowId: String(rowId), field: String(node._fwliveFilterField) };
+	const ident = { rowId: String(rowId), field: String(node._fwliveFilterField) };
+	if (node._fwliveFilterValue != null) ident.value = String(node._fwliveFilterValue);
+	return ident;
 }
 
 function restoreFilterLinkFocus(body, previousFocus) {
@@ -168,6 +170,11 @@ function restoreFilterLinkFocus(body, previousFocus) {
 	for (let i = 0; i < links.length; i++) {
 		const link = links[i];
 		if (String(link._fwliveFilterField) !== ident.field) continue;
+		if (
+			ident.value != null &&
+			(link._fwliveFilterValue == null || String(link._fwliveFilterValue) !== ident.value)
+		)
+			continue;
 		let rowId = link._fwliveRowId;
 		if (rowId == null && link.closest) {
 			const row = link.closest('tr');

@@ -70,6 +70,7 @@ function testDisplayReadTouchesLru() {
 	hostname.lruSet(map, 'b', 'two.example', 2);
 	const link = links.addrFilterLink('src', 'a', true, map, function () {});
 	assert.strictEqual(link._fwliveFilterField, 'src', 'address links must carry the filter field');
+	assert.strictEqual(link._fwliveFilterValue, 'a', 'address links must stamp the click value, not the hostname');
 	assert.strictEqual(
 		link.childNodes[0].textContent,
 		'one.example',

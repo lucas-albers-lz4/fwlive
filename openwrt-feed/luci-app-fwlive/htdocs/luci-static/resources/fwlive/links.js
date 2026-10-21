@@ -46,8 +46,11 @@ function firewallZonesLink(label) {
 	);
 }
 
-function stampFilterField(node, field) {
-	if (node && typeof node === 'object') node._fwliveFilterField = String(field);
+function stampFilterField(node, field, value) {
+	if (node && typeof node === 'object') {
+		node._fwliveFilterField = String(field);
+		if (value != null) node._fwliveFilterValue = String(value);
+	}
 	return node;
 }
 
@@ -73,7 +76,8 @@ function filterLink(field, value, label, onFilterClick) {
 			},
 			[label || value]
 		),
-		field
+		field,
+		value
 	);
 }
 
@@ -104,7 +108,8 @@ function addrFilterLink(field, ip, showHostnames, hostnameCache, onFilterClick) 
 			},
 			[display]
 		),
-		field
+		field,
+		ip
 	);
 }
 
@@ -144,7 +149,8 @@ function ruleAdminLink(hint, label, onFilterClick) {
 			},
 			[text]
 		),
-		'q'
+		'q',
+		hint
 	);
 }
 
@@ -168,7 +174,8 @@ function ifaceLink(value, onFilterClick) {
 			},
 			[value]
 		),
-		'interface'
+		'interface',
+		value
 	);
 }
 

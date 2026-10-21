@@ -110,7 +110,60 @@ function findElementByClass(root, className) {
 	const rebuiltSrc = findElementByClass(body.childNodes[0], 'fwlive-filter-link');
 	assert.ok(rebuiltSrc, 'rebuilt row still has a source filter link');
 	assert.strictEqual(rebuiltSrc._fwliveFilterField, 'src');
+	assert.strictEqual(rebuiltSrc._fwliveFilterValue, '192.0.2.1');
 	assert.strictEqual(rebuiltSrc._fwliveRowId, '1');
+}
+
+{
+	const rows = [
+		{
+			id: '1',
+			timestamp: 1,
+			action: 'drop',
+			src: '192.0.2.1',
+			dst: '198.51.100.1',
+			interface_in: 'wan',
+			interface_out: 'br-lan',
+			proto: 'tcp',
+			message: 'row 1'
+		}
+	];
+	const cache = new Map();
+	const body = luciE.E('tbody', {}, []);
+	const cb = callbacks();
+	const state = baseState(rows, {
+		columns: ['iface_in', 'iface_out', 'src'],
+		viewMode: 'detailed',
+		showHostnames: true,
+		hostnameCache: cache
+	});
+	table.renderRows(body, state, cb);
+	function ifaceByValue(root, value) {
+		const links = [];
+		function walk(node) {
+			if (
+				node &&
+				node.classList &&
+				node.classList.contains('fwlive-filter-link') &&
+				node._fwliveFilterField === 'interface'
+			)
+				links.push(node);
+			const kids = node.childNodes || [];
+			for (let i = 0; i < kids.length; i++) walk(kids[i]);
+		}
+		walk(root);
+		return links.find(function (link) {
+			return link._fwliveFilterValue === value;
+		});
+	}
+	assert.strictEqual(ifaceByValue(body, 'wan')._fwliveFilterField, 'interface');
+	assert.strictEqual(ifaceByValue(body, 'br-lan')._fwliveFilterField, 'interface');
+	cache.set('192.0.2.1', 'one.example');
+	table.renderRows(body, state, cb);
+	const outLink = ifaceByValue(body, 'br-lan');
+	assert.ok(outLink, 'OUT interface link survives a hostname rebuild');
+	assert.strictEqual(outLink._fwliveFilterValue, 'br-lan');
+	assert.notEqual(ifaceByValue(body, 'wan'), outLink, 'IN and OUT keep distinct click values');
 }
 
 {
