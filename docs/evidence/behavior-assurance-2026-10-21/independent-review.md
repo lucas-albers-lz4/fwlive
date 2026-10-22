@@ -166,7 +166,11 @@ Scope limits: this controlled clock does not wait or measure service time; one f
 
 # Final synthesis review
 
-# Final research-tree review
+# Initial final research-tree review before resolutions
+
+This subsection records the first review state, before the corrections below.
+Its manifest and scope findings are historical and are resolved in the
+following sections.
 
 Baseline reviewed: `9fd99d69652c8ff951a54832cd9421eba8bb192e`.
 

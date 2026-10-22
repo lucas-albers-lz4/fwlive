@@ -293,7 +293,18 @@ supply a product guarantee that has not been chosen.
   reproduced the slow-poll experiment independently, and revised its initial
   lower-priority assessment after seeing the surviving fault.
 
-From the repository root, accounting can be reproduced without network access:
+The record's code and test baseline is `9fd99d69652c8ff951a54832cd9421eba8bb192e`.
+The commands below are intended to run against that source tree. After the
+repository advances, create a detached worktree at that pin and copy this
+evidence directory from the archival commit into it before running the probes:
+
+```sh
+git worktree add --detach /tmp/fwlive-behavior-source 9fd99d69652c8ff951a54832cd9421eba8bb192e
+git archive master docs/evidence/behavior-assurance-2026-10-21 | tar -x -C /tmp/fwlive-behavior-source
+cd /tmp/fwlive-behavior-source
+```
+
+From that repository root, accounting can be reproduced without network access:
 
 ```sh
 python3 docs/evidence/behavior-assurance-2026-10-21/analyze.py
