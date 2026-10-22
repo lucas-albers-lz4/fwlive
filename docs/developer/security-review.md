@@ -1053,7 +1053,7 @@ change. This scoped smoke review is not a full security audit.
 
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
-| Assurance evidence — successful slow poll and SDK index failure | 2026-10-21 | Scoped source + local research fault probes | At `9fd99d6965`, a successful-slow-poll recording fault survives the existing RPC suite; an SDK-only filter-status fault survives the host/source checks. Current source passes the focused research probes. These identify missing regression oracles, not current runtime or signing defects. The SDK probe executes a relocated shell body on the host with dummy tools, not Docker or real signatures. Full history, execution/fidelity limits, independent review and next checks are in the [behavior-assurance record](../evidence/behavior-assurance-2026-10-21/README.md). New permanent CI assertions and installed load/signing proof are not claimed. |
+| Assurance evidence — successful slow poll and SDK index failure | 2026-10-21 | Scoped source + regression tests + local research fault probes | At `9fd99d6965`, successful-slow-poll and SDK-only filter-status faults exposed missing regression oracles, not current runtime or signing defects. #1365 and #1366 add permanent host assertions; the SDK test runs the production helper and captured shell payload through a Docker shim with temporary path mapping and dummy tools, not a real container or signatures. Full history, execution/fidelity limits, independent review and next checks are in the [behavior-assurance record](../evidence/behavior-assurance-2026-10-21/README.md). Installed load/signing proof is not claimed. |
 | RPC poll orchestration — successful slow-sample induction | 2026-10-21 | Scoped host production-path test + controlled fault | `tests/fwlive-rpcd-security.test.js` runs the shipped poll/filter/classifier/adaptive code with BusyBox ash and matched jshn. It asserts persisted hot state, the next actual `ubus -t 5 call log read` cap, reply count/shed/truncation, and the expected healthy recovery sequence. A fault that drops successful samples at or above 800 ms fails on missing persisted state. Clock, ubus, and jsonfilter seams are controlled/stubbed; this is not installed logd, elapsed-time, or forwarding evidence. No ACL or production poll change; user sessions still do not receive `ubus log.read`. |
 | Release pipeline — SDK output ownership | 2026-10-18 | Scoped source + host contract + failed release-run reproduction | #1320/#1321: Docker copy-out and later `cp -a` restore SDK ownership on output directories, so reproducibility cleanup could not unlink prior package artifacts. Workflow and copy-out reject symlinked output paths; the workflow and each copy-out assign only directory ownership to the runner. The current helper is overlaid only for reproducibility verification, then the release-tag helper is restored before feed staging. Package bytes/file modes and signing/feed inputs are unchanged. `tests/release-tag-validation.test.py` and `tests/sdk-matrix-copy-out.test.sh` cover the guards, overlay/restoration order, and ownership command. No publication succeeded in either failed run. |
 | Release pipeline — i18n artifact version selection | 2026-10-18 | Scoped source + host tests + failed release-run reproduction | LuCI-generated translation package versions can differ from app `PKG_VERSION`; exactly one artifact per locale is now required while app selection remains version-bound. Current feed helper overlays the release tag only for feed staging and GitHub Release asset selection, then restores on all outcomes. `tests/feed-publish-find-artifact.test.sh`, `tests/feed-publish-release-assets.test.sh`, and `tests/release-tag-validation.test.py` cover selection and workflow ordering. The failed run stopped during feed staging before deployment or release asset upload; no feed or release content was published. |
@@ -1125,7 +1125,7 @@ change. This scoped smoke review is not a full security audit.
 | Signing secrets stay 0600 through validate-feed-keys rewrite prefix (decode/normalize/chmod) | `host + manual` | Host rewrite-prefix tests plus full SDK usign/RSA validate and local signed-feed staging with dummy keys on 2026-10-01. Real keys and live publication were not exercised. |
 | `ipkg-make-index.sh` pinned to a commit SHA and sha256-verified | `manual` | `feed_publish_ipkg_index_script` |
 | Only public keys reach `feed-staging/`; both opkg and apk public keys are required | `host` | `feed_publish_copy_keys`; `tests/feed-publish-copy-keys.test.sh` |
-| Packages index filtering has no `\|\| true` on either host or SDK path; host filtering aborts before signing on grep I/O failure | `host + manual` | `tests/feed-publish-copy-keys.test.sh` retains source-shape assertions for both paths and behaviorally injects nonempty partial-output grep failure into the production host helper, asserting nonzero status and no gzip/usign invocation. The SDK-contained failure path remains `manual` source inspection; the host signing command is a stub, not live-signature proof. |
+| Packages index filtering has no `\|\| true` on either host or SDK path; both paths abort before compression/signing on grep I/O failure | `host + manual` | `tests/feed-publish-copy-keys.test.sh` retains source-shape assertions and injects nonempty partial-output grep failure into the production host helper and SDK staging helper. For the SDK path, a Docker shim captures and executes the production `sh -ec` payload with only fixed `/feed` paths mapped to temporary host paths; both failure cases assert nonzero status and no gzip/usign invocation. The SDK shim does not establish container isolation or real SDK/signature behavior. |
 | Publish staging guard normalizes physical paths before protected-path and allowlist checks | `host` | `feed_publish_assert_staging_clearable`; read-only guard fixtures cover depth-one home, repeated separators, root, repository, symlinks and absent allowed targets (#1090, PR #1111). No protected path is cleared; privileged path replacement races remain outside this proof. |
 | Signing secrets are mode 0600 | `host` | `tests/feed-keys-mode.test.sh` — both storage formats under umask 022 |
 | Fetched build helpers verified before execution | `host` | `tests/fetch-pin-gate.test.sh` — usign commit-pinned; `get-sdk.sh` sha256-verified |
@@ -1228,7 +1228,7 @@ historical; completed seams below do not imply a complete release/hardware sign-
 | Signing rewrite and local signatures | Full SDK usign/RSA validate and local three-line opkg/APK signed staging passed with dummy keys; signature/hash/public-key rechecks passed | Real signing keys, live workflow and deployment were not exercised |
 | Current baseline installed matrix | Fresh 24.10 IPK and 25.12 APK hashes, native pipeline, ACL roles and uninstall proof; 24.10 installed browser | No fresh 23.05 installed guest, armsr, hardware, forwarding load soak, exhaustive theme/browser matrix or APK version-changing upgrade was run |
 | Native jsonfilter fixture semantics | Selected filter/parity/corpus fixtures passed using actual 24.10 guest jsonfilter via bounded SSH | Hybrid dependency evidence; full native pipeline separately passed on 24.10/25.12, not every fixture on every platform |
-| Grep I/O failure in the host and SDK opkg index paths | Host path: production-helper fault injection with partial output aborts before gzip/usign; SDK-contained path remains source-only and unproved | Add a container-boundary failure injection for the SDK path; host command stubs prove call ordering, not real signatures |
+| Grep I/O failure in the host and SDK opkg index paths | Host helper and SDK staging helper: partial-output fault injection returns nonzero before gzip/usign; SDK test executes the captured production shell payload through a host Docker shim | The shim does not prove Docker isolation, real SDK tool behavior, or signatures; use a real disposable SDK/container run if those properties need evidence |
 | Universal log-producer/reply byte bounds | Pinned user-socket line cap inspected; client relies on backend count/producer semantics | No universal kernel/udebug/all-platform producer proof or independent frontend byte cap claimed |
 
 ## Review procedure
@@ -2499,3 +2499,35 @@ logd/jsonfilter behavior, elapsed-time performance, or forwarding impact. The
 fixture does not grant browser sessions `ubus log.read`; production RPC
 permissions are unchanged. Full security-surface re-pass deferred because the
 change affects only test evidence and its ledger entry.
+
+
+### 2026-10-21 — #1366 SDK index-filter failure oracle
+
+**Scope.** `tests/feed-publish-copy-keys.test.sh` now calls the production
+`feed_publish_stage_opkg_sdk` helper. A Docker shim records and checks the
+helper's `docker run` arguments, including `--network none`, its four mounts,
+the selected image variable, and the exact `sh -ec` payload. The fixture
+executes that captured payload on the host after mapping only the fixed
+`/feed` mount paths into temporary directories. SDK pin/readiness, tool export,
+and Docker execution are controlled host seams; production release code and
+workflow are unchanged.
+
+**Evidence.** A dummy index tool and grep shim make the production filter emit
+partial `Packages` output and exit 2. Staging returns 2, and neither gzip nor
+usign is invoked or leaves a compressed index/signature. A valid-index control
+reaches dummy gzip and usign and produces the expected files. The test confirms
+the production helper passes its actual `sh -ec` payload to the Docker shim,
+which captures and executes that payload. A temporary SDK-only mutation that
+appends `|| true` to the filter fails the assertion that staging must reject
+partial output with grep status 2; the unmutated source passes. The test is
+already part of
+`scripts/fwlive-test.sh` through its existing invocation of this test file.
+
+**Boundary.** This is host evidence for helper orchestration, shell payload,
+failure propagation, and call ordering. It does not prove Docker isolation,
+container filesystem semantics, the real SDK's `grep`/`gzip`/`usign` binaries,
+cryptographic signature validity, live secrets, or publication. No new signing
+or publication trust boundary was introduced; the focused review checked the
+existing key ignores, pinned workflow actions, and secret wiring. Full
+security-surface re-pass deferred because the change adds only a host test and
+its evidence record. Independent review and CI belong to the PR record.
