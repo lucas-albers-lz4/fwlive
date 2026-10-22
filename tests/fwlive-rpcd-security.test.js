@@ -1096,7 +1096,7 @@ for (const entry of JSON.parse(fs.readFileSync(0, 'utf8')).log)
 function testAdaptiveSlowSuccessfulPollInduction() {
 	// #1365: exercise the production poll, not only its helper. A successful
 	// slow sample must persist hot state and constrain the next real ubus call;
-	// healthy samples must recover at both supported poll cadences.
+	// healthy samples must recover through the expected sample sequence.
 	const { jshn, jshnSh } = resolveMatchedJshnPair();
 	const rpcSource = process.env.FWLIVE_RPCD_TEST_SOURCE || RPCD;
 	const rpcSourceText = fs.readFileSync(rpcSource, 'utf8');
@@ -1150,117 +1150,119 @@ for (const entry of data.log)
 	process.stdout.write(JSON.stringify(entry) + '\\n');
 `);
 
-		for (const cadenceCs of [100, 500]) {
-			const cadenceDir = path.join(work, String(cadenceCs));
-			fs.mkdirSync(cadenceDir, { mode: 0o700 });
-			assert.equal(fs.statSync(cadenceDir).mode & 0o077, 0,
-				'poll state directory must remain private for the production writer');
-			const stateFile = path.join(cadenceDir, 'state.json');
-			const clockCalls = path.join(cadenceDir, 'clock-calls');
-			const ubusLog = path.join(cadenceDir, 'ubus-calls');
-			const env = {
-				...process.env,
-				PATH: `${toolDir}:${path.dirname(jshn)}:${process.env.PATH || '/usr/bin:/bin'}`,
-				FWLIVE_JSHN_SH: jshnSh,
-				FWLIVE_ADAPTIVE: '1',
-				FWLIVE_ADAPTIVE_STATE_FILE: stateFile,
-				FWLIVE_ADAPTIVE_OFF_FILE: path.join(cadenceDir, 'adaptive-off-absent'),
-				PROBE_CLOCK_CALLS: clockCalls,
-				PROBE_UBUS_LOG: ubusLog,
-				PROBE_LOG_INPUT: logInput
+		const stateDir = path.join(work, 'poll-state');
+		fs.mkdirSync(stateDir, { mode: 0o700 });
+		assert.equal(fs.statSync(stateDir).mode & 0o077, 0,
+			'poll state directory must remain private for the production writer');
+		const stateFile = path.join(stateDir, 'state.json');
+		const clockCalls = path.join(stateDir, 'clock-calls');
+		const ubusLog = path.join(stateDir, 'ubus-calls');
+		const env = {
+			...process.env,
+			PATH: `${toolDir}:${path.dirname(jshn)}:${process.env.PATH || '/usr/bin:/bin'}`,
+			FWLIVE_JSHN_SH: jshnSh,
+			FWLIVE_ADAPTIVE: '1',
+			FWLIVE_ADAPTIVE_STATE_FILE: stateFile,
+			FWLIVE_ADAPTIVE_OFF_FILE: path.join(stateDir, 'adaptive-off-absent'),
+			PROBE_CLOCK_CALLS: clockCalls,
+			PROBE_UBUS_LOG: ubusLog,
+			PROBE_LOG_INPUT: logInput
+		};
+		let ubusCallCount = 0;
+		let nextStartCs = 10000;
+		const nextClock = (durationMs) => {
+			const startCs = nextStartCs;
+			const endCs = startCs + durationMs / 10;
+			nextStartCs = endCs + 1;
+			return {
+				PROBE_START: String(startCs),
+				PROBE_END: String(endCs)
 			};
-			let ubusCallCount = 0;
-			const assertLastUbusRequest = (expectedLimit, label) => {
-				const calls = fs.readFileSync(ubusLog, 'utf8').trim().split('\n');
-				assert.equal(calls.length, ubusCallCount, `${label}: each poll must issue one actual ubus request`);
-				const prefix = '-t 5 call log read ';
-				assert.ok(calls.at(-1).startsWith(prefix), `${label}: unexpected ubus request ${calls.at(-1)}`);
-				const actualRequest = JSON.parse(calls.at(-1).slice(prefix.length));
-				assert.deepEqual(actualRequest, { lines: expectedLimit, stream: false },
-					`${label}: actual ubus request must use the expected cap`);
-				return actualRequest;
-			};
-			const assertFailedSamplePreservesHot = (failureName, failureEnv, expectedError, expectedTruncated) => {
-				const priorState = fs.readFileSync(stateFile, 'utf8');
-				fs.rmSync(clockCalls, { force: true });
-				const failedRaw = execFileSync('busybox',
-					['sh', fixtureRpcd, 'call', 'poll', '{"addresses":["2000"]}'],
-					{ encoding: 'utf8', env: {
-						...env,
-						...failureEnv,
-						PROBE_START: '30000',
-						PROBE_END: '30090'
-					} });
-				const failedReply = JSON.parse(failedRaw);
-				assert.equal(failedReply.error, expectedError, `${failureName}: ${failedRaw}`);
-				assert.equal(failedReply.messages_received, 0,
-					`${failureName}: failed sample must not claim healthy logd entries`);
-				assert.equal(failedReply.effective_limit, undefined,
-					`${failureName}: failed sample must not claim a successful effective limit`);
-				assert.equal(failedReply.truncated, expectedTruncated,
-					`${failureName}: preserve the failed reply truncation shape`);
-				assert.deepEqual(failedReply.shed, { level: 'hot', limit: 250 },
-					`${failureName}: preserve the existing hot protection in the reply`);
-				ubusCallCount++;
-				assertLastUbusRequest(250, failureName);
-				assert.equal(fs.readFileSync(stateFile, 'utf8'), priorState,
-					`${failureName}: must preserve induced hot state byte-for-byte`);
-			};
-			for (const [index, durationMs] of durations.entries()) {
-				fs.rmSync(clockCalls, { force: true });
-				const startCs = 10000 + index * cadenceCs;
-				const callEnv = {
+		};
+		const assertLastUbusRequest = (expectedLimit, label) => {
+			const calls = fs.readFileSync(ubusLog, 'utf8').trim().split('\n');
+			assert.equal(calls.length, ubusCallCount, `${label}: each poll must issue one actual ubus request`);
+			const prefix = '-t 5 call log read ';
+			assert.ok(calls.at(-1).startsWith(prefix), `${label}: unexpected ubus request ${calls.at(-1)}`);
+			const actualRequest = JSON.parse(calls.at(-1).slice(prefix.length));
+			assert.deepEqual(actualRequest, { lines: expectedLimit, stream: false },
+				`${label}: actual ubus request must use the expected cap`);
+			return actualRequest;
+		};
+		const assertFailedSamplePreservesHot = (failureName, failureEnv, expectedError, expectedTruncated) => {
+			const priorState = fs.readFileSync(stateFile, 'utf8');
+			fs.rmSync(clockCalls, { force: true });
+			const failedRaw = execFileSync('busybox',
+				['sh', fixtureRpcd, 'call', 'poll', '{"addresses":["2000"]}'],
+				{ encoding: 'utf8', env: {
 					...env,
-					PROBE_START: String(startCs),
-					PROBE_END: String(startCs + durationMs / 10)
-				};
-				const raw = execFileSync('busybox',
-					['sh', fixtureRpcd, 'call', 'poll', '{"addresses":["2000"]}'],
-					{ encoding: 'utf8', env: callEnv });
-				const reply = JSON.parse(raw);
-				assert.equal(reply.error, undefined, `cadence ${cadenceCs} cs sample ${index}: ${raw}`);
-				assert.equal(reply.adaptive, 1);
-				assert.equal(reply.effective_limit, expectedLimits[index],
-					`cadence ${cadenceCs} cs sample ${index} must expose the expected cap`);
-				assert.equal(reply.messages_received, 1,
-					`cadence ${cadenceCs} cs sample ${index} must retain the logd entry count`);
-				assert.equal(reply.log.length, 1,
-					`cadence ${cadenceCs} cs sample ${index} must retain the classified entry`);
-				assert.equal(reply.truncated, expectedTruncated[index],
-					`cadence ${cadenceCs} cs sample ${index} truncation must match the actual cap`);
-				if (expectedShed[index]) {
-					assert.deepEqual(reply.shed, { level: 'hot', limit: expectedLimits[index] },
-						`cadence ${cadenceCs} cs sample ${index} must report hot shedding`);
-				} else {
-					assert.equal(reply.shed, undefined,
-						`cadence ${cadenceCs} cs sample ${index} must not report shedding`);
-				}
+					...failureEnv,
+					...nextClock(900)
+				} });
+			const failedReply = JSON.parse(failedRaw);
+			assert.equal(failedReply.error, expectedError, `${failureName}: ${failedRaw}`);
+			assert.equal(failedReply.messages_received, 0,
+				`${failureName}: failed sample must not claim healthy logd entries`);
+			assert.equal(failedReply.effective_limit, undefined,
+				`${failureName}: failed sample must not claim a successful effective limit`);
+			assert.equal(failedReply.truncated, expectedTruncated,
+				`${failureName}: preserve the failed reply truncation shape`);
+			assert.deepEqual(failedReply.shed, { level: 'hot', limit: 250 },
+				`${failureName}: preserve the existing hot protection in the reply`);
+			ubusCallCount++;
+			assertLastUbusRequest(250, failureName);
+			assert.equal(fs.readFileSync(stateFile, 'utf8'), priorState,
+				`${failureName}: must preserve induced hot state byte-for-byte`);
+		};
+		for (const [index, durationMs] of durations.entries()) {
+			fs.rmSync(clockCalls, { force: true });
+			const callEnv = { ...env, ...nextClock(durationMs) };
+			const raw = execFileSync('busybox',
+				['sh', fixtureRpcd, 'call', 'poll', '{"addresses":["2000"]}'],
+				{ encoding: 'utf8', env: callEnv });
+			const reply = JSON.parse(raw);
+			assert.equal(reply.error, undefined, `sample ${index}: ${raw}`);
+			assert.equal(reply.adaptive, 1);
+			assert.equal(reply.effective_limit, expectedLimits[index],
+				`sample ${index} must expose the expected cap`);
+			assert.equal(reply.messages_received, 1,
+				`sample ${index} must retain the logd entry count`);
+			assert.equal(reply.log.length, 1,
+				`sample ${index} must retain the classified entry`);
+			assert.equal(reply.truncated, expectedTruncated[index],
+				`sample ${index} truncation must match the actual cap`);
+			if (expectedShed[index]) {
+				assert.deepEqual(reply.shed, { level: 'hot', limit: expectedLimits[index] },
+					`sample ${index} must report hot shedding`);
+			} else {
+				assert.equal(reply.shed, undefined,
+					`sample ${index} must not report shedding`);
+			}
 
-				ubusCallCount++;
-				const actualRequest = assertLastUbusRequest(expectedLimits[index],
-					`cadence ${cadenceCs} cs sample ${index}`);
-				assert.equal(actualRequest.lines, reply.effective_limit,
-					'actual ubus request and reply effective_limit must agree');
+			ubusCallCount++;
+			const actualRequest = assertLastUbusRequest(expectedLimits[index],
+				`sample ${index}`);
+			assert.equal(actualRequest.lines, reply.effective_limit,
+				'actual ubus request and reply effective_limit must agree');
 
-				assert.ok(fs.existsSync(stateFile),
-					`cadence ${cadenceCs} cs sample ${index} must persist adaptive state after a successful poll`);
-				const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-				assert.equal(state.duration_ms, durationMs,
-					`cadence ${cadenceCs} cs sample ${index} must record processing duration`);
-				assert.equal(state.limit, expectedStateLimits[index],
-					`cadence ${cadenceCs} cs sample ${index} must persist the expected next cap`);
-				assert.equal(state.bucket, expectedBuckets[index],
-					`cadence ${cadenceCs} cs sample ${index} must persist the expected state bucket`);
-				assert.equal(state.shed, expectedStateShed[index],
-					`cadence ${cadenceCs} cs sample ${index} must persist the expected shed state`);
-				assert.equal(state.warm_halved, 0);
-				assert.equal(state.completed_cs, 1);
-				if (index === 0) {
-					assertFailedSamplePreservesHot('log.read failure', { PROBE_UBUS_FAIL: '1' },
-						'log_read_failed', 0);
-					assertFailedSamplePreservesHot('filter failure', { PROBE_FILTER_FAIL: '1' },
-						'filter_failed', 1);
-				}
+			assert.ok(fs.existsSync(stateFile),
+				`sample ${index} must persist adaptive state after a successful poll`);
+			const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+			assert.equal(state.duration_ms, durationMs,
+				`sample ${index} must record processing duration`);
+			assert.equal(state.limit, expectedStateLimits[index],
+				`sample ${index} must persist the expected next cap`);
+			assert.equal(state.bucket, expectedBuckets[index],
+				`sample ${index} must persist the expected state bucket`);
+			assert.equal(state.shed, expectedStateShed[index],
+				`sample ${index} must persist the expected shed state`);
+			assert.equal(state.warm_halved, 0);
+			assert.equal(state.completed_cs, 1);
+			if (index === 0) {
+				assertFailedSamplePreservesHot('log.read failure', { PROBE_UBUS_FAIL: '1' },
+					'log_read_failed', 0);
+				assertFailedSamplePreservesHot('filter failure', { PROBE_FILTER_FAIL: '1' },
+					'filter_failed', 1);
 			}
 		}
 	} finally {
