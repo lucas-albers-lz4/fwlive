@@ -1,0 +1,37 @@
+{
+  "clearStalenessProbe": {
+    "thresholdMs": 15000,
+    "repeatedNonempty": {
+      "rawCount": 2,
+      "normalizedBufferCount": 1,
+      "lastBatchNewIdCount": 0,
+      "lastSuccessfulBatchEmpty": false,
+      "lastNonEmptyBatchAt": 115001,
+      "status": "1 matching · 1/100 stored"
+    },
+    "genuinelyEmpty": {
+      "rawCount": 0,
+      "normalizedBufferCount": 1,
+      "lastBatchNewIdCount": 0,
+      "lastSuccessfulBatchEmpty": true,
+      "lastNonEmptyBatchAt": 100000,
+      "status": "1 matching · 1/100 stored — Firewall log has no current entries; showing rows last received 15s ago."
+    },
+    "clearedOnlyWindow": {
+      "rawCount": 1,
+      "normalizedBufferCount": 1,
+      "lastBatchNewIdCount": 0,
+      "lastSuccessfulBatchEmpty": true,
+      "lastNonEmptyBatchAt": 100000,
+      "status": "1 matching · 1/100 stored — Firewall log has no current entries; showing rows last received 15s ago."
+    },
+    "interpretation": "normal repeated ring suffix passes; synthetic old-only window reproduces but is not established as logread-reachable"
+  },
+  "sourceCopyFault": {
+    "fault": "removed only post-await resolveGeneration equality guard in disposable source copy",
+    "target": "existing testPagehideDuringHostnameResolution oracle from tests/fwlive-view-fetch-budget.test.js",
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": "AssertionError [ERR_ASSERTION]: late hostname result must not enter the cache\n\n1 !== 0\n\n    at testPagehideDuringHostnameResolution (<TEMP_PROBE_DIR>/fetch-budget-fault-probe.js:902:9)\n    at async <TEMP_PROBE_DIR>/fetch-budget-fault-probe.js:1081:16"
+  }
+}

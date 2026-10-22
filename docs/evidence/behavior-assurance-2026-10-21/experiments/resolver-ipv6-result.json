@@ -1,0 +1,10 @@
+{
+  "baseline_command": "python3 tests/fwlive-jshn-compat.test.py",
+  "baseline_exit": 0,
+  "baseline_log": "jshn compat: 23.05 poll, resolve, invalid input, boundaries, strict mode, selftest PASS\njshn compat: 24.10 poll, resolve, invalid input, boundaries, strict mode, selftest PASS\njshn compat: 25.12 poll, resolve, invalid input, boundaries, strict mode, selftest PASS",
+  "fault": "Skip IPv6 addresses only in the production resolve lookup loop.",
+  "mutation_command": "FWLIVE_RPCD_TEST_SOURCE=<temporary mutant copy> python3 tests/fwlive-jshn-compat.test.py",
+  "mutation_exit": 1,
+  "mutation_log": "Traceback (most recent call last):\n  File \"<REPO>/tests/fwlive-jshn-compat.test.py\", line 205, in <module>\n    main()\n    ~~~~^^\n  File \"<REPO>/tests/fwlive-jshn-compat.test.py\", line 92, in main\n    assert correlated == {'names': {\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<3 lines>...\n    }}, (release, correlated)\n    ^^\nAssertionError: ('23.05', {'names': {'192.0.2.1': 'v4.example'}})",
+  "diagnostic_note": "Temporary paths normalized; assertion and actual correlation retained."
+}
