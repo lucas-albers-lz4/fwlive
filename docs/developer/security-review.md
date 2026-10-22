@@ -1054,6 +1054,7 @@ change. This scoped smoke review is not a full security audit.
 | Surface | Last reviewed | Depth | Notes |
 |---------|---------------|-------|-------|
 | Assurance evidence — successful slow poll and SDK index failure | 2026-10-21 | Scoped source + local research fault probes | At `9fd99d6965`, a successful-slow-poll recording fault survives the existing RPC suite; an SDK-only filter-status fault survives the host/source checks. Current source passes the focused research probes. These identify missing regression oracles, not current runtime or signing defects. The SDK probe executes a relocated shell body on the host with dummy tools, not Docker or real signatures. Full history, execution/fidelity limits, independent review and next checks are in the [behavior-assurance record](../evidence/behavior-assurance-2026-10-21/README.md). New permanent CI assertions and installed load/signing proof are not claimed. |
+| RPC poll orchestration — successful slow-sample induction | 2026-10-21 | Scoped host production-path test + controlled fault | `tests/fwlive-rpcd-security.test.js` runs the shipped poll/filter/classifier/adaptive code with BusyBox ash and matched jshn. It asserts persisted hot state, the next actual `ubus -t 5 call log read` cap, reply count/shed/truncation, and the expected healthy recovery sequence. A fault that drops successful samples at or above 800 ms fails on missing persisted state. Clock, ubus, and jsonfilter seams are controlled/stubbed; this is not installed logd, elapsed-time, or forwarding evidence. No ACL or production poll change; user sessions still do not receive `ubus log.read`. |
 | Release pipeline — SDK output ownership | 2026-10-18 | Scoped source + host contract + failed release-run reproduction | #1320/#1321: Docker copy-out and later `cp -a` restore SDK ownership on output directories, so reproducibility cleanup could not unlink prior package artifacts. Workflow and copy-out reject symlinked output paths; the workflow and each copy-out assign only directory ownership to the runner. The current helper is overlaid only for reproducibility verification, then the release-tag helper is restored before feed staging. Package bytes/file modes and signing/feed inputs are unchanged. `tests/release-tag-validation.test.py` and `tests/sdk-matrix-copy-out.test.sh` cover the guards, overlay/restoration order, and ownership command. No publication succeeded in either failed run. |
 | Release pipeline — i18n artifact version selection | 2026-10-18 | Scoped source + host tests + failed release-run reproduction | LuCI-generated translation package versions can differ from app `PKG_VERSION`; exactly one artifact per locale is now required while app selection remains version-bound. Current feed helper overlays the release tag only for feed staging and GitHub Release asset selection, then restores on all outcomes. `tests/feed-publish-find-artifact.test.sh`, `tests/feed-publish-release-assets.test.sh`, and `tests/release-tag-validation.test.py` cover selection and workflow ordering. The failed run stopped during feed staging before deployment or release asset upload; no feed or release content was published. |
 | Release pipeline — upstream-cut first-cut locale drop | 2026-10-17 | Scoped source + host tests | #1313 drops every `po/<lang>/` directory except `po/templates` and counts the actual locale files removed (plus CSS). Verify fails closed if any other `po/*` entry remains. `tests/fwlive-upstream-cut.test.sh` covers a scratch-repo extra `po/fr` fixture; no installed-router or release run. Binary-feed locale publishing is unchanged. |
@@ -2472,3 +2473,29 @@ executed for this documentation change. This is a maintainer procedure, not
 new automatic tag enforcement; workflow execution, signing, ACLs and shipped
 files are unchanged. Full security re-pass deferred because no execution or
 trust boundary changed. Independent review and CI belong to the PR record.
+
+
+### 2026-10-21 — #1365 successful slow-poll induction oracle
+
+**Scope.** `tests/fwlive-rpcd-security.test.js` exercises the shipped rpcd poll,
+filter, classifier, and adaptive helper through BusyBox ash. The fixture uses
+matched jshn, a controlled clock, and stubs only the ubus and jsonfilter service
+seams. No production poll, ACL, or session permission changed.
+
+**Evidence.** The test asserts the persisted hot decision after a successful
+900 ms sample, the exact line cap sent on the next actual
+`ubus -t 5 call log read`, matching `effective_limit`, `messages_received`,
+`shed` and `truncated` reply fields, and the expected recovery sequence. Five
+healthy 20 ms samples recover from the 250-line cap through 500, 1,000, and
+2,000. Adaptive decisions follow a sample sequence; the test makes no separate
+inter-poll cadence claim. The
+`FWLIVE_RPCD_TEST_SOURCE` test seam permits a temporary source-copy fault;
+dropping successful samples at or above 800 ms fails because the successful
+slow poll does not persist adaptive state. CI and the PR record the executed
+commands and exact head.
+
+**Boundary.** This is deterministic host orchestration evidence, not installed
+logd/jsonfilter behavior, elapsed-time performance, or forwarding impact. The
+fixture does not grant browser sessions `ubus log.read`; production RPC
+permissions are unchanged. Full security-surface re-pass deferred because the
+change affects only test evidence and its ledger entry.
