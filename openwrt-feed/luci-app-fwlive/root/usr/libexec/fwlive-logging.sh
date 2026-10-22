@@ -945,11 +945,10 @@ restore_wan_zone_log() {
 		logger -t fwlive "WAN log rollback skipped: commit generation unavailable" 2>/dev/null || true
 		return 1
 	}
-	# Capture the committed value before staging our rollback. If another
-	# writer stages a firewall delta after this point, the post-stage guard
-	# may revert our option only when its staged log delta is still uniquely
-	# identifiable; otherwise it preserves the ambiguous same-option change.
-	committed=$(wan_zone_log_value "$zone")
+	# If another writer stages a firewall delta after this point, the
+	# post-stage guard may revert our option only when its staged log
+	# delta is still uniquely identifiable; otherwise it preserves the
+	# ambiguous same-option change.
 	# Fail closed if set/delete never staged. Swallowed rc plus an empty
 	# changes list would make `uci commit` succeed as a no-op.
 	if [ -z "$previous" ]; then

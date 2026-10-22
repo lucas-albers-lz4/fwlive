@@ -432,6 +432,9 @@ case "$joined" in
 	*'-q set firewall.@zone[1].log=3'*'commit firewall'*) ;;
 	*) die "restore value expected set+commit, got: $joined" ;;
 esac
+committed='caller-value'
+restore_wan_zone_log '@zone[0]' ''
+[ "$committed" = 'caller-value' ] || die "restore must not clobber caller committed (got '$committed')"
 unset -f uci
 ok "restore_wan_zone_log stubs"
 

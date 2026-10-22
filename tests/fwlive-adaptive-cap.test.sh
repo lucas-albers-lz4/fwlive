@@ -681,11 +681,11 @@ hot-p0-cool-prior-above 900 0 500 cool 0 1000 2000 250
 hot-p0-cool-prior-below 900 0 500 cool 0 1000 100 100
 hot-p0-warm-fresh-above 900 0 500 warm 0 0 2000 250
 hot-p0-warm-fresh-below 900 0 500 warm 0 0 100 100
-hot-p0-warm-prior-above 900 0 500 warm 0 1000 2000 500
+hot-p0-warm-prior-above 900 0 500 warm 0 1000 2000 250
 hot-p0-warm-prior-below 900 0 500 warm 0 1000 100 100
 hot-p0-hot-fresh-above 900 0 500 hot 0 0 2000 250
 hot-p0-hot-fresh-below 900 0 500 hot 0 0 100 100
-hot-p0-hot-prior-above 900 0 500 hot 0 1000 2000 500
+hot-p0-hot-prior-above 900 0 500 hot 0 1000 2000 250
 hot-p0-hot-prior-below 900 0 500 hot 0 1000 100 100
 hot-p1-cold-fresh-above 900 1 500 cold 0 0 2000 250
 hot-p1-cold-fresh-below 900 1 500 cold 0 0 100 100
@@ -697,11 +697,11 @@ hot-p1-cool-prior-above 900 1 500 cool 0 1000 2000 250
 hot-p1-cool-prior-below 900 1 500 cool 0 1000 100 100
 hot-p1-warm-fresh-above 900 1 500 warm 0 0 2000 250
 hot-p1-warm-fresh-below 900 1 500 warm 0 0 100 100
-hot-p1-warm-prior-above 900 1 500 warm 0 1000 2000 500
+hot-p1-warm-prior-above 900 1 500 warm 0 1000 2000 250
 hot-p1-warm-prior-below 900 1 500 warm 0 1000 100 100
 hot-p1-hot-fresh-above 900 1 500 hot 0 0 2000 250
 hot-p1-hot-fresh-below 900 1 500 hot 0 0 100 100
-hot-p1-hot-prior-above 900 1 500 hot 0 1000 2000 500
+hot-p1-hot-prior-above 900 1 500 hot 0 1000 2000 250
 hot-p1-hot-prior-below 900 1 500 hot 0 1000 100 100
 edge-prev0-cold-full 40 0 0 cold 0 0 2000 2000
 edge-prev0-cold-short 40 0 0 cold 0 0 100 100
@@ -711,8 +711,9 @@ edge-warm-healthy-probe 400 0 1000 warm 1 1000 2000 2000
 edge-warm-healthy-probe-plan 400 1 1000 warm 1 1000 2000 2000
 edge-cool-retain 150 0 500 cool 0 1000 2000 500
 edge-req-eq-prev 40 0 500 cold 0 0 500 1000
+hot-hold-warm-then-hot 1500 0 1000 warm 1 1 1000 250
 EOF
-	[ "$_char_n" = 136 ] || die "characterization rows $_char_n want 136"
+	[ "$_char_n" = 137 ] || die "characterization rows $_char_n want 137"
 )
 ok "compute_limit characterization"
 

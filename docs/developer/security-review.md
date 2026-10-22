@@ -1,5 +1,18 @@
 # Security review state
 
+**2026-10-22 #1370/#1371/#1372/#1373 upstream review wave.** Adaptive `compute_limit`
+caps a held previous limit at `FWLIVE_ADAPTIVE_HOT_FLOOR` when the current
+bucket is hot, so a warm sample followed by sustained hot samples sheds instead
+of keeping the warm cap. `rules` `truncated` is set only when rule labels hit
+the map caps; display-only UCI target overflow omits remaining suffixes and
+does not set the flag. `restore_wan_zone_log` no longer forks `uci` to capture
+an unread `committed` value (which also clobbered the caller's global). Host
+proof: `tests/fwlive-adaptive-cap.test.sh` characterization including
+`hot-hold-warm-then-hot`; `tests/fwlive-rules-map.test.js`
+`testRulesReplyByteBoundWithTargets`; `tests/fwlive-logging.test.sh` restore
+stubs. No ACL, DOM-sink, or command-string change. Scoped helper/reply-flag
+delta; full audit deferred.
+
 **2026-10-21 #1353 filter-link focus restore.** A hostname cache hit rebuilds
 the keyed row that owns a focused `a.fwlive-filter-link`. The view now records
 the focused link's field and row id before paint and, after the rebuild, focuses
@@ -138,8 +151,9 @@ ordering guarantee is claimed for arbitrary alternate log producers.
 65,536-byte budget across rule labels, target suffixes, and a conservative
 serialization envelope (including the longest backend/error forms). Targets
 are appended only after UCI and nft labels, from the captured UCI records;
-there is still one `uci show` per call. Target overflow sets `truncated`
-without changing backend/error status. `LC_ALL=C` makes shell lengths count
+there is still one `uci show` per call. Target overflow omits remaining
+suffixes and does not set `truncated` (that flag is for rule-label caps).
+`LC_ALL=C` makes shell lengths count
 bytes even when nft prefixes contain UTF-8. Host evidence:
 `testRulesReplyByteBoundWithTargets` in `tests/fwlive-rules-map.test.js`
 executes the real plugin under dash and BusyBox ash, covering oversized
@@ -1155,7 +1169,7 @@ change. This scoped smoke review is not a full security audit.
 | Untrusted rules-map prefix/name strings use `printf '%s\\n'`; `-n`/`-E` unlabeled prefixes stay hints | `host` | nft prepared slug in `nft_dump_fields`; `tests/fwlive-rules-map.test.js` `testDashFlagUnlabeledPrefix`; rpcd selftest |
 | `resolve` wall-clock budget uses `/proc/uptime` centiseconds; a backward `date` step cannot stretch the loop | `host` | `fwlive_adaptive_clock_cs`; `tests/fwlive-rpcd-security.test.js` `testResolveBudgetIgnoresDateJump` |
 | Adaptive state at `/var/run/fwlive-state.json` — owner/dir check once per record before the lock, atomic rename, non-blocking `flock -n` on sibling `.lock` (fail-open only when `flock` is missing or the lock is busy; fail-closed when the directory check fails or the lock cannot be created, opened, or is not a regular writable file; release by closing fd; busy ⇒ last-writer-wins; lock created 0600), never `source`/`eval` | `host` | `tests/fwlive-adaptive-cap.test.sh`; lock only around short update, never across ubus/filter |
-| Hot shed surfaces `shed` + `truncated`; `resolve` returns `disabled:load` when previous poll was hot; failed `log.read` or filter/classifier output does not clear prior bucket; a healthy sample probes upward and a still-hot sample holds the previous limit, with no poll-spacing window | `host` | `tests/fwlive-rpcd-security.test.js` `testAdaptiveHotSurvivesFailedPoll` / `testAdaptiveHotSurvivesFilterFailures`; `tests/fwlive-adaptive-cap.test.sh`; `tests/fwlive-adaptive-trajectory.test.sh` |
+| Hot shed surfaces `shed` + `truncated`; `resolve` returns `disabled:load` when previous poll was hot; failed `log.read` or filter/classifier output does not clear prior bucket; a healthy sample probes upward and a still-hot sample holds the previous limit capped at the hot floor, with no poll-spacing window | `host` | `tests/fwlive-rpcd-security.test.js` `testAdaptiveHotSurvivesFailedPoll` / `testAdaptiveHotSurvivesFilterFailures`; `tests/fwlive-adaptive-cap.test.sh`; `tests/fwlive-adaptive-trajectory.test.sh` |
 | Forwarding-SLO lab topology owns only `fwlive-slo-*` network namespaces, bridges, TAPs, and veths; teardown validates the prefix before removing them; setup rollback is prefix-scoped; no shipped surface or runtime ACL is changed | `host + manual` | `scripts/qemu-forwarding-slo-net.sh` / `scripts/lib/qemu-forwarding-slo-net.sh`; static shell checks cover names/MAC/model and manual lab verification covers setup/rollback/teardown in #344 |
 | Forwarding-SLO guest helper resolves a unique interface by caller-supplied MAC, snapshots/restores test-link and IPv4-forwarding state, uses fixed temporary forwarding/logging rule comments, validates all four rules, validates rule handles as digits during cleanup, and changes no shipped package or ACL | `host + manual` | `scripts/qemu-forwarding-slo-guest.sh`; shell syntax/ShellCheck plus manual armsr/x86 verification in #344 |
 | Forwarding-SLO traffic probe requires root-owned named namespaces, validates positive bounded duration/count/stream inputs and a safe label, treats `--bitrate` as aggregate across streams, uses an absolute `iperf3` path, verifies protected temporary-parent ownership, and emits raw iperf/ping artifacts for valid and invalid samples without changing runtime state | `host + manual` | `scripts/qemu-forwarding-slo-traffic.sh`; ShellCheck and stubbed traffic tests cover aggregate stream-rate calculation and retained raw output; routed qualification remains manual |

@@ -319,7 +319,8 @@ map_uci_rule_targets() {
 	done <<EOF
 $_uci_names
 EOF
-	[ -z "$_targets_overflow" ] || _map_overflow=1
+	# Target overflow omits remaining suffixes only. Do not set
+	# _map_overflow: truncated means rule labels were capped.
 }
 
 # One awk pass; output encoding depends on mode (default: raw). Raw mode emits
