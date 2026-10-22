@@ -316,15 +316,18 @@ fwlive_adaptive_compute_limit() {
 	_limit=$_max
 	_probe=0
 
-	# Hot/warm: hold the previous limit while samples stay hot, and probe
-	# upward on the first healthy sample. Record may retain that step above
-	# the lines just served (same as a full-sized cold probe).
+	# Hot/warm: hold the previous limit while samples stay hot or warm, and
+	# probe upward on the first healthy sample. A hot sample never holds a
+	# limit above the hot floor. Record may retain a healthy step above the
+	# lines just served (same as a full-sized cold probe).
 	case "$_prev_b" in
 		hot|warm)
 			if [ "$_prev_c" -gt 0 ]; then
 				if [ "$_ms" -gt "$FWLIVE_ADAPTIVE_HOT_EXIT_MS" ] || \
 					[ "$_bucket" = hot ]; then
 					_limit=$_prev_l
+					[ "$_bucket" = hot ] && [ "$_limit" -gt "$FWLIVE_ADAPTIVE_HOT_FLOOR" ] && \
+						_limit=$FWLIVE_ADAPTIVE_HOT_FLOOR
 					fwlive_adaptive_clamp "$_req" "$_max"
 					printf '%s\n' "$_limit"
 					return 0

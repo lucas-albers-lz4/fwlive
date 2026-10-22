@@ -1503,6 +1503,7 @@ function testRulesMapByteBound() {
 function testRulesReplyByteBoundWithTargets() {
 	// Check the complete wire reply, including the envelope and both maps.
 	// Large values, long keys, and many ordinary pairs can each overflow it.
+	// truncated is for rule-label caps only; target overflow stays silent (#1372).
 	const maxBytes = 65536;
 	const longName = 'a'.repeat(15000);
 	const laterName = 'b'.repeat(9000);
@@ -1517,7 +1518,7 @@ function testRulesReplyByteBoundWithTargets() {
 		{ name: 'oversized target', entries: [['rule', 'T'.repeat(70000)]],
 			kept: [], omitted: ['rule'] },
 		{ name: 'duplicate targets', entries: [['same', 'DROP'], ['same', 'T'.repeat(70000)]],
-			truncated: false, kept: ['same'], omitted: [] },
+			kept: ['same'], omitted: [] },
 		{ name: 'slug target overflow', entries: [['Mixed_Rule', 'T'.repeat(40000)]],
 			kept: ['Mixed_Rule'], omitted: ['mixed-rule'] },
 		{ name: 'long keys', entries: [[longName, 'DROP'], [laterName, 'REJECT']],
@@ -1527,9 +1528,10 @@ function testRulesReplyByteBoundWithTargets() {
 		{ name: 'nft label priority', entries: [['rule', 'T'.repeat(8000)]],
 			prefix: 'p'.repeat(30000), kept: [], omitted: ['rule'] },
 		{ name: 'envelope reserve', entries: [['rule', 'DROP']],
-			prefix: 'p'.repeat(32740), prefixOmitted: true, kept: ['rule'], omitted: [] },
+			prefix: 'p'.repeat(32740), prefixOmitted: true, truncated: true,
+			kept: ['rule'], omitted: [] },
 		{ name: 'exact payload fit', entries: [['edge', 'T'.repeat(edgeLength)]],
-			nftFails: true, truncated: false, kept: ['edge'], omitted: [] },
+			nftFails: true, kept: ['edge'], omitted: [] },
 		{ name: 'one byte over', entries: [['edge', 'T'.repeat(edgeLength + 1)]],
 			nftFails: true, kept: [], omitted: ['edge'] },
 		{ name: 'enrichment error', entries: [['rule', 'T'.repeat(70000)]],
@@ -1562,7 +1564,7 @@ EOF
 				const res = JSON.parse(raw);
 				const context = `[${shell}] ${fixture.name}`;
 				assert.ok(Buffer.byteLength(raw) <= maxBytes, `${context}: complete reply exceeds cap`);
-				assert.equal(res.truncated, fixture.truncated ?? true, `${context}: truncation signal`);
+				assert.equal(res.truncated, fixture.truncated ?? false, `${context}: truncation signal`);
 				assert.equal(res.error, fixture.tempFails ? 'mktemp_failed' :
 					fixture.nftFails ? 'no_backend' : undefined, `${context}: independent backend status`);
 				for (const [name] of fixture.entries) {

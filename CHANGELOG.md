@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Cap the adaptive poll limit at the hot floor when a warm sample is followed by sustained hot samples (#1371).
+- Do not report rules-map truncation when only display-only target suffixes overflow (#1372).
 - Keep keyboard focus on a surviving row filter link when a hostname reply rebuilds that row (#1353).
 
 ## [v0.1.55] — 2026-10-18
