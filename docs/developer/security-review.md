@@ -2515,11 +2515,12 @@ workflow are unchanged.
 **Evidence.** A dummy index tool and grep shim make the production filter emit
 partial `Packages` output and exit 2. Staging returns 2, and neither gzip nor
 usign is invoked or leaves a compressed index/signature. A valid-index control
-reaches dummy gzip and usign and produces the expected files. The test also
-confirms the production helper returns the captured payload across the shimmed
-Docker boundary. A temporary SDK-only mutation that appends `|| true` to the
-filter fails the assertion that staging must reject partial output with grep
-status 2; the unmutated source passes. The test is already part of
+reaches dummy gzip and usign and produces the expected files. The test confirms
+the production helper passes its actual `sh -ec` payload to the Docker shim,
+which captures and executes that payload. A temporary SDK-only mutation that
+appends `|| true` to the filter fails the assertion that staging must reject
+partial output with grep status 2; the unmutated source passes. The test is
+already part of
 `scripts/fwlive-test.sh` through its existing invocation of this test file.
 
 **Boundary.** This is host evidence for helper orchestration, shell payload,
