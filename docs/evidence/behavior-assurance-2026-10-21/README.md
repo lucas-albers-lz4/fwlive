@@ -300,7 +300,7 @@ evidence directory from the archival commit into it before running the probes:
 
 ```sh
 git worktree add --detach /tmp/fwlive-behavior-source 9fd99d69652c8ff951a54832cd9421eba8bb192e
-git archive master docs/evidence/behavior-assurance-2026-10-21 | tar -x -C /tmp/fwlive-behavior-source
+git archive c9ae965a30fd5c9ebf2491e715371b4efe738552 docs/evidence/behavior-assurance-2026-10-21 | tar -x -C /tmp/fwlive-behavior-source
 cd /tmp/fwlive-behavior-source
 ```
 
