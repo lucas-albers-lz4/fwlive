@@ -132,6 +132,62 @@ function restoreExpansionFocus(body, rowId, previousFocus) {
 	return false;
 }
 
+function filterLinkIdentity(node) {
+	if (
+		!node ||
+		!node.classList ||
+		!node.classList.contains('fwlive-filter-link') ||
+		node._fwliveFilterField == null
+	)
+		return null;
+
+	let rowId = node._fwliveRowId;
+	if (rowId == null && node.closest) {
+		const row = node.closest('tr');
+		if (row && row._fwliveRowId != null) rowId = row._fwliveRowId;
+	}
+	if (rowId == null) return null;
+	const ident = { rowId: String(rowId), field: String(node._fwliveFilterField) };
+	if (node._fwliveFilterValue != null) ident.value = String(node._fwliveFilterValue);
+	return ident;
+}
+
+function restoreFilterLinkFocus(body, previousFocus) {
+	const ident = filterLinkIdentity(previousFocus);
+	if (!body || typeof body.querySelectorAll !== 'function' || !ident) return false;
+
+	const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+	if (
+		activeElement &&
+		activeElement !== previousFocus &&
+		activeElement.isConnected &&
+		activeElement !== document.body &&
+		activeElement !== document.documentElement
+	)
+		return false;
+
+	const links = body.querySelectorAll('a.fwlive-filter-link');
+	for (let i = 0; i < links.length; i++) {
+		const link = links[i];
+		if (String(link._fwliveFilterField) !== ident.field) continue;
+		if (
+			ident.value != null &&
+			(link._fwliveFilterValue == null || String(link._fwliveFilterValue) !== ident.value)
+		)
+			continue;
+		let rowId = link._fwliveRowId;
+		if (rowId == null && link.closest) {
+			const row = link.closest('tr');
+			if (row && row._fwliveRowId != null) rowId = row._fwliveRowId;
+		}
+		if (String(rowId) !== ident.rowId) continue;
+		if ((link !== previousFocus || activeElement !== link) && typeof link.focus === 'function')
+			link.focus();
+		return true;
+	}
+	return false;
+}
+
 function isIpv4Address(addr) {
 	if (addr.indexOf('.') === -1) return false;
 
@@ -2400,11 +2456,12 @@ return view.extend({
 				actionRowTintClass: (action) => this.actionRowTintClass(action)
 			}
 		);
-		const expansionFocusKept = restoreExpansionFocus(body, restoreRowId, activeElement);
+		let rowControlFocusKept = restoreExpansionFocus(body, restoreRowId, activeElement);
+		if (!rowControlFocusKept) rowControlFocusKept = restoreFilterLinkFocus(body, activeElement);
 		if (force && !this.isTabHidden()) this.resolvePaintPending = false;
 
 		if (scroll) {
-			if (!this.tablePaused && this.followLive && !expansionFocusKept) scroll.scrollTop = 0;
+			if (!this.tablePaused && this.followLive && !rowControlFocusKept) scroll.scrollTop = 0;
 			else scroll.scrollTop = prevScroll;
 		}
 

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Keep keyboard focus on a surviving row filter link when a hostname reply rebuilds that row (#1353).
+
 ## [v0.1.55] — 2026-10-18
 
 ### Fixed

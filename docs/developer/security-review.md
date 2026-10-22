@@ -1,5 +1,20 @@
 # Security review state
 
+**2026-10-21 #1353 filter-link focus restore.** A hostname cache hit rebuilds
+the keyed row that owns a focused `a.fwlive-filter-link`. The view now records
+the focused link's field and row id before paint and, after the rebuild, focuses
+the surviving equivalent link. Restore is skipped when another connected
+non-body control already has focus, so a PTR reply does not steal Quick search.
+Identity uses renderer-owned field names (`src`, `dst`, `interface`, …), the
+click value (address or interface name, not the hostname label), and the parsed
+row id as JavaScript properties, not HTML sinks; log text still reaches the DOM
+as text nodes. Host proof: `tests/fwlive-table-keyed.test.js` stamps field and row
+id on the rebuilt source link; `npm run test:view` holds `fwlive.resolve`,
+focuses the source link, then checks that the surviving hostname link is
+focused and that `#fwlive-q` keeps focus when it was active. No ACL, rpcd,
+shell, or signing change. This is mocked-browser evidence, not installed LuCI
+or assistive-technology coverage.
+
 **2026-10-17 #1322 formal CI gate delta (base `8927e9911d`).** The
 always-reporting `formal-tlc` (workflow `formal TLC`) job now runs on pull requests,
 pushes to `master`/`main`, and manual dispatch. Its detector skips TLC only
