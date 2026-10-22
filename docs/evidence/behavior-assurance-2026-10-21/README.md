@@ -320,9 +320,11 @@ Captured temporary workspace names are normalized in the result files; test
 outcomes and useful assertion/diagnostic text are retained. Paired-data
 recomputation keeps source hashes, source revisions and workload metadata,
 omitting only the original temporary console-log path from its derived JSON.
-The tracker archive contains the public repository's issue, PR and comment
-records available through its public tracker API; private advisories are not
-included. No credentials or private advisory material are part of this record.
+The tracker archive contains the public repository's issue and comment records
+available through its public tracker API. A separate search covered 574 PR
+metadata/body records; those PR records are not included in the archive.
+Private advisories are outside the supplied census. No credentials or private
+advisory material are part of this record.
 
 ## Scope and stopping decision
 

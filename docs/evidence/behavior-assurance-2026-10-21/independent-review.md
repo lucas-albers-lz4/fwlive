@@ -47,6 +47,9 @@ Docker, SDK tools, or the full suite.
 
 ## FOLD
 
+These findings describe the in-flight draft reviewed at the time. The durable
+probe links and evidence-scoped wording were added before publication.
+
 - **Clarify “required test” at `README.md:82-84`.** The test is included in
   `scripts/fwlive-test.sh:293`, which `.github/workflows/fwlive-test.yml:49`
   invokes. However the report later says there are no branch-protection
@@ -157,7 +160,7 @@ This changes the ranking from my earlier “modest optional composition improvem
 
 I therefore recommend treating a focused slow-success induction/recovery RPC assertion as a high-value current host-test gap, with no claim that production currently has the defect. The counterfactual is a meaningful orchestration fault, not an artificial helper mutation: it bypasses an existing production record call while preserving the successful reply. The probe is an evidence experiment, not itself a tracked test yet. A small durable acceptance would put a repeated trace into the RPC test: use the shipped poll/helper/filter/classifier, inject a valid slow sequence then healthy sequence through the existing clock seam, and assert next-call `effective_limit`, `shed`/`truncated`, state bucket/limit, and recovery under both 100cs and 500cs cadence. Include a failed read or filter between valid samples if inexpensive, to retain the already established rule that failures do not advance the controller.
 
-Scope limits: this controlled clock does not wait or measure service time; one fixed log entry means it validates policy plumbing and state transitions, not overload throughput, installed scheduling, 10-Gb/s behavior, or numerical performance. The stub logs `ubus` arguments but the current probe does not assert that the requested `lines` argument matches the reply's `effective_limit` (`:47,69,85-87`); a durable test should assert that join explicitly. The test should pin the exact success-reply semantics, not infer a real backlog from its fixed one-entry payload. The bounded absence of post-#1275 installed load qualification remains a separate issue: this new host oracle improves confidence that the changed policy reaches the actual poll path but cannot transfer historical forwarding numbers to current HEAD.
+Scope limits: this controlled clock does not wait or measure service time; one fixed log entry means it validates policy plumbing and state transitions, not overload throughput, installed scheduling, 10-Gb/s behavior, or numerical performance. **Superseded observation from this initial review:** the first probe revision logged ubus arguments without comparing requested `lines` to `effective_limit`. The retained final script now asserts that relationship for each reply (`experiments/probe-poll-induction.py`), and its result records actual request lengths. The test should pin the exact success-reply semantics, not infer a real backlog from its fixed one-entry payload. The bounded absence of post-#1275 installed load qualification remains a separate issue: this host oracle improves confidence that the changed policy reaches the actual poll path but cannot transfer historical forwarding numbers to current HEAD.
 
 
 
@@ -189,3 +192,12 @@ The claims and prioritization are substantively well bounded: no mutant result i
 ## Resolution of artifact-integrity finding
 
 The manifest was regenerated after final report, contract-map, analysis summary, portable probes and review updates. It now lists every retained file except itself with current byte sizes and SHA-256. A full file-set/hash check passed. The portable probes were replayed successfully; explicit outcome assertions and actual ubus line-argument checks were added without changing the reported result.
+
+## Resolution of initial wording and link findings
+
+The report now distinguishes the CI-invoked host test from branch-protection
+enforcement, links the retained probes/results, and keeps the heading scoped to
+behavioral evidence. The temporary `.analysis` citations were replaced by
+retained repository artifacts or bounded source references. The archive note
+now says that issue/comment records are included and PR metadata/body records
+were searched separately but are not part of the archive.
