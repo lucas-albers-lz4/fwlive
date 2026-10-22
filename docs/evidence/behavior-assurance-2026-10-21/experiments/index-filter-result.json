@@ -1,0 +1,60 @@
+[
+  {
+    "probe": "existing-host-and-source-guard",
+    "variant": "baseline",
+    "exit_code": 0,
+    "stdout": "feed-publish copy-keys / Packages filter (#803 #821) passed\n",
+    "stderr": ""
+  },
+  {
+    "probe": "existing-host-and-source-guard",
+    "variant": "SDK-grep-error-accepted",
+    "exit_code": 0,
+    "stdout": "feed-publish copy-keys / Packages filter (#803 #821) passed\n",
+    "stderr": ""
+  },
+  {
+    "probe": "extracted-SDK-shell-body-host-only",
+    "variant": "baseline",
+    "fault": "valid-index",
+    "exit_code": 0,
+    "compressed": true,
+    "signed_sentinel": true,
+    "index": "Package: luci-app-fwlive\nVersion: 0.0.1\n",
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "probe": "extracted-SDK-shell-body-host-only",
+    "variant": "baseline",
+    "fault": "partial-index-exit-2",
+    "exit_code": 2,
+    "compressed": false,
+    "signed_sentinel": false,
+    "index": "Package: partial-index\n",
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "probe": "extracted-SDK-shell-body-host-only",
+    "variant": "SDK-grep-error-accepted",
+    "fault": "valid-index",
+    "exit_code": 0,
+    "compressed": true,
+    "signed_sentinel": true,
+    "index": "Package: luci-app-fwlive\nVersion: 0.0.1\n",
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "probe": "extracted-SDK-shell-body-host-only",
+    "variant": "SDK-grep-error-accepted",
+    "fault": "partial-index-exit-2",
+    "exit_code": 0,
+    "compressed": true,
+    "signed_sentinel": true,
+    "index": "Package: partial-index\n",
+    "stdout": "",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,296 @@
+[
+  {
+    "file": "paired-24-2-off-10G.json.gz",
+    "sha256": "d17e674a059e5d8f07c89be6b1865f98888a27eeed3fc725fe8ce20f37720321",
+    "pairs": 5,
+    "degradation_median_pct": 0.00011998422206893622,
+    "degradation_max_pct": 0.0006299190553837875,
+    "ping_sd_ratio_median": 1.0789473684210527,
+    "ping_sd_ratio_max": 1.4210526315789473,
+    "pairs_ping_sd_ratio_ge_2": 0,
+    "observed_pings_per_window": 20,
+    "metadata": {
+      "source": {
+        "revision": "e2b1e37eee1f8e9293b557fc347724e75e05f84c",
+        "dirty": false,
+        "dirty_scope": "git status --porcelain --untracked-files=no; tracked files only; untracked files excluded"
+      },
+      "launcher_selection": {
+        "OWRT_QEMU_SMP": "2",
+        "OWRT_QEMU_MEM": "1024",
+        "OWRT_QEMU_DISK_FORMAT": "qcow2",
+        "FWLIVE_SLO_QEMU_NET_MODEL": "virtio-net-pci",
+        "FWLIVE_SLO_QEMU_VHOST": "1",
+        "FWLIVE_SLO_QEMU_QUEUES": "1",
+        "FWLIVE_SLO_LOG_RATE": "25",
+        "FWLIVE_SLO_CONSOLE_LEVEL": "4"
+      },
+      "traffic_configuration": {
+        "bitrate_input": "10G",
+        "bitrate_semantics": "aggregate across all TCP streams; per-stream -b is aggregate divided by stream count",
+        "streams": 1,
+        "lan_namespace": "fwlive-hp-lan",
+        "wan_namespace": "fwlive-hp-wan",
+        "lan_endpoint_ip": "192.0.2.2",
+        "wan_endpoint_ip": "198.51.100.2",
+        "lan_mac": "52:54:00:30:77:01",
+        "wan_mac": "52:54:00:30:77:02",
+        "lan_tap": "fwlive-hp-ltap",
+        "wan_tap": "fwlive-hp-wtap"
+      }
+    },
+    "summary_matches": true
+  },
+  {
+    "file": "paired-24-2-on-10G.json.gz",
+    "sha256": "aad8364c97968da06ae57bdb5f9b9cbbdfe30b5fa0e1d585fdaa95acc2a185a0",
+    "pairs": 5,
+    "degradation_median_pct": 0.0003969443911233661,
+    "degradation_max_pct": 0.0005483116872651017,
+    "ping_sd_ratio_median": 0.8245614035087719,
+    "ping_sd_ratio_max": 1.7894736842105265,
+    "pairs_ping_sd_ratio_ge_2": 0,
+    "observed_pings_per_window": 20,
+    "metadata": {
+      "source": {
+        "revision": "e2b1e37eee1f8e9293b557fc347724e75e05f84c",
+        "dirty": false,
+        "dirty_scope": "git status --porcelain --untracked-files=no; tracked files only; untracked files excluded"
+      },
+      "launcher_selection": {
+        "OWRT_QEMU_SMP": "2",
+        "OWRT_QEMU_MEM": "1024",
+        "OWRT_QEMU_DISK_FORMAT": "qcow2",
+        "FWLIVE_SLO_QEMU_NET_MODEL": "virtio-net-pci",
+        "FWLIVE_SLO_QEMU_VHOST": "1",
+        "FWLIVE_SLO_QEMU_QUEUES": "1",
+        "FWLIVE_SLO_LOG_RATE": "25",
+        "FWLIVE_SLO_CONSOLE_LEVEL": "4"
+      },
+      "traffic_configuration": {
+        "bitrate_input": "10G",
+        "bitrate_semantics": "aggregate across all TCP streams; per-stream -b is aggregate divided by stream count",
+        "streams": 1,
+        "lan_namespace": "fwlive-hp-lan",
+        "wan_namespace": "fwlive-hp-wan",
+        "lan_endpoint_ip": "192.0.2.2",
+        "wan_endpoint_ip": "198.51.100.2",
+        "lan_mac": "52:54:00:30:77:01",
+        "wan_mac": "52:54:00:30:77:02",
+        "lan_tap": "fwlive-hp-ltap",
+        "wan_tap": "fwlive-hp-wtap"
+      }
+    },
+    "summary_matches": true
+  },
+  {
+    "file": "paired-24-8-off-10G-pressure.json.gz",
+    "sha256": "d603fd8936ef292f07cbb3d39470db18e538bff4fd259231b121e5d695deab0d",
+    "pairs": 5,
+    "degradation_median_pct": 7.277373010872168e-05,
+    "degradation_max_pct": 0.0006597265136409902,
+    "ping_sd_ratio_median": 0.9218749999999999,
+    "ping_sd_ratio_max": 1.4390243902439024,
+    "pairs_ping_sd_ratio_ge_2": 0,
+    "observed_pings_per_window": 20,
+    "metadata": {
+      "source": {
+        "revision": "6b9eb977dec4a7e7573b84a00f59145b8b1c8fef",
+        "dirty": false,
+        "dirty_scope": "git status --porcelain --untracked-files=no; tracked files only; untracked files excluded"
+      },
+      "launcher_selection": {
+        "OWRT_QEMU_SMP": "8",
+        "OWRT_QEMU_MEM": "1024",
+        "OWRT_QEMU_DISK_FORMAT": "qcow2",
+        "FWLIVE_SLO_QEMU_NET_MODEL": "virtio-net-pci",
+        "FWLIVE_SLO_QEMU_VHOST": "1",
+        "FWLIVE_SLO_QEMU_QUEUES": "1",
+        "FWLIVE_SLO_LOG_RATE": "250",
+        "FWLIVE_SLO_CONSOLE_LEVEL": "4"
+      },
+      "traffic_configuration": {
+        "bitrate_input": "10G",
+        "bitrate_semantics": "aggregate across all TCP streams; per-stream -b is aggregate divided by stream count",
+        "streams": 1,
+        "lan_namespace": "fwlive-hp-lan",
+        "wan_namespace": "fwlive-hp-wan",
+        "lan_endpoint_ip": "192.0.2.2",
+        "wan_endpoint_ip": "198.51.100.2",
+        "lan_mac": "52:54:00:30:77:01",
+        "wan_mac": "52:54:00:30:77:02",
+        "lan_tap": "fwlive-hp-ltap",
+        "wan_tap": "fwlive-hp-wtap"
+      }
+    },
+    "summary_matches": true
+  },
+  {
+    "file": "paired-24-8-off-10G.json.gz",
+    "sha256": "2a58278a3c01ce8656c64eca36b0380eca0ca89eb59296d9f2d9cba1cadfdc68",
+    "pairs": 5,
+    "degradation_median_pct": 0.0004013594236740303,
+    "degradation_max_pct": 0.0010696207638938304,
+    "ping_sd_ratio_median": 0.9245283018867925,
+    "ping_sd_ratio_max": 1.2692307692307694,
+    "pairs_ping_sd_ratio_ge_2": 0,
+    "observed_pings_per_window": 20,
+    "metadata": {
+      "source": {
+        "revision": "e2b1e37eee1f8e9293b557fc347724e75e05f84c",
+        "dirty": false,
+        "dirty_scope": "git status --porcelain --untracked-files=no; tracked files only; untracked files excluded"
+      },
+      "launcher_selection": {
+        "OWRT_QEMU_SMP": "8",
+        "OWRT_QEMU_MEM": "1024",
+        "OWRT_QEMU_DISK_FORMAT": "qcow2",
+        "FWLIVE_SLO_QEMU_NET_MODEL": "virtio-net-pci",
+        "FWLIVE_SLO_QEMU_VHOST": "1",
+        "FWLIVE_SLO_QEMU_QUEUES": "1",
+        "FWLIVE_SLO_LOG_RATE": "25",
+        "FWLIVE_SLO_CONSOLE_LEVEL": "4"
+      },
+      "traffic_configuration": {
+        "bitrate_input": "10G",
+        "bitrate_semantics": "aggregate across all TCP streams; per-stream -b is aggregate divided by stream count",
+        "streams": 1,
+        "lan_namespace": "fwlive-hp-lan",
+        "wan_namespace": "fwlive-hp-wan",
+        "lan_endpoint_ip": "192.0.2.2",
+        "wan_endpoint_ip": "198.51.100.2",
+        "lan_mac": "52:54:00:30:77:01",
+        "wan_mac": "52:54:00:30:77:02",
+        "lan_tap": "fwlive-hp-ltap",
+        "wan_tap": "fwlive-hp-wtap"
+      }
+    },
+    "summary_matches": true
+  },
+  {
+    "file": "paired-24-8-on-10G-pressure.json.gz",
+    "sha256": "b3320a28208723385234c8cc0bc180e09c4df7739ae4064626229bd6700adc59",
+    "pairs": 5,
+    "degradation_median_pct": -0.00026441418077283174,
+    "degradation_max_pct": 0.0001471931816765526,
+    "ping_sd_ratio_median": 0.8163265306122449,
+    "ping_sd_ratio_max": 0.8666666666666667,
+    "pairs_ping_sd_ratio_ge_2": 0,
+    "observed_pings_per_window": 20,
+    "metadata": {
+      "source": {
+        "revision": "6b9eb977dec4a7e7573b84a00f59145b8b1c8fef",
+        "dirty": false,
+        "dirty_scope": "git status --porcelain --untracked-files=no; tracked files only; untracked files excluded"
+      },
+      "launcher_selection": {
+        "OWRT_QEMU_SMP": "8",
+        "OWRT_QEMU_MEM": "1024",
+        "OWRT_QEMU_DISK_FORMAT": "qcow2",
+        "FWLIVE_SLO_QEMU_NET_MODEL": "virtio-net-pci",
+        "FWLIVE_SLO_QEMU_VHOST": "1",
+        "FWLIVE_SLO_QEMU_QUEUES": "1",
+        "FWLIVE_SLO_LOG_RATE": "250",
+        "FWLIVE_SLO_CONSOLE_LEVEL": "4"
+      },
+      "traffic_configuration": {
+        "bitrate_input": "10G",
+        "bitrate_semantics": "aggregate across all TCP streams; per-stream -b is aggregate divided by stream count",
+        "streams": 1,
+        "lan_namespace": "fwlive-hp-lan",
+        "wan_namespace": "fwlive-hp-wan",
+        "lan_endpoint_ip": "192.0.2.2",
+        "wan_endpoint_ip": "198.51.100.2",
+        "lan_mac": "52:54:00:30:77:01",
+        "wan_mac": "52:54:00:30:77:02",
+        "lan_tap": "fwlive-hp-ltap",
+        "wan_tap": "fwlive-hp-wtap"
+      }
+    },
+    "summary_matches": true
+  },
+  {
+    "file": "paired-24-8-on-10G.json.gz",
+    "sha256": "fd61acb39361e61a26d2987b24a518b9c6233b1b697d2d7636ca2963d2da49b0",
+    "pairs": 5,
+    "degradation_median_pct": 0.0002529995671074481,
+    "degradation_max_pct": 0.0012073249031629985,
+    "ping_sd_ratio_median": 0.8620689655172414,
+    "ping_sd_ratio_max": 1.088235294117647,
+    "pairs_ping_sd_ratio_ge_2": 0,
+    "observed_pings_per_window": 20,
+    "metadata": {
+      "source": {
+        "revision": "e2b1e37eee1f8e9293b557fc347724e75e05f84c",
+        "dirty": false,
+        "dirty_scope": "git status --porcelain --untracked-files=no; tracked files only; untracked files excluded"
+      },
+      "launcher_selection": {
+        "OWRT_QEMU_SMP": "8",
+        "OWRT_QEMU_MEM": "1024",
+        "OWRT_QEMU_DISK_FORMAT": "qcow2",
+        "FWLIVE_SLO_QEMU_NET_MODEL": "virtio-net-pci",
+        "FWLIVE_SLO_QEMU_VHOST": "1",
+        "FWLIVE_SLO_QEMU_QUEUES": "1",
+        "FWLIVE_SLO_LOG_RATE": "25",
+        "FWLIVE_SLO_CONSOLE_LEVEL": "4"
+      },
+      "traffic_configuration": {
+        "bitrate_input": "10G",
+        "bitrate_semantics": "aggregate across all TCP streams; per-stream -b is aggregate divided by stream count",
+        "streams": 1,
+        "lan_namespace": "fwlive-hp-lan",
+        "wan_namespace": "fwlive-hp-wan",
+        "lan_endpoint_ip": "192.0.2.2",
+        "wan_endpoint_ip": "198.51.100.2",
+        "lan_mac": "52:54:00:30:77:01",
+        "wan_mac": "52:54:00:30:77:02",
+        "lan_tap": "fwlive-hp-ltap",
+        "wan_tap": "fwlive-hp-wtap"
+      }
+    },
+    "summary_matches": true
+  },
+  {
+    "file": "paired-25-8-on-10G.json.gz",
+    "sha256": "00e0685d59149b602423338abcefede2669c70aa9b71cd9b29de8f4ad3c7c851",
+    "pairs": 5,
+    "degradation_median_pct": 0.0004883221518592329,
+    "degradation_max_pct": 0.0023311885729127013,
+    "ping_sd_ratio_median": 0.9285714285714285,
+    "ping_sd_ratio_max": 7.369565217391305,
+    "pairs_ping_sd_ratio_ge_2": 1,
+    "observed_pings_per_window": 20,
+    "metadata": {
+      "source": {
+        "revision": "e2b1e37eee1f8e9293b557fc347724e75e05f84c",
+        "dirty": false,
+        "dirty_scope": "git status --porcelain --untracked-files=no; tracked files only; untracked files excluded"
+      },
+      "launcher_selection": {
+        "OWRT_QEMU_SMP": "8",
+        "OWRT_QEMU_MEM": "1024",
+        "OWRT_QEMU_DISK_FORMAT": "qcow2",
+        "FWLIVE_SLO_QEMU_NET_MODEL": "virtio-net-pci",
+        "FWLIVE_SLO_QEMU_VHOST": "1",
+        "FWLIVE_SLO_QEMU_QUEUES": "1",
+        "FWLIVE_SLO_LOG_RATE": "25",
+        "FWLIVE_SLO_CONSOLE_LEVEL": "4"
+      },
+      "traffic_configuration": {
+        "bitrate_input": "10G",
+        "bitrate_semantics": "aggregate across all TCP streams; per-stream -b is aggregate divided by stream count",
+        "streams": 1,
+        "lan_namespace": "fwlive-hp-lan",
+        "wan_namespace": "fwlive-hp-wan",
+        "lan_endpoint_ip": "192.0.2.2",
+        "wan_endpoint_ip": "198.51.100.2",
+        "lan_mac": "52:54:00:30:77:01",
+        "wan_mac": "52:54:00:30:77:02",
+        "lan_tap": "fwlive-hp-ltap",
+        "wan_tap": "fwlive-hp-wtap"
+      }
+    },
+    "summary_matches": true
+  }
+]

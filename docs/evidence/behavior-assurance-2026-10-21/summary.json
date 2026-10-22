@@ -1,0 +1,76 @@
+{
+  "source_pin": "9fd99d69652c8ff951a54832cd9421eba8bb192e",
+  "issues": 788,
+  "bugs_by_current_label": 404,
+  "issue_comments": 1418,
+  "bug_issue_comments": 644,
+  "full_material_bug_reviews": 404,
+  "current_bug_states": {
+    "completed": 346,
+    "not_planned": 52,
+    "duplicate": 6
+  },
+  "reporting_days_largest": [
+    [
+      "2026-09-26",
+      77
+    ],
+    [
+      "2026-09-27",
+      56
+    ],
+    [
+      "2026-09-24",
+      39
+    ],
+    [
+      "2026-10-01",
+      31
+    ],
+    [
+      "2026-09-29",
+      28
+    ],
+    [
+      "2026-09-21",
+      24
+    ],
+    [
+      "2026-09-22",
+      21
+    ],
+    [
+      "2026-10-14",
+      20
+    ],
+    [
+      "2026-08-31",
+      17
+    ],
+    [
+      "2026-10-10",
+      12
+    ]
+  ],
+  "five_largest_days": 231,
+  "bug_test_ci_title_prefixes": 83,
+  "analyst_classes_all": {
+    "product_defect": 191,
+    "planning_or_enhancement": 193,
+    "documentation": 130,
+    "assurance_defect": 126,
+    "tooling_release_defect": 87,
+    "unconfirmed": 61
+  },
+  "analyst_classes_bug_label": {
+    "product_defect": 172,
+    "assurance_defect": 99,
+    "planning_or_enhancement": 5,
+    "tooling_release_defect": 69,
+    "documentation": 6,
+    "unconfirmed": 53
+  },
+  "included_report_rows": 392,
+  "included_report_rows_outside_bug_label": 62,
+  "caveat": "Analyst report classes and dispositions are not unique defects, current defects, rates, or probabilities."
+}
