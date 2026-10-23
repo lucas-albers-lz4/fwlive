@@ -207,14 +207,15 @@ function buildColumnCell(col, row, state, callbacks) {
 		}
 		case 'iface':
 			return E('td', { 'class': columnCellClass(col) }, [
-				links.ifaceLink(row.interface, onFilterClick)
+				links.ifaceLink(row.interface, onFilterClick, 'iface')
 			]);
 		case 'iface_in':
 		case 'iface_out':
 			return E('td', { 'class': columnCellClass(col) }, [
 				links.ifaceLink(
 					col === 'iface_in' ? row.interface_in : row.interface_out,
-					onFilterClick
+					onFilterClick,
+					col
 				)
 			]);
 		case 'dir':

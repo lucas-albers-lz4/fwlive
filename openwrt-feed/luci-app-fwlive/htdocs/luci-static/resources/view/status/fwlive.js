@@ -16,6 +16,7 @@
 'require fwlive.chips as chips';
 'require fwlive.logging as logging';
 'require fwlive.table as table';
+'require fwlive.links as links';
 'require fwlive.buffer as buffer';
 'require fwlive.hostname as hostname';
 'require fwlive.proto as proto';
@@ -132,29 +133,9 @@ function restoreExpansionFocus(body, rowId, previousFocus) {
 	return false;
 }
 
-function filterLinkIdentity(node) {
-	if (
-		!node ||
-		!node.classList ||
-		!node.classList.contains('fwlive-filter-link') ||
-		node._fwliveFilterField == null
-	)
-		return null;
-
-	let rowId = node._fwliveRowId;
-	if (rowId == null && node.closest) {
-		const row = node.closest('tr');
-		if (row && row._fwliveRowId != null) rowId = row._fwliveRowId;
-	}
-	if (rowId == null) return null;
-	const ident = { rowId: String(rowId), field: String(node._fwliveFilterField) };
-	if (node._fwliveFilterValue != null) ident.value = String(node._fwliveFilterValue);
-	return ident;
-}
-
 function restoreFilterLinkFocus(body, previousFocus) {
-	const ident = filterLinkIdentity(previousFocus);
-	if (!body || typeof body.querySelectorAll !== 'function' || !ident) return false;
+	const ident = links.filterLinkIdentity(previousFocus);
+	if (!body || !ident) return false;
 
 	const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
 	if (
@@ -166,26 +147,11 @@ function restoreFilterLinkFocus(body, previousFocus) {
 	)
 		return false;
 
-	const links = body.querySelectorAll('a.fwlive-filter-link');
-	for (let i = 0; i < links.length; i++) {
-		const link = links[i];
-		if (String(link._fwliveFilterField) !== ident.field) continue;
-		if (
-			ident.value != null &&
-			(link._fwliveFilterValue == null || String(link._fwliveFilterValue) !== ident.value)
-		)
-			continue;
-		let rowId = link._fwliveRowId;
-		if (rowId == null && link.closest) {
-			const row = link.closest('tr');
-			if (row && row._fwliveRowId != null) rowId = row._fwliveRowId;
-		}
-		if (String(rowId) !== ident.rowId) continue;
-		if ((link !== previousFocus || activeElement !== link) && typeof link.focus === 'function')
-			link.focus();
-		return true;
-	}
-	return false;
+	const link = links.findFilterLinkByIdentity(body, ident);
+	if (!link) return false;
+	if ((link !== previousFocus || activeElement !== link) && typeof link.focus === 'function')
+		link.focus();
+	return true;
 }
 
 function isIpv4Address(addr) {

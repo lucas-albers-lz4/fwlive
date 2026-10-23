@@ -227,11 +227,11 @@
 			.replace(/^'require [^']+';[^\n]*\n/gm, '');
 		const viewFn = new Function(
 			'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
-			'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'renderScheduler', 'E', '_', 'document', 'window', 'localStorage',
+			'table', 'links', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'renderScheduler', 'E', '_', 'document', 'window', 'localStorage',
 			viewBody
 		);
 		const viewDesc = viewFn(
-			view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
+			view, poll, rpc, log, constants, css, tint, chips, logging, table, links, buffer, hostname, proto,
 			pollCoordinator, renderPolicy, renderScheduler, E, gettext, document, window, localStorage
 		);
 

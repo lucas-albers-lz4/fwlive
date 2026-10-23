@@ -242,6 +242,7 @@ Living tracker for the open wave: [fwlive #209](https://github.com/lucas-albers-
 | 6 | BKPepe (squash / README / `#43`) | [#337](https://github.com/lucas-albers-lz4/fwlive/pull/337) | Luci-safe README (no GitHub winner); drop `#43` from shipped comments; squash luci PR |
 | 7 | openwrt-ai post-squash (headers / wrap / “First commit”) | [#342](https://github.com/lucas-albers-lz4/fwlive/pull/342) | Cut headers labels-only (B); sticky-dir wrap; FormalityCheck “This commit ships po/templates only” |
 | 8 | openwrt-ai 22 Oct 2026 (head `520a4bd`) | [#1374](https://github.com/lucas-albers-lz4/fwlive/pull/1374) | Adaptive hot-floor hold (#1371); targets overflow must not set `truncated` (#1372); unused `committed=` (#1373) |
+| 9 | openwrt-ai 22 Oct recut (head `fbbdeb33d`) | (draft) | Detail IN/OUT filter-link focus identity (#1375) |
 
 Process docs for the agent gate live in [#212](https://github.com/lucas-albers-lz4/fwlive/pull/212)
 ([pr-cycle.md](pr-cycle.md) + this file). Umbrella issues [#216](https://github.com/lucas-albers-lz4/fwlive/issues/216) /
