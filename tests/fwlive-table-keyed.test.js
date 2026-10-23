@@ -164,6 +164,8 @@ function findElementByClass(root, className) {
 	assert.ok(outLink, 'OUT interface link survives a hostname rebuild');
 	assert.strictEqual(outLink._fwliveFilterValue, 'br-lan');
 	assert.notEqual(ifaceByValue(body, 'wan'), outLink, 'IN and OUT keep distinct click values');
+	assert.strictEqual(ifaceByValue(body, 'wan')._fwliveFilterSlot, 'iface_in');
+	assert.strictEqual(outLink._fwliveFilterSlot, 'iface_out');
 }
 
 {

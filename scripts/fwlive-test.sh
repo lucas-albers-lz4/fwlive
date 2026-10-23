@@ -182,6 +182,8 @@ echo "== fwlive extracted modules smoke ==" >&2
 "$NODE" tests/fwlive-modules-smoke.test.js
 echo "== fwlive keyed table reuse (#784) ==" >&2
 "$NODE" tests/fwlive-table-keyed.test.js
+echo "== fwlive filter-link identity (#1375) ==" >&2
+"$NODE" tests/fwlive-filter-link-identity.test.js
 echo "== fwlive scroll followLive (#782) ==" >&2
 "$NODE" tests/fwlive-view-scroll.test.js
 

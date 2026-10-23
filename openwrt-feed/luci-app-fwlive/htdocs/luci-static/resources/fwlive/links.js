@@ -14,6 +14,9 @@
  * Filter-aware helpers (require an onFilterClick callback):
  *   filterLink, addrFilterLink, ruleAdminLink, ifaceLink
  *
+ * Focus identity (column slot is not the click field):
+ *   stampFilterField, filterLinkIdentity, findFilterLinkByIdentity
+ *
  * Constant path helper:
  *   ruleAdminPath
  *
@@ -46,12 +49,80 @@ function firewallZonesLink(label) {
 	);
 }
 
-function stampFilterField(node, field, value) {
+function stampFilterField(node, field, value, slot) {
 	if (node && typeof node === 'object') {
 		node._fwliveFilterField = String(field);
 		if (value != null) node._fwliveFilterValue = String(value);
+		if (slot != null && slot !== '') node._fwliveFilterSlot = String(slot);
 	}
 	return node;
+}
+
+function filterLinkRowId(node) {
+	if (!node) return null;
+	if (node._fwliveRowId != null) return String(node._fwliveRowId);
+	if (node.closest) {
+		const row = node.closest('tr');
+		if (row && row._fwliveRowId != null) return String(row._fwliveRowId);
+	}
+	return null;
+}
+
+function filterLinkIdentity(node) {
+	if (
+		!node ||
+		!node.classList ||
+		typeof node.classList.contains !== 'function' ||
+		!node.classList.contains('fwlive-filter-link') ||
+		node._fwliveFilterField == null
+	)
+		return null;
+	const rowId = filterLinkRowId(node);
+	if (rowId == null) return null;
+	const ident = { rowId: rowId, field: String(node._fwliveFilterField) };
+	if (node._fwliveFilterValue != null) ident.value = String(node._fwliveFilterValue);
+	if (node._fwliveFilterSlot != null) ident.slot = String(node._fwliveFilterSlot);
+	return ident;
+}
+
+function linkMatchesFilterIdentity(link, ident) {
+	if (!link || !ident) return false;
+	if (String(link._fwliveFilterField) !== ident.field) return false;
+	if (
+		ident.value != null &&
+		(link._fwliveFilterValue == null || String(link._fwliveFilterValue) !== ident.value)
+	)
+		return false;
+	if (
+		ident.slot != null &&
+		(link._fwliveFilterSlot == null || String(link._fwliveFilterSlot) !== ident.slot)
+	)
+		return false;
+	return filterLinkRowId(link) === ident.rowId;
+}
+
+function collectFilterLinks(node, out) {
+	if (!node) return;
+	if (
+		node.nodeType === 1 &&
+		node.classList &&
+		typeof node.classList.contains === 'function' &&
+		node.classList.contains('fwlive-filter-link')
+	)
+		out.push(node);
+	const kids = node.childNodes;
+	if (!kids) return;
+	for (let i = 0; i < kids.length; i++) collectFilterLinks(kids[i], out);
+}
+
+function findFilterLinkByIdentity(root, ident) {
+	if (!root || !ident) return null;
+	const links = [];
+	collectFilterLinks(root, links);
+	for (let i = 0; i < links.length; i++) {
+		if (linkMatchesFilterIdentity(links[i], ident)) return links[i];
+	}
+	return null;
 }
 
 /**
@@ -157,8 +228,9 @@ function ruleAdminLink(hint, label, onFilterClick) {
 /**
  * @param {string} value           - interface name
  * @param {function} onFilterClick - callback(field, value, ev)
+ * @param {string} [slot]          - focus identity (column id); click field stays interface
  */
-function ifaceLink(value, onFilterClick) {
+function ifaceLink(value, onFilterClick, slot) {
 	if (!value) return log.formatCell(value);
 
 	return stampFilterField(
@@ -175,7 +247,8 @@ function ifaceLink(value, onFilterClick) {
 			[value]
 		),
 		'interface',
-		value
+		value,
+		slot
 	);
 }
 
@@ -188,5 +261,8 @@ return baseclass.extend({
 	addrFilterLink: addrFilterLink,
 	ruleAdminPath: ruleAdminPath,
 	ruleAdminLink: ruleAdminLink,
-	ifaceLink: ifaceLink
+	ifaceLink: ifaceLink,
+	stampFilterField: stampFilterField,
+	filterLinkIdentity: filterLinkIdentity,
+	findFilterLinkByIdentity: findFilterLinkByIdentity
 });

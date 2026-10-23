@@ -345,13 +345,13 @@ function createFwliveView(options, deferRender) {
 
 	const fn = new Function(
 		'view', 'poll', 'rpc', 'log', 'constants', 'css', 'tint', 'chips', 'logging',
-		'table', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'renderScheduler', 'E', '_', 'document', 'window', 'localStorage',
+		'table', 'links', 'buffer', 'hostname', 'proto', 'pollCoordinator', 'renderPolicy', 'renderScheduler', 'E', '_', 'document', 'window', 'localStorage',
 		'performance', 'requestAnimationFrame', 'location', 'history',
 		body
 	);
 
 	const viewDesc = fn(
-		view, poll, rpc, log, constants, css, tint, chips, logging, table, buffer, hostname, proto,
+		view, poll, rpc, log, constants, css, tint, chips, logging, table, links, buffer, hostname, proto,
 		pollCoordinator, renderPolicy, renderScheduler,
 		luciE.E, fakeGettext, document, win, localStorage,
 		{ now: function() { return Date.now(); } },
