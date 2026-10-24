@@ -86,7 +86,7 @@ Evaluated and implemented: stream controls (Pause/Resume, limit) — see [user g
 
 ---
 
-## Stage 4c — session stats (in progress)
+## Stage 4c — session stats (done)
 
 | Step | Deliverable | Status |
 | ---- | ----------- | ------ |
